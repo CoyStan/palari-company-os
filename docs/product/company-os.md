@@ -1,0 +1,81 @@
+# Palari Company OS Product Model
+
+Palari Company OS is a company AI operating system. Its job is not to turn
+every task into bureaucracy. Its job is to make AI-assisted work legible,
+bounded, reviewable, and useful.
+
+## Core Idea
+
+A normal company becomes AI-native when it can name the workstreams where AI
+helps, define the humans who hold authority, preserve evidence of what
+happened, and learn from outcomes.
+
+Palari Company OS is organized around:
+
+- goals as company intent
+- Palaris as named AI work partners
+- humans as authority holders
+- decisions as explicit requests for judgment
+- work items as scoped units of work
+- attempts as concrete execution sessions
+- evidence runs as proof tied to a head or artifact state
+- review verdicts as independent inspection
+- human decisions as authority-bearing actions
+- outcomes as learning records
+
+## Palaris
+
+A Palari is the named face of a workflow or AI workstream.
+
+A Palari may:
+
+- prepare work
+- explain sources
+- coordinate bounded execution
+- summarize evidence
+- ask humans for decisions
+- preserve memory and outcomes
+
+A Palari may not silently grant itself authority. The human-facing identity can
+remain stable even if execution is delegated to different models, tools, or
+workers.
+
+## Adaptive Intensity
+
+The system should recommend the lightest responsible operating mode.
+
+### Light
+
+For clear, low-risk maintenance. Expected proof is a branch, clear scope,
+focused tests, and a concise summary.
+
+### Standard
+
+For normal governed company work. Expected proof is a work item, attempt,
+evidence run, review verdict, and human decision when needed.
+
+### High
+
+For production, security, policy, broker, external side effects, or authority
+changes. Expected proof includes explicit goal linkage, strong scope, fresh
+evidence, fresh review, human quorum, and fail-closed gates.
+
+The operator should not have to micromanage intensity. The system should infer
+it from risk, ambiguity, blast radius, external side effects, prior outcomes,
+and model capability, then explain the recommendation.
+
+## Queue First
+
+The default surface is the queue. The queue is a read model, not an authority
+mutation surface.
+
+It answers:
+
+- what needs attention now
+- why it matters
+- which goal and Palari it serves
+- who or what should act next
+- what evidence and review exist
+- what human decision is needed
+- what exact next action is safe
+
