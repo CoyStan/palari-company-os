@@ -51,6 +51,9 @@ The first implementation focuses on fast read models:
 
 - `queue`: what needs attention now and why.
 - `detail`: one coherent view of a work item and its related objects.
+- `state`: a compact workspace read model.
+- `validate`: fail-closed workspace validation.
+- `scope`: declared path/action boundary checks.
 - `maintainer status`: lightweight external-maintainer repo status.
 
 ## Development
@@ -72,3 +75,5 @@ python3 -m unittest discover -s tests
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
+- [Command Reference](docs/product/command-reference.md)
+- [Milestone Completion Report](docs/product/milestone-completion-report.md)

@@ -11,6 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.maintainer import status as maintainer_status
 from palari_company_os.read_models import detail, queue_items
 from palari_company_os.scope import check_scope
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -159,6 +160,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(state["attention"]["needs-human-decision"], 2)
         self.assertTrue(scope["allowed"])
 
+    def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
+        payload = json.loads(self.run_cli("maintainer", "status", "--repo", str(REPO_ROOT), "--json").stdout)
+        self.assertIn("pr_readiness", payload)
+        self.assertIn("pr_readiness_reason", payload)
+        self.assertIn("focused_tests_run", payload)
+        self.assertIn("focused_tests_source", payload)
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
@@ -170,6 +178,55 @@ class CliTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+        )
+
+
+class MaintainerStatusTests(unittest.TestCase):
+    def test_maintainer_status_reports_tests_and_pr_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+            (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
+            (repo / ".gitignore").write_text(".palari-company-os/\n", encoding="utf-8")
+            subprocess.run(["git", "add", "README.md", ".gitignore"], cwd=repo, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.email=tests@example.com",
+                    "-c",
+                    "user.name=Tests",
+                    "commit",
+                    "-m",
+                    "initial",
+                ],
+                cwd=repo,
+                check=True,
+                stdout=subprocess.PIPE,
+            )
+            state_dir = repo / ".palari-company-os"
+            state_dir.mkdir()
+            (state_dir / "verification.json").write_text(
+                json.dumps(
+                    {
+                        "commands": [
+                            {
+                                "command": "python3 -m unittest discover -s tests",
+                                "status": "passed",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = maintainer_status(repo).to_dict()
+
+        self.assertEqual(payload["pr_readiness"], "needs-upstream")
+        self.assertEqual(payload["focused_tests_source"], str(state_dir / "verification.json"))
+        self.assertEqual(
+            payload["focused_tests_run"],
+            ["python3 -m unittest discover -s tests [passed]"],
         )
 
 

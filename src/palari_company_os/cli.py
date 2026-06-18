@@ -224,6 +224,15 @@ def print_maintainer_status(payload: dict[str, Any]) -> None:
     print(f"Head: {payload['head']}")
     print(f"Upstream: {payload['upstream'] or '(none)'}")
     print(f"Divergence: {payload['divergence']}")
+    print(f"PR readiness: {payload['pr_readiness']} - {payload['pr_readiness_reason']}")
+    focused_tests = payload["focused_tests_run"]
+    if focused_tests:
+        print("Focused tests run:")
+        for item in focused_tests:
+            print(f"  {item}")
+        print(f"Focused tests source: {payload['focused_tests_source']}")
+    else:
+        print(f"Focused tests run: unknown ({payload['focused_tests_source']})")
     dirty = payload["dirty_files"]
     if dirty:
         print("Dirty files:")

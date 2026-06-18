@@ -4,7 +4,7 @@ __pycache__/
 *.py[cod]
 .mypy_cache/
 .venv/
+.palari-company-os/
 dist/
 build/
 *.egg-info/
-
