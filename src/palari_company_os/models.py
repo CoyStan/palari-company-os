@@ -26,6 +26,15 @@ def _strings(record: Record, key: str) -> list[str]:
     return list(value)
 
 
+def _integer(record: Record, key: str, default: int = 0) -> int:
+    value = record.get(key, default)
+    if value is None:
+        return default
+    if not isinstance(value, int):
+        raise TypeError(f"{key} must be an integer")
+    return value
+
+
 def _records(record: Record, key: str) -> list[Record]:
     value = record.get(key, [])
     if value is None:
@@ -51,6 +60,8 @@ class Goal:
     priority: str = "normal"
     success_criteria: list[str] = field(default_factory=list)
     linked_palaris: list[str] = field(default_factory=list)
+    linked_work: list[str] = field(default_factory=list)
+    linked_decisions: list[str] = field(default_factory=list)
 
     @classmethod
     def from_record(cls, record: Record) -> "Goal":
@@ -62,6 +73,8 @@ class Goal:
             priority=_string(record, "priority", "normal"),
             success_criteria=_strings(record, "success_criteria"),
             linked_palaris=_strings(record, "linked_palaris"),
+            linked_work=_strings(record, "linked_work"),
+            linked_decisions=_strings(record, "linked_decisions"),
         )
 
 
@@ -72,11 +85,15 @@ class Palari:
     role: str
     scope: str = ""
     allowed_inputs: list[str] = field(default_factory=list)
+    forbidden_inputs: list[str] = field(default_factory=list)
     forbidden_actions: list[str] = field(default_factory=list)
     standards: list[str] = field(default_factory=list)
     memory_sources: list[str] = field(default_factory=list)
+    default_worker: str = ""
     owner_human: str = ""
     linked_goals: list[str] = field(default_factory=list)
+    active_work: list[str] = field(default_factory=list)
+    outcomes: list[str] = field(default_factory=list)
 
     @classmethod
     def from_record(cls, record: Record) -> "Palari":
@@ -86,11 +103,15 @@ class Palari:
             role=_string(record, "role"),
             scope=_string(record, "scope"),
             allowed_inputs=_strings(record, "allowed_inputs"),
+            forbidden_inputs=_strings(record, "forbidden_inputs"),
             forbidden_actions=_strings(record, "forbidden_actions"),
             standards=_strings(record, "standards"),
             memory_sources=_strings(record, "memory_sources"),
+            default_worker=_string(record, "default_worker"),
             owner_human=_string(record, "owner_human"),
             linked_goals=_strings(record, "linked_goals"),
+            active_work=_strings(record, "active_work"),
+            outcomes=_strings(record, "outcomes"),
         )
 
 
@@ -104,6 +125,8 @@ class Human:
     approval_capabilities: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     ownership_areas: list[str] = field(default_factory=list)
+    availability: str = ""
+    capacity_signal: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "Human":
@@ -116,6 +139,8 @@ class Human:
             approval_capabilities=_strings(record, "approval_capabilities"),
             skills=_strings(record, "skills"),
             ownership_areas=_strings(record, "ownership_areas"),
+            availability=_string(record, "availability"),
+            capacity_signal=_string(record, "capacity_signal"),
         )
 
 
@@ -126,10 +151,15 @@ class Decision:
     status: str = "open"
     context: str = ""
     options: list[str] = field(default_factory=list)
+    tradeoffs: list[str] = field(default_factory=list)
     recommendation: str = ""
     safe_default: str = ""
     required_human: str = ""
+    required_role: str = ""
+    due_date: str = ""
+    linked_goal: str = ""
     linked_work: str = ""
+    linked_palari: str = ""
     result: str = ""
 
     @classmethod
@@ -140,10 +170,15 @@ class Decision:
             status=_string(record, "status", "open"),
             context=_string(record, "context"),
             options=_strings(record, "options"),
+            tradeoffs=_strings(record, "tradeoffs"),
             recommendation=_string(record, "recommendation"),
             safe_default=_string(record, "safe_default"),
             required_human=_string(record, "required_human"),
+            required_role=_string(record, "required_role"),
+            due_date=_string(record, "due_date"),
+            linked_goal=_string(record, "linked_goal"),
             linked_work=_string(record, "linked_work"),
+            linked_palari=_string(record, "linked_palari"),
             result=_string(record, "result"),
         )
 
@@ -162,6 +197,9 @@ class WorkItem:
     forbidden_actions: list[str] = field(default_factory=list)
     acceptance_target: str = ""
     verification_expectations: list[str] = field(default_factory=list)
+    current_attempt: str = ""
+    required_approval_count: int = 1
+    required_approval_capability: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
@@ -178,6 +216,9 @@ class WorkItem:
             forbidden_actions=_strings(record, "forbidden_actions"),
             acceptance_target=_string(record, "acceptance_target"),
             verification_expectations=_strings(record, "verification_expectations"),
+            current_attempt=_string(record, "current_attempt"),
+            required_approval_count=_integer(record, "required_approval_count", 1),
+            required_approval_capability=_string(record, "required_approval_capability"),
         )
 
 
@@ -192,6 +233,8 @@ class Attempt:
     model_or_worker: str = ""
     commits: list[str] = field(default_factory=list)
     changed_files: list[str] = field(default_factory=list)
+    cleanliness: str = ""
+    result: str = ""
     started_at: str = ""
 
     @classmethod
@@ -206,6 +249,8 @@ class Attempt:
             model_or_worker=_string(record, "model_or_worker"),
             commits=_strings(record, "commits"),
             changed_files=_strings(record, "changed_files"),
+            cleanliness=_string(record, "cleanliness"),
+            result=_string(record, "result"),
             started_at=_string(record, "started_at"),
         )
 
@@ -217,9 +262,11 @@ class EvidenceRun:
     attempt_id: str
     head_sha: str
     status: str
+    base_ref: str = ""
     commands: list[str] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     summary: str = ""
+    freshness: str = ""
     timestamp: str = ""
 
     @classmethod
@@ -230,9 +277,11 @@ class EvidenceRun:
             attempt_id=_string(record, "attempt_id"),
             head_sha=_string(record, "head_sha"),
             status=_string(record, "status"),
+            base_ref=_string(record, "base_ref"),
             commands=_strings(record, "commands"),
             artifacts=_strings(record, "artifacts"),
             summary=_string(record, "summary"),
+            freshness=_string(record, "freshness"),
             timestamp=_string(record, "timestamp"),
         )
 
@@ -272,6 +321,8 @@ class HumanDecision:
     reviewed_head: str
     decision: str
     status: str = "recorded"
+    acceptance_mode: str = ""
+    quorum_status: str = ""
     evidence_reference: str = ""
     review_reference: str = ""
     timestamp: str = ""
@@ -285,6 +336,8 @@ class HumanDecision:
             reviewed_head=_string(record, "reviewed_head"),
             decision=_string(record, "decision"),
             status=_string(record, "status", "recorded"),
+            acceptance_mode=_string(record, "acceptance_mode"),
+            quorum_status=_string(record, "quorum_status"),
             evidence_reference=_string(record, "evidence_reference"),
             review_reference=_string(record, "review_reference"),
             timestamp=_string(record, "timestamp"),
@@ -297,9 +350,12 @@ class Outcome:
     work_item_id: str
     summary: str
     status: str = "captured"
+    what_happened: str = ""
+    what_changed: str = ""
     useful: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
     follow_up_needed: list[str] = field(default_factory=list)
+    model_worker_notes: list[str] = field(default_factory=list)
     timestamp: str = ""
 
     @classmethod
@@ -309,9 +365,12 @@ class Outcome:
             work_item_id=_string(record, "work_item_id"),
             summary=_string(record, "summary"),
             status=_string(record, "status", "captured"),
+            what_happened=_string(record, "what_happened"),
+            what_changed=_string(record, "what_changed"),
             useful=_strings(record, "useful"),
             failed=_strings(record, "failed"),
             follow_up_needed=_strings(record, "follow_up_needed"),
+            model_worker_notes=_strings(record, "model_worker_notes"),
             timestamp=_string(record, "timestamp"),
         )
 
@@ -324,4 +383,3 @@ def to_plain(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: to_plain(item) for key, item in value.items()}
     return value
-

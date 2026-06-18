@@ -24,6 +24,9 @@ JSON output is also available:
 ```bash
 ./bin/palari queue --json
 ./bin/palari detail WORK-0001 --json
+./bin/palari validate
+./bin/palari state
+./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
 ```
 
 The default workspace is `examples/acme-company-os`. Use another workspace with:
@@ -68,3 +71,4 @@ python3 -m unittest discover -s tests
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
+- [Schema And Validation](docs/product/schema-and-validation.md)

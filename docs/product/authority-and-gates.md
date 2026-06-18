@@ -25,6 +25,38 @@ AI roles describe capability and bounds, not final authority. A Palari can ask a
 model or tool to perform bounded work, but the Palari cannot convert that work
 into an authority-bearing decision without the required human action.
 
+## Memory Is Context, Not Authority
+
+Shared memory, prior decisions, outcomes, and standards can guide a Palari.
+They do not grant permission to accept, merge, deploy, spend money, change
+policy, use secrets, or perform external side effects.
+
+If memory conflicts with current explicit human instruction or authority
+configuration, the system should fail closed and ask for a decision.
+
+## Policy Simulation
+
+Policy simulation is allowed as analysis. It can say what would happen under a
+policy, identify missing controls, or recommend safer defaults.
+
+Policy simulation is not real acceptance and does not activate authority. A
+future policy engine must preserve the separation between simulated policy
+output and human or organizational authority.
+
+## Broker Boundaries
+
+Broker/tool side effects are disabled by default in the first Palari Company OS
+slice. The model can represent that a work item would need broker access, but
+it must not imply that access is live.
+
+Future broker integration should require:
+
+- explicit resource/action permissions
+- inspectable evidence
+- fail-closed checks
+- human approval for high-risk or external side effects
+- no raw secret exposure to models
+
 ## Gate And Key Custody
 
 Gate keys are authority-bearing infrastructure, not convenience tokens.
@@ -39,4 +71,3 @@ Default stance:
 
 Complex key custody is intentionally out of scope for the first repo slice, but
 the model leaves room for it.
-

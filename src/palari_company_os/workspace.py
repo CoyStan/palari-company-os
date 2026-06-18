@@ -101,16 +101,38 @@ class Workspace:
         attempt_ids = {attempt.id for attempt in self.attempts}
         evidence_ids = {evidence.id for evidence in self.evidence_runs}
         review_ids = {review.id for review in self.review_verdicts}
+        decision_ids = {decision.id for decision in self.decisions}
+        outcome_ids = {outcome.id for outcome in self.outcomes}
+
+        for goal in self.goals:
+            for palari in goal.linked_palaris:
+                _require_ref("goals", goal.id, "linked_palaris", palari, palari_ids)
+            for work in goal.linked_work:
+                _require_ref("goals", goal.id, "linked_work", work, work_ids)
+            for decision in goal.linked_decisions:
+                _require_ref("goals", goal.id, "linked_decisions", decision, decision_ids)
 
         for work in self.work_items:
             _require_ref("work_items", work.id, "goal", work.goal, goal_ids)
             _require_ref("work_items", work.id, "palari", work.palari, palari_ids)
+            if work.current_attempt:
+                _require_ref(
+                    "work_items", work.id, "current_attempt", work.current_attempt, attempt_ids
+                )
+            if work.required_approval_count < 0:
+                raise WorkspaceError(
+                    f"work_items.{work.id}.required_approval_count must be zero or greater"
+                )
 
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
             for goal in palari.linked_goals:
                 _require_ref("palaris", palari.id, "linked_goals", goal, goal_ids)
+            for work in palari.active_work:
+                _require_ref("palaris", palari.id, "active_work", work, work_ids)
+            for outcome in palari.outcomes:
+                _require_ref("palaris", palari.id, "outcomes", outcome, outcome_ids)
 
         for attempt in self.attempts:
             _require_ref("attempts", attempt.id, "work_item_id", attempt.work_item_id, work_ids)
@@ -139,6 +161,12 @@ class Workspace:
                 )
             if decision.linked_work:
                 _require_ref("decisions", decision.id, "linked_work", decision.linked_work, work_ids)
+            if decision.linked_goal:
+                _require_ref("decisions", decision.id, "linked_goal", decision.linked_goal, goal_ids)
+            if decision.linked_palari:
+                _require_ref(
+                    "decisions", decision.id, "linked_palari", decision.linked_palari, palari_ids
+                )
 
         for human_decision in self.human_decisions:
             _require_ref(
@@ -232,4 +260,3 @@ def _require_ref(
 ) -> None:
     if value not in allowed:
         raise WorkspaceError(f"{collection}.{record_id}.{field} references missing id {value}")
-

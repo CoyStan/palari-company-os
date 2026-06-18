@@ -64,6 +64,23 @@ The operator should not have to micromanage intensity. The system should infer
 it from risk, ambiguity, blast radius, external side effects, prior outcomes,
 and model capability, then explain the recommendation.
 
+## Team Compatibility
+
+The first workspace can serve one founder, but the object model should not
+collapse into one-person assumptions. It should support:
+
+- multiple humans
+- multiple Palaris
+- role-based authority
+- approval quorum
+- shared standards
+- shared memory
+- cross-team decisions
+- capacity and governance-load signals
+
+Simplification should reduce visible ritual, not erase the distinction between
+human accountability and AI capability.
+
 ## Queue First
 
 The default surface is the queue. The queue is a read model, not an authority
@@ -78,4 +95,3 @@ It answers:
 - what evidence and review exist
 - what human decision is needed
 - what exact next action is safe
-

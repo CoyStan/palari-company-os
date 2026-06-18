@@ -12,7 +12,8 @@ workspace.json
 ```
 
 That file is the source of truth for the example workspace. The queue and
-detail views are read models derived from it.
+detail views are read models derived from it. `state`, `validate`, and `scope`
+are also derived views/checks; they do not mutate authority state.
 
 ## Design Direction
 
@@ -37,4 +38,3 @@ These actions must remain explicit:
 - broker side effects
 - secret or credential use
 - widening a Palari's authority boundary
-

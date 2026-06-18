@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palari.local/schemas/company-os/workspace.schema.json",
+  "title": "Palari Company OS Workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "goals",
+    "humans",
+    "palaris",
+    "work_items",
+    "attempts",
+    "evidence_runs",
+    "review_verdicts",
+    "human_decisions",
+    "decisions",
+    "outcomes"
+  ],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
+    "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
+    "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
+    "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
+    "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
+    "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
+    "review_verdicts": { "type": "array", "items": { "$ref": "#/$defs/review_verdict" } },
+    "human_decisions": { "type": "array", "items": { "$ref": "#/$defs/human_decision" } },
+    "decisions": { "type": "array", "items": { "$ref": "#/$defs/decision" } },
+    "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }
+  },
+  "$defs": {
+    "string_list": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "severity": { "type": "string" },
+        "summary": { "type": "string" },
+        "details": { "type": "string" }
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "owner": { "type": "string" },
+        "status": { "type": "string" },
+        "priority": { "type": "string" },
+        "success_criteria": { "$ref": "#/$defs/string_list" },
+        "linked_palaris": { "$ref": "#/$defs/string_list" },
+        "linked_work": { "$ref": "#/$defs/string_list" },
+        "linked_decisions": { "$ref": "#/$defs/string_list" }
+      }
+    },
+    "human": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "aliases": { "$ref": "#/$defs/string_list" },
+        "role": { "type": "string" },
+        "authority_level": { "type": "string" },
+        "approval_capabilities": { "$ref": "#/$defs/string_list" },
+        "skills": { "$ref": "#/$defs/string_list" },
+        "ownership_areas": { "$ref": "#/$defs/string_list" },
+        "availability": { "type": "string" },
+        "capacity_signal": { "type": "string" }
+      }
+    },
+    "palari": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "scope": { "type": "string" },
+        "allowed_inputs": { "$ref": "#/$defs/string_list" },
+        "forbidden_inputs": { "$ref": "#/$defs/string_list" },
+        "forbidden_actions": { "$ref": "#/$defs/string_list" },
+        "standards": { "$ref": "#/$defs/string_list" },
+        "memory_sources": { "$ref": "#/$defs/string_list" },
+        "default_worker": { "type": "string" },
+        "owner_human": { "type": "string" },
+        "linked_goals": { "$ref": "#/$defs/string_list" },
+        "active_work": { "$ref": "#/$defs/string_list" },
+        "outcomes": { "$ref": "#/$defs/string_list" }
+      }
+    },
+    "work_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "goal", "palari"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "goal": { "type": "string" },
+        "palari": { "type": "string" },
+        "risk": { "type": "string" },
+        "intensity": { "type": "string" },
+        "status": { "type": "string" },
+        "scope": { "type": "string" },
+        "allowed_resources": { "$ref": "#/$defs/string_list" },
+        "forbidden_actions": { "$ref": "#/$defs/string_list" },
+        "acceptance_target": { "type": "string" },
+        "verification_expectations": { "$ref": "#/$defs/string_list" },
+        "current_attempt": { "type": "string" },
+        "required_approval_count": { "type": "integer", "minimum": 0 },
+        "required_approval_capability": { "type": "string" }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "actor"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "actor": { "type": "string" },
+        "status": { "type": "string" },
+        "branch": { "type": "string" },
+        "workspace_path": { "type": "string" },
+        "model_or_worker": { "type": "string" },
+        "started_at": { "type": "string" },
+        "commits": { "$ref": "#/$defs/string_list" },
+        "changed_files": { "$ref": "#/$defs/string_list" },
+        "cleanliness": { "type": "string" },
+        "result": { "type": "string" }
+      }
+    },
+    "evidence_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "attempt_id", "head_sha", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "attempt_id": { "type": "string" },
+        "head_sha": { "type": "string" },
+        "status": { "type": "string" },
+        "base_ref": { "type": "string" },
+        "commands": { "$ref": "#/$defs/string_list" },
+        "artifacts": { "$ref": "#/$defs/string_list" },
+        "summary": { "type": "string" },
+        "freshness": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "review_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "reviewed_head", "reviewer", "verdict"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "reviewed_head": { "type": "string" },
+        "reviewer": { "type": "string" },
+        "verdict": {
+          "type": "string",
+          "enum": ["accept-ready", "changes-requested", "needs-human-decision", "blocked"]
+        },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "checks_inspected": { "$ref": "#/$defs/string_list" },
+        "residual_risks": { "$ref": "#/$defs/string_list" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "human_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "human_id", "reviewed_head", "decision"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "human_id": { "type": "string" },
+        "reviewed_head": { "type": "string" },
+        "decision": { "type": "string" },
+        "status": { "type": "string" },
+        "acceptance_mode": { "type": "string" },
+        "quorum_status": { "type": "string" },
+        "evidence_reference": { "type": "string" },
+        "review_reference": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question"],
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "status": { "type": "string" },
+        "context": { "type": "string" },
+        "options": { "$ref": "#/$defs/string_list" },
+        "tradeoffs": { "$ref": "#/$defs/string_list" },
+        "recommendation": { "type": "string" },
+        "safe_default": { "type": "string" },
+        "required_human": { "type": "string" },
+        "required_role": { "type": "string" },
+        "due_date": { "type": "string" },
+        "linked_goal": { "type": "string" },
+        "linked_work": { "type": "string" },
+        "linked_palari": { "type": "string" },
+        "result": { "type": "string" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "summary"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "summary": { "type": "string" },
+        "status": { "type": "string" },
+        "what_happened": { "type": "string" },
+        "what_changed": { "type": "string" },
+        "useful": { "$ref": "#/$defs/string_list" },
+        "failed": { "$ref": "#/$defs/string_list" },
+        "follow_up_needed": { "$ref": "#/$defs/string_list" },
+        "model_worker_notes": { "$ref": "#/$defs/string_list" },
+        "timestamp": { "type": "string" }
+      }
+    }
+  }
+}
+
