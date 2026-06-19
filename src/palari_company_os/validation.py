@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .models import Attempt, EvidenceRun, HumanDecision, ReviewVerdict, WorkItem
+from .models import Attempt, EvidenceRun, HumanDecision, Receipt, ReviewVerdict, WorkItem
 
 
 T = TypeVar("T")
@@ -12,11 +12,13 @@ COLLECTION_KEYS = (
     "goals",
     "humans",
     "palaris",
+    "sources",
     "work_items",
     "attempts",
     "evidence_runs",
     "review_verdicts",
     "human_decisions",
+    "receipts",
     "decisions",
     "outcomes",
 )
@@ -63,6 +65,20 @@ ALLOWED_RECORD_FIELDS = {
         "active_work",
         "outcomes",
     },
+    "sources": {
+        "id",
+        "label",
+        "kind",
+        "provider",
+        "uri",
+        "external_id",
+        "access_mode",
+        "selected",
+        "owner_human",
+        "allowed_palaris",
+        "last_seen_revision",
+        "last_read_at",
+    },
     "work_items": {
         "id",
         "title",
@@ -73,6 +89,9 @@ ALLOWED_RECORD_FIELDS = {
         "status",
         "scope",
         "allowed_resources",
+        "allowed_sources",
+        "allowed_actions",
+        "output_targets",
         "forbidden_actions",
         "acceptance_target",
         "verification_expectations",
@@ -129,6 +148,19 @@ ALLOWED_RECORD_FIELDS = {
         "quorum_status",
         "evidence_reference",
         "review_reference",
+        "timestamp",
+    },
+    "receipts": {
+        "id",
+        "work_item_id",
+        "attempt_id",
+        "actor",
+        "sources_used",
+        "actions_taken",
+        "outputs_created",
+        "external_writes",
+        "not_done",
+        "undo_refs",
         "timestamp",
     },
     "decisions": {
@@ -224,6 +256,7 @@ def validate_workspace_contract(workspace: Any) -> None:
     reviews_by_id = {review.id: review for review in workspace.review_verdicts}
     work_by_id = {work.id: work for work in workspace.work_items}
     humans_by_id = {human.id: human for human in workspace.humans}
+    sources_by_id = {source.id: source for source in workspace.sources}
 
     for goal in workspace.goals:
         _require_allowed_value("goals", goal.id, "status", goal.status, GOAL_STATUSES)
@@ -286,6 +319,9 @@ def validate_workspace_contract(workspace: Any) -> None:
                 evidence_by_id,
                 reviews_by_id,
             )
+
+    for receipt in workspace.receipts:
+        _validate_receipt(receipt, work_by_id, attempts_by_id, sources_by_id)
 
     for outcome in workspace.outcomes:
         _require_allowed_value("outcomes", outcome.id, "status", outcome.status, OUTCOME_STATUSES)
@@ -409,6 +445,46 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but approval quorum is "
             f"{count}/{work.required_approval_count}"
         )
+
+
+def _validate_receipt(
+    receipt: Receipt,
+    work_by_id: dict[str, WorkItem],
+    attempts_by_id: dict[str, Attempt],
+    sources_by_id: dict[str, Any],
+) -> None:
+    work = work_by_id[receipt.work_item_id]
+    attempt = attempts_by_id[receipt.attempt_id]
+    if attempt.work_item_id != work.id:
+        raise WorkspaceError(
+            f"receipts.{receipt.id}.attempt_id references attempt "
+            f"{attempt.id} for different work item {attempt.work_item_id}"
+        )
+    if receipt.actor not in {attempt.actor, work.palari}:
+        raise WorkspaceError(
+            f"receipts.{receipt.id}.actor must match attempt actor {attempt.actor} "
+            f"or work Palari {work.palari}"
+        )
+    for source_id in receipt.sources_used:
+        source = sources_by_id[source_id]
+        if source_id not in work.allowed_sources:
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.sources_used includes unallowed source {source_id}"
+            )
+        if source.allowed_palaris and work.palari not in source.allowed_palaris:
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.sources_used includes source {source_id} "
+                f"not allowed for Palari {work.palari}"
+            )
+    if receipt.external_writes and not _allows_external_writes(work):
+        raise WorkspaceError(
+            f"receipts.{receipt.id}.external_writes requires allowed action external_write"
+        )
+
+
+def _allows_external_writes(work: WorkItem) -> bool:
+    allowed = set(work.allowed_actions)
+    return bool(allowed & {"external_write", "write_external", "write"})
 
 
 def _require_fresh_passed_evidence(

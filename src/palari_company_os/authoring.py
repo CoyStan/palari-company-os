@@ -14,16 +14,19 @@ COLLECTIONS = {
     "goal": "goals",
     "human": "humans",
     "palari": "palaris",
+    "source": "sources",
     "decision": "decisions",
     "work": "work_items",
     "attempt": "attempts",
     "evidence": "evidence_runs",
     "review": "review_verdicts",
     "human-decision": "human_decisions",
+    "receipt": "receipts",
     "outcome": "outcomes",
 }
 
 INTEGER_FIELDS = {"required_approval_count"}
+BOOLEAN_FIELDS = {"selected"}
 LIST_FIELDS = {
     "success_criteria",
     "linked_palaris",
@@ -44,6 +47,9 @@ LIST_FIELDS = {
     "options",
     "tradeoffs",
     "allowed_resources",
+    "allowed_sources",
+    "allowed_actions",
+    "output_targets",
     "verification_expectations",
     "commits",
     "changed_files",
@@ -52,6 +58,13 @@ LIST_FIELDS = {
     "findings",
     "checks_inspected",
     "residual_risks",
+    "allowed_palaris",
+    "sources_used",
+    "actions_taken",
+    "outputs_created",
+    "external_writes",
+    "not_done",
+    "undo_refs",
     "useful",
     "failed",
     "follow_up_needed",
@@ -254,7 +267,7 @@ def parse_setters(setters: list[str], list_setters: list[str]) -> dict[str, Any]
         updates[key] = _coerce_value(key, value)
     for item in list_setters:
         key, value = _split_assignment(item)
-        updates[key] = [] if value == "" else [part.strip() for part in value.split(",")]
+        updates[key] = _coerce_list(value)
     return updates
 
 
@@ -344,9 +357,20 @@ def _coerce_value(key: str, value: str) -> Any:
             return int(value)
         except ValueError as exc:
             raise WorkspaceError(f"{key} must be an integer") from exc
+    if key in BOOLEAN_FIELDS:
+        lowered = value.lower()
+        if lowered in {"true", "yes", "1"}:
+            return True
+        if lowered in {"false", "no", "0"}:
+            return False
+        raise WorkspaceError(f"{key} must be a boolean")
     if key in LIST_FIELDS:
-        return [] if value == "" else [part.strip() for part in value.split(",")]
+        return _coerce_list(value)
     return value
+
+
+def _coerce_list(value: str) -> list[str]:
+    return [] if value == "" else [part.strip() for part in value.split(",")]
 
 
 def _event_actor(record: dict[str, Any], actor: str) -> str:

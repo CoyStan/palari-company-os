@@ -37,10 +37,15 @@ Validation checks:
   review verdicts, human decision values, and outcome status
 - unique ids per collection
 - work item goal and Palari references
+- work item allowed source references
+- source owner human and allowed Palari references
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
-- attempt, evidence, review, human decision, and outcome references
+- attempt, evidence, review, human decision, receipt, and outcome references
 - non-negative approval quorum counts
+- receipts use only sources allowed by the work item
+- receipt actor matches the attempt actor or work Palari
+- external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
 - accepted human decisions are made by a human with the required approval
@@ -69,5 +74,5 @@ slice; the repo does not require a third-party JSON Schema validator yet.
 Focused validation fixtures live in `tests/fixtures/workspaces/`. They include
 valid workspaces and deliberately invalid workspaces for unknown fields,
 unsupported schema versions, broken references, stale evidence, stale review,
-unqualified human approval, invalid lifecycle state, invalid completed work, and
-valid accepted/completed work.
+unqualified human approval, invalid lifecycle state, invalid completed work,
+source/receipt boundary failures, and valid accepted/completed work.

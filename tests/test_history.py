@@ -172,11 +172,13 @@ class HistoryTests(unittest.TestCase):
             "goals": [],
             "humans": [],
             "palaris": [],
+            "sources": [],
             "work_items": [],
             "attempts": [],
             "evidence_runs": [],
             "review_verdicts": [],
             "human_decisions": [],
+            "receipts": [],
             "decisions": [],
             "outcomes": [],
         }

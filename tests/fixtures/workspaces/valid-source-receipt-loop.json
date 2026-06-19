@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "name": "Source Receipt Fixture",
+  "goals": [
+    {
+      "id": "GOAL-1",
+      "title": "Trust loop",
+      "status": "active"
+    }
+  ],
+  "humans": [
+    {
+      "id": "HUMAN-1",
+      "name": "Founder",
+      "approval_capabilities": [
+        "product"
+      ]
+    }
+  ],
+  "palaris": [
+    {
+      "id": "PALARI-1",
+      "name": "Sofia",
+      "role": "Assistant",
+      "owner_human": "HUMAN-1"
+    }
+  ],
+  "sources": [
+    {
+      "id": "SOURCE-1",
+      "label": "Launch note",
+      "kind": "note",
+      "provider": "local_note",
+      "uri": "notes/launch.md",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-1",
+      "allowed_palaris": [
+        "PALARI-1"
+      ],
+      "last_seen_revision": "rev-1",
+      "last_read_at": "2026-06-19T04:00:00Z"
+    }
+  ],
+  "work_items": [
+    {
+      "id": "WORK-1",
+      "title": "Summarize launch note",
+      "goal": "GOAL-1",
+      "palari": "PALARI-1",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Use a selected local source to create a local summary.",
+      "allowed_resources": [],
+      "allowed_sources": [
+        "SOURCE-1"
+      ],
+      "allowed_actions": [
+        "local_write"
+      ],
+      "output_targets": [
+        "notes/summary.md"
+      ],
+      "forbidden_actions": [
+        "external_write"
+      ],
+      "acceptance_target": "Human can inspect the receipt.",
+      "verification_expectations": [],
+      "current_attempt": "ATTEMPT-1",
+      "required_approval_count": 0,
+      "required_approval_capability": ""
+    }
+  ],
+  "attempts": [
+    {
+      "id": "ATTEMPT-1",
+      "work_item_id": "WORK-1",
+      "actor": "PALARI-1",
+      "status": "complete",
+      "commits": [
+        "head-1"
+      ],
+      "changed_files": [
+        "notes/summary.md"
+      ],
+      "cleanliness": "clean",
+      "result": "Local summary created."
+    }
+  ],
+  "evidence_runs": [],
+  "review_verdicts": [],
+  "human_decisions": [],
+  "receipts": [
+    {
+      "id": "RECEIPT-1",
+      "work_item_id": "WORK-1",
+      "attempt_id": "ATTEMPT-1",
+      "actor": "PALARI-1",
+      "sources_used": [
+        "SOURCE-1"
+      ],
+      "actions_taken": [
+        "read selected source",
+        "created local note"
+      ],
+      "outputs_created": [
+        "notes/summary.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No external writes"
+      ],
+      "undo_refs": [
+        "delete notes/summary.md"
+      ],
+      "timestamp": "2026-06-19T04:05:00Z"
+    }
+  ],
+  "decisions": [],
+  "outcomes": []
+}

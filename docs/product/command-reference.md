@@ -13,8 +13,8 @@ authority.
 ```
 
 Shows the operator queue with attention state, goal, Palari, owner, adaptive
-intensity, evidence state, review state, approval progress, integration state,
-learning signal, and next action.
+intensity, evidence state, review state, receipt state, approval progress,
+integration state, learning signal, and next action.
 
 ## Detail
 
@@ -23,8 +23,9 @@ learning signal, and next action.
 ./bin/palari detail WORK-0001 --json
 ```
 
-Assembles one work item with its goal, Palari, attempt, evidence, review,
-linked decisions, human decisions, outcome, safety state, and next action.
+Assembles one work item with its goal, Palari, allowed sources, attempt,
+receipt, evidence, review, linked decisions, human decisions, outcome, safety
+state, and next action.
 
 ## State
 
@@ -56,6 +57,14 @@ review freshness, human approval capability, or completion quorum are invalid.
 
 Checks paths and actions against a work item's declared allowed resources and
 forbidden actions.
+
+## Receipt-Ready Low-Risk Work
+
+For light R1/R2 local work, a completed attempt plus a valid receipt can move
+the queue to `receipt-ready` without requiring full evidence, independent
+review, and human-decision ceremony. That state is deliberately human-facing:
+review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
+that claim external writes still require the stricter governance path.
 
 ## History
 
@@ -93,13 +102,17 @@ All authoring commands validate the full workspace before writing.
 ./bin/palari palari create PALARI-X --name Xena --role "Onboarding partner" --owner-human HUMAN-X
 ./bin/palari palari update PALARI-X --scope "Prepare onboarding work"
 
+./bin/palari source create SOURCE-X --label "Launch note" --kind note --provider local_note --uri notes/launch.md --set selected=true --list allowed_palaris=PALARI-X
+./bin/palari source update SOURCE-X --set last_read_at=2026-06-19T04:00:00Z
+
 ./bin/palari decision create DECISION-X --question "Which option should we choose?"
 ./bin/palari decision update DECISION-X --status decided --set "result=Use option A"
 
 ./bin/palari work create WORK-X --title "Draft note" --goal GOAL-X --palari PALARI-X
-./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X
+./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X --list allowed_sources=SOURCE-X --list allowed_actions=local_write
 
 ./bin/palari attempt record ATTEMPT-X --work-item-id WORK-X --actor PALARI-X
+./bin/palari receipt record RECEIPT-X --work-item-id WORK-X --attempt-id ATTEMPT-X --actor PALARI-X --list sources_used=SOURCE-X --list outputs_created=notes/summary.md
 ./bin/palari evidence record EVIDENCE-X --work-item-id WORK-X --attempt-id ATTEMPT-X --head-sha head-x --status passed
 ./bin/palari review record REVIEW-X --work-item-id WORK-X --reviewed-head head-x --reviewer HUMAN-X --verdict accept-ready
 ./bin/palari human-decision record HUMAN-DECISION-X --work-item-id WORK-X --human-id HUMAN-X --reviewed-head head-x --decision accepted --status accepted

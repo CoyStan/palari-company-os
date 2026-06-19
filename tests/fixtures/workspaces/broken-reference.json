@@ -12,7 +12,9 @@
     {
       "id": "HUMAN-PRODUCT",
       "name": "Product Human",
-      "approval_capabilities": ["product"]
+      "approval_capabilities": [
+        "product"
+      ]
     }
   ],
   "palaris": [
@@ -22,6 +24,7 @@
       "role": "Workspace lead"
     }
   ],
+  "sources": [],
   "work_items": [
     {
       "id": "WORK-1",
@@ -37,6 +40,7 @@
   "evidence_runs": [],
   "review_verdicts": [],
   "human_decisions": [],
+  "receipts": [],
   "decisions": [],
   "outcomes": []
 }

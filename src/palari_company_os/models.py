@@ -35,6 +35,15 @@ def _integer(record: Record, key: str, default: int = 0) -> int:
     return value
 
 
+def _boolean(record: Record, key: str, default: bool = False) -> bool:
+    value = record.get(key, default)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise TypeError(f"{key} must be a boolean")
+    return value
+
+
 def _records(record: Record, key: str) -> list[Record]:
     value = record.get(key, [])
     if value is None:
@@ -194,6 +203,9 @@ class WorkItem:
     status: str = "proposed"
     scope: str = ""
     allowed_resources: list[str] = field(default_factory=list)
+    allowed_sources: list[str] = field(default_factory=list)
+    allowed_actions: list[str] = field(default_factory=list)
+    output_targets: list[str] = field(default_factory=list)
     forbidden_actions: list[str] = field(default_factory=list)
     acceptance_target: str = ""
     verification_expectations: list[str] = field(default_factory=list)
@@ -213,6 +225,9 @@ class WorkItem:
             status=_string(record, "status", "proposed"),
             scope=_string(record, "scope"),
             allowed_resources=_strings(record, "allowed_resources"),
+            allowed_sources=_strings(record, "allowed_sources"),
+            allowed_actions=_strings(record, "allowed_actions"),
+            output_targets=_strings(record, "output_targets"),
             forbidden_actions=_strings(record, "forbidden_actions"),
             acceptance_target=_string(record, "acceptance_target"),
             verification_expectations=_strings(record, "verification_expectations"),
@@ -252,6 +267,39 @@ class Attempt:
             cleanliness=_string(record, "cleanliness"),
             result=_string(record, "result"),
             started_at=_string(record, "started_at"),
+        )
+
+
+@dataclass(frozen=True)
+class Source:
+    id: str
+    label: str
+    kind: str = ""
+    provider: str = ""
+    uri: str = ""
+    external_id: str = ""
+    access_mode: str = ""
+    selected: bool = False
+    owner_human: str = ""
+    allowed_palaris: list[str] = field(default_factory=list)
+    last_seen_revision: str = ""
+    last_read_at: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Source":
+        return cls(
+            id=_require_id(record),
+            label=_string(record, "label"),
+            kind=_string(record, "kind"),
+            provider=_string(record, "provider"),
+            uri=_string(record, "uri"),
+            external_id=_string(record, "external_id"),
+            access_mode=_string(record, "access_mode"),
+            selected=_boolean(record, "selected"),
+            owner_human=_string(record, "owner_human"),
+            allowed_palaris=_strings(record, "allowed_palaris"),
+            last_seen_revision=_string(record, "last_seen_revision"),
+            last_read_at=_string(record, "last_read_at"),
         )
 
 
@@ -340,6 +388,37 @@ class HumanDecision:
             quorum_status=_string(record, "quorum_status"),
             evidence_reference=_string(record, "evidence_reference"),
             review_reference=_string(record, "review_reference"),
+            timestamp=_string(record, "timestamp"),
+        )
+
+
+@dataclass(frozen=True)
+class Receipt:
+    id: str
+    work_item_id: str
+    attempt_id: str
+    actor: str
+    sources_used: list[str] = field(default_factory=list)
+    actions_taken: list[str] = field(default_factory=list)
+    outputs_created: list[str] = field(default_factory=list)
+    external_writes: list[str] = field(default_factory=list)
+    not_done: list[str] = field(default_factory=list)
+    undo_refs: list[str] = field(default_factory=list)
+    timestamp: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Receipt":
+        return cls(
+            id=_require_id(record),
+            work_item_id=_string(record, "work_item_id"),
+            attempt_id=_string(record, "attempt_id"),
+            actor=_string(record, "actor"),
+            sources_used=_strings(record, "sources_used"),
+            actions_taken=_strings(record, "actions_taken"),
+            outputs_created=_strings(record, "outputs_created"),
+            external_writes=_strings(record, "external_writes"),
+            not_done=_strings(record, "not_done"),
+            undo_refs=_strings(record, "undo_refs"),
             timestamp=_string(record, "timestamp"),
         )
 

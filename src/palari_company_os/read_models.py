@@ -26,6 +26,7 @@ class QueueItem:
     waiting_on_human: bool
     evidence_state: str
     review_state: str
+    receipt_state: str
     integration_state: str
     approval_progress: str
     recommended_intensity: str
@@ -39,9 +40,10 @@ ATTENTION_PRIORITY = {
     "needs-review": 2,
     "needs-evidence": 3,
     "ready-to-integrate": 4,
-    "ready-for-ai-work": 5,
-    "blocked": 6,
-    "closed": 7,
+    "receipt-ready": 5,
+    "ready-for-ai-work": 6,
+    "blocked": 7,
+    "closed": 8,
 }
 
 
@@ -62,8 +64,12 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     evidence = latest_for_work(workspace.evidence_runs, work.id)
     review = latest_for_work(workspace.review_verdicts, work.id)
     human_decision = latest_for_work(workspace.human_decisions, work.id)
+    receipt = latest_for_work(workspace.receipts, work.id)
     human_decisions = [
         decision for decision in workspace.human_decisions if decision.work_item_id == work.id
+    ]
+    sources = [
+        source for source in workspace.sources if source.id in set(work.allowed_sources)
     ]
     outcome = latest_for_work(workspace.outcomes, work.id)
     linked_decisions = [decision for decision in workspace.decisions if decision.linked_work == work.id]
@@ -76,6 +82,8 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "attempt": to_plain(attempt) if attempt else None,
         "evidence": to_plain(evidence) if evidence else None,
         "review": to_plain(review) if review else None,
+        "receipt": to_plain(receipt) if receipt else None,
+        "sources": to_plain(sources),
         "human_decision": to_plain(human_decision) if human_decision else None,
         "human_decisions": to_plain(human_decisions),
         "linked_decisions": to_plain(linked_decisions),
@@ -88,6 +96,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "waiting_on_human": queue_item.waiting_on_human,
             "evidence_state": queue_item.evidence_state,
             "review_state": queue_item.review_state,
+            "receipt_state": queue_item.receipt_state,
             "integration_state": queue_item.integration_state,
             "approval_progress": queue_item.approval_progress,
             "recommended_intensity": queue_item.recommended_intensity,
@@ -107,6 +116,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
     attention, why, next_action = _attention(workspace, work)
     evidence_state = _evidence_state(workspace, work)
     review_state = _review_state(workspace, work)
+    receipt_state = _receipt_state(workspace, work)
     integration_state = _integration_state(workspace, work)
     approval_progress = _approval_progress(workspace, work)
     recommended_intensity, intensity_reason = recommend_intensity(work)
@@ -131,6 +141,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
         waiting_on_human=waiting_on_human,
         evidence_state=evidence_state,
         review_state=review_state,
+        receipt_state=receipt_state,
         integration_state=integration_state,
         approval_progress=approval_progress,
         recommended_intensity=recommended_intensity,
@@ -161,6 +172,13 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "ready-for-ai-work",
             "No execution attempt exists yet.",
             "Start a bounded attempt using the declared scope and authority limits.",
+        )
+
+    if _low_risk_receipt_ready(workspace, work, attempt):
+        return (
+            "receipt-ready",
+            "A completed low-risk attempt has a receipt showing sources, actions, outputs, and limits.",
+            "Review the output, undo it if needed, or continue with the next bounded step.",
         )
 
     evidence = latest_for_work(workspace.evidence_runs, work.id)
@@ -308,9 +326,24 @@ def _review_state(workspace: Workspace, work: Any) -> str:
     return review.verdict
 
 
+def _receipt_state(workspace: Workspace, work: Any) -> str:
+    attempt = latest_for_work(workspace.attempts, work.id)
+    receipt = latest_for_work(workspace.receipts, work.id)
+    if attempt is None:
+        return "not-started"
+    if receipt is None:
+        return "missing"
+    if receipt.attempt_id != attempt.id:
+        return "stale"
+    return "ready"
+
+
 def _integration_state(workspace: Workspace, work: Any) -> str:
     if work.status in {"closed", "completed", "done"}:
         return "closed"
+    attempt = latest_for_work(workspace.attempts, work.id)
+    if attempt and _low_risk_receipt_ready(workspace, work, attempt):
+        return "receipt-ready"
     review = latest_for_work(workspace.review_verdicts, work.id)
     if review and review.verdict == "accept-ready" and _approval_quorum_met(workspace, work, review):
         return "ready"
@@ -354,12 +387,25 @@ def _qualified_approval_count(workspace: Workspace, work: Any, review: Any) -> i
 
 
 def _ai_safe_to_proceed(workspace: Workspace, work: Any, attention: str) -> bool:
-    if attention in {"needs-human-decision", "ready-to-integrate", "closed"}:
+    if attention in {"needs-human-decision", "ready-to-integrate", "receipt-ready", "closed"}:
         return False
     recommended, _ = recommend_intensity(work)
     if recommended == "high" and latest_for_work(workspace.attempts, work.id) is None:
         return False
     return True
+
+
+def _low_risk_receipt_ready(workspace: Workspace, work: Any, attempt: Any) -> bool:
+    if work.risk not in {"R1", "R2"}:
+        return False
+    if attempt.status not in {"complete", "completed"}:
+        return False
+    receipt = latest_for_work(workspace.receipts, work.id)
+    return (
+        receipt is not None
+        and receipt.attempt_id == attempt.id
+        and not receipt.external_writes
+    )
 
 
 def _learning_signal(workspace: Workspace, palari: Any | None) -> str:

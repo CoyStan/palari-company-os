@@ -10,11 +10,13 @@
     "goals",
     "humans",
     "palaris",
+    "sources",
     "work_items",
     "attempts",
     "evidence_runs",
     "review_verdicts",
     "human_decisions",
+    "receipts",
     "decisions",
     "outcomes"
   ],
@@ -24,11 +26,13 @@
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
     "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
     "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
     "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
     "review_verdicts": { "type": "array", "items": { "$ref": "#/$defs/review_verdict" } },
     "human_decisions": { "type": "array", "items": { "$ref": "#/$defs/human_decision" } },
+    "receipts": { "type": "array", "items": { "$ref": "#/$defs/receipt" } },
     "decisions": { "type": "array", "items": { "$ref": "#/$defs/decision" } },
     "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }
   },
@@ -103,6 +107,25 @@
         "outcomes": { "$ref": "#/$defs/string_list" }
       }
     },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "kind": { "type": "string" },
+        "provider": { "type": "string" },
+        "uri": { "type": "string" },
+        "external_id": { "type": "string" },
+        "access_mode": { "type": "string" },
+        "selected": { "type": "boolean" },
+        "owner_human": { "type": "string" },
+        "allowed_palaris": { "$ref": "#/$defs/string_list" },
+        "last_seen_revision": { "type": "string" },
+        "last_read_at": { "type": "string" }
+      }
+    },
     "work_item": {
       "type": "object",
       "additionalProperties": false,
@@ -129,6 +152,9 @@
         },
         "scope": { "type": "string" },
         "allowed_resources": { "$ref": "#/$defs/string_list" },
+        "allowed_sources": { "$ref": "#/$defs/string_list" },
+        "allowed_actions": { "$ref": "#/$defs/string_list" },
+        "output_targets": { "$ref": "#/$defs/string_list" },
         "forbidden_actions": { "$ref": "#/$defs/string_list" },
         "acceptance_target": { "type": "string" },
         "verification_expectations": { "$ref": "#/$defs/string_list" },
@@ -231,6 +257,24 @@
         "quorum_status": { "type": "string", "enum": ["", "pending", "met", "not-met"] },
         "evidence_reference": { "type": "string" },
         "review_reference": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "attempt_id", "actor"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "attempt_id": { "type": "string" },
+        "actor": { "type": "string" },
+        "sources_used": { "$ref": "#/$defs/string_list" },
+        "actions_taken": { "$ref": "#/$defs/string_list" },
+        "outputs_created": { "$ref": "#/$defs/string_list" },
+        "external_writes": { "$ref": "#/$defs/string_list" },
+        "not_done": { "$ref": "#/$defs/string_list" },
+        "undo_refs": { "$ref": "#/$defs/string_list" },
         "timestamp": { "type": "string" }
       }
     },

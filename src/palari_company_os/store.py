@@ -81,11 +81,13 @@ def _ensure_collections(data: dict[str, Any], changes: list[str]) -> None:
         "goals",
         "humans",
         "palaris",
+        "sources",
         "work_items",
         "attempts",
         "evidence_runs",
         "review_verdicts",
         "human_decisions",
+        "receipts",
         "decisions",
         "outcomes",
     ):

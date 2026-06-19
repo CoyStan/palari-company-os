@@ -23,10 +23,18 @@ roles do not silently inherit them.
 Structured request for human judgment. Decisions keep important questions out
 of vague status text.
 
+## Source
+
+Human-selected input that a Palari may use. Sources record label, provider,
+generic URI or external id, access mode, owner human, allowed Palaris, selected
+state, and last-read metadata. They model the boundary of what was available to
+the Palari; this v0 object does not connect to real providers yet.
+
 ## Work Item
 
 Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
-forbidden actions, acceptance target, and verification expectations.
+allowed sources, allowed actions, output targets, forbidden actions, acceptance
+target, and verification expectations.
 
 ## Attempt
 
@@ -52,8 +60,14 @@ Independent inspection. Verdicts are intentionally small:
 Authority-bearing human action tied to reviewed evidence. This is separate from
 the review verdict.
 
+## Receipt
+
+Human-facing trust record for an attempt. A receipt says which sources were
+used, what actions were taken, what outputs were created, what external writes
+occurred, what was not done, and what undo references exist. Receipts are not
+governance evidence; they help the user review, undo, or continue bounded work.
+
 ## Outcome
 
 Learning record after work completes. Outcomes preserve what was useful, what
 failed, and what follow-up is needed.
-

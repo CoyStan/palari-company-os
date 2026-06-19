@@ -31,6 +31,12 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].status, "completed")
         self.assertEqual(workspace.human_decisions[0].status, "accepted")
 
+    def test_valid_source_receipt_loop_fixture_loads(self) -> None:
+        workspace = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")
+
+        self.assertEqual(workspace.sources[0].id, "SOURCE-1")
+        self.assertEqual(workspace.receipts[0].sources_used, ["SOURCE-1"])
+
     def test_unknown_record_field_fails_closed(self) -> None:
         self.assert_fixture_error(
             "unknown-field.json",
@@ -77,6 +83,36 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assert_fixture_error(
             "invalid-completed-work.json",
             "work_items.WORK-1.status is terminal but approval quorum is 0/1",
+        )
+
+    def test_receipt_with_unallowed_source_fails_closed(self) -> None:
+        self.assert_fixture_error(
+            "invalid-receipt-unallowed-source.json",
+            "receipts.RECEIPT-1.sources_used includes unallowed source SOURCE-2",
+        )
+
+    def test_receipt_with_missing_source_fails_closed(self) -> None:
+        self.assert_fixture_error(
+            "invalid-receipt-missing-source.json",
+            "receipts.RECEIPT-1.sources_used references missing id SOURCE-MISSING",
+        )
+
+    def test_receipt_external_write_without_allowed_action_fails_closed(self) -> None:
+        self.assert_fixture_error(
+            "invalid-receipt-external-write.json",
+            "receipts.RECEIPT-1.external_writes requires allowed action external_write",
+        )
+
+    def test_receipt_actor_must_match_attempt_or_palari_boundary(self) -> None:
+        self.assert_fixture_error(
+            "invalid-receipt-actor.json",
+            "receipts.RECEIPT-1.actor must match attempt actor PALARI-1",
+        )
+
+    def test_source_allowed_palaris_must_exist(self) -> None:
+        self.assert_fixture_error(
+            "invalid-source-missing-palari.json",
+            "sources.SOURCE-1.allowed_palaris references missing id PALARI-MISSING",
         )
 
     def test_cli_validate_reports_clear_fixture_errors(self) -> None:

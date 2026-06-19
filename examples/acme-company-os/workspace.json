@@ -13,8 +13,18 @@
         "Humans can tell what needs approval",
         "Evidence and review are attached to the work"
       ],
-      "linked_palaris": ["PALARI-SOFIA", "PALARI-ALFRED"],
-      "linked_work": ["WORK-0001", "WORK-0003", "WORK-0004", "WORK-0005", "WORK-0006"],
+      "linked_palaris": [
+        "PALARI-SOFIA",
+        "PALARI-ALFRED"
+      ],
+      "linked_work": [
+        "WORK-0001",
+        "WORK-0003",
+        "WORK-0004",
+        "WORK-0005",
+        "WORK-0006",
+        "WORK-0007"
+      ],
       "linked_decisions": []
     },
     {
@@ -27,33 +37,62 @@
         "High-risk actions require human judgment",
         "AI work cannot silently accept, merge, deploy, or activate policy"
       ],
-      "linked_palaris": ["PALARI-ALFRED"],
-      "linked_work": ["WORK-0002"],
-      "linked_decisions": ["DECISION-0001"]
+      "linked_palaris": [
+        "PALARI-ALFRED"
+      ],
+      "linked_work": [
+        "WORK-0002"
+      ],
+      "linked_decisions": [
+        "DECISION-0001"
+      ]
     }
   ],
   "humans": [
     {
       "id": "HUMAN-FOUNDER",
       "name": "Rafa Founder",
-      "aliases": ["Rafa"],
+      "aliases": [
+        "Rafa"
+      ],
       "role": "Founder",
       "authority_level": "admin",
-      "approval_capabilities": ["product", "merge", "deploy", "policy"],
-      "skills": ["product judgment", "company priorities"],
-      "ownership_areas": ["company direction", "beta readiness"],
+      "approval_capabilities": [
+        "product",
+        "merge",
+        "deploy",
+        "policy"
+      ],
+      "skills": [
+        "product judgment",
+        "company priorities"
+      ],
+      "ownership_areas": [
+        "company direction",
+        "beta readiness"
+      ],
       "availability": "active",
       "capacity_signal": "one high-risk decision at a time"
     },
     {
       "id": "HUMAN-OPS",
       "name": "Maya Operations",
-      "aliases": ["Maya"],
+      "aliases": [
+        "Maya"
+      ],
       "role": "Operations Lead",
       "authority_level": "standard",
-      "approval_capabilities": ["operations"],
-      "skills": ["launch operations", "support"],
-      "ownership_areas": ["customer support", "beta operations"],
+      "approval_capabilities": [
+        "operations"
+      ],
+      "skills": [
+        "launch operations",
+        "support"
+      ],
+      "ownership_areas": [
+        "customer support",
+        "beta operations"
+      ],
       "availability": "active",
       "capacity_signal": "available for standard review"
     }
@@ -64,32 +103,95 @@
       "name": "Sofia",
       "role": "Workspace lead",
       "scope": "Turn scattered beta context into useful plans, notes, and reviewable outputs.",
-      "allowed_inputs": ["workspace notes", "selected source files", "human prompts"],
-      "forbidden_inputs": ["unselected private files", "live customer inbox"],
-      "forbidden_actions": ["send external messages", "write outside approved work areas"],
-      "standards": ["calm first-person language", "show sources before drafting"],
-      "memory_sources": ["beta notes", "product decisions"],
+      "allowed_inputs": [
+        "workspace notes",
+        "selected source files",
+        "human prompts"
+      ],
+      "forbidden_inputs": [
+        "unselected private files",
+        "live customer inbox"
+      ],
+      "forbidden_actions": [
+        "send external messages",
+        "write outside approved work areas"
+      ],
+      "standards": [
+        "calm first-person language",
+        "show sources before drafting"
+      ],
+      "memory_sources": [
+        "beta notes",
+        "product decisions"
+      ],
       "default_worker": "gpt-5-codex",
       "owner_human": "HUMAN-FOUNDER",
-      "linked_goals": ["GOAL-0001"],
-      "active_work": ["WORK-0001", "WORK-0003", "WORK-0005", "WORK-0006"],
-      "outcomes": ["OUTCOME-0001"]
+      "linked_goals": [
+        "GOAL-0001"
+      ],
+      "active_work": [
+        "WORK-0001",
+        "WORK-0003",
+        "WORK-0005",
+        "WORK-0006",
+        "WORK-0007"
+      ],
+      "outcomes": [
+        "OUTCOME-0001"
+      ]
     },
     {
       "id": "PALARI-ALFRED",
       "name": "Alfred",
       "role": "Operations partner",
       "scope": "Prepare operational work while keeping authority and side effects explicit.",
-      "allowed_inputs": ["operations notes", "support summaries"],
-      "forbidden_inputs": ["raw customer inbox", "credentials"],
-      "forbidden_actions": ["contact users", "activate policy", "spend money"],
-      "standards": ["plain next actions", "explicit blockers"],
-      "memory_sources": ["operations runbook"],
+      "allowed_inputs": [
+        "operations notes",
+        "support summaries"
+      ],
+      "forbidden_inputs": [
+        "raw customer inbox",
+        "credentials"
+      ],
+      "forbidden_actions": [
+        "contact users",
+        "activate policy",
+        "spend money"
+      ],
+      "standards": [
+        "plain next actions",
+        "explicit blockers"
+      ],
+      "memory_sources": [
+        "operations runbook"
+      ],
       "default_worker": "gpt-5-codex",
       "owner_human": "HUMAN-OPS",
-      "linked_goals": ["GOAL-0001", "GOAL-0002"],
-      "active_work": ["WORK-0002"],
+      "linked_goals": [
+        "GOAL-0001",
+        "GOAL-0002"
+      ],
+      "active_work": [
+        "WORK-0002"
+      ],
       "outcomes": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "SOURCE-0001",
+      "label": "Beta launch note",
+      "kind": "note",
+      "provider": "local_note",
+      "uri": "examples/acme-company-os/notes/beta-launch.md",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [
+        "PALARI-SOFIA"
+      ],
+      "last_seen_revision": "source-rev-1",
+      "last_read_at": "2026-06-19T04:00:00Z"
     }
   ],
   "work_items": [
@@ -102,10 +204,20 @@
       "intensity": "standard",
       "status": "in-review",
       "scope": "Convert beta launch notes into a concise checklist with sources and assumptions.",
-      "allowed_resources": ["examples/acme-company-os/workspace.json", "docs/product/company-os.md"],
-      "forbidden_actions": ["deploy", "send messages", "change authority settings"],
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json",
+        "docs/product/company-os.md"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "send messages",
+        "change authority settings"
+      ],
       "acceptance_target": "Human confirms the checklist is useful enough for beta operations.",
-      "verification_expectations": ["unit tests pass", "queue/detail show fresh evidence and review"],
+      "verification_expectations": [
+        "unit tests pass",
+        "queue/detail show fresh evidence and review"
+      ],
       "current_attempt": "ATTEMPT-0001",
       "required_approval_count": 1,
       "required_approval_capability": "product"
@@ -119,10 +231,19 @@
       "intensity": "high",
       "status": "needs-human",
       "scope": "Define whether Alfred may read support inbox summaries in the beta.",
-      "allowed_resources": ["support boundary proposal"],
-      "forbidden_actions": ["connect live inbox", "read customer data", "grant OAuth scopes"],
+      "allowed_resources": [
+        "support boundary proposal"
+      ],
+      "forbidden_actions": [
+        "connect live inbox",
+        "read customer data",
+        "grant OAuth scopes"
+      ],
       "acceptance_target": "Founder records the allowed support boundary before any implementation starts.",
-      "verification_expectations": ["open decision exists", "no side effects occur"],
+      "verification_expectations": [
+        "open decision exists",
+        "no side effects occur"
+      ],
       "current_attempt": "",
       "required_approval_count": 2,
       "required_approval_capability": "policy"
@@ -136,10 +257,18 @@
       "intensity": "light",
       "status": "active",
       "scope": "Tighten example onboarding copy without changing product behavior.",
-      "allowed_resources": ["docs/product/company-os.md"],
-      "forbidden_actions": ["change schemas", "change authority behavior"],
+      "allowed_resources": [
+        "docs/product/company-os.md"
+      ],
+      "forbidden_actions": [
+        "change schemas",
+        "change authority behavior"
+      ],
       "acceptance_target": "Copy is clearer and tests still pass.",
-      "verification_expectations": ["focused copy review", "unit tests pass"],
+      "verification_expectations": [
+        "focused copy review",
+        "unit tests pass"
+      ],
       "current_attempt": "ATTEMPT-0002",
       "required_approval_count": 0,
       "required_approval_capability": ""
@@ -153,10 +282,17 @@
       "intensity": "light",
       "status": "completed",
       "scope": "Capture what was learned from the first queue prototype.",
-      "allowed_resources": ["examples/acme-company-os/workspace.json"],
-      "forbidden_actions": ["merge", "deploy"],
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "merge",
+        "deploy"
+      ],
       "acceptance_target": "Outcome is recorded.",
-      "verification_expectations": ["outcome exists"],
+      "verification_expectations": [
+        "outcome exists"
+      ],
       "current_attempt": "ATTEMPT-0003",
       "required_approval_count": 1,
       "required_approval_capability": "product"
@@ -170,10 +306,16 @@
       "intensity": "standard",
       "status": "active",
       "scope": "Demonstrate that old evidence cannot justify a newer attempt head.",
-      "allowed_resources": ["docs/product/command-reference.md"],
-      "forbidden_actions": ["deploy"],
+      "allowed_resources": [
+        "docs/product/command-reference.md"
+      ],
+      "forbidden_actions": [
+        "deploy"
+      ],
       "acceptance_target": "Evidence is refreshed for the current attempt head.",
-      "verification_expectations": ["queue reports stale evidence"],
+      "verification_expectations": [
+        "queue reports stale evidence"
+      ],
       "current_attempt": "ATTEMPT-0005",
       "required_approval_count": 1,
       "required_approval_capability": "product"
@@ -187,13 +329,53 @@
       "intensity": "standard",
       "status": "in-review",
       "scope": "Demonstrate that a review must match the latest evidence head.",
-      "allowed_resources": ["docs/product/schema-and-validation.md"],
-      "forbidden_actions": ["deploy"],
+      "allowed_resources": [
+        "docs/product/schema-and-validation.md"
+      ],
+      "forbidden_actions": [
+        "deploy"
+      ],
       "acceptance_target": "Review is refreshed against the latest evidence head.",
-      "verification_expectations": ["queue reports stale review"],
+      "verification_expectations": [
+        "queue reports stale review"
+      ],
       "current_attempt": "ATTEMPT-0006",
       "required_approval_count": 1,
       "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0007",
+      "title": "Summarize selected beta launch note",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Use one selected local source to create a local summary note.",
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-0001"
+      ],
+      "allowed_actions": [
+        "local_write"
+      ],
+      "output_targets": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "forbidden_actions": [
+        "external_write",
+        "send messages",
+        "write to Drive"
+      ],
+      "acceptance_target": "Human can review the local summary and receipt.",
+      "verification_expectations": [
+        "receipt lists source, output, limits, and undo reference"
+      ],
+      "current_attempt": "ATTEMPT-0007",
+      "required_approval_count": 0,
+      "required_approval_capability": ""
     }
   ],
   "attempts": [
@@ -206,8 +388,12 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0001",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T17:00:00Z",
-      "commits": ["abc1234"],
-      "changed_files": ["examples/acme-company-os/workspace.json"],
+      "commits": [
+        "abc1234"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
       "cleanliness": "clean",
       "result": "Draft checklist prepared for human acceptance."
     },
@@ -220,8 +406,12 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0003",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T17:20:00Z",
-      "commits": ["def5678"],
-      "changed_files": ["docs/product/company-os.md"],
+      "commits": [
+        "def5678"
+      ],
+      "changed_files": [
+        "docs/product/company-os.md"
+      ],
       "cleanliness": "dirty",
       "result": "Copy draft in progress."
     },
@@ -234,8 +424,12 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0004",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T16:00:00Z",
-      "commits": ["aaa1111"],
-      "changed_files": ["examples/acme-company-os/workspace.json"],
+      "commits": [
+        "aaa1111"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
       "cleanliness": "clean",
       "result": "Outcome captured."
     },
@@ -248,8 +442,13 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0005",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T18:10:00Z",
-      "commits": ["stale-old", "stale-new"],
-      "changed_files": ["docs/product/command-reference.md"],
+      "commits": [
+        "stale-old",
+        "stale-new"
+      ],
+      "changed_files": [
+        "docs/product/command-reference.md"
+      ],
       "cleanliness": "clean",
       "result": "Changed after evidence was captured."
     },
@@ -262,10 +461,32 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0006",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T18:20:00Z",
-      "commits": ["review-fresh"],
-      "changed_files": ["docs/product/schema-and-validation.md"],
+      "commits": [
+        "review-fresh"
+      ],
+      "changed_files": [
+        "docs/product/schema-and-validation.md"
+      ],
       "cleanliness": "clean",
       "result": "Evidence refreshed after review."
+    },
+    {
+      "id": "ATTEMPT-0007",
+      "work_item_id": "WORK-0007",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "local/receipt-trust-loop",
+      "workspace_path": "examples/acme-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-19T04:05:00Z",
+      "commits": [
+        "receipt-head-1"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "cleanliness": "clean",
+      "result": "Created a local summary note from one selected source."
     }
   ],
   "evidence_runs": [
@@ -276,8 +497,13 @@
       "head_sha": "abc1234",
       "status": "passed",
       "base_ref": "main",
-      "commands": ["python3 -m unittest discover -s tests", "./bin/palari queue --json"],
-      "artifacts": ["reports/evidence/WORK-0001/summary.json"],
+      "commands": [
+        "python3 -m unittest discover -s tests",
+        "./bin/palari queue --json"
+      ],
+      "artifacts": [
+        "reports/evidence/WORK-0001/summary.json"
+      ],
       "summary": "Unit tests and queue JSON passed for the beta checklist prototype.",
       "freshness": "fresh",
       "timestamp": "2026-06-18T17:35:00Z"
@@ -289,7 +515,9 @@
       "head_sha": "aaa1111",
       "status": "passed",
       "base_ref": "main",
-      "commands": ["./bin/palari detail WORK-0004 --json"],
+      "commands": [
+        "./bin/palari detail WORK-0004 --json"
+      ],
       "artifacts": [],
       "summary": "Detail read model shows recorded outcome.",
       "freshness": "fresh",
@@ -302,7 +530,9 @@
       "head_sha": "stale-old",
       "status": "passed",
       "base_ref": "main",
-      "commands": ["./bin/palari queue --json"],
+      "commands": [
+        "./bin/palari queue --json"
+      ],
       "artifacts": [],
       "summary": "Evidence passed before a newer attempt commit was added.",
       "freshness": "stale",
@@ -315,7 +545,9 @@
       "head_sha": "review-fresh",
       "status": "passed",
       "base_ref": "main",
-      "commands": ["./bin/palari detail WORK-0006 --json"],
+      "commands": [
+        "./bin/palari detail WORK-0006 --json"
+      ],
       "artifacts": [],
       "summary": "Evidence is fresh, but review still points to an older head.",
       "freshness": "fresh",
@@ -330,8 +562,13 @@
       "reviewer": "HUMAN-OPS",
       "verdict": "accept-ready",
       "findings": [],
-      "checks_inspected": ["python3 -m unittest discover -s tests", "./bin/palari queue --json"],
-      "residual_risks": ["Checklist usefulness still depends on founder judgment."],
+      "checks_inspected": [
+        "python3 -m unittest discover -s tests",
+        "./bin/palari queue --json"
+      ],
+      "residual_risks": [
+        "Checklist usefulness still depends on founder judgment."
+      ],
       "timestamp": "2026-06-18T17:45:00Z"
     },
     {
@@ -341,7 +578,9 @@
       "reviewer": "HUMAN-FOUNDER",
       "verdict": "accept-ready",
       "findings": [],
-      "checks_inspected": ["./bin/palari detail WORK-0004 --json"],
+      "checks_inspected": [
+        "./bin/palari detail WORK-0004 --json"
+      ],
       "residual_risks": [],
       "timestamp": "2026-06-18T16:40:00Z"
     },
@@ -352,8 +591,12 @@
       "reviewer": "HUMAN-OPS",
       "verdict": "accept-ready",
       "findings": [],
-      "checks_inspected": ["./bin/palari detail WORK-0006 --json"],
-      "residual_risks": ["Review must be rerun against review-fresh."],
+      "checks_inspected": [
+        "./bin/palari detail WORK-0006 --json"
+      ],
+      "residual_risks": [
+        "Review must be rerun against review-fresh."
+      ],
       "timestamp": "2026-06-18T18:22:00Z"
     }
   ],
@@ -370,6 +613,33 @@
       "evidence_reference": "EVIDENCE-0002",
       "review_reference": "REVIEW-0002",
       "timestamp": "2026-06-18T16:45:00Z"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "RECEIPT-0001",
+      "work_item_id": "WORK-0007",
+      "attempt_id": "ATTEMPT-0007",
+      "actor": "PALARI-SOFIA",
+      "sources_used": [
+        "SOURCE-0001"
+      ],
+      "actions_taken": [
+        "read selected source",
+        "created local summary note"
+      ],
+      "outputs_created": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No external messages sent",
+        "No Google Drive files written"
+      ],
+      "undo_refs": [
+        "remove examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "timestamp": "2026-06-19T04:10:00Z"
     }
   ],
   "decisions": [
@@ -406,10 +676,20 @@
       "summary": "The queue prototype made next actions much easier to see than scattered ticket files.",
       "what_happened": "The first queue read model grouped work by attention state.",
       "what_changed": "Operators can see next action, Palari, goal, and authority state in one command.",
-      "useful": ["attention categories", "explicit next actions", "Palari and goal linkage"],
-      "failed": ["manual ceremony still feels too visible when overused"],
-      "follow_up_needed": ["keep low-risk work light"],
-      "model_worker_notes": ["The model performed better with one queue-oriented read model than with scattered status prose."],
+      "useful": [
+        "attention categories",
+        "explicit next actions",
+        "Palari and goal linkage"
+      ],
+      "failed": [
+        "manual ceremony still feels too visible when overused"
+      ],
+      "follow_up_needed": [
+        "keep low-risk work light"
+      ],
+      "model_worker_notes": [
+        "The model performed better with one queue-oriented read model than with scattered status prose."
+      ],
       "timestamp": "2026-06-18T16:50:00Z"
     }
   ]

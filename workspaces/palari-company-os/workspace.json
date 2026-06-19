@@ -192,6 +192,7 @@
       "outcomes": []
     }
   ],
+  "sources": [],
   "work_items": [
     {
       "allowed_resources": [
@@ -438,6 +439,7 @@
       "timestamp": "2026-06-19T03:39:00Z"
     }
   ],
+  "receipts": [],
   "decisions": [
     {
       "options": [

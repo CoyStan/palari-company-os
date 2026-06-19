@@ -64,12 +64,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)
+    _add_source_parser(subparsers)
     _add_decision_parser(subparsers)
     _add_work_parser(subparsers)
     _add_attempt_parser(subparsers)
     _add_evidence_parser(subparsers)
     _add_review_parser(subparsers)
     _add_human_decision_parser(subparsers)
+    _add_receipt_parser(subparsers)
     _add_outcome_parser(subparsers)
     _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
@@ -162,6 +164,25 @@ def _add_palari_parser(subparsers: Any) -> None:
             ("scope", {"default": "", "help": "Palari scope."}),
             ("owner_human", {"default": "", "help": "Owner human id."}),
             ("default_worker", {"default": "", "help": "Default model or worker route."}),
+        ],
+    )
+
+
+def _add_source_parser(subparsers: Any) -> None:
+    _add_create_update(
+        subparsers,
+        "source",
+        "Create or update selected sources.",
+        [
+            ("label", {"required": True, "help": "Human-facing source label."}),
+            ("kind", {"default": "", "help": "Source kind, such as note or file."}),
+            ("provider", {"default": "", "help": "Source provider."}),
+            ("uri", {"default": "", "help": "Source URI."}),
+            ("external_id", {"default": "", "help": "Provider-specific source id."}),
+            ("access_mode", {"default": "", "help": "Read/write access mode."}),
+            ("owner_human", {"default": "", "help": "Owner human id."}),
+            ("last_seen_revision", {"default": "", "help": "Last seen revision."}),
+            ("last_read_at", {"default": "", "help": "Last read timestamp."}),
         ],
     )
 
@@ -304,6 +325,21 @@ def _add_human_decision_parser(subparsers: Any) -> None:
     record.add_argument("--timestamp", default="", help="Timestamp.")
     _add_common_mutation_args(record)
     update = nested.add_parser("update", help="Update human decision.")
+    update.add_argument("id")
+    _add_common_mutation_args(update)
+
+
+def _add_receipt_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("receipt", help="Record or update human-facing receipts.")
+    nested = parser.add_subparsers(dest="object_command", required=True)
+    record = nested.add_parser("record", help="Record a receipt.")
+    record.add_argument("id")
+    record.add_argument("--work-item-id", required=True, help="Work item id.")
+    record.add_argument("--attempt-id", required=True, help="Attempt id.")
+    record.add_argument("--actor", required=True, help="Receipt actor.")
+    record.add_argument("--timestamp", default="", help="Timestamp.")
+    _add_common_mutation_args(record)
+    update = nested.add_parser("update", help="Update a receipt.")
     update.add_argument("id")
     _add_common_mutation_args(update)
 

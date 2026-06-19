@@ -15,7 +15,9 @@ from .models import (
     HumanDecision,
     Outcome,
     Palari,
+    Receipt,
     ReviewVerdict,
+    Source,
     WorkItem,
 )
 from .validation import validate_raw_contract, validate_workspace_contract
@@ -34,12 +36,14 @@ class Workspace:
     goals: list[Goal]
     palaris: list[Palari]
     humans: list[Human]
+    sources: list[Source]
     decisions: list[Decision]
     work_items: list[WorkItem]
     attempts: list[Attempt]
     evidence_runs: list[EvidenceRun]
     review_verdicts: list[ReviewVerdict]
     human_decisions: list[HumanDecision]
+    receipts: list[Receipt]
     outcomes: list[Outcome]
 
     @classmethod
@@ -94,6 +98,7 @@ class Workspace:
             goals=[Goal.from_record(item) for item in _items(raw, "goals")],
             palaris=[Palari.from_record(item) for item in _items(raw, "palaris")],
             humans=[Human.from_record(item) for item in _items(raw, "humans")],
+            sources=[Source.from_record(item) for item in _items(raw, "sources")],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
@@ -106,6 +111,7 @@ class Workspace:
             human_decisions=[
                 HumanDecision.from_record(item) for item in _items(raw, "human_decisions")
             ],
+            receipts=[Receipt.from_record(item) for item in _items(raw, "receipts")],
             outcomes=[Outcome.from_record(item) for item in _items(raw, "outcomes")],
         )
         workspace.validate()
@@ -116,12 +122,14 @@ class Workspace:
             ("goals", self.goals),
             ("palaris", self.palaris),
             ("humans", self.humans),
+            ("sources", self.sources),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
             ("evidence_runs", self.evidence_runs),
             ("review_verdicts", self.review_verdicts),
             ("human_decisions", self.human_decisions),
+            ("receipts", self.receipts),
             ("outcomes", self.outcomes),
         ):
             _ensure_unique_ids(label, records)
@@ -129,6 +137,7 @@ class Workspace:
         goal_ids = {goal.id for goal in self.goals}
         palari_ids = {palari.id for palari in self.palaris}
         human_ids = {human.id for human in self.humans}
+        source_ids = {source.id for source in self.sources}
         work_ids = {work.id for work in self.work_items}
         attempt_ids = {attempt.id for attempt in self.attempts}
         evidence_ids = {evidence.id for evidence in self.evidence_runs}
@@ -151,10 +160,18 @@ class Workspace:
                 _require_ref(
                     "work_items", work.id, "current_attempt", work.current_attempt, attempt_ids
                 )
+            for source in work.allowed_sources:
+                _require_ref("work_items", work.id, "allowed_sources", source, source_ids)
             if work.required_approval_count < 0:
                 raise WorkspaceError(
                     f"work_items.{work.id}.required_approval_count must be zero or greater"
                 )
+
+        for source in self.sources:
+            if source.owner_human:
+                _require_ref("sources", source.id, "owner_human", source.owner_human, human_ids)
+            for palari in source.allowed_palaris:
+                _require_ref("sources", source.id, "allowed_palaris", palari, palari_ids)
 
         for palari in self.palaris:
             if palari.owner_human:
@@ -232,6 +249,12 @@ class Workspace:
                     review_ids,
                 )
 
+        for receipt in self.receipts:
+            _require_ref("receipts", receipt.id, "work_item_id", receipt.work_item_id, work_ids)
+            _require_ref("receipts", receipt.id, "attempt_id", receipt.attempt_id, attempt_ids)
+            for source in receipt.sources_used:
+                _require_ref("receipts", receipt.id, "sources_used", source, source_ids)
+
         for outcome in self.outcomes:
             _require_ref("outcomes", outcome.id, "work_item_id", outcome.work_item_id, work_ids)
 
@@ -248,6 +271,9 @@ class Workspace:
 
     def work_item(self, work_id: str) -> WorkItem | None:
         return _find(self.work_items, work_id)
+
+    def source(self, source_id: str) -> Source | None:
+        return _find(self.sources, source_id)
 
 
 def default_workspace_path() -> Path:

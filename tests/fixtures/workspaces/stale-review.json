@@ -12,7 +12,9 @@
     {
       "id": "HUMAN-PRODUCT",
       "name": "Product Human",
-      "approval_capabilities": ["product"]
+      "approval_capabilities": [
+        "product"
+      ]
     }
   ],
   "palaris": [
@@ -23,6 +25,7 @@
       "owner_human": "HUMAN-PRODUCT"
     }
   ],
+  "sources": [],
   "work_items": [
     {
       "id": "WORK-1",
@@ -43,7 +46,9 @@
       "work_item_id": "WORK-1",
       "actor": "PALARI-SOFIA",
       "status": "complete",
-      "commits": ["head-1"]
+      "commits": [
+        "head-1"
+      ]
     }
   ],
   "evidence_runs": [
@@ -76,6 +81,7 @@
       "review_reference": "REVIEW-1"
     }
   ],
+  "receipts": [],
   "decisions": [],
   "outcomes": []
 }

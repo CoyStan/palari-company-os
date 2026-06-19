@@ -81,10 +81,10 @@ palari --workspace /path/to/workspace queue
 ```text
 Human intent
   -> Palari preparation
-    -> bounded AI/tool execution
-      -> evidence
-        -> review
-          -> human decision
+    -> selected sources
+      -> bounded AI/tool execution
+        -> receipt
+          -> evidence/review/human decision when risk requires it
             -> outcome and learning
 ```
 
@@ -97,7 +97,7 @@ The current implementation provides a local workspace CLI:
 - `scope`: declared path/action boundary checks.
 - `history`: recent append-only audit events for mutating commands.
 - authoring commands for goals, Palaris, humans, decisions, work, attempts,
-  evidence, reviews, human decisions, and outcomes.
+  sources, receipts, evidence, reviews, human decisions, and outcomes.
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome.
 - `maintainer status`: lightweight external-maintainer repo status.

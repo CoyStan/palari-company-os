@@ -83,7 +83,8 @@ def print_validate(payload: dict[str, Any]) -> None:
     print(f"Workspace valid: {payload['workspace']}")
     print(
         f"Records: {counts['goals']} goals, {counts['palaris']} Palaris, "
-        f"{counts['humans']} humans, {counts['work_items']} work items"
+        f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
+        f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
 
 
@@ -146,7 +147,7 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         )
         print(
             f"  evidence: {item.evidence_state} | review: {item.review_state} "
-            f"| approval: {item.approval_progress}"
+            f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
         )
         print(f"  integration: {item.integration_state}")
         if item.learning_signal:
@@ -178,10 +179,22 @@ def print_detail(payload: dict[str, Any]) -> None:
     print(f"  {work['scope']}")
     if work["allowed_resources"]:
         print(f"  allowed: {', '.join(work['allowed_resources'])}")
+    if work.get("allowed_sources"):
+        print(f"  sources: {', '.join(work['allowed_sources'])}")
+    if work.get("allowed_actions"):
+        print(f"  actions: {', '.join(work['allowed_actions'])}")
+    if work.get("output_targets"):
+        print(f"  outputs: {', '.join(work['output_targets'])}")
     if work["forbidden_actions"]:
         print(f"  forbidden: {', '.join(work['forbidden_actions'])}")
     print("")
     _print_section("Attempt", payload["attempt"])
+    if payload.get("sources"):
+        print("Sources")
+        for source in payload["sources"]:
+            print(f"  {source['id']}: {source['label']} [{source.get('access_mode', '')}]")
+        print("")
+    _print_section("Receipt", payload.get("receipt"))
     _print_section("Evidence", payload["evidence"])
     _print_section("Review", payload["review"])
     _print_section("Human Decision", payload["human_decision"])

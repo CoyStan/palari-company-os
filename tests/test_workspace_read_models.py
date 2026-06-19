@@ -18,6 +18,7 @@ from palari_company_os.workspace import Workspace
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 
 class WorkspaceReadModelTests(unittest.TestCase):
@@ -26,7 +27,9 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(workspace.name, "Acme Company OS Example")
         self.assertEqual(len(workspace.goals), 2)
         self.assertEqual(len(workspace.palaris), 2)
-        self.assertEqual(len(workspace.work_items), 6)
+        self.assertEqual(len(workspace.sources), 1)
+        self.assertEqual(len(workspace.work_items), 7)
+        self.assertEqual(len(workspace.receipts), 1)
 
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -49,6 +52,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0005"].evidence_state, "stale")
         self.assertEqual(by_id["WORK-0006"].attention, "needs-review")
         self.assertEqual(by_id["WORK-0006"].review_state, "stale")
+        self.assertEqual(by_id["WORK-0007"].attention, "receipt-ready")
+        self.assertEqual(by_id["WORK-0007"].receipt_state, "ready")
+        self.assertEqual(by_id["WORK-0007"].integration_state, "receipt-ready")
+        self.assertIn("Review the output", by_id["WORK-0007"].next_action)
         self.assertEqual(by_id["WORK-0004"].attention, "closed")
 
     def test_detail_assembles_related_records(self) -> None:
@@ -65,6 +72,55 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["safety"]["evidence_state"], "passed")
         self.assertEqual(payload["safety"]["review_state"], "accept-ready")
         self.assertEqual(payload["safety"]["approval_progress"], "0/1")
+
+    def test_detail_includes_sources_and_receipt(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        payload = detail(workspace, "WORK-0007")
+
+        self.assertEqual(payload["sources"][0]["id"], "SOURCE-0001")
+        self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001")
+        self.assertEqual(payload["receipt"]["sources_used"], ["SOURCE-0001"])
+        self.assertEqual(payload["safety"]["receipt_state"], "ready")
+        self.assertEqual(payload["attention"], "receipt-ready")
+
+    def test_receipt_ready_queue_state_for_light_work(self) -> None:
+        workspace = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "receipt-ready")
+        self.assertEqual(item.receipt_state, "ready")
+        self.assertEqual(item.integration_state, "receipt-ready")
+        self.assertFalse(item.ai_safe_to_proceed)
+        self.assertIn("actions, outputs, and limits", item.why)
+
+    def test_high_risk_work_still_requires_governance_even_with_receipt(self) -> None:
+        def make_high_risk(data: dict[str, object]) -> None:
+            data["work_items"][0]["risk"] = "R3"
+            data["work_items"][0]["intensity"] = "standard"
+
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            make_high_risk,
+        )
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.receipt_state, "ready")
+        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.integration_state, "not-ready")
+
+    def test_external_write_receipt_does_not_use_light_receipt_ready_path(self) -> None:
+        def allow_external_write(data: dict[str, object]) -> None:
+            data["work_items"][0]["allowed_actions"] = ["external_write"]
+            data["receipts"][0]["external_writes"] = ["google_drive:doc-1"]
+
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            allow_external_write,
+        )
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.receipt_state, "ready")
+        self.assertEqual(item.attention, "needs-evidence")
 
     def test_evidence_staleness_blocks_review(self) -> None:
         workspace = self.modified_workspace(
@@ -122,6 +178,14 @@ class WorkspaceReadModelTests(unittest.TestCase):
             workspace_file.write_text(json.dumps(source), encoding="utf-8")
             return Workspace.load(workspace_file)
 
+    def modified_fixture_workspace(self, fixture: str, mutate: object) -> Workspace:
+        source = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
+        mutate(source)
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            workspace_file.write_text(json.dumps(source), encoding="utf-8")
+            return Workspace.load(workspace_file)
+
 
 class CliTests(unittest.TestCase):
     def test_cli_queue_json(self) -> None:
@@ -152,6 +216,7 @@ class CliTests(unittest.TestCase):
 
         self.assertTrue(validate["valid"])
         self.assertEqual(state["attention"]["needs-human-decision"], 2)
+        self.assertEqual(state["attention"]["receipt-ready"], 1)
         self.assertTrue(scope["allowed"])
 
     def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
@@ -190,6 +255,28 @@ class CliTests(unittest.TestCase):
             )
             self.run_cli_in_workspace(
                 workspace,
+                "source",
+                "create",
+                "SOURCE-X",
+                "--label",
+                "Onboarding source note",
+                "--kind",
+                "note",
+                "--provider",
+                "local_note",
+                "--uri",
+                "docs/product/company-os.md",
+                "--access-mode",
+                "read",
+                "--owner-human",
+                "HUMAN-X",
+                "--set",
+                "selected=true",
+                "--list",
+                "allowed_palaris=PALARI-X",
+            )
+            self.run_cli_in_workspace(
+                workspace,
                 "work",
                 "create",
                 "WORK-X",
@@ -205,6 +292,12 @@ class CliTests(unittest.TestCase):
                 "standard",
                 "--list",
                 "allowed_resources=docs/product/company-os.md",
+                "--list",
+                "allowed_sources=SOURCE-X",
+                "--list",
+                "allowed_actions=local_write",
+                "--list",
+                "output_targets=docs/product/company-os.md",
                 "--list",
                 "forbidden_actions=deploy",
                 "--required-approval-capability",
@@ -223,6 +316,28 @@ class CliTests(unittest.TestCase):
                 "commits=head-x",
                 "--list",
                 "changed_files=docs/product/company-os.md",
+            )
+            self.run_cli_in_workspace(
+                workspace,
+                "receipt",
+                "record",
+                "RECEIPT-X",
+                "--work-item-id",
+                "WORK-X",
+                "--attempt-id",
+                "ATTEMPT-X",
+                "--actor",
+                "PALARI-X",
+                "--list",
+                "sources_used=SOURCE-X",
+                "--list",
+                "actions_taken=read selected source,updated local note",
+                "--list",
+                "outputs_created=docs/product/company-os.md",
+                "--list",
+                "not_done=No external writes",
+                "--list",
+                "undo_refs=revert docs/product/company-os.md",
             )
             self.run_cli_in_workspace(workspace, "work", "update", "WORK-X", "--set", "current_attempt=ATTEMPT-X")
             self.run_cli_in_workspace(
@@ -292,6 +407,8 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(payload["action"], "completed")
         self.assertEqual(final_detail["work_item"]["status"], "completed")
+        self.assertEqual(final_detail["sources"][0]["id"], "SOURCE-X")
+        self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-X")
         self.assertEqual(final_detail["outcome"]["id"], "OUTCOME-X")
 
     def test_cli_acceptance_fails_closed_for_wrong_human_capability(self) -> None:

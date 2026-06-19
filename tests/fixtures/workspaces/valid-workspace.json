@@ -12,7 +12,9 @@
     {
       "id": "HUMAN-PRODUCT",
       "name": "Product Human",
-      "approval_capabilities": ["product"]
+      "approval_capabilities": [
+        "product"
+      ]
     }
   ],
   "palaris": [
@@ -21,10 +23,15 @@
       "name": "Sofia",
       "role": "Workspace lead",
       "owner_human": "HUMAN-PRODUCT",
-      "linked_goals": ["GOAL-1"],
-      "active_work": ["WORK-1"]
+      "linked_goals": [
+        "GOAL-1"
+      ],
+      "active_work": [
+        "WORK-1"
+      ]
     }
   ],
+  "sources": [],
   "work_items": [
     {
       "id": "WORK-1",
@@ -45,7 +52,9 @@
       "work_item_id": "WORK-1",
       "actor": "PALARI-SOFIA",
       "status": "complete",
-      "commits": ["head-1"]
+      "commits": [
+        "head-1"
+      ]
     }
   ],
   "evidence_runs": [
@@ -67,6 +76,7 @@
     }
   ],
   "human_decisions": [],
+  "receipts": [],
   "decisions": [],
   "outcomes": []
 }
