@@ -52,15 +52,17 @@ def _html() -> str:
   <div class="titlebar">
     {_titlebar()}
   </div>
-  <div class="workbench-grid">
+  <div class="workbench-grid" id="workbench-grid">
     {_activity_bar()}
     <div class="primary-sidebar pane" data-mobile-pane="explorer">
       {_primary_sidebar()}
     </div>
+    <div class="splitter splitter-primary" id="splitter-primary" aria-label="Resize primary sidebar" role="separator"></div>
     <div class="editor-region">
       {_editor_area()}
       {_bottom_panel()}
     </div>
+    <div class="splitter splitter-secondary" id="splitter-secondary" aria-label="Resize secondary sidebar" role="separator"></div>
     <div class="secondary-sidebar pane" data-mobile-pane="chat">
       {_secondary_sidebar()}
     </div>
@@ -261,26 +263,42 @@ def _editor_area() -> str:
       <nav class="editor-tabs" role="tablist">
 {tab_html}
       </nav>
-      <div class="breadcrumbs">
-        <span>Company</span><span class="bc-sep">›</span>
-        <span>Public Policy</span><span class="bc-sep">›</span>
-        <span>Housing</span><span class="bc-sep">›</span>
-        <span class="bc-current">Rent Control</span>
-        <span class="bc-spacer"></span>
-        <button class="crumb-action" type="button" data-target="receipt">View receipt</button>
-      </div>
       <div class="editor-content">
         {_editor_home()}
         {_editor_document()}
+        {_editor_source()}
+        {_editor_receipt()}
+        {_editor_workitem()}
         {_editor_checkin_detail()}
       </div>
     </div>
 """
 
 
+def _breadcrumb(trail: list[tuple[str, str]], action_label: str | None = None,
+                action_target: str | None = None) -> str:
+    crumbs = "".join(
+        f'<span>{_e(label)}</span><span class="bc-sep">›</span>'
+        for label, _ in trail[:-1]
+    )
+    last = trail[-1] if trail else None
+    last_html = f'<span class="bc-current">{_e(last[0])}</span>' if last else ""
+    action = ""
+    if action_label:
+        action = (f'<span class="bc-spacer"></span>'
+                  f'<button class="crumb-action" type="button" data-target="{_e(action_target or "")}">'
+                  f'{_e(action_label)}</button>')
+    return f'<div class="breadcrumbs">{crumbs}{last_html}{action}</div>'
+
+
 def _editor_home() -> str:
-    return """
+    bc = _breadcrumb(
+        [("Company", "company"), ("Home", "home")],
+        action_label="Open Housing", action_target="explorer",
+    )
+    return f"""
         <section class="doc-surface home-surface" data-doc="home" hidden>
+          {bc}
           <div class="doc-meta">
             <span class="doc-state badge read">Home</span>
             <span class="doc-chip">Active workbench: Public Policy / Housing</span>
@@ -352,8 +370,13 @@ def _editor_home() -> str:
 
 
 def _editor_checkin_detail() -> str:
-    return """
+    bc = _breadcrumb(
+        [("Company", "company"), ("Public Policy", "pp"), ("Housing", "h"), ("Work check-in", "checkin")],
+        action_label="Open draft", action_target="draft",
+    )
+    return f"""
         <section class="doc-surface checkin-surface" data-doc="checkin" hidden>
+          {bc}
           <div class="doc-meta">
             <span class="doc-state badge blocked">Needs human decision</span>
             <span class="doc-chip">Owner Rafa</span>
@@ -380,8 +403,13 @@ def _editor_checkin_detail() -> str:
 
 
 def _editor_document() -> str:
-    return """
+    bc = _breadcrumb(
+        [("Company", "company"), ("Public Policy", "pp"), ("Housing", "h"), ("Rent Control", "rc")],
+        action_label="View receipt", action_target="receipt",
+    )
+    return f"""
         <section class="doc-surface draft-surface" data-doc="draft">
+          {bc}
           <div class="doc-meta">
           <span class="doc-state badge write">Draft</span>
           <span class="doc-chip">Owner Rafa</span>
@@ -429,10 +457,133 @@ def _editor_document() -> str:
 """
 
 
+def _editor_source() -> str:
+    bc = _breadcrumb(
+        [("Company", "company"), ("Public Policy", "pp"), ("Housing", "h"), ("Sources", "src")],
+        action_label="Open draft", action_target="draft",
+    )
+    sources = [
+        ("read", "Bill text", "HB 2148 zoning modernization", "readable",
+         "State legislature, introduced 2025. Authorizes by-right approval for qualifying infill housing developments that meet published objective standards."),
+        ("read", "Committee memo", "Housing committee staff analysis", "readable",
+         "Staff comparison of similar bills in peer cities, with projected permit-timeline reductions and a section on affordability reporting gaps."),
+        ("inherit", "Public Policy style rules", "Inherited standards", "inherited",
+         "Inherited writing and citation standards from the parent /Public Policy workbench. Explicitly allowed to inherit; not a source file."),
+        ("blocked", "Private mailbox", "Not selected for Maya", "blocked",
+         "Constituent and internal mail. Not selected as a readable source for Maya; no access granted in this workbench."),
+        ("blocked", "Legal privileged notes", "Sibling path; no access", "blocked",
+         "Belongs to the sibling /Legal workbench. Child and sibling Palaris cannot automatically read sibling or parent paths."),
+        ("write", "Work folder", "Write only after approval", "write after approval",
+         "Maya may save one approved draft file here. Write permission does not silently inherit; each write waits for human approval."),
+    ]
+    rows = "\n".join(
+        f'            <tr class="src-table-row perm-{tone}">'
+        f'<td><span class="perm-dot {tone}"></span> {_e(title)}</td>'
+        f'<td><span class="perm-badge badge {tone}">{_e(meta)}</span></td>'
+        f'<td>{_e(note)}</td></tr>'
+        for tone, title, _desc, meta, note in sources
+    )
+    return f"""
+        <section class="doc-surface source-surface" data-doc="source" hidden>
+          {bc}
+          <div class="doc-meta">
+            <span class="doc-state badge read">Source</span>
+            <span class="doc-chip">Workbench: Public Policy / Housing</span>
+            <span class="doc-chip">Palari: Maya</span>
+          </div>
+          <article class="document source-doc">
+            <h1>Sources &amp; permissions</h1>
+            <p>Maya's readable, inherited, blocked, and writable sources inside the Housing workbench. Permissions are scoped to this path and do not silently inherit to children.</p>
+            <table class="source-table">
+              <thead><tr><th>Source</th><th>Permission</th><th>Detail</th></tr></thead>
+              <tbody>
+{rows}
+              </tbody>
+            </table>
+            <div class="perm-legend perm-legend-inline">
+              <span><i class="perm-dot read"></i>readable</span>
+              <span><i class="perm-dot inherit"></i>inherited</span>
+              <span><i class="perm-dot blocked"></i>blocked</span>
+              <span><i class="perm-dot write"></i>write after approval</span>
+            </div>
+          </article>
+        </section>
+"""
+
+
+def _editor_receipt() -> str:
+    bc = _breadcrumb(
+        [("Company", "company"), ("Public Policy", "pp"), ("Housing", "h"), ("Receipt", "r")],
+        action_label="Open draft", action_target="draft",
+    )
+    return f"""
+        <section class="doc-surface receipt-surface" data-doc="receipt" hidden>
+          {bc}
+          <div class="doc-meta">
+            <span class="doc-state badge read">Receipt</span>
+            <span class="doc-chip">Palari: Maya</span>
+            <span class="doc-chip">Workbench: Public Policy / Housing</span>
+            <span class="doc-chip">Task: public comment draft</span>
+          </div>
+          <article class="document receipt-doc">
+            <h1>Receipt - public comment draft</h1>
+            <p>A complete account of what Maya used, created, did not do, wrote externally, and can undo for this task. No external writes occurred; the Work write is waiting for approval.</p>
+            <dl class="receipt-document-grid">
+              <div><dt>Used</dt><dd>Bill text (HB 2148); committee memo (Housing staff analysis); inherited Public Policy style rules.</dd></div>
+              <div><dt>Created</dt><dd>One local public comment draft artifact.</dd></div>
+              <div><dt>Did not do</dt><dd>No email, no filing, no source edits, no Legal access, no child Palari creation.</dd></div>
+              <div><dt>External writes</dt><dd>None. Work write is waiting for approval.</dd></div>
+              <div><dt>Undo</dt><dd>Discard the local draft before approving the Work write.</dd></div>
+            </dl>
+            <div class="doc-actions">
+              <button class="secondary-action" type="button" data-target="draft">Open draft</button>
+              <button class="secondary-action" type="button" data-target="checkin">Open in check-in</button>
+              <button class="secondary-action" type="button">Copy receipt</button>
+            </div>
+          </article>
+        </section>
+"""
+
+
+def _editor_workitem() -> str:
+    bc = _breadcrumb(
+        [("Company", "company"), ("Public Policy", "pp"), ("Housing", "h"), ("Work item", "wi")],
+        action_label="Open draft", action_target="draft",
+    )
+    return f"""
+        <section class="doc-surface workitem-surface" data-doc="workitem" hidden>
+          {bc}
+          <div class="doc-meta">
+            <span class="doc-state badge blocked">Needs human decision</span>
+            <span class="doc-chip">Owner Rafa</span>
+            <span class="doc-chip">Reviewer Diego</span>
+            <span class="doc-chip">Palari Maya</span>
+          </div>
+          <article class="document workitem-doc">
+            <h1>Work item: public comment draft</h1>
+            <dl class="kv">
+              <div><dt>Status</dt><dd><span class="badge blocked">Needs human decision</span></dd></div>
+              <div><dt>Next action</dt><dd>Rafa reviews, Diego comments, then approve one Work write.</dd></div>
+              <div><dt>Risk</dt><dd>R2 - local policy draft</dd></div>
+              <div><dt>Workbench</dt><dd>/Public Policy / Housing</dd></div>
+              <div><dt>Readable sources</dt><dd>Bill text, committee memo</dd></div>
+              <div><dt>Blocked sources</dt><dd>Private mailbox, Legal privileged notes</dd></div>
+              <div><dt>Write boundary</dt><dd>Work folder, only after approval</dd></div>
+            </dl>
+            <div class="doc-actions">
+              <button class="primary-action" type="button" data-target="checkin">Approve Work write</button>
+              <button class="secondary-action" type="button" data-target="receipt">Review receipt</button>
+              <button class="secondary-action" type="button" data-target="draft">Open draft</button>
+            </div>
+          </article>
+        </section>
+"""
+
+
 def _secondary_sidebar() -> str:
     return """
   <div class="sidebar-header">
-    <span class="sidebar-title">Maya - Context</span>
+    <span class="sidebar-title" id="sec-sidebar-title">Maya - Chat</span>
     <div class="sidebar-actions">
       <button class="icon-btn" type="button" aria-label="More">⋯</button>
     </div>
@@ -683,11 +834,28 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
 /* ---------- Workbench grid ---------- */
 .workbench-grid {
+  --primary-w: 270px;
+  --secondary-w: 320px;
   display: grid;
-  grid-template-columns: 48px minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: 48px var(--primary-w) 4px minmax(0, 1fr) 4px var(--secondary-w);
   height: calc(100vh - 35px - 22px);
   min-height: 0;
 }
+
+/* ---------- Splitters ---------- */
+.splitter {
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+  z-index: 5;
+  min-width: 4px;
+}
+.splitter::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 1px; width: 1px;
+  background: var(--line);
+}
+.splitter:hover::after, .splitter.is-dragging::after { background: var(--brand); width: 2px; left: 1px; }
+.splitter.is-dragging { background: rgba(0,122,204,0.08); }
 
 /* ---------- Activity bar ---------- */
 .activity-bar {
@@ -803,6 +971,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   border-left: 2px solid transparent;
 }
 .src-row:hover { background: rgba(0,0,0,0.04); }
+.src-row.perm-read { border-left-color: var(--perm-read); }
+.src-row.perm-inherit { border-left-color: var(--perm-inherit); }
+.src-row.perm-blocked { border-left-color: var(--perm-blocked); }
+.src-row.perm-write { border-left-color: var(--perm-write); }
 .perm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .perm-dot.read, .perm-read .perm-dot { background: var(--perm-read); }
 .perm-dot.inherit, .perm-inherit .perm-dot { background: var(--perm-inherit); }
@@ -942,6 +1114,31 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .document p { margin: 0 0 0.75rem; color: var(--ink-2); }
 .doc-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.4rem; }
 
+/* source / receipt / workitem document surfaces */
+.source-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0.5rem 0; }
+.source-table th {
+  text-align: left; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.03em; padding: 5px 8px;
+  border-bottom: 1px solid var(--line); background: var(--sidebar-bg);
+}
+.source-table td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.src-table-row { border-left: 2px solid transparent; }
+.src-table-row.perm-read { border-left-color: var(--perm-read); }
+.src-table-row.perm-inherit { border-left-color: var(--perm-inherit); }
+.src-table-row.perm-blocked { border-left-color: var(--perm-blocked); }
+.src-table-row.perm-write { border-left-color: var(--perm-write); }
+.src-table-row .perm-dot { display: inline-block; margin-right: 4px; vertical-align: middle; }
+.src-table-row td:last-child { color: var(--ink-2); font-size: 12px; }
+.perm-legend-inline { margin-top: 0.8rem; padding: 0; }
+
+.receipt-document-grid { display: grid; gap: 0.5rem; margin: 0.5rem 0 0; }
+.receipt-document-grid div { border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 2px; padding: 6px 9px; background: #fff; }
+.receipt-document-grid dt { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--brand); }
+.receipt-document-grid dd { margin: 3px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+.source-doc, .receipt-doc, .workitem-doc { max-width: 52rem; }
+.workitem-doc .kv { font-size: 13px; }
+
 .primary-action {
   border: 0; background: var(--brand); color: #fff;
   padding: 5px 12px; border-radius: 2px; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -1077,6 +1274,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   }
   .activity-bar { display: none; }
   .status-bar { display: none; }
+  .splitter { display: none; }
 
   .primary-sidebar,
   .secondary-sidebar,
@@ -1176,10 +1374,11 @@ def _script() -> str:
         p.hidden = !active;
       });
       secTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.sec === name));
+      updateSecTitle(name);
     }
 
     // within the editor-area, show the matching document
-    const docMap = { home: "home", draft: "draft", checkin: "checkin" };
+    const docMap = { home: "home", draft: "draft", source: "source", receipt: "receipt", workitem: "workitem", checkin: "checkin" };
     if (docMap[name]) showDoc(docMap[name]);
 
     mobileTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.target === name));
@@ -1194,32 +1393,25 @@ def _script() -> str:
     });
   }
 
+  const SEC_LABELS = { chat: "Chat", task: "Task", receipt: "Receipt", changes: "Changes", authority: "Authority" };
+  function updateSecTitle(sec) {
+    const el = document.getElementById("sec-sidebar-title");
+    if (el && SEC_LABELS[sec]) el.textContent = "Maya - " + SEC_LABELS[sec];
+  }
+
   function showDesktopActivity(target) {
-    // "search" focuses the primary sidebar sources view; treat like explorer
-    const effective = target === "search" ? "explorer" : target;
     activityBtns.forEach((b) => {
       b.classList.toggle("is-active", b.dataset.target === target);
     });
-    // map activity targets to editor documents
-    const docMap = { home: "home", draft: "draft", source: "draft", receipt: "draft", workitem: "draft", checkin: "checkin" };
-    if (docMap[effective]) showDoc(docMap[effective]);
   }
 
   function activate(target) {
     if (DESKTOP.matches) {
       showDesktopActivity(target);
-      // secondary panel switching for chat/task/receipt tabs
-      if (target === "chat" || target === "task" || target === "receipt") {
-        secTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.sec === target));
-        secPanels.forEach((p) => {
-          const active = p.dataset.secPanel === target;
-          p.classList.toggle("is-active", active);
-          p.hidden = !active;
-        });
-      }
+      // editor document routing for editor tabs and activity targets
       if (target === "draft" || target === "source" || target === "receipt" || target === "home" || target === "workitem") {
         editorTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.target === target));
-        showDoc(target === "source" || target === "workitem" ? "draft" : target);
+        showDoc(target);
       }
       if (target === "checkin") {
         editorTabs.forEach((t) => t.classList.remove("is-active"));
@@ -1251,6 +1443,7 @@ def _script() -> str:
         p.hidden = !active;
       });
       history.replaceState(null, "", "#" + sec);
+      updateSecTitle(sec);
     });
   });
 
@@ -1300,9 +1493,9 @@ def _script() -> str:
   const initial = (location.hash.replace("#", "")) || "explorer";
   if (DESKTOP.matches) {
     // pick a sensible default doc based on initial target
-    const docMap = { home: "home", draft: "draft", source: "draft", receipt: "draft", workitem: "draft", checkin: "checkin" };
+    const docMap = { home: "home", draft: "draft", source: "source", receipt: "receipt", workitem: "workitem", checkin: "checkin" };
     showDoc(docMap[initial] || "draft");
-    if (initial === "home" || initial === "checkin" || initial === "draft" || initial === "source" || initial === "receipt") {
+    if (initial === "home" || initial === "checkin" || initial === "draft" || initial === "source" || initial === "receipt" || initial === "workitem") {
       activate(initial);
     } else {
       showDesktopActivity("explorer");
@@ -1310,5 +1503,38 @@ def _script() -> str:
   } else {
     showMobilePane(mobilePaneTargets.has(initial) ? initial : "explorer");
   }
+
+  // ---------- Draggable splitters ----------
+  function initSplitter(handle, side) {
+    const grid = document.getElementById("workbench-grid");
+    if (!grid) return;
+    handle.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      handle.classList.add("is-dragging");
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      const startX = ev.clientX;
+      const startW = parseFloat(
+        getComputedStyle(grid).getPropertyValue(side === "primary" ? "--primary-w" : "--secondary-w")
+      );
+      function onMove(e) {
+        const delta = e.clientX - startX;
+        let w = side === "primary" ? startW + delta : startW - delta;
+        w = Math.max(180, Math.min(w, window.innerWidth * 0.5));
+        grid.style.setProperty(side === "primary" ? "--primary-w" : "--secondary-w", w + "px");
+      }
+      function onUp() {
+        handle.classList.remove("is-dragging");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      }
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  }
+  initSplitter(document.getElementById("splitter-primary"), "primary");
+  initSplitter(document.getElementById("splitter-secondary"), "secondary");
 })();
 """
