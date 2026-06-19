@@ -1162,19 +1162,25 @@ input:focus-visible,
 .tree > li > .tree-row.depth-0 { font-weight: 600; }
 
 .workspace-tree {
-  padding: 2px 6px 0 8px;
+  padding: 2px 4px 0 6px;
 }
 .workspace-tree ol {
-  margin-left: 10px; padding-left: 10px;
+  margin-left: 4px; padding-left: 6px;
   border-left: 1px solid rgba(0,0,0,0.1);
 }
 .workspace-tree .tree-row {
-  height: 24px; padding-left: 0; padding-right: 4px;
+  gap: 0.18rem; height: 24px; padding-left: 0; padding-right: 4px;
 }
 .workspace-tree .tree-row.is-selected {
   background: #dbeafe;
   box-shadow: inset 2px 0 0 var(--brand);
 }
+.workspace-tree .chevron { width: 9px; }
+.workspace-tree .tree-icon { width: 12px; }
+.workspace-tree .tree-meta {
+  max-width: 7rem; overflow: hidden; text-overflow: ellipsis;
+}
+.workspace-tree .badge { padding: 0 4px; }
 .folder-row .tree-icon { color: #737373; }
 .file-row .chevron { visibility: hidden; }
 .file-row .file-icon { color: #6c6c6c; font-size: 12px; }
