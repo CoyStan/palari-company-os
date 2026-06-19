@@ -451,7 +451,7 @@ def _history_event(event: dict[str, Any]) -> str:
     <p class="timeline-meta"><span class="mono">{_e(str(event.get('timestamp', 'unknown time')))}</span> · {_e(str(event.get('actor', 'unknown actor')))}</p>
     <h3 class="timeline-title">{_e(str(event.get('action', 'event')))} {_e(str(event.get('object_type', 'object')))}/{_e(str(event.get('object_id', 'unknown')))}</h3>
     <p class="timeline-cmd"><code>{_e(str(event.get('command', '')))}</code></p>
-    <p class="subtle">Changed: {_e(changed_text)}</p>
+    <p class="timeline-changed">Changed: {_e(changed_text)}</p>
   </div>
 </article>
 """
@@ -1169,6 +1169,13 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 .timeline-title { font-size: 0.84rem; font-weight: 600; }
 .timeline-cmd { margin: 0.15rem 0 0.1rem; }
 .timeline-cmd code { font-size: 0.76rem; }
+.timeline-changed {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 
 /* ---------- Authority ---------- */
 .authority-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
