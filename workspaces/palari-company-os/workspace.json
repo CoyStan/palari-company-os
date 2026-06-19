@@ -1,0 +1,496 @@
+{
+  "schema_version": 1,
+  "name": "Palari Company OS Dogfood Workspace",
+  "goals": [
+    {
+      "success_criteria": [
+        "Fresh clone install works",
+        "CI proves install import CLI and tests",
+        "Docs are honest about v0 maturity",
+        "Repo uses its own workspace model for real work"
+      ],
+      "id": "GOAL-REPO-0001",
+      "title": "Make Palari Company OS a professional Python CLI foundation",
+      "owner": "HUMAN-FOUNDER",
+      "status": "active",
+      "priority": "high",
+      "linked_palaris": [
+        "PALARI-STEWARD",
+        "PALARI-ARCHITECT"
+      ],
+      "linked_work": [
+        "WORK-REPO-0001",
+        "WORK-REPO-0002",
+        "WORK-REPO-0003"
+      ],
+      "linked_decisions": []
+    },
+    {
+      "success_criteria": [
+        "Work can move from scope to evidence to review to human decision",
+        "Authority remains explicit and fail-closed",
+        "Future broker or policy work stays clearly out of scope until designed"
+      ],
+      "id": "GOAL-REPO-0002",
+      "title": "Grow the product model without bringing back old ticket ceremony",
+      "owner": "HUMAN-FOUNDER",
+      "status": "active",
+      "priority": "high",
+      "linked_palaris": [
+        "PALARI-STEWARD",
+        "PALARI-ARCHITECT"
+      ],
+      "linked_work": [
+        "WORK-REPO-0004",
+        "WORK-REPO-0005"
+      ],
+      "linked_decisions": [
+        "DECISION-REPO-0001"
+      ]
+    }
+  ],
+  "humans": [
+    {
+      "aliases": [
+        "Rafa"
+      ],
+      "approval_capabilities": [
+        "product",
+        "merge",
+        "release",
+        "architecture"
+      ],
+      "skills": [
+        "product judgment",
+        "repo direction",
+        "beta priorities"
+      ],
+      "ownership_areas": [
+        "company direction",
+        "product authority",
+        "release approval"
+      ],
+      "id": "HUMAN-FOUNDER",
+      "name": "Rafa Founder",
+      "role": "Founder and product authority",
+      "authority_level": "admin",
+      "availability": "active",
+      "capacity_signal": "Sets direction and accepts repo milestones"
+    },
+    {
+      "aliases": [
+        "Codex"
+      ],
+      "approval_capabilities": [
+        "implementation",
+        "technical-review"
+      ],
+      "skills": [
+        "Python CLI",
+        "tests",
+        "documentation",
+        "repo hygiene"
+      ],
+      "ownership_areas": [
+        "implementation quality",
+        "verification",
+        "maintainer ergonomics"
+      ],
+      "id": "HUMAN-MAINTAINER",
+      "name": "Codex Maintainer",
+      "role": "Software maintainer",
+      "authority_level": "standard",
+      "availability": "active",
+      "capacity_signal": "Can implement and review repo-local changes; cannot self-accept founder authority"
+    }
+  ],
+  "palaris": [
+    {
+      "allowed_inputs": [
+        "repo files",
+        "verification output",
+        "founder direction"
+      ],
+      "forbidden_inputs": [
+        "secrets",
+        "old Palari Orchestrator runtime state",
+        "unreviewed external side effects"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "activate real policy authority",
+        "perform broker side effects"
+      ],
+      "standards": [
+        "ordinary software engineering",
+        "small scoped changes",
+        "fresh verification before merge",
+        "honest maturity language"
+      ],
+      "memory_sources": [
+        "README.md",
+        "docs/product",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os"
+      ],
+      "linked_goals": [
+        "GOAL-REPO-0001",
+        "GOAL-REPO-0002"
+      ],
+      "id": "PALARI-STEWARD",
+      "name": "Steward",
+      "role": "Repository steward",
+      "scope": "Keeps Palari Company OS maintainable, verifiable, and honest about maturity.",
+      "owner_human": "HUMAN-FOUNDER",
+      "default_worker": "gpt-5-codex",
+      "active_work": [
+        "WORK-REPO-0002",
+        "WORK-REPO-0003"
+      ],
+      "outcomes": [
+        "OUTCOME-REPO-0001"
+      ]
+    },
+    {
+      "allowed_inputs": [
+        "product docs",
+        "dogfood outcomes",
+        "maintainer friction",
+        "repo roadmap"
+      ],
+      "forbidden_inputs": [
+        "private credentials",
+        "production runtime data"
+      ],
+      "forbidden_actions": [
+        "change authority policy without human decision",
+        "import old ticket ceremony wholesale"
+      ],
+      "standards": [
+        "preserve human authority",
+        "preserve goals-decisions-outcomes loop",
+        "prefer adaptive intensity over fixed ceremony"
+      ],
+      "memory_sources": [
+        "docs/product/company-os.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/roadmap.md"
+      ],
+      "linked_goals": [
+        "GOAL-REPO-0002"
+      ],
+      "id": "PALARI-ARCHITECT",
+      "name": "Architect",
+      "role": "Product architecture partner",
+      "scope": "Turns operating lessons into product model changes without adding ceremony for its own sake.",
+      "owner_human": "HUMAN-FOUNDER",
+      "default_worker": "gpt-5-codex",
+      "active_work": [
+        "WORK-REPO-0004",
+        "WORK-REPO-0005"
+      ],
+      "outcomes": []
+    }
+  ],
+  "work_items": [
+    {
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "scripts",
+        "README.md",
+        "docs/product",
+        "pyproject.toml",
+        ".github/workflows",
+        "CHANGELOG.md",
+        "LICENSE"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "change workspace semantics",
+        "activate broker execution",
+        "activate policy acceptance"
+      ],
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "GitHub CI on Python 3.10 and 3.12"
+      ],
+      "id": "WORK-REPO-0001",
+      "title": "Complete strict validation history and repo hygiene foundation",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Represent the recent strict validation fixtures, append-only workspace history, professional metadata, CI, install smoke, and maturity documentation as one completed repo foundation milestone.",
+      "acceptance_target": "Main contains the validation/history/hygiene commits, verification passes, GitHub CI passes, and the result is captured as dogfood history.",
+      "required_approval_capability": "product",
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-REPO-0001"
+    },
+    {
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "docs/product",
+        "README.md"
+      ],
+      "forbidden_actions": [
+        "change existing workspace semantics",
+        "add external services"
+      ],
+      "verification_expectations": [
+        "unit tests for init behavior",
+        "./scripts/verify.sh",
+        "install smoke"
+      ],
+      "id": "WORK-REPO-0002",
+      "title": "Add workspace init and seed ergonomics",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "proposed",
+      "scope": "Create a small command or documented path for initializing a blank workspace without hand-writing the shell JSON.",
+      "acceptance_target": "A new maintainer can create a valid empty workspace with one command and then add records through the CLI.",
+      "required_approval_capability": "product",
+      "required_approval_count": 1
+    },
+    {
+      "allowed_resources": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/workspace.py",
+        "schemas",
+        "tests",
+        "docs/product"
+      ],
+      "forbidden_actions": [
+        "silent migration",
+        "breaking ACME workspace",
+        "requiring non-stdlib dependencies"
+      ],
+      "verification_expectations": [
+        "migration/load tests",
+        "strict validation fixtures",
+        "./scripts/verify.sh"
+      ],
+      "id": "WORK-REPO-0003",
+      "title": "Split larger workspaces into maintainable source files",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R3",
+      "intensity": "high",
+      "status": "proposed",
+      "scope": "Design and implement a simple multi-file workspace layout while preserving workspace.json compatibility and validation clarity.",
+      "acceptance_target": "The dogfood workspace can grow without one giant JSON file and existing single-file workspaces still load.",
+      "required_approval_capability": "architecture",
+      "required_approval_count": 1
+    },
+    {
+      "allowed_resources": [
+        "docs/product/company-os.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/roadmap.md",
+        "src/palari_company_os/read_models.py"
+      ],
+      "forbidden_actions": [
+        "remove human authority checks",
+        "make autonomous acceptance possible"
+      ],
+      "verification_expectations": [
+        "docs review",
+        "queue recommendation tests if model fields change",
+        "./scripts/verify.sh"
+      ],
+      "id": "WORK-REPO-0004",
+      "title": "Design adaptive intensity for task sizing",
+      "goal": "GOAL-REPO-0002",
+      "palari": "PALARI-ARCHITECT",
+      "risk": "R3",
+      "intensity": "high",
+      "status": "proposed",
+      "scope": "Turn the product idea of model-relative task sizing into concrete workspace fields and queue guidance without forcing subticket ceremony.",
+      "acceptance_target": "Docs and model guidance explain when a stronger model can safely handle larger scoped work and when decomposition is required.",
+      "required_approval_capability": "architecture",
+      "required_approval_count": 1
+    },
+    {
+      "allowed_resources": [
+        "docs/product/authority-and-gates.md",
+        "docs/product/security.md",
+        "docs/product/roadmap.md"
+      ],
+      "forbidden_actions": [
+        "enable broker execution",
+        "enable real policy acceptance",
+        "touch secrets"
+      ],
+      "verification_expectations": [
+        "human decision recorded",
+        "no code side effects"
+      ],
+      "id": "WORK-REPO-0005",
+      "title": "Define future broker and policy boundary roadmap",
+      "goal": "GOAL-REPO-0002",
+      "palari": "PALARI-ARCHITECT",
+      "risk": "R5",
+      "intensity": "high",
+      "status": "needs-human",
+      "scope": "Decide the minimum safety design before any real broker execution or policy acceptance can exist.",
+      "acceptance_target": "Founder-approved design constraints exist before implementation starts.",
+      "required_approval_capability": "architecture",
+      "required_approval_count": 1
+    }
+  ],
+  "attempts": [
+    {
+      "commits": [
+        "2bc806e",
+        "e00b865",
+        "28903e2",
+        "3ca6af0",
+        "4bcb912"
+      ],
+      "changed_files": [
+        "tests/fixtures/workspaces",
+        "tests/test_validation.py",
+        "src/palari_company_os/history.py",
+        "tests/test_history.py",
+        "pyproject.toml",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        ".github/workflows/ci.yml",
+        "scripts/install_smoke.sh",
+        "docs/product"
+      ],
+      "id": "ATTEMPT-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-19T03:00:00Z",
+      "cleanliness": "clean",
+      "result": "Strict validation fixtures, append-only history, repository hygiene, install smoke, and CI were implemented and pushed to origin/main."
+    }
+  ],
+  "evidence_runs": [
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "gh run watch 27803776242 --repo CoyStan/palari-company-os --exit-status"
+      ],
+      "artifacts": [
+        "GitHub Actions run 27803776242",
+        "local verifier output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "attempt_id": "ATTEMPT-REPO-0001",
+      "head_sha": "4bcb912",
+      "status": "passed",
+      "summary": "Local verification and GitHub CI passed for the repo foundation milestone.",
+      "timestamp": "2026-06-19T03:37:00Z"
+    }
+  ],
+  "review_verdicts": [
+    {
+      "checks_inspected": [
+        "workspace validation",
+        "unit tests",
+        "install smoke",
+        "GitHub CI",
+        "docs maturity language",
+        "forbidden behavior boundaries"
+      ],
+      "residual_risks": [
+        "The workspace is still a single JSON file",
+        "Dogfood records are manually curated by CLI commands",
+        "No concurrent merge model exists yet"
+      ],
+      "id": "REVIEW-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "reviewed_head": "4bcb912",
+      "reviewer": "HUMAN-MAINTAINER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-06-19T03:38:00Z"
+    }
+  ],
+  "human_decisions": [
+    {
+      "id": "HUMAN-DECISION-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "4bcb912",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-REPO-0001",
+      "review_reference": "REVIEW-REPO-0001",
+      "timestamp": "2026-06-19T03:39:00Z"
+    }
+  ],
+  "decisions": [
+    {
+      "options": [
+        "keep disabled",
+        "design signed gate first",
+        "prototype local mock only"
+      ],
+      "tradeoffs": [
+        "Fast demos are tempting but risky",
+        "Mock-only work preserves learning without side effects",
+        "Real authority requires custody and audit"
+      ],
+      "id": "DECISION-REPO-0001",
+      "question": "What is the minimum safety design before Palari Company OS can execute broker actions or real policy authority?",
+      "status": "open",
+      "context": "The v0.1 foundation intentionally keeps broker execution and policy acceptance disabled.",
+      "recommendation": "Keep broker and policy work documentation-only until signed gates, custody, audit, and human quorum are designed.",
+      "safe_default": "Do not implement external side effects.",
+      "required_human": "HUMAN-FOUNDER",
+      "required_role": "Founder",
+      "due_date": "TBD",
+      "linked_goal": "GOAL-REPO-0002",
+      "linked_work": "WORK-REPO-0005",
+      "linked_palari": "PALARI-ARCHITECT"
+    }
+  ],
+  "outcomes": [
+    {
+      "useful": [
+        "The CLI could author most records directly",
+        "The queue model cleanly identifies evidence review decision and integration states",
+        "Install smoke exposed a real Python 3.10 compatibility bug before closeout"
+      ],
+      "failed": [
+        "There is no init workspace command",
+        "Long list fields through CLI flags are awkward",
+        "Review findings cannot yet be structured through first-class CLI flags"
+      ],
+      "follow_up_needed": [
+        "Add a workspace init command later",
+        "Consider import/export or seed helpers for larger workspaces",
+        "Keep dogfood workspace updated as repo maturity work continues"
+      ],
+      "model_worker_notes": [
+        "Dogfooding was feasible with ordinary CLI commands after seeding the empty workspace shell"
+      ],
+      "id": "OUTCOME-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "summary": "The repo reached a cleaner v0.1 foundation with verification, install smoke, CI, and honest maturity docs.",
+      "status": "captured",
+      "what_happened": "The recent validation, history, and hygiene work was merged to main and then represented inside the dogfood workspace.",
+      "what_changed": "Palari Company OS now has a real internal workspace that can track its own next repo maturity work.",
+      "timestamp": "2026-06-19T03:40:00Z"
+    }
+  ]
+}

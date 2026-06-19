@@ -11,6 +11,7 @@ Implemented in the v0.1 local foundation:
   and quorum
 - append-only workspace history for successful mutating commands
 - CI and install-smoke verification
+- repo-local dogfood workspace for real Palari Company OS maturity work
 
 Intentionally omitted from v0.1:
 

@@ -61,6 +61,13 @@ The default workspace is `examples/acme-company-os`. Use another workspace with:
 ./bin/palari --workspace /path/to/workspace queue
 ```
 
+The repo also dogfoods itself with a real Palari Company OS workspace:
+
+```bash
+./bin/palari --workspace workspaces/palari-company-os queue
+./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
+```
+
 If you run the installed `palari` command from outside this repo, pass a
 workspace path explicitly:
 

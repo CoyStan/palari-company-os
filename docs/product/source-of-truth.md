@@ -11,9 +11,11 @@ The first implementation uses a workspace JSON file:
 workspace.json
 ```
 
-That file is the source of truth for the example workspace. The queue and
-detail views are read models derived from it. `state`, `validate`, and `scope`
-are also derived views/checks; they do not mutate authority state.
+That file is the source of truth for each local workspace. The ACME demo lives
+at `examples/acme-company-os/workspace.json`; the repository dogfood workspace
+lives at `workspaces/palari-company-os/workspace.json`. The queue and detail
+views are read models derived from workspace data. `state`, `validate`, and
+`scope` are also derived views/checks; they do not mutate authority state.
 
 Mutating commands also append audit events to:
 

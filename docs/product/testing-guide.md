@@ -14,6 +14,8 @@ It runs:
 - JSON validity checks for example workspaces and schemas
 - CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`,
   `history`, and `maintainer status`
+- validation and queue/detail/history smoke checks for the repo dogfood
+  workspace at `workspaces/palari-company-os`
 
 The package install smoke command is:
 
@@ -32,7 +34,10 @@ python3 -m pip install -e .
 python3 -m unittest discover -s tests
 python3 -m compileall -q src
 python3 -m json.tool examples/acme-company-os/workspace.json
+python3 -m json.tool workspaces/palari-company-os/workspace.json
 python3 -m json.tool schemas/workspace.schema.json
+./bin/palari --workspace workspaces/palari-company-os validate
+./bin/palari --workspace workspaces/palari-company-os queue
 ```
 
 The test suite covers:
@@ -57,3 +62,4 @@ The test suite covers:
 - lifecycle commands
 - migration from legacy unversioned workspaces
 - external maintainer status
+- dogfood workspace validation and read-model smoke checks
