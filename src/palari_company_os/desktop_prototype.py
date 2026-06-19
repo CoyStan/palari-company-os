@@ -1467,6 +1467,708 @@ dd {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Dashboard visual language pass ---------- */
+:root {
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --panel-soft: #f6f8fa;
+  --ink: #1f2328;
+  --ink-2: #24292f;
+  --muted: #57606a;
+  --muted-2: #6e7781;
+  --line: #d0d7de;
+  --line-strong: #8c959f;
+  --brand: #116329;
+  --brand-2: #2da44e;
+  --navy: #24292f;
+  --warn: #9a6700;
+  --danger: #cf222e;
+  --blue: #0969da;
+  --ok-bg: #dafbe1;
+  --warn-bg: #fff8c5;
+  --danger-bg: #fff8f8;
+  --blue-bg: #ddf4ff;
+  --shadow: none;
+  font-size: 13px;
+}
+
+body {
+  background:
+    linear-gradient(90deg, rgba(208,215,222,.65) 0, rgba(208,215,222,.65) 1px, transparent 1px, transparent 100%)
+    0 0 / 48px 100% no-repeat,
+    var(--bg);
+}
+
+.prototype-shell {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.rail {
+  background: var(--panel-soft);
+  color: var(--ink);
+  gap: 0.25rem;
+  padding: 0.45rem 0;
+  border-right: 1px solid var(--line);
+}
+
+.rail-logo {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.rail-stack {
+  gap: 0;
+}
+
+.rail-button {
+  width: 100%;
+  height: 30px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.rail-button span {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel);
+}
+
+.rail-button:hover {
+  background: var(--panel);
+}
+
+.rail-button.is-active {
+  background: var(--panel);
+  border-left-color: var(--brand);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.rail-button.is-active span {
+  border-color: var(--brand-2);
+  background: var(--ok-bg);
+  color: var(--brand);
+}
+
+.view,
+.explorer,
+.artifact,
+.sidecar {
+  min-height: 100vh;
+}
+
+.home-shell,
+.checkin-shell {
+  padding: 0.65rem 0.85rem 1rem;
+}
+
+.workspace-view.is-active {
+  grid-template-columns: minmax(270px, 300px) minmax(390px, 1fr) minmax(300px, 340px);
+}
+
+.home-hero,
+.checkin-top,
+.workbench-tree,
+.home-panel,
+.explorer-card,
+.document-card,
+.task-card,
+.receipt-card,
+.authority-card,
+.changes-card,
+.checkin-list,
+.checkin-detail,
+.checkin-context {
+  border-radius: 3px;
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.home-hero,
+.checkin-top {
+  padding: 0.72rem 0.85rem;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(180deg, #fff, var(--panel-soft));
+}
+
+.home-hero p,
+.checkin-top p,
+.pane-header p,
+.artifact-top p,
+.sidecar-head p,
+.checkin-detail p:first-child,
+.section-title span {
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--brand);
+  letter-spacing: 0.08em;
+}
+
+.home-hero h1,
+.checkin-top h1 {
+  max-width: none;
+  font-size: 1.12rem;
+  font-weight: 650;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+}
+
+.home-hero span,
+.checkin-top span,
+.pane-header span,
+.artifact-top span,
+.sidecar-head span {
+  font-size: 0.82rem;
+}
+
+.home-grid {
+  grid-template-columns: minmax(260px, 1.05fr) minmax(290px, 1fr) minmax(250px, 0.8fr);
+  gap: 0.7rem;
+}
+
+.workbench-tree,
+.home-panel,
+.checkin-list,
+.checkin-detail,
+.checkin-context,
+.explorer-card,
+.task-card,
+.receipt-card,
+.authority-card,
+.changes-card {
+  padding: 0.62rem 0.7rem;
+}
+
+.section-title {
+  margin-bottom: 0.45rem;
+}
+
+.section-title button,
+.primary-action,
+.mobile-back,
+.check-actions button {
+  min-height: 26px;
+  padding: 0 0.55rem;
+  border-radius: 2px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.primary-action {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.tree,
+.tree ol {
+  padding-left: 0.72rem;
+}
+
+.tree-node,
+.attention-row,
+.lead-row,
+.source-row,
+.work-row,
+.check-row,
+.receipt-grid div,
+.message {
+  border-radius: 3px;
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.tree-node {
+  margin: 0.25rem 0;
+  padding: 0.42rem 0.52rem;
+  border-left: 3px solid transparent;
+}
+
+.tree-node strong,
+.attention-row strong,
+.lead-row strong,
+.source-copy strong,
+.work-row span,
+.check-row strong {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.tree-node small,
+.attention-row span,
+.attention-row small,
+.lead-row small,
+.source-copy small,
+.source-badge,
+.work-row small,
+.check-row small,
+.check-row em {
+  font-size: 0.74rem;
+}
+
+.tree-node.parent {
+  background: var(--panel);
+  border-left-color: var(--blue);
+}
+
+.tree-node.active {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--brand);
+  box-shadow: none;
+}
+
+.tree-node.child {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--warn);
+}
+
+.tree-node.blocked {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--danger);
+}
+
+.attention-row {
+  gap: 0.12rem;
+  padding: 0.48rem 0.58rem;
+  margin-bottom: 0.38rem;
+  border-left: 3px solid var(--line);
+}
+
+.attention-row.hot {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--danger);
+}
+
+.attention-row.warn {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--warn);
+}
+
+.attention-row.calm {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--brand);
+}
+
+.lead-row {
+  gap: 0.5rem;
+  padding: 0.42rem 0.5rem;
+  margin-bottom: 0.34rem;
+}
+
+.lead-row > span {
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--ink);
+  font-size: 0.76rem;
+}
+
+.lead-row.active > span {
+  background: var(--brand);
+}
+
+.rule-panel ul,
+.authority-card ul,
+.permissions ul {
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.explorer {
+  background: var(--panel-soft);
+  padding: 0.65rem;
+}
+
+.pane-header {
+  padding: 0.1rem 0.1rem 0.62rem;
+}
+
+.pane-header h1,
+.artifact-top h2,
+.sidecar-head h2 {
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.explorer-card {
+  margin-bottom: 0.55rem;
+}
+
+dl div {
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  gap: 0.35rem;
+}
+
+dt {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+dd {
+  font-size: 0.78rem;
+  font-weight: 550;
+}
+
+.source-row,
+.work-row {
+  min-height: 38px;
+  gap: 0.45rem;
+  padding: 0.38rem 0.48rem;
+  border-color: var(--line);
+  border-left: 3px solid var(--line);
+  margin-top: 0.26rem;
+}
+
+.source-row.read,
+.source-row.inherit,
+.source-row.blocked,
+.source-row.write,
+.source-row.child,
+.work-row.active,
+.work-row.blocked,
+.work-row.waiting {
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.source-row.read,
+.work-row.active {
+  border-left-color: var(--brand);
+}
+
+.source-row.inherit {
+  border-left-color: var(--blue);
+}
+
+.source-row.blocked,
+.work-row.blocked {
+  border-left-color: var(--danger);
+}
+
+.source-row.write,
+.source-row.child,
+.work-row.waiting {
+  border-left-color: var(--warn);
+}
+
+.source-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.source-badge,
+.decision-strip span,
+.doc-toolbar span,
+.check-status {
+  border-radius: 2px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.artifact {
+  padding: 0.65rem 0.85rem;
+}
+
+.artifact-top {
+  margin-bottom: 0.62rem;
+}
+
+.document-card {
+  background: var(--panel);
+}
+
+.doc-toolbar {
+  gap: 0.35rem;
+  padding: 0.52rem 0.65rem;
+  font-size: 0.74rem;
+}
+
+.doc-toolbar .doc-state {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.document {
+  max-width: 44rem;
+  padding: 1rem 1.2rem;
+  line-height: 1.56;
+}
+
+.document h3 {
+  font-size: 1.34rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.document h4 {
+  margin-top: 1rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.document p {
+  font-size: 0.9rem;
+}
+
+.sidecar {
+  background: var(--panel-soft);
+  padding: 0.65rem;
+  gap: 0.55rem;
+}
+
+.sidecar-head {
+  gap: 0.45rem;
+}
+
+.chat-thread {
+  gap: 0.38rem;
+}
+
+.message {
+  padding: 0.48rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.message.user {
+  margin-left: 1rem;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.message.palari {
+  margin-right: 0.4rem;
+}
+
+.subtle-message {
+  background: var(--panel);
+  border-left: 3px solid var(--warn);
+}
+
+.task-card h3,
+.checkin-detail h2 {
+  font-size: 0.9rem;
+}
+
+.receipt-grid {
+  gap: 0.32rem;
+}
+
+.receipt-grid div {
+  padding: 0.4rem 0.5rem;
+}
+
+.receipt-grid strong {
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.receipt-grid span,
+.changes-card li,
+.authority-card li {
+  font-size: 0.76rem;
+}
+
+.checkin-shell {
+  padding: 0.65rem 0.85rem 1rem;
+}
+
+.checkin-layout {
+  grid-template-columns: minmax(270px, 330px) minmax(390px, 1fr) minmax(260px, 320px);
+  gap: 0.7rem;
+}
+
+.check-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.18rem 0.5rem;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.35rem;
+  border-left: 3px solid var(--line);
+}
+
+.check-row.human,
+.check-row.blocked {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--danger);
+}
+
+.check-row.waiting {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--warn);
+}
+
+.check-row.receipt,
+.check-row.active {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--brand);
+}
+
+.check-row.review {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--blue);
+}
+
+.check-status {
+  min-width: 4.8rem;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.68rem;
+}
+
+.decision-strip {
+  margin: 0.45rem 0 0.75rem;
+}
+
+.checkin-detail h3 {
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.checkin-detail p,
+.checkin-context p {
+  font-size: 0.84rem;
+}
+
+.check-actions {
+  gap: 0.4rem;
+}
+
+@media (max-width: 980px) {
+  body {
+    background: var(--bg);
+  }
+
+  .prototype-shell {
+    padding-bottom: 6.25rem;
+  }
+
+  .home-shell,
+  .checkin-shell,
+  .explorer,
+  .artifact,
+  .sidecar {
+    padding: 0.55rem 0.65rem 6.75rem;
+  }
+
+  .home-hero h1,
+  .checkin-top h1 {
+    font-size: 1.08rem;
+  }
+
+  .mobile-nav {
+    left: 0.35rem;
+    right: 0.35rem;
+    bottom: 0.35rem;
+    gap: 0;
+    padding: 0.25rem;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 -6px 20px rgba(15,29,45,.08);
+  }
+
+  .mobile-tab {
+    min-height: 2.25rem;
+    border-radius: 2px;
+    font-size: 0.68rem;
+  }
+
+  .mobile-tab.is-active {
+    background: var(--ink);
+  }
+}
+
+@media (max-width: 420px) {
+  .home-hero h1,
+  .checkin-top h1 {
+    font-size: 1.04rem;
+  }
+}
+
+/* Screenshot refinement: use the dashboard's denser desktop rhythm without
+   changing the prototype information architecture. */
+@media (min-width: 1160px) {
+  .home-grid {
+    grid-template-columns:
+      minmax(290px, 0.95fr)
+      minmax(320px, 0.9fr)
+      minmax(280px, 0.75fr)
+      minmax(250px, 0.65fr);
+    align-items: start;
+  }
+
+  .priority-panel {
+    grid-row: auto;
+  }
+}
+
+.home-shell,
+.checkin-shell {
+  max-width: none;
+}
+
+.attention-row strong,
+.lead-row strong,
+.source-copy strong,
+.work-row span,
+.check-row strong,
+.task-card h3 {
+  font-weight: 600;
+}
+
+.attention-row small,
+.lead-row small,
+.source-copy small,
+.work-row small,
+.check-row small,
+.check-row em,
+.receipt-grid span,
+.changes-card li,
+.authority-card li {
+  line-height: 1.34;
+}
+
+.lead-row,
+.attention-row {
+  min-height: auto;
+}
+
+.home-panel,
+.workbench-tree {
+  align-self: stretch;
+}
 """
 
 
