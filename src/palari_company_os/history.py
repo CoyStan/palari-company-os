@@ -5,7 +5,7 @@ import json
 import os
 import uuid
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +71,7 @@ def read_history(workspace_path: Path | str, limit: int | None = None) -> dict[s
 
 
 def _timestamp() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _actor(actor: str) -> str:
