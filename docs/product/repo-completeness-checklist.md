@@ -1,6 +1,6 @@
 # Repo Completeness Checklist
 
-Status: current local-foundation implementation checklist against
+Status: current v0.1 local-foundation implementation checklist against
 `docs/product/repo-completeness-definition.md`.
 
 This checklist does not mean Palari Company OS is a finished company platform.
@@ -10,39 +10,39 @@ ceremony.
 
 Legend:
 
-- Complete: implemented, documented, and covered by tests or verification.
-- Partial: intentionally still limited but enough for the minimum complete
-  version.
+- Complete for v0.1: implemented, documented, and covered by tests or
+  verification for the local CLI foundation.
+- Partial: intentionally still limited but useful for the v0.1 foundation.
 - Out of scope: explicitly omitted by the completeness definition.
 
-## Minimum Complete Version
+## Minimum Professional Foundation
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Documented fresh-clone setup | Complete | `README.md`, `docs/product/quickstart.md`, `./scripts/verify.sh` |
-| Passing CI | Complete | `.github/workflows/ci.yml` runs `./scripts/verify.sh` |
-| Schema versioning | Complete | `schema_version: 1`, `schemas/workspace.schema.json`, `palari migrate` |
-| Validated example workspaces | Complete | `examples/acme-company-os/workspace.json`, strict validation fixtures, `palari validate`, tests |
-| Queue command | Complete | `palari queue`, tests, CLI smoke |
-| Detail command | Complete | `palari detail WORK-ID`, tests, CLI smoke |
-| State command | Complete | `palari state`, tests, CLI smoke |
-| Validate command | Complete | `palari validate`, tests, CLI smoke |
-| Scope command | Complete | `palari scope`, allow/block tests |
-| Authoring commands for all core objects | Complete | `goal`, `palari`, `human`, `decision`, `work`, `attempt`, `evidence`, `review`, `human-decision`, `outcome` commands |
-| Lifecycle commands | Complete | `palari lifecycle evidence/review/decide/complete/outcome` |
-| Scope fail-closed checks | Complete | `src/palari_company_os/scope.py`, tests |
-| Evidence freshness checks | Complete | queue/detail logic, stale evidence fixture, tests |
-| Review freshness checks | Complete | queue/detail logic, stale review fixture, tests |
-| Authority/quorum checks | Complete | human decision acceptance checks, completion gate, tests |
-| Regression tests for gates | Complete | `tests/test_validation.py`, `tests/test_workspace_read_models.py` |
-| Maintainer docs | Complete | `docs/product/external-maintainer-mode.md`, `docs/product/testing-guide.md`, `docs/product/troubleshooting.md` |
-| Clear known gaps | Complete | `docs/product/roadmap.md`, `docs/product/security.md` |
+| Documented fresh-clone setup | Complete for v0.1 | `README.md`, `docs/product/quickstart.md`, `./scripts/verify.sh` |
+| Passing CI | Complete for v0.1 | `.github/workflows/ci.yml` runs install/import/CLI smoke and `./scripts/verify.sh` |
+| Schema versioning | Complete for v0.1 | `schema_version: 1`, `schemas/workspace.schema.json`, `palari migrate` |
+| Validated example workspaces | Complete for v0.1 | `examples/acme-company-os/workspace.json`, strict validation fixtures, `palari validate`, tests |
+| Queue command | Complete for v0.1 | `palari queue`, tests, CLI smoke |
+| Detail command | Complete for v0.1 | `palari detail WORK-ID`, tests, CLI smoke |
+| State command | Complete for v0.1 | `palari state`, tests, CLI smoke |
+| Validate command | Complete for v0.1 | `palari validate`, tests, CLI smoke |
+| Scope command | Complete for v0.1 | `palari scope`, allow/block tests |
+| Authoring commands for all core objects | Complete for v0.1 | `goal`, `palari`, `human`, `decision`, `work`, `attempt`, `evidence`, `review`, `human-decision`, `outcome` commands |
+| Lifecycle commands | Complete for v0.1 | `palari lifecycle evidence/review/decide/complete/outcome` |
+| Scope fail-closed checks | Complete for v0.1 | `src/palari_company_os/scope.py`, tests |
+| Evidence freshness checks | Complete for v0.1 | queue/detail logic, stale evidence fixture, tests |
+| Review freshness checks | Complete for v0.1 | queue/detail logic, stale review fixture, tests |
+| Authority/quorum checks | Complete for v0.1 | human decision acceptance checks, completion gate, tests |
+| Regression tests for gates | Complete for v0.1 | `tests/test_validation.py`, `tests/test_workspace_read_models.py` |
+| Maintainer docs | Complete for v0.1 | `docs/product/external-maintainer-mode.md`, `docs/product/testing-guide.md`, `docs/product/troubleshooting.md` |
+| Clear known gaps | Complete for v0.1 | `docs/product/roadmap.md`, `docs/product/security.md` |
 
 ## Completeness Conditions
 
 ### 1. Clear Product Contract
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -53,7 +53,7 @@ Evidence:
 
 ### 2. Fresh Clone Works
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -100,7 +100,7 @@ Evidence:
 
 ### 6. Tests Prove Behavior
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -109,7 +109,7 @@ Evidence:
 
 ### 7. CI And Quality Gates
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -129,7 +129,7 @@ Evidence:
 
 ### 9. Real Examples
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -139,7 +139,7 @@ Evidence:
 
 ### 10. Professional Documentation
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -155,7 +155,7 @@ Evidence:
 
 ### 11. Developer Experience
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -167,7 +167,7 @@ Evidence:
 
 ### 12. Security And Secret Hygiene
 
-Status: complete.
+Status: complete for v0.1.
 
 Evidence:
 
@@ -179,7 +179,7 @@ Evidence:
 
 ### 13. Integration Boundaries
 
-Status: complete for first version.
+Status: complete for v0.1 local boundaries.
 
 Evidence:
 
@@ -190,7 +190,7 @@ Evidence:
 
 ### 14. Outcome Learning
 
-Status: complete for first read-model use.
+Status: complete for v0.1 read-model use.
 
 Evidence:
 
@@ -219,7 +219,6 @@ not a finished Company OS product.
 It still intentionally omits:
 
 - web dashboard
-- append-only event/history log
 - concurrent storage or merge/conflict model
 - real broker execution
 - real policy acceptance

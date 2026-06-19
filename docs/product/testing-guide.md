@@ -15,9 +15,20 @@ It runs:
 - CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`,
   `history`, and `maintainer status`
 
+The package install smoke command is:
+
+```bash
+./scripts/install_smoke.sh
+```
+
+It creates a temporary virtual environment, installs the package in editable
+mode, imports `palari_company_os`, and runs the installed `palari` command
+against the example workspace.
+
 Focused commands:
 
 ```bash
+python3 -m pip install -e .
 python3 -m unittest discover -s tests
 python3 -m compileall -q src
 python3 -m json.tool examples/acme-company-os/workspace.json

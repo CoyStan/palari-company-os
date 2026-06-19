@@ -21,7 +21,9 @@ Compatibility:
 Release checklist:
 
 ```bash
+python3 -m pip install -e .
 ./scripts/verify.sh
+./scripts/install_smoke.sh
 git status --short
 ```
 
@@ -30,4 +32,3 @@ Workspace backup guidance:
 - `workspace.json` is the source of truth
 - copy the workspace directory before migrations
 - do not store secrets in workspace files
-

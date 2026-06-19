@@ -1,7 +1,7 @@
 # Repo Completeness Definition
 
-This document defines when Palari Company OS should be considered a complete,
-professional repository.
+This document defines when Palari Company OS should be considered a
+professional repository for a clearly declared scope.
 
 It is intentionally stricter than "the code runs." A repo can be small and
 professional, but it should not be called complete unless a new engineer or AI
@@ -368,9 +368,10 @@ Depending on the intended distribution, this may include:
 The repo is not complete if a user can run it once but cannot understand how it
 will evolve safely.
 
-## Minimum Complete Version
+## Minimum Professional Foundation
 
-The first version that can honestly be called complete should include:
+The first version that can honestly be called a professional local foundation
+should include:
 
 - documented fresh-clone setup
 - passing CI
@@ -415,7 +416,7 @@ Those are good signs, but they are not enough.
 ## Current Repo Interpretation
 
 At the time this document was written, Palari Company OS should be treated as a
-working professional foundation, not a complete finished repo.
+working professional foundation, not a complete finished Company OS.
 
 It has:
 
@@ -423,25 +424,25 @@ It has:
 - product docs
 - core schemas and models
 - an example workspace
-- queue and detail read models
-- validation and scope checks
+- queue, detail, state, validate, scope, history, and maintainer commands
+- authoring and lifecycle commands
+- validation, authority, freshness, quorum, and scope checks
 - a light external maintainer status command
-- local tests and verification
+- local tests, install smoke, and CI verification
 
-It still needs, at minimum:
+It still needs for a finished Company OS product:
 
-- authoring commands
-- lifecycle transition commands
-- stronger negative/fail-closed tests
-- CI
-- schema versioning and migration guidance
-- fuller maintainer and troubleshooting docs
-- clearer release/security/contribution basics
+- a web or API surface if the product should be operated outside the CLI
+- real broker execution only after explicit safety design
+- real policy acceptance only after explicit authority design
+- enterprise administration
+- signed gate/key custody
+- concurrent storage or a merge/conflict model
+- deeper outcome-driven recommendations
 
 Until those exist, the repo should be described as:
 
 ```text
-Palari Company OS v0 foundation: working read-model prototype, not complete
-product repo.
+Palari Company OS v0 foundation: professional local workspace/CLI foundation,
+not a finished Company OS product.
 ```
-

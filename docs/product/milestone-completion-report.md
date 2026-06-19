@@ -1,7 +1,7 @@
 # Milestone Completion Report
 
-Status: implementation and verification report for the first Palari Company OS
-plan at `/home/quetza/projects/PALARI_COMPANY_OS_NEW_REPO_CODEX_PLAN.md`.
+Status: implementation and verification report for the Palari Company OS v0.1
+local foundation.
 
 This report is intentionally ordinary engineering bookkeeping. It is not an old
 Palari ticket, claim, evidence bundle, reviewer note, or acceptance artifact.
@@ -231,6 +231,10 @@ Intentionally out of scope:
 - migration of old POS history
 - old Palari ticket ceremony
 - every old Palari Orchestrator command
+
+This report does not claim that Palari Company OS is a finished product. It
+claims that the current repository is a professional local CLI foundation with
+clear boundaries and known omissions.
 
 ## Verification Commands
 

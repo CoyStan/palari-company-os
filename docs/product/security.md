@@ -1,6 +1,6 @@
 # Security Notes
 
-Palari Company OS is safe by default in this first complete version.
+Palari Company OS is safe by default in this v0.1 local foundation.
 
 It does not:
 
@@ -21,4 +21,3 @@ Authority rules:
 
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.
-

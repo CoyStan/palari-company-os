@@ -1,6 +1,6 @@
 # Roadmap And Known Gaps
 
-Implemented now:
+Implemented in the v0.1 local foundation:
 
 - workspace schema v1
 - queue/detail/state/validate/scope/maintainer commands
@@ -9,9 +9,10 @@ Implemented now:
   outcome
 - fail-closed gates for scope, stale evidence, stale review, human authority,
   and quorum
-- CI verification
+- append-only workspace history for successful mutating commands
+- CI and install-smoke verification
 
-Intentionally omitted:
+Intentionally omitted from v0.1:
 
 - web dashboard
 - real broker execution
@@ -27,4 +28,3 @@ Likely next steps:
 - add import/export tooling
 - add API or web read-model layer
 - add optional JSON Schema validation dependency if it becomes useful
-

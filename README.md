@@ -10,6 +10,31 @@ name, scope, allowed inputs, standards, memory/context, evidence, outcomes, and
 authority boundaries. Execution may be delegated to models, tools, workers, or
 agents, but the Palari remains the stable human-facing work partner.
 
+## Current Maturity
+
+This repository is a v0.1 local CLI foundation. It is meant to be cloned,
+installed, tested, reviewed, and extended like a normal Python project.
+
+It does not yet include a web UI, production deployment, real broker execution,
+real policy acceptance authority, enterprise administration, or signed key
+custody. Those boundaries are intentional and documented in the roadmap and
+security notes.
+
+## Install
+
+For local development, use an editable install from the repo root:
+
+```bash
+python3 -m pip install -e .
+palari --help
+```
+
+You can also run the repo-local wrapper without installing:
+
+```bash
+./bin/palari --help
+```
+
 ## Quickstart
 
 From the repo root:
@@ -34,6 +59,14 @@ The default workspace is `examples/acme-company-os`. Use another workspace with:
 
 ```bash
 ./bin/palari --workspace /path/to/workspace queue
+```
+
+If you run the installed `palari` command from outside this repo, pass a
+workspace path explicitly:
+
+```bash
+palari --workspace /path/to/workspace validate
+palari --workspace /path/to/workspace queue
 ```
 
 ## Product Loop
@@ -68,14 +101,23 @@ This repo intentionally uses ordinary software engineering. It does not use the
 old Palari ticket ceremony.
 
 ```bash
+python3 -m pip install -e .
 python3 -m unittest discover -s tests
 ./bin/palari queue --json
 ./bin/palari detail WORK-0001 --json
 ./scripts/verify.sh
+./scripts/install_smoke.sh
 ```
+
+`./scripts/verify.sh` runs unit tests, the lightweight style checker, Python
+compilation, JSON validity checks, and CLI smoke checks. `install_smoke.sh`
+creates a temporary virtual environment, installs the package, imports it, and
+checks the installed `palari` command.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md)
+- [License](LICENSE)
 - [Product Model](docs/product/company-os.md)
 - [Quickstart](docs/product/quickstart.md)
 - [Core Objects](docs/product/core-objects.md)
