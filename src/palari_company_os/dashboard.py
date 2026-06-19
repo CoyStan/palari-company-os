@@ -62,17 +62,18 @@ def _html(
     body = "\n".join(
         [
             _header(workspace, queue, attention_counts),
-            '<main class="dashboard-shell">',
+            '<div class="app">',
             _nav(),
-            '<div class="sections">',
+            '<main class="content" id="top">',
+            _attention_strip(workspace, queue, attention_counts),
             _queue_section(workspace, queue, attention_counts),
             _work_section(workspace, queue, details),
             _trust_section(workspace),
             _history_section(history),
             _authority_section(workspace, open_decisions, human_blockers),
-            "</div>",
             "</main>",
             _provenance(workspace),
+            "</div>",
         ]
     )
     return f"""<!doctype html>
@@ -93,67 +94,103 @@ def _html(
 
 def _header(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
     needs_human = attention_counts.get("needs-human-decision", 0)
-    receipt_ready = attention_counts.get("receipt-ready", 0)
-    active = len([item for item in queue if item.attention != "closed"])
     selected_sources = len([source for source in workspace.sources if source.selected])
+    active = len([item for item in queue if item.attention != "closed"])
+    human_tone = "hot" if needs_human else "calm"
     return f"""
 <header class="topbar">
-  <div class="brand-lockup">
+  <a class="brand" href="#top" aria-label="Dashboard top">
     <span class="brand-mark" aria-hidden="true">P</span>
-    <div>
-      <p class="eyebrow">Palari Company OS</p>
-      <h1>{_e(workspace.name)}</h1>
-    </div>
+    <span class="brand-name">{_e(workspace.name)}</span>
+  </a>
+  <div class="topbar-rail" aria-label="Workspace summary">
+    <a class="rail-chip rail-{human_tone}" href="#queue" title="Items needing a human decision">
+      <span class="rail-num">{needs_human}</span><span class="rail-label">need human</span>
+    </a>
+    <a class="rail-chip" href="#trust" title="Selected sources / receipts">
+      <span class="rail-num">{selected_sources}/{len(workspace.receipts)}</span><span class="rail-label">trust</span>
+    </a>
+    <span class="rail-chip rail-mute" title="Active (non-closed) work items">
+      <span class="rail-num">{active}</span><span class="rail-label">active</span>
+    </span>
   </div>
-  <div class="topbar-summary" aria-label="Workspace summary">
-    <span><strong>{needs_human}</strong> need human</span>
-    <span><strong>{receipt_ready}</strong> receipt-ready</span>
-    <a href="#trust"><strong>{selected_sources}/{len(workspace.receipts)}</strong> trust</a>
-    <span><strong>{active}</strong> active</span>
-  </div>
-  <span class="read-only-badge">Read-only dashboard</span>
+  <span class="ro-badge">Read-only dashboard</span>
 </header>
 """
 
 
 def _nav() -> str:
     items = [
-        ("Queue", "queue"),
-        ("Work", "work"),
-        ("Trust", "trust"),
-        ("History", "history"),
-        ("Authority", "authority"),
+        ("Queue", "queue", "Q"),
+        ("Work", "work", "W"),
+        ("Trust", "trust", "T"),
+        ("History", "history", "H"),
+        ("Authority", "authority", "A"),
     ]
     links = "\n".join(
-        f'<a href="#{anchor}" data-tab-link="{anchor}">{label}</a>' for label, anchor in items
+        f'<a href="#{anchor}" data-tab-link="{anchor}" data-nav="{anchor}">'
+        f'<span class="nav-glyph" aria-hidden="true">{glyph}</span>'
+        f'<span class="nav-text">{label}</span></a>'
+        for label, anchor, glyph in items
     )
-    return f'<nav class="section-nav" aria-label="Dashboard sections">{links}</nav>'
+    return f'<nav class="rail" aria-label="Dashboard sections">\n<div class="rail-inner">{links}</div>\n<a class="nav-top" href="#top" data-nav="top"><span class="nav-glyph" aria-hidden="true">^</span><span class="nav-text">Top</span></a>\n</nav>'
+
+
+def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
+    needs_human = attention_counts.get("needs-human-decision", 0)
+    needs_review = attention_counts.get("needs-review", 0)
+    needs_evidence = attention_counts.get("needs-evidence", 0)
+    receipt_ready = attention_counts.get("receipt-ready", 0)
+    closed = attention_counts.get("closed", 0)
+    selected = len([source for source in workspace.sources if source.selected])
+    external_writes = sum(1 for receipt in workspace.receipts if receipt.external_writes)
+    blockers = [item for item in queue if item.waiting_on_human]
+    blocker_rows = "".join(
+        f'<li><a href="#work"><span class="mono">{_e(item.id)}</span><span>{_e(item.title)}</span></a></li>'
+        for item in blockers[:4]
+    ) or '<li class="none">No items are waiting on a human.</li>'
+    chips = "".join(
+        _metric(label.replace("-", " "), value, _attention_tone(label), label)
+        for label, value in (
+            ("needs-human-decision", needs_human),
+            ("needs-review", needs_review),
+            ("needs-evidence", needs_evidence),
+            ("receipt-ready", receipt_ready),
+            ("closed", closed),
+        )
+        if value
+    ) or '<span class="strip-empty">No active attention.</span>'
+    return f"""
+<section class="attention" aria-label="Current attention">
+  <div class="attn-left">
+    <h1 class="attn-title">What needs attention now</h1>
+    <div class="attn-counts">{chips}</div>
+    <div class="attn-trustline">
+      <span><strong>{selected}</strong> selected source(s)</span>
+      <span><strong>{len(workspace.receipts)}</strong> receipt(s)</span>
+      <span><strong>{external_writes}</strong> external write(s)</span>
+    </div>
+  </div>
+  <div class="attn-right">
+    <h2 class="attn-right-title">Waiting on a human</h2>
+    <ul class="attn-blockers">{blocker_rows}</ul>
+  </div>
+</section>
+"""
 
 
 def _queue_section(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
-    count_cards = "\n".join(
-        _metric(label.replace("-", " "), attention_counts[label], _attention_tone(label), label)
-        for label in sorted(attention_counts, key=lambda item: _attention_sort_key(item))
-    )
     rows = "\n".join(_queue_card(item) for item in queue) or _empty("No work items in queue.")
     return f"""
 <section id="queue" class="panel" data-tab-panel>
-  <div class="section-heading">
+  <header class="panel-head">
     <div>
       <p class="eyebrow">Queue</p>
-      <h2>What needs attention now</h2>
+      <h2 class="panel-title">Prioritized work items</h2>
     </div>
-    <p class="section-note">Prioritized by human decision, review, evidence, receipts, and closure.</p>
-  </div>
-  <div class="queue-brief">
-    <div class="brief-primary">
-      <span class="brief-number">{attention_counts.get("needs-human-decision", 0)}</span>
-      <span>need human attention</span>
-    </div>
-    {_trust_snapshot(workspace)}
-  </div>
-  <div class="metric-strip">{count_cards}</div>
-  <div class="queue-list">{rows}</div>
+    <p class="panel-note">Ordered by human decision, review, evidence, receipts, and closure.</p>
+  </header>
+  <div class="queue-list" data-queue>{rows}</div>
 </section>
 """
 
@@ -170,7 +207,7 @@ def _queue_card(item: Any) -> str:
     </span>
     <span class="queue-side">
       {_receipt_chip(item)}
-      <span class="record-id">{_e(item.id)}</span>
+      <span class="record-id mono">{_e(item.id)}</span>
     </span>
   </summary>
   <div class="queue-detail">
@@ -201,24 +238,24 @@ def _work_section(workspace: Workspace, queue: list[Any], details: dict[str, dic
         cards = "\n".join(_work_detail_card(details[item.id]) for item in grouped[attention])
         lanes.append(
             f"""
-<section class="lane">
-  <div class="lane-heading">
+<section class="lane lane-{_class_token(attention)}" data-lane="{_e(attention)}">
+  <header class="lane-head">
     {_pill(attention, _attention_tone(attention))}
-    <span>{len(grouped[attention])} work item(s)</span>
-  </div>
+    <span class="lane-count mono">{len(grouped[attention])}</span>
+  </header>
   {cards}
 </section>
 """
         )
     return f"""
 <section id="work" class="panel" data-tab-panel>
-  <div class="section-heading">
+  <header class="panel-head">
     <div>
       <p class="eyebrow">Work</p>
-      <h2>Where work is in the flow</h2>
+      <h2 class="panel-title">Where work is in the flow</h2>
     </div>
-    <p class="section-note">{len(workspace.work_items)} work items grouped by current attention state.</p>
-  </div>
+    <p class="panel-note">{len(workspace.work_items)} work items grouped by current attention state.</p>
+  </header>
   <div class="lane-grid">{''.join(lanes)}</div>
 </section>
 """
@@ -237,9 +274,9 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
     return f"""
 <details class="detail-card">
   <summary>
-    <span>
+    <span class="dc-title">
       <strong>{_e(work['title'])}</strong>
-      <small>{_e(work['id'])} · {_e(goal.get('title', work['goal']))}</small>
+      <small><span class="mono">{_e(work['id'])}</span> · {_e(goal.get('title', work['goal']))}</small>
     </span>
     {_pill(payload['attention'], _attention_tone(payload['attention']))}
   </summary>
@@ -271,7 +308,7 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
         {_kv("Human decision", _record_label(human_decision))}
       </div>
     </div>
-    <p class="next-action">{_e(payload['next_action'])}</p>
+    <p class="next-action"><span class="na-label">Next</span>{_e(payload['next_action'])}</p>
   </div>
 </details>
 """
@@ -285,28 +322,28 @@ def _trust_section(workspace: Workspace) -> str:
         "No receipts recorded yet."
     )
     return f"""
-<section id="trust" class="panel" data-tab-panel>
-  <div class="section-heading">
+<section id="trust" class="panel trust-panel" data-tab-panel>
+  <header class="panel-head">
     <div>
       <p class="eyebrow">Trust</p>
-      <h2>What Palaris used, made, did not do, and can undo</h2>
+      <h2 class="panel-title">What Palaris used, made, did not do, and can undo</h2>
     </div>
-    <p class="section-note">Receipts are human-facing trust evidence, separate from governance evidence.</p>
-  </div>
+    <p class="panel-note">Receipts are human-facing trust evidence, separate from governance evidence.</p>
+  </header>
   <div class="trust-grid">
-    <section class="ledger-panel">
-      <div class="ledger-heading">
+    <section class="ledger">
+      <header class="ledger-head">
         <h3>Selected sources</h3>
-        <span>{len(workspace.sources)} source(s)</span>
-      </div>
-      {sources}
+        <span class="ledger-count mono">{len(workspace.sources)}</span>
+      </header>
+      <div class="ledger-body">{sources}</div>
     </section>
-    <section class="ledger-panel">
-      <div class="ledger-heading">
+    <section class="ledger ledger-receipts">
+      <header class="ledger-head">
         <h3>Receipts</h3>
-        <span>{len(workspace.receipts)} receipt(s)</span>
-      </div>
-      {receipts}
+        <span class="ledger-count mono">{len(workspace.receipts)}</span>
+      </header>
+      <div class="ledger-body">{receipts}</div>
     </section>
   </div>
 </section>
@@ -317,9 +354,9 @@ def _source_card(source: Any) -> str:
     return f"""
 <details class="ledger-row source-row">
   <summary>
-    <span>
+    <span class="lr-title">
       <strong>{_e(source.label)}</strong>
-      <small>{_e(source.id)} · {_e(source.provider or 'unspecified')} · {_e(source.kind or 'unspecified')}</small>
+      <small><span class="mono">{_e(source.id)}</span> · {_e(source.provider or 'unspecified')} · {_e(source.kind or 'unspecified')}</small>
     </span>
     {_pill("selected" if source.selected else "available", "trust" if source.selected else "neutral")}
   </summary>
@@ -340,22 +377,46 @@ def _source_card(source: Any) -> str:
 def _receipt_card(workspace: Workspace, receipt: Any) -> str:
     work = workspace.work_item(receipt.work_item_id)
     title = work.title if work else receipt.work_item_id
+    not_done = receipt.not_done or ["none"]
+    undo_refs = receipt.undo_refs or ["none"]
     return f"""
 <details class="ledger-row receipt-card">
   <summary>
-    <span>
+    <span class="lr-title">
       <strong>{_e(title)}</strong>
-      <small>{_e(receipt.id)} · attempt {_e(receipt.attempt_id)}</small>
+      <small><span class="mono">{_e(receipt.id)}</span> · attempt <span class="mono">{_e(receipt.attempt_id)}</span> · actor {_e(receipt.actor)}</small>
     </span>
-    {_pill(receipt.actor, "neutral")}
+    <span class="receipt-mark" aria-hidden="true">R</span>
   </summary>
-  <div class="ledger-detail receipt-ledger-detail">
-    {_list_block("Sources used", receipt.sources_used)}
-    {_list_block("Actions taken", receipt.actions_taken)}
-    {_list_block("Outputs created", receipt.outputs_created)}
-    {_list_block("External writes", receipt.external_writes or ["none"])}
-    {_list_block("Not done", receipt.not_done)}
-    {_list_block("Undo refs", receipt.undo_refs)}
+  <div class="ledger-detail receipt-detail">
+    <div class="receipt-trio">
+      <div class="trio-cell trio-did">
+        <h4>Used</h4>
+        {_mini_list(receipt.sources_used, "sources")}
+      </div>
+      <div class="trio-cell trio-did">
+        <h4>Did</h4>
+        {_mini_list(receipt.actions_taken, "actions")}
+      </div>
+      <div class="trio-cell trio-did">
+        <h4>Made</h4>
+        {_mini_list(receipt.outputs_created, "outputs")}
+      </div>
+    </div>
+    <div class="receipt-trio receipt-trio-2">
+      <div class="trio-cell trio-writes">
+        <h4>External writes</h4>
+        {_mini_list(receipt.external_writes or ["none"], "writes")}
+      </div>
+      <div class="trio-cell trio-notdone">
+        <h4>Not done</h4>
+        {_mini_list(not_done, "none")}
+      </div>
+      <div class="trio-cell trio-undo">
+        <h4>Undo refs</h4>
+        {_mini_list(undo_refs, "none")}
+      </div>
+    </div>
   </div>
 </details>
 """
@@ -368,13 +429,13 @@ def _history_section(history: dict[str, Any]) -> str:
     )
     return f"""
 <section id="history" class="panel" data-tab-panel>
-  <div class="section-heading">
+  <header class="panel-head">
     <div>
       <p class="eyebrow">History</p>
-      <h2>Append-only event timeline</h2>
+      <h2 class="panel-title">Append-only event timeline</h2>
     </div>
-    <p class="section-note">Source: <code>{_e(str(history.get('history_file', '')))}</code></p>
-  </div>
+    <p class="panel-note">Source: <code>{_e(str(history.get('history_file', '')))}</code></p>
+  </header>
   <div class="timeline">{timeline}</div>
 </section>
 """
@@ -385,12 +446,12 @@ def _history_event(event: dict[str, Any]) -> str:
     changed_text = ", ".join(sorted(changed)) if isinstance(changed, dict) and changed else "none"
     return f"""
 <article class="timeline-event">
-  <div class="timeline-dot"></div>
-  <div>
-    <p class="subtle">{_e(str(event.get('timestamp', 'unknown time')))} · {_e(str(event.get('actor', 'unknown actor')))}</p>
-    <h3>{_e(str(event.get('action', 'event')))} {_e(str(event.get('object_type', 'object')))}/{_e(str(event.get('object_id', 'unknown')))}</h3>
-    <p><code>{_e(str(event.get('command', '')))}</code></p>
-    <p class="subtle">Changed fields: {_e(changed_text)}</p>
+  <div class="timeline-rail"><span class="timeline-dot"></span></div>
+  <div class="timeline-body">
+    <p class="timeline-meta"><span class="mono">{_e(str(event.get('timestamp', 'unknown time')))}</span> · {_e(str(event.get('actor', 'unknown actor')))}</p>
+    <h3 class="timeline-title">{_e(str(event.get('action', 'event')))} {_e(str(event.get('object_type', 'object')))}/{_e(str(event.get('object_id', 'unknown')))}</h3>
+    <p class="timeline-cmd"><code>{_e(str(event.get('command', '')))}</code></p>
+    <p class="subtle">Changed: {_e(changed_text)}</p>
   </div>
 </article>
 """
@@ -415,18 +476,30 @@ def _authority_section(
     )
     return f"""
 <section id="authority" class="panel" data-tab-panel>
-  <div class="section-heading">
+  <header class="panel-head">
     <div>
       <p class="eyebrow">Authority</p>
-      <h2>Who can decide, who owns the work, and what is blocked</h2>
+      <h2 class="panel-title">Who can decide, who owns the work, and what is blocked</h2>
     </div>
-    <p class="section-note">AI roles do not silently inherit human authority.</p>
-  </div>
+    <p class="panel-note">AI roles do not silently inherit human authority.</p>
+  </header>
   <div class="authority-grid">
-    <section><h3>Humans</h3>{humans}</section>
-    <section><h3>Palaris</h3>{palaris}</section>
-    <section><h3>Open decisions</h3>{decisions}</section>
-    <section><h3>Human blockers</h3>{blockers}</section>
+    <section class="auth-col">
+      <h3>Humans</h3>
+      <div class="auth-rows">{humans}</div>
+    </section>
+    <section class="auth-col">
+      <h3>Palaris</h3>
+      <div class="auth-rows">{palaris}</div>
+    </section>
+    <section class="auth-col">
+      <h3>Open decisions</h3>
+      <div class="auth-rows">{decisions}</div>
+    </section>
+    <section class="auth-col">
+      <h3>Human blockers</h3>
+      <div class="auth-rows">{blockers}</div>
+    </section>
   </div>
 </section>
 """
@@ -434,35 +507,35 @@ def _authority_section(
 
 def _human_card(human: Any) -> str:
     return f"""
-<article class="trust-card">
+<article class="auth-row">
   <h4>{_e(human.name)}</h4>
-  <p class="subtle">{_e(human.role or human.id)} · {_e(human.authority_level)}</p>
-  {_list_block("Approval capabilities", human.approval_capabilities)}
-  {_list_block("Ownership", human.ownership_areas)}
+  <p class="subtle">{_e(human.role or human.id)} · <span class="auth-level">{_e(human.authority_level)}</span></p>
+  {_mini_list(human.approval_capabilities, "no approval capabilities")}
+  <p class="auth-owns"><span>Owns</span> {_e(", ".join(human.ownership_areas) or "nothing")}</p>
 </article>
 """
 
 
 def _palari_card(palari: Any) -> str:
     return f"""
-<article class="trust-card">
+<article class="auth-row">
   <h4>{_e(palari.name)}</h4>
   <p class="subtle">{_e(palari.role)} · owner {_e(palari.owner_human or 'none')}</p>
-  <p>{_e(palari.scope)}</p>
-  {_list_block("Forbidden actions", palari.forbidden_actions)}
-  {_list_block("Active work", palari.active_work)}
+  <p class="auth-scope">{_e(palari.scope)}</p>
+  {_mini_list(palari.forbidden_actions, "no forbidden actions", "Forbidden")}
+  <p class="auth-owns"><span>Active</span> {_e(", ".join(palari.active_work) or "none")}</p>
 </article>
 """
 
 
 def _decision_card(decision: Any) -> str:
     return f"""
-<article class="trust-card">
+<article class="auth-row auth-decision">
   <div class="card-title-row">
-    <h4>{_e(decision.id)}</h4>
+    <h4><span class="mono">{_e(decision.id)}</span></h4>
     {_pill(decision.status, "urgent" if decision.status == "open" else "neutral")}
   </div>
-  <p>{_e(decision.question)}</p>
+  <p class="auth-question">{_e(decision.question)}</p>
   <p class="subtle">Required: {_e(decision.required_human or decision.required_role or 'unspecified')}</p>
 </article>
 """
@@ -470,13 +543,13 @@ def _decision_card(decision: Any) -> str:
 
 def _blocker_card(item: Any) -> str:
     return f"""
-<article class="trust-card">
+<article class="auth-row auth-blocker">
   <div class="card-title-row">
-    <h4>{_e(item.id)}</h4>
+    <h4><span class="mono">{_e(item.id)}</span></h4>
     {_pill(item.attention, _attention_tone(item.attention))}
   </div>
   <p>{_e(item.title)}</p>
-  <p class="next-action">{_e(item.next_action)}</p>
+  <p class="next-action"><span class="na-label">Next</span>{_e(item.next_action)}</p>
 </article>
 """
 
@@ -484,8 +557,8 @@ def _blocker_card(item: Any) -> str:
 def _metric(label: str, value: int, tone: str, filter_value: str = "") -> str:
     data_filter = f' data-filter="{_e(filter_value)}"' if filter_value else ""
     return (
-        f'<button class="metric metric-{tone}" type="button"{data_filter}>'
-        f'<span>{_e(str(value))}</span><small>{_e(label)}</small></button>'
+        f'<button class="chip chip-{tone}" type="button"{data_filter}>'
+        f'<span class="chip-num mono">{_e(str(value))}</span><span class="chip-label">{_e(label)}</span></button>'
     )
 
 
@@ -508,9 +581,17 @@ def _list_block(title: str, values: list[Any]) -> str:
     return f'<div class="list-block"><strong>{_e(title)}</strong><ul>{items}</ul></div>'
 
 
+def _mini_list(values: list[Any], empty_label: str, heading: str = "") -> str:
+    if not values:
+        return f'<p class="subtle mini-empty">{_e(empty_label)}</p>'
+    items = "".join(f"<li>{_e(str(item))}</li>" for item in values)
+    head = f'<p class="mini-head">{_e(heading)}</p>' if heading else ""
+    return f'{head}<ul class="mini-list">{items}</ul>'
+
+
 def _flow_step(label: str, value: str) -> str:
     tone = _state_tone(value)
-    return f'<div class="flow-step flow-{tone}"><span>{_e(label)}</span><strong>{_e(value)}</strong></div>'
+    return f'<div class="flow-step flow-{tone}"><span class="flow-label">{_e(label)}</span><strong class="flow-value">{_e(value)}</strong></div>'
 
 
 def _stage_flow(item: Any) -> str:
@@ -523,7 +604,7 @@ def _stage_flow(item: Any) -> str:
     rendered = []
     for label, value in stages:
         rendered.append(f'<span class="stage stage-{_state_tone(str(value))}">{_e(label)}</span>')
-    return '<span class="stage-flow">' + '<span class="stage-sep">/</span>'.join(rendered) + "</span>"
+    return '<span class="stage-flow">' + '<span class="stage-sep" aria-hidden="true">/</span>'.join(rendered) + "</span>"
 
 
 def _receipt_chip(item: Any) -> str:
@@ -534,19 +615,6 @@ def _receipt_chip(item: Any) -> str:
 
 def _owner_label(owner: str) -> str:
     return _e(owner) if owner else "unassigned"
-
-
-def _trust_snapshot(workspace: Workspace) -> str:
-    selected = len([source for source in workspace.sources if source.selected])
-    receipts = len(workspace.receipts)
-    external_writes = sum(1 for receipt in workspace.receipts if receipt.external_writes)
-    return f"""
-    <div class="trust-snapshot" aria-label="Trust summary">
-      <span><strong>{selected}</strong> selected source(s)</span>
-      <span><strong>{receipts}</strong> receipt(s)</span>
-      <span><strong>{external_writes}</strong> external write(s)</span>
-    </div>
-    """
 
 
 def _provenance(workspace: Workspace) -> str:
@@ -640,25 +708,45 @@ def _e(value: Any) -> str:
 def _styles() -> str:
     return """
 :root {
-  --bg: #f3f6f8;
+  --bg: #f6f8fa;
   --panel: #ffffff;
-  --panel-2: #f8fafc;
-  --ink: #10223a;
-  --muted: #627084;
-  --line: #d7e0ea;
-  --line-strong: #c3d0dc;
-  --urgent: #9d2f2f;
-  --urgent-bg: #fff0ee;
-  --warn: #9a6500;
-  --warn-bg: #fff7df;
-  --trust: #087b68;
-  --trust-bg: #e7faf5;
-  --done: #576476;
-  --done-bg: #eef1f5;
-  --neutral: #265da8;
-  --neutral-bg: #edf5ff;
-  --attention-bg: #fff7f5;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --panel-2: #f1f5f9;
+  --ink: #0f1d2d;
+  --ink-2: #1c2b3d;
+  --muted: #5b6b7e;
+  --muted-2: #8593a3;
+  --line: #dfe6ee;
+  --line-2: #e7edf3;
+  --line-strong: #c6d2de;
+  --hot: #b3261e;
+  --hot-bg: #fdecea;
+  --hot-line: #f3b3ad;
+  --urgent: #9a3324;
+  --urgent-bg: #fbe9e3;
+  --urgent-line: #e9b9a8;
+  --warn: #8a5a00;
+  --warn-bg: #fdf2d8;
+  --warn-line: #e3c486;
+  --trust: #0b6e5e;
+  --trust-bg: #e3f4ef;
+  --trust-line: #8fc9bb;
+  --done: #4a5868;
+  --done-bg: #eef2f6;
+  --neutral: #1f4e79;
+  --neutral-bg: #eaf1fb;
+  --neutral-line: #b6cfe8;
+  --calm: #1f4e79;
+  --rail-bg: #fbfcfe;
+  --shadow: 0 1px 2px rgba(15,29,45,.06), 0 1px 1px rgba(15,29,45,.04);
+  --shadow-lg: 0 10px 30px rgba(15,29,45,.12);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
 * { box-sizing: border-box; }
@@ -667,256 +755,231 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-size: 14px;
-  line-height: 1.42;
   overflow-x: hidden;
-}
-a { color: inherit; }
-button { font: inherit; }
-code {
-  color: #35465c;
-  background: #edf2f7;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0.08rem 0.32rem;
-}
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  min-height: 4rem;
-  padding: 0.65rem clamp(0.85rem, 3vw, 1.4rem);
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.94);
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(10px);
-}
-h1, h2, h3, h4, p { margin-top: 0; }
-h1 { margin-bottom: 0; font-size: clamp(1rem, 2vw, 1.3rem); letter-spacing: 0; line-height: 1.12; }
-h2 { margin-bottom: 0.12rem; font-size: 1.25rem; }
-h3 { margin-bottom: 0.35rem; font-size: 1rem; }
-h4 { margin-bottom: 0.35rem; font-size: 0.95rem; }
-.eyebrow {
-  margin-bottom: 0.1rem;
-  color: var(--trust);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.subtle, .section-note { color: var(--muted); }
-.brand-lockup {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 0.65rem;
-}
-.brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9px;
-  color: #fff;
-  background: var(--ink);
-  font-weight: 900;
-  flex: 0 0 2rem;
-}
-.topbar-summary {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  color: var(--muted);
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
-.topbar-summary span {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.25rem;
-}
-.topbar-summary a {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  color: var(--trust);
-  text-decoration: none;
-  border-radius: 999px;
-}
-.topbar-summary strong { color: var(--ink); font-size: 1rem; }
-.read-only-badge {
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  color: #2a3a50;
+  background: #eef2f7;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.65rem;
-  background: var(--panel-2);
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 800;
+  border-radius: 5px;
+  padding: 0.04em 0.32em;
+  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
-.metric {
-  min-height: 2.75rem;
-  padding: 0.42rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-}
-.metric:hover, .metric.is-active { border-color: var(--line-strong); background: #fff; }
-.metric span { font-size: 1rem; font-weight: 850; margin-right: 0.25rem; }
-.metric small { color: var(--muted); text-transform: capitalize; }
-.metric-urgent { color: var(--urgent); background: var(--urgent-bg); border-color: #f0b8b2; }
-.metric-warn { color: var(--warn); background: #fffdf5; border-color: #edd08f; }
-.metric-trust { color: var(--trust); background: #f3fffb; border-color: #9fd8cc; }
-.metric-done { background: var(--done-bg); }
-.dashboard-shell {
+.mono { font-family: var(--mono); font-size: 0.84em; color: var(--muted); }
+.subtle { color: var(--muted); }
+h1, h2, h3, h4, p { margin: 0; }
+h1 { font-size: 1.04rem; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 1.04rem; font-weight: 650; letter-spacing: -0.01em; }
+h3 { font-size: 0.86rem; font-weight: 600; }
+h4 { font-size: 0.82rem; font-weight: 600; }
+strong { font-weight: 600; }
+
+/* ---------- Topbar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
   display: grid;
-  gap: 0.9rem;
-  width: min(100%, 1340px);
-  margin: 0 auto;
-  padding: 0.9rem clamp(0.75rem, 2vw, 1.35rem);
-}
-.section-nav {
-  position: sticky;
-  top: 4rem;
-  z-index: 20;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.38rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-}
-.section-nav a {
-  min-height: 2.25rem;
-  display: inline-flex;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: center;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 800;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.35rem clamp(0.6rem, 2vw, 1rem);
+  background: rgba(255,255,255,.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(160%) blur(10px);
 }
-.section-nav a.is-active, .section-nav a:hover { color: var(--ink); background: var(--panel-2); }
-.section-nav a:focus-visible,
-.metric:focus-visible,
-.queue-row:focus-visible,
-.ledger-row summary:focus-visible,
-.provenance summary:focus-visible,
-.topbar-summary a:focus-visible {
-  outline: 2px solid #6ba8ff;
-  outline-offset: 2px;
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.brand-mark {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--ink); color: #fff;
+  font-weight: 700; font-size: 0.74rem;
+  flex: 0 0 22px;
 }
-.sections { display: grid; gap: 1rem; min-width: 0; }
-.panel {
-  padding: clamp(0.9rem, 2vw, 1.2rem);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+.brand-name {
+  font-weight: 650; font-size: 0.92rem; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; max-width: min(40vw, 22rem);
+}
+.topbar-rail { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; justify-self: start; }
+.rail-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  height: 26px; padding: 0 0.55rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--muted);
+  font-size: 0.74rem; white-space: nowrap;
+}
+.rail-chip .rail-num { font-weight: 650; color: var(--ink); font-size: 0.8rem; }
+.rail-chip .rail-label { color: var(--muted-2); }
+.rail-chip:hover { border-color: var(--line-strong); }
+.rail-hot { border-color: var(--hot-line); background: var(--hot-bg); }
+.rail-hot .rail-num { color: var(--hot); }
+.rail-hot .rail-label { color: var(--hot); }
+.rail-calm { border-color: var(--neutral-line); background: var(--neutral-bg); }
+.rail-calm .rail-num { color: var(--neutral); }
+.rail-calm .rail-label { color: var(--neutral); }
+.rail-mute { background: transparent; }
+.rail-mute .rail-num { color: var(--done); }
+.ro-badge {
+  display: inline-flex; align-items: center;
+  height: 26px; padding: 0 0.6rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--muted);
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ---------- App shell ---------- */
+.app { display: grid; grid-template-columns: 168px minmax(0, 1fr); align-items: start; }
+.content {
+  min-width: 0;
+  padding: 0.75rem clamp(0.7rem, 2vw, 1.2rem) 1rem;
+  max-width: 1280px;
+}
+
+/* ---------- Left rail nav ---------- */
+.rail {
+  position: sticky; top: 44px; z-index: 30;
+  align-self: start;
+  height: calc(100vh - 44px);
+  display: flex; flex-direction: column;
+  padding: 0.5rem 0.6rem 0.4rem;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--line);
+}
+.rail-inner { display: grid; gap: 0.15rem; }
+.rail a {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  height: 30px; padding: 0 0.6rem;
+  border-radius: 7px;
+  color: var(--muted); font-size: 0.84rem; font-weight: 550;
+  border: 1px solid transparent;
+}
+.rail a .nav-glyph {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px;
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  color: var(--muted-2);
+  border: 1px solid var(--line); border-radius: 5px;
   background: var(--panel);
 }
-.section-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-  margin-bottom: 0.8rem;
-  min-width: 0;
+.rail a .nav-text { min-width: 0; }
+.rail a:hover { background: var(--panel); color: var(--ink); }
+.rail a.is-active {
+  background: var(--panel); color: var(--ink); border-color: var(--line);
+  box-shadow: var(--shadow);
 }
-.queue-brief {
+.rail a.is-active .nav-glyph { color: var(--trust); border-color: var(--trust-line); background: var(--trust-bg); }
+.nav-top { margin-top: auto; }
+
+/* ---------- Attention strip (first viewport) ---------- */
+.attention {
   display: grid;
-  grid-template-columns: minmax(12rem, 0.7fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 0.75rem;
   align-items: stretch;
-  margin-bottom: 0.75rem;
-  min-width: 0;
-}
-.brief-primary, .trust-snapshot {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 3.25rem;
-  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 1rem 0.9rem;
+  background: linear-gradient(180deg, #fff, var(--panel-2));
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
-.brief-number { color: var(--urgent); font-size: 1.65rem; font-weight: 900; }
-.trust-snapshot {
-  justify-content: space-between;
-  color: var(--muted);
+.attn-left { min-width: 0; display: grid; align-content: start; gap: 0.6rem; }
+.attn-title { font-size: 1.12rem; font-weight: 650; letter-spacing: -0.015em; color: var(--ink); }
+.attn-counts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  height: 28px; padding: 0 0.6rem 0 0.4rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--ink);
+  font-size: 0.78rem;
+}
+.chip:hover { border-color: var(--line-strong); }
+.chip.is-active { box-shadow: 0 0 0 2px rgba(31,78,121,.18); }
+.chip-num { font-weight: 650; font-size: 0.86rem; }
+.chip-urgent { border-color: var(--urgent-line); background: var(--urgent-bg); }
+.chip-urgent .chip-num { color: var(--urgent); }
+.chip-warn { border-color: var(--warn-line); background: var(--warn-bg); }
+.chip-warn .chip-num { color: var(--warn); }
+.chip-trust { border-color: var(--trust-line); background: var(--trust-bg); }
+.chip-trust .chip-num { color: var(--trust); }
+.chip-done { border-color: var(--line); background: var(--done-bg); }
+.chip-done .chip-num { color: var(--done); }
+.strip-empty { color: var(--muted); font-size: 0.82rem; }
+.attn-trustline {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem;
+  padding-top: 0.5rem; border-top: 1px dashed var(--line);
+  font-size: 0.78rem; color: var(--muted);
+}
+.attn-trustline strong { color: var(--ink); font-weight: 650; margin-right: 0.18rem; }
+.attn-right {
+  min-width: 0;
+  display: grid; align-content: start; gap: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border-left: 1px solid var(--line);
+}
+.attn-right-title { font-size: 0.76rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.attn-blockers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; min-width: 0; }
+.attn-blockers li { min-width: 0; }
+.attn-blockers li a {
+  display: grid; grid-template-columns: auto 1fr; gap: 0.5rem; align-items: baseline;
+  padding: 0.32rem 0.4rem; border-radius: 6px;
+  font-size: 0.82rem; color: var(--ink-2);
+  border-left: 2px solid var(--urgent);
+  background: var(--urgent-bg);
+}
+.attn-blockers li a:hover { background: #fbe2da; }
+.attn-blockers li a .mono { color: var(--urgent); }
+.attn-blockers li.none { color: var(--muted); font-size: 0.8rem; padding: 0.32rem 0.4rem; }
+
+/* ---------- Panels ---------- */
+.panel {
+  margin-bottom: 0.85rem;
+  padding: 0.9rem 1rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   min-width: 0;
 }
-.trust-snapshot span { display: inline-flex; gap: 0.3rem; }
-.trust-snapshot strong { color: var(--ink); }
-.metric-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
+.panel-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+  margin-bottom: 0.75rem; min-width: 0;
 }
+.panel-head > div { min-width: 0; }
+.eyebrow {
+  font-size: 0.68rem; font-weight: 650; color: var(--trust);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.15rem;
+}
+.panel-title { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.panel-note { color: var(--muted); font-size: 0.78rem; max-width: 22rem; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+/* ---------- Queue list ---------- */
 .queue-list {
-  display: grid;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden;
   background: var(--panel);
 }
-.lane-grid, .trust-grid, .authority-grid { display: grid; gap: 0.75rem; }
-.trust-grid, .authority-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.lane-grid { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: start; }
-.work-card, .detail-card, .trust-card, .timeline-event {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-2);
-}
-.work-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.75fr);
-  gap: 1rem;
-  padding: 0.9rem;
-  border-left: 5px solid var(--neutral);
-}
-.attention-needs-human-decision, .attention-blocked, .attention-changes-requested { border-left-color: var(--urgent); }
-.attention-needs-review, .attention-needs-evidence { border-left-color: var(--warn); }
-.attention-receipt-ready, .attention-ready-to-integrate { border-left-color: var(--trust); }
-.attention-closed { border-left-color: var(--done); }
-.card-title-row, .lane-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-}
-.record-id { color: var(--muted); font-weight: 700; }
-.queue-item {
-  border-bottom: 1px solid var(--line);
-}
+.queue-item { border-bottom: 1px solid var(--line-2); }
 .queue-item:last-child { border-bottom: 0; }
 .queue-item[open] { background: #fbfdff; }
 .queue-row {
-  display: grid;
-  grid-template-columns: 0.7rem minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: center;
-  min-height: 4.2rem;
-  padding: 0.72rem 0.9rem;
-  cursor: pointer;
-  list-style: none;
+  display: grid; grid-template-columns: 4px minmax(0, 1fr) auto;
+  gap: 0.7rem; align-items: center;
+  min-height: 46px; padding: 0.5rem 0.7rem 0.5rem 0.55rem;
+  cursor: pointer; list-style: none;
 }
 .queue-row::-webkit-details-marker { display: none; }
-.queue-row:hover, .queue-item[open] .queue-row { background: var(--panel-2); }
-.state-dot {
-  width: 0.62rem;
-  height: 0.62rem;
-  border-radius: 999px;
-  background: var(--neutral);
-}
+.queue-row::marker { display: none; }
+.queue-row:hover { background: var(--panel-2); }
+.state-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--neutral); margin-left: 0.1rem; }
 .attention-needs-human-decision .state-dot,
 .attention-blocked .state-dot,
 .attention-changes-requested .state-dot { background: var(--urgent); }
@@ -925,344 +988,291 @@ h4 { margin-bottom: 0.35rem; font-size: 0.95rem; }
 .attention-receipt-ready .state-dot,
 .attention-ready-to-integrate .state-dot { background: var(--trust); }
 .attention-closed .state-dot { background: var(--done); }
-.attention-needs-human-decision .queue-row,
-.attention-blocked .queue-row,
-.attention-changes-requested .queue-row { background: var(--attention-bg); }
-.queue-main {
-  display: grid;
-  min-width: 0;
-  gap: 0.12rem;
-}
+.queue-main { display: grid; min-width: 0; gap: 0.08rem; }
 .queue-title {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-weight: 850;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600; color: var(--ink); font-size: 0.92rem;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.queue-meta, .queue-next {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.queue-next { color: #2a3a50; font-weight: 700; }
-.queue-side {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  justify-self: end;
-  min-width: 0;
-}
+.queue-meta { color: var(--muted); font-size: 0.76rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-next { color: #2c3e54; font-size: 0.78rem; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-side { display: inline-flex; align-items: center; gap: 0.45rem; justify-self: end; min-width: 0; }
+.record-id { font-size: 0.74rem; }
 .receipt-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.8rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 850;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; height: 22px; padding: 0 0.5rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: 0.72rem; font-weight: 550; white-space: nowrap;
 }
-.receipt-trust { color: var(--trust); background: var(--trust-bg); border-color: #9fd8cc; }
-.receipt-warn { color: var(--warn); background: var(--warn-bg); border-color: #edd08f; }
-.receipt-neutral { color: var(--neutral); background: var(--neutral-bg); }
-.queue-detail {
-  padding: 0 0.9rem 0.9rem 2.35rem;
-}
-.stage-flow {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-left: 0.1rem;
-}
-.stage {
-  font-weight: 800;
-  color: var(--muted);
-}
+.receipt-trust { color: var(--trust); background: var(--trust-bg); border-color: var(--trust-line); }
+.receipt-warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
+.receipt-neutral { color: var(--neutral); background: var(--neutral-bg); border-color: var(--neutral-line); }
+.queue-detail { padding: 0.3rem 0.7rem 0.7rem 1.4rem; border-top: 1px solid var(--line-2); }
+.stage-flow { display: inline-flex; flex-wrap: wrap; gap: 0.2rem; align-items: center; }
+.stage { font-size: 0.72rem; font-weight: 550; color: var(--muted); }
 .stage-trust { color: var(--trust); }
 .stage-warn { color: var(--warn); }
 .stage-neutral { color: var(--neutral); }
-.stage-sep { color: #b7c2cf; }
-.pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.65rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-.pill-urgent { color: var(--urgent); background: var(--urgent-bg); border-color: #f0b8b2; }
-.pill-warn { color: var(--warn); background: var(--warn-bg); border-color: #edd08f; }
-.pill-trust { color: var(--trust); background: var(--trust-bg); border-color: #9fd8cc; }
-.pill-done { color: var(--done); background: var(--done-bg); }
-.pill-neutral { color: var(--neutral); background: var(--neutral-bg); }
-.next-action {
-  margin-bottom: 0;
-  color: var(--ink);
-  font-weight: 700;
-}
+.stage-sep { color: var(--muted-2); }
+
+/* left accent stripe by tone */
+.queue-item.attention-needs-human-decision,
+.queue-item.attention-blocked,
+.queue-item.attention-changes-requested { box-shadow: inset 3px 0 0 var(--urgent); }
+.queue-item.attention-needs-review,
+.queue-item.attention-needs-evidence { box-shadow: inset 3px 0 0 var(--warn); }
+.queue-item.attention-receipt-ready,
+.queue-item.attention-ready-to-integrate { box-shadow: inset 3px 0 0 var(--trust); }
+.queue-item.attention-closed { box-shadow: inset 3px 0 0 var(--done); }
+
 .state-grid, .compact-dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.75rem;
-  margin: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem 1rem;
+  margin: 0.3rem 0 0;
 }
-dt { color: var(--muted); font-size: 0.78rem; }
-dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+dt { color: var(--muted); font-size: 0.72rem; font-weight: 500; }
+dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
+
+/* ---------- Work lanes ---------- */
+.lane-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 0.7rem; align-items: start; }
 .lane {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.65rem;
-  border: 1px dashed var(--line);
-  border-radius: 10px;
+  display: grid; gap: 0.4rem;
+  padding: 0.55rem 0.6rem 0.7rem;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  min-width: 0;
 }
-.detail-card { overflow: hidden; }
+.lane-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.lane-count { font-size: 0.78rem; color: var(--muted); }
+.detail-card {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel); overflow: hidden;
+}
 .detail-card summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.75rem;
-  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 0.7rem;
+  padding: 0.55rem 0.7rem; cursor: pointer; list-style: none;
 }
-.detail-card summary small {
-  display: block;
-  color: var(--muted);
-  margin-top: 0.1rem;
-}
-.detail-body {
-  padding: 0 0.75rem 0.85rem;
-  border-top: 1px solid var(--line);
-}
+.detail-card summary::-webkit-details-marker { display: none; }
+.dc-title { min-width: 0; }
+.dc-title strong { display: block; font-size: 0.86rem; font-weight: 600; }
+.dc-title small { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 0.08rem; }
+.detail-card[open] summary { border-bottom: 1px solid var(--line); }
+.detail-body { padding: 0.55rem 0.7rem 0.7rem; }
 .flow-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.4rem;
-  margin: 0.8rem 0;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.3rem;
+  margin: 0.5rem 0 0.55rem;
 }
 .flow-step {
-  min-width: 0;
-  padding: 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  min-width: 0; padding: 0.4rem 0.45rem;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2);
+  display: grid; gap: 0.1rem;
 }
-.flow-step span { display: block; color: var(--muted); font-size: 0.74rem; }
-.flow-step strong { overflow-wrap: anywhere; }
-.flow-trust { border-color: #9fd8cc; background: var(--trust-bg); }
-.flow-warn { border-color: #edd08f; background: var(--warn-bg); }
-.detail-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-}
-.kv {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.35rem;
-}
+.flow-label { color: var(--muted); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.flow-value { font-size: 0.76rem; font-weight: 600; overflow-wrap: anywhere; }
+.flow-trust { border-color: var(--trust-line); background: var(--trust-bg); }
+.flow-trust .flow-value { color: var(--trust); }
+.flow-warn { border-color: var(--warn-line); background: var(--warn-bg); }
+.flow-warn .flow-value { color: var(--warn); }
+.flow-neutral { border-color: var(--line); }
+.flow-neutral .flow-value { color: var(--ink-2); }
+.detail-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+.kv { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem; font-size: 0.78rem; }
 .kv span { color: var(--muted); }
-.kv strong { text-align: right; overflow-wrap: anywhere; }
-.trust-card { padding: 0.8rem; margin-bottom: 0.65rem; }
-.ledger-panel {
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.kv strong { text-align: right; overflow-wrap: anywhere; font-weight: 550; }
+.list-block { margin-top: 0.4rem; }
+.list-block strong { display: block; font-size: 0.74rem; color: var(--muted); font-weight: 600; margin-bottom: 0.1rem; }
+.list-block ul { margin: 0; padding-left: 1rem; }
+.list-block li { font-size: 0.78rem; margin-bottom: 0.08rem; overflow-wrap: anywhere; }
+.next-action {
+  margin: 0.5rem 0 0; padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line); border-radius: 6px; background: #fffdf6;
+  font-size: 0.82rem; font-weight: 500; color: var(--ink-2);
+  display: flex; gap: 0.5rem; align-items: baseline;
+}
+.na-label {
+  flex: 0 0 auto; font-size: 0.64rem; font-weight: 650; color: var(--warn);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border: 1px solid var(--warn-line); background: var(--warn-bg);
+  padding: 0.06rem 0.3rem; border-radius: 4px;
+}
+
+/* ---------- Trust ledger ---------- */
+.trust-panel { background: #fbfcfe; }
+.trust-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+.ledger {
+  min-width: 0; display: grid; align-content: start;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel); overflow: hidden;
+}
+.ledger-receipts { border-color: var(--trust-line); }
+.ledger-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.7rem;
+  padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--line);
   background: var(--panel-2);
-  overflow: hidden;
 }
-.ledger-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-  align-items: baseline;
-  padding: 0.75rem 0.9rem;
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-}
-.ledger-heading h3 { margin-bottom: 0; }
-.ledger-heading span { color: var(--muted); font-size: 0.82rem; }
-.ledger-row {
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-}
+.ledger-receipts .ledger-head { background: var(--trust-bg); }
+.ledger-receipts .ledger-head h3 { color: var(--trust); }
+.ledger-head h3 { font-size: 0.84rem; font-weight: 650; }
+.ledger-count { font-size: 0.74rem; color: var(--muted); }
+.ledger-body { display: grid; min-width: 0; }
+.ledger-row { border-bottom: 1px solid var(--line-2); }
 .ledger-row:last-child { border-bottom: 0; }
+.ledger-row[open] { background: var(--panel-2); }
 .ledger-row summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-  align-items: center;
-  min-height: 3.55rem;
-  padding: 0.65rem 0.9rem;
-  cursor: pointer;
-  list-style: none;
+  display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;
+  min-height: 42px; padding: 0.45rem 0.8rem; cursor: pointer; list-style: none;
 }
 .ledger-row summary::-webkit-details-marker { display: none; }
-.ledger-row summary small {
-  display: block;
-  color: var(--muted);
-  margin-top: 0.12rem;
+.lr-title { min-width: 0; }
+.lr-title strong { display: block; font-size: 0.84rem; font-weight: 600; }
+.lr-title small { display: block; color: var(--muted); font-size: 0.7rem; margin-top: 0.06rem; }
+.receipt-mark {
+  display: inline-grid; place-items: center;
+  width: 20px; height: 20px; border-radius: 5px;
+  background: var(--trust); color: #fff; font-weight: 700; font-size: 0.7rem;
+  font-family: var(--mono);
 }
-.ledger-row[open] summary { background: var(--panel-2); }
-.ledger-detail {
-  padding: 0 0.9rem 0.85rem;
-  margin-left: 0.85rem;
-  border-left: 3px solid var(--neutral-bg);
+.ledger-detail { padding: 0.4rem 0.8rem 0.7rem 1.6rem; border-top: 1px solid var(--line-2); border-left: 3px solid var(--trust-bg); }
+.receipt-detail { display: grid; gap: 0.5rem; }
+.receipt-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
+.receipt-trio-2 { margin-top: 0; }
+.trio-cell {
+  min-width: 0; padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+  display: grid; align-content: start; gap: 0.2rem;
 }
-.receipt-ledger-detail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.8rem;
-}
-.list-block { margin-top: 0.55rem; }
-.list-block ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.1rem;
-}
-.list-block li { margin-bottom: 0.16rem; overflow-wrap: anywhere; }
-.timeline { display: grid; gap: 0.7rem; }
+.trio-cell h4 { font-size: 0.7rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.trio-writes { border-color: var(--warn-line); background: var(--warn-bg); }
+.trio-writes h4 { color: var(--warn); }
+.trio-notdone { border-color: var(--line); }
+.trio-undo { border-color: var(--neutral-line); background: var(--neutral-bg); }
+.trio-undo h4 { color: var(--neutral); }
+.mini-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; }
+.mini-list li { font-size: 0.76rem; overflow-wrap: anywhere; padding-left: 0.7rem; position: relative; }
+.mini-list li::before { content: ""; position: absolute; left: 0.1rem; top: 0.5rem; width: 4px; height: 4px; border-radius: 999px; background: var(--muted-2); }
+.mini-empty { font-size: 0.76rem; margin: 0; }
+.mini-head { font-size: 0.7rem; font-weight: 650; color: var(--muted); margin: 0 0 0.1rem; }
+
+/* ---------- History ---------- */
+.timeline { display: grid; gap: 0.4rem; }
 .timeline-event {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1rem minmax(0, 1fr);
-  gap: 0.7rem;
-  padding: 0.8rem;
+  display: grid; grid-template-columns: 1.4rem minmax(0, 1fr); gap: 0.55rem;
+  padding: 0.5rem 0.4rem 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--line-2);
 }
+.timeline-event:last-child { border-bottom: 0; }
+.timeline-rail { position: relative; }
 .timeline-dot {
-  width: 0.72rem;
-  height: 0.72rem;
-  margin-top: 0.35rem;
-  border-radius: 999px;
-  background: var(--trust);
+  position: absolute; top: 0.4rem; left: 0.35rem;
+  width: 8px; height: 8px; border-radius: 999px;
+  background: var(--trust); box-shadow: 0 0 0 3px var(--trust-bg);
 }
+.timeline-body { min-width: 0; }
+.timeline-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.1rem; }
+.timeline-title { font-size: 0.84rem; font-weight: 600; }
+.timeline-cmd { margin: 0.15rem 0 0.1rem; }
+.timeline-cmd code { font-size: 0.76rem; }
+
+/* ---------- Authority ---------- */
+.authority-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+.auth-col { min-width: 0; display: grid; align-content: start; gap: 0.4rem; }
+.auth-col > h3 {
+  font-size: 0.74rem; font-weight: 650; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding-bottom: 0.3rem; border-bottom: 1px solid var(--line);
+}
+.auth-rows { display: grid; gap: 0.4rem; }
+.auth-row {
+  padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-2);
+}
+.auth-row h4 { font-size: 0.84rem; font-weight: 600; margin-bottom: 0.1rem; }
+.auth-row .subtle { font-size: 0.74rem; }
+.auth-level { font-family: var(--mono); font-size: 0.86em; color: var(--neutral); }
+.auth-scope { font-size: 0.78rem; margin: 0.2rem 0 0.3rem; color: var(--ink-2); }
+.auth-owns { font-size: 0.74rem; color: var(--muted); margin-top: 0.25rem; }
+.auth-owns span { color: var(--muted-2); }
+.auth-question { font-size: 0.84rem; margin: 0.2rem 0 0.1rem; }
+.card-title-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.auth-blocker { border-color: var(--urgent-line); background: var(--urgent-bg); }
+.auth-decision { border-color: var(--urgent-line); }
+.pill {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 0.5rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: 0.7rem; font-weight: 550; text-transform: capitalize; white-space: nowrap;
+}
+.pill-urgent { color: var(--urgent); background: var(--urgent-bg); border-color: var(--urgent-line); }
+.pill-warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
+.pill-trust { color: var(--trust); background: var(--trust-bg); border-color: var(--trust-line); }
+.pill-done { color: var(--done); background: var(--done-bg); border-color: var(--line); }
+.pill-neutral { color: var(--neutral); background: var(--neutral-bg); border-color: var(--neutral-line); }
+
+/* ---------- Empty / provenance ---------- */
 .empty-state {
-  padding: 0.85rem;
-  color: var(--muted);
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  background: var(--panel-2);
+  padding: 0.6rem 0.8rem; color: var(--muted); font-size: 0.8rem;
+  border: 1px dashed var(--line); border-radius: 7px; background: var(--panel-2);
 }
 .provenance {
-  width: min(100%, 1340px);
-  margin: 0 auto 1.2rem;
-  padding: 0 clamp(0.75rem, 2vw, 1.35rem);
-  color: var(--muted);
-  font-size: 0.82rem;
+  padding: 0.6rem 0 0.8rem; color: var(--muted); font-size: 0.74rem;
+  border-top: 1px solid var(--line); margin-top: 0.5rem;
 }
-.provenance details {
-  border-top: 1px solid var(--line);
-  padding-top: 0.7rem;
-}
-.provenance summary { cursor: pointer; font-weight: 800; }
+.provenance details { padding-top: 0.3rem; }
+.provenance summary { cursor: pointer; font-weight: 550; }
+.provenance p { margin-top: 0.2rem; }
+
 .is-filtered-out { display: none; }
 
+/* ---------- Responsive ---------- */
 @media (max-width: 900px) {
-  body { padding-bottom: calc(4.3rem + env(safe-area-inset-bottom)); }
-  .topbar {
-    position: static;
-    flex-wrap: wrap;
-    align-items: flex-start;
+  .app { grid-template-columns: 1fr; }
+  .content { padding: 0.55rem 0.7rem calc(4.5rem + env(safe-area-inset-bottom)); max-width: 100%; }
+  .rail {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0;
+    z-index: 50; height: auto;
+    flex-direction: row; align-items: center;
+    padding: 0.3rem 0.4rem calc(0.3rem + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.96);
+    border-right: 0; border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(15,29,45,.08);
+    overflow-x: auto;
   }
-  .topbar-summary { order: 3; width: 100%; }
-  .read-only-badge { margin-left: auto; }
-  .section-nav {
-    position: fixed;
-    top: auto;
-    left: 0.6rem;
-    right: 0.6rem;
-    bottom: calc(0.6rem + env(safe-area-inset-bottom));
-    justify-content: space-between;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(16, 34, 58, 0.18);
-  }
-  .section-nav a { flex: 1 1 0; padding-inline: 0.35rem; }
-  .queue-brief { grid-template-columns: 1fr; }
-  .work-card, .trust-grid, .authority-grid, .detail-columns { grid-template-columns: 1fr; }
-  .receipt-ledger-detail { grid-template-columns: 1fr; }
+  .rail-inner { display: contents; }
+  .rail a { flex: 1 1 0; min-width: 0; height: 38px; justify-content: center; gap: 0.25rem; padding: 0 0.2rem; }
+  .rail a .nav-text { font-size: 0.7rem; }
+  .rail a .nav-glyph { width: 16px; height: 16px; font-size: 0.66rem; }
+  .nav-top { display: none; }
+  .attention { grid-template-columns: 1fr; padding: 0.6rem 0.75rem; gap: 0.55rem; }
+  .attn-right { border-left: 0; border-top: 1px solid var(--line); padding-top: 0.5rem; padding-left: 0; }
+  .attn-right-title { margin-bottom: 0; }
+  .attn-blockers li a { padding: 0.28rem 0.4rem; font-size: 0.8rem; }
+  .trust-grid, .authority-grid { grid-template-columns: 1fr; }
+  .lane-grid { grid-template-columns: 1fr; }
+  .detail-columns { grid-template-columns: 1fr; }
   .flow-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .receipt-trio { grid-template-columns: 1fr; }
+  .panel-head { flex-wrap: wrap; }
+  .panel-note { text-align: left; max-width: 100%; }
 }
-
 @media (max-width: 520px) {
-  body { font-size: 14px; }
-  .dashboard-shell { padding: 0.55rem; }
-  .panel { padding: 0.8rem; }
-  .section-heading, .card-title-row { display: grid; }
-  .topbar {
-    min-height: 3.35rem;
-    padding-block: 0.45rem;
-  }
-  .topbar-summary {
-    display: flex;
-    order: 2;
-    width: auto;
-    gap: 0.45rem;
-    font-size: 0.76rem;
-  }
-  .topbar-summary a {
-    align-items: center;
-    min-height: 2.45rem;
-    padding: 0 0.42rem;
-    background: var(--trust-bg);
-  }
-  .topbar-summary span:nth-child(2),
-  .topbar-summary span:nth-child(4) { display: none; }
-  .brand-lockup { max-width: calc(100% - 7rem); }
-  h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .eyebrow { display: none; }
-  .read-only-badge { display: none; }
-  .section-nav {
-    gap: 0.25rem;
-    padding: 0.3rem;
-  }
-  .section-nav a { min-height: 2.7rem; font-size: 0.84rem; }
-  .brief-primary, .trust-snapshot {
-    min-height: 2.35rem;
-    padding: 0.45rem 0.6rem;
-  }
-  .brief-primary {
-    display: flex;
-  }
-  .brief-number { font-size: 1.3rem; }
-  .trust-snapshot {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible;
-    white-space: normal;
-  }
-  .trust-snapshot span:nth-child(3) { display: none; }
-  .metric-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible;
-    padding-bottom: 0;
-  }
-  .metric {
-    min-width: 0;
-    min-height: 2.3rem;
-  }
-  .queue-row {
-    grid-template-columns: 0.65rem minmax(0, 1fr);
-    min-height: 4.4rem;
-    padding: 0.72rem;
-  }
-  .queue-side {
-    grid-column: 2;
-    justify-self: start;
-    flex-wrap: wrap;
-  }
-  .receipt-chip { white-space: normal; }
+  :root { font-size: 13px; }
+  .topbar { grid-template-columns: auto 1fr; min-height: 40px; padding: 0.3rem 0.6rem; }
+  .topbar-rail { order: 3; grid-column: 1 / -1; justify-self: stretch; overflow-x: auto; padding-bottom: 0.2rem; }
+  .ro-badge { display: none; }
+  .brand-name { max-width: 70vw; }
+  .rail-chip { flex: 0 0 auto; }
+  .attention { padding: 0.6rem 0.7rem; }
+  .attn-title { font-size: 1rem; }
+  .panel { padding: 0.7rem 0.75rem 0.8rem; }
+  .panel-title { font-size: 0.92rem; }
+  .queue-row { min-height: 50px; padding: 0.45rem 0.55rem; grid-template-columns: 4px minmax(0, 1fr); }
+  .queue-side { grid-column: 2; justify-self: start; flex-wrap: wrap; gap: 0.3rem; }
   .queue-meta, .queue-next { white-space: normal; }
-  .queue-detail { padding-left: 1.9rem; }
-  .state-grid, .compact-dl, .flow-row { grid-template-columns: 1fr; }
+  .state-grid, .compact-dl { grid-template-columns: 1fr; }
+  .flow-row { grid-template-columns: 1fr; }
+  .detail-columns { grid-template-columns: 1fr; }
+  .receipt-trio { grid-template-columns: 1fr; }
+  .timeline-event { grid-template-columns: 1.4rem minmax(0, 1fr); }
+  .rail a .nav-text { font-size: 0.66rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
 }
 """
 
@@ -1275,11 +1285,19 @@ def _script() -> str:
     .map((link) => document.getElementById(link.getAttribute('data-tab-link')))
     .filter(Boolean);
 
+  function navOffset() {
+    const rail = document.querySelector('.rail');
+    if (!rail) return 80;
+    const isMobile = getComputedStyle(rail).position === 'fixed';
+    return isMobile ? 60 : 80;
+  }
+
   function updateActive() {
     let active = sections[0] && sections[0].id;
+    const offset = navOffset();
     for (const section of sections) {
       const rect = section.getBoundingClientRect();
-      if (rect.top <= 120) active = section.id;
+      if (rect.top <= offset) active = section.id;
     }
     for (const link of links) {
       link.classList.toggle('is-active', link.getAttribute('data-tab-link') === active);
@@ -1287,7 +1305,7 @@ def _script() -> str:
   }
 
   const filters = Array.from(document.querySelectorAll('[data-filter]'));
-  const queueItems = Array.from(document.querySelectorAll('[data-attention]'));
+  const queueItems = Array.from(document.querySelectorAll('.queue-item[data-attention]'));
   let activeFilter = '';
 
   function applyFilter(filter) {
@@ -1309,5 +1327,6 @@ def _script() -> str:
 
   updateActive();
   document.addEventListener('scroll', updateActive, { passive: true });
+  window.addEventListener('resize', updateActive, { passive: true });
 })();
 """
