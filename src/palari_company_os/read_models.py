@@ -30,6 +30,7 @@ class QueueItem:
     approval_progress: str
     recommended_intensity: str
     intensity_reason: str
+    learning_signal: str
 
 
 ATTENTION_PRIORITY = {
@@ -109,6 +110,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
     integration_state = _integration_state(workspace, work)
     approval_progress = _approval_progress(workspace, work)
     recommended_intensity, intensity_reason = recommend_intensity(work)
+    learning_signal = _learning_signal(workspace, palari)
     waiting_on_human = attention == "needs-human-decision"
     ai_safe_to_proceed = _ai_safe_to_proceed(workspace, work, attention)
     return QueueItem(
@@ -133,6 +135,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
         approval_progress=approval_progress,
         recommended_intensity=recommended_intensity,
         intensity_reason=intensity_reason,
+        learning_signal=learning_signal,
     )
 
 
@@ -357,3 +360,17 @@ def _ai_safe_to_proceed(workspace: Workspace, work: Any, attention: str) -> bool
     if recommended == "high" and latest_for_work(workspace.attempts, work.id) is None:
         return False
     return True
+
+
+def _learning_signal(workspace: Workspace, palari: Any | None) -> str:
+    if palari is None:
+        return ""
+    linked_outcomes = [outcome for outcome in workspace.outcomes if outcome.id in palari.outcomes]
+    if not linked_outcomes:
+        return ""
+    latest = sorted(linked_outcomes, key=lambda outcome: outcome.timestamp)[-1]
+    if latest.follow_up_needed:
+        return f"Outcome follow-up: {latest.follow_up_needed[0]}"
+    if latest.model_worker_notes:
+        return f"Model note: {latest.model_worker_notes[0]}"
+    return latest.summary

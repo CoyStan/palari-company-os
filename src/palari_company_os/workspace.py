@@ -23,12 +23,15 @@ class WorkspaceError(RuntimeError):
     """Raised when a workspace cannot be loaded or is internally inconsistent."""
 
 
+CURRENT_SCHEMA_VERSION = 1
+
 T = TypeVar("T")
 
 
 @dataclass(frozen=True)
 class Workspace:
     path: Path
+    schema_version: int
     name: str
     goals: list[Goal]
     palaris: list[Palari]
@@ -48,17 +51,47 @@ class Workspace:
         if not data_path.exists():
             raise WorkspaceError(f"workspace file not found: {data_path}")
 
+        return cls.from_file(data_path)
+
+    @classmethod
+    def from_file(cls, data_path: Path | str) -> "Workspace":
+        data_path = Path(data_path).expanduser().resolve()
         try:
             raw = json.loads(data_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise WorkspaceError(f"invalid workspace JSON: {exc}") from exc
 
+        return cls.from_raw(raw, data_path.parent)
+
+    @classmethod
+    def from_raw(cls, raw: object, path: Path | str) -> "Workspace":
         if not isinstance(raw, dict):
             raise WorkspaceError("workspace root must be a JSON object")
 
+        schema_version = raw.get("schema_version")
+        if schema_version is None:
+            raise WorkspaceError(
+                "workspace schema_version is missing; run `palari migrate --write` "
+                "or add schema_version: 1"
+            )
+        if not isinstance(schema_version, int):
+            raise WorkspaceError("workspace schema_version must be an integer")
+        if schema_version < CURRENT_SCHEMA_VERSION:
+            raise WorkspaceError(
+                f"workspace schema_version {schema_version} is older than supported "
+                f"version {CURRENT_SCHEMA_VERSION}; run `palari migrate --write`"
+            )
+        if schema_version > CURRENT_SCHEMA_VERSION:
+            raise WorkspaceError(
+                f"workspace schema_version {schema_version} is newer than supported "
+                f"version {CURRENT_SCHEMA_VERSION}"
+            )
+
+        workspace_path = Path(path).expanduser().resolve()
         workspace = cls(
-            path=data_path.parent,
-            name=str(raw.get("name") or data_path.parent.name),
+            path=workspace_path,
+            schema_version=schema_version,
+            name=str(raw.get("name") or workspace_path.name),
             goals=[Goal.from_record(item) for item in _items(raw, "goals")],
             palaris=[Palari.from_record(item) for item in _items(raw, "palaris")],
             humans=[Human.from_record(item) for item in _items(raw, "humans")],

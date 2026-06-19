@@ -10,7 +10,7 @@ name, scope, allowed inputs, standards, memory/context, evidence, outcomes, and
 authority boundaries. Execution may be delegated to models, tools, workers, or
 agents, but the Palari remains the stable human-facing work partner.
 
-## First Success
+## Quickstart
 
 From the repo root:
 
@@ -19,7 +19,7 @@ From the repo root:
 ./bin/palari detail WORK-0001
 ```
 
-JSON output is also available:
+JSON output and operating commands are also available:
 
 ```bash
 ./bin/palari queue --json
@@ -47,13 +47,17 @@ Human intent
             -> outcome and learning
 ```
 
-The first implementation focuses on fast read models:
+The current implementation provides a local workspace CLI:
 
 - `queue`: what needs attention now and why.
 - `detail`: one coherent view of a work item and its related objects.
 - `state`: a compact workspace read model.
 - `validate`: fail-closed workspace validation.
 - `scope`: declared path/action boundary checks.
+- authoring commands for goals, Palaris, humans, decisions, work, attempts,
+  evidence, reviews, human decisions, and outcomes.
+- lifecycle commands for evidence, review, human decision, completion, and
+  outcome.
 - `maintainer status`: lightweight external-maintainer repo status.
 
 ## Development
@@ -65,15 +69,26 @@ old Palari ticket ceremony.
 python3 -m unittest discover -s tests
 ./bin/palari queue --json
 ./bin/palari detail WORK-0001 --json
+./scripts/verify.sh
 ```
 
 ## Documentation
 
 - [Product Model](docs/product/company-os.md)
+- [Quickstart](docs/product/quickstart.md)
 - [Core Objects](docs/product/core-objects.md)
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Command Reference](docs/product/command-reference.md)
+- [Lifecycle Guide](docs/product/lifecycle-guide.md)
+- [Testing Guide](docs/product/testing-guide.md)
+- [Troubleshooting](docs/product/troubleshooting.md)
+- [Security Notes](docs/product/security.md)
+- [Contributing](docs/product/contributing.md)
+- [Roadmap](docs/product/roadmap.md)
+- [Release And Operations](docs/product/release-and-operations.md)
+- [Repo Completeness Definition](docs/product/repo-completeness-definition.md)
+- [Repo Completeness Checklist](docs/product/repo-completeness-checklist.md)
 - [Milestone Completion Report](docs/product/milestone-completion-report.md)

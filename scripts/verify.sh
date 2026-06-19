@@ -5,6 +5,7 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
 python3 -m unittest discover -s tests
+python3 scripts/check_style.py
 python3 -m compileall -q src
 python3 -m json.tool examples/acme-company-os/workspace.json >/tmp/palari-company-workspace-json-check.json
 python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-json-check.json
@@ -18,4 +19,3 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari maintainer status --json >/tmp/palari-company-maintainer-status.json
 
 printf 'Palari Company OS verification passed.\n'
-

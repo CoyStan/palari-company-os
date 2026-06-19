@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "schema_version",
     "name",
     "goals",
     "humans",
@@ -18,6 +19,7 @@
     "outcomes"
   ],
   "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
     "name": { "type": "string", "minLength": 1 },
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
@@ -236,4 +238,3 @@
     }
   }
 }
-

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "Acme Company OS Example",
   "goals": [
     {
@@ -13,7 +14,7 @@
         "Evidence and review are attached to the work"
       ],
       "linked_palaris": ["PALARI-SOFIA", "PALARI-ALFRED"],
-      "linked_work": ["WORK-0001", "WORK-0003", "WORK-0004"],
+      "linked_work": ["WORK-0001", "WORK-0003", "WORK-0004", "WORK-0005", "WORK-0006"],
       "linked_decisions": []
     },
     {
@@ -71,7 +72,7 @@
       "default_worker": "gpt-5-codex",
       "owner_human": "HUMAN-FOUNDER",
       "linked_goals": ["GOAL-0001"],
-      "active_work": ["WORK-0001", "WORK-0003"],
+      "active_work": ["WORK-0001", "WORK-0003", "WORK-0005", "WORK-0006"],
       "outcomes": ["OUTCOME-0001"]
     },
     {
@@ -159,6 +160,40 @@
       "current_attempt": "ATTEMPT-0003",
       "required_approval_count": 1,
       "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0005",
+      "title": "Refresh stale evidence example",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Demonstrate that old evidence cannot justify a newer attempt head.",
+      "allowed_resources": ["docs/product/command-reference.md"],
+      "forbidden_actions": ["deploy"],
+      "acceptance_target": "Evidence is refreshed for the current attempt head.",
+      "verification_expectations": ["queue reports stale evidence"],
+      "current_attempt": "ATTEMPT-0005",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0006",
+      "title": "Refresh stale review example",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "in-review",
+      "scope": "Demonstrate that a review must match the latest evidence head.",
+      "allowed_resources": ["docs/product/schema-and-validation.md"],
+      "forbidden_actions": ["deploy"],
+      "acceptance_target": "Review is refreshed against the latest evidence head.",
+      "verification_expectations": ["queue reports stale review"],
+      "current_attempt": "ATTEMPT-0006",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
     }
   ],
   "attempts": [
@@ -203,6 +238,34 @@
       "changed_files": ["examples/acme-company-os/workspace.json"],
       "cleanliness": "clean",
       "result": "Outcome captured."
+    },
+    {
+      "id": "ATTEMPT-0005",
+      "work_item_id": "WORK-0005",
+      "actor": "PALARI-SOFIA",
+      "status": "active",
+      "branch": "example/stale-evidence",
+      "workspace_path": "/tmp/acme-company-os/WORK-0005",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T18:10:00Z",
+      "commits": ["stale-old", "stale-new"],
+      "changed_files": ["docs/product/command-reference.md"],
+      "cleanliness": "clean",
+      "result": "Changed after evidence was captured."
+    },
+    {
+      "id": "ATTEMPT-0006",
+      "work_item_id": "WORK-0006",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "example/stale-review",
+      "workspace_path": "/tmp/acme-company-os/WORK-0006",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T18:20:00Z",
+      "commits": ["review-fresh"],
+      "changed_files": ["docs/product/schema-and-validation.md"],
+      "cleanliness": "clean",
+      "result": "Evidence refreshed after review."
     }
   ],
   "evidence_runs": [
@@ -231,6 +294,32 @@
       "summary": "Detail read model shows recorded outcome.",
       "freshness": "fresh",
       "timestamp": "2026-06-18T16:30:00Z"
+    },
+    {
+      "id": "EVIDENCE-0005",
+      "work_item_id": "WORK-0005",
+      "attempt_id": "ATTEMPT-0005",
+      "head_sha": "stale-old",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": ["./bin/palari queue --json"],
+      "artifacts": [],
+      "summary": "Evidence passed before a newer attempt commit was added.",
+      "freshness": "stale",
+      "timestamp": "2026-06-18T18:15:00Z"
+    },
+    {
+      "id": "EVIDENCE-0006",
+      "work_item_id": "WORK-0006",
+      "attempt_id": "ATTEMPT-0006",
+      "head_sha": "review-fresh",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": ["./bin/palari detail WORK-0006 --json"],
+      "artifacts": [],
+      "summary": "Evidence is fresh, but review still points to an older head.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-18T18:25:00Z"
     }
   ],
   "review_verdicts": [
@@ -255,6 +344,17 @@
       "checks_inspected": ["./bin/palari detail WORK-0004 --json"],
       "residual_risks": [],
       "timestamp": "2026-06-18T16:40:00Z"
+    },
+    {
+      "id": "REVIEW-0006",
+      "work_item_id": "WORK-0006",
+      "reviewed_head": "review-old",
+      "reviewer": "HUMAN-OPS",
+      "verdict": "accept-ready",
+      "findings": [],
+      "checks_inspected": ["./bin/palari detail WORK-0006 --json"],
+      "residual_risks": ["Review must be rerun against review-fresh."],
+      "timestamp": "2026-06-18T18:22:00Z"
     }
   ],
   "human_decisions": [

@@ -99,7 +99,7 @@ The example includes:
 - two goals
 - two humans
 - two Palaris
-- four work items
+- six work items
 - one open decision
 - attempts
 - evidence runs
@@ -110,6 +110,8 @@ The example includes:
 - role/capability boundaries
 - scope boundaries
 - adaptive intensity examples
+- stale evidence
+- stale review
 
 Verification:
 
@@ -248,4 +250,3 @@ python3 -m json.tool schemas/workspace.schema.json
 ./bin/palari maintainer status --json
 ./scripts/verify.sh
 ```
-
