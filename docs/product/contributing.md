@@ -10,6 +10,18 @@ Do:
   behavior
 - run `./scripts/verify.sh`
 
+## CLI Structure
+
+Keep `src/palari_company_os/cli.py` as the thin entrypoint. New command-line
+work should usually fit into one of these modules:
+
+- `cli_parser.py`: argparse setup and command flags.
+- `cli_dispatch.py`: command execution and CLI-to-domain record assembly.
+- `cli_output.py`: human-readable and JSON rendering.
+- `authoring.py`: workspace mutations and lifecycle safety gates.
+
+Avoid adding business rules directly to `cli.py`.
+
 Do not:
 
 - import old Palari Orchestrator POS ticket history
@@ -19,4 +31,3 @@ Do not:
 - enable real broker side effects
 - turn policy simulation into real authority
 - reintroduce the old ticket ceremony as the default workflow
-
