@@ -1,7 +1,12 @@
 # Repo Completeness Checklist
 
-Status: current implementation checklist against
+Status: current local-foundation implementation checklist against
 `docs/product/repo-completeness-definition.md`.
+
+This checklist does not mean Palari Company OS is a finished company platform.
+It means the current repo has a trustworthy local workspace/CLI foundation that
+can be reviewed, extended, and hardened without old Palari Orchestrator
+ceremony.
 
 Legend:
 
@@ -17,7 +22,7 @@ Legend:
 | Documented fresh-clone setup | Complete | `README.md`, `docs/product/quickstart.md`, `./scripts/verify.sh` |
 | Passing CI | Complete | `.github/workflows/ci.yml` runs `./scripts/verify.sh` |
 | Schema versioning | Complete | `schema_version: 1`, `schemas/workspace.schema.json`, `palari migrate` |
-| Validated example workspaces | Complete | `examples/acme-company-os/workspace.json`, `palari validate`, tests |
+| Validated example workspaces | Complete | `examples/acme-company-os/workspace.json`, strict validation fixtures, `palari validate`, tests |
 | Queue command | Complete | `palari queue`, tests, CLI smoke |
 | Detail command | Complete | `palari detail WORK-ID`, tests, CLI smoke |
 | State command | Complete | `palari state`, tests, CLI smoke |
@@ -29,7 +34,7 @@ Legend:
 | Evidence freshness checks | Complete | queue/detail logic, stale evidence fixture, tests |
 | Review freshness checks | Complete | queue/detail logic, stale review fixture, tests |
 | Authority/quorum checks | Complete | human decision acceptance checks, completion gate, tests |
-| Regression tests for gates | Complete | `tests/test_workspace_read_models.py` |
+| Regression tests for gates | Complete | `tests/test_validation.py`, `tests/test_workspace_read_models.py` |
 | Maintainer docs | Complete | `docs/product/external-maintainer-mode.md`, `docs/product/testing-guide.md`, `docs/product/troubleshooting.md` |
 | Clear known gaps | Complete | `docs/product/roadmap.md`, `docs/product/security.md` |
 
@@ -78,17 +83,20 @@ Evidence:
 - stale evidence/review checks
 - scope checks
 - completion gate
+- strict validation fixtures for invalid authority and completed-work states
 - negative tests
 
 ### 5. Evidence And Review Integrity
 
-Status: complete.
+Status: complete for local workspace integrity.
 
 Evidence:
 
 - evidence and review records include work, attempt/head, commands, status,
   reviewer, verdict, findings, residual risks, and timestamps
 - stale evidence and stale review are detected in queue/detail and tested
+- accepted human decisions are rejected if evidence or review is stale
+- completed work is rejected if evidence, review, or quorum is missing
 
 ### 6. Tests Prove Behavior
 
@@ -204,13 +212,15 @@ Evidence:
 
 ## Strict Self-Review Result
 
-The repository now satisfies the minimum complete version in the completeness
-definition. It is a complete professional foundation for its intended local
-workspace/CLI scope.
+The repository now satisfies the minimum local-foundation version in the
+completeness definition. It is a professional local workspace/CLI foundation,
+not a finished Company OS product.
 
 It still intentionally omits:
 
 - web dashboard
+- append-only event/history log
+- concurrent storage or merge/conflict model
 - real broker execution
 - real policy acceptance
 - advanced GitHub automation

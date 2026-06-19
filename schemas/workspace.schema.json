@@ -54,7 +54,10 @@
         "id": { "type": "string" },
         "title": { "type": "string" },
         "owner": { "type": "string" },
-        "status": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "completed", "closed", "archived"]
+        },
         "priority": { "type": "string" },
         "success_criteria": { "$ref": "#/$defs/string_list" },
         "linked_palaris": { "$ref": "#/$defs/string_list" },
@@ -109,9 +112,21 @@
         "title": { "type": "string" },
         "goal": { "type": "string" },
         "palari": { "type": "string" },
-        "risk": { "type": "string" },
-        "intensity": { "type": "string" },
-        "status": { "type": "string" },
+        "risk": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5"] },
+        "intensity": { "type": "string", "enum": ["light", "standard", "high"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "active",
+            "in-review",
+            "needs-human",
+            "blocked",
+            "completed",
+            "closed",
+            "done"
+          ]
+        },
         "scope": { "type": "string" },
         "allowed_resources": { "$ref": "#/$defs/string_list" },
         "forbidden_actions": { "$ref": "#/$defs/string_list" },
@@ -130,7 +145,10 @@
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
         "actor": { "type": "string" },
-        "status": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "complete", "completed", "failed", "blocked"]
+        },
         "branch": { "type": "string" },
         "workspace_path": { "type": "string" },
         "model_or_worker": { "type": "string" },
@@ -150,7 +168,7 @@
         "work_item_id": { "type": "string" },
         "attempt_id": { "type": "string" },
         "head_sha": { "type": "string" },
-        "status": { "type": "string" },
+        "status": { "type": "string", "enum": ["passed", "failed", "skipped"] },
         "base_ref": { "type": "string" },
         "commands": { "$ref": "#/$defs/string_list" },
         "artifacts": { "$ref": "#/$defs/string_list" },
@@ -187,10 +205,30 @@
         "work_item_id": { "type": "string" },
         "human_id": { "type": "string" },
         "reviewed_head": { "type": "string" },
-        "decision": { "type": "string" },
-        "status": { "type": "string" },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "approved",
+            "rejected",
+            "needs-changes",
+            "changes-requested",
+            "blocked"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "recorded",
+            "accepted",
+            "approved",
+            "rejected",
+            "changes-requested",
+            "blocked"
+          ]
+        },
         "acceptance_mode": { "type": "string" },
-        "quorum_status": { "type": "string" },
+        "quorum_status": { "type": "string", "enum": ["", "pending", "met", "not-met"] },
         "evidence_reference": { "type": "string" },
         "review_reference": { "type": "string" },
         "timestamp": { "type": "string" }
@@ -203,7 +241,10 @@
       "properties": {
         "id": { "type": "string" },
         "question": { "type": "string" },
-        "status": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["open", "decided", "answered", "closed", "blocked"]
+        },
         "context": { "type": "string" },
         "options": { "$ref": "#/$defs/string_list" },
         "tradeoffs": { "$ref": "#/$defs/string_list" },
@@ -226,7 +267,7 @@
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
         "summary": { "type": "string" },
-        "status": { "type": "string" },
+        "status": { "type": "string", "enum": ["captured", "completed", "closed"] },
         "what_happened": { "type": "string" },
         "what_changed": { "type": "string" },
         "useful": { "$ref": "#/$defs/string_list" },

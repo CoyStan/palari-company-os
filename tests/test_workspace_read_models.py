@@ -14,8 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.maintainer import status as maintainer_status
 from palari_company_os.read_models import detail, queue_items
 from palari_company_os.scope import check_scope
-from palari_company_os.store import load_store, migrate_data
-from palari_company_os.workspace import Workspace, WorkspaceError
+from palari_company_os.workspace import Workspace
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
@@ -66,17 +65,6 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["safety"]["evidence_state"], "passed")
         self.assertEqual(payload["safety"]["review_state"], "accept-ready")
         self.assertEqual(payload["safety"]["approval_progress"], "0/1")
-
-    def test_workspace_validation_rejects_missing_refs(self) -> None:
-        broken_path = WORKSPACE / "broken-workspace.json"
-        source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        source["work_items"][0]["goal"] = "GOAL-MISSING"
-        broken_path.write_text(json.dumps(source), encoding="utf-8")
-        try:
-            with self.assertRaises(WorkspaceError):
-                Workspace.load(broken_path)
-        finally:
-            broken_path.unlink(missing_ok=True)
 
     def test_evidence_staleness_blocks_review(self) -> None:
         workspace = self.modified_workspace(
@@ -371,25 +359,6 @@ class CliTests(unittest.TestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("cannot be completed", result.stderr)
-
-    def test_migration_adds_schema_version_to_legacy_workspace(self) -> None:
-        legacy = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        legacy.pop("schema_version")
-        migrated, changes = migrate_data(legacy)
-        self.assertEqual(migrated["schema_version"], 1)
-        self.assertIn("Added schema_version: 1.", changes)
-
-    def test_schema_version_zero_requires_migration(self) -> None:
-        legacy = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        legacy["schema_version"] = 0
-        with tempfile.TemporaryDirectory() as directory:
-            workspace_file = Path(directory) / "workspace.json"
-            workspace_file.write_text(json.dumps(legacy), encoding="utf-8")
-            with self.assertRaises(WorkspaceError):
-                Workspace.load(workspace_file)
-        migrated, changes = migrate_data(legacy)
-        self.assertEqual(migrated["schema_version"], 1)
-        self.assertIn("Upgraded schema_version from 0 to 1.", changes)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

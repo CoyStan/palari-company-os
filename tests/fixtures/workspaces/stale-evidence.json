@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "name": "Stale Evidence Fixture",
+  "goals": [
+    {
+      "id": "GOAL-1",
+      "title": "Ship a trustworthy local foundation",
+      "status": "active"
+    }
+  ],
+  "humans": [
+    {
+      "id": "HUMAN-PRODUCT",
+      "name": "Product Human",
+      "approval_capabilities": ["product"]
+    }
+  ],
+  "palaris": [
+    {
+      "id": "PALARI-SOFIA",
+      "name": "Sofia",
+      "role": "Workspace lead",
+      "owner_human": "HUMAN-PRODUCT"
+    }
+  ],
+  "work_items": [
+    {
+      "id": "WORK-1",
+      "title": "Prepare a local checklist",
+      "goal": "GOAL-1",
+      "palari": "PALARI-SOFIA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "in-review",
+      "current_attempt": "ATTEMPT-1",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "ATTEMPT-1",
+      "work_item_id": "WORK-1",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "commits": ["old-head", "new-head"]
+    }
+  ],
+  "evidence_runs": [
+    {
+      "id": "EVIDENCE-1",
+      "work_item_id": "WORK-1",
+      "attempt_id": "ATTEMPT-1",
+      "head_sha": "old-head",
+      "status": "passed"
+    }
+  ],
+  "review_verdicts": [
+    {
+      "id": "REVIEW-1",
+      "work_item_id": "WORK-1",
+      "reviewed_head": "old-head",
+      "reviewer": "HUMAN-PRODUCT",
+      "verdict": "accept-ready"
+    }
+  ],
+  "human_decisions": [
+    {
+      "id": "HUMAN-DECISION-1",
+      "work_item_id": "WORK-1",
+      "human_id": "HUMAN-PRODUCT",
+      "reviewed_head": "old-head",
+      "decision": "accepted",
+      "status": "accepted",
+      "evidence_reference": "EVIDENCE-1",
+      "review_reference": "REVIEW-1"
+    }
+  ],
+  "decisions": [],
+  "outcomes": []
+}

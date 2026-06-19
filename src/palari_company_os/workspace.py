@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, TypeVar
 
+from .errors import WorkspaceError
 from .models import (
     Attempt,
     Decision,
@@ -17,10 +18,7 @@ from .models import (
     ReviewVerdict,
     WorkItem,
 )
-
-
-class WorkspaceError(RuntimeError):
-    """Raised when a workspace cannot be loaded or is internally inconsistent."""
+from .validation import validate_raw_contract, validate_workspace_contract
 
 
 CURRENT_SCHEMA_VERSION = 1
@@ -86,6 +84,7 @@ class Workspace:
                 f"workspace schema_version {schema_version} is newer than supported "
                 f"version {CURRENT_SCHEMA_VERSION}"
             )
+        validate_raw_contract(raw)
 
         workspace_path = Path(path).expanduser().resolve()
         workspace = cls(
@@ -235,6 +234,8 @@ class Workspace:
 
         for outcome in self.outcomes:
             _require_ref("outcomes", outcome.id, "work_item_id", outcome.work_item_id, work_ids)
+
+        validate_workspace_contract(self)
 
     def goal(self, goal_id: str) -> Goal | None:
         return _find(self.goals, goal_id)

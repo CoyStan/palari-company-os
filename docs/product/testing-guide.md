@@ -27,7 +27,11 @@ python3 -m json.tool schemas/workspace.schema.json
 The test suite covers:
 
 - model loading
+- strict validation fixtures
+- unknown-field rejection
+- unsupported schema version rejection
 - cross-reference validation
+- invalid lifecycle state rejection
 - queue state
 - detail assembly
 - stale evidence
@@ -35,6 +39,7 @@ The test suite covers:
 - scope allow/block behavior
 - human authority and approval capability
 - quorum completion gates
+- valid accepted/completed work
 - authoring commands
 - lifecycle commands
 - migration from legacy unversioned workspaces

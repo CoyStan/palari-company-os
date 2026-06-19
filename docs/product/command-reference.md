@@ -43,8 +43,9 @@ items. This is the first fast read model for the whole workspace.
 ./bin/palari validate --json
 ```
 
-Validates model shape and cross-references. It fails closed when required ids,
-types, references, or approval counts are invalid.
+Validates the workspace source of truth. It fails closed when schema version,
+record shape, unknown fields, lifecycle values, references, evidence freshness,
+review freshness, human approval capability, or completion quorum are invalid.
 
 ## Scope
 
