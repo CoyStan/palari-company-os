@@ -27,11 +27,11 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 rm -rf /tmp/palari-company-dashboard-acme /tmp/palari-company-dashboard-dogfood
 ./bin/palari --workspace examples/acme-company-os dashboard --out /tmp/palari-company-dashboard-acme --json >/tmp/palari-company-dashboard-acme.json
 ./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-company-dashboard-dogfood --json >/tmp/palari-company-dashboard-dogfood.json
-grep -q 'id="queue"' /tmp/palari-company-dashboard-acme/index.html
-grep -q 'id="work"' /tmp/palari-company-dashboard-acme/index.html
-grep -q 'id="trust"' /tmp/palari-company-dashboard-acme/index.html
-grep -q 'id="history"' /tmp/palari-company-dashboard-acme/index.html
-grep -q 'id="authority"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'data-tab-panel="queue"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'data-tab-panel="work"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'data-tab-panel="trust"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'data-tab-panel="history"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'data-tab-panel="authority"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'RECEIPT-0001' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.html
 

@@ -133,7 +133,7 @@ def _nav() -> str:
         f'<span class="nav-text">{label}</span></a>'
         for label, anchor, glyph in items
     )
-    return f'<nav class="rail" aria-label="Dashboard sections">\n<div class="rail-inner">{links}</div>\n<a class="nav-top" href="#top" data-nav="top"><span class="nav-glyph" aria-hidden="true">^</span><span class="nav-text">Top</span></a>\n</nav>'
+    return f'<nav class="rail" aria-label="Dashboard sections">\n<div class="rail-inner">{links}</div>\n</nav>'
 
 
 def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
@@ -161,7 +161,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
         if value
     ) or '<span class="strip-empty">No active attention.</span>'
     return f"""
-<section class="attention" aria-label="Current attention">
+<section class="attention" aria-label="Current attention" data-tab-panel="queue">
   <div class="attn-left">
     <h1 class="attn-title">What needs attention now</h1>
     <div class="attn-counts">{chips}</div>
@@ -182,7 +182,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
 def _queue_section(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
     rows = "\n".join(_queue_card(item) for item in queue) or _empty("No work items in queue.")
     return f"""
-<section id="queue" class="panel" data-tab-panel>
+<section class="panel" data-tab-panel="queue">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Queue</p>
@@ -248,7 +248,7 @@ def _work_section(workspace: Workspace, queue: list[Any], details: dict[str, dic
 """
         )
     return f"""
-<section id="work" class="panel" data-tab-panel>
+<section class="panel" data-tab-panel="work">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Work</p>
@@ -322,7 +322,7 @@ def _trust_section(workspace: Workspace) -> str:
         "No receipts recorded yet."
     )
     return f"""
-<section id="trust" class="panel trust-panel" data-tab-panel>
+<section class="panel trust-panel" data-tab-panel="trust">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Trust</p>
@@ -428,7 +428,7 @@ def _history_section(history: dict[str, Any]) -> str:
         "No history events recorded for this workspace."
     )
     return f"""
-<section id="history" class="panel" data-tab-panel>
+<section class="panel" data-tab-panel="history">
   <header class="panel-head">
     <div>
       <p class="eyebrow">History</p>
@@ -475,7 +475,7 @@ def _authority_section(
         "No queue items are waiting on a human."
     )
     return f"""
-<section id="authority" class="panel" data-tab-panel>
+<section class="panel" data-tab-panel="authority">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Authority</p>
@@ -1217,6 +1217,7 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 .provenance p { margin-top: 0.2rem; }
 
 .is-filtered-out { display: none; }
+[hidden] { display: none !important; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
@@ -1692,27 +1693,57 @@ def _script() -> str:
     return """
 (function () {
   const links = Array.from(document.querySelectorAll('[data-tab-link]'));
-  const sections = links
-    .map((link) => document.getElementById(link.getAttribute('data-tab-link')))
-    .filter(Boolean);
+  const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+  const validTabs = new Set(links.map((link) => link.getAttribute('data-tab-link')));
+  let activeTab = 'queue';
 
-  function navOffset() {
-    const rail = document.querySelector('.rail');
-    if (!rail) return 80;
-    const isMobile = getComputedStyle(rail).position === 'fixed';
-    return isMobile ? 60 : 80;
+  function currentHashTab() {
+    const value = window.location.hash.replace(/^#/, '');
+    return validTabs.has(value) ? value : 'queue';
   }
 
-  function updateActive() {
-    let active = sections[0] && sections[0].id;
-    const offset = navOffset();
-    for (const section of sections) {
-      const rect = section.getBoundingClientRect();
-      if (rect.top <= offset) active = section.id;
-    }
+  function setActiveTab(tab, options) {
+    if (!validTabs.has(tab)) tab = 'queue';
+    activeTab = tab;
     for (const link of links) {
-      link.classList.toggle('is-active', link.getAttribute('data-tab-link') === active);
+      const isActive = link.getAttribute('data-tab-link') === tab;
+      link.classList.toggle('is-active', isActive);
+      link.setAttribute('aria-current', isActive ? 'page' : 'false');
     }
+    for (const panel of panels) {
+      const isActive = panel.getAttribute('data-tab-panel') === tab;
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    }
+    if (!options || options.updateHash !== false) {
+      const targetHash = '#' + tab;
+      if (window.location.hash !== targetHash) {
+        history.pushState(null, '', targetHash);
+      }
+    }
+    if (options && options.scrollTop) {
+      if (options.scrollTop === 'instant') {
+        window.scrollTo(0, 0);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }
+
+  for (const link of links) {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      setActiveTab(link.getAttribute('data-tab-link'), { scrollTop: true });
+    });
+  }
+
+  for (const anchor of Array.from(document.querySelectorAll('a[href^="#"]'))) {
+    const tab = anchor.getAttribute('href').replace(/^#/, '');
+    if (!validTabs.has(tab) || anchor.hasAttribute('data-tab-link')) continue;
+    anchor.addEventListener('click', (event) => {
+      event.preventDefault();
+      setActiveTab(tab, { scrollTop: true });
+    });
   }
 
   const filters = Array.from(document.querySelectorAll('[data-filter]'));
@@ -1736,8 +1767,12 @@ def _script() -> str:
     button.addEventListener('click', () => applyFilter(button.getAttribute('data-filter')));
   }
 
-  updateActive();
-  document.addEventListener('scroll', updateActive, { passive: true });
-  window.addEventListener('resize', updateActive, { passive: true });
+  window.addEventListener('popstate', () => {
+    setActiveTab(currentHashTab(), { updateHash: false, scrollTop: 'instant' });
+  });
+  setActiveTab(currentHashTab(), { updateHash: false });
+  requestAnimationFrame(() => window.scrollTo(0, 0));
+  setTimeout(() => window.scrollTo(0, 0), 0);
+  setTimeout(() => window.scrollTo(0, 0), 80);
 })();
 """

@@ -52,6 +52,18 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("No receipts recorded yet.", html)
         self.assertIn("Authority", html)
 
+    def test_dashboard_uses_real_tab_panels(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_dashboard(ACME, directory)
+            html = Path(result.index_path).read_text(encoding="utf-8")
+            script = Path(result.assets[1]).read_text(encoding="utf-8")
+
+        for tab in ("queue", "work", "trust", "history", "authority"):
+            self.assertIn(f'data-tab-link="{tab}"', html)
+            self.assertIn(f'data-tab-panel="{tab}"', html)
+        self.assertIn("function setActiveTab", script)
+        self.assertNotIn('id="queue" class="panel"', html)
+
     def test_cli_dashboard_json_reports_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_cli(
