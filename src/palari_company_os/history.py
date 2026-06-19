@@ -40,7 +40,7 @@ def append_history_event(
         "object_type": object_type,
         "object_collection": object_collection,
         "object_id": object_id,
-        "workspace_file": str(data_path),
+        "workspace_file": _workspace_relative_path(data_path, data_path),
         "schema_version": schema_version,
         "before": _record_summary(before),
         "after": _record_summary(after),
@@ -64,8 +64,8 @@ def read_history(workspace_path: Path | str, limit: int | None = None) -> dict[s
     if limit is not None and limit >= 0:
         events = events[-limit:]
     return {
-        "workspace_file": str(data_path),
-        "history_file": str(history_path),
+        "workspace_file": _workspace_relative_path(data_path, data_path),
+        "history_file": _workspace_relative_path(data_path, history_path),
         "events": events,
     }
 
@@ -81,6 +81,13 @@ def _actor(actor: str) -> str:
     if env_actor:
         return env_actor
     return os.environ.get("USER") or getpass.getuser() or "local-user"
+
+
+def _workspace_relative_path(data_path: Path, target_path: Path) -> str:
+    try:
+        return target_path.relative_to(data_path.parent).as_posix()
+    except ValueError:
+        return target_path.name
 
 
 def _record_summary(record: dict[str, Any] | None) -> dict[str, Any] | None:

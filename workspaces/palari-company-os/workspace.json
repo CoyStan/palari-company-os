@@ -371,7 +371,7 @@
       "actor": "PALARI-STEWARD",
       "status": "complete",
       "branch": "main",
-      "workspace_path": "/home/quetza/palari-company-os",
+      "workspace_path": "repo:.",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-19T03:00:00Z",
       "cleanliness": "clean",

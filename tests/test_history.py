@@ -135,6 +135,36 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(history["events"][0]["object_id"], "GOAL-Y")
         self.assertEqual(history["events"][1]["object_id"], "HUMAN-X")
 
+    def test_history_paths_are_workspace_relative(self) -> None:
+        with self.empty_workspace() as workspace:
+            self.run_cli(workspace, "goal", "create", "GOAL-X", "--title", "Portable history")
+            history = read_history(workspace)
+            cli_history = json.loads(self.run_cli(workspace, "history", "--json").stdout)
+
+        serialized = json.dumps(history)
+        self.assertEqual(history["workspace_file"], "workspace.json")
+        self.assertEqual(history["history_file"], ".palari/history.jsonl")
+        self.assertEqual(history["events"][0]["workspace_file"], "workspace.json")
+        self.assertNotIn(str(workspace), serialized)
+        self.assertEqual(cli_history["workspace_file"], "workspace.json")
+        self.assertEqual(cli_history["history_file"], ".palari/history.jsonl")
+
+    def test_legacy_absolute_history_event_paths_still_read(self) -> None:
+        with self.empty_workspace() as workspace:
+            history_path = history_file_path(workspace)
+            history_path.parent.mkdir(parents=True)
+            legacy_event = {
+                "event_id": "event-legacy",
+                "workspace_file": str(workspace / "workspace.json"),
+                "object_type": "goal",
+                "object_id": "GOAL-X",
+            }
+            history_path.write_text(json.dumps(legacy_event) + "\n", encoding="utf-8")
+
+            history = read_history(workspace)
+
+        self.assertEqual(history["events"][0]["workspace_file"], legacy_event["workspace_file"])
+
     def empty_workspace(self) -> "_WorkspaceCopy":
         data = {
             "schema_version": 1,

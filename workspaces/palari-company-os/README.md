@@ -8,6 +8,16 @@ The workspace is repo-local dogfooding, not the old Palari Orchestrator ticket
 workflow. It records goals, Palaris, humans, work, evidence, review, human
 decisions, and outcomes using the same model the CLI exposes to other users.
 
+The completed foundation work item is a retrospective record of repo work that
+had already been reviewed, accepted, committed, and pushed outside this
+workspace. Its human decision record documents that provenance; it is not an
+autonomous founder approval and does not give the CLI authority to accept future
+work by itself.
+
+Committed paths in this workspace should be repo-relative or workspace-relative.
+Avoid machine-local absolute paths so the workspace remains portable across
+clones.
+
 Useful commands:
 
 ```bash

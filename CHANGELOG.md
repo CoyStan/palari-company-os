@@ -10,6 +10,7 @@ repository milestones, not a production Company OS release.
 - Added GitHub CI and install-smoke verification for normal package usage.
 - Added professional repository metadata, license, and maturity wording.
 - Added a repo-local dogfood workspace for Palari Company OS maturity work.
+- Made dogfood workspace history paths portable across clones.
 
 ## [0.1.0] - 2026-06-19
 
