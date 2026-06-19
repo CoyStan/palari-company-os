@@ -16,6 +16,7 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari detail WORK-0001 --json >/tmp/palari-company-detail-work-0001.json
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >/tmp/palari-company-scope-allowed.json
 ./bin/palari scope WORK-0001 --changed secrets.env --action deploy --json >/tmp/palari-company-scope-blocked.json
+./bin/palari history --json >/tmp/palari-company-history.json
 ./bin/palari maintainer status --json >/tmp/palari-company-maintainer-status.json
 
 printf 'Palari Company OS verification passed.\n'

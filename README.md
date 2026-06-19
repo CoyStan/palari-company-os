@@ -27,6 +27,7 @@ JSON output and operating commands are also available:
 ./bin/palari validate
 ./bin/palari state
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
+./bin/palari history
 ```
 
 The default workspace is `examples/acme-company-os`. Use another workspace with:
@@ -54,6 +55,7 @@ The current implementation provides a local workspace CLI:
 - `state`: a compact workspace read model.
 - `validate`: fail-closed workspace validation.
 - `scope`: declared path/action boundary checks.
+- `history`: recent append-only audit events for mutating commands.
 - authoring commands for goals, Palaris, humans, decisions, work, attempts,
   evidence, reviews, human decisions, and outcomes.
 - lifecycle commands for evidence, review, human decision, completion, and

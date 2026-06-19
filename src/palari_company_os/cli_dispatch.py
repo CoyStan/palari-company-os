@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from .authoring import (
     update_human_decision,
     update_record,
 )
+from .history import append_history_event, read_history
 from .maintainer import status as maintainer_status
 from .models import to_plain
 from .read_models import detail, queue_items
@@ -80,6 +82,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "migrate":
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 
+    if args.command == "history":
+        return CommandResult("history", read_history(args.workspace, args.limit), args.json)
+
     if args.command in {
         "goal",
         "human",
@@ -106,6 +111,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
 def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
     store = load_store(workspace_path)
+    before = deepcopy(store.data)
     migrated, changes = migrate_data(store.data)
     payload = {
         "workspace_file": str(store.data_path),
@@ -114,38 +120,51 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
     }
     if write:
         store = type(store)(store.data_path, migrated)
-        write_store(store)
+        workspace = write_store(store)
+        append_history_event(
+            store.data_path,
+            schema_version=workspace.schema_version,
+            command="migrate --write",
+            action="migrated",
+            object_type="workspace",
+            object_collection="workspace",
+            object_id=workspace.name,
+            before=before,
+            after=migrated,
+        )
     return payload
 
 
 def run_authoring_command(args: argparse.Namespace) -> Any:
+    command = f"{args.command} {args.object_command}"
     if args.object_command in {"create", "record"}:
         record = _record_from_args(args)
         if args.command == "human-decision":
-            return create_human_decision(args.workspace, record)
-        return create_record(args.workspace, args.command, record)
+            return create_human_decision(args.workspace, record, command=command)
+        return create_record(args.workspace, args.command, record, command=command)
     if args.object_command == "update":
         updates = parse_setters(args.set, args.list)
         _apply_known_args(args, updates, include_id=False)
         if args.command == "human-decision":
-            return update_human_decision(args.workspace, args.id, updates)
-        return update_record(args.workspace, args.command, args.id, updates)
+            return update_human_decision(args.workspace, args.id, updates, command=command)
+        return update_record(args.workspace, args.command, args.id, updates, command=command)
     if args.command == "work" and args.object_command == "complete":
-        return complete_work(args.workspace, args.work_id, args.status)
+        return complete_work(args.workspace, args.work_id, args.status, command=command)
     raise WorkspaceError(f"unsupported authoring command: {args.command} {args.object_command}")
 
 
 def run_lifecycle_command(args: argparse.Namespace) -> Any:
+    command = f"lifecycle {args.lifecycle_command}"
     if args.lifecycle_command == "evidence":
-        return create_record(args.workspace, "evidence", _record_from_args(args))
+        return create_record(args.workspace, "evidence", _record_from_args(args), command=command)
     if args.lifecycle_command == "review":
-        return create_record(args.workspace, "review", _record_from_args(args))
+        return create_record(args.workspace, "review", _record_from_args(args), command=command)
     if args.lifecycle_command == "decide":
-        return create_human_decision(args.workspace, _record_from_args(args))
+        return create_human_decision(args.workspace, _record_from_args(args), command=command)
     if args.lifecycle_command == "complete":
-        return complete_work(args.workspace, args.work_id, args.status)
+        return complete_work(args.workspace, args.work_id, args.status, command=command)
     if args.lifecycle_command == "outcome":
-        return create_record(args.workspace, "outcome", _record_from_args(args))
+        return create_record(args.workspace, "outcome", _record_from_args(args), command=command)
     raise WorkspaceError(f"unsupported lifecycle command: {args.lifecycle_command}")
 
 

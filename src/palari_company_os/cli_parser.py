@@ -52,6 +52,15 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_parser.add_argument("--write", action="store_true", help="Write migration result.")
     migrate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    history_parser = subparsers.add_parser("history", help="Show recent workspace history events.")
+    history_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Number of recent events to show. Use 0 for none.",
+    )
+    history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)

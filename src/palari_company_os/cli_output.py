@@ -53,6 +53,13 @@ def print_result(result: CommandResult) -> None:
             print_migration(result.payload)
         return
 
+    if result.kind == "history":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_history(result.payload)
+        return
+
     if result.kind == "mutation":
         print_mutation(result.payload, result.as_json)
         return
@@ -102,6 +109,24 @@ def print_migration(payload: dict[str, Any]) -> None:
     print(f"Write: {'yes' if payload['write'] else 'no'}")
     for change in payload["changes"]:
         print(f"  {change}")
+
+
+def print_history(payload: dict[str, Any]) -> None:
+    print(f"Workspace history: {payload['workspace_file']}")
+    print(f"History file: {payload['history_file']}")
+    events = payload["events"]
+    if not events:
+        print("No history events recorded.")
+        return
+    for event in events:
+        print(
+            f"{event['timestamp']} {event['action']} "
+            f"{event['object_type']}/{event['object_id']} by {event['actor']}"
+        )
+        print(f"  command: {event['command']}")
+        changed_fields = event.get("changed_fields") or {}
+        if changed_fields:
+            print(f"  changed: {', '.join(sorted(changed_fields))}")
 
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:

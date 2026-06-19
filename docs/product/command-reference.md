@@ -57,6 +57,18 @@ review freshness, human approval capability, or completion quorum are invalid.
 Checks paths and actions against a work item's declared allowed resources and
 forbidden actions.
 
+## History
+
+```bash
+./bin/palari history
+./bin/palari history --limit 10 --json
+```
+
+Shows recent append-only audit events from `.palari/history.jsonl` beside the
+workspace file. Mutating authoring and lifecycle commands append events only
+after the workspace write validates and succeeds. Failed mutations do not append
+success events.
+
 ## Migration
 
 ```bash

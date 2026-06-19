@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
+from .history import append_history_event
 from .read_models import detail, queue_items
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .workspace import WorkspaceError, latest_for_work
@@ -70,6 +72,9 @@ def create_record(
     workspace_path: str,
     kind: str,
     record: dict[str, Any],
+    *,
+    command: str = "",
+    actor: str = "",
 ) -> MutationResult:
     collection = _collection(kind)
     record_id = _record_id(record)
@@ -79,6 +84,18 @@ def create_record(
         raise WorkspaceError(f"{kind} already exists: {record_id}")
     records.append(record)
     workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or f"{kind} create",
+        action="created",
+        object_type=kind,
+        object_collection=collection,
+        object_id=record_id,
+        actor=_event_actor(record, actor),
+        before=None,
+        after=record,
+    )
     return MutationResult("created", collection, record_id, workspace.name)
 
 
@@ -87,6 +104,9 @@ def update_record(
     kind: str,
     record_id: str,
     updates: dict[str, Any],
+    *,
+    command: str = "",
+    actor: str = "",
 ) -> MutationResult:
     collection = _collection(kind)
     store = load_store(workspace_path)
@@ -94,8 +114,21 @@ def update_record(
     record = _find(records, record_id)
     if record is None:
         raise WorkspaceError(f"{kind} not found: {record_id}")
+    before = deepcopy(record)
     record.update(updates)
     workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or f"{kind} update",
+        action="updated",
+        object_type=kind,
+        object_collection=collection,
+        object_id=record_id,
+        actor=_event_actor(record, actor),
+        before=before,
+        after=record,
+    )
     return MutationResult("updated", collection, record_id, workspace.name)
 
 
@@ -103,6 +136,9 @@ def update_human_decision(
     workspace_path: str,
     record_id: str,
     updates: dict[str, Any],
+    *,
+    command: str = "",
+    actor: str = "",
 ) -> MutationResult:
     store = load_store(workspace_path)
     records = _records(store, "human_decisions")
@@ -122,12 +158,32 @@ def update_human_decision(
             str(merged.get("human_id") or ""),
             str(merged.get("reviewed_head") or ""),
         )
+    before = deepcopy(record)
     record.update(updates)
     workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or "human-decision update",
+        action="updated",
+        object_type="human-decision",
+        object_collection="human_decisions",
+        object_id=record_id,
+        actor=_event_actor(record, actor),
+        before=before,
+        after=record,
+    )
     return MutationResult("updated", "human_decisions", record_id, workspace.name)
 
 
-def complete_work(workspace_path: str, work_id: str, status: str = "completed") -> MutationResult:
+def complete_work(
+    workspace_path: str,
+    work_id: str,
+    status: str = "completed",
+    *,
+    command: str = "",
+    actor: str = "",
+) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
     work_detail = detail(workspace, work_id)
@@ -140,14 +196,30 @@ def complete_work(workspace_path: str, work_id: str, status: str = "completed") 
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
+    before = deepcopy(work)
     work["status"] = status
     workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or "work complete",
+        action="completed",
+        object_type="work",
+        object_collection="work_items",
+        object_id=work_id,
+        actor=_event_actor(work, actor),
+        before=before,
+        after=work,
+    )
     return MutationResult("completed", "work_items", work_id, workspace.name)
 
 
 def create_human_decision(
     workspace_path: str,
     record: dict[str, Any],
+    *,
+    command: str = "",
+    actor: str = "",
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
@@ -157,7 +229,13 @@ def create_human_decision(
     reviewed_head = str(record.get("reviewed_head") or "")
     if decision in {"accepted", "approved"}:
         _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
-    result = create_record(workspace_path, "human-decision", record)
+    result = create_record(
+        workspace_path,
+        "human-decision",
+        record,
+        command=command or "human-decision record",
+        actor=actor,
+    )
     workspace = validate_data(load_store(workspace_path).data_path, load_store(workspace_path).data)
     item = next(item for item in queue_items(workspace) if item.id == work_id)
     return MutationResult(
@@ -269,3 +347,7 @@ def _coerce_value(key: str, value: str) -> Any:
     if key in LIST_FIELDS:
         return [] if value == "" else [part.strip() for part in value.split(",")]
     return value
+
+
+def _event_actor(record: dict[str, Any], actor: str) -> str:
+    return actor or str(record.get("human_id") or record.get("actor") or "")

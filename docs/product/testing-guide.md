@@ -12,8 +12,8 @@ It runs:
 - style checks with `scripts/check_style.py`
 - Python compilation
 - JSON validity checks for example workspaces and schemas
-- CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`, and
-  `maintainer status`
+- CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`,
+  `history`, and `maintainer status`
 
 Focused commands:
 
@@ -37,6 +37,8 @@ The test suite covers:
 - stale evidence
 - stale review
 - scope allow/block behavior
+- append-only history events for successful mutations
+- failed mutations do not append history events
 - human authority and approval capability
 - quorum completion gates
 - valid accepted/completed work
