@@ -52,6 +52,13 @@ def _html() -> str:
   <div class="titlebar">
     {_titlebar()}
   </div>
+  <div class="mobile-context" id="mobile-context" aria-label="Active context">
+    <span class="mc-palari">Maya</span>
+    <span class="mc-sep" aria-hidden="true">·</span>
+    <span class="mc-path">Public Policy / Housing</span>
+    <span class="mc-sep" aria-hidden="true">·</span>
+    <span class="mc-boundary">write after approval</span>
+  </div>
   <div class="workbench-grid" id="workbench-grid">
     {_activity_bar()}
     <div class="primary-sidebar pane" data-mobile-pane="explorer">
@@ -68,6 +75,7 @@ def _html() -> str:
     </div>
   </div>
   {_status_bar()}
+  {_command_palette()}
   {_mobile_nav()}
   <script src="app.js"></script>
 </body>
@@ -655,25 +663,52 @@ def _secondary_sidebar() -> str:
 
 
 def _bottom_panel() -> str:
-    statuses = [
-        ("active", "Active", "Council briefing memo", "Public Policy / Housing", "Maya"),
-        ("waiting", "Waiting", "Rent Control source setup", "Public Policy / Housing / Rent Control", "Clara suggested"),
-        ("blocked", "Blocked", "Legal risk addendum", "Legal", "No Palari access"),
-        ("review", "Needs review", "Public comment draft", "Public Policy / Housing", "Diego"),
-        ("human", "Needs human decision", "Approve Work write", "Public Policy / Housing", "Rafa"),
-        ("receipt", "Receipt-ready", "Permit comparison table", "Public Policy / Housing", "Maya"),
-        ("closed", "Closed", "Product launch notes summary", "Product", "Sofia"),
+    lanes = [
+        ("active", "Active"),
+        ("waiting", "Waiting"),
+        ("blocked", "Blocked"),
+        ("review", "Needs review"),
+        ("human", "Needs human decision"),
+        ("receipt", "Receipt-ready"),
+        ("closed", "Closed"),
     ]
-    rows = "\n".join(
-        f'        <tr class="panel-row st-{tone}">'
-        f'<td><span class="panel-status badge {tone}">{_e(label)}</span></td>'
-        f'<td class="panel-title">{_e(title)}</td>'
-        f'<td class="panel-path">{_e(path)}</td>'
-        f'<td class="panel-owner">{_e(owner)}</td>'
-        f'<td class="panel-cell"><button class="row-action" type="button" data-target="receipt">Open</button></td>'
-        f'</tr>'
-        for tone, label, title, path, owner in statuses
-    )
+    items = {
+        "active": [("Council briefing memo", "Public Policy / Housing", "Maya")],
+        "waiting": [("Rent Control source setup", "Public Policy / Housing / Rent Control", "Clara suggested")],
+        "blocked": [("Legal risk addendum", "Legal", "No Palari access")],
+        "review": [("Public comment draft", "Public Policy / Housing", "Diego")],
+        "human": [("Approve Work write", "Public Policy / Housing", "Rafa")],
+        "receipt": [("Permit comparison table", "Public Policy / Housing", "Maya")],
+        "closed": [("Product launch notes summary", "Product", "Sofia")],
+    }
+    lane_html = []
+    for tone, label in lanes:
+        rows = items.get(tone, [])
+        count = len(rows)
+        row_items = "\n".join(
+            f'            <li class="lane-row st-{tone}">'
+            f'<span class="lane-title">{_e(title)}</span>'
+            f'<span class="lane-path">{_e(path)}</span>'
+            f'<span class="lane-owner">{_e(owner)}</span>'
+            f'<button class="row-action" type="button" data-target="receipt">Open</button>'
+            f'</li>'
+            for title, path, owner in rows
+        )
+        expanded = "is-expanded" if tone != "closed" else ""
+        chev = "▾" if tone != "closed" else "▸"
+        hidden = "" if tone != "closed" else "hidden"
+        lane_html.append(
+            f'        <section class="lane {expanded}" data-lane="{tone}">'
+            f'<button class="lane-header" type="button" data-lane-toggle="{tone}">'
+            f'<span class="chevron">{chev}</span>'
+            f'<span class="lane-badge badge {tone}">{_e(label)}</span>'
+            f'<span class="lane-count">{count}</span>'
+            f'</button>'
+            f'<ul class="lane-rows" {hidden}>{row_items}'
+            f'</ul>'
+            f'</section>'
+        )
+    lanes_block = "\n".join(lane_html)
     return f"""
     <section class="bottom-panel pane" data-mobile-pane="checkin" data-panel="checkin">
       <div class="panel-header">
@@ -689,14 +724,9 @@ def _bottom_panel() -> str:
         </div>
       </div>
       <div class="panel-body" data-panel-body="checkin">
-        <table class="panel-table">
-          <thead>
-            <tr><th>Status</th><th>Work</th><th>Path</th><th>Owner / Palari</th><th></th></tr>
-          </thead>
-          <tbody>
-{rows}
-          </tbody>
-        </table>
+        <div class="lane-list">
+{lanes_block}
+        </div>
       </div>
     </section>
 """
@@ -714,6 +744,39 @@ def _status_bar() -> str:
     <span class="status-item">Reviewer: Diego</span>
     <span class="status-item">Rent Control: child Palari recommended</span>
   </footer>
+"""
+
+
+def _command_palette() -> str:
+    entries = [
+        ("home", "Home", "View"),
+        ("explorer", "Public Policy / Housing", "Workbench"),
+        ("draft", "Public comment on HB 2148", "Draft"),
+        ("source", "Bill text - HB 2148 zoning", "Source"),
+        ("source", "Committee memo", "Source"),
+        ("receipt", "Receipt - public comment draft", "Receipt"),
+        ("workitem", "Work item: public comment draft", "Work item"),
+        ("checkin", "Work check-in", "Tickets"),
+        ("chat", "Maya - policy development lead", "Palari"),
+        ("task", "Task: prepare public comment draft", "Task"),
+        ("receipt", "Permit comparison table", "Receipt-ready"),
+    ]
+    items = "\n".join(
+        f'      <button class="palette-item" type="button" data-target="{_e(target)}">'
+        f'<span class="palette-kind">{_e(kind)}</span>'
+        f'<span class="palette-label">{_e(label)}</span></button>'
+        for target, label, kind in entries
+    )
+    return f"""
+<div class="command-palette" id="command-palette" hidden>
+  <div class="palette-box" role="dialog" aria-label="Go to">
+    <input class="palette-input" id="palette-input" type="text" placeholder="Go to workbench, source, Palari, receipt..." autocomplete="off">
+    <div class="palette-list" id="palette-list">
+{items}
+    </div>
+    <div class="palette-hint"><span>↑↓ navigate</span><span>↵ open</span><span>esc close</span></div>
+  </div>
+</div>
 """
 
 
@@ -925,9 +988,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .tree-view { margin-bottom: 0.25rem; }
 .tree-header {
   width: 100%; display: flex; align-items: center; gap: 0.3rem;
-  padding: 4px 12px; border: 0; background: transparent;
+  padding: 4px 12px; border: 0; background: var(--sidebar-bg);
   font-size: 11px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--ink-2); cursor: pointer;
+  position: sticky; top: 0; z-index: 2;
 }
 .tree-header:hover { background: rgba(0,0,0,0.04); }
 .tree-header .chevron { font-size: 9px; width: 10px; }
@@ -961,7 +1025,6 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .badge.human { color: var(--perm-blocked); background: var(--perm-blocked-bg); }
 .badge.receipt { color: var(--perm-read); background: var(--perm-read-bg); }
 .badge.closed { color: var(--muted); background: #eaeaea; }
-.panel-row.st-closed { border-left: 2px solid var(--line-strong); }
 
 /* ---------- Sources list ---------- */
 .src-list { padding: 0 6px; }
@@ -1223,22 +1286,35 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .panel-count { font-size: 11px; color: var(--muted); }
 .panel-body { flex: 1; overflow: auto; min-height: 0; }
 
-.panel-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.panel-table thead th {
-  text-align: left; font-size: 11px; font-weight: 600; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 10px;
-  border-bottom: 1px solid var(--line); background: var(--panel-bg); position: sticky; top: 0;
+/* ---------- Bottom panel: grouped lanes ---------- */
+.lane-list { display: flex; flex-direction: column; }
+.lane { border-bottom: 1px solid var(--line-soft); }
+.lane-header {
+  width: 100%; display: flex; align-items: center; gap: 0.4rem;
+  padding: 4px 10px; border: 0; background: transparent; cursor: pointer;
+  font-size: 12px; color: var(--ink-2);
 }
-.panel-table td { padding: 4px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
-.panel-row:hover { background: rgba(0,0,0,0.03); }
-.panel-row.st-blocked, .panel-row.st-human { border-left: 2px solid var(--perm-blocked); }
-.panel-row.st-waiting { border-left: 2px solid var(--perm-write); }
-.panel-row.st-review { border-left: 2px solid var(--perm-inherit); }
-.panel-row.st-active, .panel-row.st-receipt { border-left: 2px solid var(--perm-read); }
-.panel-status { white-space: nowrap; }
-.panel-title { color: var(--ink); font-weight: 500; }
-.panel-path, .panel-owner { color: var(--muted); white-space: nowrap; }
-.row-action { border: 0; background: transparent; color: var(--brand); cursor: pointer; font-size: 12px; padding: 0; }
+.lane-header:hover { background: rgba(0,0,0,0.04); }
+.lane-header .chevron { font-size: 9px; color: var(--muted); width: 10px; }
+.lane-badge { font-size: 10px; }
+.lane-count { margin-left: auto; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lane-rows { display: flex; flex-direction: column; }
+.lane:not(.is-expanded) .lane-rows { display: none; }
+.lane-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 3px 10px 3px 24px; border-left: 2px solid transparent;
+  font-size: 12px; cursor: pointer;
+}
+.lane-row:hover { background: rgba(0,0,0,0.04); }
+.lane-row.st-blocked, .lane-row.st-human { border-left-color: var(--perm-blocked); }
+.lane-row.st-waiting { border-left-color: var(--perm-write); }
+.lane-row.st-review { border-left-color: var(--perm-inherit); }
+.lane-row.st-active, .lane-row.st-receipt { border-left-color: var(--perm-read); }
+.lane-row.st-closed { border-left-color: var(--line-strong); }
+.lane-title { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lane-path { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lane-owner { color: var(--muted); white-space: nowrap; margin-left: auto; }
+.row-action { border: 0; background: transparent; color: var(--brand); cursor: pointer; font-size: 12px; padding: 0 4px; flex-shrink: 0; }
 .row-action:hover { text-decoration: underline; }
 
 /* ---------- Status bar ---------- */
@@ -1254,8 +1330,47 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .status-warn { background: rgba(255,255,255,0.18); }
 .status-spacer { flex: 1; }
 
+/* ---------- Command palette ---------- */
+.command-palette {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.25);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 9vh;
+}
+.command-palette[hidden] { display: none; }
+.palette-box {
+  width: min(600px, 92vw); background: var(--editor-bg);
+  border: 1px solid var(--line-strong); border-radius: 4px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.22); overflow: hidden;
+  display: flex; flex-direction: column; max-height: 70vh;
+}
+.palette-input {
+  width: 100%; border: 0; border-bottom: 1px solid var(--line);
+  padding: 10px 14px; font-size: 14px; outline: none; background: var(--editor-bg);
+}
+.palette-list { overflow-y: auto; flex: 1; min-height: 0; }
+.palette-item {
+  width: 100%; display: flex; align-items: center; gap: 0.6rem;
+  padding: 7px 14px; border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; text-align: left; color: var(--ink);
+}
+.palette-item:hover, .palette-item.is-active { background: #e8e8e8; }
+.palette-item.is-active { box-shadow: inset 2px 0 0 var(--brand); }
+.palette-kind {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--muted); background: var(--sidebar-bg); border: 1px solid var(--line);
+  padding: 1px 5px; border-radius: 2px; flex-shrink: 0; min-width: 4.5rem; text-align: center;
+}
+.palette-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-hint {
+  display: flex; gap: 1rem; padding: 5px 14px; border-top: 1px solid var(--line-soft);
+  font-size: 11px; color: var(--muted); background: var(--sidebar-bg);
+}
+.palette-hint[hidden], .palette-item[hidden] { display: none; }
+
 /* ---------- Mobile ---------- */
 .mobile-nav, .mobile-back { display: none; }
+.mobile-context { display: none; }
 
 .pane { display: flex; }
 
@@ -1268,8 +1383,17 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   .tb-cmd { font-size: 11px; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tb-right .tb-path { display: none; }
 
+  .mobile-context {
+    display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;
+    height: 24px; padding: 0 0.6rem; background: var(--status-bg); color: var(--status-fg);
+    font-size: 11px; overflow: hidden; white-space: nowrap;
+  }
+  .mobile-context .mc-sep { opacity: 0.6; }
+  .mobile-context .mc-path { overflow: hidden; text-overflow: ellipsis; }
+  .mobile-context .mc-boundary { margin-left: auto; }
+
   .workbench-grid {
-    display: block; height: calc(100vh - 40px - 0px);
+    display: block; height: calc(100vh - 40px - 24px);
     position: relative;
   }
   .activity-bar { display: none; }
@@ -1282,13 +1406,13 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
   /* only the active mobile pane shows, full width */
   .pane { display: none; }
-  .pane.is-mobile-active { display: flex; flex-direction: column; height: calc(100vh - 40px - 56px); min-height: 0; }
+  .pane.is-mobile-active { display: flex; flex-direction: column; height: calc(100vh - 40px - 24px - 56px); min-height: 0; }
 
   .primary-sidebar.is-mobile-active,
   .secondary-sidebar.is-mobile-active { border: 0; }
   .editor-region.is-mobile-active {
     display: flex; flex-direction: column;
-    height: calc(100vh - 40px - 56px); min-height: 0;
+    height: calc(100vh - 40px - 24px - 56px); min-height: 0;
   }
 
   .bottom-panel { height: auto; flex: 1; }
@@ -1311,12 +1435,12 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
   .document { padding: 1rem; }
   .doc-meta { padding: 0.5rem 0.8rem; }
-  .panel-table th:nth-child(3), .panel-table td:nth-child(3) { display: none; }
+  .lane-path { display: none; }
 }
 
 @media (max-width: 420px) {
   .editor-tab { padding: 0 0.5rem; font-size: 12px; }
-  .panel-table th:nth-child(4), .panel-table td:nth-child(4) { display: none; }
+  .lane-owner { display: none; }
   .doc-chip { font-size: 10px; }
   .mobile-tab { font-size: 9px; }
 }
@@ -1470,6 +1594,19 @@ def _script() -> str:
     });
   });
 
+  // check-in lane collapse/expand
+  document.querySelectorAll("[data-lane-toggle]").forEach((header) => {
+    header.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const lane = header.closest(".lane");
+      const expanded = lane.classList.toggle("is-expanded");
+      const chev = header.querySelector(".chevron");
+      if (chev) chev.textContent = expanded ? "▾" : "▸";
+      const rows = lane.querySelector(".lane-rows");
+      if (rows) rows.hidden = !expanded;
+    });
+  });
+
   function onBreakpointChange() {
     if (DESKTOP.matches) {
       // restore desktop layout
@@ -1502,6 +1639,86 @@ def _script() -> str:
     }
   } else {
     showMobilePane(mobilePaneTargets.has(initial) ? initial : "explorer");
+  }
+
+  // ---------- Command palette ----------
+  const palette = document.getElementById("command-palette");
+  const paletteInput = document.getElementById("palette-input");
+  const paletteList = document.getElementById("palette-list");
+  let paletteItems = paletteList ? Array.from(paletteList.querySelectorAll(".palette-item")) : [];
+  let paletteIndex = 0;
+
+  function openPalette() {
+    if (!palette) return;
+    palette.hidden = false;
+    paletteInput.value = "";
+    filterPalette("");
+    if (paletteInput) setTimeout(() => paletteInput.focus(), 0);
+  }
+  function closePalette() {
+    if (!palette) return;
+    palette.hidden = true;
+  }
+  function filterPalette(q) {
+    const query = q.trim().toLowerCase();
+    let visible = [];
+    paletteItems.forEach((item) => {
+      const text = item.textContent.toLowerCase();
+      const match = !query || text.includes(query);
+      item.hidden = !match;
+      if (match) visible.push(item);
+    });
+    paletteIndex = 0;
+    highlightPalette(visible);
+  }
+  function highlightPalette(visible) {
+    visible.forEach((item, i) => item.classList.toggle("is-active", i === paletteIndex));
+  }
+  function movePalette(delta) {
+    const visible = paletteItems.filter((i) => !i.hidden);
+    if (!visible.length) return;
+    paletteIndex = (paletteIndex + delta + visible.length) % visible.length;
+    highlightPalette(visible);
+    visible[paletteIndex].scrollIntoView({ block: "nearest" });
+  }
+  function openSelected() {
+    const visible = paletteItems.filter((i) => !i.hidden);
+    const sel = visible[paletteIndex] || visible[0];
+    if (!sel) return;
+    const target = sel.dataset.target;
+    closePalette();
+    activate(target);
+  }
+
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "p") {
+      ev.preventDefault();
+      palette && palette.hidden ? openPalette() : closePalette();
+      return;
+    }
+    if (!palette || palette.hidden) return;
+    if (ev.key === "Escape") { ev.preventDefault(); closePalette(); }
+    else if (ev.key === "ArrowDown") { ev.preventDefault(); movePalette(1); }
+    else if (ev.key === "ArrowUp") { ev.preventDefault(); movePalette(-1); }
+    else if (ev.key === "Enter") { ev.preventDefault(); openSelected(); }
+  });
+  if (paletteInput) {
+    paletteInput.addEventListener("input", () => filterPalette(paletteInput.value));
+  }
+  if (palette) {
+    palette.addEventListener("click", (ev) => { if (ev.target === palette) closePalette(); });
+  }
+  paletteItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      paletteIndex = paletteItems.filter((i) => !i.hidden).indexOf(item);
+      openSelected();
+    });
+  });
+  // open from title-bar search
+  const tbSearch = document.querySelector(".tb-search");
+  if (tbSearch) {
+    tbSearch.addEventListener("click", openPalette);
+    tbSearch.style.cursor = "pointer";
   }
 
   // ---------- Draggable splitters ----------
