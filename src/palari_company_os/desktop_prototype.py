@@ -160,26 +160,26 @@ def _view_paths() -> str:
     </button>
     <ol class="tree" role="tree">
       <li role="treeitem" aria-expanded="true">
-        <div class="tree-row depth-0"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Company</span><span class="tree-meta">Rafa</span></div>
+        <div class="tree-row depth-0" tabindex="0"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Company</span><span class="tree-meta">Rafa</span></div>
         <ol role="group">
           <li role="treeitem" aria-expanded="true">
-            <div class="tree-row depth-1"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Public Policy</span><span class="tree-meta badge inherit">parent</span></div>
+            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Public Policy</span><span class="tree-meta badge inherit">parent</span></div>
             <ol role="group">
               <li role="treeitem" aria-expanded="true">
-                <div class="tree-row depth-2 is-selected" data-target="explorer"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Housing</span><span class="tree-meta badge read">active</span></div>
+                <div class="tree-row depth-2 is-selected" tabindex="0" data-target="explorer"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Housing</span><span class="tree-meta badge read">active</span></div>
                 <ol role="group">
                   <li role="treeitem">
-                    <div class="tree-row depth-3"><span class="chevron">▸</span><span class="tree-icon">▤</span><span class="tree-label">Rent Control</span><span class="tree-meta badge write">child</span></div>
+                    <div class="tree-row depth-3" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▤</span><span class="tree-label">Rent Control</span><span class="tree-meta badge write">child</span></div>
                   </li>
                 </ol>
               </li>
             </ol>
           </li>
           <li role="treeitem">
-            <div class="tree-row depth-1"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Legal</span><span class="tree-meta badge blocked">privileged</span></div>
+            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Legal</span><span class="tree-meta badge blocked">privileged</span></div>
           </li>
           <li role="treeitem">
-            <div class="tree-row depth-1"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Product</span><span class="tree-meta">Sofia</span></div>
+            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Product</span><span class="tree-meta">Sofia</span></div>
           </li>
         </ol>
       </li>
@@ -198,7 +198,7 @@ def _view_sources() -> str:
         ("write", "Work folder", "Write only after approval", "write after approval"),
     ]
     rows = "\n".join(
-        f'      <li class="src-row perm-{tone}" data-target="draft" role="treeitem">'
+        f'      <li class="src-row perm-{tone}" data-target="draft" role="treeitem" tabindex="0">'
         f'<span class="perm-dot"></span>'
         f'<span class="src-name">{_e(title)}</span>'
         f'<span class="src-note">{_e(description)}</span>'
@@ -233,7 +233,7 @@ def _view_people() -> str:
         ("D", "Diego", "Delegated reviewer", "inherit"),
     ]
     rows = "\n".join(
-        f'      <li class="people-row"><span class="avatar">{_e(initial)}</span>'
+        f'      <li class="people-row" tabindex="0"><span class="avatar">{_e(initial)}</span>'
         f'<span class="people-name">{_e(name)}</span>'
         f'<span class="people-role">{_e(role)}</span></li>'
         for initial, name, role, _ in people
@@ -254,18 +254,28 @@ def _view_people() -> str:
 
 def _editor_area() -> str:
     tabs = [
-        ("home", "Home", False),
-        ("draft", "Draft", True),
-        ("source", "Source", False),
-        ("receipt", "Receipt", False),
-        ("workitem", "Work Item", False),
+        ("home", "Home", False, True),
+        ("draft", "Draft", True, False),
+        ("source", "Source", False, False),
+        ("receipt", "Receipt", False, False),
+        ("workitem", "Work Item", False, False),
     ]
-    tab_html = "\n".join(
-        f'      <button class="editor-tab {"is-active" if active else ""}" type="button" '
-        f'data-target="{_e(key)}"><span>{_e(label)}</span>'
-        f'<span class="tab-close" aria-hidden="true">×</span></button>'
-        for key, label, active in tabs
-    )
+    tab_lines = []
+    for key, label, active, pinned in tabs:
+        close = ""
+        pinned_attr = ' data-pinned="true"' if pinned else ""
+        if not pinned:
+            close = (
+                f'<button class="tab-close" type="button" data-close-tab="{_e(key)}" '
+                f'aria-label="Close { _e(label) } tab">×</button>'
+            )
+        tab_lines.append(
+            f'      <div class="editor-tab {"is-active" if active else ""}" role="tab" '
+            f'tabindex="0" draggable="true" aria-selected="{str(active).lower()}" '
+            f'data-target="{_e(key)}" data-tab="{_e(key)}"{pinned_attr}>'
+            f'<span class="tab-label">{_e(label)}</span>{close}</div>'
+        )
+    tab_html = "\n".join(tab_lines)
     return f"""
     <div class="editor-area pane" data-mobile-pane="draft">
       <nav class="editor-tabs" role="tablist">
@@ -686,7 +696,7 @@ def _bottom_panel() -> str:
         rows = items.get(tone, [])
         count = len(rows)
         row_items = "\n".join(
-            f'            <li class="lane-row st-{tone}">'
+            f'            <li class="lane-row st-{tone}" tabindex="0" data-target="receipt">'
             f'<span class="lane-title">{_e(title)}</span>'
             f'<span class="lane-path">{_e(path)}</span>'
             f'<span class="lane-owner">{_e(owner)}</span>'
@@ -711,6 +721,7 @@ def _bottom_panel() -> str:
     lanes_block = "\n".join(lane_html)
     return f"""
     <section class="bottom-panel pane" data-mobile-pane="checkin" data-panel="checkin">
+      <div class="panel-resizer" id="panel-resizer" aria-label="Resize bottom panel" role="separator" aria-orientation="horizontal"></div>
       <div class="panel-header">
         <div class="panel-tabs" role="tablist">
           <button class="panel-tab is-active" type="button" data-panel-tab="checkin">Work check-in</button>
@@ -720,7 +731,7 @@ def _bottom_panel() -> str:
         <div class="panel-actions">
           <span class="panel-count">7 items</span>
           <button class="icon-btn" type="button" aria-label="Filter">Filter</button>
-          <button class="icon-btn" type="button" aria-label="Collapse panel" data-target="explorer">▾</button>
+          <button class="icon-btn" type="button" aria-label="Collapse panel" aria-expanded="true" data-panel-collapse>▾</button>
         </div>
       </div>
       <div class="panel-body" data-panel-body="checkin">
@@ -856,6 +867,28 @@ body {
 
 button { font: inherit; color: inherit; }
 ul, ol { margin: 0; padding: 0; list-style: none; }
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--brand-2);
+  outline-offset: -2px;
+}
+
+.tree-row:focus-visible,
+.src-row:focus-visible,
+.people-row:focus-visible,
+.home-row:focus-visible,
+.editor-tab:focus-visible,
+.sec-tab:focus-visible,
+.panel-tab:focus-visible,
+.lane-header:focus-visible,
+.lane-row:focus-visible,
+.palette-item:focus-visible,
+.mobile-tab:focus-visible {
+  background: rgba(0,122,204,0.1);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
 
 /* ---------- Title bar ---------- */
 .titlebar {
@@ -1075,6 +1108,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
 /* ---------- Editor region ---------- */
 .editor-region {
+  --bottom-panel-h: 200px;
   display: flex; flex-direction: column; min-width: 0; min-height: 0;
   background: var(--editor-bg);
 }
@@ -1082,7 +1116,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
 }
 .editor-tabs {
-  display: flex; height: 35px; flex-shrink: 0;
+  display: flex; align-items: stretch; height: 35px; flex-shrink: 0;
   background: var(--sidebar-bg); border-bottom: 1px solid var(--line);
   overflow-x: auto; scrollbar-width: thin;
 }
@@ -1090,16 +1124,25 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   display: flex; align-items: center; gap: 0.3rem;
   padding: 0 0.7rem; height: 100%; border: 0; border-right: 1px solid var(--line-soft);
   background: transparent; color: var(--ink-2); cursor: pointer;
-  font-size: 13px; white-space: nowrap;
+  font-size: 13px; white-space: nowrap; user-select: none;
 }
+.editor-tab[hidden] { display: none; }
 .editor-tab:hover { background: rgba(0,0,0,0.04); }
 .editor-tab.is-active { background: var(--editor-bg); color: var(--ink); position: relative; }
 .editor-tab.is-active::before {
   content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
   background: var(--brand);
 }
-.tab-close { color: var(--muted); font-size: 14px; }
-.tab-close:hover { color: var(--ink); }
+.editor-tab.is-dragging { opacity: 0.55; }
+.editor-tab.is-drop-before { box-shadow: inset 2px 0 0 var(--brand); }
+.editor-tab.is-drop-after { box-shadow: inset -2px 0 0 var(--brand); }
+.tab-label { pointer-events: none; }
+.tab-close {
+  width: 18px; height: 18px; border: 0; border-radius: 2px;
+  display: grid; place-items: center; background: transparent;
+  color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer;
+}
+.tab-close:hover, .tab-close:focus-visible { background: rgba(0,0,0,0.07); color: var(--ink); }
 
 .breadcrumbs {
   display: flex; align-items: center; gap: 0.25rem;
@@ -1267,9 +1310,29 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
 /* ---------- Bottom panel ---------- */
 .bottom-panel {
-  flex-shrink: 0; height: 200px; display: flex; flex-direction: column;
+  flex-shrink: 0; height: var(--bottom-panel-h); display: flex; flex-direction: column;
   background: var(--panel-bg); border-top: 1px solid var(--line); min-height: 0;
 }
+.bottom-panel.is-collapsed {
+  height: 35px;
+}
+.bottom-panel.is-collapsed .panel-resizer,
+.bottom-panel.is-collapsed .panel-body {
+  display: none;
+}
+.panel-resizer {
+  height: 5px; flex-shrink: 0; cursor: row-resize; position: relative;
+  background: transparent;
+}
+.panel-resizer::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--line);
+}
+.panel-resizer:hover::after,
+.panel-resizer.is-dragging::after {
+  background: var(--brand); height: 2px;
+}
+.panel-resizer.is-dragging { background: rgba(0,122,204,0.08); }
 .panel-header {
   height: 35px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
   padding: 0 0.4rem 0 0.5rem; border-bottom: 1px solid var(--line); background: var(--sidebar-bg);
@@ -1416,7 +1479,18 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   }
 
   .bottom-panel { height: auto; flex: 1; }
+  .bottom-panel.is-collapsed { height: auto; }
+  .panel-resizer { display: none; }
   .panel-body { overflow: auto; }
+
+  .sec-tabs {
+    display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
+    height: 40px; overflow: visible;
+  }
+  .sec-tab {
+    padding: 0 2px; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; font-size: 10px;
+  }
 
   .sidebar-body, .sec-body, .editor-content { -webkit-overflow-scrolling: touch; }
 
@@ -1450,13 +1524,13 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 def _script() -> str:
     return """
 (function () {
-  const mobilePaneTargets = new Set(["explorer", "chat", "task", "receipt", "draft", "checkin", "home"]);
+  const mobilePaneTargets = new Set(["explorer", "chat", "task", "receipt", "changes", "authority", "draft", "checkin", "home"]);
   const DESKTOP = window.matchMedia("(min-width: 881px)");
   const body = document.body;
   const panes = Array.from(document.querySelectorAll(".pane"));
   const mobileTabs = Array.from(document.querySelectorAll(".mobile-tab"));
   const activityBtns = Array.from(document.querySelectorAll(".activity-btn[data-target]"));
-  const editorTabs = Array.from(document.querySelectorAll(".editor-tab"));
+  const editorTabStrip = document.querySelector(".editor-tabs");
   const secTabs = Array.from(document.querySelectorAll(".sec-tab"));
   const secPanels = Array.from(document.querySelectorAll(".sec-panel"));
   const panelTabs = Array.from(document.querySelectorAll(".panel-tab"));
@@ -1465,9 +1539,23 @@ def _script() -> str:
   const PANE_GROUP = {
     home: null, // home is an editor document, shown via editor-area
     explorer: "explorer",
-    chat: "chat", task: "chat", receipt: "chat",
+    chat: "chat", task: "chat", receipt: "chat", changes: "chat", authority: "chat",
     draft: "draft",
     checkin: "checkin",
+  };
+
+  const EDITOR_DOCS = new Set(["home", "draft", "source", "receipt", "workitem"]);
+  const SEC_LABELS = { chat: "Chat", task: "Task", receipt: "Receipt", changes: "Changes", authority: "Authority" };
+  const MOBILE_CONTEXTS = {
+    home: ["Home", "Company workbench", "Public Policy / Housing"],
+    explorer: ["Explorer", "Public Policy / Housing", "write after approval"],
+    chat: ["Maya - Chat", "Public Policy / Housing", "selected sources"],
+    task: ["Maya - Task", "Prepare public comment draft", "human decision"],
+    receipt: ["Maya - Receipt", "Public comment draft", "no external writes"],
+    changes: ["Maya - Changes", "Activity history", "local draft only"],
+    authority: ["Authority", "Rafa / Diego / Maya", "approval required"],
+    draft: ["Draft", "Public comment on HB 2148", "not submitted"],
+    checkin: ["Work check-in", "Approve Work write", "waiting on Rafa"],
   };
 
   function showMobilePane(name) {
@@ -1490,7 +1578,7 @@ def _script() -> str:
     if (editorArea) editorArea.style.display = name === "draft" || name === "home" ? "" : "none";
     if (bottomPanel) bottomPanel.style.display = name === "checkin" ? "flex" : "none";
 
-    // within the secondary sidebar, switch the active sec-panel for chat/task/receipt
+    // within the secondary sidebar, switch the active sec-panel for chat/task/receipt/changes/authority
     if (group === "chat") {
       secPanels.forEach((p) => {
         const active = p.dataset.secPanel === name;
@@ -1505,7 +1593,9 @@ def _script() -> str:
     const docMap = { home: "home", draft: "draft", source: "source", receipt: "receipt", workitem: "workitem", checkin: "checkin" };
     if (docMap[name]) showDoc(docMap[name]);
 
-    mobileTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.target === name));
+    updateMobileContext(name);
+    const visibleMobileTarget = name === "changes" || name === "authority" ? "chat" : name;
+    mobileTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.target === visibleMobileTarget));
   }
 
   function showDoc(name) {
@@ -1517,10 +1607,79 @@ def _script() -> str:
     });
   }
 
-  const SEC_LABELS = { chat: "Chat", task: "Task", receipt: "Receipt", changes: "Changes", authority: "Authority" };
+  function getEditorTabs(includeHidden) {
+    if (!editorTabStrip) return [];
+    const tabs = Array.from(editorTabStrip.querySelectorAll(".editor-tab"));
+    return includeHidden ? tabs : tabs.filter((tab) => !tab.hidden);
+  }
+
+  function getEditorTab(target) {
+    if (!editorTabStrip) return null;
+    return editorTabStrip.querySelector('.editor-tab[data-target="' + target + '"]');
+  }
+
+  function ensureEditorTabOpen(target) {
+    const tab = getEditorTab(target);
+    if (tab) tab.hidden = false;
+    return tab;
+  }
+
+  function updateEditorTabState(target) {
+    getEditorTabs(true).forEach((tab) => {
+      const active = !tab.hidden && tab.dataset.target === target;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function activateEditorDoc(target) {
+    ensureEditorTabOpen(target);
+    updateEditorTabState(target);
+    showDoc(target);
+  }
+
+  function closeEditorTab(tab) {
+    if (!tab || tab.dataset.pinned === "true") return;
+    const visibleBefore = getEditorTabs(false);
+    const tabIndex = visibleBefore.indexOf(tab);
+    const wasActive = tab.classList.contains("is-active");
+    const target = tab.dataset.target;
+    tab.hidden = true;
+    tab.classList.remove("is-active", "is-dragging", "is-drop-before", "is-drop-after");
+    tab.setAttribute("aria-selected", "false");
+
+    const doc = document.querySelector('.doc-surface[data-doc="' + target + '"]');
+    if (doc) {
+      doc.classList.remove("is-active");
+      doc.hidden = true;
+    }
+
+    let visibleAfter = getEditorTabs(false);
+    if (!visibleAfter.length) {
+      const home = ensureEditorTabOpen("home");
+      visibleAfter = home ? [home] : [];
+    }
+    if (wasActive) {
+      const nextTab = visibleAfter[tabIndex] || visibleAfter[tabIndex - 1] || visibleAfter[0];
+      activate(nextTab ? nextTab.dataset.target : "home");
+    }
+  }
+
   function updateSecTitle(sec) {
     const el = document.getElementById("sec-sidebar-title");
     if (el && SEC_LABELS[sec]) el.textContent = "Maya - " + SEC_LABELS[sec];
+  }
+
+  function updateMobileContext(target) {
+    const context = document.getElementById("mobile-context");
+    if (!context) return;
+    const profile = MOBILE_CONTEXTS[target] || MOBILE_CONTEXTS.explorer;
+    const palari = context.querySelector(".mc-palari");
+    const path = context.querySelector(".mc-path");
+    const boundary = context.querySelector(".mc-boundary");
+    if (palari) palari.textContent = profile[0];
+    if (path) path.textContent = profile[1];
+    if (boundary) boundary.textContent = profile[2];
   }
 
   function showDesktopActivity(target) {
@@ -1533,12 +1692,11 @@ def _script() -> str:
     if (DESKTOP.matches) {
       showDesktopActivity(target);
       // editor document routing for editor tabs and activity targets
-      if (target === "draft" || target === "source" || target === "receipt" || target === "home" || target === "workitem") {
-        editorTabs.forEach((t) => t.classList.toggle("is-active", t.dataset.target === target));
-        showDoc(target);
+      if (EDITOR_DOCS.has(target)) {
+        activateEditorDoc(target);
       }
       if (target === "checkin") {
-        editorTabs.forEach((t) => t.classList.remove("is-active"));
+        updateEditorTabState("");
         showDoc("checkin");
       }
     } else {
@@ -1549,6 +1707,13 @@ def _script() -> str:
 
   // wire all data-target controls
   document.addEventListener("click", (ev) => {
+    const closeButton = ev.target.closest("[data-close-tab]");
+    if (closeButton) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      closeEditorTab(closeButton.closest(".editor-tab"));
+      return;
+    }
     const el = ev.target.closest("[data-target]");
     if (!el) return;
     ev.preventDefault();
@@ -1560,6 +1725,11 @@ def _script() -> str:
     tab.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const sec = tab.dataset.sec;
+      if (!DESKTOP.matches) {
+        showMobilePane(sec);
+        history.replaceState(null, "", "#" + sec);
+        return;
+      }
       secTabs.forEach((t) => t.classList.toggle("is-active", t === tab));
       secPanels.forEach((p) => {
         const active = p.dataset.secPanel === sec;
@@ -1607,6 +1777,68 @@ def _script() -> str:
     });
   });
 
+  function clearTabDropState() {
+    getEditorTabs(true).forEach((tab) => {
+      tab.classList.remove("is-drop-before", "is-drop-after");
+    });
+  }
+
+  function initEditorTabDrag() {
+    if (!editorTabStrip) return;
+    let draggedTab = null;
+
+    editorTabStrip.addEventListener("dragstart", (ev) => {
+      const tab = ev.target.closest(".editor-tab");
+      if (!tab || tab.hidden) return;
+      draggedTab = tab;
+      tab.classList.add("is-dragging");
+      ev.dataTransfer.effectAllowed = "move";
+      ev.dataTransfer.setData("text/plain", tab.dataset.target || "");
+    });
+
+    editorTabStrip.addEventListener("dragover", (ev) => {
+      if (!draggedTab) return;
+      const over = ev.target.closest(".editor-tab");
+      if (!over || over === draggedTab || over.hidden) return;
+      ev.preventDefault();
+      const box = over.getBoundingClientRect();
+      const before = ev.clientX < box.left + box.width / 2;
+      clearTabDropState();
+      over.classList.toggle("is-drop-before", before);
+      over.classList.toggle("is-drop-after", !before);
+    });
+
+    editorTabStrip.addEventListener("dragleave", (ev) => {
+      if (!editorTabStrip.contains(ev.relatedTarget)) clearTabDropState();
+    });
+
+    editorTabStrip.addEventListener("drop", (ev) => {
+      if (!draggedTab) return;
+      const over = ev.target.closest(".editor-tab");
+      if (!over || over === draggedTab || over.hidden) return;
+      ev.preventDefault();
+      const box = over.getBoundingClientRect();
+      const before = ev.clientX < box.left + box.width / 2;
+      editorTabStrip.insertBefore(draggedTab, before ? over : over.nextSibling);
+      clearTabDropState();
+    });
+
+    editorTabStrip.addEventListener("dragend", () => {
+      if (draggedTab) draggedTab.classList.remove("is-dragging");
+      draggedTab = null;
+      clearTabDropState();
+    });
+
+    editorTabStrip.addEventListener("keydown", (ev) => {
+      const tab = ev.target.closest(".editor-tab");
+      if (!tab || ev.target.closest(".tab-close")) return;
+      if (ev.key === "Delete" || ev.key === "Backspace") {
+        ev.preventDefault();
+        closeEditorTab(tab);
+      }
+    });
+  }
+
   function onBreakpointChange() {
     if (DESKTOP.matches) {
       // restore desktop layout
@@ -1640,6 +1872,7 @@ def _script() -> str:
   } else {
     showMobilePane(mobilePaneTargets.has(initial) ? initial : "explorer");
   }
+  initEditorTabDrag();
 
   // ---------- Command palette ----------
   const palette = document.getElementById("command-palette");
@@ -1690,13 +1923,31 @@ def _script() -> str:
     activate(target);
   }
 
+  function isTypingTarget(el) {
+    return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  }
+
+  function openFocusedTarget(ev) {
+    if (isTypingTarget(ev.target)) return false;
+    if (ev.key !== "Enter" && ev.key !== " ") return false;
+    if (ev.target.closest("button, a")) return false;
+    const target = ev.target.closest("[data-target]");
+    if (!target) return false;
+    ev.preventDefault();
+    activate(target.dataset.target);
+    return true;
+  }
+
   document.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "p") {
       ev.preventDefault();
       palette && palette.hidden ? openPalette() : closePalette();
       return;
     }
-    if (!palette || palette.hidden) return;
+    if (!palette || palette.hidden) {
+      openFocusedTarget(ev);
+      return;
+    }
     if (ev.key === "Escape") { ev.preventDefault(); closePalette(); }
     else if (ev.key === "ArrowDown") { ev.preventDefault(); movePalette(1); }
     else if (ev.key === "ArrowUp") { ev.preventDefault(); movePalette(-1); }
@@ -1725,6 +1976,7 @@ def _script() -> str:
   function initSplitter(handle, side) {
     const grid = document.getElementById("workbench-grid");
     if (!grid) return;
+    if (!handle) return;
     handle.addEventListener("mousedown", (ev) => {
       ev.preventDefault();
       handle.classList.add("is-dragging");
@@ -1751,7 +2003,68 @@ def _script() -> str:
       document.addEventListener("mouseup", onUp);
     });
   }
+
+  function initBottomPanelResize() {
+    const panel = document.querySelector(".bottom-panel");
+    const resizer = document.getElementById("panel-resizer");
+    const collapse = document.querySelector("[data-panel-collapse]");
+    const region = document.querySelector(".editor-region");
+    const panelBody = panel ? panel.querySelector(".panel-body") : null;
+    if (!panel || !resizer || !collapse || !region) return;
+
+    let panelHeight = panel.getBoundingClientRect().height || 200;
+    function clampPanelHeight(height) {
+      const regionHeight = region.getBoundingClientRect().height || window.innerHeight;
+      const maxHeight = Math.max(180, Math.min(420, regionHeight - 160));
+      return Math.max(120, Math.min(height, maxHeight));
+    }
+    function setPanelHeight(height) {
+      panelHeight = clampPanelHeight(height);
+      region.style.setProperty("--bottom-panel-h", panelHeight + "px");
+    }
+    function setPanelCollapsed(collapsed) {
+      if (collapsed) {
+        panelHeight = panel.getBoundingClientRect().height > 60 ? panel.getBoundingClientRect().height : panelHeight;
+      }
+      panel.classList.toggle("is-collapsed", collapsed);
+      if (panelBody) panelBody.hidden = collapsed;
+      collapse.setAttribute("aria-expanded", String(!collapsed));
+      collapse.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
+      collapse.textContent = collapsed ? "▴" : "▾";
+      if (!collapsed) setPanelHeight(panelHeight);
+    }
+
+    collapse.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      setPanelCollapsed(!panel.classList.contains("is-collapsed"));
+    });
+
+    resizer.addEventListener("mousedown", (ev) => {
+      if (panel.classList.contains("is-collapsed")) setPanelCollapsed(false);
+      ev.preventDefault();
+      resizer.classList.add("is-dragging");
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      const startY = ev.clientY;
+      const startH = panel.getBoundingClientRect().height;
+      function onMove(e) {
+        setPanelHeight(startH + startY - e.clientY);
+      }
+      function onUp() {
+        resizer.classList.remove("is-dragging");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      }
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  }
+
   initSplitter(document.getElementById("splitter-primary"), "primary");
   initSplitter(document.getElementById("splitter-secondary"), "secondary");
+  initBottomPanelResize();
 })();
 """

@@ -72,6 +72,34 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertTrue(payload["index_path"].endswith("index.html"))
         self.assertEqual(len(payload["assets"]), 2)
 
+    def test_desktop_prototype_includes_polished_workbench_interactions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_desktop_prototype(directory)
+            index = Path(result.index_path)
+            styles = Path(result.assets[0])
+            script = Path(result.assets[1])
+            html = index.read_text(encoding="utf-8")
+            css = styles.read_text(encoding="utf-8")
+            js = script.read_text(encoding="utf-8")
+
+        self.assertIn('draggable="true"', html)
+        self.assertIn('data-close-tab="draft"', html)
+        self.assertIn('data-pinned="true"', html)
+        self.assertIn('id="panel-resizer"', html)
+        self.assertIn("data-panel-collapse", html)
+        self.assertIn('tabindex="0" data-target="receipt"', html)
+
+        self.assertIn(".editor-tab.is-dragging", css)
+        self.assertIn(".panel-resizer", css)
+        self.assertIn(":focus-visible", css)
+        self.assertIn("grid-template-columns: repeat(5, minmax(0,1fr))", css)
+
+        self.assertIn("function closeEditorTab", js)
+        self.assertIn("function initEditorTabDrag", js)
+        self.assertIn("function initBottomPanelResize", js)
+        self.assertIn("function updateMobileContext", js)
+        self.assertIn('changes: "chat", authority: "chat"', js)
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
