@@ -24,9 +24,10 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari history --json >/tmp/palari-company-history.json
 ./bin/palari --workspace workspaces/palari-company-os history --json >/tmp/palari-company-dogfood-history.json
 ./bin/palari maintainer status --json >/tmp/palari-company-maintainer-status.json
-rm -rf /tmp/palari-company-dashboard-acme /tmp/palari-company-dashboard-dogfood
+rm -rf /tmp/palari-company-dashboard-acme /tmp/palari-company-dashboard-dogfood /tmp/palari-company-desktop-prototype
 ./bin/palari --workspace examples/acme-company-os dashboard --out /tmp/palari-company-dashboard-acme --json >/tmp/palari-company-dashboard-acme.json
 ./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-company-dashboard-dogfood --json >/tmp/palari-company-dashboard-dogfood.json
+./bin/palari desktop-prototype --out /tmp/palari-company-desktop-prototype --json >/tmp/palari-company-desktop-prototype.json
 grep -q 'data-tab-panel="queue"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'data-tab-panel="work"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'data-tab-panel="trust"' /tmp/palari-company-dashboard-acme/index.html
@@ -34,5 +35,8 @@ grep -q 'data-tab-panel="history"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'data-tab-panel="authority"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'RECEIPT-0001' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.html
+grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/index.html
+grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
+grep -q 'data-mobile-pane="chat"' /tmp/palari-company-desktop-prototype/index.html
 
 printf 'Palari Company OS verification passed.\n'

@@ -72,6 +72,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dashboard_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    desktop_prototype_parser = subparsers.add_parser(
+        "desktop-prototype",
+        help="Generate a static Palari Desktop shell prototype with demo data.",
+    )
+    desktop_prototype_parser.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for generated prototype files.",
+    )
+    desktop_prototype_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)

@@ -64,6 +64,10 @@ def print_result(result: CommandResult) -> None:
         print_dashboard(result.payload, result.as_json)
         return
 
+    if result.kind == "desktop-prototype":
+        print_desktop_prototype(result.payload, result.as_json)
+        return
+
     if result.kind == "mutation":
         print_mutation(result.payload, result.as_json)
         return
@@ -146,6 +150,22 @@ def print_dashboard(result: Any, as_json: bool) -> None:
         return
     print(f"Dashboard generated: {result.index_path}")
     print(f"Workspace: {result.workspace}")
+    for asset in result.assets:
+        print(f"Asset: {asset}")
+
+
+def print_desktop_prototype(result: Any, as_json: bool) -> None:
+    payload = {
+        "title": result.title,
+        "output_dir": result.output_dir,
+        "index_path": result.index_path,
+        "assets": result.assets,
+    }
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Desktop prototype generated: {result.index_path}")
+    print(f"Title: {result.title}")
     for asset in result.assets:
         print(f"Asset: {asset}")
 

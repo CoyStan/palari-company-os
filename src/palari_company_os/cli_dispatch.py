@@ -15,6 +15,7 @@ from .authoring import (
     update_record,
 )
 from .dashboard import generate_dashboard
+from .desktop_prototype import generate_desktop_prototype
 from .history import append_history_event, read_history
 from .maintainer import status as maintainer_status
 from .models import to_plain
@@ -92,6 +93,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult(
             "dashboard",
             generate_dashboard(args.workspace, args.out),
+            args.json,
+        )
+
+    if args.command == "desktop-prototype":
+        return CommandResult(
+            "desktop-prototype",
+            generate_desktop_prototype(args.out),
             args.json,
         )
 
