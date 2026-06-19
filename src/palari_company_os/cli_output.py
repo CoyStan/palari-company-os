@@ -60,6 +60,10 @@ def print_result(result: CommandResult) -> None:
             print_history(result.payload)
         return
 
+    if result.kind == "dashboard":
+        print_dashboard(result.payload, result.as_json)
+        return
+
     if result.kind == "mutation":
         print_mutation(result.payload, result.as_json)
         return
@@ -128,6 +132,22 @@ def print_history(payload: dict[str, Any]) -> None:
         changed_fields = event.get("changed_fields") or {}
         if changed_fields:
             print(f"  changed: {', '.join(sorted(changed_fields))}")
+
+
+def print_dashboard(result: Any, as_json: bool) -> None:
+    payload = {
+        "workspace": result.workspace,
+        "output_dir": result.output_dir,
+        "index_path": result.index_path,
+        "assets": result.assets,
+    }
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Dashboard generated: {result.index_path}")
+    print(f"Workspace: {result.workspace}")
+    for asset in result.assets:
+        print(f"Asset: {asset}")
 
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:

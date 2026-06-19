@@ -61,6 +61,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Generate a read-only static dashboard.",
+    )
+    dashboard_parser.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for generated dashboard files.",
+    )
+    dashboard_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)

@@ -24,5 +24,15 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari history --json >/tmp/palari-company-history.json
 ./bin/palari --workspace workspaces/palari-company-os history --json >/tmp/palari-company-dogfood-history.json
 ./bin/palari maintainer status --json >/tmp/palari-company-maintainer-status.json
+rm -rf /tmp/palari-company-dashboard-acme /tmp/palari-company-dashboard-dogfood
+./bin/palari --workspace examples/acme-company-os dashboard --out /tmp/palari-company-dashboard-acme --json >/tmp/palari-company-dashboard-acme.json
+./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-company-dashboard-dogfood --json >/tmp/palari-company-dashboard-dogfood.json
+grep -q 'id="queue"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'id="work"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'id="trust"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'id="history"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'id="authority"' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'RECEIPT-0001' /tmp/palari-company-dashboard-acme/index.html
+grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.html
 
 printf 'Palari Company OS verification passed.\n'

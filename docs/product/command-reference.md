@@ -78,6 +78,26 @@ workspace file. Mutating authoring and lifecycle commands append events only
 after the workspace write validates and succeeds. Failed mutations do not append
 success events.
 
+## Dashboard
+
+```bash
+./bin/palari dashboard --out /tmp/palari-company-dashboard
+./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-dogfood-dashboard --json
+```
+
+Generates a static read-only dashboard with local `index.html`, `styles.css`,
+and `app.js` files. The dashboard reads `workspace.json` and
+`.palari/history.jsonl`; it does not mutate the workspace, run broker actions,
+connect external providers, or require a web server.
+
+The first dashboard has five sections:
+
+- Queue: attention counts, work cards, trust/evidence/review state, next action
+- Work: lifecycle lanes and expandable work detail
+- Trust: selected sources and human-facing receipts
+- History: append-only event timeline
+- Authority: humans, Palaris, open decisions, and human blockers
+
 ## Migration
 
 ```bash

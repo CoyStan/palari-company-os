@@ -14,6 +14,7 @@ from .authoring import (
     update_human_decision,
     update_record,
 )
+from .dashboard import generate_dashboard
 from .history import append_history_event, read_history
 from .maintainer import status as maintainer_status
 from .models import to_plain
@@ -86,6 +87,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "history":
         return CommandResult("history", read_history(args.workspace, args.limit), args.json)
+
+    if args.command == "dashboard":
+        return CommandResult(
+            "dashboard",
+            generate_dashboard(args.workspace, args.out),
+            args.json,
+        )
 
     if args.command in {
         "goal",
