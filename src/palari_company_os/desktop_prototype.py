@@ -138,13 +138,14 @@ def _primary_sidebar() -> str:
   <div class="sidebar-header">
     <span class="sidebar-title">Explorer</span>
     <div class="sidebar-actions">
-      <button class="icon-btn" type="button" aria-label="New workbench">+</button>
+      <button class="icon-btn" type="button" aria-label="New file">⊕</button>
+      <button class="icon-btn" type="button" aria-label="New folder">▣+</button>
       <button class="icon-btn" type="button" aria-label="Refresh">⟳</button>
+      <button class="icon-btn" type="button" aria-label="Collapse all" data-collapse-tree>⊟</button>
     </div>
   </div>
   <div class="sidebar-body">
     {_view_paths()}
-    {_view_sources()}
     {_view_people()}
   </div>
 """
@@ -152,38 +153,150 @@ def _primary_sidebar() -> str:
 
 def _view_paths() -> str:
     return """
-  <section class="tree-view is-expanded" data-tree="paths">
-    <button class="tree-header" type="button" data-toggle="paths" aria-expanded="true">
+  <section class="tree-view is-expanded" data-tree="workspace">
+    <button class="tree-header root-header" type="button" data-toggle="workspace" aria-expanded="true">
       <span class="chevron">▾</span>
-      <span>Workbench Paths</span>
-      <span class="tree-count">6</span>
+      <span>Home [SSH: PALARI_DEV2]</span>
+      <span class="tree-count">18</span>
     </button>
-    <ol class="tree" role="tree">
+    <ol class="tree workspace-tree" role="tree">
       <li role="treeitem" aria-expanded="true">
-        <div class="tree-row depth-0" tabindex="0"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Company</span><span class="tree-meta">Rafa</span></div>
+        <div class="tree-row folder-row depth-0" tabindex="0" data-folder-toggle>
+          <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">quetza</span>
+        </div>
         <ol role="group">
           <li role="treeitem" aria-expanded="true">
-            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Public Policy</span><span class="tree-meta badge inherit">parent</span></div>
+            <div class="tree-row folder-row depth-1" tabindex="0" data-folder-toggle>
+              <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">palari-company-os</span>
+            </div>
             <ol role="group">
               <li role="treeitem" aria-expanded="true">
-                <div class="tree-row depth-2 is-selected" tabindex="0" data-target="explorer"><span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">Housing</span><span class="tree-meta badge read">active</span></div>
+                <div class="tree-row folder-row depth-2" tabindex="0" data-folder-toggle>
+                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">company</span><span class="tree-meta">Rafa</span>
+                </div>
                 <ol role="group">
-                  <li role="treeitem">
-                    <div class="tree-row depth-3" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▤</span><span class="tree-label">Rent Control</span><span class="tree-meta badge write">child</span></div>
+                  <li role="treeitem" aria-expanded="true">
+                    <div class="tree-row folder-row depth-3" tabindex="0" data-folder-toggle>
+                      <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">public-policy</span><span class="tree-meta badge inherit">parent</span>
+                    </div>
+                    <ol role="group">
+                      <li role="treeitem" aria-expanded="true">
+                        <div class="tree-row folder-row depth-4 is-selected" tabindex="0" data-folder-toggle>
+                          <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">housing</span><span class="tree-meta badge read">Public Policy / Housing</span>
+                        </div>
+                        <ol role="group">
+                          <li role="treeitem" aria-expanded="true">
+                            <div class="tree-row folder-row depth-5 perm-read" tabindex="0" data-folder-toggle>
+                              <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">sources</span><span class="tree-meta badge read">readable</span>
+                            </div>
+                            <ol role="group">
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">selected</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-read" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">HB 2148 zoning modernization.md</span><span class="tree-meta badge read">readable</span></div></li>
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-read" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">Housing committee staff analysis.md</span><span class="tree-meta badge read">readable</span></div></li>
+                                </ol>
+                              </li>
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6 perm-inherit" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">inherited</span><span class="tree-meta badge inherit">inherited</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-inherit" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">Public Policy style rules.md</span><span class="tree-meta badge inherit">inherited</span></div></li>
+                                </ol>
+                              </li>
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6 perm-blocked" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">blocked</span><span class="tree-meta badge blocked">blocked</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-blocked" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">Private mailbox.mbox</span><span class="tree-meta badge blocked">not selected</span></div></li>
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-blocked" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">Legal privileged notes.md</span><span class="tree-meta badge blocked">sibling path</span></div></li>
+                                </ol>
+                              </li>
+                            </ol>
+                          </li>
+                          <li role="treeitem" aria-expanded="true">
+                            <div class="tree-row folder-row depth-5 perm-write" tabindex="0" data-folder-toggle>
+                              <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">work</span><span class="tree-meta badge write">write after approval</span>
+                            </div>
+                            <ol role="group">
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">drafts</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-write" tabindex="0" data-target="draft"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">public-comment-hb-2148.md</span><span class="tree-meta badge write">draft</span></div></li>
+                                </ol>
+                              </li>
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">receipts</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-read" tabindex="0" data-target="receipt"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">public-comment-draft.receipt.json</span><span class="tree-meta badge receipt">receipt</span></div></li>
+                                </ol>
+                              </li>
+                              <li role="treeitem" aria-expanded="true">
+                                <div class="tree-row folder-row depth-6" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">work-items</span>
+                                </div>
+                                <ol role="group">
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-blocked" tabindex="0" data-target="workitem"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">approve-work-write.todo</span><span class="tree-meta badge human">Needs human decision</span></div></li>
+                                </ol>
+                              </li>
+                            </ol>
+                          </li>
+                          <li role="treeitem" aria-expanded="true">
+                            <div class="tree-row folder-row depth-5 perm-write" tabindex="0" data-folder-toggle>
+                              <span class="chevron">▾</span><span class="tree-icon">▣</span><span class="tree-label">children</span><span class="tree-meta badge write">child paths</span>
+                            </div>
+                            <ol role="group">
+                              <li role="treeitem" aria-expanded="false">
+                                <div class="tree-row folder-row depth-6" tabindex="0" data-folder-toggle>
+                                  <span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">rent-control</span><span class="tree-meta badge write">Rent Control</span>
+                                </div>
+                                <ol role="group" hidden>
+                                  <li role="treeitem"><div class="tree-row file-row depth-7 perm-write" tabindex="0" data-target="workitem"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">source-setup.todo</span><span class="tree-meta badge waiting">waiting</span></div></li>
+                                </ol>
+                              </li>
+                            </ol>
+                          </li>
+                        </ol>
+                      </li>
+                      <li role="treeitem" aria-expanded="false">
+                        <div class="tree-row folder-row depth-4 perm-blocked" tabindex="0" data-folder-toggle>
+                          <span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">legal</span><span class="tree-meta badge blocked">privileged</span>
+                        </div>
+                        <ol role="group" hidden>
+                          <li role="treeitem"><div class="tree-row file-row depth-5 perm-blocked" tabindex="0" data-target="source"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">Legal privileged notes.md</span><span class="tree-meta badge blocked">blocked</span></div></li>
+                        </ol>
+                      </li>
+                      <li role="treeitem" aria-expanded="false">
+                        <div class="tree-row folder-row depth-4" tabindex="0" data-folder-toggle>
+                          <span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">product</span><span class="tree-meta">Sofia</span>
+                        </div>
+                        <ol role="group" hidden>
+                          <li role="treeitem"><div class="tree-row file-row depth-5 perm-read" tabindex="0" data-target="receipt"><span class="chevron"></span><span class="tree-icon file-icon">◇</span><span class="tree-label">launch-notes-summary.receipt.json</span><span class="tree-meta badge read">receipt-ready</span></div></li>
+                        </ol>
+                      </li>
+                    </ol>
                   </li>
                 </ol>
               </li>
             </ol>
           </li>
-          <li role="treeitem">
-            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Legal</span><span class="tree-meta badge blocked">privileged</span></div>
-          </li>
-          <li role="treeitem">
-            <div class="tree-row depth-1" tabindex="0"><span class="chevron">▸</span><span class="tree-icon">▣</span><span class="tree-label">Product</span><span class="tree-meta">Sofia</span></div>
-          </li>
         </ol>
       </li>
     </ol>
+    <div class="perm-legend tree-legend">
+      <span><i class="perm-dot read"></i>readable</span>
+      <span><i class="perm-dot inherit"></i>inherited</span>
+      <span><i class="perm-dot blocked"></i>blocked</span>
+      <span><i class="perm-dot write"></i>write after approval</span>
+    </div>
   </section>
 """
 
@@ -930,7 +1043,7 @@ input:focus-visible,
 
 /* ---------- Workbench grid ---------- */
 .workbench-grid {
-  --primary-w: 270px;
+  --primary-w: 340px;
   --secondary-w: 320px;
   display: grid;
   grid-template-columns: 48px var(--primary-w) 4px minmax(0, 1fr) 4px var(--secondary-w);
@@ -1010,8 +1123,9 @@ input:focus-visible,
 }
 .sidebar-actions { display: flex; gap: 2px; }
 .icon-btn {
-  width: 22px; height: 22px; border: 0; background: transparent;
-  color: var(--muted); cursor: pointer; border-radius: 3px; font-size: 13px;
+  min-width: 22px; height: 22px; border: 0; background: transparent;
+  color: var(--muted); cursor: pointer; border-radius: 3px; font-size: 12px;
+  padding: 0 4px;
 }
 .icon-btn:hover { background: rgba(0,0,0,0.06); color: var(--ink); }
 
@@ -1037,14 +1151,42 @@ input:focus-visible,
   display: flex; align-items: center; gap: 0.25rem;
   height: 22px; padding: 0 6px 0 4px; border-radius: 2px;
   font-size: 13px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  border-left: 2px solid transparent;
 }
 .tree-row:hover { background: rgba(0,0,0,0.04); }
 .tree-row.is-selected { background: #e8e8e8; }
 .tree-icon { color: var(--muted); font-size: 11px; width: 14px; text-align: center; }
-.tree-label { overflow: hidden; text-overflow: ellipsis; }
+.tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tree-meta { margin-left: auto; color: var(--muted); font-size: 11px; }
 .tree ol { padding-left: 14px; }
 .tree > li > .tree-row.depth-0 { font-weight: 600; }
+
+.workspace-tree {
+  padding: 2px 6px 0 8px;
+}
+.workspace-tree ol {
+  margin-left: 10px; padding-left: 10px;
+  border-left: 1px solid rgba(0,0,0,0.1);
+}
+.workspace-tree .tree-row {
+  height: 24px; padding-left: 0; padding-right: 4px;
+}
+.workspace-tree .tree-row.is-selected {
+  background: #dbeafe;
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+.folder-row .tree-icon { color: #737373; }
+.file-row .chevron { visibility: hidden; }
+.file-row .file-icon { color: #6c6c6c; font-size: 12px; }
+.tree-row.perm-read { border-left-color: var(--perm-read); }
+.tree-row.perm-inherit { border-left-color: var(--perm-inherit); }
+.tree-row.perm-blocked { border-left-color: var(--perm-blocked); }
+.tree-row.perm-write { border-left-color: var(--perm-write); }
+.tree-row[aria-disabled="true"] { opacity: 0.7; }
+.tree-legend {
+  border-top: 1px solid var(--line-soft);
+  margin-top: 0.25rem;
+}
 
 /* permission badges */
 .badge { display: inline-block; padding: 0 5px; border-radius: 2px; font-size: 10px; font-weight: 600; line-height: 16px; }
@@ -1705,6 +1847,29 @@ def _script() -> str:
     history.replaceState(null, "", "#" + target);
   }
 
+  function folderGroupFor(row) {
+    const item = row ? row.closest("li") : null;
+    if (!item) return null;
+    return Array.from(item.children).find((child) => child.tagName === "OL") || null;
+  }
+
+  function setFolderExpanded(row, expanded) {
+    const group = folderGroupFor(row);
+    if (!group) return;
+    const item = row.closest("li");
+    row.setAttribute("aria-expanded", String(expanded));
+    if (item) item.setAttribute("aria-expanded", String(expanded));
+    group.hidden = !expanded;
+    const chev = row.querySelector(".chevron");
+    if (chev) chev.textContent = expanded ? "▾" : "▸";
+  }
+
+  function toggleFolderRow(row) {
+    const group = folderGroupFor(row);
+    if (!group) return;
+    setFolderExpanded(row, group.hidden);
+  }
+
   // wire all data-target controls
   document.addEventListener("click", (ev) => {
     const closeButton = ev.target.closest("[data-close-tab]");
@@ -1712,6 +1877,13 @@ def _script() -> str:
       ev.preventDefault();
       ev.stopPropagation();
       closeEditorTab(closeButton.closest(".editor-tab"));
+      return;
+    }
+    const folderRow = ev.target.closest("[data-folder-toggle]");
+    if (folderRow) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleFolderRow(folderRow);
       return;
     }
     const el = ev.target.closest("[data-target]");
@@ -1761,6 +1933,9 @@ def _script() -> str:
       if (chev) chev.textContent = expanded ? "▾" : "▸";
       const list = view.querySelector(".tree, .src-list, .people-list");
       if (list) list.hidden = !expanded;
+      view.querySelectorAll(".tree-legend").forEach((legend) => {
+        legend.hidden = !expanded;
+      });
     });
   });
 
@@ -1776,6 +1951,17 @@ def _script() -> str:
       if (rows) rows.hidden = !expanded;
     });
   });
+
+  const collapseTree = document.querySelector("[data-collapse-tree]");
+  if (collapseTree) {
+    collapseTree.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      document.querySelectorAll("[data-folder-toggle]").forEach((row) => {
+        if (folderGroupFor(row)) setFolderExpanded(row, false);
+      });
+    });
+  }
 
   function clearTabDropState() {
     getEditorTabs(true).forEach((tab) => {
@@ -1931,6 +2117,12 @@ def _script() -> str:
     if (isTypingTarget(ev.target)) return false;
     if (ev.key !== "Enter" && ev.key !== " ") return false;
     if (ev.target.closest("button, a")) return false;
+    const folderRow = ev.target.closest("[data-folder-toggle]");
+    if (folderRow) {
+      ev.preventDefault();
+      toggleFolderRow(folderRow);
+      return true;
+    }
     const target = ev.target.closest("[data-target]");
     if (!target) return false;
     ev.preventDefault();

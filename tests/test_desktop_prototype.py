@@ -43,6 +43,12 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("Rent Control", html)
         self.assertIn("Work check-in", html)
         self.assertIn("HB 2148 zoning modernization", html)
+        self.assertIn("Home [SSH: PALARI_DEV2]", html)
+        self.assertIn("palari-company-os", html)
+        self.assertIn("sources", html)
+        self.assertIn("selected", html)
+        self.assertIn("work-items", html)
+        self.assertIn("public-comment-hb-2148.md", html)
         self.assertIn("Private mailbox", html)
         self.assertIn("Approve Work write", html)
         self.assertIn("External writes", html)
@@ -99,6 +105,33 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("function initBottomPanelResize", js)
         self.assertIn("function updateMobileContext", js)
         self.assertIn('changes: "chat", authority: "chat"', js)
+
+    def test_desktop_prototype_explorer_uses_folder_file_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_desktop_prototype(directory)
+            index = Path(result.index_path)
+            styles = Path(result.assets[0])
+            script = Path(result.assets[1])
+            html = index.read_text(encoding="utf-8")
+            css = styles.read_text(encoding="utf-8")
+            js = script.read_text(encoding="utf-8")
+
+        self.assertIn('data-tree="workspace"', html)
+        self.assertIn('data-folder-toggle', html)
+        self.assertIn('data-collapse-tree', html)
+        self.assertIn('class="tree workspace-tree"', html)
+        self.assertIn("HB 2148 zoning modernization.md", html)
+        self.assertIn("Housing committee staff analysis.md", html)
+        self.assertIn("public-comment-draft.receipt.json", html)
+        self.assertNotIn("Sources &amp; Permissions", html)
+
+        self.assertIn(".workspace-tree ol", css)
+        self.assertIn(".folder-row .tree-icon", css)
+        self.assertIn(".file-row .file-icon", css)
+
+        self.assertIn("function toggleFolderRow", js)
+        self.assertIn("function setFolderExpanded", js)
+        self.assertIn("[data-collapse-tree]", js)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
