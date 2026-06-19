@@ -29,12 +29,17 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertEqual(script.name, "app.js")
         self.assertIn("Palari Desktop Shell Prototype", html)
         self.assertIn("Maya", html)
+        self.assertIn("/Public Policy / Housing", html)
+        self.assertIn("/Rent Control", html)
+        self.assertIn("Work check-in", html)
         self.assertIn("HB 2148 zoning modernization", html)
         self.assertIn("Private mailbox", html)
-        self.assertIn("Approve write", html)
+        self.assertIn("Approve Work write", html)
         self.assertIn("External writes", html)
+        self.assertIn("Legal privileged notes", html)
+        self.assertIn("Human decides", html)
         self.assertIn('data-mobile-pane="chat"', html)
-        self.assertIn('data-mobile-target="receipt"', html)
+        self.assertIn('data-target="receipt"', html)
 
     def test_cli_desktop_prototype_json_reports_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
