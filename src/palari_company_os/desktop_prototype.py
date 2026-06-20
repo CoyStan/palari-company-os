@@ -143,7 +143,7 @@ def _workbench_panel() -> str:
       <div class="source-tree" role="tree" aria-label="Source permissions by folder">
         <div class="source-folder read" role="treeitem" aria-expanded="true">
           <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="tree-caret" aria-hidden="true">&gt;</span>
             <span class="dot read"></span>
             <strong>Readable</strong>
             <span class="tree-count">3</span>
@@ -166,7 +166,7 @@ def _workbench_panel() -> str:
 
         <div class="source-folder inherit" role="treeitem" aria-expanded="true">
           <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="tree-caret" aria-hidden="true">&gt;</span>
             <span class="dot inherit"></span>
             <strong>Inherited (readable)</strong>
             <span class="tree-count">1</span>
@@ -181,7 +181,7 @@ def _workbench_panel() -> str:
 
         <div class="source-folder write" role="treeitem" aria-expanded="true">
           <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="tree-caret" aria-hidden="true">&gt;</span>
             <span class="dot write"></span>
             <strong>Writable after approval</strong>
             <span class="tree-count">1</span>
@@ -196,7 +196,7 @@ def _workbench_panel() -> str:
 
         <div class="source-folder blocked" role="treeitem" aria-expanded="true">
           <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="tree-caret" aria-hidden="true">&gt;</span>
             <span class="dot blocked"></span>
             <strong>Blocked</strong>
             <span class="tree-count">2</span>
@@ -723,9 +723,17 @@ h1, h2, h3, p { margin: 0; }
   white-space: nowrap;
 }
 .tree-caret {
+  display: inline-grid;
+  place-items: center;
   color: var(--muted);
   font-size: 10px;
   line-height: 1;
+  transform: rotate(90deg);
+  transform-origin: center;
+  transition: transform 120ms ease;
+}
+.source-folder.is-collapsed .tree-caret {
+  transform: rotate(0deg);
 }
 .tree-count {
   min-width: 18px;
@@ -1605,7 +1613,7 @@ def _script() -> str:
     button.setAttribute("aria-expanded", String(!collapsed));
     const caret = button.querySelector(".tree-caret");
     if (caret) {
-      caret.textContent = collapsed ? ">" : "v";
+      caret.textContent = ">";
     }
   }
 
