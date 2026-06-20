@@ -140,52 +140,89 @@ def _workbench_panel() -> str:
 
     <section class="panel-section sources-section">
       <div class="section-title"><h2>Sources</h2></div>
-      <div class="source-group">
-        <div class="source-group-title"><span class="dot read"></span>Readable<span>3</span></div>
-        <button class="source-row" type="button" data-mobile-pane="artifact">
-          <span class="file-icon">PDF</span>
-          <span>California HCD - 2025 Housing Plan</span>
-          <span class="file-kind">PDF</span>
-        </button>
-        <button class="source-row" type="button" data-mobile-pane="artifact">
-          <span class="file-icon">HTM</span>
-          <span>State Housing Element Law (Gov Code 65580)</span>
-          <span class="file-kind">HTML</span>
-        </button>
-        <button class="source-row" type="button" data-mobile-pane="artifact">
-          <span class="file-icon">PDF</span>
-          <span>Urban Institute - ADU Guide</span>
-          <span class="file-kind">PDF</span>
-        </button>
-      </div>
-      <div class="source-group">
-        <div class="source-group-title"><span class="dot inherit"></span>Inherited (readable)<span>1</span></div>
-        <button class="source-row" type="button">
-          <span class="file-icon">PDF</span>
-          <span>City of Oakland - Housing Element</span>
-          <span class="file-kind">PDF</span>
-        </button>
-      </div>
-      <div class="source-group">
-        <div class="source-group-title"><span class="dot write"></span>Writable after approval<span>1</span></div>
-        <button class="source-row" type="button">
-          <span class="file-icon">WEB</span>
-          <span>Oakland Planning Dept - Comment Portal</span>
-          <span class="file-kind">Web</span>
-        </button>
-      </div>
-      <div class="source-group">
-        <div class="source-group-title"><span class="dot blocked"></span>Blocked<span>2</span></div>
-        <button class="source-row muted" type="button">
-          <span class="file-icon">DOC</span>
-          <span>Mayor's Office - Internal Strategy Doc</span>
-          <span class="file-kind">DOCX</span>
-        </button>
-        <button class="source-row muted" type="button">
-          <span class="file-icon">PDF</span>
-          <span>Councilmember Briefing Notes</span>
-          <span class="file-kind">PDF</span>
-        </button>
+      <div class="source-tree" role="tree" aria-label="Source permissions by folder">
+        <div class="source-folder read" role="treeitem" aria-expanded="true">
+          <div class="source-folder-row">
+            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="dot read"></span>
+            <span class="folder-icon" aria-hidden="true">DIR</span>
+            <strong>Readable</strong>
+            <span class="tree-count">3</span>
+          </div>
+          <div class="source-children" role="group">
+            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+              <span class="file-icon">PDF</span>
+              <span>California HCD - 2025 Housing Plan</span>
+              <span class="file-kind">PDF</span>
+            </button>
+            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+              <span class="file-icon">HTM</span>
+              <span>State Housing Element Law (Gov Code 65580)</span>
+              <span class="file-kind">HTML</span>
+            </button>
+            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+              <span class="file-icon">PDF</span>
+              <span>Urban Institute - ADU Guide</span>
+              <span class="file-kind">PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="source-folder inherit" role="treeitem" aria-expanded="true">
+          <div class="source-folder-row">
+            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="dot inherit"></span>
+            <span class="folder-icon" aria-hidden="true">DIR</span>
+            <strong>Inherited (readable)</strong>
+            <span class="tree-count">1</span>
+          </div>
+          <div class="source-children" role="group">
+            <button class="source-file-row" type="button">
+              <span class="file-icon">PDF</span>
+              <span>City of Oakland - Housing Element</span>
+              <span class="file-kind">PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="source-folder write" role="treeitem" aria-expanded="true">
+          <div class="source-folder-row">
+            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="dot write"></span>
+            <span class="folder-icon" aria-hidden="true">DIR</span>
+            <strong>Writable after approval</strong>
+            <span class="tree-count">1</span>
+          </div>
+          <div class="source-children" role="group">
+            <button class="source-file-row" type="button">
+              <span class="file-icon">WEB</span>
+              <span>Oakland Planning Dept - Comment Portal</span>
+              <span class="file-kind">Web</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="source-folder blocked" role="treeitem" aria-expanded="true">
+          <div class="source-folder-row">
+            <span class="tree-caret" aria-hidden="true">v</span>
+            <span class="dot blocked"></span>
+            <span class="folder-icon" aria-hidden="true">DIR</span>
+            <strong>Blocked</strong>
+            <span class="tree-count">2</span>
+          </div>
+          <div class="source-children" role="group">
+            <button class="source-file-row muted" type="button">
+              <span class="file-icon">DOC</span>
+              <span>Mayor's Office - Internal Strategy Doc</span>
+              <span class="file-kind">DOCX</span>
+            </button>
+            <button class="source-file-row muted" type="button">
+              <span class="file-icon">PDF</span>
+              <span>Councilmember Briefing Notes</span>
+              <span class="file-kind">PDF</span>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -655,16 +692,57 @@ h1, h2, h3, p { margin: 0; }
 .chip-red { background: var(--red-bg); color: var(--red); }
 .chip-gray { background: #f3f4f6; color: var(--ink-soft); }
 
-.sources-section { display: grid; gap: 13px; }
-.source-group { display: grid; gap: 6px; }
-.source-group-title {
+.sources-section { display: grid; gap: 10px; }
+.source-tree {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-soft);
-  font-weight: 650;
+  gap: 4px;
   font-size: 12px;
+}
+.source-folder {
+  display: grid;
+  gap: 2px;
+}
+.source-folder-row {
+  display: grid;
+  grid-template-columns: 12px 6px 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 4px;
+  border-radius: 5px;
+  color: var(--ink);
+}
+.source-folder-row:hover {
+  background: var(--panel-soft);
+}
+.source-folder-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-caret {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+}
+.folder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+}
+.tree-count {
+  min-width: 18px;
+  color: var(--ink-soft);
+  font-weight: 750;
+  text-align: right;
 }
 .dot {
   width: 6px;
@@ -677,26 +755,35 @@ h1, h2, h3, p { margin: 0; }
 .dot.inherit { background: var(--blue); }
 .dot.write { background: #f59e0b; }
 .dot.blocked { background: var(--red); }
-.source-row {
+.source-children {
+  display: grid;
+  gap: 1px;
+  margin-left: 30px;
+  padding-left: 9px;
+  border-left: 1px solid var(--line);
+}
+.source-file-row {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  min-height: 28px;
+  min-height: 26px;
+  padding: 0 4px;
   border: 0;
+  border-radius: 5px;
   background: transparent;
   color: var(--ink-soft);
   text-align: left;
   font-size: 12px;
 }
-.source-row:hover { background: var(--panel-soft); }
-.source-row span:nth-child(2) {
+.source-file-row:hover { background: var(--panel-soft); }
+.source-file-row span:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.source-row.muted { color: var(--muted); }
+.source-file-row.muted { color: var(--muted); }
 .file-icon, .file-kind {
   display: inline-flex;
   align-items: center;
