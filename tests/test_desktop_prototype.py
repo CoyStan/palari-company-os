@@ -7,15 +7,58 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
+from html import unescape
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.desktop_prototype import generate_desktop_prototype
+from palari_company_os.desktop_prototype import (
+    DEFAULT_DESKTOP_DEMO_FIXTURE,
+    generate_desktop_prototype,
+    load_desktop_demo_data,
+    validate_desktop_app_data,
+)
 
 
 class DesktopPrototypeTests(unittest.TestCase):
+    def test_desktop_demo_fixture_matches_documented_contract(self) -> None:
+        data = load_desktop_demo_data()
+
+        self.assertTrue(DEFAULT_DESKTOP_DEMO_FIXTURE.exists())
+        self.assertEqual(data["schema_version"], "desktop-app-data/v0")
+        self.assertEqual(data["selected_workbench_id"], "workbench_public_policy_housing")
+        self.assertIn("human_alex_ramirez", data["humans"])
+        self.assertIn("palari_maya_policy", data["palaris"])
+        self.assertIn("hcd-plan", data["sources"])
+        self.assertIn("comment", data["work_items"])
+        self.assertIn("memo", data["work_items"])
+
+        validate_desktop_app_data(data)
+
+    def test_desktop_demo_fixture_rejects_sources_outside_work_item_boundary(self) -> None:
+        data = deepcopy(load_desktop_demo_data())
+        data["work_items"]["comment"]["attempts"]["comment-attempt-1"]["sources_used"].append("private-email")
+
+        with self.assertRaisesRegex(ValueError, "outside work item boundary"):
+            validate_desktop_app_data(data)
+
+    def test_desktop_prototype_renders_from_supplied_fixture_data(self) -> None:
+        data = deepcopy(load_desktop_demo_data())
+        data["sources"]["hcd-plan"]["title"] = "Fixture controlled housing plan"
+        data["work_items"]["comment"]["artifact_title"] = "Fixture controlled public comment"
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_desktop_prototype(directory, data=data)
+            html = Path(result.index_path).read_text(encoding="utf-8")
+            js = Path(result.assets[1]).read_text(encoding="utf-8")
+
+        self.assertIn("Fixture controlled housing plan", html)
+        self.assertIn("Fixture controlled housing plan", js)
+        self.assertIn("Fixture controlled public comment", html)
+        self.assertIn("Fixture controlled public comment", js)
+
     def test_desktop_prototype_generation_includes_card_console_panes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_desktop_prototype(directory)
@@ -23,6 +66,7 @@ class DesktopPrototypeTests(unittest.TestCase):
             styles = Path(result.assets[0])
             script = Path(result.assets[1])
             html = index.read_text(encoding="utf-8")
+            visible_html = unescape(html)
 
         self.assertEqual(result.title, "Palari Desktop Shell Prototype")
         self.assertEqual(index.name, "index.html")
@@ -67,30 +111,30 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("mobile-nav", html)
 
         # Demo scenario data.
-        self.assertIn("Maya", html)
-        self.assertIn("Alex Ramirez", html)
-        self.assertIn("Jordan Lee", html)
-        self.assertIn("Sam Patel", html)
-        self.assertIn("Public Policy / Housing", html)
-        self.assertIn("Draft public comment", html)
-        self.assertIn("California HCD - 2025 Housing Plan", html)
-        self.assertIn("State Housing Element Law", html)
-        self.assertIn("Urban Institute - ADU Guide", html)
-        self.assertIn("Oakland Planning Dept - Comment Portal", html)
-        self.assertIn("Mayor's Office - Internal Strategy Doc", html)
-        self.assertIn("Draft public comment on Housing Element", html)
-        self.assertIn("Approval required before external write", html)
-        self.assertIn("Receipt (Attempt 1)", html)
-        self.assertIn("Changes &amp; History", html)
+        self.assertIn("Maya", visible_html)
+        self.assertIn("Alex Ramirez", visible_html)
+        self.assertIn("Jordan Lee", visible_html)
+        self.assertIn("Sam Patel", visible_html)
+        self.assertIn("Public Policy / Housing", visible_html)
+        self.assertIn("Draft public comment", visible_html)
+        self.assertIn("California HCD - 2025 Housing Plan", visible_html)
+        self.assertIn("State Housing Element Law", visible_html)
+        self.assertIn("Urban Institute - ADU Guide", visible_html)
+        self.assertIn("Oakland Planning Dept - Comment Portal", visible_html)
+        self.assertIn("Mayor's Office - Internal Strategy Doc", visible_html)
+        self.assertIn("Draft public comment on Housing Element", visible_html)
+        self.assertIn("Approval required before external write", visible_html)
+        self.assertIn("Receipt (Attempt 1)", visible_html)
+        self.assertIn("Changes & History", visible_html)
 
         # Permission and receipt language.
-        self.assertIn("Readable", html)
-        self.assertIn("Inherited (readable)", html)
-        self.assertIn("Writable after approval", html)
-        self.assertIn("Blocked", html)
-        self.assertIn("External writes", html)
-        self.assertIn("No external changes to undo", html)
-        self.assertIn("Did not contact stakeholders", html)
+        self.assertIn("Readable", visible_html)
+        self.assertIn("Inherited (readable)", visible_html)
+        self.assertIn("Writable after approval", visible_html)
+        self.assertIn("Blocked", visible_html)
+        self.assertIn("External writes", visible_html)
+        self.assertIn("No external changes to undo", visible_html)
+        self.assertIn("Did not contact stakeholders", visible_html)
 
         # Mobile single-pane navigation.
         self.assertIn('data-mobile-target="workbench"', html)
@@ -149,15 +193,19 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertNotIn(".editor-tab.is-dragging", css)
         self.assertNotIn(".panel-resizer", css)
 
-        self.assertIn("const MOBILE_BREAKPOINT = 1100", js)
+        self.assertIn("const MOBILE_BREAKPOINT = prototypeData.ui.mobile_breakpoint || 1100", js)
         self.assertIn("const prototypeData", js)
-        self.assertIn('workspaceId: "workspace_public_policy_housing"', js)
-        self.assertIn('selectedPalariId: "palari_maya_policy"', js)
-        self.assertIn("allowedPalaris", js)
-        self.assertIn("allowedSources", js)
-        self.assertIn("outputTargets", js)
+        self.assertIn('"schema_version": "desktop-app-data/v0"', js)
+        self.assertIn('"workspace_public_policy_demo"', js)
+        self.assertIn('"palari_maya_policy"', js)
+        self.assertIn("allowed_palari_ids", js)
+        self.assertIn("allowed_source_ids", js)
+        self.assertIn("output_target_ids", js)
+        self.assertNotIn("allowedPalaris", js)
+        self.assertNotIn("allowedSources", js)
+        self.assertNotIn("outputTargets", js)
         self.assertIn("const sourceData = prototypeData.sources", js)
-        self.assertIn("const workData = prototypeData.workItems", js)
+        self.assertIn("const workData = prototypeData.work_items", js)
         self.assertIn("function selectSource", js)
         self.assertIn("function selectWork", js)
         self.assertIn("function renderChat", js)
@@ -178,6 +226,7 @@ class DesktopPrototypeTests(unittest.TestCase):
             result = generate_desktop_prototype(directory)
             index = Path(result.index_path)
             html = index.read_text(encoding="utf-8")
+            visible_html = unescape(html)
 
         self.assertIn('role="tree" aria-label="Source permissions by folder"', html)
         self.assertIn("Readable</strong>", html)
@@ -186,7 +235,7 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("Blocked</strong>", html)
         self.assertIn("source-children", html)
         self.assertIn("This work can be published to the Oakland Planning Dept portal after human approval.", html)
-        self.assertIn("On it. I'll use the selected sources and keep this within scope.", html)
+        self.assertIn("On it. I'll use the selected sources and keep this within scope.", visible_html)
         self.assertIn("Used</dt><dd data-receipt-used>3 sources", html)
         self.assertIn("Created</dt><dd data-receipt-created>1 document draft", html)
         self.assertIn("External writes</dt><dd data-receipt-external>None", html)

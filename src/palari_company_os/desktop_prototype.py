@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -13,16 +15,26 @@ class DesktopPrototypeResult:
     assets: list[str]
 
 
-def generate_desktop_prototype(output_dir: str | Path) -> DesktopPrototypeResult:
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DESKTOP_DEMO_FIXTURE = REPO_ROOT / "examples" / "desktop-demo" / "workspace.json"
+
+
+def generate_desktop_prototype(
+    output_dir: str | Path,
+    fixture_path: str | Path | None = None,
+    data: dict[str, Any] | None = None,
+) -> DesktopPrototypeResult:
     output = Path(output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
+    prototype_data = data if data is not None else load_desktop_demo_data(fixture_path)
+    validate_desktop_app_data(prototype_data)
 
     style_path = output / "styles.css"
     script_path = output / "app.js"
     index_path = output / "index.html"
     style_path.write_text(_styles(), encoding="utf-8")
-    script_path.write_text(_script(), encoding="utf-8")
-    index_path.write_text(_html(), encoding="utf-8")
+    script_path.write_text(_script(prototype_data), encoding="utf-8")
+    index_path.write_text(_html(prototype_data), encoding="utf-8")
     return DesktopPrototypeResult(
         title="Palari Desktop Shell Prototype",
         output_dir=str(output),
@@ -31,11 +43,120 @@ def generate_desktop_prototype(output_dir: str | Path) -> DesktopPrototypeResult
     )
 
 
+def load_desktop_demo_data(fixture_path: str | Path | None = None) -> dict[str, Any]:
+    path = Path(fixture_path) if fixture_path is not None else DEFAULT_DESKTOP_DEMO_FIXTURE
+    with path.expanduser().resolve().open(encoding="utf-8") as handle:
+        data = json.load(handle)
+    validate_desktop_app_data(data)
+    return data
+
+
+def validate_desktop_app_data(data: dict[str, Any]) -> None:
+    required_top_level = {
+        "schema_version",
+        "workspace",
+        "selected_workbench_id",
+        "workbenches",
+        "humans",
+        "palaris",
+        "sources",
+        "work_items",
+        "ui",
+    }
+    missing = sorted(required_top_level - data.keys())
+    if missing:
+        raise ValueError(f"desktop app data missing required fields: {', '.join(missing)}")
+    if data["schema_version"] != "desktop-app-data/v0":
+        raise ValueError(f"unsupported desktop app data schema: {data['schema_version']}")
+
+    humans = data["humans"]
+    palaris = data["palaris"]
+    sources = data["sources"]
+    work_items = data["work_items"]
+    selected_workbench_id = data["selected_workbench_id"]
+    if selected_workbench_id not in data["workbenches"]:
+        raise ValueError(f"selected workbench does not exist: {selected_workbench_id}")
+    if data["workspace"]["owner_human_id"] not in humans:
+        raise ValueError("workspace owner_human_id must reference a human")
+
+    for palari_id, palari in palaris.items():
+        if palari.get("id") != palari_id:
+            raise ValueError(f"Palari id mismatch: {palari_id}")
+
+    for human_id, human in humans.items():
+        if human.get("id") != human_id:
+            raise ValueError(f"human id mismatch: {human_id}")
+
+    for workbench_id, workbench in data["workbenches"].items():
+        if workbench.get("id") != workbench_id:
+            raise ValueError(f"workbench id mismatch: {workbench_id}")
+        if workbench["selected_palari_id"] not in palaris:
+            raise ValueError(f"workbench selected_palari_id does not exist: {workbench_id}")
+        for human_id in workbench["assigned_human_ids"]:
+            if human_id not in humans:
+                raise ValueError(f"workbench assigned_human_id does not exist: {human_id}")
+        for group in workbench["source_groups"]:
+            for source_id in group["source_ids"]:
+                if source_id not in sources:
+                    raise ValueError(f"source group references missing source: {source_id}")
+        for work_item_id in workbench["work_item_ids"]:
+            if work_item_id not in work_items:
+                raise ValueError(f"workbench references missing work item: {work_item_id}")
+
+    for source_id, source in sources.items():
+        if source.get("id") != source_id:
+            raise ValueError(f"source id mismatch: {source_id}")
+        owner_human_id = source.get("owner_human_id")
+        if owner_human_id is not None and owner_human_id not in humans:
+            raise ValueError(f"source owner_human_id does not exist: {source_id}")
+        for palari_id in source["allowed_palari_ids"]:
+            if palari_id not in palaris:
+                raise ValueError(f"source allowed_palari_id does not exist: {palari_id}")
+
+    for work_item_id, work_item in work_items.items():
+        if work_item.get("id") != work_item_id:
+            raise ValueError(f"work item id mismatch: {work_item_id}")
+        if work_item["palari_id"] not in palaris:
+            raise ValueError(f"work item palari_id does not exist: {work_item_id}")
+        for source_id in work_item["allowed_source_ids"]:
+            if source_id not in sources:
+                raise ValueError(f"work item allowed_source_id does not exist: {source_id}")
+        for source_id in work_item["output_target_ids"]:
+            if source_id not in sources:
+                raise ValueError(f"work item output_target_id does not exist: {source_id}")
+        attempts = work_item["attempts"]
+        current_attempt_id = work_item["current_attempt_id"]
+        if current_attempt_id not in attempts:
+            raise ValueError(f"work item current_attempt_id does not exist: {work_item_id}")
+        for attempt_id, attempt in attempts.items():
+            if attempt.get("id") != attempt_id:
+                raise ValueError(f"attempt id mismatch: {attempt_id}")
+            for source_id in attempt["sources_used"]:
+                if source_id not in sources:
+                    raise ValueError(f"attempt sources_used references missing source: {source_id}")
+                if source_id not in work_item["allowed_source_ids"] and source_id not in work_item["output_target_ids"]:
+                    raise ValueError(f"attempt uses source outside work item boundary: {source_id}")
+            for approval in attempt["authority"]["approvals"]:
+                if approval["human_id"] not in humans:
+                    raise ValueError(f"authority approval references missing human: {approval['human_id']}")
+            for message in attempt["chat_messages"]:
+                if message["speaker_kind"] == "human" and message["speaker_id"] not in humans:
+                    raise ValueError(f"chat message references missing human: {message['speaker_id']}")
+                if message["speaker_kind"] == "palari" and message["speaker_id"] not in palaris:
+                    raise ValueError(f"chat message references missing Palari: {message['speaker_id']}")
+
+    ui = data["ui"]
+    if ui["default_source_id"] not in sources:
+        raise ValueError("ui default_source_id must reference a source")
+    if ui["default_work_item_id"] not in work_items:
+        raise ValueError("ui default_work_item_id must reference a work item")
+
+
 def _e(value: str) -> str:
     return escape(value, quote=True)
 
 
-def _html() -> str:
+def _html(data: dict[str, Any]) -> str:
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -46,11 +167,11 @@ def _html() -> str:
 </head>
 <body data-mobile-pane="artifact">
   <div class="prototype-shell">
-    {_nav_rail()}
+    {_nav_rail(data)}
     <main class="workspace-console" aria-label="Palari Company OS workspace">
-      {_workbench_panel()}
-      {_artifact_panel()}
-      {_context_panel()}
+      {_workbench_panel(data)}
+      {_artifact_panel(data)}
+      {_context_panel(data)}
     </main>
     {_mobile_nav()}
   </div>
@@ -60,7 +181,45 @@ def _html() -> str:
 """
 
 
-def _nav_rail() -> str:
+def _selected_workbench(data: dict[str, Any]) -> dict[str, Any]:
+    return data["workbenches"][data["selected_workbench_id"]]
+
+
+def _selected_work_item(data: dict[str, Any]) -> dict[str, Any]:
+    return data["work_items"][data["ui"]["default_work_item_id"]]
+
+
+def _current_attempt(work_item: dict[str, Any]) -> dict[str, Any]:
+    return work_item["attempts"][work_item["current_attempt_id"]]
+
+
+def _human_name(data: dict[str, Any], human_id: str | None, fallback: str = "") -> str:
+    if human_id and human_id in data["humans"]:
+        return str(data["humans"][human_id]["name"])
+    return fallback
+
+
+def _actor_name(data: dict[str, Any], kind: str, actor_id: str) -> str:
+    if kind == "human":
+        return str(data["humans"][actor_id]["name"])
+    return str(data["palaris"][actor_id]["name"])
+
+
+def _actor_avatar_class(data: dict[str, Any], kind: str, actor_id: str) -> str:
+    if kind == "human":
+        return str(data["humans"][actor_id]["avatar_class"])
+    return "bot"
+
+
+def _source_chip(data: dict[str, Any], source_id: str) -> str:
+    source = data["sources"][source_id]
+    return (
+        f'<button class="used-source" type="button"><span class="file-icon {_e(source["tone"])}">'
+        f'{_e(source["type_label"])}</span>{_e(source["title"])}</button>'
+    )
+
+
+def _nav_rail(data: dict[str, Any]) -> str:
     items = [
         ("queue", "Queue", "7"),
         ("workbench", "Workbenches", ""),
@@ -88,7 +247,7 @@ def _nav_rail() -> str:
     </nav>
     <div class="founder-card">
       <span class="founder-avatar">AR</span>
-      <span><strong>Alex Ramirez</strong><small>Founder</small></span>
+      <span><strong>{_e(_human_name(data, data["workspace"]["owner_human_id"]))}</strong><small>Founder</small></span>
     </div>
   </aside>
 """
@@ -106,145 +265,51 @@ def _rail_icon(key: str) -> str:
     return icons[key]
 
 
-def _workbench_panel() -> str:
-    return """
+def _workbench_panel(data: dict[str, Any]) -> str:
+    workbench = _selected_workbench(data)
+    selected_palari = data["palaris"][workbench["selected_palari_id"]]
+    assigned_rows = [_person_row(selected_palari["name"], selected_palari["role"], "Palari", "chip-blue", selected_palari["avatar_class"])]
+    for human_id in workbench["assigned_human_ids"]:
+        human = data["humans"][human_id]
+        assigned_rows.append(_person_row(human["name"], human["role"], "Human", "chip-amber", human["avatar_class"]))
+    source_groups = "\n".join(_source_group(data, group) for group in workbench["source_groups"])
+    queue_tabs = "\n".join(
+        f'<button class="queue-tab {"is-active" if tab["active"] else ""}" type="button">{_e(tab["label"])} <span>{_e(str(tab["count"]))}</span></button>'
+        for tab in workbench["work_queue"]["tabs"]
+    )
+    queue_items = "\n".join(_queue_item(data, data["work_items"][work_item_id]) for work_item_id in workbench["work_item_ids"])
+    default_source = data["sources"][data["ui"]["default_source_id"]]
+    return f"""
   <section class="panel workbench-panel" data-pane="workbench">
     <header class="panel-header">
       <div>
-        <h1>Workbench / Public Policy / Housing</h1>
+        <h1>{_e(workbench["title"])}</h1>
       </div>
       <button class="ghost-button" type="button" aria-label="Workbench menu">...</button>
     </header>
 
     <section class="panel-section assigned-section">
       <h2>Assigned</h2>
-      <div class="person-row">
-        <span class="person-avatar photo maya"></span>
-        <strong>Maya</strong>
-        <span class="chip chip-blue">Palari</span>
-        <span class="person-role">Policy Researcher</span>
-      </div>
-      <div class="person-row">
-        <span class="person-avatar photo jordan"></span>
-        <strong>Jordan Lee</strong>
-        <span class="chip chip-amber">Human</span>
-        <span class="person-role">Policy Counsel</span>
-      </div>
-      <div class="person-row">
-        <span class="person-avatar photo sam"></span>
-        <strong>Sam Patel</strong>
-        <span class="chip chip-amber">Human</span>
-        <span class="person-role">Program Lead</span>
-      </div>
+      {"".join(assigned_rows)}
     </section>
 
     <section class="panel-section sources-section">
       <div class="section-title"><h2>Sources</h2></div>
       <div class="source-tree" role="tree" aria-label="Source permissions by folder">
-        <div class="source-folder read" role="treeitem" aria-expanded="true">
-          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">&gt;</span>
-            <span class="dot read"></span>
-            <strong>Readable</strong>
-            <span class="tree-count">5</span>
-          </button>
-          <div class="source-children" role="group">
-            <button class="source-file-row is-selected" type="button" data-source-id="hcd-plan">
-              <span>California HCD - 2025 Housing Plan</span>
-              <span class="file-kind">PDF</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="housing-law">
-              <span>State Housing Element Law (Gov Code 65580)</span>
-              <span class="file-kind">HTML</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="adu-guide">
-              <span>Urban Institute - ADU Guide</span>
-              <span class="file-kind">PDF</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="tenant-memo">
-              <span>Oakland tenant protection memo</span>
-              <span class="file-kind">Doc</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="community-notes">
-              <span>June community workshop notes</span>
-              <span class="file-kind">MD</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="source-folder inherit" role="treeitem" aria-expanded="true">
-          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">&gt;</span>
-            <span class="dot inherit"></span>
-            <strong>Inherited (readable)</strong>
-            <span class="tree-count">2</span>
-          </button>
-          <div class="source-children" role="group">
-            <button class="source-file-row" type="button" data-source-id="oakland-element">
-              <span>City of Oakland - Housing Element</span>
-              <span class="file-kind">PDF</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="rhna-targets">
-              <span>Bay Area RHNA allocation table</span>
-              <span class="file-kind">XLS</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="source-folder write" role="treeitem" aria-expanded="true">
-          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">&gt;</span>
-            <span class="dot write"></span>
-            <strong>Writable after approval</strong>
-            <span class="tree-count">2</span>
-          </button>
-          <div class="source-children" role="group">
-            <button class="source-file-row" type="button" data-source-id="comment-portal">
-              <span>Oakland Planning Dept - Comment Portal</span>
-              <span class="file-kind">Web</span>
-            </button>
-            <button class="source-file-row" type="button" data-source-id="work-drafts">
-              <span>Work / public-comment drafts</span>
-              <span class="file-kind">Drive</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="source-folder blocked" role="treeitem" aria-expanded="true">
-          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
-            <span class="tree-caret" aria-hidden="true">&gt;</span>
-            <span class="dot blocked"></span>
-            <strong>Blocked</strong>
-            <span class="tree-count">3</span>
-          </button>
-          <div class="source-children" role="group">
-            <button class="source-file-row muted" type="button" data-source-id="mayor-strategy">
-              <span>Mayor's Office - Internal Strategy Doc</span>
-              <span class="file-kind">DOCX</span>
-            </button>
-            <button class="source-file-row muted" type="button" data-source-id="council-notes">
-              <span>Councilmember Briefing Notes</span>
-              <span class="file-kind">PDF</span>
-            </button>
-            <button class="source-file-row muted" type="button" data-source-id="private-email">
-              <span>Private constituent email thread</span>
-              <span class="file-kind">EML</span>
-            </button>
-          </div>
-        </div>
+        {source_groups}
       </div>
       <div class="source-preview" aria-live="polite">
         <div class="card-title-row">
           <h3>Source preview</h3>
-          <span class="chip chip-green" data-source-preview-mode>Readable</span>
+          <span class="chip {_e(default_source["mode_class"])}" data-source-preview-mode>{_e(default_source["mode"])}</span>
         </div>
-        <strong data-source-preview-title>California HCD - 2025 Housing Plan</strong>
-        <p data-source-preview-copy>Selected for Maya. She can read this planning source for the current draft; no write access is granted.</p>
+        <strong data-source-preview-title>{_e(default_source["title"])}</strong>
+        <p data-source-preview-copy>{_e(default_source["summary"])}</p>
         <dl class="source-meta-list">
-          <div><dt>Provider</dt><dd data-source-preview-provider>Google Drive</dd></div>
-          <div><dt>Access</dt><dd data-source-preview-access>Read selected file</dd></div>
-          <div><dt>Owner</dt><dd data-source-preview-owner>Jordan Lee</dd></div>
-          <div><dt>Last seen</dt><dd data-source-preview-seen>Jun 20, 2026 9:20 AM</dd></div>
+          <div><dt>Provider</dt><dd data-source-preview-provider>{_e(default_source["provider"])}</dd></div>
+          <div><dt>Access</dt><dd data-source-preview-access>{_e(default_source["access"])}</dd></div>
+          <div><dt>Owner</dt><dd data-source-preview-owner>{_e(_human_name(data, default_source.get("owner_human_id"), default_source["owner_label"]))}</dd></div>
+          <div><dt>Last seen</dt><dd data-source-preview-seen>{_e(default_source["last_seen"])}</dd></div>
         </dl>
       </div>
     </section>
@@ -255,50 +320,84 @@ def _workbench_panel() -> str:
         <button class="small-button" type="button">+ New</button>
       </div>
       <div class="queue-tabs" role="tablist" aria-label="Work queue filters">
-        <button class="queue-tab is-active" type="button">Active <span>4</span></button>
-        <button class="queue-tab" type="button">Review <span>2</span></button>
-        <button class="queue-tab" type="button">Done <span>7</span></button>
+        {queue_tabs}
       </div>
-      <button class="queue-item is-active" type="button" data-work-id="comment">
-        <strong>Draft public comment on Housing Element</strong>
-        <span>Maya</span>
-        <span>Due Jun 23</span>
-        <span class="chip chip-blue">In Progress</span>
-      </button>
-      <button class="queue-item" type="button" data-work-id="fees">
-        <strong>Research ADU fee structures</strong>
-        <span>Maya</span>
-        <span>Due Jun 24</span>
-        <span class="chip chip-blue">In Progress</span>
-      </button>
-      <button class="queue-item" type="button" data-work-id="feedback">
-        <strong>Summarize community feedback</strong>
-        <span>Maya</span>
-        <span>Due Jun 25</span>
-        <span class="chip chip-gray">Not Started</span>
-      </button>
-      <button class="queue-item" type="button" data-work-id="memo">
-        <strong>Prepare council memo for review</strong>
-        <span>Maya</span>
-        <span>Due Jun 26</span>
-        <span class="chip chip-amber">Needs review</span>
-      </button>
+      {queue_items}
       <button class="link-row" type="button">View all work items -></button>
     </section>
   </section>
 """
 
 
-def _artifact_panel() -> str:
-    return """
+def _person_row(name: str, role: str, label: str, chip_class: str, avatar_class: str) -> str:
+    return f"""
+      <div class="person-row">
+        <span class="person-avatar photo {_e(avatar_class)}"></span>
+        <strong>{_e(name)}</strong>
+        <span class="chip {_e(chip_class)}">{_e(label)}</span>
+        <span class="person-role">{_e(role)}</span>
+      </div>
+"""
+
+
+def _source_group(data: dict[str, Any], group: dict[str, Any]) -> str:
+    source_rows = "\n".join(_source_row(data, source_id) for source_id in group["source_ids"])
+    return f"""
+        <div class="source-folder {_e(group["tone"])}" role="treeitem" aria-expanded="true">
+          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
+            <span class="tree-caret" aria-hidden="true">&gt;</span>
+            <span class="dot {_e(group["tone"])}"></span>
+            <strong>{_e(group["label"])}</strong>
+            <span class="tree-count">{len(group["source_ids"])}</span>
+          </button>
+          <div class="source-children" role="group">
+            {source_rows}
+          </div>
+        </div>
+"""
+
+
+def _source_row(data: dict[str, Any], source_id: str) -> str:
+    source = data["sources"][source_id]
+    selected = " is-selected" if source_id == data["ui"]["default_source_id"] else ""
+    muted = " muted" if source.get("row_muted") else ""
+    return f"""
+            <button class="source-file-row{selected}{muted}" type="button" data-source-id="{_e(source_id)}">
+              <span>{_e(source["title"])}</span>
+              <span class="file-kind">{_e(source["type_label"])}</span>
+            </button>
+"""
+
+
+def _queue_item(data: dict[str, Any], work_item: dict[str, Any]) -> str:
+    attempt = _current_attempt(work_item)
+    selected = " is-active" if work_item["id"] == data["ui"]["default_work_item_id"] else ""
+    palari = data["palaris"][work_item["palari_id"]]
+    return f"""
+      <button class="queue-item{selected}" type="button" data-work-id="{_e(work_item["id"])}">
+        <strong>{_e(work_item["title"])}</strong>
+        <span>{_e(palari["name"])}</span>
+        <span>{_e(work_item["due_short"])}</span>
+        <span class="chip {_e(attempt["status_class"])}">{_e(attempt["status_label"])}</span>
+      </button>
+"""
+
+
+def _artifact_panel(data: dict[str, Any]) -> str:
+    work_item = _selected_work_item(data)
+    attempt = _current_attempt(work_item)
+    receipt = attempt["receipt"]
+    source_chips = "\n        ".join(_source_chip(data, source_id) for source_id in attempt["sources_used"])
+    palari = data["palaris"][work_item["palari_id"]]
+    return f"""
   <section class="panel artifact-panel" data-pane="artifact">
     <header class="artifact-header">
       <div>
-        <h1 data-artifact-title>Draft public comment</h1>
+        <h1 data-artifact-title>{_e(work_item["artifact_title"])}</h1>
         <div class="artifact-meta">
-          <span>Work Item</span><strong data-artifact-id>PRL-HOUS-001</strong>
-          <span>Attempt</span><strong data-artifact-attempt>1</strong>
-          <span>Status</span><span class="chip chip-blue" data-artifact-status>In Progress</span>
+          <span>Work Item</span><strong data-artifact-id>{_e(work_item["public_id"])}</strong>
+          <span>Attempt</span><strong data-artifact-attempt>{_e(attempt["number"])}</strong>
+          <span>Status</span><span class="chip {_e(attempt["status_class"])}" data-artifact-status>{_e(attempt["status_label"])}</span>
         </div>
       </div>
       <div class="artifact-actions">
@@ -311,7 +410,7 @@ def _artifact_panel() -> str:
       <span class="warning-icon" aria-hidden="true">!</span>
       <div>
         <strong>Approval required before external write</strong>
-        <p data-approval-copy>This work can be published to the Oakland Planning Dept portal after human approval.</p>
+        <p data-approval-copy>{_e(work_item["approval_copy"])}</p>
       </div>
       <button class="approval-button" type="button" data-open-context="authority" data-mobile-pane="context" data-context-card="authority">Request Approval</button>
     </div>
@@ -319,44 +418,22 @@ def _artifact_panel() -> str:
     <section class="sources-used">
       <div class="source-chip-list" aria-label="Sources used" data-sources-used>
         <span>Sources used</span>
-        <button class="used-source" type="button"><span class="file-icon green">PDF</span>California HCD - 2025 Housing Plan</button>
-        <button class="used-source" type="button"><span class="file-icon green">HTM</span>State Housing Element Law</button>
-        <button class="used-source" type="button"><span class="file-icon blue">PDF</span>Urban Institute - ADU Guide</button>
+        {source_chips}
       </div>
       <button class="secondary-button" type="button">+ Add</button>
     </section>
 
     <article class="document-card" data-document-card>
-      <h2>I. Introduction</h2>
-      <p>Oakland's Housing Element update is a critical opportunity to advance housing affordability,
-      fairness, and long-term community well-being.</p>
-
-      <h2>II. Support for Key Strategies</h2>
-      <ul>
-        <li>Preserve and expand affordable housing.</li>
-        <li>Increase approval certainty for middle housing and ADUs.</li>
-        <li>Invest in tenant protections and anti-displacement strategies.</li>
-      </ul>
-
-      <h2>III. Recommendations</h2>
-      <ol>
-        <li>Adopt clear, objective standards for ADU approval.</li>
-        <li>Expand right-to-counsel and tenant stabilization programs.</li>
-        <li>Align zoning and infrastructure planning with RHNA targets.</li>
-      </ol>
-
-      <h2>IV. Conclusion</h2>
-      <p>Thank you for the opportunity to comment. These steps will help Oakland build a more
-      inclusive, resilient, and affordable future.</p>
+      {attempt["document_html"]}
     </article>
 
     <footer class="artifact-footer">
       <dl>
-        <div><dt>Owner</dt><dd data-footer-owner>Maya</dd></div>
-        <div><dt>Palari</dt><dd data-footer-palari>Policy Researcher</dd></div>
-        <div><dt>Last updated</dt><dd data-footer-updated>Jun 20, 2026 10:42 AM</dd></div>
-        <div><dt>Word count</dt><dd data-footer-word-count>612</dd></div>
-        <div><dt>Language</dt><dd data-footer-language>English (US)</dd></div>
+        <div><dt>Owner</dt><dd data-footer-owner>{_e(palari["name"])}</dd></div>
+        <div><dt>Palari</dt><dd data-footer-palari>{_e(palari["role"])}</dd></div>
+        <div><dt>Last updated</dt><dd data-footer-updated>{_e(attempt["updated_label"])}</dd></div>
+        <div><dt>Word count</dt><dd data-footer-word-count>{_e(attempt["word_count"])}</dd></div>
+        <div><dt>Language</dt><dd data-footer-language>{_e(attempt["language"])}</dd></div>
       </dl>
       <button class="notes-toggle" type="button">Notes for approvers and reviewers (internal) -></button>
     </footer>
@@ -364,91 +441,106 @@ def _artifact_panel() -> str:
 """
 
 
-def _context_panel() -> str:
-    return """
+def _context_panel(data: dict[str, Any]) -> str:
+    work_item = _selected_work_item(data)
+    attempt = _current_attempt(work_item)
+    receipt = attempt["receipt"]
+    authority = attempt["authority"]
+    chat_messages = "\n".join(_chat_message(data, message) for message in attempt["chat_messages"])
+    approvals = "\n".join(_approval_row(data, approval) for approval in authority["approvals"])
+    if not approvals:
+        approvals = '<p class="muted-line">No human approver is needed for this local safe step.</p>'
+    history_items = "\n".join(_history_item(event) for event in attempt["history_events"])
+    palari = data["palaris"][work_item["palari_id"]]
+    history_count = len(attempt["history_events"])
+    return f"""
   <aside class="context-column" data-pane="context">
     <section class="context-card chat-card" data-context-card="chat">
       <header class="context-header">
-        <h2>Maya Chat</h2>
+        <h2>{_e(palari["name"])} Chat</h2>
         <span class="online-dot"></span><span>Online</span>
         <button class="ghost-button" type="button" aria-label="Chat menu">...</button>
       </header>
       <div class="chat-thread" data-chat-thread>
-        <div class="chat-message human">
-          <span class="tiny-avatar alex"></span>
-          <div><strong>Alex Ramirez</strong><time>10:25 AM</time>
-          <p>Please draft a public comment on Oakland's Housing Element update focused on ADUs, tenant protections, and anti-displacement.</p></div>
-        </div>
-        <div class="chat-message palari">
-          <span class="tiny-avatar bot">M</span>
-          <div><strong>Maya</strong><time>10:25 AM</time>
-          <p>On it. I'll use the selected sources and keep this within scope.</p></div>
-        </div>
-        <div class="chat-message palari">
-          <span class="tiny-avatar bot">M</span>
-          <div><strong>Maya</strong><time>10:42 AM</time>
-          <p>Draft ready. Please review and let me know if you want any changes before approval.</p></div>
-        </div>
+        {chat_messages}
       </div>
       <div class="composer">
-        <input aria-label="Message Maya" placeholder="Message Maya...">
+        <input aria-label="Message {_e(palari["name"])}" placeholder="Message {_e(palari["name"])}...">
         <button type="button" aria-label="Attach">+</button>
         <button type="button" aria-label="Send">Send</button>
       </div>
     </section>
 
     <section class="context-card" data-context-card="task">
-      <div class="card-title-row"><h2>Active Task</h2><span class="chip chip-blue" data-task-status>In Progress</span></div>
-      <a class="task-link" href="#" data-open-context="task" data-task-title>Draft public comment on Housing Element</a>
+      <div class="card-title-row"><h2>Active Task</h2><span class="chip {_e(attempt["status_class"])}" data-task-status>{_e(attempt["status_label"])}</span></div>
+      <a class="task-link" href="#" data-open-context="task" data-task-title>{_e(work_item["title"])}</a>
       <dl class="compact-grid four">
-        <div><dt>Due</dt><dd data-task-due>Jun 23, 2026</dd></div>
-        <div><dt>Priority</dt><dd><span class="chip chip-red" data-task-priority>High</span></dd></div>
-        <div><dt>Risk</dt><dd data-task-risk>R2</dd></div>
-        <div><dt>Work Item</dt><dd data-task-id>PRL-HOUS-001</dd></div>
+        <div><dt>Due</dt><dd data-task-due>{_e(work_item["due_label"])}</dd></div>
+        <div><dt>Priority</dt><dd><span class="chip {_e(work_item["priority_class"])}" data-task-priority>{_e(work_item["priority_label"])}</span></dd></div>
+        <div><dt>Risk</dt><dd data-task-risk>{_e(work_item["risk_label"])}</dd></div>
+        <div><dt>Work Item</dt><dd data-task-id>{_e(work_item["public_id"])}</dd></div>
       </dl>
     </section>
 
     <section class="context-card" data-context-card="receipt">
       <div class="card-title-row">
-        <h2 data-receipt-title>Receipt (Attempt 1)</h2>
-        <span class="chip chip-blue" data-receipt-status>Ready for review</span>
+        <h2 data-receipt-title>Receipt (Attempt {_e(attempt["number"])})</h2>
+        <span class="chip {_e(receipt["status_class"])}" data-receipt-status>{_e(receipt["status_label"])}</span>
       </div>
       <dl class="receipt-list">
-        <div><dt>Used</dt><dd data-receipt-used>3 sources</dd></div>
-        <div><dt>Created</dt><dd data-receipt-created>1 document draft</dd></div>
-        <div><dt>External writes</dt><dd data-receipt-external>None</dd></div>
-        <div><dt>Did not do</dt><dd data-receipt-not-done>Did not contact stakeholders</dd></div>
-        <div><dt>Undo</dt><dd data-receipt-undo>No external changes to undo</dd></div>
+        <div><dt>Used</dt><dd data-receipt-used>{_e(receipt["sources_used"])}</dd></div>
+        <div><dt>Created</dt><dd data-receipt-created>{_e(receipt["created"])}</dd></div>
+        <div><dt>External writes</dt><dd data-receipt-external>{_e(receipt["external_writes"])}</dd></div>
+        <div><dt>Did not do</dt><dd data-receipt-not-done>{_e(receipt["not_done"])}</dd></div>
+        <div><dt>Undo</dt><dd data-receipt-undo>{_e(receipt["undo"])}</dd></div>
       </dl>
       <button class="full-button" type="button" data-open-context="receipt">View full receipt -></button>
     </section>
 
     <section class="context-card" data-context-card="authority">
       <div class="card-title-row"><h2>Authority</h2></div>
-      <p class="muted-line" data-authority-requirement>Approval required <span class="dot read inline"></span> R2</p>
+      <p class="muted-line" data-authority-requirement>{_e(authority["requirement"])}</p>
       <div data-authority-list>
-        <div class="approval-row">
-        <span class="tiny-avatar jordan"></span><strong>Jordan Lee</strong><span>Policy Counsel</span><span class="chip chip-amber">Pending</span>
-        </div>
-        <div class="approval-row">
-        <span class="tiny-avatar sam"></span><strong>Sam Patel</strong><span>Program Lead</span><span class="chip chip-gray">Pending</span>
-        </div>
+        {approvals}
       </div>
-      <p class="muted-line" data-authority-summary>1 of 2 approvals</p>
+      <p class="muted-line" data-authority-summary>{_e(authority["summary"])}</p>
     </section>
 
     <section class="context-card" data-context-card="history">
       <div class="card-title-row"><h2>Changes &amp; History</h2></div>
-      <p class="muted-line" data-history-count>3 changes</p>
+      <p class="muted-line" data-history-count>{history_count} change{"s" if history_count != 1 else ""}</p>
       <ol class="history-list" data-history-list>
-        <li><time>Jun 20, 10:42 AM</time><span>Draft created by Maya</span><span class="chip chip-gray">Attempt 1</span></li>
-        <li><time>Jun 20, 10:30 AM</time><span>Sources selected</span><span class="chip chip-gray">Attempt 1</span></li>
-        <li><time>Jun 20, 10:25 AM</time><span>Work item created</span><span class="chip chip-gray">-</span></li>
+        {history_items}
       </ol>
       <button class="link-row" type="button" data-open-context="history">View full history -></button>
     </section>
   </aside>
 """
+
+
+def _chat_message(data: dict[str, Any], message: dict[str, Any]) -> str:
+    avatar_class = _actor_avatar_class(data, message["speaker_kind"], message["speaker_id"])
+    marker = "M" if message["speaker_kind"] == "palari" else ""
+    return f"""
+        <div class="chat-message {_e(message["speaker_kind"])}">
+          <span class="tiny-avatar {_e(avatar_class)}">{marker}</span>
+          <div><strong>{_e(_actor_name(data, message["speaker_kind"], message["speaker_id"]))}</strong><time>{_e(message["time"])}</time>
+          <p>{_e(message["text"])}</p></div>
+        </div>
+"""
+
+
+def _approval_row(data: dict[str, Any], approval: dict[str, Any]) -> str:
+    human = data["humans"][approval["human_id"]]
+    return f"""
+        <div class="approval-row">
+          <span class="tiny-avatar {_e(human["avatar_class"])}"></span><strong>{_e(human["name"])}</strong><span>{_e(approval["role"])}</span><span class="chip {_e(approval["status_class"])}">{_e(approval["status_label"])}</span>
+        </div>
+"""
+
+
+def _history_item(event: dict[str, Any]) -> str:
+    return f'<li><time>{_e(event["time"])}</time><span>{_e(event["text"])}</span><span class="chip chip-gray">{_e(event["badge"])}</span></li>'
 
 
 def _mobile_nav() -> str:
@@ -1405,438 +1497,20 @@ h1, h2, h3, p { margin: 0; }
 """
 
 
-def _script() -> str:
-    return """
-(function () {
+def _script(data: dict[str, Any]) -> str:
+    data_json = json.dumps(data, ensure_ascii=True, indent=2)
+    return f"""
+(function () {{
   const body = document.body;
-  const MOBILE_BREAKPOINT = 1100;
+  const prototypeData = {data_json};
+  const MOBILE_BREAKPOINT = prototypeData.ui.mobile_breakpoint || 1100;
   const mobileTabs = Array.from(document.querySelectorAll("[data-mobile-target]"));
-  const prototypeData = {
-    workspaceId: "workspace_public_policy_housing",
-    currentHumanId: "human_alex_ramirez",
-    selectedPalariId: "palari_maya_policy",
-    workbenchId: "workbench_public_policy_housing",
-    humans: {
-      human_alex_ramirez: { name: "Alex Ramirez", role: "Founder", initials: "AR" },
-      human_jordan_lee: { name: "Jordan Lee", role: "Policy Counsel", initials: "JL" },
-      human_sam_patel: { name: "Sam Patel", role: "Program Lead", initials: "SP" },
-    },
-    palaris: {
-      palari_maya_policy: {
-        name: "Maya",
-        role: "Policy Researcher",
-        scope: "Prepare public-policy work from selected sources; never write externally without approval.",
-      },
-    },
-    sources: {
-      "hcd-plan": {
-        title: "California HCD - 2025 Housing Plan",
-        provider: "Google Drive",
-        externalId: "gdrive:file_hcd_2025_plan",
-        access: "Read selected file",
-        owner: "Jordan Lee",
-        lastSeen: "Jun 20, 2026 9:20 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Readable",
-        modeClass: "chip-green",
-        summary: "Selected for Maya. She can read this statewide planning source for the current draft; no write access is granted.",
-      },
-      "housing-law": {
-        title: "State Housing Element Law (Gov Code 65580)",
-        provider: "Public web",
-        externalId: "ca.gov:gov-code-65580",
-        access: "Read public page",
-        owner: "Public source",
-        lastSeen: "Jun 20, 2026 9:22 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Readable",
-        modeClass: "chip-green",
-        summary: "A selected legal source Maya may use for statutory housing-element requirements and terminology.",
-      },
-      "adu-guide": {
-        title: "Urban Institute - ADU Guide",
-        provider: "Uploaded file",
-        externalId: "upload:adu-guide.pdf",
-        access: "Read selected upload",
-        owner: "Alex Ramirez",
-        lastSeen: "Jun 20, 2026 9:25 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Readable",
-        modeClass: "chip-green",
-        summary: "A selected research guide Maya may use for ADU policy context and practical recommendations.",
-      },
-      "tenant-memo": {
-        title: "Oakland tenant protection memo",
-        provider: "Google Doc",
-        externalId: "gdoc:tenant-protection-memo",
-        access: "Read selected document",
-        owner: "Sam Patel",
-        lastSeen: "Jun 20, 2026 9:31 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Readable",
-        modeClass: "chip-green",
-        summary: "A selected working memo Maya may use for tenant-protection arguments, with no permission to edit the source.",
-      },
-      "community-notes": {
-        title: "June community workshop notes",
-        provider: "Local note",
-        externalId: "local-note:community-workshop-june",
-        access: "Read workspace note",
-        owner: "Alex Ramirez",
-        lastSeen: "Jun 20, 2026 9:34 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Readable",
-        modeClass: "chip-green",
-        summary: "A local note selected for feedback summarization. It is safe to read and cannot be changed by this prototype.",
-      },
-      "oakland-element": {
-        title: "City of Oakland - Housing Element",
-        provider: "Parent workbench",
-        externalId: "inherited:oakland-housing-element",
-        access: "Inherited read",
-        owner: "Housing parent workbench",
-        lastSeen: "Jun 19, 2026 4:10 PM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Inherited",
-        modeClass: "chip-blue",
-        summary: "Readable through the parent Public Policy workbench. Maya can cite it here, but this child workbench did not add new permissions.",
-      },
-      "rhna-targets": {
-        title: "Bay Area RHNA allocation table",
-        provider: "Parent workbench",
-        externalId: "inherited:rhna-targets",
-        access: "Inherited read",
-        owner: "Housing parent workbench",
-        lastSeen: "Jun 19, 2026 4:15 PM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Inherited",
-        modeClass: "chip-blue",
-        summary: "Inherited planning table Maya may use for context, but it remains managed by the parent workbench.",
-      },
-      "comment-portal": {
-        title: "Oakland Planning Dept - Comment Portal",
-        provider: "External web",
-        externalId: "web:oakland-comment-portal",
-        access: "Write only after approval",
-        owner: "Oakland Planning Dept",
-        lastSeen: "Not written",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Writable after approval",
-        modeClass: "chip-amber",
-        summary: "This is an output target. Maya may write here only after the required human approval, and the prototype will not perform the write.",
-      },
-      "work-drafts": {
-        title: "Work / public-comment drafts",
-        provider: "Google Drive",
-        externalId: "gdrive:folder_public_comment_drafts",
-        access: "Create approved work output",
-        owner: "Alex Ramirez",
-        lastSeen: "Jun 20, 2026 10:42 AM",
-        allowedPalaris: ["palari_maya_policy"],
-        mode: "Writable after approval",
-        modeClass: "chip-amber",
-        summary: "Maya can create reviewed drafts here after approval. Existing source files are not editable through this target.",
-      },
-      "mayor-strategy": {
-        title: "Mayor's Office - Internal Strategy Doc",
-        provider: "Google Drive",
-        externalId: "gdrive:file_mayor_strategy_private",
-        access: "Blocked",
-        owner: "Mayor's Office",
-        lastSeen: "Never",
-        allowedPalaris: [],
-        mode: "Blocked",
-        modeClass: "chip-red",
-        summary: "Maya cannot read this source in the current workbench. It is visible only to make the boundary explicit.",
-      },
-      "council-notes": {
-        title: "Councilmember Briefing Notes",
-        provider: "Email attachment",
-        externalId: "mail-attachment:council-briefing-notes",
-        access: "Blocked",
-        owner: "Councilmember office",
-        lastSeen: "Never",
-        allowedPalaris: [],
-        mode: "Blocked",
-        modeClass: "chip-red",
-        summary: "Maya cannot read this source unless a human explicitly adds it to the workbench later.",
-      },
-      "private-email": {
-        title: "Private constituent email thread",
-        provider: "Email",
-        externalId: "mail:private-constituent-thread",
-        access: "Blocked",
-        owner: "Alex Ramirez",
-        lastSeen: "Never",
-        allowedPalaris: [],
-        mode: "Blocked",
-        modeClass: "chip-red",
-        summary: "Private email is outside Maya's current boundary. The prototype shows the denial instead of hiding the risk.",
-      },
-    },
-    workItems: {
-    comment: {
-      title: "Draft public comment",
-      taskTitle: "Draft public comment on Housing Element",
-      id: "PRL-HOUS-001",
-      attempt: "1",
-      status: "In Progress",
-      statusClass: "chip-blue",
-      due: "Jun 23, 2026",
-      priority: "High",
-      priorityClass: "chip-red",
-      risk: "R2",
-      allowedSources: ["hcd-plan", "housing-law", "adu-guide"],
-      outputTargets: ["comment-portal", "work-drafts"],
-      allowedActions: ["create_draft", "request_human_approval"],
-      approvalCopy: "This work can be published to the Oakland Planning Dept portal after human approval.",
-      footer: {
-        owner: "Maya",
-        palari: "Policy Researcher",
-        updated: "Jun 20, 2026 10:42 AM",
-        words: "612",
-        language: "English (US)",
-      },
-      sources: [
-        { label: "California HCD - 2025 Housing Plan", kind: "PDF", tone: "green" },
-        { label: "State Housing Element Law", kind: "HTM", tone: "green" },
-        { label: "Urban Institute - ADU Guide", kind: "PDF", tone: "blue" },
-      ],
-      document: `
-        <h2>I. Introduction</h2>
-        <p>Oakland's Housing Element update is a critical opportunity to advance housing affordability, fairness, and long-term community well-being.</p>
-        <h2>II. Support for Key Strategies</h2>
-        <ul>
-          <li>Preserve and expand affordable housing.</li>
-          <li>Increase approval certainty for middle housing and ADUs.</li>
-          <li>Invest in tenant protections and anti-displacement strategies.</li>
-        </ul>
-        <h2>III. Recommendations</h2>
-        <ol>
-          <li>Adopt clear, objective standards for ADU approval.</li>
-          <li>Expand right-to-counsel and tenant stabilization programs.</li>
-          <li>Align zoning and infrastructure planning with RHNA targets.</li>
-        </ol>
-        <h2>IV. Conclusion</h2>
-        <p>Thank you for the opportunity to comment. These steps will help Oakland build a more inclusive, resilient, and affordable future.</p>
-      `,
-      receipt: {
-        status: "Ready for review",
-        statusClass: "chip-blue",
-        used: "3 sources",
-        created: "1 document draft",
-        external: "None",
-        notDone: "Did not contact stakeholders",
-        undo: "No external changes to undo",
-      },
-      authority: {
-        requirement: "Approval required • R2 • external write target",
-        summary: "1 of 2 approvals",
-        approvers: [
-          { name: "Jordan Lee", role: "Policy Counsel", status: "Pending", statusClass: "chip-amber", avatarClass: "jordan" },
-          { name: "Sam Patel", role: "Program Lead", status: "Pending", statusClass: "chip-gray", avatarClass: "sam" },
-        ],
-      },
-      chat: [
-        { speaker: "Alex Ramirez", kind: "human", avatarClass: "alex", time: "10:25 AM", text: "Please draft a public comment on Oakland's Housing Element update focused on ADUs, tenant protections, and anti-displacement." },
-        { speaker: "Maya", kind: "palari", avatarClass: "bot", time: "10:25 AM", text: "On it. I'll use the selected sources and keep this within scope." },
-        { speaker: "Maya", kind: "palari", avatarClass: "bot", time: "10:42 AM", text: "Draft ready. Please review and let me know if you want any changes before approval." },
-      ],
-      history: [
-        { time: "Jun 20, 10:42 AM", text: "Draft created by Maya", badge: "Attempt 1" },
-        { time: "Jun 20, 10:30 AM", text: "Sources selected", badge: "Attempt 1" },
-        { time: "Jun 20, 10:25 AM", text: "Work item created", badge: "-" },
-      ],
-    },
-    fees: {
-      title: "ADU fee research note",
-      taskTitle: "Research ADU fee structures",
-      id: "PRL-HOUS-002",
-      attempt: "1",
-      status: "In Progress",
-      statusClass: "chip-blue",
-      due: "Jun 24, 2026",
-      priority: "Medium",
-      priorityClass: "chip-amber",
-      risk: "R2",
-      allowedSources: ["housing-law", "adu-guide", "rhna-targets"],
-      outputTargets: ["work-drafts"],
-      allowedActions: ["create_research_note"],
-      approvalCopy: "No external write is planned. Maya can save a research note to Work after review.",
-      footer: {
-        owner: "Maya",
-        palari: "Policy Researcher",
-        updated: "Jun 20, 2026 11:05 AM",
-        words: "318",
-        language: "English (US)",
-      },
-      sources: [
-        { label: "State Housing Element Law", kind: "HTM", tone: "green" },
-        { label: "Urban Institute - ADU Guide", kind: "PDF", tone: "blue" },
-      ],
-      document: `
-        <h2>I. What Maya is comparing</h2>
-        <p>Fee waivers, impact-fee timing, and ADU approval conditions across the selected housing sources.</p>
-        <h2>II. Early pattern</h2>
-        <ul>
-          <li>Delay fee collection until later in the ADU process where legally possible.</li>
-          <li>Separate affordability requirements from basic ministerial approval standards.</li>
-          <li>Ask staff to publish a plain-language fee table for property owners.</li>
-        </ul>
-        <h2>III. Next review question</h2>
-        <p>Confirm whether the comment should recommend a city fee schedule change or only ask for clearer standards.</p>
-      `,
-      receipt: {
-        status: "Drafting",
-        statusClass: "chip-blue",
-        used: "2 sources",
-        created: "1 research note",
-        external: "None",
-        notDone: "Did not estimate fees from unselected files",
-        undo: "No external changes to undo",
-      },
-      authority: {
-        requirement: "Human review optional • R2 • no external write",
-        summary: "Review can be requested before using the note",
-        approvers: [
-          { name: "Jordan Lee", role: "Policy Counsel", status: "Available", statusClass: "chip-gray", avatarClass: "jordan" },
-        ],
-      },
-      chat: [
-        { speaker: "Alex Ramirez", kind: "human", avatarClass: "alex", time: "10:58 AM", text: "Can you compare the fee pieces separately from the comment draft?" },
-        { speaker: "Maya", kind: "palari", avatarClass: "bot", time: "11:05 AM", text: "Yes. I made a research note and did not use any files outside the selected sources." },
-      ],
-      history: [
-        { time: "Jun 20, 11:05 AM", text: "Research note drafted", badge: "Attempt 1" },
-        { time: "Jun 20, 10:58 AM", text: "Work item split from public comment", badge: "Split" },
-      ],
-    },
-    feedback: {
-      title: "Community feedback summary",
-      taskTitle: "Summarize community feedback",
-      id: "PRL-HOUS-003",
-      attempt: "0",
-      status: "Not Started",
-      statusClass: "chip-gray",
-      due: "Jun 25, 2026",
-      priority: "Normal",
-      priorityClass: "chip-gray",
-      risk: "R1",
-      allowedSources: ["community-notes", "oakland-element"],
-      outputTargets: ["work-drafts"],
-      allowedActions: ["create_summary"],
-      approvalCopy: "No draft has been created yet. Select readable community notes before Maya summarizes them.",
-      footer: {
-        owner: "Maya",
-        palari: "Policy Researcher",
-        updated: "Not started",
-        words: "0",
-        language: "English (US)",
-      },
-      sources: [
-        { label: "City of Oakland - Housing Element", kind: "PDF", tone: "blue" },
-      ],
-      document: `
-        <h2>Not started</h2>
-        <p>Maya is waiting for a readable community-feedback source before drafting this summary.</p>
-        <h2>What will happen next</h2>
-        <p>Once the source is selected, Maya can make a compact summary and record a receipt that says exactly what she used.</p>
-      `,
-      receipt: {
-        status: "Waiting",
-        statusClass: "chip-gray",
-        used: "No sources yet",
-        created: "Nothing yet",
-        external: "None",
-        notDone: "No summary has been prepared",
-        undo: "No changes to undo",
-      },
-      authority: {
-        requirement: "No approval required yet • R1 • local summary",
-        summary: "No approvers assigned",
-        approvers: [],
-      },
-      chat: [
-        { speaker: "Maya", kind: "palari", avatarClass: "bot", time: "11:12 AM", text: "I can summarize workshop notes once you confirm the selected note is the right source." },
-      ],
-      history: [
-        { time: "Jun 20, 11:12 AM", text: "Waiting for source confirmation", badge: "Queued" },
-      ],
-    },
-    memo: {
-      title: "Council memo review packet",
-      taskTitle: "Prepare council memo for review",
-      id: "PRL-HOUS-004",
-      attempt: "2",
-      status: "Needs review",
-      statusClass: "chip-amber",
-      due: "Jun 26, 2026",
-      priority: "High",
-      priorityClass: "chip-red",
-      risk: "R3",
-      allowedSources: ["hcd-plan", "tenant-memo", "community-notes", "rhna-targets"],
-      outputTargets: ["work-drafts"],
-      allowedActions: ["prepare_review_packet"],
-      approvalCopy: "This packet can be saved to Work for human review. It cannot be sent to council offices from the prototype.",
-      footer: {
-        owner: "Maya",
-        palari: "Policy Researcher",
-        updated: "Jun 20, 2026 11:32 AM",
-        words: "884",
-        language: "English (US)",
-      },
-      sources: [
-        { label: "California HCD - 2025 Housing Plan", kind: "PDF", tone: "green" },
-        { label: "Oakland tenant protection memo", kind: "Doc", tone: "green" },
-        { label: "June community workshop notes", kind: "MD", tone: "green" },
-        { label: "Bay Area RHNA allocation table", kind: "XLS", tone: "blue" },
-      ],
-      document: `
-        <h2>Review packet summary</h2>
-        <p>Maya prepared a council-facing memo outline with source-backed claims and unresolved questions separated for human review.</p>
-        <h2>Included sections</h2>
-        <ul>
-          <li>One-page policy position summary.</li>
-          <li>Evidence table mapping each claim to a selected source.</li>
-          <li>Questions for Jordan before the packet is shared externally.</li>
-        </ul>
-        <h2>Human review needed</h2>
-        <p>Confirm whether tenant-protection claims should be framed as recommendations or as conditions for support.</p>
-      `,
-      receipt: {
-        status: "Needs review",
-        statusClass: "chip-amber",
-        used: "4 sources",
-        created: "1 review packet",
-        external: "None",
-        notDone: "Did not email council offices",
-        undo: "Remove draft packet from Work",
-      },
-      authority: {
-        requirement: "Review required • R3 • sensitive policy packet",
-        summary: "0 of 2 approvals",
-        approvers: [
-          { name: "Jordan Lee", role: "Policy Counsel", status: "Pending", statusClass: "chip-amber", avatarClass: "jordan" },
-          { name: "Sam Patel", role: "Program Lead", status: "Pending", statusClass: "chip-amber", avatarClass: "sam" },
-        ],
-      },
-      chat: [
-        { speaker: "Maya", kind: "palari", avatarClass: "bot", time: "11:32 AM", text: "I prepared the packet for review and kept it inside Work. Nothing was sent externally." },
-        { speaker: "Alex Ramirez", kind: "human", avatarClass: "alex", time: "11:34 AM", text: "Good. Keep the source map visible so Jordan can audit it quickly." },
-      ],
-      history: [
-        { time: "Jun 20, 11:32 AM", text: "Review packet prepared", badge: "Attempt 2" },
-        { time: "Jun 20, 11:18 AM", text: "Tenant memo added as source", badge: "Source" },
-        { time: "Jun 20, 11:10 AM", text: "First packet attempt marked too broad", badge: "Revised" },
-      ],
-    },
-  },
-  };
-
   const sourceData = prototypeData.sources;
-  const workData = prototypeData.workItems;
+  const workData = prototypeData.work_items;
+  const humanData = prototypeData.humans;
+  const palariData = prototypeData.palaris;
 
-  const mobilePaneMap = {
+  const mobilePaneMap = {{
     workbench: ["workbench", "chat"],
     artifact: ["artifact", "chat"],
     chat: ["context", "chat"],
@@ -1844,242 +1518,282 @@ def _script() -> str:
     receipt: ["context", "receipt"],
     authority: ["context", "authority"],
     history: ["context", "history"],
-  };
+  }};
 
-  function setText(selector, value) {
+  function setText(selector, value) {{
     const element = document.querySelector(selector);
-    if (element) {
+    if (element) {{
       element.textContent = value;
-    }
-  }
+    }}
+  }}
 
-  function setHTML(selector, value) {
+  function setHTML(selector, value) {{
     const element = document.querySelector(selector);
-    if (element) {
+    if (element) {{
       element.innerHTML = value;
-    }
-  }
+    }}
+  }}
 
-  function setChip(element, value, colorClass) {
-    if (!element) {
+  function setChip(element, value, colorClass) {{
+    if (!element) {{
       return;
-    }
+    }}
     element.textContent = value;
     element.className = "chip " + colorClass;
-  }
+  }}
 
-  function escapeHTML(value) {
+  function escapeHTML(value) {{
     return String(value)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
-  }
+  }}
 
-  function sourceChipHTML(source) {
-    return `<button class="used-source" type="button"><span class="file-icon ${escapeHTML(source.tone)}">${escapeHTML(source.kind)}</span>${escapeHTML(source.label)}</button>`;
-  }
+  function currentAttempt(work) {{
+    return work.attempts[work.current_attempt_id];
+  }}
 
-  function renderChat(messages) {
+  function humanName(humanId, fallback) {{
+    const human = humanData[humanId];
+    return human ? human.name : fallback || "Unknown human";
+  }}
+
+  function actorName(kind, actorId) {{
+    if (kind === "human") {{
+      return humanName(actorId);
+    }}
+    const palari = palariData[actorId];
+    return palari ? palari.name : "Unknown Palari";
+  }}
+
+  function actorAvatarClass(kind, actorId) {{
+    if (kind === "human") {{
+      const human = humanData[actorId];
+      return human ? human.avatar_class : "alex";
+    }}
+    return "bot";
+  }}
+
+  function sourceOwner(source) {{
+    return source.owner_human_id ? humanName(source.owner_human_id, source.owner_label) : source.owner_label;
+  }}
+
+  function sourceChipHTML(sourceId) {{
+    const source = sourceData[sourceId];
+    if (!source) {{
+      return "";
+    }}
+    return `<button class="used-source" type="button"><span class="file-icon ${{escapeHTML(source.tone)}}">${{escapeHTML(source.type_label)}}</span>${{escapeHTML(source.title)}}</button>`;
+  }}
+
+  function renderChat(messages) {{
     return messages.map((message) => `
-      <div class="chat-message ${escapeHTML(message.kind)}">
-        <span class="tiny-avatar ${escapeHTML(message.avatarClass)}">${message.kind === "palari" ? "M" : ""}</span>
-        <div><strong>${escapeHTML(message.speaker)}</strong><time>${escapeHTML(message.time)}</time>
-        <p>${escapeHTML(message.text)}</p></div>
+      <div class="chat-message ${{escapeHTML(message.speaker_kind)}}">
+        <span class="tiny-avatar ${{escapeHTML(actorAvatarClass(message.speaker_kind, message.speaker_id))}}">${{message.speaker_kind === "palari" ? "M" : ""}}</span>
+        <div><strong>${{escapeHTML(actorName(message.speaker_kind, message.speaker_id))}}</strong><time>${{escapeHTML(message.time)}}</time>
+        <p>${{escapeHTML(message.text)}}</p></div>
       </div>
     `).join("");
-  }
+  }}
 
-  function renderAuthority(authority) {
-    if (!authority.approvers.length) {
+  function renderAuthority(authority) {{
+    if (!authority.approvals.length) {{
       return '<p class="muted-line">No human approver is needed for this local safe step.</p>';
-    }
-    return authority.approvers.map((approver) => `
-      <div class="approval-row">
-        <span class="tiny-avatar ${escapeHTML(approver.avatarClass)}"></span>
-        <strong>${escapeHTML(approver.name)}</strong>
-        <span>${escapeHTML(approver.role)}</span>
-        <span class="chip ${escapeHTML(approver.statusClass)}">${escapeHTML(approver.status)}</span>
-      </div>
-    `).join("");
-  }
+    }}
+    return authority.approvals.map((approval) => {{
+      const human = humanData[approval.human_id];
+      return `
+        <div class="approval-row">
+          <span class="tiny-avatar ${{escapeHTML(human.avatar_class)}}"></span>
+          <strong>${{escapeHTML(human.name)}}</strong>
+          <span>${{escapeHTML(approval.role)}}</span>
+          <span class="chip ${{escapeHTML(approval.status_class)}}">${{escapeHTML(approval.status_label)}}</span>
+        </div>
+      `;
+    }}).join("");
+  }}
 
-  function renderHistory(historyItems) {
+  function renderHistory(historyItems) {{
     return historyItems.map((item) => `
-      <li><time>${escapeHTML(item.time)}</time><span>${escapeHTML(item.text)}</span><span class="chip chip-gray">${escapeHTML(item.badge)}</span></li>
+      <li><time>${{escapeHTML(item.time)}}</time><span>${{escapeHTML(item.text)}}</span><span class="chip chip-gray">${{escapeHTML(item.badge)}}</span></li>
     `).join("");
-  }
+  }}
 
-  function setMobileTarget(target) {
+  function setMobileTarget(target) {{
     const next = mobilePaneMap[target] ? target : "artifact";
     const profile = mobilePaneMap[next];
     body.dataset.mobilePane = profile[0];
     body.dataset.contextCard = profile[1];
-    mobileTabs.forEach((tab) => {
+    mobileTabs.forEach((tab) => {{
       tab.classList.toggle("is-active", tab.dataset.mobileTarget === next);
-    });
-    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+    }});
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {{
       history.replaceState(null, "", "#" + next);
-    }
-  }
+    }}
+  }}
 
-  function openContext(card, options) {
+  function openContext(card, options) {{
     const next = card || "chat";
     body.dataset.contextCard = next;
-    document.querySelectorAll("[data-context-card]").forEach((element) => {
+    document.querySelectorAll("[data-context-card]").forEach((element) => {{
       element.classList.toggle("is-focused", element.dataset.contextCard === next);
-    });
-    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+    }});
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {{
       setMobileTarget(next);
       return;
-    }
-    if (!options || options.scroll !== false) {
-      const target = document.querySelector(`.context-card[data-context-card="${next}"]`);
-      if (target) {
-        target.scrollIntoView({ block: "nearest" });
-      }
-    }
-  }
+    }}
+    if (!options || options.scroll !== false) {{
+      const target = document.querySelector(`.context-card[data-context-card="${{next}}"]`);
+      if (target) {{
+        target.scrollIntoView({{ block: "nearest" }});
+      }}
+    }}
+  }}
 
-  function selectSource(sourceId) {
+  function selectSource(sourceId) {{
     const source = sourceData[sourceId];
-    if (!source) {
+    if (!source) {{
       return;
-    }
-    document.querySelectorAll("[data-source-id]").forEach((row) => {
+    }}
+    document.querySelectorAll("[data-source-id]").forEach((row) => {{
       row.classList.toggle("is-selected", row.dataset.sourceId === sourceId);
-    });
+    }});
     setText("[data-source-preview-title]", source.title);
     setText("[data-source-preview-copy]", source.summary);
-    setChip(document.querySelector("[data-source-preview-mode]"), source.mode, source.modeClass);
+    setChip(document.querySelector("[data-source-preview-mode]"), source.mode, source.mode_class);
     setText("[data-source-preview-provider]", source.provider);
     setText("[data-source-preview-access]", source.access);
-    setText("[data-source-preview-owner]", source.owner);
-    setText("[data-source-preview-seen]", source.lastSeen);
-  }
+    setText("[data-source-preview-owner]", sourceOwner(source));
+    setText("[data-source-preview-seen]", source.last_seen);
+  }}
 
-  function toggleSourceFolder(button) {
+  function toggleSourceFolder(button) {{
     const folder = button.closest(".source-folder");
-    if (!folder) {
+    if (!folder) {{
       return;
-    }
+    }}
     const collapsed = !folder.classList.contains("is-collapsed");
     folder.classList.toggle("is-collapsed", collapsed);
     folder.setAttribute("aria-expanded", String(!collapsed));
     button.setAttribute("aria-expanded", String(!collapsed));
     const caret = button.querySelector(".tree-caret");
-    if (caret) {
+    if (caret) {{
       caret.textContent = ">";
-    }
-  }
+    }}
+  }}
 
-  function selectWork(workId) {
+  function selectWork(workId) {{
     const work = workData[workId];
-    if (!work) {
+    if (!work) {{
       return;
-    }
+    }}
+    const attempt = currentAttempt(work);
+    const palari = palariData[work.palari_id];
+    const receipt = attempt.receipt;
+    const authority = attempt.authority;
 
-    document.querySelectorAll("[data-work-id]").forEach((row) => {
+    document.querySelectorAll("[data-work-id]").forEach((row) => {{
       row.classList.toggle("is-active", row.dataset.workId === workId);
-    });
+    }});
 
-    setText("[data-artifact-title]", work.title);
-    setText("[data-artifact-id]", work.id);
-    setText("[data-artifact-attempt]", work.attempt);
-    setChip(document.querySelector("[data-artifact-status]"), work.status, work.statusClass);
-    setText("[data-approval-copy]", work.approvalCopy);
-    setHTML("[data-sources-used]", `<span>Sources used</span>${work.sources.map(sourceChipHTML).join("")}`);
-    setHTML("[data-document-card]", work.document);
+    setText("[data-artifact-title]", work.artifact_title);
+    setText("[data-artifact-id]", work.public_id);
+    setText("[data-artifact-attempt]", attempt.number);
+    setChip(document.querySelector("[data-artifact-status]"), attempt.status_label, attempt.status_class);
+    setText("[data-approval-copy]", work.approval_copy);
+    setHTML("[data-sources-used]", `<span>Sources used</span>${{attempt.sources_used.map(sourceChipHTML).join("")}}`);
+    setHTML("[data-document-card]", attempt.document_html);
 
-    setText("[data-footer-owner]", work.footer.owner);
-    setText("[data-footer-palari]", work.footer.palari);
-    setText("[data-footer-updated]", work.footer.updated);
-    setText("[data-footer-word-count]", work.footer.words);
-    setText("[data-footer-language]", work.footer.language);
+    setText("[data-footer-owner]", palari.name);
+    setText("[data-footer-palari]", palari.role);
+    setText("[data-footer-updated]", attempt.updated_label);
+    setText("[data-footer-word-count]", attempt.word_count);
+    setText("[data-footer-language]", attempt.language);
 
-    setText("[data-task-title]", work.taskTitle);
-    setChip(document.querySelector("[data-task-status]"), work.status, work.statusClass);
-    setText("[data-task-due]", work.due);
-    setChip(document.querySelector("[data-task-priority]"), work.priority, work.priorityClass);
-    setText("[data-task-risk]", work.risk);
-    setText("[data-task-id]", work.id);
+    setText("[data-task-title]", work.title);
+    setChip(document.querySelector("[data-task-status]"), attempt.status_label, attempt.status_class);
+    setText("[data-task-due]", work.due_label);
+    setChip(document.querySelector("[data-task-priority]"), work.priority_label, work.priority_class);
+    setText("[data-task-risk]", work.risk_label);
+    setText("[data-task-id]", work.public_id);
 
-    setText("[data-receipt-used]", work.receipt.used);
-    setText("[data-receipt-created]", work.receipt.created);
-    setText("[data-receipt-external]", work.receipt.external);
-    setText("[data-receipt-not-done]", work.receipt.notDone);
-    setText("[data-receipt-undo]", work.receipt.undo);
-    setText("[data-receipt-title]", `Receipt (Attempt ${work.attempt})`);
-    setChip(document.querySelector("[data-receipt-status]"), work.receipt.status, work.receipt.statusClass);
-    setHTML("[data-chat-thread]", renderChat(work.chat));
-    setText("[data-authority-requirement]", work.authority.requirement);
-    setHTML("[data-authority-list]", renderAuthority(work.authority));
-    setText("[data-authority-summary]", work.authority.summary);
-    setText("[data-history-count]", `${work.history.length} change${work.history.length === 1 ? "" : "s"}`);
-    setHTML("[data-history-list]", renderHistory(work.history));
+    setText("[data-receipt-used]", receipt.sources_used);
+    setText("[data-receipt-created]", receipt.created);
+    setText("[data-receipt-external]", receipt.external_writes);
+    setText("[data-receipt-not-done]", receipt.not_done);
+    setText("[data-receipt-undo]", receipt.undo);
+    setText("[data-receipt-title]", `Receipt (Attempt ${{attempt.number}})`);
+    setChip(document.querySelector("[data-receipt-status]"), receipt.status_label, receipt.status_class);
+    setHTML("[data-chat-thread]", renderChat(attempt.chat_messages));
+    setText("[data-authority-requirement]", authority.requirement);
+    setHTML("[data-authority-list]", renderAuthority(authority));
+    setText("[data-authority-summary]", authority.summary);
+    setText("[data-history-count]", `${{attempt.history_events.length}} change${{attempt.history_events.length === 1 ? "" : "s"}}`);
+    setHTML("[data-history-list]", renderHistory(attempt.history_events));
 
-    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {{
       setMobileTarget("artifact");
-    } else {
-      openContext("task", { scroll: false });
-    }
-  }
+    }} else {{
+      openContext("task", {{ scroll: false }});
+    }}
+  }}
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", (event) => {{
     const target = event.target.closest("[data-mobile-target]");
-    if (target) {
+    if (target) {{
       event.preventDefault();
       setMobileTarget(target.dataset.mobileTarget);
       return;
-    }
+    }}
 
     const sourceToggle = event.target.closest("[data-source-toggle]");
-    if (sourceToggle) {
+    if (sourceToggle) {{
       event.preventDefault();
       toggleSourceFolder(sourceToggle);
       return;
-    }
+    }}
 
     const sourceRow = event.target.closest("[data-source-id]");
-    if (sourceRow) {
+    if (sourceRow) {{
       event.preventDefault();
       selectSource(sourceRow.dataset.sourceId);
       return;
-    }
+    }}
 
     const workRow = event.target.closest("[data-work-id]");
-    if (workRow) {
+    if (workRow) {{
       event.preventDefault();
       selectWork(workRow.dataset.workId);
       return;
-    }
+    }}
 
     const contextTrigger = event.target.closest("[data-open-context]");
-    if (contextTrigger) {
+    if (contextTrigger) {{
       event.preventDefault();
       openContext(contextTrigger.dataset.openContext || contextTrigger.dataset.contextCard || "chat");
       return;
-    }
+    }}
 
     const pane = event.target.closest("[data-mobile-pane]");
-    if (pane && window.innerWidth <= MOBILE_BREAKPOINT) {
+    if (pane && window.innerWidth <= MOBILE_BREAKPOINT) {{
       event.preventDefault();
       const next = pane.dataset.mobilePane;
-      if (next === "context") {
+      if (next === "context") {{
         body.dataset.mobilePane = "context";
         body.dataset.contextCard = pane.dataset.contextCard || "chat";
-      } else if (next === "artifact") {
+      }} else if (next === "artifact") {{
         setMobileTarget("artifact");
-      } else if (next === "workbench") {
+      }} else if (next === "workbench") {{
         setMobileTarget("workbench");
-      }
-    }
-  });
+      }}
+    }}
+  }});
 
   const initial = (location.hash || "#artifact").replace("#", "");
-  selectSource("hcd-plan");
-  selectWork("comment");
+  selectSource(prototypeData.ui.default_source_id);
+  selectWork(prototypeData.ui.default_work_item_id);
   setMobileTarget(initial);
-})();
+}})();
 """
