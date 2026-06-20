@@ -87,6 +87,14 @@ def print_result(result: CommandResult) -> None:
         print_kilo(result.payload, result.as_json)
         return
 
+    if result.kind == "playbooks":
+        print_playbooks(result.payload, result.as_json)
+        return
+
+    if result.kind == "playbook-recommendations":
+        print_playbook_recommendations(result.payload, result.as_json)
+        return
+
     raise ValueError(f"unknown command result kind: {result.kind}")
 
 
@@ -100,6 +108,7 @@ def print_validate(payload: dict[str, Any]) -> None:
     print(
         f"Records: {counts['goals']} goals, {counts['palaris']} Palaris, "
         f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
+        f"{counts.get('playbook_sources', 0)} playbook sources, "
         f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
 
@@ -224,6 +233,49 @@ def print_kilo(payload: dict[str, Any], as_json: bool) -> None:
             print(payload["stderr"].rstrip())
 
 
+def print_playbooks(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Playbook sources: {payload['workspace']}")
+    if not payload["sources"]:
+        print("No playbook sources configured.")
+        return
+    for source in payload["sources"]:
+        enabled = "enabled" if source.get("enabled", True) else "disabled"
+        print(f"{source['id']}: {source['label']} [{enabled}]")
+        print(f"  uri: {source.get('uri', '')}")
+        if source.get("ref"):
+            print(f"  ref: {source['ref']}")
+        if source.get("license"):
+            print(f"  license: {source['license']}")
+    if payload["playbooks"]:
+        print("")
+        print("Available playbooks")
+        for playbook in payload["playbooks"]:
+            print(f"  {playbook['id']}: {playbook['label']}")
+            if playbook.get("description"):
+                print(f"    {playbook['description']}")
+            if playbook.get("uri"):
+                print(f"    {playbook['uri']}")
+
+
+def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Playbook recommendations for {payload['work_item']}: {payload['title']}")
+    if not payload["recommended"]:
+        print("No playbook recommendations.")
+        print(f"Next: {payload['next_action']}")
+        return
+    for item in payload["recommended"]:
+        prefix = "selected" if item.get("selected_by_user") else "suggested"
+        print(f"{item['id']} [{prefix}]")
+        print(f"  {item['reason']}")
+    print(f"Next: {payload['next_action']}")
+
+
 def print_queue(workspace: Workspace, items: list[Any]) -> None:
     print(f"Palari Company OS Queue: {workspace.name}")
     print("")
@@ -246,6 +298,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         print(f"  integration: {item.integration_state}")
         if item.learning_signal:
             print(f"  learning: {item.learning_signal}")
+        if item.playbook_recommendations:
+            print(f"  playbooks: {', '.join(item.playbook_recommendations)}")
         if item.intensity != item.recommended_intensity:
             print(
                 f"  recommended intensity: {item.recommended_intensity} "
@@ -281,6 +335,10 @@ def print_detail(payload: dict[str, Any]) -> None:
         print(f"  outputs: {', '.join(work['output_targets'])}")
     if work["forbidden_actions"]:
         print(f"  forbidden: {', '.join(work['forbidden_actions'])}")
+    if payload.get("playbooks", {}).get("recommended"):
+        print("  playbooks:")
+        for item in payload["playbooks"]["recommended"]:
+            print(f"    {item['id']}: {item['reason']}")
     print("")
     _print_section("Attempt", payload["attempt"])
     if payload.get("sources"):

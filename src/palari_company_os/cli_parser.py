@@ -122,6 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)
     _add_source_parser(subparsers)
+    _add_playbook_source_parser(subparsers)
     _add_decision_parser(subparsers)
     _add_work_parser(subparsers)
     _add_attempt_parser(subparsers)
@@ -133,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
     _add_kilo_parser(subparsers)
+    _add_playbooks_parser(subparsers)
 
     return parser
 
@@ -241,6 +243,22 @@ def _add_source_parser(subparsers: Any) -> None:
             ("owner_human", {"default": "", "help": "Owner human id."}),
             ("last_seen_revision", {"default": "", "help": "Last seen revision."}),
             ("last_read_at", {"default": "", "help": "Last read timestamp."}),
+        ],
+    )
+
+
+def _add_playbook_source_parser(subparsers: Any) -> None:
+    _add_create_update(
+        subparsers,
+        "playbook-source",
+        "Create or update external playbook sources.",
+        [
+            ("label", {"required": True, "help": "Human-facing playbook source label."}),
+            ("provider", {"default": "", "help": "Source provider, such as github."}),
+            ("uri", {"default": "", "help": "Source URI."}),
+            ("ref", {"default": "", "help": "Pinned branch, tag, or commit."}),
+            ("license", {"default": "", "help": "License label."}),
+            ("install_hint", {"default": "", "help": "Install or activation hint."}),
         ],
     )
 
@@ -468,6 +486,19 @@ def _add_kilo_parser(subparsers: Any) -> None:
         help="Optional execution timeout in seconds. 0 means no timeout.",
     )
     run.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_playbooks_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "playbooks",
+        help="Inspect external playbook sources and work-item recommendations.",
+    )
+    nested = parser.add_subparsers(dest="playbooks_command", required=True)
+    sources = nested.add_parser("sources", help="List configured playbook sources.")
+    sources.add_argument("--json", action="store_true", help="Emit JSON.")
+    recommend = nested.add_parser("recommend", help="Recommend playbooks for one work item.")
+    recommend.add_argument("work_id")
+    recommend.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_lifecycle_parser(subparsers: Any) -> None:

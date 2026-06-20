@@ -52,6 +52,7 @@ JSON output and operating commands are also available:
 ./bin/palari validate
 ./bin/palari state
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
+./bin/palari playbooks recommend WORK-0003
 ./bin/palari history
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
 ```
@@ -96,6 +97,8 @@ The current implementation provides a local workspace CLI:
 - `state`: a compact workspace read model.
 - `validate`: fail-closed workspace validation.
 - `scope`: declared path/action boundary checks.
+- `playbooks`: external playbook source catalog and recommendations for a
+  work item.
 - `history`: recent append-only audit events for mutating commands.
 - `dashboard`: static read-only visual supervision over queue, work, trust,
   history, and authority.
@@ -160,6 +163,7 @@ checks the installed `palari` command.
 - [Core Objects](docs/product/core-objects.md)
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Source Of Truth](docs/product/source-of-truth.md)
+- [External Playbooks](docs/product/playbooks.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
 - [Kilo Code Optional Runner Spike](docs/product/kilo-code-integration.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)

@@ -58,6 +58,28 @@ review freshness, human approval capability, or completion quorum are invalid.
 Checks paths and actions against a work item's declared allowed resources and
 forbidden actions.
 
+## Playbooks
+
+```bash
+./bin/palari playbooks sources
+./bin/palari playbooks sources --json
+./bin/palari playbooks recommend WORK-0003
+./bin/palari playbooks recommend WORK-0003 --json
+./bin/palari playbook-source create superpowers \
+  --label "Superpowers skills" \
+  --provider github \
+  --uri https://github.com/obra/Superpowers \
+  --ref main \
+  --license MIT \
+  --list included_playbooks=brainstorming,writing-plans,verification-before-completion
+```
+
+`playbooks sources` lists external playbook sources and the allowed skills from
+each source. `playbooks recommend` combines user-selected playbooks from the
+work item with Palari's state-based suggestions. External playbooks are
+guidance only; Palari still owns goals, scope, sources, authority, receipts,
+evidence, review, human decisions, and outcomes.
+
 ## Receipt-Ready Low-Risk Work
 
 For light R1/R2 local work, a completed attempt plus a valid receipt can move

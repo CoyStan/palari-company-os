@@ -20,6 +20,8 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari --workspace workspaces/palari-company-os queue --json >/tmp/palari-company-dogfood-queue.json
 ./bin/palari detail WORK-0001 --json >/tmp/palari-company-detail-work-0001.json
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001 --json >/tmp/palari-company-dogfood-detail-work-repo-0001.json
+./bin/palari playbooks sources --json >/tmp/palari-company-playbook-sources.json
+./bin/palari playbooks recommend WORK-0003 --json >/tmp/palari-company-playbook-recommend.json
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >/tmp/palari-company-scope-allowed.json
 ./bin/palari scope WORK-0001 --changed secrets.env --action deploy --json >/tmp/palari-company-scope-blocked.json
 ./bin/palari history --json >/tmp/palari-company-history.json
@@ -42,5 +44,6 @@ grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/i
 grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'Kilo Code being called from Palari Company OS' /tmp/palari-company-kilo-run-preview.json
+grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
 
 printf 'Palari Company OS verification passed.\n'

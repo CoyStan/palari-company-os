@@ -15,6 +15,7 @@ from .models import (
     HumanDecision,
     Outcome,
     Palari,
+    PlaybookSource,
     Receipt,
     ReviewVerdict,
     Source,
@@ -37,6 +38,7 @@ class Workspace:
     palaris: list[Palari]
     humans: list[Human]
     sources: list[Source]
+    playbook_sources: list[PlaybookSource]
     decisions: list[Decision]
     work_items: list[WorkItem]
     attempts: list[Attempt]
@@ -99,6 +101,9 @@ class Workspace:
             palaris=[Palari.from_record(item) for item in _items(raw, "palaris")],
             humans=[Human.from_record(item) for item in _items(raw, "humans")],
             sources=[Source.from_record(item) for item in _items(raw, "sources")],
+            playbook_sources=[
+                PlaybookSource.from_record(item) for item in _items(raw, "playbook_sources")
+            ],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
@@ -123,6 +128,7 @@ class Workspace:
             ("palaris", self.palaris),
             ("humans", self.humans),
             ("sources", self.sources),
+            ("playbook_sources", self.playbook_sources),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
@@ -138,6 +144,7 @@ class Workspace:
         palari_ids = {palari.id for palari in self.palaris}
         human_ids = {human.id for human in self.humans}
         source_ids = {source.id for source in self.sources}
+        playbook_source_ids = {source.id for source in self.playbook_sources}
         work_ids = {work.id for work in self.work_items}
         attempt_ids = {attempt.id for attempt in self.attempts}
         evidence_ids = {evidence.id for evidence in self.evidence_runs}
@@ -162,6 +169,15 @@ class Workspace:
                 )
             for source in work.allowed_sources:
                 _require_ref("work_items", work.id, "allowed_sources", source, source_ids)
+            for playbook in work.recommended_playbooks:
+                _require_playbook_ref(
+                    "work_items",
+                    work.id,
+                    "recommended_playbooks",
+                    playbook,
+                    playbook_source_ids,
+                    self.playbook_sources,
+                )
             if work.required_approval_count < 0:
                 raise WorkspaceError(
                     f"work_items.{work.id}.required_approval_count must be zero or greater"
@@ -320,3 +336,28 @@ def _require_ref(
 ) -> None:
     if value not in allowed:
         raise WorkspaceError(f"{collection}.{record_id}.{field} references missing id {value}")
+
+
+def _require_playbook_ref(
+    collection: str,
+    record_id: str,
+    field: str,
+    value: str,
+    allowed_sources: set[str],
+    sources: Iterable[PlaybookSource],
+) -> None:
+    if ":" not in value:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} must use source:playbook format: {value}"
+        )
+    source_id, playbook_id = value.split(":", 1)
+    if source_id not in allowed_sources:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} references missing playbook source {source_id}"
+        )
+    source = _find(sources, source_id)
+    if source and playbook_id not in source.included_playbooks:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} references playbook {playbook_id} "
+            f"not included by source {source_id}"
+        )

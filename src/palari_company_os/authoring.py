@@ -15,6 +15,7 @@ COLLECTIONS = {
     "human": "humans",
     "palari": "palaris",
     "source": "sources",
+    "playbook-source": "playbook_sources",
     "decision": "decisions",
     "work": "work_items",
     "attempt": "attempts",
@@ -26,7 +27,7 @@ COLLECTIONS = {
 }
 
 INTEGER_FIELDS = {"required_approval_count"}
-BOOLEAN_FIELDS = {"selected"}
+BOOLEAN_FIELDS = {"selected", "enabled"}
 LIST_FIELDS = {
     "success_criteria",
     "linked_palaris",
@@ -51,6 +52,8 @@ LIST_FIELDS = {
     "allowed_actions",
     "output_targets",
     "verification_expectations",
+    "recommended_playbooks",
+    "included_playbooks",
     "commits",
     "changed_files",
     "commands",

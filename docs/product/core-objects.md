@@ -30,11 +30,19 @@ generic URI or external id, access mode, owner human, allowed Palaris, selected
 state, and last-read metadata. They model the boundary of what was available to
 the Palari; this v0 object does not connect to real providers yet.
 
+## Playbook Source
+
+External operating guidance that Palari may recommend while preparing work.
+Playbook sources record label, provider, URI, pinned ref, license, enabled
+state, and the explicit list of included playbooks. Superpowers compatibility
+uses this object to link to allowed `SKILL.md` playbooks without making them
+Palari authority.
+
 ## Work Item
 
 Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
 allowed sources, allowed actions, output targets, forbidden actions, acceptance
-target, and verification expectations.
+target, verification expectations, and optional recommended playbooks.
 
 ## Attempt
 

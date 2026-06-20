@@ -27,6 +27,10 @@
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
     "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "playbook_sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/playbook_source" }
+    },
     "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
     "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
     "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
@@ -126,6 +130,22 @@
         "last_read_at": { "type": "string" }
       }
     },
+    "playbook_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "provider": { "type": "string" },
+        "uri": { "type": "string" },
+        "ref": { "type": "string" },
+        "license": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "included_playbooks": { "$ref": "#/$defs/string_list" },
+        "install_hint": { "type": "string" }
+      }
+    },
     "work_item": {
       "type": "object",
       "additionalProperties": false,
@@ -160,7 +180,8 @@
         "verification_expectations": { "$ref": "#/$defs/string_list" },
         "current_attempt": { "type": "string" },
         "required_approval_count": { "type": "integer", "minimum": 0 },
-        "required_approval_capability": { "type": "string" }
+        "required_approval_capability": { "type": "string" },
+        "recommended_playbooks": { "$ref": "#/$defs/string_list" }
       }
     },
     "attempt": {

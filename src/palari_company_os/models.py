@@ -212,6 +212,7 @@ class WorkItem:
     current_attempt: str = ""
     required_approval_count: int = 1
     required_approval_capability: str = ""
+    recommended_playbooks: list[str] = field(default_factory=list)
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
@@ -234,6 +235,34 @@ class WorkItem:
             current_attempt=_string(record, "current_attempt"),
             required_approval_count=_integer(record, "required_approval_count", 1),
             required_approval_capability=_string(record, "required_approval_capability"),
+            recommended_playbooks=_strings(record, "recommended_playbooks"),
+        )
+
+
+@dataclass(frozen=True)
+class PlaybookSource:
+    id: str
+    label: str
+    provider: str = ""
+    uri: str = ""
+    ref: str = ""
+    license: str = ""
+    enabled: bool = True
+    included_playbooks: list[str] = field(default_factory=list)
+    install_hint: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "PlaybookSource":
+        return cls(
+            id=_require_id(record),
+            label=_string(record, "label"),
+            provider=_string(record, "provider"),
+            uri=_string(record, "uri"),
+            ref=_string(record, "ref"),
+            license=_string(record, "license"),
+            enabled=_boolean(record, "enabled", True),
+            included_playbooks=_strings(record, "included_playbooks"),
+            install_hint=_string(record, "install_hint"),
         )
 
 

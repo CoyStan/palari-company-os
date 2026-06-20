@@ -21,6 +21,7 @@ from .history import append_history_event, read_history
 from .kilo_integration import kilo_status, run_kilo_for_work
 from .maintainer import status as maintainer_status
 from .models import to_plain
+from .playbooks import playbook_catalog, recommend_playbooks
 from .read_models import detail, queue_items
 from .scope import check_scope
 from .store import load_store, migrate_data, write_store
@@ -69,6 +70,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "palaris": len(workspace.palaris),
                     "humans": len(workspace.humans),
                     "sources": len(workspace.sources),
+                    "playbook_sources": len(workspace.playbook_sources),
                     "work_items": len(workspace.work_items),
                     "receipts": len(workspace.receipts),
                 },
@@ -127,6 +129,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         "human",
         "palari",
         "source",
+        "playbook-source",
         "decision",
         "work",
         "attempt",
@@ -147,6 +150,17 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "kilo":
         return CommandResult("kilo", run_kilo_command(args), args.json)
+
+    if args.command == "playbooks":
+        workspace = Workspace.load(args.workspace)
+        if args.playbooks_command == "sources":
+            return CommandResult("playbooks", playbook_catalog(workspace), args.json)
+        if args.playbooks_command == "recommend":
+            return CommandResult(
+                "playbook-recommendations",
+                recommend_playbooks(workspace, args.work_id),
+                args.json,
+            )
 
     raise WorkspaceError("unknown command")
 
@@ -260,6 +274,7 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "palaris": len(workspace.palaris),
         "humans": len(workspace.humans),
         "sources": len(workspace.sources),
+        "playbook_sources": len(workspace.playbook_sources),
         "decisions": len(workspace.decisions),
         "work_items": len(workspace.work_items),
         "attempts": len(workspace.attempts),

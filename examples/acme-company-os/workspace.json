@@ -194,6 +194,27 @@
       "last_read_at": "2026-06-19T04:00:00Z"
     }
   ],
+  "playbook_sources": [
+    {
+      "id": "superpowers",
+      "label": "Superpowers skills",
+      "provider": "github",
+      "uri": "https://github.com/obra/Superpowers",
+      "ref": "main",
+      "license": "MIT",
+      "enabled": true,
+      "included_playbooks": [
+        "brainstorming",
+        "writing-plans",
+        "executing-plans",
+        "verification-before-completion",
+        "requesting-code-review",
+        "systematic-debugging",
+        "subagent-driven-development"
+      ],
+      "install_hint": "Install or copy only the selected Superpowers skills needed for the work item."
+    }
+  ],
   "work_items": [
     {
       "id": "WORK-0001",
@@ -220,7 +241,11 @@
       ],
       "current_attempt": "ATTEMPT-0001",
       "required_approval_count": 1,
-      "required_approval_capability": "product"
+      "required_approval_capability": "product",
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:requesting-code-review"
+      ]
     },
     {
       "id": "WORK-0002",

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .models import to_plain
+from .playbooks import recommend_playbooks, recommended_playbook_ids
 from .workspace import Workspace, latest_for_work
 
 
@@ -32,6 +33,7 @@ class QueueItem:
     recommended_intensity: str
     intensity_reason: str
     learning_signal: str
+    playbook_recommendations: list[str]
 
 
 ATTENTION_PRIORITY = {
@@ -74,6 +76,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     outcome = latest_for_work(workspace.outcomes, work.id)
     linked_decisions = [decision for decision in workspace.decisions if decision.linked_work == work.id]
     queue_item = _queue_item(workspace, work)
+    playbooks = recommend_playbooks(workspace, work.id)
 
     return {
         "work_item": to_plain(work),
@@ -102,6 +105,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "recommended_intensity": queue_item.recommended_intensity,
             "intensity_reason": queue_item.intensity_reason,
         },
+        "playbooks": playbooks,
     }
 
 
@@ -121,6 +125,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
     approval_progress = _approval_progress(workspace, work)
     recommended_intensity, intensity_reason = recommend_intensity(work)
     learning_signal = _learning_signal(workspace, palari)
+    playbook_recommendations = recommended_playbook_ids(workspace, work)
     waiting_on_human = attention == "needs-human-decision"
     ai_safe_to_proceed = _ai_safe_to_proceed(workspace, work, attention)
     return QueueItem(
@@ -147,6 +152,7 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
         recommended_intensity=recommended_intensity,
         intensity_reason=intensity_reason,
         learning_signal=learning_signal,
+        playbook_recommendations=playbook_recommendations,
     )
 
 

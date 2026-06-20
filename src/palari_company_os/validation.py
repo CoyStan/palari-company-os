@@ -23,7 +23,9 @@ COLLECTION_KEYS = (
     "outcomes",
 )
 
-ROOT_FIELDS = {"schema_version", "name", *COLLECTION_KEYS}
+OPTIONAL_COLLECTION_KEYS = ("playbook_sources",)
+
+ROOT_FIELDS = {"schema_version", "name", *COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS}
 
 ALLOWED_RECORD_FIELDS = {
     "goals": {
@@ -98,6 +100,18 @@ ALLOWED_RECORD_FIELDS = {
         "current_attempt",
         "required_approval_count",
         "required_approval_capability",
+        "recommended_playbooks",
+    },
+    "playbook_sources": {
+        "id",
+        "label",
+        "provider",
+        "uri",
+        "ref",
+        "license",
+        "enabled",
+        "included_playbooks",
+        "install_hint",
     },
     "attempts": {
         "id",
@@ -242,12 +256,19 @@ def validate_raw_contract(raw: dict[str, object]) -> None:
     for key in COLLECTION_KEYS:
         if key not in raw:
             raise WorkspaceError(f"workspace.{key} collection is required")
-        records = raw[key]
-        if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
-            raise WorkspaceError(f"{key} must be a list of objects")
-        for index, record in enumerate(records):
-            label = _record_label(key, index, record)
-            _reject_unknown_fields(label, record, ALLOWED_RECORD_FIELDS[key])
+        _validate_collection(raw, key)
+    for key in OPTIONAL_COLLECTION_KEYS:
+        if key in raw:
+            _validate_collection(raw, key)
+
+
+def _validate_collection(raw: dict[str, object], key: str) -> None:
+    records = raw[key]
+    if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
+        raise WorkspaceError(f"{key} must be a list of objects")
+    for index, record in enumerate(records):
+        label = _record_label(key, index, record)
+        _reject_unknown_fields(label, record, ALLOWED_RECORD_FIELDS[key])
 
 
 def validate_workspace_contract(workspace: Any) -> None:

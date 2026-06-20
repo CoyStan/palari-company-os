@@ -38,7 +38,10 @@ Validation checks:
 - unique ids per collection
 - work item goal and Palari references
 - work item allowed source references
+- work item recommended playbooks reference declared playbook sources and
+  included playbooks
 - source owner human and allowed Palari references
+- optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
 - attempt, evidence, review, human decision, receipt, and outcome references
@@ -64,8 +67,10 @@ Migration:
 ```
 
 `migrate` adds `schema_version: 1` to old unversioned workspaces and ensures
-required collections exist. Workspaces with a newer schema version fail closed
-until this code supports them.
+required collections exist. Optional collections such as `playbook_sources` may
+be absent from older v1 workspaces; if present, they are still strictly
+validated. Workspaces with a newer schema version fail closed until this code
+supports them.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first
