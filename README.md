@@ -69,6 +69,14 @@ PALARI_KILO_ALLOW_EXECUTE=1 ./scripts/run_desktop_kilo_app.sh
 The script prints the local URL. Preview is enabled by default; browser-triggered
 Kilo execution requires `PALARI_KILO_ALLOW_EXECUTE=1`.
 
+For a command-line real Kilo smoke, preview first:
+
+```bash
+./scripts/kilo_real_smoke.sh
+PALARI_KILO_ALLOW_NPX=1 ./scripts/kilo_real_smoke.sh
+PALARI_KILO_SMOKE_EXECUTE=1 ./scripts/kilo_real_smoke.sh
+```
+
 The default workspace is `examples/acme-company-os`. Use another workspace with:
 
 ```bash

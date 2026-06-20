@@ -4,6 +4,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
+bash -n scripts/install_smoke.sh scripts/kilo_real_smoke.sh scripts/run_desktop_kilo_app.sh scripts/verify.sh
 python3 -m unittest discover -s tests
 python3 scripts/check_style.py
 python3 -m compileall -q src
