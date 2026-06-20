@@ -54,28 +54,6 @@ JSON output and operating commands are also available:
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
 ./bin/palari history
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
-./bin/palari kilo status
-./bin/palari kilo run WORK-0001 --message "Start this bounded work"
-```
-
-To run the local desktop prototype with Kilo preview/run controls:
-
-```bash
-./scripts/run_desktop_kilo_app.sh
-PALARI_KILO_ALLOW_NPX=1 ./scripts/run_desktop_kilo_app.sh
-PALARI_KILO_ALLOW_EXECUTE=1 ./scripts/run_desktop_kilo_app.sh
-```
-
-The script prints the local URL. Preview is enabled by default; browser-triggered
-Kilo execution requires `PALARI_KILO_ALLOW_EXECUTE=1`.
-
-For a command-line real Kilo smoke, preview first:
-
-```bash
-./scripts/kilo_real_smoke.sh
-PALARI_KILO_ALLOW_NPX=1 ./scripts/kilo_real_smoke.sh
-PALARI_KILO_SMOKE_EXECUTE=1 PALARI_KILO_TIMEOUT=120 ./scripts/kilo_real_smoke.sh
-PALARI_KILO_MODEL=openrouter/deepseek/deepseek-v4-flash ./scripts/kilo_real_smoke.sh
 ```
 
 The default workspace is `examples/acme-company-os`. Use another workspace with:
@@ -128,8 +106,31 @@ The current implementation provides a local workspace CLI:
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome.
 - `maintainer status`: lightweight external-maintainer repo status.
-- `kilo`: optional Kilo Code bridge that builds a bounded Palari work prompt
-  and can call `kilo run` with explicit `--execute`.
+- `kilo`: archived optional Kilo Code runner spike. It can still preview or
+  execute a bounded Palari work prompt, but Kilo is not the current primary
+  product path.
+
+## Optional Kilo Runner Spike
+
+The repo keeps a small Kilo Code bridge as an archived experiment. It is useful
+for studying how Palari work boundaries might travel into an external agent
+runner, but Palari Company OS does not currently depend on Kilo.
+
+The primary operating path is still repo-native: define the goal, scope,
+sources, receipts, and review expectations in Palari Company OS, then let a
+human or agent work in the repository with that boundary.
+
+Use Kilo only when deliberately testing runner integration:
+
+```bash
+./bin/palari kilo status
+./bin/palari kilo run WORK-0001 --message "Start this bounded work"
+./scripts/kilo_real_smoke.sh
+```
+
+Real Kilo execution depends on the user's Kilo/provider account and model
+availability. Revisit Kilo as an active product path only if it proves a
+repeatable workflow that is better than direct repo-agent work.
 
 ## Development
 
@@ -160,7 +161,7 @@ checks the installed `palari` command.
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
-- [Kilo Code Integration](docs/product/kilo-code-integration.md)
+- [Kilo Code Optional Runner Spike](docs/product/kilo-code-integration.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Command Reference](docs/product/command-reference.md)
 - [Lifecycle Guide](docs/product/lifecycle-guide.md)

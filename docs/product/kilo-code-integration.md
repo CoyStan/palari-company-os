@@ -1,8 +1,36 @@
-# Kilo Code Integration
+# Kilo Code Optional Runner Spike
 
 Palari Company OS can prepare a bounded work-item prompt and call Kilo Code through the Kilo CLI.
 
 This is an optional external-tool bridge. Palari does not vendor Kilo, store Kilo credentials, manage Kilo sessions, or bypass Kilo permissions.
+
+## Archive Status
+
+This integration is archived as an optional runner spike, not the active product
+path. The code remains in the repo because it is useful for testing how Palari
+work boundaries can be handed to an external agent runner, but Palari Company
+OS should not be designed around Kilo unless that runner proves clear product
+leverage.
+
+The current primary workflow is repo-native:
+
+1. Define the goal, scope, sources, allowed actions, and review expectations in
+   Palari Company OS.
+2. Give that boundary to a human or agent working directly in the repository.
+3. Record receipts, evidence, review, human decisions, outcomes, and learning.
+
+Kilo should become active work again only if it passes a narrow re-entry bar:
+
+- a real Kilo provider/model is healthy enough for repeatable smoke tests
+- Kilo completes a small Palari-scoped repo task end to end
+- the result is easier to inspect, repeat, or audit than direct repo-agent work
+- failure modes are legible: provider, model, timeout, permission, repo, or
+  harness issue
+- the integration supports a real customer or internal workflow that direct
+  repo-agent work does not handle well
+
+Until then, treat this document as implementation notes for a preserved
+experiment, not a roadmap commitment.
 
 ## Requirements
 
@@ -76,7 +104,8 @@ The command builds a prompt from:
 ## Desktop App Bridge
 
 The static desktop prototype remains read-only when opened from generated
-files. To let the browser call Kilo through Palari, run the local server:
+files. To deliberately test the archived Kilo runner path from the browser, run
+the local server:
 
 ```bash
 palari desktop-serve --out /tmp/palari-desktop-prototype
@@ -127,3 +156,8 @@ PALARI_KILO_MODEL=provider/model PALARI_KILO_AGENT=name ./scripts/run_desktop_ki
 This is still a local developer bridge. It does not create a cloud backend,
 persist Kilo results into a workspace, connect Google Drive, or turn Kilo output
 into receipts/evidence automatically.
+
+The last real smoke attempts proved that Palari can reach the Kilo CLI and pass
+model overrides, but the available Kilo/provider routes were blocked by credits,
+key limits, or timeouts. Palari now fails closed on those provider errors rather
+than treating stderr failures as successful runs.

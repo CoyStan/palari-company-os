@@ -122,6 +122,9 @@ item. Real Kilo execution remains disabled unless the server is started with
 `--allow-kilo-execute`. The server does not add `--auto`, bypass Kilo
 permissions, connect Google Drive, or mutate the workspace model.
 
+The Kilo endpoints are preserved as an archived optional runner spike. They are
+not the current primary product path.
+
 `scripts/run_desktop_kilo_app.sh` is the convenience wrapper for this app path.
 It starts `desktop-serve` from the repo root. Useful environment flags:
 
@@ -218,6 +221,10 @@ Focused tests are known only if an optional local verification log exists at:
 This file is intentionally ignored by git.
 
 ## Kilo Code
+
+Status: archived optional runner spike. Keep these commands for deliberate
+runner experiments, but do not treat Kilo as the default Palari Company OS
+execution path.
 
 ```bash
 ./bin/palari kilo status
