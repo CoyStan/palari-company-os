@@ -835,9 +835,17 @@ h1, h2, h3, p { margin: 0; }
   color: var(--muted);
   background: #fff;
   font-size: 9px;
+  line-height: 1;
   font-weight: 700;
+  white-space: nowrap;
 }
-.file-icon { width: 19px; height: 20px; }
+.file-icon {
+  min-width: 24px;
+  width: max-content;
+  height: 20px;
+  padding: 0 4px;
+  flex: 0 0 auto;
+}
 .file-icon.green { color: var(--green); border-color: #bbf7d0; }
 .file-icon.blue { color: var(--blue); border-color: #bfdbfe; }
 .file-kind { min-width: 34px; padding: 1px 5px; }
@@ -1026,10 +1034,10 @@ h1, h2, h3, p { margin: 0; }
 .used-source {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   max-width: 100%;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: #fff;

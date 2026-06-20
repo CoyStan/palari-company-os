@@ -136,6 +136,8 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn(".source-file-row", css)
         self.assertIn(".source-file-row.is-selected", css)
         self.assertIn(".source-preview", css)
+        self.assertIn("width: max-content", css)
+        self.assertIn("min-width: 24px", css)
         self.assertIn(".source-meta-list", css)
         self.assertIn(".context-card.is-focused", css)
         self.assertIn(":focus-visible", css)
