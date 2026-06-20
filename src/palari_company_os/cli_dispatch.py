@@ -17,6 +17,7 @@ from .authoring import (
 from .dashboard import generate_dashboard
 from .desktop_prototype import generate_desktop_prototype
 from .history import append_history_event, read_history
+from .kilo_integration import kilo_status, run_kilo_for_work
 from .maintainer import status as maintainer_status
 from .models import to_plain
 from .read_models import detail, queue_items
@@ -126,6 +127,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         payload = maintainer_status(Path(args.repo)).to_dict()
         return CommandResult("maintainer-status", payload, args.json)
 
+    if args.command == "kilo":
+        return CommandResult("kilo", run_kilo_command(args), args.json)
+
     raise WorkspaceError("unknown command")
 
 
@@ -186,6 +190,25 @@ def run_lifecycle_command(args: argparse.Namespace) -> Any:
     if args.lifecycle_command == "outcome":
         return create_record(args.workspace, "outcome", _record_from_args(args), command=command)
     raise WorkspaceError(f"unsupported lifecycle command: {args.lifecycle_command}")
+
+
+def run_kilo_command(args: argparse.Namespace) -> dict[str, Any]:
+    if args.kilo_command == "status":
+        return kilo_status(allow_npx=args.allow_npx)
+    if args.kilo_command == "run":
+        return run_kilo_for_work(
+            args.workspace,
+            args.work_id,
+            args.message,
+            execute=args.execute,
+            allow_npx=args.allow_npx,
+            model=args.model,
+            agent=args.agent,
+            output_format=args.format,
+            run_dir=args.dir or None,
+            timeout=args.timeout or None,
+        )
+    raise WorkspaceError(f"unsupported kilo command: {args.kilo_command}")
 
 
 def _record_from_args(args: argparse.Namespace) -> dict[str, Any]:

@@ -79,6 +79,10 @@ def print_result(result: CommandResult) -> None:
             print_maintainer_status(result.payload)
         return
 
+    if result.kind == "kilo":
+        print_kilo(result.payload, result.as_json)
+        return
+
     raise ValueError(f"unknown command result kind: {result.kind}")
 
 
@@ -168,6 +172,46 @@ def print_desktop_prototype(result: Any, as_json: bool) -> None:
     print(f"Title: {result.title}")
     for asset in result.assets:
         print(f"Asset: {asset}")
+
+
+def print_kilo(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    if "work_id" not in payload:
+        print("Kilo Code")
+        print(f"Available: {_yes_no(payload['available'])}")
+        print(f"Source: {payload['source']}")
+        if payload.get("command"):
+            print(f"Command: {_shell_join(payload['command'])}")
+        if payload.get("version"):
+            print(f"Version: {payload['version']}")
+        if payload.get("note"):
+            print(f"Note: {payload['note']}")
+        return
+
+    mode = "executed" if payload["execute"] else "preview"
+    print(f"Kilo {mode}: {payload['work_id']}")
+    print(f"Workspace: {payload['workspace']}")
+    print(f"Available: {_yes_no(payload['available'])} ({payload['command_source']})")
+    print(f"CWD: {payload['cwd']}")
+    print("Command:")
+    print(f"  {_shell_join(payload['command'])}")
+    print("")
+    print("Prompt:")
+    print(payload["prompt"])
+    if not payload["execute"]:
+        print("")
+        print("Not executed. Add --execute to call Kilo Code.")
+    if "returncode" in payload:
+        print("")
+        print(f"Return code: {payload['returncode']}")
+        if payload.get("stdout"):
+            print("stdout:")
+            print(payload["stdout"].rstrip())
+        if payload.get("stderr"):
+            print("stderr:")
+            print(payload["stderr"].rstrip())
 
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:
@@ -314,3 +358,16 @@ def _print_section(title: str, value: dict[str, Any] | None) -> None:
 
 def _yes_no(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def _shell_join(argv: list[str]) -> str:
+    return " ".join(_quote_arg(arg) for arg in argv)
+
+
+def _quote_arg(arg: str) -> str:
+    if not arg:
+        return "''"
+    safe = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-=.,/:@%"
+    if all(char in safe for char in arg):
+        return arg
+    return "'" + arg.replace("'", "'\"'\"'") + "'"

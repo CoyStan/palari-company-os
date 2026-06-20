@@ -24,6 +24,8 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 ./bin/palari history --json >/tmp/palari-company-history.json
 ./bin/palari --workspace workspaces/palari-company-os history --json >/tmp/palari-company-dogfood-history.json
 ./bin/palari maintainer status --json >/tmp/palari-company-maintainer-status.json
+./bin/palari kilo status --json >/tmp/palari-company-kilo-status.json
+./bin/palari kilo run WORK-0001 --message "Preview Kilo bridge" --dir "$repo_dir" --json >/tmp/palari-company-kilo-run-preview.json
 rm -rf /tmp/palari-company-dashboard-acme /tmp/palari-company-dashboard-dogfood /tmp/palari-company-desktop-prototype
 ./bin/palari --workspace examples/acme-company-os dashboard --out /tmp/palari-company-dashboard-acme --json >/tmp/palari-company-dashboard-acme.json
 ./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-company-dashboard-dogfood --json >/tmp/palari-company-dashboard-dogfood.json
@@ -38,5 +40,6 @@ grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.
 grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html
+grep -q 'Kilo Code being called from Palari Company OS' /tmp/palari-company-kilo-run-preview.json
 
 printf 'Palari Company OS verification passed.\n'

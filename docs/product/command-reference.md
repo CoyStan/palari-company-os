@@ -182,6 +182,32 @@ Focused tests are known only if an optional local verification log exists at:
 
 This file is intentionally ignored by git.
 
+## Kilo Code
+
+```bash
+./bin/palari kilo status
+./bin/palari kilo status --allow-npx --json
+./bin/palari kilo run WORK-0001 --message "Start this bounded work"
+./bin/palari kilo run WORK-0001 --message "Start this bounded work" --execute
+```
+
+Builds a Kilo Code prompt from one Palari work item and the current workspace
+boundary. The prompt includes the work item, goal, Palari, allowed resources,
+selected sources, allowed actions, output targets, forbidden actions, queue
+attention, next action, and human approval state.
+
+Preview mode is the default. `--execute` is required before the command calls
+`kilo run`. Palari does not add `--auto` or bypass Kilo permissions. Kilo
+credentials, models, sessions, and provider setup stay in the user's Kilo
+environment.
+
+Kilo resolution order:
+
+1. `PALARI_KILO_BIN`
+2. `kilo` on `PATH`
+3. `kilocode` on `PATH`
+4. `npx --yes @kilocode/cli` only when `--allow-npx` is passed
+
 ## Verification
 
 ```bash
@@ -189,7 +215,8 @@ This file is intentionally ignored by git.
 ```
 
 Runs unit tests, Python compilation, JSON validity checks, and CLI smoke checks
-for queue, detail, state, validate, scope, and maintainer status.
+for queue, detail, state, validate, scope, maintainer status, and the Kilo
+preview bridge.
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs the same command
 on pushes to `main` and on pull requests.

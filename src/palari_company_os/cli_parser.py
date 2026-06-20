@@ -97,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_outcome_parser(subparsers)
     _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
+    _add_kilo_parser(subparsers)
 
     return parser
 
@@ -381,6 +382,57 @@ def _add_outcome_parser(subparsers: Any) -> None:
     update = nested.add_parser("update", help="Update outcome.")
     update.add_argument("id")
     _add_common_mutation_args(update)
+
+
+def _add_kilo_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("kilo", help="Call Kilo Code from a Palari work item.")
+    nested = parser.add_subparsers(dest="kilo_command", required=True)
+
+    status = nested.add_parser("status", help="Show Kilo CLI availability.")
+    status.add_argument(
+        "--allow-npx",
+        action="store_true",
+        help="Treat npx @kilocode/cli as an available fallback.",
+    )
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    run = nested.add_parser("run", help="Preview or execute kilo run for one work item.")
+    run.add_argument("work_id", help="Work item id to pass to Kilo.")
+    run.add_argument(
+        "--message",
+        default="",
+        help="Additional user request to append to the Palari work context.",
+    )
+    run.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually execute kilo run. Without this, the command and prompt are previewed.",
+    )
+    run.add_argument(
+        "--allow-npx",
+        action="store_true",
+        help="Use npx @kilocode/cli if no kilo binary is installed.",
+    )
+    run.add_argument("--model", default="", help="Kilo model route, such as provider/model.")
+    run.add_argument("--agent", default="", help="Kilo agent to use.")
+    run.add_argument(
+        "--format",
+        choices=["default", "json"],
+        default="default",
+        help="Kilo output format.",
+    )
+    run.add_argument(
+        "--dir",
+        default="",
+        help="Project directory passed to kilo --dir. Defaults to the current directory.",
+    )
+    run.add_argument(
+        "--timeout",
+        type=int,
+        default=0,
+        help="Optional execution timeout in seconds. 0 means no timeout.",
+    )
+    run.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_lifecycle_parser(subparsers: Any) -> None:

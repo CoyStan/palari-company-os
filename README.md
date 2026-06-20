@@ -54,6 +54,8 @@ JSON output and operating commands are also available:
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
 ./bin/palari history
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
+./bin/palari kilo status
+./bin/palari kilo run WORK-0001 --message "Start this bounded work"
 ```
 
 The default workspace is `examples/acme-company-os`. Use another workspace with:
@@ -104,6 +106,8 @@ The current implementation provides a local workspace CLI:
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome.
 - `maintainer status`: lightweight external-maintainer repo status.
+- `kilo`: optional Kilo Code bridge that builds a bounded Palari work prompt
+  and can call `kilo run` with explicit `--execute`.
 
 ## Development
 
@@ -134,6 +138,7 @@ checks the installed `palari` command.
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
+- [Kilo Code Integration](docs/product/kilo-code-integration.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Command Reference](docs/product/command-reference.md)
 - [Lifecycle Guide](docs/product/lifecycle-guide.md)
