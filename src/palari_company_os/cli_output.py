@@ -277,7 +277,7 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
         return
     for item in payload["recommended"]:
         if item.get("selected_by_user"):
-            prefix = "selected"
+            prefix = "pinned"
         elif item.get("core_default"):
             prefix = "default"
         else:

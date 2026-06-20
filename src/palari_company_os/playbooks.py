@@ -135,7 +135,7 @@ def _manual_recommendations(
                     id=playbook.id,
                     label=playbook.label,
                     source_id=playbook.source_id,
-                    reason="Selected on the work item by a human or Palari.",
+                    reason="Pinned on the work item by a human or Palari.",
                     selected_by_user=True,
                     core_default=playbook.core_default,
                 )
