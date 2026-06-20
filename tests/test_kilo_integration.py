@@ -25,7 +25,7 @@ from palari_company_os.kilo_integration import (
     run_kilo_for_desktop_data,
     run_kilo_for_work,
 )
-from palari_company_os.workspace import Workspace
+from palari_company_os.workspace import Workspace, WorkspaceError
 
 
 EXAMPLE_WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
@@ -101,6 +101,55 @@ class KiloIntegrationTests(unittest.TestCase):
         self.assertIn(str(temp), captured["argv"])
         self.assertIn("Execute through fake Kilo", captured["argv"][-1])
         self.assertIn("WORK-0001", captured["argv"][-1])
+
+    def test_kilo_execute_fails_closed_on_zero_code_stderr_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            fake_kilo = temp / "kilo"
+            fake_kilo.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "print('\\x1b[91mError: provider credits exhausted\\x1b[0m', file=sys.stderr)\n",
+                encoding="utf-8",
+            )
+            fake_kilo.chmod(0o755)
+
+            with patch.dict(os.environ, {"PALARI_KILO_BIN": str(fake_kilo)}, clear=False):
+                with self.assertRaises(WorkspaceError) as error:
+                    run_kilo_for_work(
+                        EXAMPLE_WORKSPACE,
+                        "WORK-0001",
+                        "Execute through fake Kilo",
+                        execute=True,
+                        run_dir=temp,
+                    )
+
+        self.assertIn("provider credits exhausted", str(error.exception))
+
+    def test_kilo_execute_fails_closed_on_nonzero_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            fake_kilo = temp / "kilo"
+            fake_kilo.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "print('provider refused request', file=sys.stderr)\n"
+                "raise SystemExit(7)\n",
+                encoding="utf-8",
+            )
+            fake_kilo.chmod(0o755)
+
+            with patch.dict(os.environ, {"PALARI_KILO_BIN": str(fake_kilo)}, clear=False):
+                with self.assertRaises(WorkspaceError) as error:
+                    run_kilo_for_work(
+                        EXAMPLE_WORKSPACE,
+                        "WORK-0001",
+                        "Execute through fake Kilo",
+                        execute=True,
+                        run_dir=temp,
+                    )
+
+        self.assertIn("provider refused request", str(error.exception))
 
     def test_kilo_command_resolution_can_use_npx_fallback(self) -> None:
         command = resolve_kilo_command(allow_npx=True, env={"PATH": os.environ.get("PATH", "")})

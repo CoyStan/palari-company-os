@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -170,6 +171,7 @@ def run_kilo_for_work(
         raise WorkspaceError(f"Kilo execution timed out after {exc.timeout} seconds") from exc
     except OSError as exc:
         raise WorkspaceError(f"Kilo execution failed: {exc}") from exc
+    _raise_for_kilo_failure(completed)
     payload.update(
         {
             "returncode": completed.returncode,
@@ -303,6 +305,7 @@ def run_kilo_for_desktop_data(
         raise WorkspaceError(f"Kilo execution timed out after {exc.timeout} seconds") from exc
     except OSError as exc:
         raise WorkspaceError(f"Kilo execution failed: {exc}") from exc
+    _raise_for_kilo_failure(completed)
     payload.update(
         {
             "returncode": completed.returncode,
@@ -330,6 +333,36 @@ def _kilo_run_argv(
         argv.extend(["--format", output_format])
     argv.append(prompt)
     return argv
+
+
+def _raise_for_kilo_failure(completed: subprocess.CompletedProcess[str]) -> None:
+    diagnostic = _kilo_failure_diagnostic(completed)
+    if diagnostic:
+        raise WorkspaceError(f"Kilo execution failed: {diagnostic}")
+
+
+def _kilo_failure_diagnostic(completed: subprocess.CompletedProcess[str]) -> str:
+    stderr = _strip_ansi(completed.stderr or "").strip()
+    stdout = _strip_ansi(completed.stdout or "").strip()
+    if completed.returncode != 0:
+        return _first_useful_line(stderr or stdout) or f"return code {completed.returncode}"
+    for line in stderr.splitlines():
+        cleaned = line.strip()
+        if cleaned.startswith("Error:") or cleaned.startswith("ERROR:"):
+            return cleaned
+    return ""
+
+
+def _first_useful_line(text: str) -> str:
+    for line in text.splitlines():
+        cleaned = line.strip()
+        if cleaned:
+            return cleaned
+    return ""
+
+
+def _strip_ansi(text: str) -> str:
+    return re.sub("\x1b\\[[0-?]*[ -/]*[@-~]", "", text)
 
 
 def _command_version(argv: list[str]) -> str:
