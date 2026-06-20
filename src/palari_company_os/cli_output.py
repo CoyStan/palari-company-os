@@ -251,9 +251,15 @@ def print_playbooks(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  license: {source['license']}")
     if payload["playbooks"]:
         print("")
+        if payload.get("core_defaults"):
+            print("Core default playbooks")
+            for playbook in payload["core_defaults"]:
+                print(f"  {playbook['id']}: {playbook['label']}")
+            print("")
         print("Available playbooks")
         for playbook in payload["playbooks"]:
-            print(f"  {playbook['id']}: {playbook['label']}")
+            marker = " [core default]" if playbook.get("core_default") else ""
+            print(f"  {playbook['id']}: {playbook['label']}{marker}")
             if playbook.get("description"):
                 print(f"    {playbook['description']}")
             if playbook.get("uri"):
@@ -270,7 +276,12 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
         print(f"Next: {payload['next_action']}")
         return
     for item in payload["recommended"]:
-        prefix = "selected" if item.get("selected_by_user") else "suggested"
+        if item.get("selected_by_user"):
+            prefix = "selected"
+        elif item.get("core_default"):
+            prefix = "default"
+        else:
+            prefix = "suggested"
         print(f"{item['id']} [{prefix}]")
         print(f"  {item['reason']}")
     print(f"Next: {payload['next_action']}")

@@ -11,11 +11,17 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.playbooks import available_playbooks, recommend_playbooks
+from palari_company_os.playbooks import (
+    CORE_DEFAULT_PLAYBOOK_IDS,
+    available_playbooks,
+    playbook_catalog,
+    recommend_playbooks,
+)
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+DOGFOOD_WORKSPACE = REPO_ROOT / "workspaces" / "palari-company-os"
 
 
 class PlaybookTests(unittest.TestCase):
@@ -30,6 +36,16 @@ class PlaybookTests(unittest.TestCase):
             "https://github.com/obra/Superpowers/blob/main/skills/writing-plans/SKILL.md",
         )
 
+    def test_catalog_marks_core_default_playbooks(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        payload = playbook_catalog(workspace)
+        core_ids = [item["id"] for item in payload["core_defaults"]]
+
+        self.assertEqual(core_ids, list(CORE_DEFAULT_PLAYBOOK_IDS))
+        for item in payload["core_defaults"]:
+            self.assertTrue(item["core_default"])
+
     def test_manual_and_automatic_recommendations_are_merged(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
@@ -38,6 +54,8 @@ class PlaybookTests(unittest.TestCase):
 
         self.assertTrue(recommended["superpowers:verification-before-completion"]["selected_by_user"])
         self.assertTrue(recommended["superpowers:requesting-code-review"]["selected_by_user"])
+        self.assertTrue(recommended["superpowers:executing-plans"]["core_default"])
+        self.assertTrue(recommended["superpowers:systematic-debugging"]["core_default"])
         self.assertIn("Use or install", payload["next_action"])
 
     def test_missing_evidence_recommends_verification_skill(self) -> None:
@@ -46,7 +64,7 @@ class PlaybookTests(unittest.TestCase):
         payload = recommend_playbooks(workspace, "WORK-0003")
         ids = [item["id"] for item in payload["recommended"]]
 
-        self.assertEqual(ids, ["superpowers:verification-before-completion"])
+        self.assertEqual(ids, list(CORE_DEFAULT_PLAYBOOK_IDS))
         self.assertIn("without evidence", payload["recommended"][0]["reason"])
 
     def test_stale_evidence_recommends_verification_before_review(self) -> None:
@@ -55,8 +73,17 @@ class PlaybookTests(unittest.TestCase):
         payload = recommend_playbooks(workspace, "WORK-0005")
         ids = [item["id"] for item in payload["recommended"]]
 
-        self.assertEqual(ids, ["superpowers:verification-before-completion"])
+        self.assertEqual(ids, list(CORE_DEFAULT_PLAYBOOK_IDS))
         self.assertIn("stale", payload["recommended"][0]["reason"])
+
+    def test_dogfood_workspace_uses_core_superpowers_defaults(self) -> None:
+        workspace = Workspace.load(DOGFOOD_WORKSPACE)
+
+        payload = recommend_playbooks(workspace, "WORK-REPO-0003")
+        ids = [item["id"] for item in payload["recommended"]]
+
+        for playbook_id in CORE_DEFAULT_PLAYBOOK_IDS:
+            self.assertIn(playbook_id, ids)
 
     def test_unknown_recommended_playbook_fails_closed(self) -> None:
         with self.modified_workspace(
@@ -74,9 +101,7 @@ class PlaybookTests(unittest.TestCase):
         payload = json.loads(result.stdout)
 
         self.assertEqual(payload["work_item"], "WORK-0003")
-        self.assertEqual(
-            payload["recommended"][0]["id"], "superpowers:verification-before-completion"
-        )
+        self.assertEqual([item["id"] for item in payload["recommended"]], list(CORE_DEFAULT_PLAYBOOK_IDS))
 
     def modified_workspace(self, mutate: object):
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))

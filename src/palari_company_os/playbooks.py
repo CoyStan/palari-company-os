@@ -38,6 +38,14 @@ SUPERPOWERS_PLAYBOOKS: dict[str, dict[str, str]] = {
     },
 }
 
+CORE_DEFAULT_PLAYBOOK_IDS = (
+    "superpowers:verification-before-completion",
+    "superpowers:executing-plans",
+    "superpowers:systematic-debugging",
+)
+
+OPEN_WORK_STATUSES = {"proposed", "active", "in-review", "needs-human", "blocked"}
+
 
 @dataclass(frozen=True)
 class Playbook:
@@ -48,6 +56,7 @@ class Playbook:
     description: str
     uri: str
     enabled: bool
+    core_default: bool = False
 
 
 @dataclass(frozen=True)
@@ -57,13 +66,20 @@ class PlaybookRecommendation:
     source_id: str
     reason: str
     selected_by_user: bool = False
+    core_default: bool = False
 
 
 def playbook_catalog(workspace: Workspace) -> dict[str, Any]:
     playbooks = available_playbooks(workspace)
+    playbook_by_id = {playbook.id: playbook for playbook in playbooks}
     return {
         "workspace": workspace.name,
         "sources": [to_plain(source) for source in workspace.playbook_sources],
+        "core_defaults": [
+            to_plain(playbook_by_id[playbook_id])
+            for playbook_id in CORE_DEFAULT_PLAYBOOK_IDS
+            if playbook_id in playbook_by_id
+        ],
         "playbooks": [to_plain(playbook) for playbook in playbooks],
     }
 
@@ -86,14 +102,16 @@ def recommend_playbooks(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
     available = {playbook.id: playbook for playbook in available_playbooks(workspace)}
     manual = _manual_recommendations(work, available)
+    defaults = _core_default_recommendations(work, available)
     automatic = _automatic_recommendations(workspace, work, available)
-    merged = _merge_recommendations([*manual, *automatic])
+    merged = _merge_recommendations([*manual, *defaults, *automatic])
     return {
         "workspace": workspace.name,
         "work_item": work.id,
         "title": work.title,
         "sources": [to_plain(source) for source in workspace.playbook_sources],
         "selected": [to_plain(item) for item in manual],
+        "defaults": [to_plain(item) for item in defaults],
         "suggested": [to_plain(item) for item in automatic],
         "recommended": [to_plain(item) for item in merged],
         "next_action": _playbook_next_action(workspace, work, merged),
@@ -119,8 +137,44 @@ def _manual_recommendations(
                     source_id=playbook.source_id,
                     reason="Selected on the work item by a human or Palari.",
                     selected_by_user=True,
+                    core_default=playbook.core_default,
                 )
             )
+    return recommendations
+
+
+def _core_default_recommendations(
+    work: WorkItem, available: dict[str, Playbook]
+) -> list[PlaybookRecommendation]:
+    if work.status not in OPEN_WORK_STATUSES:
+        return []
+
+    reasons = {
+        "superpowers:verification-before-completion": (
+            "Core default: verify evidence before claiming work is complete."
+        ),
+        "superpowers:executing-plans": (
+            "Core default: keep long-running work structured and resumable."
+        ),
+        "superpowers:systematic-debugging": (
+            "Core default: use a disciplined repair loop when evidence or review fails."
+        ),
+    }
+
+    recommendations: list[PlaybookRecommendation] = []
+    for playbook_id in CORE_DEFAULT_PLAYBOOK_IDS:
+        playbook = available.get(playbook_id)
+        if not playbook:
+            continue
+        recommendations.append(
+            PlaybookRecommendation(
+                id=playbook.id,
+                label=playbook.label,
+                source_id=playbook.source_id,
+                reason=reasons[playbook_id],
+                core_default=True,
+            )
+        )
     return recommendations
 
 
@@ -213,7 +267,11 @@ def _merge_recommendations(
     merged: dict[str, PlaybookRecommendation] = {}
     for recommendation in recommendations:
         existing = merged.get(recommendation.id)
-        if existing is None or recommendation.selected_by_user:
+        if (
+            existing is None
+            or recommendation.selected_by_user
+            or (existing.core_default and not recommendation.core_default)
+        ):
             merged[recommendation.id] = recommendation
     return list(merged.values())
 
@@ -242,6 +300,7 @@ def _playbook_from_source(source: PlaybookSource, key: str) -> Playbook:
         description=metadata.get("description", ""),
         uri=_playbook_uri(source, key),
         enabled=source.enabled,
+        core_default=playbook_id in CORE_DEFAULT_PLAYBOOK_IDS,
     )
 
 

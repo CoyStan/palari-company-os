@@ -65,6 +65,26 @@ Work items can pin human- or Palari-selected skills:
 Validation fails closed if a work item references a missing playbook source or a
 skill not listed by that source.
 
+## Core Default Set
+
+Palari starts with three Superpowers skills as the default operating set for
+active repo work:
+
+- `superpowers:verification-before-completion`
+- `superpowers:executing-plans`
+- `superpowers:systematic-debugging`
+
+The point is not to outsource judgment to Superpowers. The point is to give a
+Palari a small reusable operating loop:
+
+- keep the work structured and resumable
+- verify before completion claims
+- switch into a disciplined repair loop when evidence or review fails
+
+These defaults are exposed in `playbooks sources`, included in recommendation
+payloads for open work when available, and dogfooded in the Palari Company OS
+workspace.
+
 ## Commands
 
 List configured sources and available playbooks:
@@ -103,6 +123,7 @@ Palari combines two signals:
 Examples:
 
 - no attempt yet: consider brainstorming and planning skills
+- open work: include the core default operating set when available
 - attempt exists but evidence is missing: use verification-before-completion
 - evidence passed but review is missing: use requesting-code-review
 - evidence failed or review requested changes: use systematic-debugging

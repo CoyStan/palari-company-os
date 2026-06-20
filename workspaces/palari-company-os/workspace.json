@@ -192,6 +192,27 @@
       "outcomes": []
     }
   ],
+  "playbook_sources": [
+    {
+      "id": "superpowers",
+      "label": "Superpowers skills",
+      "provider": "github",
+      "uri": "https://github.com/obra/Superpowers",
+      "ref": "main",
+      "license": "MIT",
+      "enabled": true,
+      "included_playbooks": [
+        "brainstorming",
+        "writing-plans",
+        "executing-plans",
+        "verification-before-completion",
+        "requesting-code-review",
+        "systematic-debugging",
+        "subagent-driven-development"
+      ],
+      "install_hint": "Review the linked skill before use; Palari recommendations are guidance, not authority."
+    }
+  ],
   "sources": [],
   "work_items": [
     {
@@ -257,7 +278,12 @@
       "scope": "Create a small command or documented path for initializing a blank workspace without hand-writing the shell JSON.",
       "acceptance_target": "A new maintainer can create a valid empty workspace with one command and then add records through the CLI.",
       "required_approval_capability": "product",
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging"
+      ]
     },
     {
       "allowed_resources": [
@@ -287,7 +313,13 @@
       "scope": "Design and implement a simple multi-file workspace layout while preserving workspace.json compatibility and validation clarity.",
       "acceptance_target": "The dogfood workspace can grow without one giant JSON file and existing single-file workspaces still load.",
       "required_approval_capability": "architecture",
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging",
+        "superpowers:subagent-driven-development"
+      ]
     },
     {
       "allowed_resources": [
@@ -315,7 +347,13 @@
       "scope": "Turn the product idea of model-relative task sizing into concrete workspace fields and queue guidance without forcing subticket ceremony.",
       "acceptance_target": "Docs and model guidance explain when a stronger model can safely handle larger scoped work and when decomposition is required.",
       "required_approval_capability": "architecture",
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "recommended_playbooks": [
+        "superpowers:writing-plans",
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging"
+      ]
     },
     {
       "allowed_resources": [
@@ -342,7 +380,13 @@
       "scope": "Decide the minimum safety design before any real broker execution or policy acceptance can exist.",
       "acceptance_target": "Founder-approved design constraints exist before implementation starts.",
       "required_approval_capability": "architecture",
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging",
+        "superpowers:subagent-driven-development"
+      ]
     }
   ],
   "attempts": [
