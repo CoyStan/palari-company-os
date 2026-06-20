@@ -39,6 +39,8 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("source-tree", html)
         self.assertIn("source-folder-row", html)
         self.assertIn("source-file-row", html)
+        self.assertNotIn("folder-icon", html)
+        self.assertNotIn('class="source-file-row" type="button" data-mobile-pane="artifact">\n              <span class="file-icon">', html)
         self.assertIn("sources-used", html)
         self.assertIn("document-card", html)
         self.assertIn("mobile-nav", html)
