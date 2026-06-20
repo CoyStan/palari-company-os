@@ -105,6 +105,7 @@ The first dashboard has five sections:
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-npx
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-kilo-execute
+./scripts/run_desktop_kilo_app.sh
 ```
 
 `desktop-prototype` generates static read-only HTML, CSS, and JavaScript from
@@ -120,6 +121,17 @@ The browser can preview a bounded Kilo prompt for the selected desktop work
 item. Real Kilo execution remains disabled unless the server is started with
 `--allow-kilo-execute`. The server does not add `--auto`, bypass Kilo
 permissions, connect Google Drive, or mutate the workspace model.
+
+`scripts/run_desktop_kilo_app.sh` is the convenience wrapper for this app path.
+It starts `desktop-serve` from the repo root. Useful environment flags:
+
+- `PALARI_DESKTOP_OUT=/tmp/path`
+- `PALARI_DESKTOP_PORT=0`
+- `PALARI_KILO_ALLOW_NPX=1`
+- `PALARI_KILO_ALLOW_EXECUTE=1`
+- `PALARI_KILO_MODEL=provider/model`
+- `PALARI_KILO_AGENT=name`
+- `PALARI_KILO_TIMEOUT=120`
 
 ## Migration
 

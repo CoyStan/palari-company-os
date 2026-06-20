@@ -67,6 +67,12 @@ files. To let the browser call Kilo through Palari, run the local server:
 palari desktop-serve --out /tmp/palari-desktop-prototype
 ```
 
+From a repo checkout, the convenience script is:
+
+```bash
+./scripts/run_desktop_kilo_app.sh
+```
+
 The served desktop prototype calls local endpoints:
 
 - `GET /api/kilo/status`
@@ -83,6 +89,14 @@ palari desktop-serve --out /tmp/palari-desktop-prototype --allow-kilo-execute
 on `desktop-serve`. The desktop prompt is built from the committed demo fixture
 and includes visible source permissions, blocked sources, output targets,
 receipt state, and authority requirements.
+
+The wrapper exposes the same choices as environment flags:
+
+```bash
+PALARI_KILO_ALLOW_NPX=1 ./scripts/run_desktop_kilo_app.sh
+PALARI_KILO_ALLOW_EXECUTE=1 ./scripts/run_desktop_kilo_app.sh
+PALARI_KILO_MODEL=provider/model PALARI_KILO_AGENT=name ./scripts/run_desktop_kilo_app.sh
+```
 
 ## Boundaries
 

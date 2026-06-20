@@ -58,6 +58,17 @@ JSON output and operating commands are also available:
 ./bin/palari kilo run WORK-0001 --message "Start this bounded work"
 ```
 
+To run the local desktop prototype with Kilo preview/run controls:
+
+```bash
+./scripts/run_desktop_kilo_app.sh
+PALARI_KILO_ALLOW_NPX=1 ./scripts/run_desktop_kilo_app.sh
+PALARI_KILO_ALLOW_EXECUTE=1 ./scripts/run_desktop_kilo_app.sh
+```
+
+The script prints the local URL. Preview is enabled by default; browser-triggered
+Kilo execution requires `PALARI_KILO_ALLOW_EXECUTE=1`.
+
 The default workspace is `examples/acme-company-os`. Use another workspace with:
 
 ```bash
