@@ -15,7 +15,7 @@ from palari_company_os.desktop_prototype import generate_desktop_prototype
 
 
 class DesktopPrototypeTests(unittest.TestCase):
-    def test_desktop_prototype_generation_includes_future_shell_panes(self) -> None:
+    def test_desktop_prototype_generation_includes_card_console_panes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_desktop_prototype(directory)
             index = Path(result.index_path)
@@ -28,46 +28,55 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertEqual(styles.name, "styles.css")
         self.assertEqual(script.name, "app.js")
         self.assertIn("Palari Desktop Shell Prototype", html)
-        # VS Code workbench anatomy
-        self.assertIn("activity-bar", html)
-        self.assertIn("primary-sidebar", html)
-        self.assertIn("editor-tabs", html)
-        self.assertIn("breadcrumbs", html)
-        self.assertIn("secondary-sidebar", html)
-        self.assertIn("bottom-panel", html)
-        self.assertIn("status-bar", html)
-        self.assertIn("titlebar", html)
-        # demo scenario data
+
+        # Reference-image card console anatomy.
+        self.assertIn("nav-rail", html)
+        self.assertIn("workspace-console", html)
+        self.assertIn("workbench-panel", html)
+        self.assertIn("artifact-panel", html)
+        self.assertIn("context-column", html)
+        self.assertIn("approval-banner", html)
+        self.assertIn("sources-used", html)
+        self.assertIn("document-card", html)
+        self.assertIn("mobile-nav", html)
+
+        # Demo scenario data.
         self.assertIn("Maya", html)
+        self.assertIn("Alex Ramirez", html)
+        self.assertIn("Jordan Lee", html)
+        self.assertIn("Sam Patel", html)
         self.assertIn("Public Policy / Housing", html)
-        self.assertIn("Rent Control", html)
-        self.assertIn("Work check-in", html)
-        self.assertIn("HB 2148 zoning modernization", html)
-        self.assertIn("Home [SSH: PALARI_DEV2]", html)
-        self.assertIn("palari-company-os", html)
-        self.assertIn("sources", html)
-        self.assertIn("selected", html)
-        self.assertIn("work-items", html)
-        self.assertIn("public-comment-hb-2148.md", html)
-        self.assertIn("Private mailbox", html)
-        self.assertIn("Approve Work write", html)
+        self.assertIn("Draft public comment", html)
+        self.assertIn("California HCD - 2025 Housing Plan", html)
+        self.assertIn("State Housing Element Law", html)
+        self.assertIn("Urban Institute - ADU Guide", html)
+        self.assertIn("Oakland Planning Dept - Comment Portal", html)
+        self.assertIn("Mayor's Office - Internal Strategy Doc", html)
+        self.assertIn("Draft public comment on Housing Element", html)
+        self.assertIn("Approval required before external write", html)
+        self.assertIn("Receipt (Attempt 1)", html)
+        self.assertIn("Changes &amp; History", html)
+
+        # Permission and receipt language.
+        self.assertIn("Readable", html)
+        self.assertIn("Inherited (readable)", html)
+        self.assertIn("Writable after approval", html)
+        self.assertIn("Blocked", html)
         self.assertIn("External writes", html)
-        self.assertIn("Legal privileged notes", html)
-        self.assertIn("Needs human decision", html)
-        self.assertIn("Rafa", html)
-        self.assertIn("Diego", html)
-        self.assertIn("Clara", html)
-        # permission language
-        self.assertIn("readable", html)
-        self.assertIn("blocked", html)
-        self.assertIn("inherited", html)
-        self.assertIn("write after approval", html)
-        # mobile single-pane navigation
-        self.assertIn('data-mobile-pane="chat"', html)
-        self.assertIn('data-mobile-pane="explorer"', html)
-        self.assertIn('data-mobile-pane="draft"', html)
-        self.assertIn('data-mobile-pane="checkin"', html)
-        self.assertIn('data-target="receipt"', html)
+        self.assertIn("No external changes to undo", html)
+        self.assertIn("Did not contact stakeholders", html)
+
+        # Mobile single-pane navigation.
+        self.assertIn('data-mobile-target="workbench"', html)
+        self.assertIn('data-mobile-target="artifact"', html)
+        self.assertIn('data-mobile-target="receipt"', html)
+        self.assertIn('data-context-card="authority"', html)
+
+        # The old VS Code prototype anatomy should not return.
+        self.assertNotIn("activity-bar", html)
+        self.assertNotIn("editor-tabs", html)
+        self.assertNotIn("bottom-panel", html)
+        self.assertNotIn("status-bar", html)
 
     def test_cli_desktop_prototype_json_reports_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -78,7 +87,7 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertTrue(payload["index_path"].endswith("index.html"))
         self.assertEqual(len(payload["assets"]), 2)
 
-    def test_desktop_prototype_includes_polished_workbench_interactions(self) -> None:
+    def test_desktop_prototype_styles_match_card_console_direction(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_desktop_prototype(directory)
             index = Path(result.index_path)
@@ -88,50 +97,45 @@ class DesktopPrototypeTests(unittest.TestCase):
             css = styles.read_text(encoding="utf-8")
             js = script.read_text(encoding="utf-8")
 
-        self.assertIn('draggable="true"', html)
-        self.assertIn('data-close-tab="draft"', html)
-        self.assertIn('data-pinned="true"', html)
-        self.assertIn('id="panel-resizer"', html)
-        self.assertIn("data-panel-collapse", html)
-        self.assertIn('tabindex="0" data-target="receipt"', html)
+        self.assertIn("workspace-console", html)
+        self.assertIn("context-card", html)
 
-        self.assertIn(".editor-tab.is-dragging", css)
-        self.assertIn(".panel-resizer", css)
+        self.assertIn(".workspace-console", css)
+        self.assertIn(".approval-banner", css)
+        self.assertIn(".context-card", css)
         self.assertIn(":focus-visible", css)
-        self.assertIn("grid-template-columns: repeat(5, minmax(0,1fr))", css)
+        self.assertIn("@media (max-width: 900px)", css)
+        self.assertIn(
+            "grid-template-columns: minmax(286px, 310px) minmax(560px, 1fr) minmax(300px, 340px)",
+            css,
+        )
+        self.assertNotIn(".editor-tab.is-dragging", css)
+        self.assertNotIn(".panel-resizer", css)
 
-        self.assertIn("function closeEditorTab", js)
-        self.assertIn("function initEditorTabDrag", js)
-        self.assertIn("function initBottomPanelResize", js)
-        self.assertIn("function updateMobileContext", js)
-        self.assertIn('changes: "chat", authority: "chat"', js)
+        self.assertIn("function setMobileTarget", js)
+        self.assertIn("mobilePaneMap", js)
+        self.assertIn("data-mobile-target", js)
+        self.assertIn("data-mobile-pane", js)
+        self.assertIn("dataset.contextCard", js)
+        self.assertNotIn("function closeEditorTab", js)
+        self.assertNotIn("function initEditorTabDrag", js)
 
-    def test_desktop_prototype_explorer_uses_folder_file_tree(self) -> None:
+    def test_desktop_prototype_sources_and_receipts_are_visible(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_desktop_prototype(directory)
             index = Path(result.index_path)
-            styles = Path(result.assets[0])
-            script = Path(result.assets[1])
             html = index.read_text(encoding="utf-8")
-            css = styles.read_text(encoding="utf-8")
-            js = script.read_text(encoding="utf-8")
 
-        self.assertIn('data-tree="workspace"', html)
-        self.assertIn('data-folder-toggle', html)
-        self.assertIn('data-collapse-tree', html)
-        self.assertIn('class="tree workspace-tree"', html)
-        self.assertIn("HB 2148 zoning modernization.md", html)
-        self.assertIn("Housing committee staff analysis.md", html)
-        self.assertIn("public-comment-draft.receipt.json", html)
-        self.assertNotIn("Sources &amp; Permissions", html)
-
-        self.assertIn(".workspace-tree ol", css)
-        self.assertIn(".folder-row .tree-icon", css)
-        self.assertIn(".file-row .file-icon", css)
-
-        self.assertIn("function toggleFolderRow", js)
-        self.assertIn("function setFolderExpanded", js)
-        self.assertIn("[data-collapse-tree]", js)
+        self.assertIn("Readable<span>3</span>", html)
+        self.assertIn("Inherited (readable)<span>1</span>", html)
+        self.assertIn("Writable after approval<span>1</span>", html)
+        self.assertIn("Blocked<span>2</span>", html)
+        self.assertIn("This work can be published to the Oakland Planning Dept portal after human approval.", html)
+        self.assertIn("On it. I'll use the selected sources and keep this within scope.", html)
+        self.assertIn("Used</dt><dd>3 sources", html)
+        self.assertIn("Created</dt><dd>1 document draft", html)
+        self.assertIn("External writes</dt><dd>None", html)
+        self.assertIn("Undo</dt><dd>No external changes to undo", html)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
