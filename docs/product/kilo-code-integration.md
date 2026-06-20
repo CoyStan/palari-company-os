@@ -24,7 +24,7 @@ When Kilo is not installed, `--allow-npx` can use:
 npx --yes @kilocode/cli
 ```
 
-## Commands
+## CLI Commands
 
 Check availability:
 
@@ -58,6 +58,32 @@ The command builds a prompt from:
 - queue attention and next action
 - safety and approval state
 
+## Desktop App Bridge
+
+The static desktop prototype remains read-only when opened from generated
+files. To let the browser call Kilo through Palari, run the local server:
+
+```bash
+palari desktop-serve --out /tmp/palari-desktop-prototype
+```
+
+The served desktop prototype calls local endpoints:
+
+- `GET /api/kilo/status`
+- `POST /api/kilo/run`
+
+By default, the app can preview the Kilo prompt for the selected desktop work
+item. Execution is disabled unless the server starts with:
+
+```bash
+palari desktop-serve --out /tmp/palari-desktop-prototype --allow-kilo-execute
+```
+
+`--allow-npx`, `--model`, `--agent`, `--dir`, and `--timeout` are also available
+on `desktop-serve`. The desktop prompt is built from the committed demo fixture
+and includes visible source permissions, blocked sources, output targets,
+receipt state, and authority requirements.
+
 ## Boundaries
 
 - Preview mode is the default.
@@ -69,4 +95,6 @@ The command builds a prompt from:
 
 ## Current Limit
 
-This is a CLI bridge. The static desktop prototype does not yet call Kilo from a browser button because it has no backend process or mutation channel. A future desktop app/backend can call the same bridge instead of inventing another Kilo path.
+This is still a local developer bridge. It does not create a cloud backend,
+persist Kilo results into a workspace, connect Google Drive, or turn Kilo output
+into receipts/evidence automatically.

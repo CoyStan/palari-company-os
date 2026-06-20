@@ -98,6 +98,29 @@ The first dashboard has five sections:
 - History: append-only event timeline
 - Authority: humans, Palaris, open decisions, and human blockers
 
+## Desktop Prototype
+
+```bash
+./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
+./bin/palari desktop-serve --out /tmp/palari-desktop-prototype
+./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-npx
+./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-kilo-execute
+```
+
+`desktop-prototype` generates static read-only HTML, CSS, and JavaScript from
+`examples/desktop-demo/workspace.json`.
+
+`desktop-serve` generates the same files and serves them with local API
+endpoints:
+
+- `GET /api/kilo/status`
+- `POST /api/kilo/run`
+
+The browser can preview a bounded Kilo prompt for the selected desktop work
+item. Real Kilo execution remains disabled unless the server is started with
+`--allow-kilo-execute`. The server does not add `--auto`, bypass Kilo
+permissions, connect Google Drive, or mutate the workspace model.
+
 ## Migration
 
 ```bash

@@ -83,6 +83,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     desktop_prototype_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    desktop_serve_parser = subparsers.add_parser(
+        "desktop-serve",
+        help="Serve the Palari Desktop prototype with local Kilo API endpoints.",
+    )
+    desktop_serve_parser.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for generated prototype files.",
+    )
+    desktop_serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
+    desktop_serve_parser.add_argument("--port", type=int, default=0, help="Port to bind.")
+    desktop_serve_parser.add_argument(
+        "--allow-npx",
+        action="store_true",
+        help="Allow npx --yes @kilocode/cli fallback when Kilo is not installed.",
+    )
+    desktop_serve_parser.add_argument(
+        "--allow-kilo-execute",
+        action="store_true",
+        help="Allow explicit browser requests to execute Kilo. Disabled by default.",
+    )
+    desktop_serve_parser.add_argument("--model", default="", help="Kilo model route.")
+    desktop_serve_parser.add_argument("--agent", default="", help="Kilo agent to use.")
+    desktop_serve_parser.add_argument(
+        "--dir",
+        default="",
+        help="Directory passed to Kilo with --dir. Defaults to the current directory.",
+    )
+    desktop_serve_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=0,
+        help="Kilo execution timeout in seconds.",
+    )
+
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)
     _add_palari_parser(subparsers)

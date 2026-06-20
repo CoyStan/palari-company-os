@@ -16,6 +16,7 @@ from .authoring import (
 )
 from .dashboard import generate_dashboard
 from .desktop_prototype import generate_desktop_prototype
+from .desktop_server import serve_desktop_prototype
 from .history import append_history_event, read_history
 from .kilo_integration import kilo_status, run_kilo_for_work
 from .maintainer import status as maintainer_status
@@ -102,6 +103,23 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             "desktop-prototype",
             generate_desktop_prototype(args.out),
             args.json,
+        )
+
+    if args.command == "desktop-serve":
+        return CommandResult(
+            "desktop-serve",
+            serve_desktop_prototype(
+                args.out,
+                host=args.host,
+                port=args.port,
+                allow_npx=args.allow_npx,
+                allow_execute=args.allow_kilo_execute,
+                model=args.model,
+                agent=args.agent,
+                run_dir=args.dir or None,
+                timeout=args.timeout or None,
+            ),
+            False,
         )
 
     if args.command in {

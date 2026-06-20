@@ -402,6 +402,7 @@ def _artifact_panel(data: dict[str, Any]) -> str:
       </div>
       <div class="artifact-actions">
         <button class="icon-menu" type="button" aria-label="More actions">...</button>
+        <button class="secondary-button" type="button" data-open-context="kilo" data-mobile-pane="context" data-context-card="kilo">Ask Kilo</button>
         <button class="secondary-button" type="button" data-open-context="task" data-mobile-pane="context" data-context-card="task">Check-in</button>
       </div>
     </header>
@@ -480,6 +481,23 @@ def _context_panel(data: dict[str, Any]) -> str:
         <div><dt>Risk</dt><dd data-task-risk>{_e(work_item["risk_label"])}</dd></div>
         <div><dt>Work Item</dt><dd data-task-id>{_e(work_item["public_id"])}</dd></div>
       </dl>
+    </section>
+
+    <section class="context-card kilo-card" data-context-card="kilo">
+      <div class="card-title-row">
+        <h2>Kilo Code</h2>
+        <span class="chip chip-gray" data-kilo-status>Checking</span>
+      </div>
+      <p class="muted-line" data-kilo-note>Use Kilo from the selected Palari work boundary.</p>
+      <label class="kilo-field">
+        <span>Instruction</span>
+        <textarea data-kilo-message rows="3">Review this selected work item and propose the next bounded step.</textarea>
+      </label>
+      <div class="kilo-actions">
+        <button class="full-button" type="button" data-kilo-preview>Preview Kilo prompt</button>
+        <button class="approval-button" type="button" data-kilo-run hidden>Run with Kilo</button>
+      </div>
+      <pre class="kilo-output" data-kilo-output>Start the local server with desktop-serve to call Kilo from this app.</pre>
     </section>
 
     <section class="context-card" data-context-card="receipt">
@@ -1262,6 +1280,54 @@ h1, h2, h3, p { margin: 0; }
   background: transparent;
   color: var(--muted);
 }
+.kilo-card {
+  display: grid;
+  gap: 10px;
+}
+.kilo-field {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.kilo-field textarea {
+  min-width: 0;
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  line-height: 1.35;
+}
+.kilo-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.kilo-actions .full-button,
+.kilo-actions .approval-button {
+  width: 100%;
+}
+.kilo-output {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--panel-soft);
+  color: var(--ink-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.45;
+}
 .task-link {
   display: block;
   margin: 12px 0;
@@ -1424,6 +1490,7 @@ h1, h2, h3, p { margin: 0; }
   }
   body[data-context-card="chat"] [data-context-card="chat"],
   body[data-context-card="task"] [data-context-card="task"],
+  body[data-context-card="kilo"] [data-context-card="kilo"],
   body[data-context-card="receipt"] [data-context-card="receipt"],
   body[data-context-card="authority"] [data-context-card="authority"],
   body[data-context-card="history"] [data-context-card="history"] {
@@ -1493,6 +1560,9 @@ h1, h2, h3, p { margin: 0; }
   .queue-item .chip {
     justify-self: start;
   }
+  .kilo-actions {
+    grid-template-columns: 1fr;
+  }
 }
 """
 
@@ -1509,6 +1579,7 @@ def _script(data: dict[str, Any]) -> str:
   const workData = prototypeData.work_items;
   const humanData = prototypeData.humans;
   const palariData = prototypeData.palaris;
+  let currentWorkId = prototypeData.ui.default_work_item_id;
 
   const mobilePaneMap = {{
     workbench: ["workbench", "chat"],
@@ -1518,6 +1589,7 @@ def _script(data: dict[str, Any]) -> str:
     receipt: ["context", "receipt"],
     authority: ["context", "authority"],
     history: ["context", "history"],
+    kilo: ["context", "kilo"],
   }};
 
   function setText(selector, value) {{
@@ -1621,6 +1693,88 @@ def _script(data: dict[str, Any]) -> str:
     `).join("");
   }}
 
+  function setKiloStatus(value, colorClass, note) {{
+    setChip(document.querySelector("[data-kilo-status]"), value, colorClass);
+    if (note) {{
+      setText("[data-kilo-note]", note);
+    }}
+  }}
+
+  function formatKiloPayload(payload) {{
+    if (payload.error) {{
+      return `Error: ${{payload.error}}${{payload.hint ? "\\n" + payload.hint : ""}}`;
+    }}
+    if (payload.stdout || payload.stderr || Object.prototype.hasOwnProperty.call(payload, "returncode")) {{
+      return [
+        `Return code: ${{payload.returncode}}`,
+        payload.stdout ? `\\nstdout:\\n${{payload.stdout.trim()}}` : "",
+        payload.stderr ? `\\nstderr:\\n${{payload.stderr.trim()}}` : "",
+      ].join("").trim();
+    }}
+    return [
+      payload.note ? `Note: ${{payload.note}}\\n` : "",
+      "Command:",
+      (payload.command || []).join(" "),
+      "",
+      "Prompt:",
+      payload.prompt || "",
+    ].join("\\n");
+  }}
+
+  async function refreshKiloStatus() {{
+    try {{
+      const response = await fetch("/api/kilo/status", {{ headers: {{ "Accept": "application/json" }} }});
+      if (!response.ok) {{
+        throw new Error(`HTTP ${{response.status}}`);
+      }}
+      const payload = await response.json();
+      const runButton = document.querySelector("[data-kilo-run]");
+      if (runButton) {{
+        runButton.hidden = !payload.execute_enabled;
+        runButton.disabled = !payload.available;
+      }}
+      if (payload.available) {{
+        setKiloStatus("Ready", "chip-green", payload.execute_enabled ? "Kilo execution is enabled for this local server." : "Kilo preview is available. Execution is disabled for this local server.");
+      }} else {{
+        setKiloStatus("Preview only", "chip-amber", payload.note || "Kilo is not installed. Preview still shows the bounded command and prompt.");
+      }}
+    }} catch (error) {{
+      setKiloStatus("Static", "chip-gray", "Start with desktop-serve to call Kilo from this app.");
+    }}
+  }}
+
+  async function requestKilo(execute) {{
+    openContext("kilo", {{ scroll: false }});
+    const output = document.querySelector("[data-kilo-output]");
+    const message = document.querySelector("[data-kilo-message]");
+    if (output) {{
+      output.textContent = execute ? "Calling Kilo..." : "Building Kilo preview...";
+    }}
+    try {{
+      const response = await fetch("/api/kilo/run", {{
+        method: "POST",
+        headers: {{ "Content-Type": "application/json", "Accept": "application/json" }},
+        body: JSON.stringify({{
+          work_id: currentWorkId,
+          message: message ? message.value : "",
+          execute: Boolean(execute),
+        }}),
+      }});
+      const payload = await response.json();
+      if (output) {{
+        output.textContent = formatKiloPayload(payload);
+      }}
+      if (!response.ok) {{
+        setKiloStatus("Blocked", "chip-red", payload.error || "Kilo request failed.");
+      }}
+    }} catch (error) {{
+      if (output) {{
+        output.textContent = "The local desktop server is not available. Run `palari desktop-serve` and open the served URL.";
+      }}
+      setKiloStatus("Static", "chip-gray", "Start with desktop-serve to call Kilo from this app.");
+    }}
+  }}
+
   function setMobileTarget(target) {{
     const next = mobilePaneMap[target] ? target : "artifact";
     const profile = mobilePaneMap[next];
@@ -1689,6 +1843,7 @@ def _script(data: dict[str, Any]) -> str:
     if (!work) {{
       return;
     }}
+    currentWorkId = workId;
     const attempt = currentAttempt(work);
     const palari = palariData[work.palari_id];
     const receipt = attempt.receipt;
@@ -1776,6 +1931,20 @@ def _script(data: dict[str, Any]) -> str:
       return;
     }}
 
+    const kiloPreview = event.target.closest("[data-kilo-preview]");
+    if (kiloPreview) {{
+      event.preventDefault();
+      requestKilo(false);
+      return;
+    }}
+
+    const kiloRun = event.target.closest("[data-kilo-run]");
+    if (kiloRun) {{
+      event.preventDefault();
+      requestKilo(true);
+      return;
+    }}
+
     const pane = event.target.closest("[data-mobile-pane]");
     if (pane && window.innerWidth <= MOBILE_BREAKPOINT) {{
       event.preventDefault();
@@ -1795,5 +1964,6 @@ def _script(data: dict[str, Any]) -> str:
   selectSource(prototypeData.ui.default_source_id);
   selectWork(prototypeData.ui.default_work_item_id);
   setMobileTarget(initial);
+  refreshKiloStatus();
 }})();
 """

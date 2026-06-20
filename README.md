@@ -101,6 +101,8 @@ The current implementation provides a local workspace CLI:
 - `history`: recent append-only audit events for mutating commands.
 - `dashboard`: static read-only visual supervision over queue, work, trust,
   history, and authority.
+- `desktop-prototype` and `desktop-serve`: a future desktop shell prototype,
+  with `desktop-serve` exposing local Kilo preview/run endpoints.
 - authoring commands for goals, Palaris, humans, decisions, work, attempts,
   sources, receipts, evidence, reviews, human decisions, and outcomes.
 - lifecycle commands for evidence, review, human decision, completion, and
