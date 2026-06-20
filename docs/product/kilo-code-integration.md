@@ -52,11 +52,13 @@ safe smoke:
 ./scripts/kilo_real_smoke.sh
 PALARI_KILO_ALLOW_NPX=1 ./scripts/kilo_real_smoke.sh
 PALARI_KILO_SMOKE_EXECUTE=1 PALARI_KILO_TIMEOUT=120 ./scripts/kilo_real_smoke.sh
+PALARI_KILO_MODEL=openrouter/deepseek/deepseek-v4-flash ./scripts/kilo_real_smoke.sh
 ```
 
 The smoke previews by default. It calls the real Kilo CLI only when
 `PALARI_KILO_SMOKE_EXECUTE=1` is set. Use `PALARI_KILO_TIMEOUT` to keep the
-real execution bounded.
+real execution bounded. Use `PALARI_KILO_MODEL` or `PALARI_KILO_AGENT` to test
+a non-default Kilo route.
 
 The command builds a prompt from:
 
