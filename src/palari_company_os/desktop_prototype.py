@@ -142,22 +142,22 @@ def _workbench_panel() -> str:
       <div class="section-title"><h2>Sources</h2></div>
       <div class="source-tree" role="tree" aria-label="Source permissions by folder">
         <div class="source-folder read" role="treeitem" aria-expanded="true">
-          <div class="source-folder-row">
+          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
             <span class="tree-caret" aria-hidden="true">v</span>
             <span class="dot read"></span>
             <strong>Readable</strong>
             <span class="tree-count">3</span>
-          </div>
+          </button>
           <div class="source-children" role="group">
-            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+            <button class="source-file-row is-selected" type="button" data-source-id="hcd-plan">
               <span>California HCD - 2025 Housing Plan</span>
               <span class="file-kind">PDF</span>
             </button>
-            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+            <button class="source-file-row" type="button" data-source-id="housing-law">
               <span>State Housing Element Law (Gov Code 65580)</span>
               <span class="file-kind">HTML</span>
             </button>
-            <button class="source-file-row" type="button" data-mobile-pane="artifact">
+            <button class="source-file-row" type="button" data-source-id="adu-guide">
               <span>Urban Institute - ADU Guide</span>
               <span class="file-kind">PDF</span>
             </button>
@@ -165,14 +165,14 @@ def _workbench_panel() -> str:
         </div>
 
         <div class="source-folder inherit" role="treeitem" aria-expanded="true">
-          <div class="source-folder-row">
+          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
             <span class="tree-caret" aria-hidden="true">v</span>
             <span class="dot inherit"></span>
             <strong>Inherited (readable)</strong>
             <span class="tree-count">1</span>
-          </div>
+          </button>
           <div class="source-children" role="group">
-            <button class="source-file-row" type="button">
+            <button class="source-file-row" type="button" data-source-id="oakland-element">
               <span>City of Oakland - Housing Element</span>
               <span class="file-kind">PDF</span>
             </button>
@@ -180,14 +180,14 @@ def _workbench_panel() -> str:
         </div>
 
         <div class="source-folder write" role="treeitem" aria-expanded="true">
-          <div class="source-folder-row">
+          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
             <span class="tree-caret" aria-hidden="true">v</span>
             <span class="dot write"></span>
             <strong>Writable after approval</strong>
             <span class="tree-count">1</span>
-          </div>
+          </button>
           <div class="source-children" role="group">
-            <button class="source-file-row" type="button">
+            <button class="source-file-row" type="button" data-source-id="comment-portal">
               <span>Oakland Planning Dept - Comment Portal</span>
               <span class="file-kind">Web</span>
             </button>
@@ -195,23 +195,31 @@ def _workbench_panel() -> str:
         </div>
 
         <div class="source-folder blocked" role="treeitem" aria-expanded="true">
-          <div class="source-folder-row">
+          <button class="source-folder-row" type="button" data-source-toggle aria-expanded="true">
             <span class="tree-caret" aria-hidden="true">v</span>
             <span class="dot blocked"></span>
             <strong>Blocked</strong>
             <span class="tree-count">2</span>
-          </div>
+          </button>
           <div class="source-children" role="group">
-            <button class="source-file-row muted" type="button">
+            <button class="source-file-row muted" type="button" data-source-id="mayor-strategy">
               <span>Mayor's Office - Internal Strategy Doc</span>
               <span class="file-kind">DOCX</span>
             </button>
-            <button class="source-file-row muted" type="button">
+            <button class="source-file-row muted" type="button" data-source-id="council-notes">
               <span>Councilmember Briefing Notes</span>
               <span class="file-kind">PDF</span>
             </button>
           </div>
         </div>
+      </div>
+      <div class="source-preview" aria-live="polite">
+        <div class="card-title-row">
+          <h3>Source preview</h3>
+          <span class="chip chip-green" data-source-preview-mode>Readable</span>
+        </div>
+        <strong data-source-preview-title>California HCD - 2025 Housing Plan</strong>
+        <p data-source-preview-copy>Selected for Maya. She can read this planning source for the current draft; no write access is granted.</p>
       </div>
     </section>
 
@@ -225,19 +233,19 @@ def _workbench_panel() -> str:
         <button class="queue-tab" type="button">Review <span>1</span></button>
         <button class="queue-tab" type="button">Done <span>7</span></button>
       </div>
-      <button class="queue-item is-active" type="button" data-mobile-pane="artifact">
+      <button class="queue-item is-active" type="button" data-work-id="comment">
         <strong>Draft public comment on Housing Element</strong>
         <span>Maya</span>
         <span>Due Jun 23</span>
         <span class="chip chip-blue">In Progress</span>
       </button>
-      <button class="queue-item" type="button">
+      <button class="queue-item" type="button" data-work-id="fees">
         <strong>Research ADU fee structures</strong>
         <span>Maya</span>
         <span>Due Jun 24</span>
         <span class="chip chip-blue">In Progress</span>
       </button>
-      <button class="queue-item" type="button">
+      <button class="queue-item" type="button" data-work-id="feedback">
         <strong>Summarize community feedback</strong>
         <span>Maya</span>
         <span>Due Jun 25</span>
@@ -254,16 +262,16 @@ def _artifact_panel() -> str:
   <section class="panel artifact-panel" data-pane="artifact">
     <header class="artifact-header">
       <div>
-        <h1>Draft public comment</h1>
+        <h1 data-artifact-title>Draft public comment</h1>
         <div class="artifact-meta">
-          <span>Work Item</span><strong>PRL-HOUS-001</strong>
-          <span>Attempt</span><strong>1</strong>
-          <span>Status</span><span class="chip chip-blue">In Progress</span>
+          <span>Work Item</span><strong data-artifact-id>PRL-HOUS-001</strong>
+          <span>Attempt</span><strong data-artifact-attempt>1</strong>
+          <span>Status</span><span class="chip chip-blue" data-artifact-status>In Progress</span>
         </div>
       </div>
       <div class="artifact-actions">
         <button class="icon-menu" type="button" aria-label="More actions">...</button>
-        <button class="secondary-button" type="button" data-mobile-pane="context" data-context-card="task">Check-in</button>
+        <button class="secondary-button" type="button" data-open-context="task" data-mobile-pane="context" data-context-card="task">Check-in</button>
       </div>
     </header>
 
@@ -271,13 +279,13 @@ def _artifact_panel() -> str:
       <span class="warning-icon" aria-hidden="true">!</span>
       <div>
         <strong>Approval required before external write</strong>
-        <p>This work can be published to the Oakland Planning Dept portal after human approval.</p>
+        <p data-approval-copy>This work can be published to the Oakland Planning Dept portal after human approval.</p>
       </div>
-      <button class="approval-button" type="button" data-mobile-pane="context" data-context-card="authority">Request Approval</button>
+      <button class="approval-button" type="button" data-open-context="authority" data-mobile-pane="context" data-context-card="authority">Request Approval</button>
     </div>
 
     <section class="sources-used">
-      <div class="source-chip-list" aria-label="Sources used">
+      <div class="source-chip-list" aria-label="Sources used" data-sources-used>
         <span>Sources used</span>
         <button class="used-source" type="button"><span class="file-icon green">PDF</span>California HCD - 2025 Housing Plan</button>
         <button class="used-source" type="button"><span class="file-icon green">HTM</span>State Housing Element Law</button>
@@ -286,7 +294,7 @@ def _artifact_panel() -> str:
       <button class="secondary-button" type="button">+ Add</button>
     </section>
 
-    <article class="document-card">
+    <article class="document-card" data-document-card>
       <h2>I. Introduction</h2>
       <p>Oakland's Housing Element update is a critical opportunity to advance housing affordability,
       fairness, and long-term community well-being.</p>
@@ -312,11 +320,11 @@ def _artifact_panel() -> str:
 
     <footer class="artifact-footer">
       <dl>
-        <div><dt>Owner</dt><dd>Maya</dd></div>
-        <div><dt>Palari</dt><dd>Policy Researcher</dd></div>
-        <div><dt>Last updated</dt><dd>Jun 20, 2026 10:42 AM</dd></div>
-        <div><dt>Word count</dt><dd>612</dd></div>
-        <div><dt>Language</dt><dd>English (US)</dd></div>
+        <div><dt>Owner</dt><dd data-footer-owner>Maya</dd></div>
+        <div><dt>Palari</dt><dd data-footer-palari>Policy Researcher</dd></div>
+        <div><dt>Last updated</dt><dd data-footer-updated>Jun 20, 2026 10:42 AM</dd></div>
+        <div><dt>Word count</dt><dd data-footer-word-count>612</dd></div>
+        <div><dt>Language</dt><dd data-footer-language>English (US)</dd></div>
       </dl>
       <button class="notes-toggle" type="button">Notes for approvers and reviewers (internal) -></button>
     </footer>
@@ -358,13 +366,13 @@ def _context_panel() -> str:
     </section>
 
     <section class="context-card" data-context-card="task">
-      <div class="card-title-row"><h2>Active Task</h2><span class="chip chip-blue">In Progress</span></div>
-      <a class="task-link" href="#">Draft public comment on Housing Element</a>
+      <div class="card-title-row"><h2>Active Task</h2><span class="chip chip-blue" data-task-status>In Progress</span></div>
+      <a class="task-link" href="#" data-open-context="task" data-task-title>Draft public comment on Housing Element</a>
       <dl class="compact-grid four">
-        <div><dt>Due</dt><dd>Jun 23, 2026</dd></div>
-        <div><dt>Priority</dt><dd><span class="chip chip-red">High</span></dd></div>
-        <div><dt>Risk</dt><dd>R2</dd></div>
-        <div><dt>Work Item</dt><dd>PRL-HOUS-001</dd></div>
+        <div><dt>Due</dt><dd data-task-due>Jun 23, 2026</dd></div>
+        <div><dt>Priority</dt><dd><span class="chip chip-red" data-task-priority>High</span></dd></div>
+        <div><dt>Risk</dt><dd data-task-risk>R2</dd></div>
+        <div><dt>Work Item</dt><dd data-task-id>PRL-HOUS-001</dd></div>
       </dl>
     </section>
 
@@ -374,13 +382,13 @@ def _context_panel() -> str:
         <span class="chip chip-blue">Ready for review</span>
       </div>
       <dl class="receipt-list">
-        <div><dt>Used</dt><dd>3 sources</dd></div>
-        <div><dt>Created</dt><dd>1 document draft</dd></div>
-        <div><dt>External writes</dt><dd>None</dd></div>
-        <div><dt>Did not do</dt><dd>Did not contact stakeholders</dd></div>
-        <div><dt>Undo</dt><dd>No external changes to undo</dd></div>
+        <div><dt>Used</dt><dd data-receipt-used>3 sources</dd></div>
+        <div><dt>Created</dt><dd data-receipt-created>1 document draft</dd></div>
+        <div><dt>External writes</dt><dd data-receipt-external>None</dd></div>
+        <div><dt>Did not do</dt><dd data-receipt-not-done>Did not contact stakeholders</dd></div>
+        <div><dt>Undo</dt><dd data-receipt-undo>No external changes to undo</dd></div>
       </dl>
-      <button class="full-button" type="button">View full receipt -></button>
+      <button class="full-button" type="button" data-open-context="receipt">View full receipt -></button>
     </section>
 
     <section class="context-card" data-context-card="authority">
@@ -403,7 +411,7 @@ def _context_panel() -> str:
         <li><time>Jun 20, 10:30 AM</time><span>Sources selected</span><span class="chip chip-gray">Attempt 1</span></li>
         <li><time>Jun 20, 10:25 AM</time><span>Work item created</span><span class="chip chip-gray">-</span></li>
       </ol>
-      <button class="link-row" type="button">View full history -></button>
+      <button class="link-row" type="button" data-open-context="history">View full history -></button>
     </section>
   </aside>
 """
@@ -677,6 +685,7 @@ h1, h2, h3, p { margin: 0; }
   white-space: nowrap;
 }
 .chip-blue { background: var(--blue-bg); color: var(--blue); }
+.chip-green { background: var(--green-bg); color: var(--green); }
 .chip-amber { background: var(--amber-bg); color: var(--amber); }
 .chip-red { background: var(--red-bg); color: var(--red); }
 .chip-gray { background: #f3f4f6; color: var(--ink-soft); }
@@ -696,10 +705,14 @@ h1, h2, h3, p { margin: 0; }
   grid-template-columns: 12px 6px minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
+  width: 100%;
   min-height: 28px;
   padding: 0 4px;
+  border: 0;
   border-radius: 5px;
+  background: transparent;
   color: var(--ink);
+  text-align: left;
 }
 .source-folder-row:hover {
   background: var(--panel-soft);
@@ -738,6 +751,9 @@ h1, h2, h3, p { margin: 0; }
   padding-left: 9px;
   border-left: 1px solid var(--line);
 }
+.source-folder.is-collapsed .source-children {
+  display: none;
+}
 .source-file-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -754,7 +770,15 @@ h1, h2, h3, p { margin: 0; }
   font-size: 12px;
 }
 .source-file-row:hover { background: var(--panel-soft); }
-.source-file-row span:nth-child(2) {
+.source-file-row.is-selected {
+  background: var(--blue-bg);
+  color: var(--ink);
+}
+.source-file-row.is-selected .file-kind {
+  border-color: #bfdbfe;
+  color: var(--blue);
+}
+.source-file-row span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -775,6 +799,29 @@ h1, h2, h3, p { margin: 0; }
 .file-icon.green { color: var(--green); border-color: #bbf7d0; }
 .file-icon.blue { color: var(--blue); border-color: #bfdbfe; }
 .file-kind { min-width: 34px; padding: 1px 5px; }
+.source-preview {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+}
+.source-preview h3 {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.source-preview strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+.source-preview p {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
 
 .work-queue { display: grid; gap: 12px; }
 .queue-tabs {
@@ -859,6 +906,7 @@ h1, h2, h3, p { margin: 0; }
   min-height: 36px;
   padding: 0 14px;
   font-weight: 700;
+  white-space: nowrap;
 }
 .approval-banner {
   display: grid;
@@ -987,6 +1035,10 @@ h1, h2, h3, p { margin: 0; }
 .context-card {
   padding: 12px;
 }
+.context-card.is-focused {
+  border-color: #93c5fd;
+  box-shadow: inset 3px 0 0 var(--blue), var(--shadow);
+}
 .context-header {
   margin-bottom: 10px;
 }
@@ -1113,17 +1165,14 @@ h1, h2, h3, p { margin: 0; }
 
 @media (max-width: 1320px) {
   .prototype-shell {
-    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-columns: 150px minmax(0, 1fr);
   }
   .workspace-console {
-    grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
-  }
-  .context-column {
-    display: none;
+    grid-template-columns: minmax(250px, 280px) minmax(430px, 1fr) minmax(260px, 300px);
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   body {
     overflow: hidden;
   }
@@ -1251,6 +1300,16 @@ h1, h2, h3, p { margin: 0; }
   .artifact-header h1 {
     font-size: 15px;
   }
+  .artifact-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .artifact-actions {
+    justify-content: flex-end;
+  }
+  .artifact-actions .secondary-button {
+    width: auto;
+  }
   .person-row {
     grid-template-columns: 26px auto auto;
   }
@@ -1278,6 +1337,183 @@ def _script() -> str:
 (function () {
   const body = document.body;
   const mobileTabs = Array.from(document.querySelectorAll("[data-mobile-target]"));
+  const sourceData = {
+    "hcd-plan": {
+      title: "California HCD - 2025 Housing Plan",
+      mode: "Readable",
+      modeClass: "chip-green",
+      summary: "Selected for Maya. She can read this statewide planning source for the current draft; no write access is granted.",
+    },
+    "housing-law": {
+      title: "State Housing Element Law (Gov Code 65580)",
+      mode: "Readable",
+      modeClass: "chip-green",
+      summary: "A selected legal source Maya may use for statutory housing-element requirements and terminology.",
+    },
+    "adu-guide": {
+      title: "Urban Institute - ADU Guide",
+      mode: "Readable",
+      modeClass: "chip-green",
+      summary: "A selected research guide Maya may use for ADU policy context and practical recommendations.",
+    },
+    "oakland-element": {
+      title: "City of Oakland - Housing Element",
+      mode: "Inherited",
+      modeClass: "chip-blue",
+      summary: "Readable through the parent Public Policy workbench. Maya can cite it here, but this child workbench did not add new permissions.",
+    },
+    "comment-portal": {
+      title: "Oakland Planning Dept - Comment Portal",
+      mode: "Writable after approval",
+      modeClass: "chip-amber",
+      summary: "This is an output target. Maya may write here only after the required human approval, and the prototype will not perform the write.",
+    },
+    "mayor-strategy": {
+      title: "Mayor's Office - Internal Strategy Doc",
+      mode: "Blocked",
+      modeClass: "chip-red",
+      summary: "Maya cannot read this source in the current workbench. It is visible only to make the boundary explicit.",
+    },
+    "council-notes": {
+      title: "Councilmember Briefing Notes",
+      mode: "Blocked",
+      modeClass: "chip-red",
+      summary: "Maya cannot read this source unless a human explicitly adds it to the workbench later.",
+    },
+  };
+
+  const workData = {
+    comment: {
+      title: "Draft public comment",
+      taskTitle: "Draft public comment on Housing Element",
+      id: "PRL-HOUS-001",
+      attempt: "1",
+      status: "In Progress",
+      statusClass: "chip-blue",
+      due: "Jun 23, 2026",
+      priority: "High",
+      priorityClass: "chip-red",
+      risk: "R2",
+      approvalCopy: "This work can be published to the Oakland Planning Dept portal after human approval.",
+      footer: {
+        owner: "Maya",
+        palari: "Policy Researcher",
+        updated: "Jun 20, 2026 10:42 AM",
+        words: "612",
+        language: "English (US)",
+      },
+      sources: [
+        { label: "California HCD - 2025 Housing Plan", kind: "PDF", tone: "green" },
+        { label: "State Housing Element Law", kind: "HTM", tone: "green" },
+        { label: "Urban Institute - ADU Guide", kind: "PDF", tone: "blue" },
+      ],
+      document: `
+        <h2>I. Introduction</h2>
+        <p>Oakland's Housing Element update is a critical opportunity to advance housing affordability, fairness, and long-term community well-being.</p>
+        <h2>II. Support for Key Strategies</h2>
+        <ul>
+          <li>Preserve and expand affordable housing.</li>
+          <li>Increase approval certainty for middle housing and ADUs.</li>
+          <li>Invest in tenant protections and anti-displacement strategies.</li>
+        </ul>
+        <h2>III. Recommendations</h2>
+        <ol>
+          <li>Adopt clear, objective standards for ADU approval.</li>
+          <li>Expand right-to-counsel and tenant stabilization programs.</li>
+          <li>Align zoning and infrastructure planning with RHNA targets.</li>
+        </ol>
+        <h2>IV. Conclusion</h2>
+        <p>Thank you for the opportunity to comment. These steps will help Oakland build a more inclusive, resilient, and affordable future.</p>
+      `,
+      receipt: {
+        used: "3 sources",
+        created: "1 document draft",
+        external: "None",
+        notDone: "Did not contact stakeholders",
+        undo: "No external changes to undo",
+      },
+    },
+    fees: {
+      title: "ADU fee research note",
+      taskTitle: "Research ADU fee structures",
+      id: "PRL-HOUS-002",
+      attempt: "1",
+      status: "In Progress",
+      statusClass: "chip-blue",
+      due: "Jun 24, 2026",
+      priority: "Medium",
+      priorityClass: "chip-amber",
+      risk: "R2",
+      approvalCopy: "No external write is planned. Maya can save a research note to Work after review.",
+      footer: {
+        owner: "Maya",
+        palari: "Policy Researcher",
+        updated: "Jun 20, 2026 11:05 AM",
+        words: "318",
+        language: "English (US)",
+      },
+      sources: [
+        { label: "State Housing Element Law", kind: "HTM", tone: "green" },
+        { label: "Urban Institute - ADU Guide", kind: "PDF", tone: "blue" },
+      ],
+      document: `
+        <h2>I. What Maya is comparing</h2>
+        <p>Fee waivers, impact-fee timing, and ADU approval conditions across the selected housing sources.</p>
+        <h2>II. Early pattern</h2>
+        <ul>
+          <li>Delay fee collection until later in the ADU process where legally possible.</li>
+          <li>Separate affordability requirements from basic ministerial approval standards.</li>
+          <li>Ask staff to publish a plain-language fee table for property owners.</li>
+        </ul>
+        <h2>III. Next review question</h2>
+        <p>Confirm whether the comment should recommend a city fee schedule change or only ask for clearer standards.</p>
+      `,
+      receipt: {
+        used: "2 sources",
+        created: "1 research note",
+        external: "None",
+        notDone: "Did not estimate fees from unselected files",
+        undo: "No external changes to undo",
+      },
+    },
+    feedback: {
+      title: "Community feedback summary",
+      taskTitle: "Summarize community feedback",
+      id: "PRL-HOUS-003",
+      attempt: "0",
+      status: "Not Started",
+      statusClass: "chip-gray",
+      due: "Jun 25, 2026",
+      priority: "Normal",
+      priorityClass: "chip-gray",
+      risk: "R1",
+      approvalCopy: "No draft has been created yet. Select readable community notes before Maya summarizes them.",
+      footer: {
+        owner: "Maya",
+        palari: "Policy Researcher",
+        updated: "Not started",
+        words: "0",
+        language: "English (US)",
+      },
+      sources: [
+        { label: "City of Oakland - Housing Element", kind: "PDF", tone: "blue" },
+      ],
+      document: `
+        <h2>Not started</h2>
+        <p>Maya is waiting for a readable community-feedback source before drafting this summary.</p>
+        <h2>What will happen next</h2>
+        <p>Once the source is selected, Maya can make a compact summary and record a receipt that says exactly what she used.</p>
+      `,
+      receipt: {
+        used: "No sources yet",
+        created: "Nothing yet",
+        external: "None",
+        notDone: "No summary has been prepared",
+        undo: "No changes to undo",
+      },
+    },
+  };
+
   const mobilePaneMap = {
     workbench: ["workbench", "chat"],
     artifact: ["artifact", "chat"],
@@ -1287,6 +1523,32 @@ def _script() -> str:
     authority: ["context", "authority"],
     history: ["context", "history"],
   };
+
+  function setText(selector, value) {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.textContent = value;
+    }
+  }
+
+  function setHTML(selector, value) {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.innerHTML = value;
+    }
+  }
+
+  function setChip(element, value, colorClass) {
+    if (!element) {
+      return;
+    }
+    element.textContent = value;
+    element.className = "chip " + colorClass;
+  }
+
+  function sourceChipHTML(source) {
+    return `<button class="used-source" type="button"><span class="file-icon ${source.tone}">${source.kind}</span>${source.label}</button>`;
+  }
 
   function setMobileTarget(target) {
     const next = mobilePaneMap[target] ? target : "artifact";
@@ -1301,11 +1563,129 @@ def _script() -> str:
     }
   }
 
+  function openContext(card, options) {
+    const next = card || "chat";
+    body.dataset.contextCard = next;
+    document.querySelectorAll("[data-context-card]").forEach((element) => {
+      element.classList.toggle("is-focused", element.dataset.contextCard === next);
+    });
+    if (window.innerWidth <= 900) {
+      setMobileTarget(next);
+      return;
+    }
+    if (!options || options.scroll !== false) {
+      const target = document.querySelector(`.context-card[data-context-card="${next}"]`);
+      if (target) {
+        target.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }
+
+  function selectSource(sourceId) {
+    const source = sourceData[sourceId];
+    if (!source) {
+      return;
+    }
+    document.querySelectorAll("[data-source-id]").forEach((row) => {
+      row.classList.toggle("is-selected", row.dataset.sourceId === sourceId);
+    });
+    setText("[data-source-preview-title]", source.title);
+    setText("[data-source-preview-copy]", source.summary);
+    setChip(document.querySelector("[data-source-preview-mode]"), source.mode, source.modeClass);
+  }
+
+  function toggleSourceFolder(button) {
+    const folder = button.closest(".source-folder");
+    if (!folder) {
+      return;
+    }
+    const collapsed = !folder.classList.contains("is-collapsed");
+    folder.classList.toggle("is-collapsed", collapsed);
+    folder.setAttribute("aria-expanded", String(!collapsed));
+    button.setAttribute("aria-expanded", String(!collapsed));
+    const caret = button.querySelector(".tree-caret");
+    if (caret) {
+      caret.textContent = collapsed ? ">" : "v";
+    }
+  }
+
+  function selectWork(workId) {
+    const work = workData[workId];
+    if (!work) {
+      return;
+    }
+
+    document.querySelectorAll("[data-work-id]").forEach((row) => {
+      row.classList.toggle("is-active", row.dataset.workId === workId);
+    });
+
+    setText("[data-artifact-title]", work.title);
+    setText("[data-artifact-id]", work.id);
+    setText("[data-artifact-attempt]", work.attempt);
+    setChip(document.querySelector("[data-artifact-status]"), work.status, work.statusClass);
+    setText("[data-approval-copy]", work.approvalCopy);
+    setHTML("[data-sources-used]", `<span>Sources used</span>${work.sources.map(sourceChipHTML).join("")}`);
+    setHTML("[data-document-card]", work.document);
+
+    setText("[data-footer-owner]", work.footer.owner);
+    setText("[data-footer-palari]", work.footer.palari);
+    setText("[data-footer-updated]", work.footer.updated);
+    setText("[data-footer-word-count]", work.footer.words);
+    setText("[data-footer-language]", work.footer.language);
+
+    setText("[data-task-title]", work.taskTitle);
+    setChip(document.querySelector("[data-task-status]"), work.status, work.statusClass);
+    setText("[data-task-due]", work.due);
+    setChip(document.querySelector("[data-task-priority]"), work.priority, work.priorityClass);
+    setText("[data-task-risk]", work.risk);
+    setText("[data-task-id]", work.id);
+
+    setText("[data-receipt-used]", work.receipt.used);
+    setText("[data-receipt-created]", work.receipt.created);
+    setText("[data-receipt-external]", work.receipt.external);
+    setText("[data-receipt-not-done]", work.receipt.notDone);
+    setText("[data-receipt-undo]", work.receipt.undo);
+
+    if (window.innerWidth <= 900) {
+      setMobileTarget("artifact");
+    } else {
+      openContext("task", { scroll: false });
+    }
+  }
+
   document.addEventListener("click", (event) => {
     const target = event.target.closest("[data-mobile-target]");
     if (target) {
       event.preventDefault();
       setMobileTarget(target.dataset.mobileTarget);
+      return;
+    }
+
+    const sourceToggle = event.target.closest("[data-source-toggle]");
+    if (sourceToggle) {
+      event.preventDefault();
+      toggleSourceFolder(sourceToggle);
+      return;
+    }
+
+    const sourceRow = event.target.closest("[data-source-id]");
+    if (sourceRow) {
+      event.preventDefault();
+      selectSource(sourceRow.dataset.sourceId);
+      return;
+    }
+
+    const workRow = event.target.closest("[data-work-id]");
+    if (workRow) {
+      event.preventDefault();
+      selectWork(workRow.dataset.workId);
+      return;
+    }
+
+    const contextTrigger = event.target.closest("[data-open-context]");
+    if (contextTrigger) {
+      event.preventDefault();
+      openContext(contextTrigger.dataset.openContext || contextTrigger.dataset.contextCard || "chat");
       return;
     }
 
@@ -1325,6 +1705,8 @@ def _script() -> str:
   });
 
   const initial = (location.hash || "#artifact").replace("#", "");
+  selectSource("hcd-plan");
+  selectWork("comment");
   setMobileTarget(initial);
 })();
 """
