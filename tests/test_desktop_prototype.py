@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -44,12 +45,20 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertNotIn('<span class="tree-caret" aria-hidden="true">v</span>', html)
         self.assertIn('data-source-toggle', html)
         self.assertIn('data-source-id="hcd-plan"', html)
+        self.assertIn('data-source-id="tenant-memo"', html)
+        self.assertIn('data-source-id="private-email"', html)
         self.assertIn('data-source-id="comment-portal"', html)
         self.assertIn('data-source-preview-title', html)
+        self.assertIn('data-source-preview-provider', html)
+        self.assertIn('data-source-preview-access', html)
         self.assertIn('data-work-id="comment"', html)
         self.assertIn('data-work-id="fees"', html)
+        self.assertIn('data-work-id="memo"', html)
         self.assertIn('data-artifact-title', html)
         self.assertIn('data-document-card', html)
+        self.assertIn('data-chat-thread', html)
+        self.assertIn('data-authority-list', html)
+        self.assertIn('data-history-list', html)
         self.assertIn('data-open-context="receipt"', html)
         self.assertNotIn("folder-icon", html)
         self.assertNotIn('class="source-file-row" type="button" data-mobile-pane="artifact">\n              <span class="file-icon">', html)
@@ -127,6 +136,7 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn(".source-file-row", css)
         self.assertIn(".source-file-row.is-selected", css)
         self.assertIn(".source-preview", css)
+        self.assertIn(".source-meta-list", css)
         self.assertIn(".context-card.is-focused", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("@media (max-width: 1100px)", css)
@@ -137,10 +147,20 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertNotIn(".editor-tab.is-dragging", css)
         self.assertNotIn(".panel-resizer", css)
 
-        self.assertIn("const sourceData", js)
-        self.assertIn("const workData", js)
+        self.assertIn("const MOBILE_BREAKPOINT = 1100", js)
+        self.assertIn("const prototypeData", js)
+        self.assertIn('workspaceId: "workspace_public_policy_housing"', js)
+        self.assertIn('selectedPalariId: "palari_maya_policy"', js)
+        self.assertIn("allowedPalaris", js)
+        self.assertIn("allowedSources", js)
+        self.assertIn("outputTargets", js)
+        self.assertIn("const sourceData = prototypeData.sources", js)
+        self.assertIn("const workData = prototypeData.workItems", js)
         self.assertIn("function selectSource", js)
         self.assertIn("function selectWork", js)
+        self.assertIn("function renderChat", js)
+        self.assertIn("function renderAuthority", js)
+        self.assertIn("function renderHistory", js)
         self.assertIn("function toggleSourceFolder", js)
         self.assertIn("function openContext", js)
         self.assertIn("function setMobileTarget", js)
@@ -169,6 +189,23 @@ class DesktopPrototypeTests(unittest.TestCase):
         self.assertIn("Created</dt><dd data-receipt-created>1 document draft", html)
         self.assertIn("External writes</dt><dd data-receipt-external>None", html)
         self.assertIn("Undo</dt><dd data-receipt-undo>No external changes to undo", html)
+
+    def test_desktop_prototype_script_is_valid_javascript_when_node_is_available(self) -> None:
+        if shutil.which("node") is None:
+            self.skipTest("node is not available for JavaScript syntax validation")
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_desktop_prototype(directory)
+            script = Path(result.assets[1])
+
+            subprocess.run(
+                ["node", "--check", str(script)],
+                cwd=REPO_ROOT,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
