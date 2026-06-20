@@ -51,11 +51,12 @@ safe smoke:
 ```bash
 ./scripts/kilo_real_smoke.sh
 PALARI_KILO_ALLOW_NPX=1 ./scripts/kilo_real_smoke.sh
-PALARI_KILO_SMOKE_EXECUTE=1 ./scripts/kilo_real_smoke.sh
+PALARI_KILO_SMOKE_EXECUTE=1 PALARI_KILO_TIMEOUT=120 ./scripts/kilo_real_smoke.sh
 ```
 
 The smoke previews by default. It calls the real Kilo CLI only when
-`PALARI_KILO_SMOKE_EXECUTE=1` is set.
+`PALARI_KILO_SMOKE_EXECUTE=1` is set. Use `PALARI_KILO_TIMEOUT` to keep the
+real execution bounded.
 
 The command builds a prompt from:
 
