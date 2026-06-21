@@ -38,6 +38,14 @@ state, and the explicit list of included playbooks. Superpowers compatibility
 uses this object to link to allowed `SKILL.md` playbooks without making them
 Palari authority.
 
+## Integration
+
+Dry-run declaration for a possible external provider such as Slack, GitHub,
+Jira, or email. Integrations record provider, mode, owner human, enabled state,
+allowed events, allowed actions, secret reference, risk level, source boundary,
+and notes. Secret references must be references such as `env:NAME`; Palari does
+not read secret values or call providers in the v0 foundation.
+
 ## Work Item
 
 Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,

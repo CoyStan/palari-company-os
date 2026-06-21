@@ -60,6 +60,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "sources": len(workspace.sources),
                     "workbenches": len(workspace.workbenches),
                     "playbook_sources": len(workspace.playbook_sources),
+                    "integrations": len(workspace.integrations),
                     "work_items": len(workspace.work_items),
                     "receipts": len(workspace.receipts),
                 },
@@ -79,6 +80,35 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         workspace = Workspace.load(args.workspace)
         payload = check_scope(workspace, args.work_id, args.changed, args.action)
         return CommandResult("scope", payload.to_dict(), args.json)
+
+    if args.command == "integrations":
+        from .integrations import list_integrations
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult("integrations", list_integrations(workspace), args.json)
+
+    if args.command == "integration":
+        from .integrations import check_integration, plan_integration
+
+        workspace = Workspace.load(args.workspace)
+        if args.integration_command == "check":
+            return CommandResult(
+                "integration-check",
+                check_integration(workspace, args.integration_id),
+                args.json,
+            )
+        if args.integration_command == "plan":
+            return CommandResult(
+                "integration-plan",
+                plan_integration(
+                    workspace,
+                    args.integration_id,
+                    args.work_id,
+                    args.event,
+                    args.action,
+                ),
+                args.json,
+            )
 
     if args.command == "migrate":
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
@@ -272,6 +302,7 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "sources": len(workspace.sources),
         "workbenches": len(workspace.workbenches),
         "playbook_sources": len(workspace.playbook_sources),
+        "integrations": len(workspace.integrations),
         "decisions": len(workspace.decisions),
         "work_items": len(workspace.work_items),
         "attempts": len(workspace.attempts),

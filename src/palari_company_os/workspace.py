@@ -14,6 +14,7 @@ from .models import (
     Goal,
     Human,
     HumanDecision,
+    Integration,
     Outcome,
     Palari,
     PlaybookSource,
@@ -46,6 +47,7 @@ class Workspace:
     sources: list[Source]
     workbenches: list[Workbench]
     playbook_sources: list[PlaybookSource]
+    integrations: list[Integration]
     decisions: list[Decision]
     work_items: list[WorkItem]
     attempts: list[Attempt]
@@ -64,6 +66,9 @@ class Workspace:
         default_factory=dict, init=False, repr=False, compare=False
     )
     _sources_by_id: dict[str, Source] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _integrations_by_id: dict[str, Integration] = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
     _work_items_by_id: dict[str, WorkItem] = field(
@@ -130,6 +135,7 @@ class Workspace:
             playbook_sources=[
                 PlaybookSource.from_record(item) for item in _items(raw, "playbook_sources")
             ],
+            integrations=[Integration.from_record(item) for item in _items(raw, "integrations")],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
@@ -154,6 +160,11 @@ class Workspace:
         object.__setattr__(self, "_palaris_by_id", {palari.id: palari for palari in self.palaris})
         object.__setattr__(self, "_humans_by_id", {human.id: human for human in self.humans})
         object.__setattr__(self, "_sources_by_id", {source.id: source for source in self.sources})
+        object.__setattr__(
+            self,
+            "_integrations_by_id",
+            {integration.id: integration for integration in self.integrations},
+        )
         object.__setattr__(self, "_work_items_by_id", {work.id: work for work in self.work_items})
         object.__setattr__(
             self,
@@ -169,6 +180,7 @@ class Workspace:
             ("sources", self.sources),
             ("workbenches", self.workbenches),
             ("playbook_sources", self.playbook_sources),
+            ("integrations", self.integrations),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
@@ -282,6 +294,18 @@ class Workspace:
             for palari in source.allowed_palaris:
                 _require_ref("sources", source.id, "allowed_palaris", palari, palari_ids)
 
+        for integration in self.integrations:
+            if integration.owner_human:
+                _require_ref(
+                    "integrations",
+                    integration.id,
+                    "owner_human",
+                    integration.owner_human,
+                    human_ids,
+                )
+            for source in integration.source_ids:
+                _require_ref("integrations", integration.id, "source_ids", source, source_ids)
+
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
@@ -383,6 +407,9 @@ class Workspace:
 
     def source(self, source_id: str) -> Source | None:
         return self._sources_by_id.get(source_id)
+
+    def integration(self, integration_id: str) -> Integration | None:
+        return self._integrations_by_id.get(integration_id)
 
     def workbench(self, workbench_id: str) -> Workbench | None:
         return self._workbenches_by_id.get(workbench_id)

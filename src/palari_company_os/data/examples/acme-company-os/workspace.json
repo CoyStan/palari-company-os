@@ -259,6 +259,74 @@
       "install_hint": "Review the linked skill before use; Palari recommendations are guidance, not authority."
     }
   ],
+  "integrations": [
+    {
+      "id": "INT-SLACK-OPS",
+      "provider": "slack",
+      "label": "Ops approval notifications",
+      "mode": "notify",
+      "owner_human": "HUMAN-OPS",
+      "enabled": true,
+      "allowed_events": [
+        "approval_requested",
+        "review_requested",
+        "work_blocked"
+      ],
+      "allowed_actions": [
+        "notify"
+      ],
+      "secret_ref": "env:PALARI_SLACK_WEBHOOK_URL",
+      "risk_level": "standard",
+      "source_ids": [
+        "SOURCE-0001"
+      ],
+      "notes": "Dry-run notification boundary for approval and review messages."
+    },
+    {
+      "id": "INT-GITHUB-REPO",
+      "provider": "github",
+      "label": "GitHub repo work notifications",
+      "mode": "notify",
+      "owner_human": "HUMAN-FOUNDER",
+      "enabled": true,
+      "allowed_events": [
+        "approval_requested",
+        "work_completed"
+      ],
+      "allowed_actions": [
+        "notify",
+        "comment",
+        "create_issue"
+      ],
+      "secret_ref": "env:PALARI_GITHUB_TOKEN",
+      "risk_level": "standard",
+      "source_ids": [],
+      "notes": "Dry-run GitHub issue/comment payload previews only."
+    },
+    {
+      "id": "INT-JIRA-OPS",
+      "provider": "jira",
+      "label": "Jira ops queue",
+      "mode": "notify",
+      "owner_human": "HUMAN-OPS",
+      "enabled": true,
+      "allowed_events": [
+        "approval_requested",
+        "incident_opened",
+        "work_completed"
+      ],
+      "allowed_actions": [
+        "notify",
+        "comment",
+        "create_issue",
+        "update_issue"
+      ],
+      "secret_ref": "env:PALARI_JIRA_TOKEN",
+      "risk_level": "standard",
+      "source_ids": [],
+      "notes": "Dry-run Jira payload previews only."
+    }
+  ],
   "work_items": [
     {
       "id": "WORK-0001",

@@ -24,6 +24,9 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >/tmp/palari-company-split-detail-work-split.json
 ./bin/palari playbooks sources --json >/tmp/palari-company-playbook-sources.json
 ./bin/palari playbooks recommend WORK-0003 --json >/tmp/palari-company-playbook-recommend.json
+./bin/palari integrations --json >/tmp/palari-company-integrations.json
+./bin/palari integration check INT-SLACK-OPS --json >/tmp/palari-company-integration-check.json
+./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-integration-plan.json
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >/tmp/palari-company-scope-allowed.json
 ./bin/palari scope WORK-0001 --changed secrets.env --action deploy --json >/tmp/palari-company-scope-blocked.json
 ./bin/palari history --json >/tmp/palari-company-history.json
@@ -44,5 +47,6 @@ grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/i
 grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
+grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan.json
 
 printf 'Palari Company OS verification passed.\n'

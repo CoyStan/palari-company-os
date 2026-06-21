@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .models import Attempt, EvidenceRun, HumanDecision, Receipt, ReviewVerdict, WorkItem
+from .models import Attempt, EvidenceRun, HumanDecision, Integration, Receipt, ReviewVerdict, WorkItem
 from .path_policy import path_allowed, validate_workspace_path
 
 
@@ -24,7 +25,7 @@ COLLECTION_KEYS = (
     "outcomes",
 )
 
-OPTIONAL_COLLECTION_KEYS = ("playbook_sources", "workbenches")
+OPTIONAL_COLLECTION_KEYS = ("playbook_sources", "workbenches", "integrations")
 COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
 ROOT_FIELDS = {
@@ -137,6 +138,20 @@ ALLOWED_RECORD_FIELDS = {
         "enabled",
         "included_playbooks",
         "install_hint",
+    },
+    "integrations": {
+        "id",
+        "provider",
+        "label",
+        "mode",
+        "owner_human",
+        "enabled",
+        "allowed_events",
+        "allowed_actions",
+        "secret_ref",
+        "risk_level",
+        "source_ids",
+        "notes",
     },
     "attempts": {
         "id",
@@ -274,6 +289,18 @@ HUMAN_DECISION_VALUES = {
 }
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
+INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
+INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
+INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
+INTEGRATION_EVENTS = {
+    "approval_requested",
+    "incident_opened",
+    "review_requested",
+    "work_completed",
+    "work_blocked",
+}
+INTEGRATION_ACTIONS = {"notify", "comment", "create_issue", "update_issue"}
+SECRET_REF_RE = re.compile(r"^env:[A-Z_][A-Z0-9_]*$")
 
 
 def validate_raw_contract(raw: dict[str, object]) -> None:
@@ -345,6 +372,9 @@ def validate_workspace_contract(workspace: Any) -> None:
             work.parallel_policy,
             PARALLEL_POLICIES,
         )
+
+    for integration in workspace.integrations:
+        _validate_integration(integration)
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
@@ -440,6 +470,51 @@ def _require_allowed_value(
         raise WorkspaceError(
             f"{collection}.{record_id}.{field} has unsupported value {value!r}; "
             f"expected one of: {allowed_values}"
+        )
+
+
+def _validate_integration(integration: Integration) -> None:
+    _require_allowed_value(
+        "integrations",
+        integration.id,
+        "provider",
+        integration.provider,
+        INTEGRATION_PROVIDERS,
+    )
+    _require_allowed_value(
+        "integrations",
+        integration.id,
+        "mode",
+        integration.mode,
+        INTEGRATION_MODES,
+    )
+    _require_allowed_value(
+        "integrations",
+        integration.id,
+        "risk_level",
+        integration.risk_level,
+        INTEGRATION_RISK_LEVELS,
+    )
+    for event in integration.allowed_events:
+        _require_allowed_value(
+            "integrations",
+            integration.id,
+            "allowed_events",
+            event,
+            INTEGRATION_EVENTS,
+        )
+    for action in integration.allowed_actions:
+        _require_allowed_value(
+            "integrations",
+            integration.id,
+            "allowed_actions",
+            action,
+            INTEGRATION_ACTIONS,
+        )
+    if integration.secret_ref and not SECRET_REF_RE.match(integration.secret_ref):
+        raise WorkspaceError(
+            f"integrations.{integration.id}.secret_ref must be an env:NAME reference, "
+            "not a raw token or key"
         )
 
 

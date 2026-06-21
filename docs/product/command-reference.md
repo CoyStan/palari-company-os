@@ -86,6 +86,28 @@ operating guidance section with practical one-sentence advice for the next agent
 run. External playbooks are guidance only; Palari still owns goals, scope,
 sources, authority, receipts, evidence, review, human decisions, and outcomes.
 
+## Integrations
+
+```bash
+./bin/palari integrations
+./bin/palari integrations --json
+./bin/palari integration check INT-SLACK-OPS
+./bin/palari integration check INT-SLACK-OPS --json
+./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify
+./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json
+```
+
+Integrations declare possible external providers and boundaries before Palari
+can ever use them. The v0 implementation is dry-run only: it validates provider,
+owner, event, action, source, risk, and secret-reference metadata, then produces
+a payload preview without reading secrets or calling Slack, GitHub, Jira, email,
+or any other provider.
+
+`secret_ref` values must be references such as `env:PALARI_SLACK_WEBHOOK_URL`.
+Raw tokens or keys fail validation. Planning also fails closed when an
+integration is disabled, when a requested event/action is not allowed, or when
+the provider does not support the requested action.
+
 ## Receipt-Ready Low-Risk Work
 
 For light R1/R2 local work, a completed attempt plus a valid receipt can move

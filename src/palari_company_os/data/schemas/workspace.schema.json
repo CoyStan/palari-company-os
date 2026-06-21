@@ -33,6 +33,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/playbook_source" }
     },
+    "integrations": { "type": "array", "items": { "$ref": "#/$defs/integration" } },
     "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
     "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
     "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
@@ -57,6 +58,7 @@
         "sources": { "$ref": "#/$defs/string_list" },
         "workbenches": { "$ref": "#/$defs/string_list" },
         "playbook_sources": { "$ref": "#/$defs/string_list" },
+        "integrations": { "$ref": "#/$defs/string_list" },
         "work_items": { "$ref": "#/$defs/string_list" },
         "attempts": { "$ref": "#/$defs/string_list" },
         "evidence_runs": { "$ref": "#/$defs/string_list" },
@@ -166,6 +168,49 @@
         "enabled": { "type": "boolean" },
         "included_playbooks": { "$ref": "#/$defs/string_list" },
         "install_hint": { "type": "string" }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "provider", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "provider": { "type": "string", "enum": ["slack", "github", "jira", "email"] },
+        "label": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["notify", "read", "write", "read_write", "webhook", "dry_run"]
+        },
+        "owner_human": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "allowed_events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "approval_requested",
+              "incident_opened",
+              "review_requested",
+              "work_completed",
+              "work_blocked"
+            ]
+          }
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["notify", "comment", "create_issue", "update_issue"]
+          }
+        },
+        "secret_ref": { "type": "string" },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "standard", "high", "critical"]
+        },
+        "source_ids": { "$ref": "#/$defs/string_list" },
+        "notes": { "type": "string" }
       }
     },
     "workbench": {

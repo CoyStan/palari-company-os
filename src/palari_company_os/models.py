@@ -376,6 +376,39 @@ class Source:
 
 
 @dataclass(frozen=True)
+class Integration:
+    id: str
+    provider: str
+    label: str
+    mode: str = "notify"
+    owner_human: str = ""
+    enabled: bool = False
+    allowed_events: list[str] = field(default_factory=list)
+    allowed_actions: list[str] = field(default_factory=list)
+    secret_ref: str = ""
+    risk_level: str = "standard"
+    source_ids: list[str] = field(default_factory=list)
+    notes: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Integration":
+        return cls(
+            id=_require_id(record),
+            provider=_string(record, "provider"),
+            label=_string(record, "label"),
+            mode=_string(record, "mode", "notify"),
+            owner_human=_string(record, "owner_human"),
+            enabled=_boolean(record, "enabled"),
+            allowed_events=_strings(record, "allowed_events"),
+            allowed_actions=_strings(record, "allowed_actions"),
+            secret_ref=_string(record, "secret_ref"),
+            risk_level=_string(record, "risk_level", "standard"),
+            source_ids=_strings(record, "source_ids"),
+            notes=_string(record, "notes"),
+        )
+
+
+@dataclass(frozen=True)
 class EvidenceRun:
     id: str
     work_item_id: str

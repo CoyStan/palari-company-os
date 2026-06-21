@@ -15,6 +15,9 @@ wheel_path="$(find "$tmp_dir/wheelhouse" -name 'palari_company_os-*.whl' -print 
 "$tmp_dir/venv/bin/palari" --help >/tmp/palari-company-os-install-smoke-help.log
 "$tmp_dir/venv/bin/palari" validate --json >/tmp/palari-company-os-install-smoke-default-validate.json
 "$tmp_dir/venv/bin/palari" queue --json >/tmp/palari-company-os-install-smoke-default-queue.json
+"$tmp_dir/venv/bin/palari" integrations --json >/tmp/palari-company-os-install-smoke-integrations.json
+"$tmp_dir/venv/bin/palari" integration check INT-SLACK-OPS --json >/tmp/palari-company-os-install-smoke-integration-check.json
+"$tmp_dir/venv/bin/palari" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-os-install-smoke-integration-plan.json
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >/tmp/palari-company-os-install-smoke-explicit-validate.json
 "$tmp_dir/venv/bin/palari" desktop-prototype --out "$tmp_dir/desktop" --json >/tmp/palari-company-os-install-smoke-desktop.json
 

@@ -7,15 +7,19 @@ Implemented in the v0.1 local foundation:
 - authoring commands for all core objects
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome
+- integration registry and dry-run payload planner for Slack/GitHub/Jira/email
+  style notifications without live provider calls
 - fail-closed gates for scope, stale evidence, stale review, human authority,
-  and quorum
+  quorum, integration references, integration allowed events/actions, and raw
+  secret values
 - append-only workspace history for successful mutating commands
 - CI and install-smoke verification
 - repo-local dogfood workspace for real Palari Company OS maturity work
 
 Intentionally omitted from v0.1:
 
-- web dashboard
+- web app
+- live Slack/GitHub/Jira/email connector calls
 - real broker execution
 - real policy acceptance
 - advanced GitHub automation
@@ -24,7 +28,7 @@ Intentionally omitted from v0.1:
 
 Likely next steps:
 
-- split large workspaces into multiple source files
+- connect dry-run integration plans to future live connector custody design
 - add richer migration tests as schema versions evolve
 - add import/export tooling
 - add API or web read-model layer

@@ -46,6 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scope_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    integrations_parser = subparsers.add_parser(
+        "integrations",
+        help="List declared dry-run integrations.",
+    )
+    integrations_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    _add_integration_parser(subparsers)
+
     migrate_parser = subparsers.add_parser(
         "migrate", help="Migrate a workspace to the current schema."
     )
@@ -113,6 +121,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_playbooks_parser(subparsers)
 
     return parser
+
+
+def _add_integration_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("integration", help="Check or plan one integration.")
+    nested = parser.add_subparsers(dest="integration_command", required=True)
+
+    check = nested.add_parser("check", help="Check one declared integration.")
+    check.add_argument("integration_id")
+    check.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    plan = nested.add_parser("plan", help="Preview a dry-run integration payload.")
+    plan.add_argument("integration_id")
+    plan.add_argument("--work", dest="work_id", required=True, help="Work item id.")
+    plan.add_argument("--event", required=True, help="Integration event to preview.")
+    plan.add_argument("--action", required=True, help="Integration action to preview.")
+    plan.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:

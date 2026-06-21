@@ -213,6 +213,31 @@
       "install_hint": "Review the linked skill before use; Palari recommendations are guidance, not authority."
     }
   ],
+  "integrations": [
+    {
+      "id": "INT-GITHUB-REPO",
+      "provider": "github",
+      "label": "Palari Company OS GitHub repo",
+      "mode": "notify",
+      "owner_human": "HUMAN-MAINTAINER",
+      "enabled": true,
+      "allowed_events": [
+        "approval_requested",
+        "review_requested",
+        "work_completed",
+        "work_blocked"
+      ],
+      "allowed_actions": [
+        "notify",
+        "comment",
+        "create_issue"
+      ],
+      "secret_ref": "env:PALARI_GITHUB_TOKEN",
+      "risk_level": "standard",
+      "source_ids": [],
+      "notes": "Dry-run repo notification and issue/comment payload previews only."
+    }
+  ],
   "sources": [],
   "work_items": [
     {

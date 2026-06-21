@@ -57,7 +57,7 @@ Initial commands worth considering:
 
 - `palari integrations`
 - `palari integration check INT-ID`
-- `palari integration plan WORK-ID --event approval_requested`
+- `palari integration plan INT-ID --work WORK-ID --event approval_requested --action notify`
 - `palari integration emit WORK-ID --event approval_requested --dry-run`
 
 Why save it:

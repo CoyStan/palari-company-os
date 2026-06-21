@@ -46,6 +46,18 @@ def print_result(result: CommandResult) -> None:
             print_scope(result.payload)
         return
 
+    if result.kind == "integrations":
+        print_integrations(result.payload, result.as_json)
+        return
+
+    if result.kind == "integration-check":
+        print_integration_check(result.payload, result.as_json)
+        return
+
+    if result.kind == "integration-plan":
+        print_integration_plan(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -106,6 +118,7 @@ def print_validate(payload: dict[str, Any]) -> None:
         f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
         f"{counts.get('workbenches', 0)} workbenches, "
         f"{counts.get('playbook_sources', 0)} playbook sources, "
+        f"{counts.get('integrations', 0)} integrations, "
         f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
 
@@ -246,6 +259,54 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
         print("Use this as guidance; the work item's scope and authority remain the source of truth.")
         for item in payload["operating_guidance"]:
             print(f"- {item['label']}: {item['guidance']}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_integrations(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Integrations: {payload['workspace']}")
+    if not payload["integrations"]:
+        print("No integrations configured.")
+        return
+    for integration in payload["integrations"]:
+        status = "enabled" if integration["enabled"] else "disabled"
+        print(
+            f"{integration['id']}: {integration['label']} "
+            f"[{integration['provider']} / {status}]"
+        )
+        print(f"  mode: {integration['mode']} | risk: {integration['risk_level']}")
+        print(f"  events: {', '.join(integration['allowed_events']) or 'none'}")
+        print(f"  actions: {', '.join(integration['allowed_actions']) or 'none'}")
+
+
+def print_integration_check(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    integration = payload["integration"]
+    status = "enabled" if payload["enabled"] else "disabled"
+    print(f"Integration check: {integration['id']} ({integration['provider']})")
+    print(f"Status: {status} | Dry-run only: {_yes_no(payload['dry_run_only'])}")
+    print(f"Plannable actions: {', '.join(payload['plannable_actions']) or 'none'}")
+    if payload["blocked_actions"]:
+        print(f"Blocked actions: {', '.join(payload['blocked_actions'])}")
+    print("Secret: reference present" if payload["secret_ref_present"] else "Secret: none")
+    for note in payload["notes"]:
+        print(f"- {note}")
+
+
+def print_integration_plan(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    integration = payload["integration"]
+    work = payload["work_item"]
+    print(f"Integration dry run: {integration['id']} -> {work['id']}")
+    print(f"Event: {payload['event']} | Action: {payload['action']}")
+    print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
+    print(f"Payload operation: {payload['payload_preview']['operation']}")
     print(f"Next: {payload['next_action']}")
 
 
