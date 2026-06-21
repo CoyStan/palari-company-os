@@ -431,6 +431,9 @@ class IntegrationPlan:
     risk: str = "standard"
     approval_required: bool = True
     timestamp: str = ""
+    reviewed_by: str = ""
+    reviewed_at: str = ""
+    decision_reason: str = ""
     notes: str = ""
 
     @classmethod
@@ -448,6 +451,9 @@ class IntegrationPlan:
             risk=_string(record, "risk", "standard"),
             approval_required=_boolean(record, "approval_required", True),
             timestamp=_string(record, "timestamp"),
+            reviewed_by=_string(record, "reviewed_by"),
+            reviewed_at=_string(record, "reviewed_at"),
+            decision_reason=_string(record, "decision_reason"),
             notes=_string(record, "notes"),
         )
 

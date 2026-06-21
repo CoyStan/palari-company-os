@@ -96,6 +96,9 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-X
+./bin/palari integration approve PLAN-X --by HUMAN-FOUNDER
+./bin/palari integration reject PLAN-X --by HUMAN-FOUNDER --reason "wrong audience"
+./bin/palari integration cancel PLAN-X --by HUMAN-FOUNDER --reason "no longer needed"
 ```
 
 Integrations declare possible external providers and boundaries before Palari
@@ -113,6 +116,11 @@ By default, `integration plan` is a preview and does not write workspace state.
 Use `--record` when the dry-run payload should become a reviewable integration
 plan. Recorded plans are stored in `integration_plans`, appended to history,
 shown in `queue` and `detail`, and still do not perform live provider calls.
+Recorded plans start as `pending-approval`. A qualified human can approve,
+reject, or cancel the plan; each decision updates the plan state and appends
+history. Approval is still custody only: Palari records that the dry-run plan
+is allowed for future execution wiring, but this v0 CLI still makes no provider
+call and reads no secret value.
 
 ## Receipt-Ready Low-Risk Work
 
@@ -121,8 +129,8 @@ the queue to `receipt-ready` without requiring full evidence, independent
 review, and human-decision ceremony. That state is deliberately human-facing:
 review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
 that claim actual external writes still require the stricter governance path. A
-receipt may reference `planned_external_writes` by integration plan id without
-claiming that anything was sent or changed externally.
+receipt may reference `planned_external_writes` only by approved integration
+plan id without claiming that anything was sent or changed externally.
 
 ## History
 

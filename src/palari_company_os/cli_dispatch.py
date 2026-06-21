@@ -89,7 +89,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
     if args.command == "integration":
-        from .integrations import check_integration, plan_integration, record_integration_plan
+        from .integrations import (
+            check_integration,
+            decide_integration_plan,
+            plan_integration,
+            record_integration_plan,
+        )
 
         workspace = Workspace.load(args.workspace)
         if args.integration_command == "check":
@@ -121,6 +126,18 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.work_id,
                     args.event,
                     args.action,
+                ),
+                args.json,
+            )
+        if args.integration_command in {"approve", "reject", "cancel"}:
+            return CommandResult(
+                "integration-plan-decision",
+                decide_integration_plan(
+                    args.workspace,
+                    args.plan_id,
+                    args.human_id,
+                    args.integration_command,
+                    reason=args.reason,
                 ),
                 args.json,
             )

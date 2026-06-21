@@ -180,6 +180,9 @@ ALLOWED_RECORD_FIELDS = {
         "risk",
         "approval_required",
         "timestamp",
+        "reviewed_by",
+        "reviewed_at",
+        "decision_reason",
         "notes",
     },
     "attempts": {
@@ -322,7 +325,7 @@ OUTCOME_STATUSES = {"captured", "completed", "closed"}
 INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
-INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "canceled"}
+INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "rejected", "canceled"}
 INTEGRATION_EVENTS = {
     "approval_requested",
     "incident_opened",
@@ -410,7 +413,7 @@ def validate_workspace_contract(workspace: Any) -> None:
         _validate_integration(integration)
 
     for plan in workspace.integration_plans:
-        _validate_integration_plan(plan, integrations_by_id, work_by_id)
+        _validate_integration_plan(plan, integrations_by_id, work_by_id, humans_by_id)
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
@@ -564,6 +567,7 @@ def _validate_integration_plan(
     plan: IntegrationPlan,
     integrations_by_id: dict[str, Integration],
     work_by_id: dict[str, WorkItem],
+    humans_by_id: dict[str, Any],
 ) -> None:
     _require_allowed_value(
         "integration_plans",
@@ -618,6 +622,46 @@ def _validate_integration_plan(
         raise WorkspaceError(f"integration_plans.{plan.id}.payload_preview must be an object")
     if not isinstance(plan.source_boundary, dict):
         raise WorkspaceError(f"integration_plans.{plan.id}.source_boundary must be an object")
+    if plan.status in {"approved", "rejected", "canceled"}:
+        if not plan.reviewed_by:
+            raise WorkspaceError(
+                f"integration_plans.{plan.id}.reviewed_by is required when status is "
+                f"{plan.status}"
+            )
+        if not plan.reviewed_at:
+            raise WorkspaceError(
+                f"integration_plans.{plan.id}.reviewed_at is required when status is "
+                f"{plan.status}"
+            )
+        human = humans_by_id[plan.reviewed_by]
+        work = work_by_id[plan.work_item_id]
+        if not _human_can_decide_integration_plan(
+            human,
+            work,
+            integration,
+        ):
+            raise WorkspaceError(
+                f"integration_plans.{plan.id}.reviewed_by {human.id} lacks authority "
+                "to decide this integration plan"
+            )
+
+
+def _human_can_decide_integration_plan(
+    human: Any,
+    work: WorkItem,
+    integration: Integration,
+) -> bool:
+    if human.authority_level == "admin":
+        return True
+    if work.required_approval_capability:
+        return work.required_approval_capability in human.approval_capabilities
+    if integration.owner_human == human.id and integration.risk_level in {"low", "standard"}:
+        return True
+    if integration.risk_level in {"high", "critical"}:
+        return bool({"policy", "deploy", "security"} & set(human.approval_capabilities))
+    return bool(
+        {"operations", "product", "policy", "merge", "deploy"} & set(human.approval_capabilities)
+    )
 
 
 def _validate_attempt_boundaries(
@@ -814,6 +858,11 @@ def _validate_receipt(
             raise WorkspaceError(
                 f"receipts.{receipt.id}.planned_external_writes includes plan {plan_id} "
                 f"for different work item {plan.work_item_id}"
+            )
+        if plan.status != "approved":
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.planned_external_writes requires approved "
+                f"integration plan {plan_id}; status is {plan.status}"
             )
     if receipt.external_writes and not _allows_external_writes(work):
         raise WorkspaceError(

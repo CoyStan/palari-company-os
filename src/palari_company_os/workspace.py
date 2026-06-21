@@ -343,6 +343,14 @@ class Workspace:
                         f"integration_plans.{plan.id}.actor references missing human or Palari "
                         f"id {plan.actor}"
                     )
+            if plan.reviewed_by:
+                _require_ref(
+                    "integration_plans",
+                    plan.id,
+                    "reviewed_by",
+                    plan.reviewed_by,
+                    human_ids,
+                )
 
         for palari in self.palaris:
             if palari.owner_human:

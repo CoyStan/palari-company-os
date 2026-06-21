@@ -107,6 +107,9 @@ def _record_summary(record: dict[str, Any] | None) -> dict[str, Any] | None:
         "action",
         "human_id",
         "actor",
+        "reviewed_by",
+        "reviewed_at",
+        "decision_reason",
         "summary",
     ):
         if key in record:

@@ -141,6 +141,24 @@ def _add_integration_parser(subparsers: Any) -> None:
     plan.add_argument("--actor", default="", help="Actor to attribute when recording.")
     plan.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    approve = nested.add_parser("approve", help="Approve a recorded dry-run integration plan.")
+    approve.add_argument("plan_id")
+    approve.add_argument("--by", dest="human_id", required=True, help="Approving human id.")
+    approve.add_argument("--reason", default="", help="Optional approval note.")
+    approve.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    reject = nested.add_parser("reject", help="Reject a recorded dry-run integration plan.")
+    reject.add_argument("plan_id")
+    reject.add_argument("--by", dest="human_id", required=True, help="Rejecting human id.")
+    reject.add_argument("--reason", required=True, help="Reason for rejection.")
+    reject.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    cancel = nested.add_parser("cancel", help="Cancel a recorded dry-run integration plan.")
+    cancel.add_argument("plan_id")
+    cancel.add_argument("--by", dest="human_id", required=True, help="Canceling human id.")
+    cancel.add_argument("--reason", required=True, help="Reason for cancellation.")
+    cancel.add_argument("--json", action="store_true", help="Emit JSON.")
+
 
 def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(

@@ -231,6 +231,168 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(history["events"][-1]["object_type"], "integration-plan")
         self.assertEqual(history["events"][-1]["object_id"], "PLAN-TEST")
 
+    def test_plan_approval_records_human_decision_without_provider_call(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-APPROVE",
+                "--json",
+            )
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "approve",
+                    "PLAN-APPROVE",
+                    "--by",
+                    "HUMAN-FOUNDER",
+                    "--reason",
+                    "safe dry-run notification",
+                    "--json",
+                ).stdout
+            )
+            workspace = Workspace.load(workspace_path)
+            queue = {item.id: item for item in queue_items(workspace)}
+            work_detail = detail(workspace, "WORK-0001")
+            history = read_history(workspace_path)
+
+        self.assertEqual(payload["status"], "approved")
+        self.assertFalse(payload["would_call_provider"])
+        self.assertEqual(payload["integration_plan"]["reviewed_by"], "HUMAN-FOUNDER")
+        self.assertEqual(payload["integration_plan"]["decision_reason"], "safe dry-run notification")
+        self.assertEqual(workspace.integration_plan("PLAN-APPROVE").status, "approved")
+        self.assertEqual(queue["WORK-0001"].integration_state, "plan-approved")
+        self.assertEqual(work_detail["integration_plans"][0]["status"], "approved")
+        self.assertEqual(history["events"][-1]["action"], "approved")
+        self.assertEqual(history["events"][-1]["actor"], "HUMAN-FOUNDER")
+
+    def test_plan_reject_and_cancel_states_do_not_call_provider(self) -> None:
+        for command, expected_status in (("reject", "rejected"), ("cancel", "canceled")):
+            with self.subTest(command=command), self.temp_workspace() as workspace_path:
+                plan_id = f"PLAN-{expected_status.upper()}"
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "plan",
+                    "INT-SLACK-OPS",
+                    "--work",
+                    "WORK-0001",
+                    "--event",
+                    "approval_requested",
+                    "--action",
+                    "notify",
+                    "--record",
+                    "--id",
+                    plan_id,
+                    "--json",
+                )
+                payload = json.loads(
+                    self.run_cli_in_workspace(
+                        workspace_path,
+                        "integration",
+                        command,
+                        plan_id,
+                        "--by",
+                        "HUMAN-FOUNDER",
+                        "--reason",
+                        f"{command} in test",
+                        "--json",
+                    ).stdout
+                )
+                workspace = Workspace.load(workspace_path)
+                queue = {item.id: item for item in queue_items(workspace)}
+
+            self.assertEqual(payload["status"], expected_status)
+            self.assertFalse(payload["would_call_provider"])
+            self.assertEqual(workspace.integration_plan(plan_id).status, expected_status)
+            self.assertEqual(queue["WORK-0001"].integration_state, f"plan-{expected_status}")
+
+    def test_unqualified_human_cannot_decide_plan(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-UNQUALIFIED",
+                "--json",
+            )
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "approve",
+                "PLAN-UNQUALIFIED",
+                "--by",
+                "HUMAN-OPS",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lacks authority", result.stderr)
+
+    def test_decided_plan_cannot_be_decided_again(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-ONCE",
+                "--json",
+            )
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "reject",
+                "PLAN-ONCE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reason",
+                "not needed",
+                "--json",
+            )
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "approve",
+                "PLAN-ONCE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot transition from rejected", result.stderr)
+
     def test_plain_plan_preview_does_not_write_history(self) -> None:
         with self.temp_workspace() as workspace_path:
             payload = json.loads(
@@ -356,6 +518,8 @@ class IntegrationRegistryTests(unittest.TestCase):
                     "source_boundary": {},
                     "risk": "standard",
                     "approval_required": True,
+                    "reviewed_by": "HUMAN-FOUNDER",
+                    "reviewed_at": "2026-06-21T00:00:00Z",
                 }
             ]
             data["receipts"][0]["planned_external_writes"] = ["PLAN-RECEIPT"]
@@ -383,12 +547,41 @@ class IntegrationRegistryTests(unittest.TestCase):
                     "source_boundary": {},
                     "risk": "standard",
                     "approval_required": True,
+                    "reviewed_by": "HUMAN-FOUNDER",
+                    "reviewed_at": "2026-06-21T00:00:00Z",
                 }
             ]
             data["receipts"][0]["planned_external_writes"] = ["PLAN-WRONG-WORK"]
 
         with self.assertRaisesRegex(WorkspaceError, "for different work item WORK-0001"):
             self.modified_workspace(wrong_work)
+
+    def test_receipt_planned_external_write_requires_approved_plan(self) -> None:
+        for status in ("pending-approval", "rejected", "canceled"):
+            with self.subTest(status=status):
+                def non_approved_plan(data: dict[str, object]) -> None:
+                    record = {
+                        "id": "PLAN-NOT-APPROVED",
+                        "integration_id": "INT-SLACK-OPS",
+                        "work_item_id": "WORK-0007",
+                        "event": "approval_requested",
+                        "action": "notify",
+                        "actor": "PALARI-SOFIA",
+                        "status": status,
+                        "payload_preview": {"operation": "post_message"},
+                        "source_boundary": {},
+                        "risk": "standard",
+                        "approval_required": True,
+                    }
+                    if status in {"rejected", "canceled"}:
+                        record["reviewed_by"] = "HUMAN-FOUNDER"
+                        record["reviewed_at"] = "2026-06-21T00:00:00Z"
+                        record["decision_reason"] = "not needed"
+                    data["integration_plans"] = [record]
+                    data["receipts"][0]["planned_external_writes"] = ["PLAN-NOT-APPROVED"]
+
+                with self.assertRaisesRegex(WorkspaceError, "requires approved integration plan"):
+                    self.modified_workspace(non_approved_plan)
 
     def test_receipt_planned_external_write_missing_plan_fails_closed(self) -> None:
         def missing_plan(data: dict[str, object]) -> None:
@@ -426,6 +619,7 @@ class IntegrationRegistryTests(unittest.TestCase):
         self,
         workspace: Path,
         *args: str,
+        check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
@@ -433,7 +627,7 @@ class IntegrationRegistryTests(unittest.TestCase):
             [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(workspace), *args],
             cwd=REPO_ROOT,
             env=env,
-            check=True,
+            check=check,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

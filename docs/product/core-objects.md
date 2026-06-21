@@ -52,7 +52,9 @@ Recorded dry-run payload preview for one integration, work item, event, and
 action. Integration plans keep the exact planned payload, source boundary, risk,
 actor, timestamp, and approval requirement reviewable before any future live
 connector exists. Recording a plan appends history but still performs no live
-provider call and reads no secret value.
+provider call and reads no secret value. A qualified human may later mark the
+plan approved, rejected, or canceled; that decision is history/audit state only
+and still does not execute the external provider action.
 
 ## Work Item
 
@@ -90,7 +92,9 @@ Human-facing trust record for an attempt. A receipt says which sources were
 used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
-the user review, undo, or continue bounded work.
+the user review, undo, or continue bounded work. Planned external writes must
+reference approved integration plans; rejected or canceled plans cannot be used
+as receipt-backed planned writes.
 
 ## Outcome
 

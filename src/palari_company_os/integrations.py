@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
 from .errors import WorkspaceError
 from .history import append_history_event
-from .models import Integration, WorkItem, to_plain
+from .models import Human, Integration, IntegrationPlan, WorkItem, to_plain
 from .store import load_store, validate_data, write_store
 from .workspace import Workspace
 
@@ -131,6 +132,99 @@ def record_integration_plan(
     return refreshed
 
 
+def decide_integration_plan(
+    workspace_path: str,
+    plan_id: str,
+    human_id: str,
+    decision: str,
+    *,
+    reason: str = "",
+) -> dict[str, Any]:
+    target_status = {
+        "approve": "approved",
+        "reject": "rejected",
+        "cancel": "canceled",
+    }.get(decision)
+    if target_status is None:
+        raise WorkspaceError(f"unsupported integration plan decision: {decision}")
+    reason = reason.strip()
+    if target_status in {"rejected", "canceled"} and not reason:
+        raise WorkspaceError(f"integration plan {decision} requires a reason")
+
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    plan = workspace.integration_plan(plan_id)
+    if plan is None:
+        known = ", ".join(sorted(item.id for item in workspace.integration_plans))
+        raise WorkspaceError(f"integration plan not found: {plan_id}; known plans: {known}")
+    if plan.status != "pending-approval":
+        raise WorkspaceError(
+            f"integration plan {plan_id} cannot transition from {plan.status}; "
+            "only pending-approval plans can be decided"
+        )
+    human = workspace.human(human_id)
+    if human is None:
+        known = ", ".join(sorted(item.id for item in workspace.humans))
+        raise WorkspaceError(f"human not found: {human_id}; known humans: {known}")
+    integration = _integration_or_raise(workspace, plan.integration_id)
+    work = workspace.work_item(plan.work_item_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {plan.work_item_id}")
+    _assert_human_can_decide_plan(human, work, integration, plan)
+
+    records = store.data.get("integration_plans")
+    if not isinstance(records, list):
+        raise WorkspaceError("integration_plans must be a list of objects")
+    record = next(
+        (item for item in records if isinstance(item, dict) and item.get("id") == plan_id),
+        None,
+    )
+    if record is None:
+        raise WorkspaceError(f"integration plan record not found: {plan_id}")
+    before = deepcopy(record)
+    now = _timestamp()
+    record.update(
+        {
+            "status": target_status,
+            "reviewed_by": human.id,
+            "reviewed_at": now,
+            "decision_reason": reason,
+        }
+    )
+
+    workspace = write_store(store)
+    after_plan = workspace.integration_plan(plan_id)
+    after = to_plain(after_plan) if after_plan is not None else deepcopy(record)
+    history_event = append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=f"integration {decision}",
+        action=target_status,
+        object_type="integration-plan",
+        object_collection="integration_plans",
+        object_id=plan_id,
+        actor=human.id,
+        before=before,
+        after=after,
+    )
+    return {
+        "workspace": workspace.name,
+        "dry_run": True,
+        "would_call_provider": False,
+        "decision": decision,
+        "status": target_status,
+        "integration_plan": after,
+        "human": {
+            "id": human.id,
+            "name": human.name,
+            "authority_level": human.authority_level,
+            "approval_capabilities": human.approval_capabilities,
+        },
+        "history_event": history_event,
+        "next_action": _decision_next_action(target_status),
+    }
+
+
 def _integration_summary(integration: Integration) -> dict[str, Any]:
     return {
         "id": integration.id,
@@ -146,6 +240,52 @@ def _integration_summary(integration: Integration) -> dict[str, Any]:
         "secret_ref": integration.secret_ref,
         "notes": integration.notes,
     }
+
+
+def _assert_human_can_decide_plan(
+    human: Human,
+    work: WorkItem,
+    integration: Integration,
+    plan: IntegrationPlan,
+) -> None:
+    if _human_can_decide_plan(human, work, integration):
+        return
+    if work.required_approval_capability:
+        expected = work.required_approval_capability
+    elif integration.risk_level in {"high", "critical"}:
+        expected = "policy, deploy, or security capability"
+    else:
+        expected = f"integration owner {integration.owner_human} or relevant approval capability"
+    raise WorkspaceError(
+        f"human {human.id} lacks authority to decide integration plan {plan.id}; "
+        f"expected {expected}"
+    )
+
+
+def _human_can_decide_plan(
+    human: Human,
+    work: WorkItem,
+    integration: Integration,
+) -> bool:
+    if human.authority_level == "admin":
+        return True
+    if work.required_approval_capability:
+        return work.required_approval_capability in human.approval_capabilities
+    if integration.owner_human == human.id and integration.risk_level in {"low", "standard"}:
+        return True
+    if integration.risk_level in {"high", "critical"}:
+        return bool({"policy", "deploy", "security"} & set(human.approval_capabilities))
+    return bool(
+        {"operations", "product", "policy", "merge", "deploy"} & set(human.approval_capabilities)
+    )
+
+
+def _decision_next_action(status: str) -> str:
+    if status == "approved":
+        return "Approved for future execution wiring only; no provider call was made."
+    if status == "rejected":
+        return "Plan rejected. Create a new dry-run plan if the external action changes."
+    return "Plan canceled. No external action is pending for this plan."
 
 
 def _integration_or_raise(workspace: Workspace, integration_id: str) -> Integration:

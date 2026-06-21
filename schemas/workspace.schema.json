@@ -243,7 +243,7 @@
         "actor": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["planned", "pending-approval", "approved", "canceled"]
+          "enum": ["planned", "pending-approval", "approved", "rejected", "canceled"]
         },
         "payload_preview": {
           "type": "object",
@@ -259,6 +259,9 @@
         },
         "approval_required": { "type": "boolean" },
         "timestamp": { "type": "string" },
+        "reviewed_by": { "type": "string" },
+        "reviewed_at": { "type": "string" },
+        "decision_reason": { "type": "string" },
         "notes": { "type": "string" }
       }
     },

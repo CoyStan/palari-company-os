@@ -31,6 +31,7 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-integration-plan.json
 cp examples/acme-company-os/workspace.json "$integration_smoke_dir/workspace.json"
 ./bin/palari --workspace "$integration_smoke_dir" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-SMOKE --json >/tmp/palari-company-integration-plan-recorded.json
+./bin/palari --workspace "$integration_smoke_dir" integration approve PLAN-SMOKE --by HUMAN-FOUNDER --reason "verification smoke" --json >/tmp/palari-company-integration-plan-approved.json
 ./bin/palari --workspace "$integration_smoke_dir" queue --json >/tmp/palari-company-integration-plan-queue.json
 ./bin/palari --workspace "$integration_smoke_dir" detail WORK-0001 --json >/tmp/palari-company-integration-plan-detail.json
 ./bin/palari --workspace "$integration_smoke_dir" history --json >/tmp/palari-company-integration-plan-history.json
@@ -56,7 +57,9 @@ grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.
 grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan.json
 grep -q '"recorded": true' /tmp/palari-company-integration-plan-recorded.json
-grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-queue.json
+grep -q '"status": "approved"' /tmp/palari-company-integration-plan-approved.json
+grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan-approved.json
+grep -q 'plan-approved' /tmp/palari-company-integration-plan-queue.json
 grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-detail.json
 grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-history.json
 

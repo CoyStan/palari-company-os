@@ -58,6 +58,10 @@ def print_result(result: CommandResult) -> None:
         print_integration_plan(result.payload, result.as_json)
         return
 
+    if result.kind == "integration-plan-decision":
+        print_integration_plan_decision(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -314,6 +318,20 @@ def print_integration_plan(payload: dict[str, Any], as_json: bool) -> None:
         print("External write: planned only; no provider call was made.")
     else:
         print("Recorded plan: no (preview only)")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_integration_plan_decision(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    plan = payload["integration_plan"]
+    human = payload["human"]
+    print(f"Integration plan {payload['decision']}: {plan['id']} -> {payload['status']}")
+    print(f"By: {human['id']} ({human['name']})")
+    print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
+    if plan.get("decision_reason"):
+        print(f"Reason: {plan['decision_reason']}")
     print(f"Next: {payload['next_action']}")
 
 

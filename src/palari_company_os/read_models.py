@@ -479,6 +479,9 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
         return "closed"
     if _pending_integration_plans_for_work(work, context):
         return "pending-plan"
+    decided_state = _latest_decided_integration_plan_state_for_work(work, context)
+    if decided_state:
+        return decided_state
     attempt = _attempt_for_work(context, work)
     if attempt and _low_risk_receipt_ready(work, attempt, context):
         return "receipt-ready"
@@ -534,6 +537,18 @@ def _coordination_warning_messages_for_work(work: Any, context: _ReadContext) ->
 
 def _pending_integration_plans_for_work(work: Any, context: _ReadContext) -> list[Any]:
     return context.pending_integration_plans_by_work.get(work.id, [])
+
+
+def _latest_decided_integration_plan_state_for_work(work: Any, context: _ReadContext) -> str:
+    plans = [
+        plan
+        for plan in context.integration_plans_by_work.get(work.id, [])
+        if plan.status in {"approved", "rejected", "canceled"}
+    ]
+    if not plans:
+        return ""
+    plan = max(plans, key=_record_time_key)
+    return f"plan-{plan.status}"
 
 
 def _build_active_parallel_work(

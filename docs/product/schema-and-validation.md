@@ -82,6 +82,8 @@ Validation checks:
 - integration plans use events and actions allowed by the referenced
   integration
 - integration plans require human approval before any future external action
+- approved, rejected, and canceled integration plans record the qualified human
+  reviewer and review timestamp
 - optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
@@ -89,8 +91,8 @@ Validation checks:
 - non-negative approval quorum counts
 - receipts use only sources allowed by the work item
 - receipt actor matches the attempt actor or work Palari
-- planned external writes in a receipt reference integration plans for the same
-  work item
+- planned external writes in a receipt reference approved integration plans for
+  the same work item
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
