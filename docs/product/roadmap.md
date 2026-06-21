@@ -10,6 +10,8 @@ Implemented in the v0.1 local foundation:
 - integration registry, dry-run payload planner, auditable integration plan
   records, and human approve/reject/cancel decisions for Slack/GitHub/Jira/email
   style notifications without live provider calls
+- integration outbox records for approved external-action plans waiting at the
+  future execution boundary
 - fail-closed gates for scope, stale evidence, stale review, human authority,
   quorum, integration references, integration allowed events/actions, and raw
   secret values
@@ -29,8 +31,7 @@ Intentionally omitted from v0.1:
 
 Likely next steps:
 
-- design the separate live-execution boundary for already approved integration
-  plans
+- design live execution for approved and queued integration outbox items
 - add richer migration tests as schema versions evolve
 - add import/export tooling
 - add API or web read-model layer

@@ -62,6 +62,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "playbook_sources": len(workspace.playbook_sources),
                     "integrations": len(workspace.integrations),
                     "integration_plans": len(workspace.integration_plans),
+                    "integration_outbox": len(workspace.integration_outbox),
                     "work_items": len(workspace.work_items),
                     "receipts": len(workspace.receipts),
                 },
@@ -92,6 +93,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .integrations import (
             check_integration,
             decide_integration_plan,
+            enqueue_integration_plan,
             plan_integration,
             record_integration_plan,
         )
@@ -126,6 +128,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.work_id,
                     args.event,
                     args.action,
+                ),
+                args.json,
+            )
+        if args.integration_command == "enqueue":
+            return CommandResult(
+                "integration-enqueue",
+                enqueue_integration_plan(
+                    args.workspace,
+                    args.plan_id,
+                    args.human_id,
                 ),
                 args.json,
             )
@@ -336,6 +348,7 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "playbook_sources": len(workspace.playbook_sources),
         "integrations": len(workspace.integrations),
         "integration_plans": len(workspace.integration_plans),
+        "integration_outbox": len(workspace.integration_outbox),
         "decisions": len(workspace.decisions),
         "work_items": len(workspace.work_items),
         "attempts": len(workspace.attempts),

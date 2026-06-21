@@ -22,6 +22,7 @@ mkdir "$tmp_dir/integration-workspace"
 cp "$repo_dir/examples/acme-company-os/workspace.json" "$tmp_dir/integration-workspace/workspace.json"
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-INSTALL-SMOKE --json >/tmp/palari-company-os-install-smoke-integration-plan-recorded.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration approve PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --reason "install smoke" --json >/tmp/palari-company-os-install-smoke-integration-plan-approved.json
+"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration enqueue PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --json >/tmp/palari-company-os-install-smoke-integration-plan-enqueued.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" detail WORK-0001 --json >/tmp/palari-company-os-install-smoke-integration-detail.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" history --json >/tmp/palari-company-os-install-smoke-integration-history.json
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >/tmp/palari-company-os-install-smoke-explicit-validate.json

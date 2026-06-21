@@ -9,6 +9,7 @@ from .models import (
     EvidenceRun,
     HumanDecision,
     Integration,
+    IntegrationOutboxItem,
     IntegrationPlan,
     Receipt,
     ReviewVerdict,
@@ -39,6 +40,7 @@ OPTIONAL_COLLECTION_KEYS = (
     "workbenches",
     "integrations",
     "integration_plans",
+    "integration_outbox",
 )
 COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
@@ -185,6 +187,21 @@ ALLOWED_RECORD_FIELDS = {
         "decision_reason",
         "notes",
     },
+    "integration_outbox": {
+        "id",
+        "plan_id",
+        "integration_id",
+        "work_item_id",
+        "event",
+        "action",
+        "enqueued_by",
+        "status",
+        "payload_preview",
+        "source_boundary",
+        "risk",
+        "timestamp",
+        "notes",
+    },
     "attempts": {
         "id",
         "work_item_id",
@@ -247,6 +264,7 @@ ALLOWED_RECORD_FIELDS = {
         "actions_taken",
         "outputs_created",
         "planned_external_writes",
+        "queued_external_writes",
         "external_writes",
         "not_done",
         "undo_refs",
@@ -326,6 +344,7 @@ INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
 INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "rejected", "canceled"}
+INTEGRATION_OUTBOX_STATUSES = {"queued", "canceled"}
 INTEGRATION_EVENTS = {
     "approval_requested",
     "incident_opened",
@@ -384,6 +403,7 @@ def validate_workspace_contract(workspace: Any) -> None:
     sources_by_id = {source.id: source for source in workspace.sources}
     integrations_by_id = {integration.id: integration for integration in workspace.integrations}
     integration_plans_by_id = {plan.id: plan for plan in workspace.integration_plans}
+    integration_outbox_by_id = {item.id: item for item in workspace.integration_outbox}
 
     for goal in workspace.goals:
         _require_allowed_value("goals", goal.id, "status", goal.status, GOAL_STATUSES)
@@ -414,6 +434,16 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for plan in workspace.integration_plans:
         _validate_integration_plan(plan, integrations_by_id, work_by_id, humans_by_id)
+
+    _validate_unique_outbox_plans(workspace.integration_outbox)
+    for item in workspace.integration_outbox:
+        _validate_integration_outbox_item(
+            item,
+            integration_plans_by_id,
+            integrations_by_id,
+            work_by_id,
+            humans_by_id,
+        )
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
@@ -477,6 +507,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             attempts_by_id,
             sources_by_id,
             integration_plans_by_id,
+            integration_outbox_by_id,
         )
 
     for outcome in workspace.outcomes:
@@ -664,6 +695,117 @@ def _human_can_decide_integration_plan(
     )
 
 
+def _validate_unique_outbox_plans(items: Iterable[IntegrationOutboxItem]) -> None:
+    seen: dict[str, str] = {}
+    for item in items:
+        if item.plan_id in seen:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.plan_id duplicates "
+                f"integration_outbox.{seen[item.plan_id]} for plan {item.plan_id}"
+            )
+        seen[item.plan_id] = item.id
+
+
+def _validate_integration_outbox_item(
+    item: IntegrationOutboxItem,
+    integration_plans_by_id: dict[str, IntegrationPlan],
+    integrations_by_id: dict[str, Integration],
+    work_by_id: dict[str, WorkItem],
+    humans_by_id: dict[str, Any],
+) -> None:
+    _require_allowed_value(
+        "integration_outbox",
+        item.id,
+        "status",
+        item.status,
+        INTEGRATION_OUTBOX_STATUSES,
+    )
+    _require_allowed_value(
+        "integration_outbox",
+        item.id,
+        "event",
+        item.event,
+        INTEGRATION_EVENTS,
+    )
+    _require_allowed_value(
+        "integration_outbox",
+        item.id,
+        "action",
+        item.action,
+        INTEGRATION_ACTIONS,
+    )
+    _require_allowed_value(
+        "integration_outbox",
+        item.id,
+        "risk",
+        item.risk,
+        INTEGRATION_RISK_LEVELS,
+    )
+    plan = integration_plans_by_id[item.plan_id]
+    integration = integrations_by_id[item.integration_id]
+    work = work_by_id[item.work_item_id]
+    human = humans_by_id[item.enqueued_by]
+    if plan.status != "approved":
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.plan_id references plan {plan.id} "
+            f"with status {plan.status}; expected approved"
+        )
+    if item.integration_id != plan.integration_id:
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.integration_id does not match plan {plan.id}"
+        )
+    if item.work_item_id != plan.work_item_id:
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.work_item_id does not match plan {plan.id}"
+        )
+    if item.event != plan.event or item.action != plan.action:
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.event/action does not match plan {plan.id}"
+        )
+    if item.risk != plan.risk:
+        raise WorkspaceError(f"integration_outbox.{item.id}.risk does not match plan {plan.id}")
+    if not _human_can_decide_integration_plan(human, work, integration):
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.enqueued_by {human.id} lacks authority "
+            "to enqueue this integration plan"
+        )
+    if not isinstance(item.payload_preview, dict):
+        raise WorkspaceError(f"integration_outbox.{item.id}.payload_preview must be an object")
+    if not isinstance(item.source_boundary, dict):
+        raise WorkspaceError(f"integration_outbox.{item.id}.source_boundary must be an object")
+    _validate_no_raw_secret_values(f"integration_outbox.{item.id}.payload_preview", item.payload_preview)
+
+
+RAW_SECRET_VALUE_RE = re.compile(r"(xox[baprs]-|sk-[A-Za-z0-9]|gh[pousr]_|ya29\.|-----BEGIN)")
+
+
+def _validate_no_raw_secret_values(label: str, value: object) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child_label = f"{label}.{key}"
+            if isinstance(item, str) and _looks_like_secret_field(str(key), item):
+                raise WorkspaceError(
+                    f"{child_label} must be an env:NAME reference, not a raw secret"
+                )
+            _validate_no_raw_secret_values(child_label, item)
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_no_raw_secret_values(f"{label}[{index}]", item)
+        return
+    if isinstance(value, str) and RAW_SECRET_VALUE_RE.search(value):
+        raise WorkspaceError(f"{label} contains a raw secret-looking value")
+
+
+def _looks_like_secret_field(key: str, value: str) -> bool:
+    lowered = key.lower()
+    if not any(marker in lowered for marker in ("secret", "token", "webhook")):
+        return False
+    if not value:
+        return False
+    return not value.startswith("env:")
+
+
 def _validate_attempt_boundaries(
     attempt: Attempt,
     work_by_id: dict[str, WorkItem],
@@ -827,6 +969,7 @@ def _validate_receipt(
     attempts_by_id: dict[str, Attempt],
     sources_by_id: dict[str, Any],
     integration_plans_by_id: dict[str, IntegrationPlan],
+    integration_outbox_by_id: dict[str, IntegrationOutboxItem],
 ) -> None:
     work = work_by_id[receipt.work_item_id]
     attempt = attempts_by_id[receipt.attempt_id]
@@ -863,6 +1006,18 @@ def _validate_receipt(
             raise WorkspaceError(
                 f"receipts.{receipt.id}.planned_external_writes requires approved "
                 f"integration plan {plan_id}; status is {plan.status}"
+            )
+    for item_id in receipt.queued_external_writes:
+        item = integration_outbox_by_id[item_id]
+        if item.work_item_id != work.id:
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.queued_external_writes includes outbox item "
+                f"{item_id} for different work item {item.work_item_id}"
+            )
+        if item.status != "queued":
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.queued_external_writes requires queued outbox "
+                f"item {item_id}; status is {item.status}"
             )
     if receipt.external_writes and not _allows_external_writes(work):
         raise WorkspaceError(

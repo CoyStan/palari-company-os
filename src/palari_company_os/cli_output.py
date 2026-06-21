@@ -62,6 +62,10 @@ def print_result(result: CommandResult) -> None:
         print_integration_plan_decision(result.payload, result.as_json)
         return
 
+    if result.kind == "integration-enqueue":
+        print_integration_enqueue(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -124,6 +128,7 @@ def print_validate(payload: dict[str, Any]) -> None:
         f"{counts.get('playbook_sources', 0)} playbook sources, "
         f"{counts.get('integrations', 0)} integrations, "
         f"{counts.get('integration_plans', 0)} integration plans, "
+        f"{counts.get('integration_outbox', 0)} outbox items, "
         f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
 
@@ -332,6 +337,19 @@ def print_integration_plan_decision(payload: dict[str, Any], as_json: bool) -> N
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
     if plan.get("decision_reason"):
         print(f"Reason: {plan['decision_reason']}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_integration_enqueue(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    item = payload["integration_outbox_item"]
+    human = payload["human"]
+    print(f"Integration outbox queued: {item['id']}")
+    print(f"Plan: {item['plan_id']} | Work: {item['work_item_id']}")
+    print(f"By: {human['id']} ({human['name']})")
+    print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
     print(f"Next: {payload['next_action']}")
 
 

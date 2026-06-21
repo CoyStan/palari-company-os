@@ -38,6 +38,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/integration_plan" }
     },
+    "integration_outbox": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/integration_outbox_item" }
+    },
     "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
     "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
     "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
@@ -64,6 +68,7 @@
         "playbook_sources": { "$ref": "#/$defs/string_list" },
         "integrations": { "$ref": "#/$defs/string_list" },
         "integration_plans": { "$ref": "#/$defs/string_list" },
+        "integration_outbox": { "$ref": "#/$defs/string_list" },
         "work_items": { "$ref": "#/$defs/string_list" },
         "attempts": { "$ref": "#/$defs/string_list" },
         "evidence_runs": { "$ref": "#/$defs/string_list" },
@@ -265,6 +270,50 @@
         "notes": { "type": "string" }
       }
     },
+    "integration_outbox_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "plan_id", "integration_id", "work_item_id", "event", "action", "enqueued_by"],
+      "properties": {
+        "id": { "type": "string" },
+        "plan_id": { "type": "string" },
+        "integration_id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "event": {
+          "type": "string",
+          "enum": [
+            "approval_requested",
+            "incident_opened",
+            "review_requested",
+            "work_completed",
+            "work_blocked"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": ["notify", "comment", "create_issue", "update_issue"]
+        },
+        "enqueued_by": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["queued", "canceled"]
+        },
+        "payload_preview": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "source_boundary": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "standard", "high", "critical"]
+        },
+        "timestamp": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
     "workbench": {
       "type": "object",
       "additionalProperties": false,
@@ -443,6 +492,7 @@
         "actions_taken": { "$ref": "#/$defs/string_list" },
         "outputs_created": { "$ref": "#/$defs/string_list" },
         "planned_external_writes": { "$ref": "#/$defs/string_list" },
+        "queued_external_writes": { "$ref": "#/$defs/string_list" },
         "external_writes": { "$ref": "#/$defs/string_list" },
         "not_done": { "$ref": "#/$defs/string_list" },
         "undo_refs": { "$ref": "#/$defs/string_list" },

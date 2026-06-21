@@ -84,6 +84,10 @@ Validation checks:
 - integration plans require human approval before any future external action
 - approved, rejected, and canceled integration plans record the qualified human
   reviewer and review timestamp
+- integration outbox items reference approved integration plans and qualified
+  enqueueing humans
+- duplicate integration outbox items for the same plan fail closed
+- integration outbox payload previews must not contain raw secret-looking values
 - optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
@@ -93,6 +97,8 @@ Validation checks:
 - receipt actor matches the attempt actor or work Palari
 - planned external writes in a receipt reference approved integration plans for
   the same work item
+- queued external writes in a receipt reference queued integration outbox items
+  for the same work item
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review

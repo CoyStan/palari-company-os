@@ -99,6 +99,7 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration approve PLAN-X --by HUMAN-FOUNDER
 ./bin/palari integration reject PLAN-X --by HUMAN-FOUNDER --reason "wrong audience"
 ./bin/palari integration cancel PLAN-X --by HUMAN-FOUNDER --reason "no longer needed"
+./bin/palari integration enqueue PLAN-X --by HUMAN-FOUNDER
 ```
 
 Integrations declare possible external providers and boundaries before Palari
@@ -122,6 +123,12 @@ history. Approval is still custody only: Palari records that the dry-run plan
 is allowed for future execution wiring, but this v0 CLI still makes no provider
 call and reads no secret value.
 
+Approved plans can be placed into `integration_outbox` with `integration
+enqueue`. The outbox is the explicit future-execution boundary: it preserves the
+approved payload preview, source boundary, risk, and enqueuing human, but still
+does not call providers or read secrets. Pending, rejected, canceled, or already
+enqueued plans fail closed.
+
 ## Receipt-Ready Low-Risk Work
 
 For light R1/R2 local work, a completed attempt plus a valid receipt can move
@@ -130,7 +137,8 @@ review, and human-decision ceremony. That state is deliberately human-facing:
 review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
 that claim actual external writes still require the stricter governance path. A
 receipt may reference `planned_external_writes` only by approved integration
-plan id without claiming that anything was sent or changed externally.
+plan id, or `queued_external_writes` by integration outbox id, without claiming
+that anything was sent or changed externally.
 
 ## History
 

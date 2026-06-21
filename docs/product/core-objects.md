@@ -56,6 +56,15 @@ provider call and reads no secret value. A qualified human may later mark the
 plan approved, rejected, or canceled; that decision is history/audit state only
 and still does not execute the external provider action.
 
+## Integration Outbox Item
+
+Queued dry-run boundary for an approved integration plan. An outbox item copies
+the approved payload preview, source boundary, risk, work item, integration,
+event, action, enqueuing human, timestamp, and status into an auditable record.
+It means "this approved external action is waiting at the future execution
+boundary," not "the external provider was called." Duplicate outbox entries for
+the same plan fail closed.
+
 ## Work Item
 
 Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
@@ -93,8 +102,9 @@ used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
 the user review, undo, or continue bounded work. Planned external writes must
-reference approved integration plans; rejected or canceled plans cannot be used
-as receipt-backed planned writes.
+reference approved integration plans; queued external writes must reference
+queued integration outbox items; rejected, canceled, or pending plans cannot be
+used as receipt-backed external-write claims.
 
 ## Outcome
 

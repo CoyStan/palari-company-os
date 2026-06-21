@@ -74,6 +74,7 @@ LIST_FIELDS = {
     "actions_taken",
     "outputs_created",
     "planned_external_writes",
+    "queued_external_writes",
     "external_writes",
     "not_done",
     "undo_refs",

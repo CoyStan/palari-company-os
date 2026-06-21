@@ -47,6 +47,8 @@ Implemented now:
   authority, quorum, receipts, workbench boundaries, and parallel-work conflicts
 - source and receipt trust loop for low-risk local work
 - workbench graph and parallel work visibility
+- dry-run integration plans, human approval decisions, and integration outbox
+  records without live provider calls
 - external playbook recommendations as lightweight guidance
 - static dashboard and desktop-shell prototype generators
 - repo-local dogfood workspace
@@ -56,6 +58,7 @@ Intentionally not implemented yet:
 
 - real broker execution
 - real policy acceptance
+- live Slack/GitHub/Jira/email connector execution
 - Google Drive or v05 integration
 - production deployment
 - enterprise administration

@@ -15,6 +15,7 @@ from .models import (
     Human,
     HumanDecision,
     Integration,
+    IntegrationOutboxItem,
     IntegrationPlan,
     Outcome,
     Palari,
@@ -50,6 +51,7 @@ class Workspace:
     playbook_sources: list[PlaybookSource]
     integrations: list[Integration]
     integration_plans: list[IntegrationPlan]
+    integration_outbox: list[IntegrationOutboxItem]
     decisions: list[Decision]
     work_items: list[WorkItem]
     attempts: list[Attempt]
@@ -74,6 +76,9 @@ class Workspace:
         default_factory=dict, init=False, repr=False, compare=False
     )
     _integration_plans_by_id: dict[str, IntegrationPlan] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _integration_outbox_by_id: dict[str, IntegrationOutboxItem] = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
     _work_items_by_id: dict[str, WorkItem] = field(
@@ -144,6 +149,9 @@ class Workspace:
             integration_plans=[
                 IntegrationPlan.from_record(item) for item in _items(raw, "integration_plans")
             ],
+            integration_outbox=[
+                IntegrationOutboxItem.from_record(item) for item in _items(raw, "integration_outbox")
+            ],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
@@ -178,6 +186,11 @@ class Workspace:
             "_integration_plans_by_id",
             {plan.id: plan for plan in self.integration_plans},
         )
+        object.__setattr__(
+            self,
+            "_integration_outbox_by_id",
+            {item.id: item for item in self.integration_outbox},
+        )
         object.__setattr__(self, "_work_items_by_id", {work.id: work for work in self.work_items})
         object.__setattr__(
             self,
@@ -195,6 +208,7 @@ class Workspace:
             ("playbook_sources", self.playbook_sources),
             ("integrations", self.integrations),
             ("integration_plans", self.integration_plans),
+            ("integration_outbox", self.integration_outbox),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
@@ -212,6 +226,7 @@ class Workspace:
         source_ids = {source.id for source in self.sources}
         integration_ids = {integration.id for integration in self.integrations}
         integration_plan_ids = {plan.id for plan in self.integration_plans}
+        integration_outbox_ids = {item.id for item in self.integration_outbox}
         workbench_ids = {workbench.id for workbench in self.workbenches}
         playbook_source_ids = {source.id for source in self.playbook_sources}
         work_ids = {work.id for work in self.work_items}
@@ -352,6 +367,36 @@ class Workspace:
                     human_ids,
                 )
 
+        for item in self.integration_outbox:
+            _require_ref(
+                "integration_outbox",
+                item.id,
+                "plan_id",
+                item.plan_id,
+                integration_plan_ids,
+            )
+            _require_ref(
+                "integration_outbox",
+                item.id,
+                "integration_id",
+                item.integration_id,
+                integration_ids,
+            )
+            _require_ref(
+                "integration_outbox",
+                item.id,
+                "work_item_id",
+                item.work_item_id,
+                work_ids,
+            )
+            _require_ref(
+                "integration_outbox",
+                item.id,
+                "enqueued_by",
+                item.enqueued_by,
+                human_ids,
+            )
+
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
@@ -441,6 +486,14 @@ class Workspace:
                     plan,
                     integration_plan_ids,
                 )
+            for item in receipt.queued_external_writes:
+                _require_ref(
+                    "receipts",
+                    receipt.id,
+                    "queued_external_writes",
+                    item,
+                    integration_outbox_ids,
+                )
 
         for outcome in self.outcomes:
             _require_ref("outcomes", outcome.id, "work_item_id", outcome.work_item_id, work_ids)
@@ -467,6 +520,9 @@ class Workspace:
 
     def integration_plan(self, plan_id: str) -> IntegrationPlan | None:
         return self._integration_plans_by_id.get(plan_id)
+
+    def integration_outbox_item(self, item_id: str) -> IntegrationOutboxItem | None:
+        return self._integration_outbox_by_id.get(item_id)
 
     def workbench(self, workbench_id: str) -> Workbench | None:
         return self._workbenches_by_id.get(workbench_id)

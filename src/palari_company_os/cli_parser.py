@@ -159,6 +159,11 @@ def _add_integration_parser(subparsers: Any) -> None:
     cancel.add_argument("--reason", required=True, help="Reason for cancellation.")
     cancel.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    enqueue = nested.add_parser("enqueue", help="Queue an approved plan for future execution.")
+    enqueue.add_argument("plan_id")
+    enqueue.add_argument("--by", dest="human_id", required=True, help="Enqueuing human id.")
+    enqueue.add_argument("--json", action="store_true", help="Emit JSON.")
+
 
 def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(

@@ -225,6 +225,91 @@ def decide_integration_plan(
     }
 
 
+def enqueue_integration_plan(
+    workspace_path: str,
+    plan_id: str,
+    human_id: str,
+) -> dict[str, Any]:
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    plan = workspace.integration_plan(plan_id)
+    if plan is None:
+        known = ", ".join(sorted(item.id for item in workspace.integration_plans))
+        raise WorkspaceError(f"integration plan not found: {plan_id}; known plans: {known}")
+    if plan.status != "approved":
+        raise WorkspaceError(
+            f"integration plan {plan_id} must be approved before enqueue; status is {plan.status}"
+        )
+    human = workspace.human(human_id)
+    if human is None:
+        known = ", ".join(sorted(item.id for item in workspace.humans))
+        raise WorkspaceError(f"human not found: {human_id}; known humans: {known}")
+    integration = _integration_or_raise(workspace, plan.integration_id)
+    work = workspace.work_item(plan.work_item_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {plan.work_item_id}")
+    _assert_human_can_decide_plan(human, work, integration, plan)
+
+    records = store.data.setdefault("integration_outbox", [])
+    if not isinstance(records, list):
+        raise WorkspaceError("integration_outbox must be a list of objects")
+    duplicate = next(
+        (item for item in records if isinstance(item, dict) and item.get("plan_id") == plan.id),
+        None,
+    )
+    if duplicate is not None:
+        raise WorkspaceError(
+            f"integration plan {plan.id} is already enqueued as {duplicate.get('id')}"
+        )
+
+    timestamp = _timestamp()
+    record = {
+        "id": _generated_outbox_id(plan.id, timestamp),
+        "plan_id": plan.id,
+        "integration_id": plan.integration_id,
+        "work_item_id": plan.work_item_id,
+        "event": plan.event,
+        "action": plan.action,
+        "enqueued_by": human.id,
+        "status": "queued",
+        "payload_preview": deepcopy(plan.payload_preview),
+        "source_boundary": deepcopy(plan.source_boundary),
+        "risk": plan.risk,
+        "timestamp": timestamp,
+        "notes": "Queued for a future execution boundary only. No provider call was made.",
+    }
+    records.append(record)
+    workspace = write_store(store)
+    history_event = append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command="integration enqueue",
+        action="queued",
+        object_type="integration-outbox",
+        object_collection="integration_outbox",
+        object_id=str(record["id"]),
+        actor=human.id,
+        before=None,
+        after=record,
+    )
+    return {
+        "workspace": workspace.name,
+        "dry_run": True,
+        "would_call_provider": False,
+        "status": "queued",
+        "integration_outbox_item": record,
+        "integration_plan": to_plain(plan),
+        "human": {
+            "id": human.id,
+            "name": human.name,
+            "authority_level": human.authority_level,
+            "approval_capabilities": human.approval_capabilities,
+        },
+        "history_event": history_event,
+        "next_action": "Outbox item queued for future execution wiring; no provider call was made.",
+    }
+
+
 def _integration_summary(integration: Integration) -> dict[str, Any]:
     return {
         "id": integration.id,
@@ -463,3 +548,9 @@ def _timestamp() -> str:
 def _generated_plan_id(timestamp: str) -> str:
     compact = timestamp.replace("-", "").replace(":", "").replace("Z", "Z")
     return f"PLAN-{compact}-{uuid.uuid4().hex[:8].upper()}"
+
+
+def _generated_outbox_id(plan_id: str, timestamp: str) -> str:
+    compact = timestamp.replace("-", "").replace(":", "").replace("Z", "Z")
+    safe_plan = "".join(ch if ch.isalnum() else "-" for ch in plan_id).strip("-")
+    return f"OUTBOX-{safe_plan}-{compact}-{uuid.uuid4().hex[:6].upper()}"

@@ -459,6 +459,41 @@ class IntegrationPlan:
 
 
 @dataclass(frozen=True)
+class IntegrationOutboxItem:
+    id: str
+    plan_id: str
+    integration_id: str
+    work_item_id: str
+    event: str
+    action: str
+    enqueued_by: str
+    status: str = "queued"
+    payload_preview: Record = field(default_factory=dict)
+    source_boundary: Record = field(default_factory=dict)
+    risk: str = "standard"
+    timestamp: str = ""
+    notes: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "IntegrationOutboxItem":
+        return cls(
+            id=_require_id(record),
+            plan_id=_string(record, "plan_id"),
+            integration_id=_string(record, "integration_id"),
+            work_item_id=_string(record, "work_item_id"),
+            event=_string(record, "event"),
+            action=_string(record, "action"),
+            enqueued_by=_string(record, "enqueued_by"),
+            status=_string(record, "status", "queued"),
+            payload_preview=_mapping(record, "payload_preview"),
+            source_boundary=_mapping(record, "source_boundary"),
+            risk=_string(record, "risk", "standard"),
+            timestamp=_string(record, "timestamp"),
+            notes=_string(record, "notes"),
+        )
+
+
+@dataclass(frozen=True)
 class EvidenceRun:
     id: str
     work_item_id: str
@@ -557,6 +592,7 @@ class Receipt:
     actions_taken: list[str] = field(default_factory=list)
     outputs_created: list[str] = field(default_factory=list)
     planned_external_writes: list[str] = field(default_factory=list)
+    queued_external_writes: list[str] = field(default_factory=list)
     external_writes: list[str] = field(default_factory=list)
     not_done: list[str] = field(default_factory=list)
     undo_refs: list[str] = field(default_factory=list)
@@ -573,6 +609,7 @@ class Receipt:
             actions_taken=_strings(record, "actions_taken"),
             outputs_created=_strings(record, "outputs_created"),
             planned_external_writes=_strings(record, "planned_external_writes"),
+            queued_external_writes=_strings(record, "queued_external_writes"),
             external_writes=_strings(record, "external_writes"),
             not_done=_strings(record, "not_done"),
             undo_refs=_strings(record, "undo_refs"),

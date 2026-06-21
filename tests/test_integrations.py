@@ -393,6 +393,205 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("cannot transition from rejected", result.stderr)
 
+    def test_approved_plan_can_be_enqueued_without_provider_call(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-ENQUEUE",
+                "--json",
+            )
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "approve",
+                "PLAN-ENQUEUE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reason",
+                "queue for test",
+                "--json",
+            )
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "enqueue",
+                    "PLAN-ENQUEUE",
+                    "--by",
+                    "HUMAN-FOUNDER",
+                    "--json",
+                ).stdout
+            )
+            workspace = Workspace.load(workspace_path)
+            queue = {item.id: item for item in queue_items(workspace)}
+            work_detail = detail(workspace, "WORK-0001")
+            history = read_history(workspace_path)
+
+        outbox = payload["integration_outbox_item"]
+        self.assertEqual(payload["status"], "queued")
+        self.assertFalse(payload["would_call_provider"])
+        self.assertEqual(outbox["plan_id"], "PLAN-ENQUEUE")
+        self.assertEqual(outbox["enqueued_by"], "HUMAN-FOUNDER")
+        self.assertEqual(len(workspace.integration_outbox), 1)
+        self.assertEqual(queue["WORK-0001"].attention, "ready-to-integrate")
+        self.assertEqual(queue["WORK-0001"].integration_state, "outbox-queued")
+        self.assertEqual(work_detail["integration_outbox"][0]["plan_id"], "PLAN-ENQUEUE")
+        self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
+        self.assertEqual(history["events"][-1]["action"], "queued")
+
+    def test_pending_rejected_and_canceled_plans_cannot_be_enqueued(self) -> None:
+        cases = (
+            ("pending-approval", ()),
+            ("rejected", ("reject",)),
+            ("canceled", ("cancel",)),
+        )
+        for expected_status, decision in cases:
+            with self.subTest(status=expected_status), self.temp_workspace() as workspace_path:
+                plan_id = f"PLAN-{expected_status.upper()}"
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "plan",
+                    "INT-SLACK-OPS",
+                    "--work",
+                    "WORK-0001",
+                    "--event",
+                    "approval_requested",
+                    "--action",
+                    "notify",
+                    "--record",
+                    "--id",
+                    plan_id,
+                    "--json",
+                )
+                if decision:
+                    self.run_cli_in_workspace(
+                        workspace_path,
+                        "integration",
+                        decision[0],
+                        plan_id,
+                        "--by",
+                        "HUMAN-FOUNDER",
+                        "--reason",
+                        "not going out",
+                        "--json",
+                    )
+                result = self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "enqueue",
+                    plan_id,
+                    "--by",
+                    "HUMAN-FOUNDER",
+                    "--json",
+                    check=False,
+                )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"status is {expected_status}", result.stderr)
+
+    def test_duplicate_enqueue_fails_closed(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-DUPLICATE-ENQUEUE",
+                "--json",
+            )
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "approve",
+                "PLAN-DUPLICATE-ENQUEUE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+            )
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "enqueue",
+                "PLAN-DUPLICATE-ENQUEUE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+            )
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "enqueue",
+                "PLAN-DUPLICATE-ENQUEUE",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already enqueued", result.stderr)
+
+    def test_unqualified_human_cannot_enqueue(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "plan",
+                "INT-SLACK-OPS",
+                "--work",
+                "WORK-0001",
+                "--event",
+                "approval_requested",
+                "--action",
+                "notify",
+                "--record",
+                "--id",
+                "PLAN-ENQUEUE-UNQUALIFIED",
+                "--json",
+            )
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "approve",
+                "PLAN-ENQUEUE-UNQUALIFIED",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+            )
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "enqueue",
+                "PLAN-ENQUEUE-UNQUALIFIED",
+                "--by",
+                "HUMAN-OPS",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lacks authority", result.stderr)
+
     def test_plain_plan_preview_does_not_write_history(self) -> None:
         with self.temp_workspace() as workspace_path:
             payload = json.loads(
@@ -582,6 +781,143 @@ class IntegrationRegistryTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(WorkspaceError, "requires approved integration plan"):
                     self.modified_workspace(non_approved_plan)
+
+    def test_receipt_queued_external_write_references_outbox_without_actual_write(self) -> None:
+        def add_outbox_to_receipt(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-QUEUED-RECEIPT",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0007",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "approved",
+                    "payload_preview": {"operation": "post_message", "webhook_ref": "env:PALARI_SLACK_WEBHOOK_URL"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                    "reviewed_by": "HUMAN-FOUNDER",
+                    "reviewed_at": "2026-06-21T00:00:00Z",
+                }
+            ]
+            data["integration_outbox"] = [
+                {
+                    "id": "OUTBOX-RECEIPT",
+                    "plan_id": "PLAN-QUEUED-RECEIPT",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0007",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "enqueued_by": "HUMAN-FOUNDER",
+                    "status": "queued",
+                    "payload_preview": {
+                        "operation": "post_message",
+                        "webhook_ref": "env:PALARI_SLACK_WEBHOOK_URL",
+                    },
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "timestamp": "2026-06-21T00:00:01Z",
+                }
+            ]
+            data["receipts"][0]["queued_external_writes"] = ["OUTBOX-RECEIPT"]
+
+        workspace = self.modified_workspace(add_outbox_to_receipt)
+
+        self.assertEqual(workspace.receipts[0].queued_external_writes, ["OUTBOX-RECEIPT"])
+        self.assertEqual(workspace.receipts[0].external_writes, [])
+
+    def test_receipt_queued_external_write_must_match_work_and_status(self) -> None:
+        def wrong_work(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-QUEUED-WRONG-WORK",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "approved",
+                    "payload_preview": {"operation": "post_message"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                    "reviewed_by": "HUMAN-FOUNDER",
+                    "reviewed_at": "2026-06-21T00:00:00Z",
+                }
+            ]
+            data["integration_outbox"] = [
+                {
+                    "id": "OUTBOX-WRONG-WORK",
+                    "plan_id": "PLAN-QUEUED-WRONG-WORK",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "enqueued_by": "HUMAN-FOUNDER",
+                    "status": "queued",
+                    "payload_preview": {"operation": "post_message"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                }
+            ]
+            data["receipts"][0]["queued_external_writes"] = ["OUTBOX-WRONG-WORK"]
+
+        def canceled_item(data: dict[str, object]) -> None:
+            wrong_work(data)
+            data["integration_plans"][0]["id"] = "PLAN-QUEUED-CANCELED"
+            data["integration_outbox"][0]["id"] = "OUTBOX-CANCELED"
+            data["integration_outbox"][0]["plan_id"] = "PLAN-QUEUED-CANCELED"
+            data["integration_outbox"][0]["work_item_id"] = "WORK-0007"
+            data["integration_plans"][0]["work_item_id"] = "WORK-0007"
+            data["integration_outbox"][0]["status"] = "canceled"
+            data["receipts"][0]["queued_external_writes"] = ["OUTBOX-CANCELED"]
+
+        with self.assertRaisesRegex(WorkspaceError, "for different work item WORK-0001"):
+            self.modified_workspace(wrong_work)
+        with self.assertRaisesRegex(WorkspaceError, "requires queued outbox item"):
+            self.modified_workspace(canceled_item)
+
+    def test_outbox_payload_cannot_store_raw_secret(self) -> None:
+        def raw_secret_payload(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-RAW-OUTBOX",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "approved",
+                    "payload_preview": {"operation": "post_message"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                    "reviewed_by": "HUMAN-FOUNDER",
+                    "reviewed_at": "2026-06-21T00:00:00Z",
+                }
+            ]
+            data["integration_outbox"] = [
+                {
+                    "id": "OUTBOX-RAW",
+                    "plan_id": "PLAN-RAW-OUTBOX",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "enqueued_by": "HUMAN-FOUNDER",
+                    "status": "queued",
+                    "payload_preview": {
+                        "operation": "post_message",
+                        "webhook_ref": "xoxb-real-token-looking-value",
+                    },
+                    "source_boundary": {},
+                    "risk": "standard",
+                }
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "not a raw secret"):
+            self.modified_workspace(raw_secret_payload)
 
     def test_receipt_planned_external_write_missing_plan_fails_closed(self) -> None:
         def missing_plan(data: dict[str, object]) -> None:

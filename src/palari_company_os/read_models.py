@@ -62,6 +62,9 @@ class _ReadContext:
     latest_receipt_by_work: dict[str, Any]
     integration_plans_by_work: dict[str, list[Any]]
     pending_integration_plans_by_work: dict[str, list[Any]]
+    integration_outbox_by_work: dict[str, list[Any]]
+    queued_integration_outbox_by_work: dict[str, list[Any]]
+    integration_outbox_by_plan: dict[str, Any]
     latest_outcome_by_work: dict[str, Any]
     open_decision_by_work: dict[str, Any]
     active_parallel: list[dict[str, Any]]
@@ -113,6 +116,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     human_decision = context.latest_human_decision_by_work.get(work.id)
     receipt = context.latest_receipt_by_work.get(work.id)
     integration_plans = context.integration_plans_by_work.get(work.id, [])
+    integration_outbox = context.integration_outbox_by_work.get(work.id, [])
     allowed_sources = set(work.allowed_sources)
     sources = [source for source in workspace.sources if source.id in allowed_sources]
     outcome = context.latest_outcome_by_work.get(work.id)
@@ -144,6 +148,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "review": to_plain(review) if review else None,
         "receipt": to_plain(receipt) if receipt else None,
         "integration_plans": to_plain(integration_plans),
+        "integration_outbox": to_plain(integration_outbox),
         "sources": to_plain(sources),
         "human_decision": to_plain(human_decision) if human_decision else None,
         "human_decisions": to_plain(human_decisions),
@@ -212,6 +217,13 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         pending_integration_plans_by_work=_pending_integration_plans_by_work(
             workspace.integration_plans
         ),
+        integration_outbox_by_work=_group_by_work(workspace.integration_outbox),
+        queued_integration_outbox_by_work=_queued_integration_outbox_by_work(
+            workspace.integration_outbox
+        ),
+        integration_outbox_by_plan={
+            item.plan_id: item for item in workspace.integration_outbox
+        },
         latest_outcome_by_work=_latest_by_work(workspace.outcomes),
         open_decision_by_work=_open_decisions_by_work(workspace.decisions),
         active_parallel=active_parallel,
@@ -307,6 +319,26 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Integration plan {plan.id} previews {plan.action} for {plan.event} "
             "and requires approval before any future live action.",
             "Review the dry-run payload and decide whether this external action should ever be enabled.",
+        )
+
+    queued_items = _queued_integration_outbox_for_work(work, context)
+    if queued_items:
+        item = queued_items[0]
+        return (
+            "ready-to-integrate",
+            f"Integration outbox item {item.id} is queued for future execution boundary. "
+            "No provider call is enabled yet.",
+            "Review the queued payload; live execution remains disabled.",
+        )
+
+    approved_plans = _approved_unqueued_integration_plans_for_work(work, context)
+    if approved_plans:
+        plan = approved_plans[0]
+        return (
+            "needs-human-decision",
+            f"Integration plan {plan.id} is approved and ready to enqueue. "
+            "No provider call has been made.",
+            f"Run `palari integration enqueue {plan.id} --by HUMAN-ID` to place it in the outbox.",
         )
 
     attempt = _attempt_for_work(context, work)
@@ -479,6 +511,8 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
         return "closed"
     if _pending_integration_plans_for_work(work, context):
         return "pending-plan"
+    if _queued_integration_outbox_for_work(work, context):
+        return "outbox-queued"
     decided_state = _latest_decided_integration_plan_state_for_work(work, context)
     if decided_state:
         return decided_state
@@ -537,6 +571,19 @@ def _coordination_warning_messages_for_work(work: Any, context: _ReadContext) ->
 
 def _pending_integration_plans_for_work(work: Any, context: _ReadContext) -> list[Any]:
     return context.pending_integration_plans_by_work.get(work.id, [])
+
+
+def _queued_integration_outbox_for_work(work: Any, context: _ReadContext) -> list[Any]:
+    return context.queued_integration_outbox_by_work.get(work.id, [])
+
+
+def _approved_unqueued_integration_plans_for_work(work: Any, context: _ReadContext) -> list[Any]:
+    plans = [
+        plan
+        for plan in context.integration_plans_by_work.get(work.id, [])
+        if plan.status == "approved" and plan.id not in context.integration_outbox_by_plan
+    ]
+    return sorted(plans, key=_record_time_key, reverse=True)
 
 
 def _latest_decided_integration_plan_state_for_work(work: Any, context: _ReadContext) -> str:
@@ -764,6 +811,16 @@ def _pending_integration_plans_by_work(records: Iterable[T]) -> dict[str, list[T
             grouped.setdefault(record.work_item_id, []).append(record)
     for plans in grouped.values():
         plans.sort(key=_record_time_key, reverse=True)
+    return grouped
+
+
+def _queued_integration_outbox_by_work(records: Iterable[T]) -> dict[str, list[T]]:
+    grouped: dict[str, list[T]] = {}
+    for record in records:
+        if getattr(record, "status", "") == "queued":
+            grouped.setdefault(record.work_item_id, []).append(record)
+    for items in grouped.values():
+        items.sort(key=_record_time_key, reverse=True)
     return grouped
 
 
