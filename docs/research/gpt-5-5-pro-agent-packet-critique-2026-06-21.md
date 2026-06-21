@@ -1,4 +1,4 @@
-I updated the repo. Do a comprehensive critique. Remember we want a simple light repo, and not a multi monster app. It should be easy to use, to understand, and run. 
+I updated the repo. Do a comprehensive critique. Remember we want a simple light repo, and not a multi monster app. It should be easy to use, to understand, and run.
 
 Given that framework, and what we have discussed so far, critique the repo. Then suggest improvements.
 Thought for 18m 51s
@@ -1426,7 +1426,7 @@ Agent contract + agent packet + agent next/check/claim/release + dashboard block
 
 That keeps Palari light, but makes it truly useful for Codex, Claude Code, and other AI agents operating inside company boundaries.
 
-So, the major challenge is just to make sure an agent runs a command and knows immediately what to run, what is missing. What it is supposed to do, like it should prepare the full context package such that an agent does not need to be jumping around checking what to do and what to touch but a specific commad that tells what to do. Is like "hi. I'm palari X and I need to do task Y. I will run comma d palari x y such that it will prompt me all the background information I need to start working and it fits comfortably in my context window. " Something like that, this works for reviews, execution. Planning, everything 
+So, the major challenge is just to make sure an agent runs a command and knows immediately what to run, what is missing. What it is supposed to do, like it should prepare the full context package such that an agent does not need to be jumping around checking what to do and what to touch but a specific commad that tells what to do. Is like "hi. I'm palari X and I need to do task Y. I will run comma d palari x y such that it will prompt me all the background information I need to start working and it fits comfortably in my context window. " Something like that, this works for reviews, execution. Planning, everything
 Thought for 3m 29s
 
 Yes. That is exactly the right abstraction.

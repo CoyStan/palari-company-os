@@ -63,6 +63,23 @@ workspace-relative collection files before running the same checks.
 Checks paths and actions against a work item's declared allowed resources and
 forbidden actions.
 
+## Agent Packets
+
+```bash
+./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+```
+
+Compiles one bounded, context-window-safe packet for an AI agent. The packet is
+read-only in v1 and returns either `status: ready` or `status: blocked`.
+`agent start` is currently an alias for `agent brief`; future versions may add
+claim/lease behavior to `start`.
+
+The packet includes the acting Palari, work objective, goal/workbench context,
+allowed paths, allowed sources, forbidden actions, required output, completion
+contract, proof/integration state, stop conditions, blockers, and safe next
+commands. Agents should treat this packet as their working boundary.
+
 ## Playbooks
 
 ```bash

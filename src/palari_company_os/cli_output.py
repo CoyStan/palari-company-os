@@ -70,6 +70,10 @@ def print_result(result: CommandResult) -> None:
         print_integration_outbox_cancel(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-brief":
+        print_agent_brief(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -369,6 +373,30 @@ def print_integration_outbox_cancel(payload: dict[str, Any], as_json: bool) -> N
     print(f"Reason: {item['cancel_reason']}")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
     print(f"Next: {payload['next_action']}")
+
+
+def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent packet: {payload['packet_id']}")
+    print(f"Status: {payload['status']}")
+    print(f"Mode: {payload['mode']}")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    print(f"Instruction: {payload.get('one_sentence_instruction', '')}")
+    blockers = payload.get("blockers", [])
+    if blockers:
+        print("Blockers:")
+        for blocker in blockers:
+            print(f"  - {blocker['code']}: {blocker['message']}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
 
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:

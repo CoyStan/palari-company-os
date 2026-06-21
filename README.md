@@ -43,6 +43,7 @@ Implemented now:
 - goals, humans, Palaris, workbenches, sources, work items, attempts, receipts,
   evidence, reviews, human decisions, outcomes, and history
 - queue/detail/state read models
+- agent packet contract for bounded AI-agent work context
 - fail-closed validation for references, stale evidence, stale reviews,
   authority, quorum, receipts, workbench boundaries, and parallel-work conflicts
 - source and receipt trust loop for low-risk local work
@@ -100,6 +101,12 @@ Use JSON when wiring the CLI into tools or agents:
 ./bin/palari queue --json
 ./bin/palari detail WORK-0007 --json
 ./bin/palari state --json
+```
+
+For agents, start from one bounded packet instead of inferring the workflow:
+
+```bash
+./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ```
 
 Run against another workspace:

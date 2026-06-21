@@ -1,0 +1,503 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+from .read_models import detail
+from .workspace import Workspace
+
+
+SUPPORTED_MODES = {"execute"}
+TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
+EXTERNAL_WRITE_ACTIONS = {"external_write", "write_external", "write"}
+
+
+def build_agent_brief(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+) -> dict[str, Any]:
+    mode = mode or "execute"
+    created_at = _timestamp()
+    work = workspace.work_item(work_id)
+    palari = workspace.palari(palari_id)
+    packet: dict[str, Any] = {
+        "schema_version": "palari.agent_packet.v1",
+        "packet_id": _packet_id(work_id, palari_id, mode),
+        "created_at": created_at,
+        "mode": mode,
+        "workspace": workspace.name,
+        "status": "blocked",
+        "agent": _palari_ref(palari_id, palari),
+        "work_item": _work_ref(work_id, work),
+        "blockers": [],
+        "next_allowed_commands": [],
+        "omitted_context": [_omitted_context(workspace)],
+    }
+
+    blockers = _initial_blockers(mode, work_id, work, palari_id, palari)
+    if work is None or palari is None or mode not in SUPPORTED_MODES:
+        return _finalize_packet(packet, blockers)
+
+    work_detail = detail(workspace, work.id)
+    blockers.extend(_work_blockers(workspace, work_detail, palari_id))
+    status = "blocked" if blockers else "ready"
+
+    packet.update(
+        {
+            "status": status,
+            "agent": _palari_packet(work_detail["palari"], palari_id),
+            "work_item": _work_packet(work_detail["work_item"]),
+            "goal": _goal_packet(work_detail["goal"]),
+            "workbench": _workbench_packet(work_detail["workbench"]),
+            "dependencies": [_dependency_packet(item) for item in work_detail["dependencies"]],
+            "one_sentence_instruction": _instruction(work_detail, status),
+            "allowed_paths": _allowed_paths(work_detail["work_item"]),
+            "allowed_resources": list(work.allowed_resources),
+            "allowed_sources": [_source_packet(item) for item in work_detail["sources"]],
+            "forbidden_actions": _forbidden_actions(work_detail),
+            "required_output": _required_output(work_detail["work_item"]),
+            "completion_contract": _completion_contract(work_detail),
+            "stop_conditions": _stop_conditions(work_detail, status),
+            "state": _state_packet(work_detail),
+            "proof_state": _proof_state(work_detail),
+            "next_allowed_commands": _next_allowed_commands(work.id, palari_id, status),
+            "blockers": blockers,
+        }
+    )
+    return _finalize_packet(packet, blockers)
+
+
+def _initial_blockers(
+    mode: str,
+    work_id: str,
+    work: Any,
+    palari_id: str,
+    palari: Any,
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    if mode not in SUPPORTED_MODES:
+        blockers.append(
+            _blocker(
+                "UNSUPPORTED_MODE",
+                f"Agent packet mode {mode!r} is not supported in v1.",
+                missing="supported mode",
+            )
+        )
+    if palari is None:
+        blockers.append(
+            _blocker(
+                "MISSING_PALARI",
+                f"Palari not found: {palari_id}",
+                missing="declared Palari",
+            )
+        )
+    if work is None:
+        blockers.append(
+            _blocker(
+                "MISSING_WORK_ITEM",
+                f"Work item not found: {work_id}",
+                missing="declared work item",
+            )
+        )
+    return blockers
+
+
+def _work_blockers(
+    workspace: Workspace,
+    work_detail: dict[str, Any],
+    palari_id: str,
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    work = work_detail["work_item"]
+    workbench = work_detail["workbench"]
+    assigned = work.get("palari") == palari_id
+    allowed_by_workbench = bool(workbench and palari_id in workbench.get("palari_ids", []))
+    if not assigned and not allowed_by_workbench:
+        blockers.append(
+            _blocker(
+                "PALARI_NOT_ASSIGNED",
+                f"{palari_id} is not assigned to {work['id']} or allowed by its workbench.",
+                missing="assigned or workbench-allowed Palari",
+            )
+        )
+
+    for dependency in work_detail["dependencies"]:
+        if dependency.get("status") not in TERMINAL_WORK_STATUSES:
+            blockers.append(
+                _blocker(
+                    "DEPENDENCY_NOT_TERMINAL",
+                    f"Dependency {dependency['id']} is {dependency.get('status', 'unknown')}.",
+                    missing="terminal dependency",
+                )
+            )
+
+    source_ids = {source["id"] for source in work_detail["sources"]}
+    for source_id in work.get("allowed_sources", []):
+        if source_id not in source_ids:
+            blockers.append(
+                _blocker(
+                    "SOURCE_MISSING",
+                    f"Allowed source {source_id} is not available in packet sources.",
+                    missing="declared source",
+                )
+            )
+    for source in work_detail["sources"]:
+        allowed_palaris = source.get("allowed_palaris", [])
+        if allowed_palaris and palari_id not in allowed_palaris:
+            blockers.append(
+                _blocker(
+                    "SOURCE_NOT_ALLOWED",
+                    f"Source {source['id']} is not allowed for {palari_id}.",
+                    missing="source permission",
+                )
+            )
+
+    external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
+    has_approved_plan = any(
+        plan.get("status") == "approved" for plan in work_detail["integration_plans"]
+    )
+    has_queued_outbox = any(
+        item.get("status") == "queued" for item in work_detail["integration_outbox"]
+    )
+    if external_actions and not (has_approved_plan or has_queued_outbox):
+        blockers.append(
+            _blocker(
+                "EXTERNAL_WRITE_REQUIRES_APPROVAL",
+                "This work allows an external write, but no approved integration plan or queued outbox item exists.",
+                missing="approved integration plan",
+            )
+        )
+
+    attention = work_detail["attention"]
+    if attention == "needs-human-decision":
+        blockers.append(
+            _blocker(
+                "HUMAN_DECISION_REQUIRED",
+                work_detail["why"],
+                missing="human decision",
+            )
+        )
+    elif attention == "blocked":
+        blockers.append(_blocker("WORK_BLOCKED", work_detail["why"], missing="unblocked work"))
+    elif attention == "closed":
+        blockers.append(_blocker("WORK_CLOSED", work_detail["why"], missing="open work item"))
+    elif attention == "ready-to-integrate":
+        blockers.append(
+            _blocker(
+                "INTEGRATION_BOUNDARY",
+                work_detail["why"],
+                missing="human integration action",
+            )
+        )
+    elif attention == "needs-review":
+        blockers.append(
+            _blocker(
+                "REVIEW_REQUIRED",
+                work_detail["why"],
+                missing="review-mode packet",
+            )
+        )
+    elif attention == "receipt-ready":
+        blockers.append(
+            _blocker(
+                "RECEIPT_READY_REVIEW",
+                work_detail["why"],
+                missing="human output review or follow-up",
+            )
+        )
+
+    return blockers
+
+
+def _finalize_packet(packet: dict[str, Any], blockers: list[dict[str, Any]]) -> dict[str, Any]:
+    packet["blockers"] = blockers
+    packet["status"] = "blocked" if blockers else packet.get("status", "ready")
+    packet["context_hash"] = _context_hash(packet)
+    return packet
+
+
+def _palari_ref(palari_id: str, palari: Any) -> dict[str, Any]:
+    if palari is None:
+        return {"id": palari_id, "found": False}
+    return _palari_packet(
+        {
+            "id": palari.id,
+            "name": palari.name,
+            "role": palari.role,
+            "scope": palari.scope,
+            "default_worker": palari.default_worker,
+            "forbidden_actions": palari.forbidden_actions,
+            "standards": palari.standards,
+        },
+        palari_id,
+    )
+
+
+def _palari_packet(record: dict[str, Any] | None, palari_id: str) -> dict[str, Any]:
+    if record is None:
+        return {"id": palari_id, "found": False}
+    return {
+        "id": record["id"],
+        "name": record.get("name", record["id"]),
+        "role": record.get("role", ""),
+        "scope": record.get("scope", ""),
+        "default_worker": record.get("default_worker", ""),
+        "standards": record.get("standards", []),
+        "forbidden_actions": record.get("forbidden_actions", []),
+        "found": True,
+    }
+
+
+def _work_ref(work_id: str, work: Any) -> dict[str, Any]:
+    if work is None:
+        return {"id": work_id, "found": False}
+    return _work_packet(
+        {
+            "id": work.id,
+            "title": work.title,
+            "risk": work.risk,
+            "status": work.status,
+            "scope": work.scope,
+            "acceptance_target": work.acceptance_target,
+        }
+    )
+
+
+def _work_packet(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": record["id"],
+        "title": record.get("title", ""),
+        "risk": record.get("risk", ""),
+        "status": record.get("status", ""),
+        "intensity": record.get("intensity", ""),
+        "objective": record.get("scope", ""),
+        "acceptance_target": record.get("acceptance_target", ""),
+        "required_approval_count": record.get("required_approval_count", 0),
+        "required_approval_capability": record.get("required_approval_capability", ""),
+        "found": True,
+    }
+
+
+def _goal_packet(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    return {
+        "id": record["id"],
+        "title": record.get("title", ""),
+        "status": record.get("status", ""),
+        "priority": record.get("priority", ""),
+        "owner": record.get("owner", ""),
+        "success_criteria": record.get("success_criteria", []),
+    }
+
+
+def _workbench_packet(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    return {
+        "id": record["id"],
+        "label": record.get("label", ""),
+        "summary": record.get("summary", ""),
+        "status": record.get("status", ""),
+    }
+
+
+def _dependency_packet(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": record["id"],
+        "title": record.get("title", ""),
+        "status": record.get("status", ""),
+        "risk": record.get("risk", ""),
+    }
+
+
+def _source_packet(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": record["id"],
+        "label": record.get("label", ""),
+        "kind": record.get("kind", ""),
+        "provider": record.get("provider", ""),
+        "access_mode": record.get("access_mode", ""),
+        "selected": record.get("selected", False),
+        "owner_human": record.get("owner_human", ""),
+        "allowed_palaris": record.get("allowed_palaris", []),
+        "last_seen_revision": record.get("last_seen_revision", ""),
+        "last_read_at": record.get("last_read_at", ""),
+    }
+
+
+def _instruction(work_detail: dict[str, Any], status: str) -> str:
+    work = work_detail["work_item"]
+    palari = work_detail["palari"] or {"name": work.get("palari", "Palari")}
+    if status == "blocked":
+        return f"Do not execute {work['id']} yet; resolve the packet blockers first."
+    objective = work.get("scope") or work.get("title", "")
+    return (
+        f"{palari.get('name', work.get('palari', 'Palari'))} should work on "
+        f"{work['id']}: {objective}"
+    )
+
+
+def _allowed_paths(work: dict[str, Any]) -> dict[str, list[str]]:
+    return {
+        "read": list(work.get("allowed_resources", [])),
+        "write": list(work.get("output_targets", []) or work.get("allowed_resources", [])),
+    }
+
+
+def _forbidden_actions(work_detail: dict[str, Any]) -> list[str]:
+    work_actions = work_detail["work_item"].get("forbidden_actions", [])
+    palari_actions = (work_detail["palari"] or {}).get("forbidden_actions", [])
+    return sorted(set(work_actions + palari_actions))
+
+
+def _required_output(work: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "output_targets": list(work.get("output_targets", [])),
+        "fallback_write_paths": list(work.get("allowed_resources", [])),
+        "acceptance_target": work.get("acceptance_target", ""),
+        "verification_expectations": list(work.get("verification_expectations", [])),
+        "must_not": list(work.get("forbidden_actions", [])),
+    }
+
+
+def _completion_contract(work_detail: dict[str, Any]) -> dict[str, Any]:
+    work = work_detail["work_item"]
+    external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
+    low_risk_light = (
+        work.get("risk") in {"R1", "R2"}
+        and work.get("required_approval_count", 0) == 0
+        and not external_actions
+    )
+    evidence_state = work_detail["safety"]["evidence_state"]
+    receipt_ready = low_risk_light and work_detail["safety"]["receipt_state"] == "ready"
+    return {
+        "requires_receipt": True,
+        "requires_evidence": False
+        if receipt_ready
+        else evidence_state in {"missing", "stale", "failed"} or not low_risk_light,
+        "requires_review": not low_risk_light,
+        "requires_human_decision": work.get("required_approval_count", 0) > 0,
+        "external_writes_allowed": bool(external_actions),
+        "external_write_actions": external_actions,
+    }
+
+
+def _stop_conditions(work_detail: dict[str, Any], status: str) -> list[str]:
+    conditions = [
+        "Stop if you need to read or write outside allowed_paths.",
+        "Stop if you need a source not listed in allowed_sources.",
+        "Stop if you need an external write without an approved integration plan.",
+        "Stop if a human decision, approval, or clarification is required.",
+        "Stop if the work objective is ambiguous after reading this packet.",
+    ]
+    if status == "blocked":
+        conditions.insert(0, "Stop because this packet is blocked.")
+    if work_detail["work_item"].get("forbidden_actions"):
+        conditions.append("Stop before doing any forbidden action listed in this packet.")
+    return conditions
+
+
+def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "attention": work_detail["attention"],
+        "why": work_detail["why"],
+        "next_action": work_detail["next_action"],
+        "safety": work_detail["safety"],
+        "active_parallel_attempts": work_detail["active_parallel_attempts"],
+        "coordination_warnings": work_detail["coordination_warnings"],
+    }
+
+
+def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "attempt": _record_ref(work_detail["attempt"], ["id", "status", "actor", "branch"]),
+        "receipt": _record_ref(work_detail["receipt"], ["id", "attempt_id", "timestamp"]),
+        "evidence": _record_ref(work_detail["evidence"], ["id", "status", "head_sha", "timestamp"]),
+        "review": _record_ref(work_detail["review"], ["id", "verdict", "reviewed_head", "timestamp"]),
+        "human_decision": _record_ref(
+            work_detail["human_decision"],
+            ["id", "human_id", "decision", "status", "timestamp"],
+        ),
+        "integration": {
+            "state": work_detail["safety"]["integration_state"],
+            "plans": [
+                _record_ref(item, ["id", "integration_id", "event", "action", "status"])
+                for item in work_detail["integration_plans"]
+            ],
+            "outbox": [
+                _record_ref(item, ["id", "plan_id", "event", "action", "status"])
+                for item in work_detail["integration_outbox"]
+            ],
+        },
+    }
+
+
+def _record_ref(record: dict[str, Any] | None, fields: list[str]) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    return {field: record.get(field, "") for field in fields if field in record}
+
+
+def _next_allowed_commands(work_id: str, palari_id: str, status: str) -> list[str]:
+    if status == "blocked":
+        return [
+            f"palari detail {work_id} --json",
+            "palari queue --json",
+            "palari validate --json",
+        ]
+    return [
+        f"palari scope {work_id} --json",
+        f"palari detail {work_id} --json",
+        "palari validate --json",
+        (
+            "palari receipt record RECEIPT-ID "
+            f"--work-item-id {work_id} --attempt-id ATTEMPT-ID --actor {palari_id} --json"
+        ),
+    ]
+
+
+def _blocker(code: str, message: str, *, missing: str = "") -> dict[str, Any]:
+    return {
+        "code": code,
+        "message": message,
+        "missing": missing,
+        "human_visible": True,
+    }
+
+
+def _omitted_context(workspace: Workspace) -> dict[str, Any]:
+    return {
+        "kind": "workspace_records",
+        "reason": "Agent packet v1 includes only records directly related to the selected work item.",
+        "counts": {
+            "goals": len(workspace.goals),
+            "work_items": len(workspace.work_items),
+            "palaris": len(workspace.palaris),
+            "sources": len(workspace.sources),
+            "history_events": "not included",
+        },
+    }
+
+
+def _packet_id(work_id: str, palari_id: str, mode: str) -> str:
+    return f"PACKET-{_safe_id(work_id)}-{_safe_id(palari_id)}-{_safe_id(mode).upper()}-V1"
+
+
+def _safe_id(value: str) -> str:
+    cleaned = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in value)
+    return cleaned.strip("-") or "UNKNOWN"
+
+
+def _context_hash(packet: dict[str, Any]) -> str:
+    stable = {key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}}
+    encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")

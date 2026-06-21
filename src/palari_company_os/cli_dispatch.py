@@ -89,6 +89,17 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         workspace = Workspace.load(args.workspace)
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
+    if args.command == "agent":
+        from .agent_packets import build_agent_brief
+
+        workspace = Workspace.load(args.workspace)
+        if args.agent_command in {"brief", "start"}:
+            return CommandResult(
+                "agent-brief",
+                build_agent_brief(workspace, args.work_id, args.palari_id, args.mode),
+                args.json,
+            )
+
     if args.command == "integration":
         from .integrations import (
             cancel_integration_outbox_item,

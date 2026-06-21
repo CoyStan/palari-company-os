@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     integrations_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     _add_integration_parser(subparsers)
+    _add_agent_parser(subparsers)
 
     migrate_parser = subparsers.add_parser(
         "migrate", help="Migrate a workspace to the current schema."
@@ -121,6 +122,20 @@ def build_parser() -> argparse.ArgumentParser:
     _add_playbooks_parser(subparsers)
 
     return parser
+
+
+def _add_agent_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("agent", help="Compile bounded packets for AI agents.")
+    nested = parser.add_subparsers(dest="agent_command", required=True)
+    for command in ("brief", "start"):
+        packet = nested.add_parser(
+            command,
+            help="Compile a read-only agent packet for one work item.",
+        )
+        packet.add_argument("work_id")
+        packet.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+        packet.add_argument("--mode", default="execute", help="Packet mode.")
+        packet.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_integration_parser(subparsers: Any) -> None:
