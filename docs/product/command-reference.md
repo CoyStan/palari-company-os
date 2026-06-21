@@ -47,6 +47,8 @@ items. This is the first fast read model for the whole workspace.
 Validates the workspace source of truth. It fails closed when schema version,
 record shape, unknown fields, lifecycle values, references, evidence freshness,
 review freshness, human approval capability, or completion quorum are invalid.
+If `workspace.json` declares `collection_files`, validate reads and merges those
+workspace-relative collection files before running the same checks.
 
 ## Scope
 
@@ -171,6 +173,10 @@ collections exist. Without `--write`, it previews changes.
 ## Authoring Commands
 
 All authoring commands validate the full workspace before writing.
+For now, authoring and lifecycle write commands support single-file workspaces
+only. If a workspace declares non-empty `collection_files`, write commands fail
+closed instead of rewriting `workspace.json` and risking data loss in split
+collection files.
 
 ```bash
 ./bin/palari goal create GOAL-X --title "Improve onboarding"

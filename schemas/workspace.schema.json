@@ -23,6 +23,7 @@
   "properties": {
     "schema_version": { "type": "integer", "const": 1 },
     "name": { "type": "string", "minLength": 1 },
+    "collection_files": { "$ref": "#/$defs/collection_files" },
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
@@ -44,6 +45,25 @@
     "string_list": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "collection_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "goals": { "$ref": "#/$defs/string_list" },
+        "humans": { "$ref": "#/$defs/string_list" },
+        "palaris": { "$ref": "#/$defs/string_list" },
+        "sources": { "$ref": "#/$defs/string_list" },
+        "playbook_sources": { "$ref": "#/$defs/string_list" },
+        "work_items": { "$ref": "#/$defs/string_list" },
+        "attempts": { "$ref": "#/$defs/string_list" },
+        "evidence_runs": { "$ref": "#/$defs/string_list" },
+        "review_verdicts": { "$ref": "#/$defs/string_list" },
+        "human_decisions": { "$ref": "#/$defs/string_list" },
+        "receipts": { "$ref": "#/$defs/string_list" },
+        "decisions": { "$ref": "#/$defs/string_list" },
+        "outcomes": { "$ref": "#/$defs/string_list" }
+      }
     },
     "finding": {
       "type": "object",

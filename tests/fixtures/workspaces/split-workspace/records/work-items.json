@@ -1,0 +1,23 @@
+[
+  {
+    "id": "WORK-SPLIT",
+    "title": "Split records into collection files",
+    "goal": "GOAL-SPLIT",
+    "palari": "PALARI-SPLIT",
+    "risk": "R3",
+    "intensity": "standard",
+    "status": "proposed",
+    "scope": "Load work item records from a workspace-relative collection file.",
+    "allowed_resources": [
+      "src/palari_company_os/workspace.py",
+      "src/palari_company_os/store.py",
+      "tests"
+    ],
+    "forbidden_actions": [
+      "silent migration",
+      "non-stdlib dependencies"
+    ],
+    "required_approval_count": 1,
+    "required_approval_capability": "architecture"
+  }
+]

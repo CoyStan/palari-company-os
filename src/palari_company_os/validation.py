@@ -24,8 +24,15 @@ COLLECTION_KEYS = (
 )
 
 OPTIONAL_COLLECTION_KEYS = ("playbook_sources",)
+COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
-ROOT_FIELDS = {"schema_version", "name", *COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS}
+ROOT_FIELDS = {
+    "schema_version",
+    "name",
+    "collection_files",
+    *COLLECTION_KEYS,
+    *OPTIONAL_COLLECTION_KEYS,
+}
 
 ALLOWED_RECORD_FIELDS = {
     "goals": {
@@ -260,6 +267,20 @@ def validate_raw_contract(raw: dict[str, object]) -> None:
     for key in OPTIONAL_COLLECTION_KEYS:
         if key in raw:
             _validate_collection(raw, key)
+    if "collection_files" in raw:
+        _validate_collection_files(raw["collection_files"])
+
+
+def _validate_collection_files(value: object) -> None:
+    if not isinstance(value, dict):
+        raise WorkspaceError("workspace.collection_files must be an object")
+    unknown = sorted(set(value) - set(COLLECTION_FILE_KEYS))
+    if unknown:
+        fields = ", ".join(unknown)
+        raise WorkspaceError(f"workspace.collection_files has unknown collection(s): {fields}")
+    for key, paths in value.items():
+        if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+            raise WorkspaceError(f"workspace.collection_files.{key} must be a list of paths")
 
 
 def _validate_collection(raw: dict[str, object], key: str) -> None:

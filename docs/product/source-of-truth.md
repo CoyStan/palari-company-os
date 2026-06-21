@@ -5,17 +5,24 @@ views are derived from those artifacts.
 
 ## Current First Slice
 
-The first implementation uses a workspace JSON file:
+The first implementation uses a workspace manifest:
 
 ```text
 workspace.json
 ```
 
-That file is the source of truth for each local workspace. The ACME demo lives
-at `examples/acme-company-os/workspace.json`; the repository dogfood workspace
-lives at `workspaces/palari-company-os/workspace.json`. The queue and detail
-views are read models derived from workspace data. `state`, `validate`, and
-`scope` are also derived views/checks; they do not mutate authority state.
+That file is the source of truth for each local workspace. The ACME demo lives at
+`examples/acme-company-os/workspace.json`; the repository dogfood workspace lives
+at `workspaces/palari-company-os/workspace.json`.
+
+For larger workspaces, `workspace.json` may also declare `collection_files`.
+Those files are read, merged in memory, and validated as one workspace. They are
+not a second authority layer; they are just maintainable storage for records that
+would otherwise make one JSON file too large.
+
+The queue and detail views are read models derived from workspace data. `state`,
+`validate`, and `scope` are also derived views/checks; they do not mutate
+authority state.
 
 Mutating commands also append audit events to:
 
@@ -29,8 +36,8 @@ projection is intentionally future work.
 
 ## Design Direction
 
-Future workspaces may split records into multiple Markdown, YAML, or JSON
-files. The rule should stay the same:
+Future workspaces may add richer authoring for split records or support other
+inspectable source formats. The rule should stay the same:
 
 - source files are inspectable
 - generated views are derived
@@ -38,6 +45,9 @@ files. The rule should stay the same:
 - review and human decision are separate records
 - successful mutations leave an append-only audit event
 - queue/detail commands do not secretly mutate authority state
+
+Current authoring commands intentionally refuse split workspaces so they do not
+silently collapse or corrupt external collection files.
 
 ## What Must Not Become Implicit
 

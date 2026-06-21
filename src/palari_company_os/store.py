@@ -41,6 +41,11 @@ def validate_data(data_path: Path, data: dict[str, Any]) -> Workspace:
 
 
 def write_store(store: WorkspaceStore) -> Workspace:
+    if has_collection_files(store.data):
+        raise WorkspaceError(
+            "authoring writes are not supported for split workspaces yet; "
+            "edit collection files directly or use a single-file workspace"
+        )
     workspace = validate_data(store.data_path, store.data)
     text = json.dumps(store.data, indent=2, sort_keys=False) + "\n"
     store.data_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +59,11 @@ def write_store(store: WorkspaceStore) -> Workspace:
         temp_name = handle.name
     os.replace(temp_name, store.data_path)
     return workspace
+
+
+def has_collection_files(data: dict[str, Any]) -> bool:
+    value = data.get("collection_files")
+    return isinstance(value, dict) and any(value.values())
 
 
 def migrate_data(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:

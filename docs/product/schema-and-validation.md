@@ -19,6 +19,34 @@ Every current workspace must include:
 }
 ```
 
+Large workspaces may keep records in additional collection files while
+preserving `workspace.json` as the manifest:
+
+```json
+{
+  "schema_version": 1,
+  "name": "Example",
+  "collection_files": {
+    "work_items": ["records/work-items.json"]
+  },
+  "work_items": []
+}
+```
+
+Collection files are read at load time, merged in memory with the matching root
+collection, and then validated through the same strict checks as single-file
+workspaces. The root `workspace.json` must still declare all required
+collections; split files add records to those collections.
+
+Collection file paths must be workspace-relative. Absolute paths and paths that
+contain `..` fail closed. Each collection file contains a JSON array of records
+for the collection named in the manifest.
+
+Read-only commands such as `validate`, `queue`, `detail`, `state`, and
+`dashboard` can read split workspaces. Authoring and lifecycle write commands
+currently refuse split workspaces with a clear error instead of silently
+collapsing or corrupting collection files.
+
 The CLI validation path uses the Python models and strict workspace checks:
 
 ```bash
@@ -30,6 +58,8 @@ Validation checks:
 
 - supported `schema_version`
 - required root fields and required collections
+- optional `collection_files` manifest shape
+- split collection file path safety and JSON array shape
 - unknown root or record fields
 - required record ids
 - basic field types

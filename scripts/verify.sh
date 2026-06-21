@@ -14,12 +14,14 @@ python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-j
 
 ./bin/palari validate --json >/tmp/palari-company-validate.json
 ./bin/palari --workspace workspaces/palari-company-os validate --json >/tmp/palari-company-dogfood-validate.json
+./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate --json >/tmp/palari-company-split-validate.json
 ./bin/palari state --json >/tmp/palari-company-state.json
 ./bin/palari --workspace workspaces/palari-company-os state --json >/tmp/palari-company-dogfood-state.json
 ./bin/palari queue --json >/tmp/palari-company-queue.json
 ./bin/palari --workspace workspaces/palari-company-os queue --json >/tmp/palari-company-dogfood-queue.json
 ./bin/palari detail WORK-0001 --json >/tmp/palari-company-detail-work-0001.json
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001 --json >/tmp/palari-company-dogfood-detail-work-repo-0001.json
+./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >/tmp/palari-company-split-detail-work-split.json
 ./bin/palari playbooks sources --json >/tmp/palari-company-playbook-sources.json
 ./bin/palari playbooks recommend WORK-0003 --json >/tmp/palari-company-playbook-recommend.json
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >/tmp/palari-company-scope-allowed.json

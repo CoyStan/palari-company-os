@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "name": "Split Workspace Fixture",
+  "collection_files": {
+    "work_items": [
+      "records/work-items.json"
+    ]
+  },
+  "goals": [
+    {
+      "id": "GOAL-SPLIT",
+      "title": "Keep large workspaces maintainable",
+      "status": "active",
+      "linked_work": [
+        "WORK-SPLIT"
+      ]
+    }
+  ],
+  "humans": [
+    {
+      "id": "HUMAN-SPLIT",
+      "name": "Split Human",
+      "approval_capabilities": [
+        "architecture"
+      ]
+    }
+  ],
+  "palaris": [
+    {
+      "id": "PALARI-SPLIT",
+      "name": "Steward",
+      "role": "Repository steward",
+      "owner_human": "HUMAN-SPLIT",
+      "linked_goals": [
+        "GOAL-SPLIT"
+      ],
+      "active_work": [
+        "WORK-SPLIT"
+      ]
+    }
+  ],
+  "sources": [],
+  "work_items": [],
+  "attempts": [],
+  "evidence_runs": [],
+  "review_verdicts": [],
+  "human_decisions": [],
+  "receipts": [],
+  "decisions": [],
+  "outcomes": []
+}

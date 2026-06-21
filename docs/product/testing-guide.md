@@ -38,6 +38,8 @@ python3 -m json.tool workspaces/palari-company-os/workspace.json
 python3 -m json.tool schemas/workspace.schema.json
 ./bin/palari --workspace workspaces/palari-company-os validate
 ./bin/palari --workspace workspaces/palari-company-os queue
+./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate
+./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT
 ```
 
 The test suite covers:
@@ -61,5 +63,7 @@ The test suite covers:
 - authoring commands
 - lifecycle commands
 - migration from legacy unversioned workspaces
+- read-only split workspace collection files
+- write refusal for split workspaces
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks
