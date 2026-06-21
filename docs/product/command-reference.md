@@ -128,38 +128,14 @@ The first dashboard has five sections:
 ```bash
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-npx
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --allow-kilo-execute
-./scripts/run_desktop_kilo_app.sh
 ```
 
 `desktop-prototype` generates static read-only HTML, CSS, and JavaScript from
 `examples/desktop-demo/workspace.json`.
 
-`desktop-serve` generates the same files and serves them with local API
-endpoints:
-
-- `GET /api/kilo/status`
-- `POST /api/kilo/run`
-
-The browser can preview a bounded Kilo prompt for the selected desktop work
-item. Real Kilo execution remains disabled unless the server is started with
-`--allow-kilo-execute`. The server does not add `--auto`, bypass Kilo
-permissions, connect Google Drive, or mutate the workspace model.
-
-The Kilo endpoints are preserved as an archived optional runner spike. They are
-not the current primary product path.
-
-`scripts/run_desktop_kilo_app.sh` is the convenience wrapper for this app path.
-It starts `desktop-serve` from the repo root. Useful environment flags:
-
-- `PALARI_DESKTOP_OUT=/tmp/path`
-- `PALARI_DESKTOP_PORT=0`
-- `PALARI_KILO_ALLOW_NPX=1`
-- `PALARI_KILO_ALLOW_EXECUTE=1`
-- `PALARI_KILO_MODEL=provider/model`
-- `PALARI_KILO_AGENT=name`
-- `PALARI_KILO_TIMEOUT=120`
+`desktop-serve` generates the same files and serves them locally for design
+review. It does not expose external runner endpoints, connect Google Drive, or
+mutate the workspace model.
 
 ## Migration
 
@@ -249,36 +225,6 @@ Focused tests are known only if an optional local verification log exists at:
 
 This file is intentionally ignored by git.
 
-## Kilo Code
-
-Status: archived optional runner spike. Keep these commands for deliberate
-runner experiments, but do not treat Kilo as the default Palari Company OS
-execution path.
-
-```bash
-./bin/palari kilo status
-./bin/palari kilo status --allow-npx --json
-./bin/palari kilo run WORK-0001 --message "Start this bounded work"
-./bin/palari kilo run WORK-0001 --message "Start this bounded work" --execute
-```
-
-Builds a Kilo Code prompt from one Palari work item and the current workspace
-boundary. The prompt includes the work item, goal, Palari, allowed resources,
-selected sources, allowed actions, output targets, forbidden actions, queue
-attention, next action, and human approval state.
-
-Preview mode is the default. `--execute` is required before the command calls
-`kilo run`. Palari does not add `--auto` or bypass Kilo permissions. Kilo
-credentials, models, sessions, and provider setup stay in the user's Kilo
-environment.
-
-Kilo resolution order:
-
-1. `PALARI_KILO_BIN`
-2. `kilo` on `PATH`
-3. `kilocode` on `PATH`
-4. `npx --yes @kilocode/cli` only when `--allow-npx` is passed
-
 ## Verification
 
 ```bash
@@ -286,8 +232,8 @@ Kilo resolution order:
 ```
 
 Runs unit tests, Python compilation, JSON validity checks, and CLI smoke checks
-for queue, detail, state, validate, scope, maintainer status, and the Kilo
-preview bridge.
+for queue, detail, state, validate, scope, maintainer status, playbooks,
+dashboard generation, and the desktop prototype generator.
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs the same command
 on pushes to `main` and on pull requests.

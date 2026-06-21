@@ -102,38 +102,13 @@ The current implementation provides a local workspace CLI:
 - `history`: recent append-only audit events for mutating commands.
 - `dashboard`: static read-only visual supervision over queue, work, trust,
   history, and authority.
-- `desktop-prototype` and `desktop-serve`: a future desktop shell prototype,
-  with `desktop-serve` exposing local Kilo preview/run endpoints.
+- `desktop-prototype` and `desktop-serve`: a static future desktop shell
+  prototype and local preview server.
 - authoring commands for goals, Palaris, humans, decisions, work, attempts,
   sources, receipts, evidence, reviews, human decisions, and outcomes.
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome.
 - `maintainer status`: lightweight external-maintainer repo status.
-- `kilo`: archived optional Kilo Code runner spike. It can still preview or
-  execute a bounded Palari work prompt, but Kilo is not the current primary
-  product path.
-
-## Optional Kilo Runner Spike
-
-The repo keeps a small Kilo Code bridge as an archived experiment. It is useful
-for studying how Palari work boundaries might travel into an external agent
-runner, but Palari Company OS does not currently depend on Kilo.
-
-The primary operating path is still repo-native: define the goal, scope,
-sources, receipts, and review expectations in Palari Company OS, then let a
-human or agent work in the repository with that boundary.
-
-Use Kilo only when deliberately testing runner integration:
-
-```bash
-./bin/palari kilo status
-./bin/palari kilo run WORK-0001 --message "Start this bounded work"
-./scripts/kilo_real_smoke.sh
-```
-
-Real Kilo execution depends on the user's Kilo/provider account and model
-availability. Revisit Kilo as an active product path only if it proves a
-repeatable workflow that is better than direct repo-agent work.
 
 ## Development
 
@@ -165,7 +140,6 @@ checks the installed `palari` command.
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [External Playbooks](docs/product/playbooks.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
-- [Kilo Code Optional Runner Spike](docs/product/kilo-code-integration.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Command Reference](docs/product/command-reference.md)
 - [Lifecycle Guide](docs/product/lifecycle-guide.md)
@@ -175,6 +149,3 @@ checks the installed `palari` command.
 - [Contributing](docs/product/contributing.md)
 - [Roadmap](docs/product/roadmap.md)
 - [Release And Operations](docs/product/release-and-operations.md)
-- [Repo Completeness Definition](docs/product/repo-completeness-definition.md)
-- [Repo Completeness Checklist](docs/product/repo-completeness-checklist.md)
-- [Milestone Completion Report](docs/product/milestone-completion-report.md)
