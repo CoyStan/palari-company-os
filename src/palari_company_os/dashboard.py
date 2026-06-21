@@ -379,6 +379,7 @@ def _receipt_card(workspace: Workspace, receipt: Any) -> str:
     title = work.title if work else receipt.work_item_id
     not_done = receipt.not_done or ["none"]
     undo_refs = receipt.undo_refs or ["none"]
+    planned_writes = receipt.planned_external_writes or ["none"]
     return f"""
 <details class="ledger-row receipt-card">
   <summary>
@@ -405,6 +406,10 @@ def _receipt_card(workspace: Workspace, receipt: Any) -> str:
     </div>
     <div class="receipt-trio receipt-trio-2">
       <div class="trio-cell trio-writes">
+        <h4>Planned external writes</h4>
+        {_mini_list(planned_writes, "planned")}
+      </div>
+      <div class="trio-cell trio-writes">
         <h4>External writes</h4>
         {_mini_list(receipt.external_writes or ["none"], "writes")}
       </div>
@@ -412,6 +417,8 @@ def _receipt_card(workspace: Workspace, receipt: Any) -> str:
         <h4>Not done</h4>
         {_mini_list(not_done, "none")}
       </div>
+    </div>
+    <div class="receipt-trio receipt-trio-2">
       <div class="trio-cell trio-undo">
         <h4>Undo refs</h4>
         {_mini_list(undo_refs, "none")}

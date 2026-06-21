@@ -77,6 +77,11 @@ Validation checks:
 - work item recommended playbooks reference declared playbook sources and
   included playbooks
 - source owner human and allowed Palari references
+- integration owner human and source references
+- integration plans reference enabled integrations and existing work items
+- integration plans use events and actions allowed by the referenced
+  integration
+- integration plans require human approval before any future external action
 - optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
@@ -84,6 +89,8 @@ Validation checks:
 - non-negative approval quorum counts
 - receipts use only sources allowed by the work item
 - receipt actor matches the attempt actor or work Palari
+- planned external writes in a receipt reference integration plans for the same
+  work item
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
@@ -103,10 +110,10 @@ Migration:
 ```
 
 `migrate` adds `schema_version: 1` to old unversioned workspaces and ensures
-required collections exist. Optional collections such as `playbook_sources` and
-`workbenches` may be absent from older v1 workspaces; if present, they are still
-strictly validated. Workspaces with a newer schema version fail closed until
-this code supports them.
+required collections exist. Optional collections such as `playbook_sources`,
+`workbenches`, `integrations`, and `integration_plans` may be absent from older
+v1 workspaces; if present, they are still strictly validated. Workspaces with a
+newer schema version fail closed until this code supports them.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

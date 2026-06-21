@@ -4,7 +4,16 @@ import re
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .models import Attempt, EvidenceRun, HumanDecision, Integration, Receipt, ReviewVerdict, WorkItem
+from .models import (
+    Attempt,
+    EvidenceRun,
+    HumanDecision,
+    Integration,
+    IntegrationPlan,
+    Receipt,
+    ReviewVerdict,
+    WorkItem,
+)
 from .path_policy import path_allowed, validate_workspace_path
 
 
@@ -25,7 +34,12 @@ COLLECTION_KEYS = (
     "outcomes",
 )
 
-OPTIONAL_COLLECTION_KEYS = ("playbook_sources", "workbenches", "integrations")
+OPTIONAL_COLLECTION_KEYS = (
+    "playbook_sources",
+    "workbenches",
+    "integrations",
+    "integration_plans",
+)
 COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
 ROOT_FIELDS = {
@@ -153,6 +167,21 @@ ALLOWED_RECORD_FIELDS = {
         "source_ids",
         "notes",
     },
+    "integration_plans": {
+        "id",
+        "integration_id",
+        "work_item_id",
+        "event",
+        "action",
+        "actor",
+        "status",
+        "payload_preview",
+        "source_boundary",
+        "risk",
+        "approval_required",
+        "timestamp",
+        "notes",
+    },
     "attempts": {
         "id",
         "work_item_id",
@@ -214,6 +243,7 @@ ALLOWED_RECORD_FIELDS = {
         "sources_used",
         "actions_taken",
         "outputs_created",
+        "planned_external_writes",
         "external_writes",
         "not_done",
         "undo_refs",
@@ -292,6 +322,7 @@ OUTCOME_STATUSES = {"captured", "completed", "closed"}
 INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
+INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "canceled"}
 INTEGRATION_EVENTS = {
     "approval_requested",
     "incident_opened",
@@ -348,6 +379,8 @@ def validate_workspace_contract(workspace: Any) -> None:
     work_by_id = {work.id: work for work in workspace.work_items}
     humans_by_id = {human.id: human for human in workspace.humans}
     sources_by_id = {source.id: source for source in workspace.sources}
+    integrations_by_id = {integration.id: integration for integration in workspace.integrations}
+    integration_plans_by_id = {plan.id: plan for plan in workspace.integration_plans}
 
     for goal in workspace.goals:
         _require_allowed_value("goals", goal.id, "status", goal.status, GOAL_STATUSES)
@@ -375,6 +408,9 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for integration in workspace.integrations:
         _validate_integration(integration)
+
+    for plan in workspace.integration_plans:
+        _validate_integration_plan(plan, integrations_by_id, work_by_id)
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
@@ -432,7 +468,13 @@ def validate_workspace_contract(workspace: Any) -> None:
             )
 
     for receipt in workspace.receipts:
-        _validate_receipt(receipt, work_by_id, attempts_by_id, sources_by_id)
+        _validate_receipt(
+            receipt,
+            work_by_id,
+            attempts_by_id,
+            sources_by_id,
+            integration_plans_by_id,
+        )
 
     for outcome in workspace.outcomes:
         _require_allowed_value("outcomes", outcome.id, "status", outcome.status, OUTCOME_STATUSES)
@@ -516,6 +558,66 @@ def _validate_integration(integration: Integration) -> None:
             f"integrations.{integration.id}.secret_ref must be an env:NAME reference, "
             "not a raw token or key"
         )
+
+
+def _validate_integration_plan(
+    plan: IntegrationPlan,
+    integrations_by_id: dict[str, Integration],
+    work_by_id: dict[str, WorkItem],
+) -> None:
+    _require_allowed_value(
+        "integration_plans",
+        plan.id,
+        "status",
+        plan.status,
+        INTEGRATION_PLAN_STATUSES,
+    )
+    integration = integrations_by_id[plan.integration_id]
+    _validate_integration(integration)
+    if not integration.enabled:
+        raise WorkspaceError(
+            f"integration_plans.{plan.id}.integration_id references disabled integration "
+            f"{integration.id}"
+        )
+    if plan.event not in integration.allowed_events:
+        raise WorkspaceError(
+            f"integration_plans.{plan.id}.event {plan.event!r} is not allowed by "
+            f"integration {integration.id}"
+        )
+    if plan.action not in integration.allowed_actions:
+        raise WorkspaceError(
+            f"integration_plans.{plan.id}.action {plan.action!r} is not allowed by "
+            f"integration {integration.id}"
+        )
+    _require_allowed_value(
+        "integration_plans",
+        plan.id,
+        "event",
+        plan.event,
+        INTEGRATION_EVENTS,
+    )
+    _require_allowed_value(
+        "integration_plans",
+        plan.id,
+        "action",
+        plan.action,
+        INTEGRATION_ACTIONS,
+    )
+    _require_allowed_value(
+        "integration_plans",
+        plan.id,
+        "risk",
+        plan.risk,
+        INTEGRATION_RISK_LEVELS,
+    )
+    if not plan.approval_required:
+        raise WorkspaceError(
+            f"integration_plans.{plan.id}.approval_required must be true for external actions"
+        )
+    if not isinstance(plan.payload_preview, dict):
+        raise WorkspaceError(f"integration_plans.{plan.id}.payload_preview must be an object")
+    if not isinstance(plan.source_boundary, dict):
+        raise WorkspaceError(f"integration_plans.{plan.id}.source_boundary must be an object")
 
 
 def _validate_attempt_boundaries(
@@ -680,6 +782,7 @@ def _validate_receipt(
     work_by_id: dict[str, WorkItem],
     attempts_by_id: dict[str, Attempt],
     sources_by_id: dict[str, Any],
+    integration_plans_by_id: dict[str, IntegrationPlan],
 ) -> None:
     work = work_by_id[receipt.work_item_id]
     attempt = attempts_by_id[receipt.attempt_id]
@@ -705,6 +808,13 @@ def _validate_receipt(
                 f"not allowed for Palari {work.palari}"
             )
     _validate_receipt_boundaries(receipt, work)
+    for plan_id in receipt.planned_external_writes:
+        plan = integration_plans_by_id[plan_id]
+        if plan.work_item_id != work.id:
+            raise WorkspaceError(
+                f"receipts.{receipt.id}.planned_external_writes includes plan {plan_id} "
+                f"for different work item {plan.work_item_id}"
+            )
     if receipt.external_writes and not _allows_external_writes(work):
         raise WorkspaceError(
             f"receipts.{receipt.id}.external_writes requires allowed action external_write"

@@ -73,6 +73,7 @@ LIST_FIELDS = {
     "sources_used",
     "actions_taken",
     "outputs_created",
+    "planned_external_writes",
     "external_writes",
     "not_done",
     "undo_refs",

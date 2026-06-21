@@ -136,6 +136,9 @@ def _add_integration_parser(subparsers: Any) -> None:
     plan.add_argument("--work", dest="work_id", required=True, help="Work item id.")
     plan.add_argument("--event", required=True, help="Integration event to preview.")
     plan.add_argument("--action", required=True, help="Integration action to preview.")
+    plan.add_argument("--record", action="store_true", help="Record the dry-run plan.")
+    plan.add_argument("--id", dest="plan_id", default="", help="Optional integration plan id.")
+    plan.add_argument("--actor", default="", help="Actor to attribute when recording.")
     plan.add_argument("--json", action="store_true", help="Emit JSON.")
 
 

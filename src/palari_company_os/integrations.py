@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from .errors import WorkspaceError
+from .history import append_history_event
 from .models import Integration, WorkItem, to_plain
+from .store import load_store, validate_data, write_store
 from .workspace import Workspace
 
 
@@ -61,6 +65,8 @@ def plan_integration(
         "workspace": workspace.name,
         "dry_run": True,
         "would_call_provider": False,
+        "recorded": False,
+        "integration_plan": None,
         "integration": _integration_summary(integration),
         "work_item": {
             "id": work.id,
@@ -78,6 +84,51 @@ def plan_integration(
         },
         "next_action": "Review the dry-run payload before enabling any future live connector.",
     }
+
+
+def record_integration_plan(
+    workspace_path: str,
+    integration_id: str,
+    work_id: str,
+    event: str,
+    action: str,
+    *,
+    actor: str = "",
+    plan_id: str = "",
+) -> dict[str, Any]:
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    preview = plan_integration(workspace, integration_id, work_id, event, action)
+    integration = _integration_or_raise(workspace, integration_id)
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {work_id}")
+
+    record = _plan_record(preview, integration, work, actor=actor, plan_id=plan_id)
+    records = store.data.setdefault("integration_plans", [])
+    if not isinstance(records, list):
+        raise WorkspaceError("integration_plans must be a list of objects")
+    if any(isinstance(item, dict) and item.get("id") == record["id"] for item in records):
+        raise WorkspaceError(f"integration plan already exists: {record['id']}")
+    records.append(record)
+    workspace = write_store(store)
+    history_event = append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command="integration plan",
+        action="planned",
+        object_type="integration-plan",
+        object_collection="integration_plans",
+        object_id=str(record["id"]),
+        actor=str(record["actor"]),
+        before=None,
+        after=record,
+    )
+    refreshed = plan_integration(workspace, integration_id, work_id, event, action)
+    refreshed["recorded"] = True
+    refreshed["integration_plan"] = record
+    refreshed["history_event"] = history_event
+    return refreshed
 
 
 def _integration_summary(integration: Integration) -> dict[str, Any]:
@@ -237,3 +288,38 @@ def _source_boundary(
             if workspace.source(source_id) is not None
         ],
     }
+
+
+def _plan_record(
+    preview: dict[str, Any],
+    integration: Integration,
+    work: WorkItem,
+    *,
+    actor: str,
+    plan_id: str,
+) -> dict[str, Any]:
+    timestamp = _timestamp()
+    return {
+        "id": plan_id or _generated_plan_id(timestamp),
+        "integration_id": integration.id,
+        "work_item_id": work.id,
+        "event": str(preview["event"]),
+        "action": str(preview["action"]),
+        "actor": actor or work.palari,
+        "status": "pending-approval",
+        "payload_preview": preview["payload_preview"],
+        "source_boundary": preview["safety"]["source_boundary"],
+        "risk": integration.risk_level,
+        "approval_required": True,
+        "timestamp": timestamp,
+        "notes": "Dry-run only. No provider call was made and no secret value was read.",
+    }
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _generated_plan_id(timestamp: str) -> str:
+    compact = timestamp.replace("-", "").replace(":", "").replace("Z", "Z")
+    return f"PLAN-{compact}-{uuid.uuid4().hex[:8].upper()}"

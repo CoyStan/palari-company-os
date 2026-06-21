@@ -3,6 +3,8 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
+integration_smoke_dir="$(mktemp -d)"
+trap 'rm -rf "$integration_smoke_dir"' EXIT
 
 bash -n scripts/install_smoke.sh scripts/verify.sh
 python3 -S -m unittest discover -s tests
@@ -27,6 +29,11 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari integrations --json >/tmp/palari-company-integrations.json
 ./bin/palari integration check INT-SLACK-OPS --json >/tmp/palari-company-integration-check.json
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-integration-plan.json
+cp examples/acme-company-os/workspace.json "$integration_smoke_dir/workspace.json"
+./bin/palari --workspace "$integration_smoke_dir" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-SMOKE --json >/tmp/palari-company-integration-plan-recorded.json
+./bin/palari --workspace "$integration_smoke_dir" queue --json >/tmp/palari-company-integration-plan-queue.json
+./bin/palari --workspace "$integration_smoke_dir" detail WORK-0001 --json >/tmp/palari-company-integration-plan-detail.json
+./bin/palari --workspace "$integration_smoke_dir" history --json >/tmp/palari-company-integration-plan-history.json
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >/tmp/palari-company-scope-allowed.json
 ./bin/palari scope WORK-0001 --changed secrets.env --action deploy --json >/tmp/palari-company-scope-blocked.json
 ./bin/palari history --json >/tmp/palari-company-history.json
@@ -48,5 +55,9 @@ grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan.json
+grep -q '"recorded": true' /tmp/palari-company-integration-plan-recorded.json
+grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-queue.json
+grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-detail.json
+grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-history.json
 
 printf 'Palari Company OS verification passed.\n'

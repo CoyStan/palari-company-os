@@ -53,6 +53,15 @@ def _records(record: Record, key: str) -> list[Record]:
     return list(value)
 
 
+def _mapping(record: Record, key: str) -> Record:
+    value = record.get(key, {})
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise TypeError(f"{key} must be an object")
+    return dict(value)
+
+
 def _require_id(record: Record) -> str:
     identifier = _string(record, "id")
     if not identifier:
@@ -409,6 +418,41 @@ class Integration:
 
 
 @dataclass(frozen=True)
+class IntegrationPlan:
+    id: str
+    integration_id: str
+    work_item_id: str
+    event: str
+    action: str
+    actor: str = ""
+    status: str = "pending-approval"
+    payload_preview: Record = field(default_factory=dict)
+    source_boundary: Record = field(default_factory=dict)
+    risk: str = "standard"
+    approval_required: bool = True
+    timestamp: str = ""
+    notes: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "IntegrationPlan":
+        return cls(
+            id=_require_id(record),
+            integration_id=_string(record, "integration_id"),
+            work_item_id=_string(record, "work_item_id"),
+            event=_string(record, "event"),
+            action=_string(record, "action"),
+            actor=_string(record, "actor"),
+            status=_string(record, "status", "pending-approval"),
+            payload_preview=_mapping(record, "payload_preview"),
+            source_boundary=_mapping(record, "source_boundary"),
+            risk=_string(record, "risk", "standard"),
+            approval_required=_boolean(record, "approval_required", True),
+            timestamp=_string(record, "timestamp"),
+            notes=_string(record, "notes"),
+        )
+
+
+@dataclass(frozen=True)
 class EvidenceRun:
     id: str
     work_item_id: str
@@ -506,6 +550,7 @@ class Receipt:
     sources_used: list[str] = field(default_factory=list)
     actions_taken: list[str] = field(default_factory=list)
     outputs_created: list[str] = field(default_factory=list)
+    planned_external_writes: list[str] = field(default_factory=list)
     external_writes: list[str] = field(default_factory=list)
     not_done: list[str] = field(default_factory=list)
     undo_refs: list[str] = field(default_factory=list)
@@ -521,6 +566,7 @@ class Receipt:
             sources_used=_strings(record, "sources_used"),
             actions_taken=_strings(record, "actions_taken"),
             outputs_created=_strings(record, "outputs_created"),
+            planned_external_writes=_strings(record, "planned_external_writes"),
             external_writes=_strings(record, "external_writes"),
             not_done=_strings(record, "not_done"),
             undo_refs=_strings(record, "undo_refs"),

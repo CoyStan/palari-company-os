@@ -119,6 +119,7 @@ def print_validate(payload: dict[str, Any]) -> None:
         f"{counts.get('workbenches', 0)} workbenches, "
         f"{counts.get('playbook_sources', 0)} playbook sources, "
         f"{counts.get('integrations', 0)} integrations, "
+        f"{counts.get('integration_plans', 0)} integration plans, "
         f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
 
@@ -307,6 +308,12 @@ def print_integration_plan(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Event: {payload['event']} | Action: {payload['action']}")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
     print(f"Payload operation: {payload['payload_preview']['operation']}")
+    if payload.get("recorded"):
+        plan = payload.get("integration_plan") or {}
+        print(f"Recorded plan: {plan.get('id', 'unknown')} ({plan.get('status', 'unknown')})")
+        print("External write: planned only; no provider call was made.")
+    else:
+        print("Recorded plan: no (preview only)")
     print(f"Next: {payload['next_action']}")
 
 
@@ -420,6 +427,14 @@ def print_detail(payload: dict[str, Any]) -> None:
         print("Sources")
         for source in payload["sources"]:
             print(f"  {source['id']}: {source['label']} [{source.get('access_mode', '')}]")
+        print("")
+    if payload.get("integration_plans"):
+        print("Integration Plans")
+        for plan in payload["integration_plans"]:
+            print(
+                f"  {plan['id']} [{plan['status']}]: "
+                f"{plan['integration_id']} {plan['event']} -> {plan['action']}"
+            )
         print("")
     _print_section("Receipt", payload.get("receipt"))
     _print_section("Evidence", payload["evidence"])

@@ -18,6 +18,11 @@ wheel_path="$(find "$tmp_dir/wheelhouse" -name 'palari_company_os-*.whl' -print 
 "$tmp_dir/venv/bin/palari" integrations --json >/tmp/palari-company-os-install-smoke-integrations.json
 "$tmp_dir/venv/bin/palari" integration check INT-SLACK-OPS --json >/tmp/palari-company-os-install-smoke-integration-check.json
 "$tmp_dir/venv/bin/palari" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-os-install-smoke-integration-plan.json
+mkdir "$tmp_dir/integration-workspace"
+cp "$repo_dir/examples/acme-company-os/workspace.json" "$tmp_dir/integration-workspace/workspace.json"
+"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-INSTALL-SMOKE --json >/tmp/palari-company-os-install-smoke-integration-plan-recorded.json
+"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" detail WORK-0001 --json >/tmp/palari-company-os-install-smoke-integration-detail.json
+"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" history --json >/tmp/palari-company-os-install-smoke-integration-history.json
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >/tmp/palari-company-os-install-smoke-explicit-validate.json
 "$tmp_dir/venv/bin/palari" desktop-prototype --out "$tmp_dir/desktop" --json >/tmp/palari-company-os-install-smoke-desktop.json
 

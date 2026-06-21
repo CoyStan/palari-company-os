@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.integrations import check_integration, plan_integration
+from palari_company_os.history import read_history
+from palari_company_os.read_models import detail, queue_items
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -192,6 +194,212 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(check["integration"]["provider"], "slack")
         self.assertFalse(plan["would_call_provider"])
 
+    def test_recorded_plan_is_visible_in_queue_detail_and_history(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "plan",
+                    "INT-SLACK-OPS",
+                    "--work",
+                    "WORK-0001",
+                    "--event",
+                    "approval_requested",
+                    "--action",
+                    "notify",
+                    "--record",
+                    "--id",
+                    "PLAN-TEST",
+                    "--actor",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            workspace = Workspace.load(workspace_path)
+            queue = {item.id: item for item in queue_items(workspace)}
+            work_detail = detail(workspace, "WORK-0001")
+            history = read_history(workspace_path)
+
+        self.assertTrue(payload["recorded"])
+        self.assertFalse(payload["would_call_provider"])
+        self.assertEqual(payload["integration_plan"]["id"], "PLAN-TEST")
+        self.assertEqual(workspace.integration_plan("PLAN-TEST").status, "pending-approval")
+        self.assertEqual(queue["WORK-0001"].integration_state, "pending-plan")
+        self.assertIn("Integration plan PLAN-TEST", queue["WORK-0001"].why)
+        self.assertEqual(work_detail["integration_plans"][0]["id"], "PLAN-TEST")
+        self.assertEqual(history["events"][-1]["object_type"], "integration-plan")
+        self.assertEqual(history["events"][-1]["object_id"], "PLAN-TEST")
+
+    def test_plain_plan_preview_does_not_write_history(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "plan",
+                    "INT-SLACK-OPS",
+                    "--work",
+                    "WORK-0001",
+                    "--event",
+                    "approval_requested",
+                    "--action",
+                    "notify",
+                    "--json",
+                ).stdout
+            )
+            workspace = Workspace.load(workspace_path)
+            history = read_history(workspace_path)
+
+        self.assertFalse(payload["recorded"])
+        self.assertEqual(workspace.integration_plans, [])
+        self.assertEqual(history["events"], [])
+
+    def test_plan_record_with_disabled_integration_fails_closed(self) -> None:
+        def disabled_plan(data: dict[str, object]) -> None:
+            data["integrations"][0]["enabled"] = False
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-BAD",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "pending-approval",
+                    "payload_preview": {},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "references disabled integration INT-SLACK-OPS",
+        ):
+            self.modified_workspace(disabled_plan)
+
+    def test_plan_record_must_use_allowed_event_and_action(self) -> None:
+        def bad_event(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-BAD",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "work_completed",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "pending-approval",
+                    "payload_preview": {},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+
+        def bad_action(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-BAD",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "comment",
+                    "actor": "PALARI-SOFIA",
+                    "status": "pending-approval",
+                    "payload_preview": {},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "event 'work_completed' is not allowed"):
+            self.modified_workspace(bad_event)
+        with self.assertRaisesRegex(WorkspaceError, "action 'comment' is not allowed"):
+            self.modified_workspace(bad_action)
+
+    def test_plan_record_requires_human_approval_flag(self) -> None:
+        def no_approval(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-BAD",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "pending-approval",
+                    "payload_preview": {},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": False,
+                }
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "approval_required must be true"):
+            self.modified_workspace(no_approval)
+
+    def test_receipt_planned_external_write_references_plan_without_actual_write(self) -> None:
+        def add_plan_to_receipt(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-RECEIPT",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0007",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "approved",
+                    "payload_preview": {"operation": "post_message"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+            data["receipts"][0]["planned_external_writes"] = ["PLAN-RECEIPT"]
+
+        workspace = self.modified_workspace(add_plan_to_receipt)
+
+        self.assertEqual(
+            workspace.receipts[0].planned_external_writes,
+            ["PLAN-RECEIPT"],
+        )
+        self.assertEqual(workspace.receipts[0].external_writes, [])
+
+    def test_receipt_planned_external_write_for_other_work_item_fails_closed(self) -> None:
+        def wrong_work(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-WRONG-WORK",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "approved",
+                    "payload_preview": {"operation": "post_message"},
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+            data["receipts"][0]["planned_external_writes"] = ["PLAN-WRONG-WORK"]
+
+        with self.assertRaisesRegex(WorkspaceError, "for different work item WORK-0001"):
+            self.modified_workspace(wrong_work)
+
+    def test_receipt_planned_external_write_missing_plan_fails_closed(self) -> None:
+        def missing_plan(data: dict[str, object]) -> None:
+            data["receipts"][0]["planned_external_writes"] = ["PLAN-MISSING"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "planned_external_writes references missing id PLAN-MISSING",
+        ):
+            self.modified_workspace(missing_plan)
+
     def modified_workspace(self, mutate: object) -> Workspace:
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         mutate(source)
@@ -213,6 +421,38 @@ class IntegrationRegistryTests(unittest.TestCase):
             text=True,
             timeout=30,
         )
+
+    def run_cli_in_workspace(
+        self,
+        workspace: Path,
+        *args: str,
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        return subprocess.run(
+            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(workspace), *args],
+            cwd=REPO_ROOT,
+            env=env,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+    def temp_workspace(self) -> object:
+        return _TempWorkspace()
+
+class _TempWorkspace:
+    def __enter__(self) -> Path:
+        self._directory = tempfile.TemporaryDirectory()
+        self.path = Path(self._directory.name)
+        source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        (self.path / "workspace.json").write_text(json.dumps(source), encoding="utf-8")
+        return self.path
+
+    def __exit__(self, *_args: object) -> None:
+        self._directory.cleanup()
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from .models import (
     Human,
     HumanDecision,
     Integration,
+    IntegrationPlan,
     Outcome,
     Palari,
     PlaybookSource,
@@ -48,6 +49,7 @@ class Workspace:
     workbenches: list[Workbench]
     playbook_sources: list[PlaybookSource]
     integrations: list[Integration]
+    integration_plans: list[IntegrationPlan]
     decisions: list[Decision]
     work_items: list[WorkItem]
     attempts: list[Attempt]
@@ -69,6 +71,9 @@ class Workspace:
         default_factory=dict, init=False, repr=False, compare=False
     )
     _integrations_by_id: dict[str, Integration] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _integration_plans_by_id: dict[str, IntegrationPlan] = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
     _work_items_by_id: dict[str, WorkItem] = field(
@@ -136,6 +141,9 @@ class Workspace:
                 PlaybookSource.from_record(item) for item in _items(raw, "playbook_sources")
             ],
             integrations=[Integration.from_record(item) for item in _items(raw, "integrations")],
+            integration_plans=[
+                IntegrationPlan.from_record(item) for item in _items(raw, "integration_plans")
+            ],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
@@ -165,6 +173,11 @@ class Workspace:
             "_integrations_by_id",
             {integration.id: integration for integration in self.integrations},
         )
+        object.__setattr__(
+            self,
+            "_integration_plans_by_id",
+            {plan.id: plan for plan in self.integration_plans},
+        )
         object.__setattr__(self, "_work_items_by_id", {work.id: work for work in self.work_items})
         object.__setattr__(
             self,
@@ -181,6 +194,7 @@ class Workspace:
             ("workbenches", self.workbenches),
             ("playbook_sources", self.playbook_sources),
             ("integrations", self.integrations),
+            ("integration_plans", self.integration_plans),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
@@ -196,6 +210,8 @@ class Workspace:
         palari_ids = {palari.id for palari in self.palaris}
         human_ids = {human.id for human in self.humans}
         source_ids = {source.id for source in self.sources}
+        integration_ids = {integration.id for integration in self.integrations}
+        integration_plan_ids = {plan.id for plan in self.integration_plans}
         workbench_ids = {workbench.id for workbench in self.workbenches}
         playbook_source_ids = {source.id for source in self.playbook_sources}
         work_ids = {work.id for work in self.work_items}
@@ -306,6 +322,28 @@ class Workspace:
             for source in integration.source_ids:
                 _require_ref("integrations", integration.id, "source_ids", source, source_ids)
 
+        for plan in self.integration_plans:
+            _require_ref(
+                "integration_plans",
+                plan.id,
+                "integration_id",
+                plan.integration_id,
+                integration_ids,
+            )
+            _require_ref(
+                "integration_plans",
+                plan.id,
+                "work_item_id",
+                plan.work_item_id,
+                work_ids,
+            )
+            if plan.actor:
+                if plan.actor not in palari_ids and plan.actor not in human_ids:
+                    raise WorkspaceError(
+                        f"integration_plans.{plan.id}.actor references missing human or Palari "
+                        f"id {plan.actor}"
+                    )
+
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
@@ -387,6 +425,14 @@ class Workspace:
             _require_ref("receipts", receipt.id, "attempt_id", receipt.attempt_id, attempt_ids)
             for source in receipt.sources_used:
                 _require_ref("receipts", receipt.id, "sources_used", source, source_ids)
+            for plan in receipt.planned_external_writes:
+                _require_ref(
+                    "receipts",
+                    receipt.id,
+                    "planned_external_writes",
+                    plan,
+                    integration_plan_ids,
+                )
 
         for outcome in self.outcomes:
             _require_ref("outcomes", outcome.id, "work_item_id", outcome.work_item_id, work_ids)
@@ -410,6 +456,9 @@ class Workspace:
 
     def integration(self, integration_id: str) -> Integration | None:
         return self._integrations_by_id.get(integration_id)
+
+    def integration_plan(self, plan_id: str) -> IntegrationPlan | None:
+        return self._integration_plans_by_id.get(plan_id)
 
     def workbench(self, workbench_id: str) -> Workbench | None:
         return self._workbenches_by_id.get(workbench_id)

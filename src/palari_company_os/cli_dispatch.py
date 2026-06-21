@@ -61,6 +61,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "workbenches": len(workspace.workbenches),
                     "playbook_sources": len(workspace.playbook_sources),
                     "integrations": len(workspace.integrations),
+                    "integration_plans": len(workspace.integration_plans),
                     "work_items": len(workspace.work_items),
                     "receipts": len(workspace.receipts),
                 },
@@ -88,7 +89,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
     if args.command == "integration":
-        from .integrations import check_integration, plan_integration
+        from .integrations import check_integration, plan_integration, record_integration_plan
 
         workspace = Workspace.load(args.workspace)
         if args.integration_command == "check":
@@ -98,6 +99,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
         if args.integration_command == "plan":
+            if args.record:
+                return CommandResult(
+                    "integration-plan",
+                    record_integration_plan(
+                        args.workspace,
+                        args.integration_id,
+                        args.work_id,
+                        args.event,
+                        args.action,
+                        actor=args.actor,
+                        plan_id=args.plan_id,
+                    ),
+                    args.json,
+                )
             return CommandResult(
                 "integration-plan",
                 plan_integration(
@@ -303,6 +318,7 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "workbenches": len(workspace.workbenches),
         "playbook_sources": len(workspace.playbook_sources),
         "integrations": len(workspace.integrations),
+        "integration_plans": len(workspace.integration_plans),
         "decisions": len(workspace.decisions),
         "work_items": len(workspace.work_items),
         "attempts": len(workspace.attempts),

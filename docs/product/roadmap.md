@@ -7,8 +7,9 @@ Implemented in the v0.1 local foundation:
 - authoring commands for all core objects
 - lifecycle commands for evidence, review, human decision, completion, and
   outcome
-- integration registry and dry-run payload planner for Slack/GitHub/Jira/email
-  style notifications without live provider calls
+- integration registry, dry-run payload planner, and auditable integration plan
+  records for Slack/GitHub/Jira/email style notifications without live
+  provider calls
 - fail-closed gates for scope, stale evidence, stale review, human authority,
   quorum, integration references, integration allowed events/actions, and raw
   secret values
@@ -28,7 +29,8 @@ Intentionally omitted from v0.1:
 
 Likely next steps:
 
-- connect dry-run integration plans to future live connector custody design
+- design custody and approval mechanics for moving selected integration plans
+  from dry-run records to live connector execution
 - add richer migration tests as schema versions evolve
 - add import/export tooling
 - add API or web read-model layer

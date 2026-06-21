@@ -60,6 +60,8 @@ class _ReadContext:
     latest_human_decision_by_work: dict[str, Any]
     human_decisions_by_work: dict[str, list[Any]]
     latest_receipt_by_work: dict[str, Any]
+    integration_plans_by_work: dict[str, list[Any]]
+    pending_integration_plans_by_work: dict[str, list[Any]]
     latest_outcome_by_work: dict[str, Any]
     open_decision_by_work: dict[str, Any]
     active_parallel: list[dict[str, Any]]
@@ -110,6 +112,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     review = context.latest_review_by_work.get(work.id)
     human_decision = context.latest_human_decision_by_work.get(work.id)
     receipt = context.latest_receipt_by_work.get(work.id)
+    integration_plans = context.integration_plans_by_work.get(work.id, [])
     allowed_sources = set(work.allowed_sources)
     sources = [source for source in workspace.sources if source.id in allowed_sources]
     outcome = context.latest_outcome_by_work.get(work.id)
@@ -140,6 +143,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "evidence": to_plain(evidence) if evidence else None,
         "review": to_plain(review) if review else None,
         "receipt": to_plain(receipt) if receipt else None,
+        "integration_plans": to_plain(integration_plans),
         "sources": to_plain(sources),
         "human_decision": to_plain(human_decision) if human_decision else None,
         "human_decisions": to_plain(human_decisions),
@@ -204,6 +208,10 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         latest_human_decision_by_work=_latest_by_work(workspace.human_decisions),
         human_decisions_by_work=_group_by_work(workspace.human_decisions),
         latest_receipt_by_work=_latest_by_work(workspace.receipts),
+        integration_plans_by_work=_group_by_work(workspace.integration_plans),
+        pending_integration_plans_by_work=_pending_integration_plans_by_work(
+            workspace.integration_plans
+        ),
         latest_outcome_by_work=_latest_by_work(workspace.outcomes),
         open_decision_by_work=_open_decisions_by_work(workspace.decisions),
         active_parallel=active_parallel,
@@ -289,6 +297,16 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             "blocked",
             warnings[0],
             "Coordinate or split the overlapping output target before continuing.",
+        )
+
+    pending_plans = _pending_integration_plans_for_work(work, context)
+    if pending_plans:
+        plan = pending_plans[0]
+        return (
+            "needs-human-decision",
+            f"Integration plan {plan.id} previews {plan.action} for {plan.event} "
+            "and requires approval before any future live action.",
+            "Review the dry-run payload and decide whether this external action should ever be enabled.",
         )
 
     attempt = _attempt_for_work(context, work)
@@ -459,6 +477,8 @@ def _receipt_state(work: Any, context: _ReadContext) -> str:
 def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     if work.status in {"closed", "completed", "done"}:
         return "closed"
+    if _pending_integration_plans_for_work(work, context):
+        return "pending-plan"
     attempt = _attempt_for_work(context, work)
     if attempt and _low_risk_receipt_ready(work, attempt, context):
         return "receipt-ready"
@@ -510,6 +530,10 @@ def _active_attempts_for_work(work: Any, context: _ReadContext) -> list[dict[str
 
 def _coordination_warning_messages_for_work(work: Any, context: _ReadContext) -> list[str]:
     return context.warning_messages_by_work.get(work.id, [])
+
+
+def _pending_integration_plans_for_work(work: Any, context: _ReadContext) -> list[Any]:
+    return context.pending_integration_plans_by_work.get(work.id, [])
 
 
 def _build_active_parallel_work(
@@ -712,6 +736,19 @@ def _group_by_work(records: Iterable[T]) -> dict[str, list[T]]:
     grouped: dict[str, list[T]] = {}
     for record in records:
         grouped.setdefault(getattr(record, "work_item_id"), []).append(record)
+    return grouped
+
+
+def _pending_integration_plans_by_work(records: Iterable[T]) -> dict[str, list[T]]:
+    grouped: dict[str, list[T]] = {}
+    for record in records:
+        if getattr(record, "approval_required", False) and getattr(record, "status", "") in {
+            "planned",
+            "pending-approval",
+        }:
+            grouped.setdefault(record.work_item_id, []).append(record)
+    for plans in grouped.values():
+        plans.sort(key=_record_time_key, reverse=True)
     return grouped
 
 

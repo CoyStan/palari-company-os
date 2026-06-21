@@ -95,6 +95,7 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration check INT-SLACK-OPS --json
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify
 ./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json
+./bin/palari integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-X
 ```
 
 Integrations declare possible external providers and boundaries before Palari
@@ -108,13 +109,20 @@ Raw tokens or keys fail validation. Planning also fails closed when an
 integration is disabled, when a requested event/action is not allowed, or when
 the provider does not support the requested action.
 
+By default, `integration plan` is a preview and does not write workspace state.
+Use `--record` when the dry-run payload should become a reviewable integration
+plan. Recorded plans are stored in `integration_plans`, appended to history,
+shown in `queue` and `detail`, and still do not perform live provider calls.
+
 ## Receipt-Ready Low-Risk Work
 
 For light R1/R2 local work, a completed attempt plus a valid receipt can move
 the queue to `receipt-ready` without requiring full evidence, independent
 review, and human-decision ceremony. That state is deliberately human-facing:
 review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
-that claim external writes still require the stricter governance path.
+that claim actual external writes still require the stricter governance path. A
+receipt may reference `planned_external_writes` by integration plan id without
+claiming that anything was sent or changed externally.
 
 ## History
 
