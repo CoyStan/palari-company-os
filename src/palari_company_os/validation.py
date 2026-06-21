@@ -200,6 +200,9 @@ ALLOWED_RECORD_FIELDS = {
         "source_boundary",
         "risk",
         "timestamp",
+        "canceled_by",
+        "canceled_at",
+        "cancel_reason",
         "notes",
     },
     "attempts": {
@@ -769,6 +772,25 @@ def _validate_integration_outbox_item(
             f"integration_outbox.{item.id}.enqueued_by {human.id} lacks authority "
             "to enqueue this integration plan"
         )
+    if item.status == "canceled":
+        if not item.canceled_by:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.canceled_by is required when status is canceled"
+            )
+        if not item.canceled_at:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.canceled_at is required when status is canceled"
+            )
+        if not item.cancel_reason:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.cancel_reason is required when status is canceled"
+            )
+        canceling_human = humans_by_id[item.canceled_by]
+        if not _human_can_decide_integration_plan(canceling_human, work, integration):
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.canceled_by {canceling_human.id} lacks "
+                "authority to cancel this integration outbox item"
+            )
     if not isinstance(item.payload_preview, dict):
         raise WorkspaceError(f"integration_outbox.{item.id}.payload_preview must be an object")
     if not isinstance(item.source_boundary, dict):

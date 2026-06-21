@@ -23,6 +23,13 @@ cp "$repo_dir/examples/acme-company-os/workspace.json" "$tmp_dir/integration-wor
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-INSTALL-SMOKE --json >/tmp/palari-company-os-install-smoke-integration-plan-recorded.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration approve PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --reason "install smoke" --json >/tmp/palari-company-os-install-smoke-integration-plan-approved.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration enqueue PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --json >/tmp/palari-company-os-install-smoke-integration-plan-enqueued.json
+install_smoke_outbox_id="$("$tmp_dir/venv/bin/python" - <<'PY'
+import json
+with open("/tmp/palari-company-os-install-smoke-integration-plan-enqueued.json", encoding="utf-8") as handle:
+    print(json.load(handle)["integration_outbox_item"]["id"])
+PY
+)"
+"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration outbox-cancel "$install_smoke_outbox_id" --by HUMAN-FOUNDER --reason "install smoke cancel" --json >/tmp/palari-company-os-install-smoke-integration-outbox-canceled.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" detail WORK-0001 --json >/tmp/palari-company-os-install-smoke-integration-detail.json
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" history --json >/tmp/palari-company-os-install-smoke-integration-history.json
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >/tmp/palari-company-os-install-smoke-explicit-validate.json

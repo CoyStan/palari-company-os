@@ -472,6 +472,9 @@ class IntegrationOutboxItem:
     source_boundary: Record = field(default_factory=dict)
     risk: str = "standard"
     timestamp: str = ""
+    canceled_by: str = ""
+    canceled_at: str = ""
+    cancel_reason: str = ""
     notes: str = ""
 
     @classmethod
@@ -489,6 +492,9 @@ class IntegrationOutboxItem:
             source_boundary=_mapping(record, "source_boundary"),
             risk=_string(record, "risk", "standard"),
             timestamp=_string(record, "timestamp"),
+            canceled_by=_string(record, "canceled_by"),
+            canceled_at=_string(record, "canceled_at"),
+            cancel_reason=_string(record, "cancel_reason"),
             notes=_string(record, "notes"),
         )
 

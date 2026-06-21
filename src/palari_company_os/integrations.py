@@ -310,6 +310,93 @@ def enqueue_integration_plan(
     }
 
 
+def cancel_integration_outbox_item(
+    workspace_path: str,
+    outbox_id: str,
+    human_id: str,
+    *,
+    reason: str,
+) -> dict[str, Any]:
+    reason = reason.strip()
+    if not reason:
+        raise WorkspaceError("integration outbox cancellation requires a reason")
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    item = workspace.integration_outbox_item(outbox_id)
+    if item is None:
+        known = ", ".join(sorted(record.id for record in workspace.integration_outbox))
+        raise WorkspaceError(f"integration outbox item not found: {outbox_id}; known items: {known}")
+    if item.status != "queued":
+        raise WorkspaceError(
+            f"integration outbox item {outbox_id} cannot be canceled from {item.status}; "
+            "only queued items can be canceled"
+        )
+    human = workspace.human(human_id)
+    if human is None:
+        known = ", ".join(sorted(record.id for record in workspace.humans))
+        raise WorkspaceError(f"human not found: {human_id}; known humans: {known}")
+    plan = workspace.integration_plan(item.plan_id)
+    if plan is None:
+        raise WorkspaceError(f"integration plan not found: {item.plan_id}")
+    integration = _integration_or_raise(workspace, item.integration_id)
+    work = workspace.work_item(item.work_item_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {item.work_item_id}")
+    _assert_human_can_decide_plan(human, work, integration, plan)
+
+    records = store.data.get("integration_outbox")
+    if not isinstance(records, list):
+        raise WorkspaceError("integration_outbox must be a list of objects")
+    record = next(
+        (entry for entry in records if isinstance(entry, dict) and entry.get("id") == outbox_id),
+        None,
+    )
+    if record is None:
+        raise WorkspaceError(f"integration outbox record not found: {outbox_id}")
+    before = deepcopy(record)
+    now = _timestamp()
+    record.update(
+        {
+            "status": "canceled",
+            "canceled_by": human.id,
+            "canceled_at": now,
+            "cancel_reason": reason,
+        }
+    )
+
+    workspace = write_store(store)
+    after_item = workspace.integration_outbox_item(outbox_id)
+    after = to_plain(after_item) if after_item is not None else deepcopy(record)
+    history_event = append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command="integration outbox-cancel",
+        action="canceled",
+        object_type="integration-outbox",
+        object_collection="integration_outbox",
+        object_id=outbox_id,
+        actor=human.id,
+        before=before,
+        after=after,
+    )
+    return {
+        "workspace": workspace.name,
+        "dry_run": True,
+        "would_call_provider": False,
+        "status": "canceled",
+        "integration_outbox_item": after,
+        "integration_plan": to_plain(plan),
+        "human": {
+            "id": human.id,
+            "name": human.name,
+            "authority_level": human.authority_level,
+            "approval_capabilities": human.approval_capabilities,
+        },
+        "history_event": history_event,
+        "next_action": "Outbox item canceled. No provider call was made.",
+    }
+
+
 def _integration_summary(integration: Integration) -> dict[str, Any]:
     return {
         "id": integration.id,

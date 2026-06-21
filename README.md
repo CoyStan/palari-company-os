@@ -47,7 +47,7 @@ Implemented now:
   authority, quorum, receipts, workbench boundaries, and parallel-work conflicts
 - source and receipt trust loop for low-risk local work
 - workbench graph and parallel work visibility
-- dry-run integration plans, human approval decisions, and integration outbox
+- dry-run integration plans, human approval decisions, and cancelable integration outbox
   records without live provider calls
 - external playbook recommendations as lightweight guidance
 - static dashboard and desktop-shell prototype generators

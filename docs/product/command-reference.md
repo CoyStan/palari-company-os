@@ -100,6 +100,7 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration reject PLAN-X --by HUMAN-FOUNDER --reason "wrong audience"
 ./bin/palari integration cancel PLAN-X --by HUMAN-FOUNDER --reason "no longer needed"
 ./bin/palari integration enqueue PLAN-X --by HUMAN-FOUNDER
+./bin/palari integration outbox-cancel OUTBOX-X --by HUMAN-FOUNDER --reason "no longer needed"
 ```
 
 Integrations declare possible external providers and boundaries before Palari
@@ -127,7 +128,9 @@ Approved plans can be placed into `integration_outbox` with `integration
 enqueue`. The outbox is the explicit future-execution boundary: it preserves the
 approved payload preview, source boundary, risk, and enqueuing human, but still
 does not call providers or read secrets. Pending, rejected, canceled, or already
-enqueued plans fail closed.
+enqueued plans fail closed. Queued outbox items can be canceled by a qualified
+human with `integration outbox-cancel`; cancellation is recorded in history,
+keeps the dry-run boundary intact, and still performs no provider call.
 
 ## Receipt-Ready Low-Risk Work
 
@@ -138,7 +141,9 @@ review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
 that claim actual external writes still require the stricter governance path. A
 receipt may reference `planned_external_writes` only by approved integration
 plan id, or `queued_external_writes` by integration outbox id, without claiming
-that anything was sent or changed externally.
+that anything was sent or changed externally. `queued_external_writes` must
+reference currently queued outbox items; canceled outbox items fail closed so a
+receipt cannot imply a canceled write is still waiting to execute.
 
 ## History
 
@@ -151,6 +156,23 @@ Shows recent append-only audit events from `.palari/history.jsonl` beside the
 workspace file. Mutating authoring and lifecycle commands append events only
 after the workspace write validates and succeeds. Failed mutations do not append
 success events.
+
+## Receipts
+
+```bash
+./bin/palari receipt record RECEIPT-X \
+  --work-item-id WORK-X \
+  --attempt-id ATTEMPT-X \
+  --actor PALARI-X \
+  --list sources_used=SOURCE-X \
+  --list outputs_created=notes/summary.md \
+  --list queued_external_writes=OUTBOX-X
+```
+
+Receipts are human-facing trust records. `queued_external_writes` points to an
+approved integration plan that has been placed in the outbox, not to a live
+provider call. Use it when a human needs to see that an external write is queued
+at the future execution boundary and can still be canceled or reviewed.
 
 ## Dashboard
 

@@ -164,6 +164,15 @@ def _add_integration_parser(subparsers: Any) -> None:
     enqueue.add_argument("--by", dest="human_id", required=True, help="Enqueuing human id.")
     enqueue.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    outbox_cancel = nested.add_parser(
+        "outbox-cancel",
+        help="Cancel a queued integration outbox item.",
+    )
+    outbox_cancel.add_argument("outbox_id")
+    outbox_cancel.add_argument("--by", dest="human_id", required=True, help="Canceling human id.")
+    outbox_cancel.add_argument("--reason", required=True, help="Reason for cancellation.")
+    outbox_cancel.add_argument("--json", action="store_true", help="Emit JSON.")
+
 
 def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(

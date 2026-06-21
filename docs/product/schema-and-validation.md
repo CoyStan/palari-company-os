@@ -88,6 +88,8 @@ Validation checks:
   enqueueing humans
 - duplicate integration outbox items for the same plan fail closed
 - integration outbox payload previews must not contain raw secret-looking values
+- canceled integration outbox items require qualified `canceled_by`,
+  `canceled_at`, and `cancel_reason` metadata
 - optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
 - decision human, goal, work, and Palari references
@@ -99,6 +101,8 @@ Validation checks:
   the same work item
 - queued external writes in a receipt reference queued integration outbox items
   for the same work item
+- canceled integration outbox items cannot be referenced as queued external
+  writes in receipts
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review

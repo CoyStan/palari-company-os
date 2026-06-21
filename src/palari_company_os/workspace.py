@@ -396,6 +396,14 @@ class Workspace:
                 item.enqueued_by,
                 human_ids,
             )
+            if item.canceled_by:
+                _require_ref(
+                    "integration_outbox",
+                    item.id,
+                    "canceled_by",
+                    item.canceled_by,
+                    human_ids,
+                )
 
         for palari in self.palaris:
             if palari.owner_human:

@@ -331,6 +331,16 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             "Review the queued payload; live execution remains disabled.",
         )
 
+    canceled_items = _canceled_integration_outbox_for_work(work, context)
+    if canceled_items:
+        item = canceled_items[0]
+        return (
+            "needs-human-decision",
+            f"Integration outbox item {item.id} was canceled: {item.cancel_reason}. "
+            "No provider call was made.",
+            "Review whether the external action should remain canceled or be replanned.",
+        )
+
     approved_plans = _approved_unqueued_integration_plans_for_work(work, context)
     if approved_plans:
         plan = approved_plans[0]
@@ -513,6 +523,8 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
         return "pending-plan"
     if _queued_integration_outbox_for_work(work, context):
         return "outbox-queued"
+    if _canceled_integration_outbox_for_work(work, context):
+        return "outbox-canceled"
     decided_state = _latest_decided_integration_plan_state_for_work(work, context)
     if decided_state:
         return decided_state
@@ -575,6 +587,15 @@ def _pending_integration_plans_for_work(work: Any, context: _ReadContext) -> lis
 
 def _queued_integration_outbox_for_work(work: Any, context: _ReadContext) -> list[Any]:
     return context.queued_integration_outbox_by_work.get(work.id, [])
+
+
+def _canceled_integration_outbox_for_work(work: Any, context: _ReadContext) -> list[Any]:
+    items = [
+        item
+        for item in context.integration_outbox_by_work.get(work.id, [])
+        if item.status == "canceled"
+    ]
+    return sorted(items, key=_record_time_key, reverse=True)
 
 
 def _approved_unqueued_integration_plans_for_work(work: Any, context: _ReadContext) -> list[Any]:

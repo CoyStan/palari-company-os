@@ -450,6 +450,93 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
         self.assertEqual(history["events"][-1]["action"], "queued")
 
+    def test_queued_outbox_can_be_canceled_without_provider_call(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            enqueued = self.record_approve_enqueue(workspace_path, "PLAN-CANCEL-OUTBOX")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "outbox-cancel",
+                    outbox_id,
+                    "--by",
+                    "HUMAN-FOUNDER",
+                    "--reason",
+                    "not needed after all",
+                    "--json",
+                ).stdout
+            )
+            workspace = Workspace.load(workspace_path)
+            queue = {item.id: item for item in queue_items(workspace)}
+            work_detail = detail(workspace, "WORK-0001")
+            history = read_history(workspace_path)
+
+        outbox = payload["integration_outbox_item"]
+        self.assertEqual(payload["status"], "canceled")
+        self.assertFalse(payload["would_call_provider"])
+        self.assertEqual(outbox["status"], "canceled")
+        self.assertEqual(outbox["canceled_by"], "HUMAN-FOUNDER")
+        self.assertEqual(outbox["cancel_reason"], "not needed after all")
+        self.assertEqual(workspace.integration_outbox_item(outbox_id).status, "canceled")
+        self.assertEqual(queue["WORK-0001"].integration_state, "outbox-canceled")
+        self.assertEqual(queue["WORK-0001"].attention, "needs-human-decision")
+        self.assertEqual(work_detail["integration_outbox"][0]["status"], "canceled")
+        self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
+        self.assertEqual(history["events"][-1]["action"], "canceled")
+        self.assertIn("cancel_reason", history["events"][-1]["changed_fields"])
+
+    def test_non_queued_outbox_cannot_be_canceled(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            enqueued = self.record_approve_enqueue(workspace_path, "PLAN-CANCEL-ONCE")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "outbox-cancel",
+                outbox_id,
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reason",
+                "first cancel",
+                "--json",
+            )
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "outbox-cancel",
+                outbox_id,
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reason",
+                "second cancel",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot be canceled from canceled", result.stderr)
+
+    def test_unqualified_human_cannot_cancel_outbox(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            enqueued = self.record_approve_enqueue(workspace_path, "PLAN-CANCEL-UNQUALIFIED")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            result = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "outbox-cancel",
+                outbox_id,
+                "--by",
+                "HUMAN-OPS",
+                "--reason",
+                "not my call",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lacks authority", result.stderr)
+
     def test_pending_rejected_and_canceled_plans_cannot_be_enqueued(self) -> None:
         cases = (
             ("pending-approval", ()),
@@ -871,6 +958,9 @@ class IntegrationRegistryTests(unittest.TestCase):
             data["integration_outbox"][0]["work_item_id"] = "WORK-0007"
             data["integration_plans"][0]["work_item_id"] = "WORK-0007"
             data["integration_outbox"][0]["status"] = "canceled"
+            data["integration_outbox"][0]["canceled_by"] = "HUMAN-FOUNDER"
+            data["integration_outbox"][0]["canceled_at"] = "2026-06-21T00:00:02Z"
+            data["integration_outbox"][0]["cancel_reason"] = "not needed"
             data["receipts"][0]["queued_external_writes"] = ["OUTBOX-CANCELED"]
 
         with self.assertRaisesRegex(WorkspaceError, "for different work item WORK-0001"):
@@ -968,6 +1058,46 @@ class IntegrationRegistryTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
             timeout=30,
+        )
+
+    def record_approve_enqueue(self, workspace_path: Path, plan_id: str) -> dict[str, object]:
+        self.run_cli_in_workspace(
+            workspace_path,
+            "integration",
+            "plan",
+            "INT-SLACK-OPS",
+            "--work",
+            "WORK-0001",
+            "--event",
+            "approval_requested",
+            "--action",
+            "notify",
+            "--record",
+            "--id",
+            plan_id,
+            "--json",
+        )
+        self.run_cli_in_workspace(
+            workspace_path,
+            "integration",
+            "approve",
+            plan_id,
+            "--by",
+            "HUMAN-FOUNDER",
+            "--reason",
+            "test approval",
+            "--json",
+        )
+        return json.loads(
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "enqueue",
+                plan_id,
+                "--by",
+                "HUMAN-FOUNDER",
+                "--json",
+            ).stdout
         )
 
     def temp_workspace(self) -> object:

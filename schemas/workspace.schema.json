@@ -311,6 +311,9 @@
           "enum": ["low", "standard", "high", "critical"]
         },
         "timestamp": { "type": "string" },
+        "canceled_by": { "type": "string" },
+        "canceled_at": { "type": "string" },
+        "cancel_reason": { "type": "string" },
         "notes": { "type": "string" }
       }
     },

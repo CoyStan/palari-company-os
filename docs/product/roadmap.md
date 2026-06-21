@@ -11,7 +11,7 @@ Implemented in the v0.1 local foundation:
   records, and human approve/reject/cancel decisions for Slack/GitHub/Jira/email
   style notifications without live provider calls
 - integration outbox records for approved external-action plans waiting at the
-  future execution boundary
+  future execution boundary, including human cancellation before live execution
 - fail-closed gates for scope, stale evidence, stale review, human authority,
   quorum, integration references, integration allowed events/actions, and raw
   secret values

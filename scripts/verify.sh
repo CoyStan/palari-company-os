@@ -33,6 +33,13 @@ cp examples/acme-company-os/workspace.json "$integration_smoke_dir/workspace.jso
 ./bin/palari --workspace "$integration_smoke_dir" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-SMOKE --json >/tmp/palari-company-integration-plan-recorded.json
 ./bin/palari --workspace "$integration_smoke_dir" integration approve PLAN-SMOKE --by HUMAN-FOUNDER --reason "verification smoke" --json >/tmp/palari-company-integration-plan-approved.json
 ./bin/palari --workspace "$integration_smoke_dir" integration enqueue PLAN-SMOKE --by HUMAN-FOUNDER --json >/tmp/palari-company-integration-plan-enqueued.json
+smoke_outbox_id="$(python3 - <<'PY'
+import json
+with open("/tmp/palari-company-integration-plan-enqueued.json", encoding="utf-8") as handle:
+    print(json.load(handle)["integration_outbox_item"]["id"])
+PY
+)"
+./bin/palari --workspace "$integration_smoke_dir" integration outbox-cancel "$smoke_outbox_id" --by HUMAN-FOUNDER --reason "verification smoke cancel" --json >/tmp/palari-company-integration-outbox-canceled.json
 ./bin/palari --workspace "$integration_smoke_dir" queue --json >/tmp/palari-company-integration-plan-queue.json
 ./bin/palari --workspace "$integration_smoke_dir" detail WORK-0001 --json >/tmp/palari-company-integration-plan-detail.json
 ./bin/palari --workspace "$integration_smoke_dir" history --json >/tmp/palari-company-integration-plan-history.json
@@ -62,9 +69,12 @@ grep -q '"status": "approved"' /tmp/palari-company-integration-plan-approved.jso
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan-approved.json
 grep -q '"status": "queued"' /tmp/palari-company-integration-plan-enqueued.json
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan-enqueued.json
-grep -q 'outbox-queued' /tmp/palari-company-integration-plan-queue.json
+grep -q '"status": "canceled"' /tmp/palari-company-integration-outbox-canceled.json
+grep -q '"would_call_provider": false' /tmp/palari-company-integration-outbox-canceled.json
+grep -q 'outbox-canceled' /tmp/palari-company-integration-plan-queue.json
 grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-detail.json
 grep -q 'PLAN-SMOKE' /tmp/palari-company-integration-plan-history.json
+grep -q 'canceled' /tmp/palari-company-integration-plan-history.json
 grep -q 'integration_outbox' /tmp/palari-company-integration-plan-detail.json
 
 printf 'Palari Company OS verification passed.\n'

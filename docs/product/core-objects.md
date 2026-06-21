@@ -63,7 +63,9 @@ the approved payload preview, source boundary, risk, work item, integration,
 event, action, enqueuing human, timestamp, and status into an auditable record.
 It means "this approved external action is waiting at the future execution
 boundary," not "the external provider was called." Duplicate outbox entries for
-the same plan fail closed.
+the same plan fail closed. A qualified human can cancel a queued outbox item;
+canceled items keep `canceled_by`, `canceled_at`, and `cancel_reason`, remain in
+history/detail views, and cannot be used by receipts as queued external writes.
 
 ## Work Item
 
@@ -104,7 +106,8 @@ and what undo references exist. Receipts are not governance evidence; they help
 the user review, undo, or continue bounded work. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
-used as receipt-backed external-write claims.
+used as receipt-backed external-write claims. Canceled outbox items also cannot
+be used as receipt-backed queued-write claims.
 
 ## Outcome
 
