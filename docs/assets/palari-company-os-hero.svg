@@ -1,0 +1,255 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Palari Company OS hero image</title>
+  <desc id="desc">A professional AI company operating console with workbench explorer, artifact review, chat, receipts, authority, and history panels.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f5f7f9; }
+      .panel { fill: #ffffff; stroke: #d8e0e7; stroke-width: 1.4; }
+      .soft { fill: #fbfcfd; stroke: #e2e8ee; stroke-width: 1.2; }
+      .rail { fill: #ffffff; stroke: #d9e1e8; stroke-width: 1.2; }
+      .title { fill: #0f172a; font: 700 26px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .h2 { fill: #0f172a; font: 700 18px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .h3 { fill: #263445; font: 700 13px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .05em; }
+      .body { fill: #516070; font: 500 13px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .small { fill: #738191; font: 500 11px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { fill: #344154; font: 600 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .chip { fill: #eef6ff; stroke: #bdd7ff; stroke-width: 1; }
+      .chipText { fill: #1d5ea8; font: 700 11px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .good { fill: #14916f; }
+      .amber { fill: #d97706; }
+      .blue { fill: #2563eb; }
+      .red { fill: #dc2626; }
+      .mutedLine { stroke: #e7edf2; stroke-width: 1; }
+      .dark { fill: #0f172a; }
+      .navText { fill: #344154; font: 700 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .button { fill: #ffffff; stroke: #ccd6e0; stroke-width: 1.2; }
+      .buttonText { fill: #132238; font: 700 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <rect x="36" y="36" width="1528" height="828" rx="16" fill="#eef3f7" stroke="#dae3ea"/>
+  <rect x="54" y="56" width="1492" height="788" rx="12" class="panel"/>
+
+  <g transform="translate(72 78)">
+    <circle cx="20" cy="20" r="13" fill="#0f766e"/>
+    <path d="M13 21h14v7H13zM13 12h14v6H13z" fill="#fff" opacity=".92"/>
+    <text x="45" y="18" class="h2">Palari</text>
+    <text x="45" y="36" class="small">Company OS</text>
+  </g>
+
+  <g transform="translate(74 160)">
+    <rect x="-16" y="-18" width="104" height="44" rx="6" fill="#edf2f6" stroke="#dbe4ec"/>
+    <circle cx="7" cy="4" r="6" class="blue"/>
+    <text x="25" y="8" class="navText">Queue</text>
+    <circle cx="78" cy="4" r="12" fill="#fff" stroke="#d4dde6"/>
+    <text x="74" y="8" class="small">7</text>
+  </g>
+  <g transform="translate(74 224)">
+    <circle cx="7" cy="4" r="6" class="good"/>
+    <text x="25" y="8" class="navText">Workbenches</text>
+  </g>
+  <g transform="translate(74 286)">
+    <circle cx="7" cy="4" r="6" class="amber"/>
+    <text x="25" y="8" class="navText">Trust</text>
+  </g>
+  <g transform="translate(74 348)">
+    <circle cx="7" cy="4" r="6" fill="#64748b"/>
+    <text x="25" y="8" class="navText">History</text>
+  </g>
+  <g transform="translate(74 410)">
+    <circle cx="7" cy="4" r="6" fill="#64748b"/>
+    <text x="25" y="8" class="navText">People</text>
+  </g>
+
+  <g transform="translate(80 766)">
+    <circle cx="18" cy="18" r="18" fill="#0f766e"/>
+    <text x="11" y="23" fill="#fff" font="700 13px Inter, ui-sans-serif, system-ui">AR</text>
+    <text x="46" y="16" class="body">Alex Ramirez</text>
+    <text x="46" y="34" class="small">Founder</text>
+  </g>
+
+  <rect x="178" y="74" width="338" height="752" rx="8" class="panel"/>
+  <g transform="translate(198 100)">
+    <text x="0" y="0" class="h2">Workbench / Public Policy / Housing</text>
+    <text x="0" y="28" class="small">Bounded arena for sources, people, Palaris, and outputs.</text>
+  </g>
+  <line x1="198" y1="150" x2="496" y2="150" class="mutedLine"/>
+
+  <g transform="translate(198 180)">
+    <text class="h3">ASSIGNED</text>
+    <g transform="translate(0 30)">
+      <circle cx="14" cy="14" r="14" fill="#0f766e"/>
+      <text x="10" y="19" fill="#fff" font="700 12px Inter, ui-sans-serif">M</text>
+      <text x="40" y="12" class="body">Maya</text>
+      <rect x="86" y="0" width="44" height="20" rx="4" fill="#dff7ef" stroke="#a8e2cf"/>
+      <text x="96" y="14" fill="#08765c" font="700 10px Inter, ui-sans-serif">Palari</text>
+      <text x="144" y="12" class="small">Policy Researcher</text>
+    </g>
+    <g transform="translate(0 72)">
+      <circle cx="14" cy="14" r="14" fill="#2463a7"/>
+      <text x="10" y="19" fill="#fff" font="700 12px Inter, ui-sans-serif">J</text>
+      <text x="40" y="12" class="body">Jordan Lee</text>
+      <rect x="124" y="0" width="48" height="20" rx="4" fill="#fff4dd" stroke="#f3cd8a"/>
+      <text x="134" y="14" fill="#9a5a00" font="700 10px Inter, ui-sans-serif">Human</text>
+    </g>
+  </g>
+
+  <g transform="translate(198 310)">
+    <text class="h3">SOURCES</text>
+    <text x="276" y="0" class="small">7</text>
+    <g transform="translate(0 28)">
+      <circle cx="6" cy="6" r="4" class="good"/>
+      <text x="20" y="10" class="body">Readable</text>
+      <text x="280" y="10" class="body">3</text>
+      <line x1="14" y1="28" x2="14" y2="92" stroke="#dce5ed"/>
+      <text x="32" y="40" class="small">California HCD - Housing Plan</text>
+      <rect x="252" y="27" width="36" height="18" rx="4" class="button"/>
+      <text x="260" y="40" class="mono">PDF</text>
+      <text x="32" y="68" class="small">State Housing Element Law</text>
+      <rect x="246" y="55" width="42" height="18" rx="4" class="button"/>
+      <text x="253" y="68" class="mono">HTML</text>
+      <text x="32" y="96" class="small">Urban Institute - ADU Guide</text>
+      <rect x="252" y="83" width="36" height="18" rx="4" class="button"/>
+      <text x="260" y="96" class="mono">PDF</text>
+    </g>
+    <g transform="translate(0 154)">
+      <circle cx="6" cy="6" r="4" class="blue"/>
+      <text x="20" y="10" class="body">Inherited readable</text>
+      <text x="280" y="10" class="body">1</text>
+      <text x="32" y="42" class="small">City of Oakland - Housing Element</text>
+    </g>
+    <g transform="translate(0 224)">
+      <circle cx="6" cy="6" r="4" class="amber"/>
+      <text x="20" y="10" class="body">Writable after approval</text>
+      <text x="280" y="10" class="body">1</text>
+      <text x="32" y="42" class="small">Planning Dept comment portal</text>
+    </g>
+    <g transform="translate(0 294)">
+      <circle cx="6" cy="6" r="4" class="red"/>
+      <text x="20" y="10" class="body">Blocked</text>
+      <text x="280" y="10" class="body">2</text>
+      <text x="32" y="42" class="small">Internal strategy notes</text>
+    </g>
+  </g>
+
+  <rect x="536" y="74" width="690" height="752" rx="8" class="panel"/>
+  <g transform="translate(560 104)">
+    <text class="title">Draft public comment</text>
+    <text x="0" y="32" class="small">Work item PRL-HOUS-001 · Attempt 1 · Status</text>
+    <rect x="284" y="14" width="82" height="22" rx="5" class="chip"/>
+    <text x="298" y="29" class="chipText">In Progress</text>
+    <rect x="558" y="-12" width="96" height="34" rx="5" class="button"/>
+    <text x="581" y="10" class="buttonText">Check-in</text>
+  </g>
+
+  <rect x="560" y="164" width="640" height="74" rx="6" fill="#fff8ed" stroke="#f3c579"/>
+  <circle cx="582" cy="201" r="7" fill="#fff" stroke="#d97706"/>
+  <path d="M582 195l6 11h-12z" fill="none" stroke="#d97706" stroke-width="1.2"/>
+  <text x="602" y="194" fill="#a34d00" font="700 15px Inter, ui-sans-serif">Approval required before external write</text>
+  <text x="602" y="218" fill="#9a5a00" font="500 12px Inter, ui-sans-serif">The output can be published only after the human authority check.</text>
+  <rect x="1072" y="184" width="106" height="34" rx="5" fill="#fff" stroke="#edc17d"/>
+  <text x="1094" y="206" fill="#132238" font="700 12px Inter, ui-sans-serif">Approve</text>
+
+  <g transform="translate(560 270)">
+    <text class="h3">SOURCES USED</text>
+    <rect x="0" y="20" width="168" height="30" rx="5" class="soft"/>
+    <rect x="10" y="28" width="24" height="16" rx="3" fill="#e9faf2" stroke="#a6e2c8"/>
+    <text x="15" y="40" fill="#14916f" font="700 9px Inter, ui-sans-serif">PDF</text>
+    <text x="44" y="40" class="small">CA HCD Housing Plan</text>
+    <rect x="180" y="20" width="190" height="30" rx="5" class="soft"/>
+    <rect x="190" y="28" width="32" height="16" rx="3" fill="#eef6ff" stroke="#bdd7ff"/>
+    <text x="196" y="40" fill="#1d5ea8" font="700 9px Inter, ui-sans-serif">HTML</text>
+    <text x="232" y="40" class="small">Housing Element Law</text>
+    <rect x="382" y="20" width="150" height="30" rx="5" class="soft"/>
+    <rect x="392" y="28" width="24" height="16" rx="3" fill="#fff4dd" stroke="#f3cd8a"/>
+    <text x="397" y="40" fill="#9a5a00" font="700 9px Inter, ui-sans-serif">PDF</text>
+    <text x="426" y="40" class="small">ADU Guide</text>
+  </g>
+
+  <g transform="translate(584 370)">
+    <text class="h2">I. Introduction</text>
+    <text y="36" class="body">Oakland's housing update is an opportunity to improve affordability,</text>
+    <text y="58" class="body">approval clarity, and long-term community well-being.</text>
+    <text y="112" class="h2">II. Support for Key Strategies</text>
+    <circle cx="4" cy="146" r="2.5" class="dark"/>
+    <text x="20" y="150" class="body">Preserve and expand affordable housing.</text>
+    <circle cx="4" cy="178" r="2.5" class="dark"/>
+    <text x="20" y="182" class="body">Increase approval certainty for middle housing and ADUs.</text>
+    <circle cx="4" cy="210" r="2.5" class="dark"/>
+    <text x="20" y="214" class="body">Invest in tenant protections and displacement prevention.</text>
+    <text y="280" class="h2">III. Recommendation</text>
+    <text y="316" class="body">Adopt objective standards and publish the approved result with receipt.</text>
+  </g>
+
+  <g transform="translate(560 740)">
+    <rect width="640" height="54" rx="6" class="soft"/>
+    <text x="16" y="22" class="small">Owner</text>
+    <text x="16" y="42" class="body">Maya</text>
+    <line x1="118" y1="10" x2="118" y2="44" class="mutedLine"/>
+    <text x="138" y="22" class="small">Palari</text>
+    <text x="138" y="42" class="body">Policy Researcher</text>
+    <line x1="298" y1="10" x2="298" y2="44" class="mutedLine"/>
+    <text x="318" y="22" class="small">Last updated</text>
+    <text x="318" y="42" class="body">Jun 20, 10:42 AM</text>
+    <line x1="478" y1="10" x2="478" y2="44" class="mutedLine"/>
+    <text x="498" y="22" class="small">Risk</text>
+    <text x="498" y="42" class="body">R2</text>
+  </g>
+
+  <rect x="1246" y="74" width="282" height="752" rx="8" class="panel"/>
+  <g transform="translate(1268 104)">
+    <text class="h2">Maya Chat</text>
+    <circle cx="238" cy="-5" r="3" class="good"/>
+    <text x="248" y="0" class="small">Online</text>
+  </g>
+  <g transform="translate(1268 150)">
+    <rect x="0" y="0" width="240" height="52" rx="6" class="soft"/>
+    <circle cx="20" cy="25" r="12" fill="#0f766e"/>
+    <text x="42" y="20" class="small">Maya</text>
+    <text x="42" y="39" class="body">I will use selected sources only.</text>
+    <rect x="0" y="70" width="240" height="62" rx="6" class="soft"/>
+    <circle cx="20" cy="100" r="12" fill="#2463a7"/>
+    <text x="42" y="91" class="small">Alex</text>
+    <text x="42" y="111" class="body">Prepare a reviewable draft.</text>
+    <rect x="0" y="150" width="240" height="62" rx="6" class="soft"/>
+    <circle cx="20" cy="180" r="12" fill="#0f766e"/>
+    <text x="42" y="171" class="small">Maya</text>
+    <text x="42" y="191" class="body">Receipt is ready for review.</text>
+  </g>
+
+  <g transform="translate(1268 396)">
+    <text class="h3">ACTIVE TASK</text>
+    <rect y="18" width="238" height="78" rx="6" class="soft"/>
+    <text x="14" y="44" fill="#1d5ea8" font="700 13px Inter, ui-sans-serif">Draft public comment</text>
+    <text x="14" y="70" class="small">Priority High · Risk R2</text>
+    <rect x="166" y="52" width="58" height="22" rx="4" class="chip"/>
+    <text x="178" y="67" class="chipText">Review</text>
+  </g>
+
+  <g transform="translate(1268 520)">
+    <text class="h3">RECEIPT</text>
+    <rect y="18" width="238" height="126" rx="6" class="soft"/>
+    <text x="14" y="46" class="small">Used</text>
+    <text x="106" y="46" class="body">3 sources</text>
+    <text x="14" y="72" class="small">Created</text>
+    <text x="106" y="72" class="body">1 document draft</text>
+    <text x="14" y="98" class="small">External writes</text>
+    <text x="106" y="98" class="body">None</text>
+    <text x="14" y="124" class="small">Undo</text>
+    <text x="106" y="124" class="body">No external changes</text>
+  </g>
+
+  <g transform="translate(1268 690)">
+    <text class="h3">AUTHORITY</text>
+    <rect y="18" width="238" height="88" rx="6" class="soft"/>
+    <text x="14" y="46" class="small">Approval required</text>
+    <rect x="130" y="30" width="34" height="20" rx="4" fill="#e9faf2" stroke="#a6e2c8"/>
+    <text x="140" y="44" fill="#08765c" font="700 10px Inter, ui-sans-serif">R2</text>
+    <text x="14" y="76" class="body">Jordan Lee</text>
+    <rect x="172" y="60" width="52" height="20" rx="4" fill="#fff4dd" stroke="#f3cd8a"/>
+    <text x="184" y="74" fill="#9a5a00" font="700 10px Inter, ui-sans-serif">Pending</text>
+  </g>
+
+  <rect x="1246" y="810" width="282" height="1" fill="#e7edf2"/>
+</svg>
