@@ -23,7 +23,7 @@ COLLECTION_KEYS = (
     "outcomes",
 )
 
-OPTIONAL_COLLECTION_KEYS = ("playbook_sources",)
+OPTIONAL_COLLECTION_KEYS = ("playbook_sources", "workbenches")
 COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
 ROOT_FIELDS = {
@@ -88,11 +88,26 @@ ALLOWED_RECORD_FIELDS = {
         "last_seen_revision",
         "last_read_at",
     },
+    "workbenches": {
+        "id",
+        "label",
+        "summary",
+        "parent_workbench_id",
+        "goal_ids",
+        "palari_ids",
+        "human_ids",
+        "source_ids",
+        "output_target_ids",
+        "status",
+    },
     "work_items": {
         "id",
         "title",
         "goal",
         "palari",
+        "workbench_id",
+        "parent_work_item_id",
+        "dependency_ids",
         "risk",
         "intensity",
         "status",
@@ -108,6 +123,8 @@ ALLOWED_RECORD_FIELDS = {
         "required_approval_count",
         "required_approval_capability",
         "recommended_playbooks",
+        "conflict_targets",
+        "parallel_policy",
     },
     "playbook_sources": {
         "id",
@@ -133,6 +150,8 @@ ALLOWED_RECORD_FIELDS = {
         "cleanliness",
         "result",
         "started_at",
+        "updated_at",
+        "output_targets",
     },
     "evidence_runs": {
         "id",
@@ -227,9 +246,11 @@ WORK_STATUSES = {
     "closed",
     "done",
 }
+WORKBENCH_STATUSES = {"active", "paused", "completed", "closed", "archived"}
 TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}
+PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
 ATTEMPT_STATUSES = {"active", "complete", "completed", "failed", "blocked"}
 EVIDENCE_STATUSES = {"passed", "failed", "skipped"}
 REVIEW_VERDICTS = {"accept-ready", "changes-requested", "needs-human-decision", "blocked"}
@@ -303,10 +324,26 @@ def validate_workspace_contract(workspace: Any) -> None:
     for goal in workspace.goals:
         _require_allowed_value("goals", goal.id, "status", goal.status, GOAL_STATUSES)
 
+    for workbench in workspace.workbenches:
+        _require_allowed_value(
+            "workbenches",
+            workbench.id,
+            "status",
+            workbench.status,
+            WORKBENCH_STATUSES,
+        )
+
     for work in workspace.work_items:
         _require_allowed_value("work_items", work.id, "status", work.status, WORK_STATUSES)
         _require_allowed_value("work_items", work.id, "risk", work.risk, RISKS)
         _require_allowed_value("work_items", work.id, "intensity", work.intensity, INTENSITIES)
+        _require_allowed_value(
+            "work_items",
+            work.id,
+            "parallel_policy",
+            work.parallel_policy,
+            PARALLEL_POLICIES,
+        )
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)

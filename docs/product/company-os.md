@@ -13,11 +13,15 @@ happened, and learn from outcomes.
 Palari Company OS is organized around:
 
 - goals as company intent
+- workbenches as bounded arenas of shared work
 - Palaris as named AI work partners
 - humans as authority holders
+- sources as explicit readable context
 - decisions as explicit requests for judgment
 - work items as scoped units of work
 - attempts as concrete execution sessions
+- receipts as human-facing records of what an attempt used, changed, did not do,
+  and can undo
 - evidence runs as proof tied to a head or artifact state
 - review verdicts as independent inspection
 - human decisions as authority-bearing actions
@@ -39,6 +43,22 @@ A Palari may:
 A Palari may not silently grant itself authority. The human-facing identity can
 remain stable even if execution is delegated to different models, tools, or
 workers.
+
+## Workbenches
+
+A Workbench is the bounded arena where a human/Palari team works in parallel.
+It names the shared context, selected sources, output targets, goals, humans,
+Palaris, and active work items for one line of work.
+
+Work items may belong to a workbench, have parent/child relationships, depend on
+other work items, and declare a parallel policy:
+
+- `independent` work can run beside other work.
+- `coordinate` work should be visible to other operators.
+- `exclusive` work should not overlap another active item touching the same
+  conflict target without a coordination warning.
+
+This keeps parallel work legible without returning to old ticket ceremony.
 
 ## Adaptive Intensity
 
@@ -95,3 +115,6 @@ It answers:
 - what evidence and review exist
 - what human decision is needed
 - what exact next action is safe
+- which workbench contains the work
+- what parallel attempts are active
+- whether overlapping exclusive targets need coordination

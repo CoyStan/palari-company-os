@@ -39,6 +39,92 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.sources[0].id, "SOURCE-1")
         self.assertEqual(workspace.receipts[0].sources_used, ["SOURCE-1"])
 
+    def test_example_workbench_graph_loads(self) -> None:
+        workspace = Workspace.load(EXAMPLE_WORKSPACE)
+
+        self.assertEqual([workbench.id for workbench in workspace.workbenches], [
+            "WORKBENCH-BETA",
+            "WORKBENCH-AUTHORITY",
+        ])
+        self.assertEqual(workspace.work_item("WORK-0007").parent_work_item_id, "WORK-0001")
+
+    def test_work_item_missing_workbench_reference_fails_closed(self) -> None:
+        def missing_workbench(data: dict[str, object]) -> None:
+            data["work_items"][0]["workbench_id"] = "WORKBENCH-MISSING"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items.WORK-0001.workbench_id references missing id WORKBENCH-MISSING",
+        ):
+            self.modified_example_workspace(missing_workbench)
+
+    def test_parent_workbench_cycle_fails_closed(self) -> None:
+        def cycle(data: dict[str, object]) -> None:
+            data["workbenches"][0]["parent_workbench_id"] = "WORKBENCH-AUTHORITY"
+            data["workbenches"][1]["parent_workbench_id"] = "WORKBENCH-BETA"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "workbenches parent graph contains a cycle",
+        ):
+            self.modified_example_workspace(cycle)
+
+    def test_parent_work_item_cycle_fails_closed(self) -> None:
+        def cycle(data: dict[str, object]) -> None:
+            data["work_items"][0]["parent_work_item_id"] = "WORK-0007"
+            data["work_items"][6]["parent_work_item_id"] = "WORK-0001"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items parent graph contains a cycle",
+        ):
+            self.modified_example_workspace(cycle)
+
+    def test_missing_dependency_fails_closed(self) -> None:
+        def missing_dependency(data: dict[str, object]) -> None:
+            data["work_items"][6]["dependency_ids"] = ["WORK-MISSING"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items.WORK-0007.dependency_ids references missing id WORK-MISSING",
+        ):
+            self.modified_example_workspace(missing_dependency)
+
+    def test_work_item_source_outside_workbench_boundary_fails_closed(self) -> None:
+        def outside_source(data: dict[str, object]) -> None:
+            data["sources"].append(
+                {
+                    "id": "SOURCE-OUTSIDE",
+                    "label": "Outside source",
+                    "kind": "note",
+                    "provider": "local_note",
+                    "uri": "outside.md",
+                    "access_mode": "read",
+                    "selected": True,
+                    "owner_human": "HUMAN-FOUNDER",
+                    "allowed_palaris": ["PALARI-SOFIA"],
+                }
+            )
+            data["work_items"][2]["allowed_sources"] = ["SOURCE-OUTSIDE"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items.WORK-0003.allowed_sources includes source SOURCE-OUTSIDE "
+            "outside workbench WORKBENCH-BETA",
+        ):
+            self.modified_example_workspace(outside_source)
+
+    def test_work_item_output_outside_workbench_boundary_fails_closed(self) -> None:
+        def outside_output(data: dict[str, object]) -> None:
+            data["work_items"][6]["output_targets"] = ["outside.md"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items.WORK-0007.output_targets includes target outside.md "
+            "outside workbench WORKBENCH-BETA",
+        ):
+            self.modified_example_workspace(outside_output)
+
     def test_split_workspace_collection_file_loads(self) -> None:
         workspace = Workspace.load(FIXTURES / "split-workspace")
 
@@ -278,6 +364,11 @@ class WorkspaceValidationTests(unittest.TestCase):
                 directory.cleanup()
 
         return SplitWorkspaceFixture()
+
+    def modified_example_workspace(self, mutate: object) -> Workspace:
+        source = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        mutate(source)
+        return Workspace.from_raw(source, EXAMPLE_WORKSPACE)
 
 
 if __name__ == "__main__":

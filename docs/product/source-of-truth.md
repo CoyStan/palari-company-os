@@ -20,7 +20,9 @@ Those files are read, merged in memory, and validated as one workspace. They are
 not a second authority layer; they are just maintainable storage for records that
 would otherwise make one JSON file too large.
 
-The queue and detail views are read models derived from workspace data. `state`,
+The queue and detail views are read models derived from workspace data. They
+may surface workbench context, active parallel attempts, and coordination
+warnings, but those warnings are still derived from declared records. `state`,
 `validate`, and `scope` are also derived views/checks; they do not mutate
 authority state.
 

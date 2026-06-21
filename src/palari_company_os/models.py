@@ -154,6 +154,35 @@ class Human:
 
 
 @dataclass(frozen=True)
+class Workbench:
+    id: str
+    label: str
+    summary: str = ""
+    parent_workbench_id: str = ""
+    goal_ids: list[str] = field(default_factory=list)
+    palari_ids: list[str] = field(default_factory=list)
+    human_ids: list[str] = field(default_factory=list)
+    source_ids: list[str] = field(default_factory=list)
+    output_target_ids: list[str] = field(default_factory=list)
+    status: str = "active"
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Workbench":
+        return cls(
+            id=_require_id(record),
+            label=_string(record, "label"),
+            summary=_string(record, "summary"),
+            parent_workbench_id=_string(record, "parent_workbench_id"),
+            goal_ids=_strings(record, "goal_ids"),
+            palari_ids=_strings(record, "palari_ids"),
+            human_ids=_strings(record, "human_ids"),
+            source_ids=_strings(record, "source_ids"),
+            output_target_ids=_strings(record, "output_target_ids"),
+            status=_string(record, "status", "active"),
+        )
+
+
+@dataclass(frozen=True)
 class Decision:
     id: str
     question: str
@@ -198,6 +227,9 @@ class WorkItem:
     title: str
     goal: str
     palari: str
+    workbench_id: str = ""
+    parent_work_item_id: str = ""
+    dependency_ids: list[str] = field(default_factory=list)
     risk: str = "R1"
     intensity: str = "light"
     status: str = "proposed"
@@ -213,6 +245,8 @@ class WorkItem:
     required_approval_count: int = 1
     required_approval_capability: str = ""
     recommended_playbooks: list[str] = field(default_factory=list)
+    conflict_targets: list[str] = field(default_factory=list)
+    parallel_policy: str = "independent"
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
@@ -221,6 +255,9 @@ class WorkItem:
             title=_string(record, "title"),
             goal=_string(record, "goal"),
             palari=_string(record, "palari"),
+            workbench_id=_string(record, "workbench_id"),
+            parent_work_item_id=_string(record, "parent_work_item_id"),
+            dependency_ids=_strings(record, "dependency_ids"),
             risk=_string(record, "risk", "R1"),
             intensity=_string(record, "intensity", "light"),
             status=_string(record, "status", "proposed"),
@@ -236,6 +273,8 @@ class WorkItem:
             required_approval_count=_integer(record, "required_approval_count", 1),
             required_approval_capability=_string(record, "required_approval_capability"),
             recommended_playbooks=_strings(record, "recommended_playbooks"),
+            conflict_targets=_strings(record, "conflict_targets"),
+            parallel_policy=_string(record, "parallel_policy", "independent"),
         )
 
 
@@ -280,6 +319,8 @@ class Attempt:
     cleanliness: str = ""
     result: str = ""
     started_at: str = ""
+    updated_at: str = ""
+    output_targets: list[str] = field(default_factory=list)
 
     @classmethod
     def from_record(cls, record: Record) -> "Attempt":
@@ -296,6 +337,8 @@ class Attempt:
             cleanliness=_string(record, "cleanliness"),
             result=_string(record, "result"),
             started_at=_string(record, "started_at"),
+            updated_at=_string(record, "updated_at"),
+            output_targets=_strings(record, "output_targets"),
         )
 
 

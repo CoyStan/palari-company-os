@@ -21,7 +21,7 @@ from .history import append_history_event, read_history
 from .maintainer import status as maintainer_status
 from .models import to_plain
 from .playbooks import playbook_catalog, recommend_playbooks
-from .read_models import detail, queue_items
+from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .scope import check_scope
 from .store import load_store, migrate_data, write_store
 from .workspace import Workspace, WorkspaceError
@@ -53,6 +53,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 "counts": _workspace_counts(workspace),
                 "attention": _attention_counts(items),
                 "queue": to_plain(items),
+                "active_parallel_work": active_parallel_work(workspace),
+                "coordination_warnings": coordination_warnings(workspace),
             },
             args.json,
         )
@@ -69,6 +71,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "palaris": len(workspace.palaris),
                     "humans": len(workspace.humans),
                     "sources": len(workspace.sources),
+                    "workbenches": len(workspace.workbenches),
                     "playbook_sources": len(workspace.playbook_sources),
                     "work_items": len(workspace.work_items),
                     "receipts": len(workspace.receipts),
@@ -245,6 +248,7 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "palaris": len(workspace.palaris),
         "humans": len(workspace.humans),
         "sources": len(workspace.sources),
+        "workbenches": len(workspace.workbenches),
         "playbook_sources": len(workspace.playbook_sources),
         "decisions": len(workspace.decisions),
         "work_items": len(workspace.work_items),

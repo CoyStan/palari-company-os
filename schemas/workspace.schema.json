@@ -28,6 +28,7 @@
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
     "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "workbenches": { "type": "array", "items": { "$ref": "#/$defs/workbench" } },
     "playbook_sources": {
       "type": "array",
       "items": { "$ref": "#/$defs/playbook_source" }
@@ -54,6 +55,7 @@
         "humans": { "$ref": "#/$defs/string_list" },
         "palaris": { "$ref": "#/$defs/string_list" },
         "sources": { "$ref": "#/$defs/string_list" },
+        "workbenches": { "$ref": "#/$defs/string_list" },
         "playbook_sources": { "$ref": "#/$defs/string_list" },
         "work_items": { "$ref": "#/$defs/string_list" },
         "attempts": { "$ref": "#/$defs/string_list" },
@@ -166,6 +168,26 @@
         "install_hint": { "type": "string" }
       }
     },
+    "workbench": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "summary": { "type": "string" },
+        "parent_workbench_id": { "type": "string" },
+        "goal_ids": { "$ref": "#/$defs/string_list" },
+        "palari_ids": { "$ref": "#/$defs/string_list" },
+        "human_ids": { "$ref": "#/$defs/string_list" },
+        "source_ids": { "$ref": "#/$defs/string_list" },
+        "output_target_ids": { "$ref": "#/$defs/string_list" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "completed", "closed", "archived"]
+        }
+      }
+    },
     "work_item": {
       "type": "object",
       "additionalProperties": false,
@@ -175,6 +197,9 @@
         "title": { "type": "string" },
         "goal": { "type": "string" },
         "palari": { "type": "string" },
+        "workbench_id": { "type": "string" },
+        "parent_work_item_id": { "type": "string" },
+        "dependency_ids": { "$ref": "#/$defs/string_list" },
         "risk": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5"] },
         "intensity": { "type": "string", "enum": ["light", "standard", "high"] },
         "status": {
@@ -201,7 +226,12 @@
         "current_attempt": { "type": "string" },
         "required_approval_count": { "type": "integer", "minimum": 0 },
         "required_approval_capability": { "type": "string" },
-        "recommended_playbooks": { "$ref": "#/$defs/string_list" }
+        "recommended_playbooks": { "$ref": "#/$defs/string_list" },
+        "conflict_targets": { "$ref": "#/$defs/string_list" },
+        "parallel_policy": {
+          "type": "string",
+          "enum": ["independent", "coordinate", "exclusive"]
+        }
       }
     },
     "attempt": {
@@ -220,6 +250,8 @@
         "workspace_path": { "type": "string" },
         "model_or_worker": { "type": "string" },
         "started_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "output_targets": { "$ref": "#/$defs/string_list" },
         "commits": { "$ref": "#/$defs/string_list" },
         "changed_files": { "$ref": "#/$defs/string_list" },
         "cleanliness": { "type": "string" },

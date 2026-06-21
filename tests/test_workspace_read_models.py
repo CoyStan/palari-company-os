@@ -12,7 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.maintainer import status as maintainer_status
-from palari_company_os.read_models import detail, queue_items
+from palari_company_os.read_models import (
+    active_parallel_work,
+    coordination_warnings,
+    detail,
+    queue_items,
+)
 from palari_company_os.scope import check_scope
 from palari_company_os.workspace import Workspace
 
@@ -28,6 +33,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(len(workspace.goals), 2)
         self.assertEqual(len(workspace.palaris), 2)
         self.assertEqual(len(workspace.sources), 1)
+        self.assertEqual(len(workspace.workbenches), 2)
         self.assertEqual(len(workspace.work_items), 7)
         self.assertEqual(len(workspace.receipts), 1)
 
@@ -65,6 +71,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["work_item"]["title"], "Prepare beta launch checklist")
         self.assertEqual(payload["goal"]["id"], "GOAL-0001")
         self.assertEqual(payload["palari"]["name"], "Sofia")
+        self.assertEqual(payload["workbench"]["id"], "WORKBENCH-BETA")
         self.assertEqual(payload["evidence"]["status"], "passed")
         self.assertEqual(payload["review"]["verdict"], "accept-ready")
         self.assertIsNone(payload["human_decision"])
@@ -72,6 +79,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["safety"]["evidence_state"], "passed")
         self.assertEqual(payload["safety"]["review_state"], "accept-ready")
         self.assertEqual(payload["safety"]["approval_progress"], "0/1")
+        self.assertEqual(payload["child_work_items"][0]["id"], "WORK-0007")
 
     def test_detail_includes_sources_and_receipt(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -82,6 +90,73 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["sources_used"], ["SOURCE-0001"])
         self.assertEqual(payload["safety"]["receipt_state"], "ready")
         self.assertEqual(payload["attention"], "receipt-ready")
+        self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
+        self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
+
+    def test_parallel_attempts_are_visible_without_conflict(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        active = active_parallel_work(workspace)
+        queue = {item.id: item for item in queue_items(workspace)}
+
+        self.assertEqual(
+            [item["work_item_id"] for item in active],
+            ["WORK-0003", "WORK-0005"],
+        )
+        self.assertEqual(coordination_warnings(workspace), [])
+        self.assertEqual(queue["WORK-0003"].attention, "needs-evidence")
+        self.assertEqual(queue["WORK-0003"].workbench_label, "Beta Operations")
+        self.assertEqual(queue["WORK-0003"].active_attempts[0]["attempt_id"], "ATTEMPT-0002")
+
+    def test_exclusive_parallel_conflict_is_surfaced_in_queue_and_detail(self) -> None:
+        def add_conflict(data: dict[str, object]) -> None:
+            data["work_items"][2]["parallel_policy"] = "exclusive"
+            data["work_items"][2]["conflict_targets"] = [" DOCS/Product/Company-OS.md "]
+            data["work_items"].append(
+                {
+                    "id": "WORK-CONFLICT",
+                    "title": "Conflicting company model edit",
+                    "goal": "GOAL-0001",
+                    "palari": "PALARI-SOFIA",
+                    "workbench_id": "WORKBENCH-BETA",
+                    "risk": "R1",
+                    "intensity": "light",
+                    "status": "active",
+                    "scope": "Edit the same company model document at the same time.",
+                    "allowed_resources": ["docs/product/company-os.md"],
+                    "conflict_targets": ["docs/product/company-os.md"],
+                    "parallel_policy": "exclusive",
+                    "current_attempt": "ATTEMPT-CONFLICT",
+                    "required_approval_count": 0,
+                }
+            )
+            data["attempts"].append(
+                {
+                    "id": "ATTEMPT-CONFLICT",
+                    "work_item_id": "WORK-CONFLICT",
+                    "actor": "PALARI-SOFIA",
+                    "status": "active",
+                    "branch": "copy/conflicting-company-model-edit",
+                    "workspace_path": "/tmp/acme-company-os/WORK-CONFLICT",
+                    "started_at": "2026-06-18T17:22:00Z",
+                    "updated_at": "2026-06-18T17:30:00Z",
+                    "output_targets": ["docs/product/company-os.md"],
+                    "commits": ["conflict-head"],
+                    "changed_files": ["docs/product/company-os.md"],
+                }
+            )
+
+        workspace = self.modified_workspace(add_conflict)
+        queue = {item.id: item for item in queue_items(workspace)}
+        payload = detail(workspace, "WORK-0003")
+
+        self.assertEqual(queue["WORK-0003"].attention, "blocked")
+        self.assertFalse(queue["WORK-0003"].ai_safe_to_proceed)
+        self.assertIn("WORK-CONFLICT", queue["WORK-0003"].coordination_warnings[0])
+        self.assertIn("WORK-CONFLICT", payload["coordination_warnings"][0])
+        self.assertEqual(
+            coordination_warnings(workspace)[0]["targets"],
+            ["docs/product/company-os.md"],
+        )
 
     def test_receipt_ready_queue_state_for_light_work(self) -> None:
         workspace = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")

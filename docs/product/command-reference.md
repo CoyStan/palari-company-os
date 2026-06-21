@@ -14,7 +14,8 @@ authority.
 
 Shows the operator queue with attention state, goal, Palari, owner, adaptive
 intensity, evidence state, review state, receipt state, approval progress,
-integration state, learning signal, and next action.
+integration state, learning signal, workbench context, active attempts,
+coordination warnings, and next action.
 
 ## Detail
 
@@ -23,9 +24,10 @@ integration state, learning signal, and next action.
 ./bin/palari detail WORK-0001 --json
 ```
 
-Assembles one work item with its goal, Palari, allowed sources, attempt,
-receipt, evidence, review, linked decisions, human decisions, outcome, safety
-state, and next action.
+Assembles one work item with its workbench, goal, Palari, parent/child work
+items, dependencies, allowed sources, attempt, receipt, evidence, review,
+linked decisions, human decisions, outcome, active parallel attempts,
+coordination warnings, safety state, and next action.
 
 ## State
 
@@ -34,8 +36,9 @@ state, and next action.
 ./bin/palari state --json
 ```
 
-Shows a compact operator state: record counts, attention counts, and queue
-items. This is the first fast read model for the whole workspace.
+Shows a compact operator state: record counts, attention counts, queue items,
+active parallel work, and coordination warnings. This is the first fast read
+model for the whole workspace.
 
 ## Validate
 

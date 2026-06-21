@@ -27,6 +27,7 @@ preserving `workspace.json` as the manifest:
   "schema_version": 1,
   "name": "Example",
   "collection_files": {
+    "workbenches": ["records/workbenches.json"],
     "work_items": ["records/work-items.json"]
   },
   "work_items": []
@@ -67,7 +68,12 @@ Validation checks:
   review verdicts, human decision values, and outcome status
 - unique ids per collection
 - work item goal and Palari references
+- work item workbench, parent work item, and dependency references
 - work item allowed source references
+- work item source and output targets stay inside its workbench boundary when
+  a workbench is declared
+- parent workbench and parent work item graphs do not contain cycles
+- workbench goal, Palari, human, source, and parent workbench references
 - work item recommended playbooks reference declared playbook sources and
   included playbooks
 - source owner human and allowed Palari references
@@ -97,10 +103,10 @@ Migration:
 ```
 
 `migrate` adds `schema_version: 1` to old unversioned workspaces and ensures
-required collections exist. Optional collections such as `playbook_sources` may
-be absent from older v1 workspaces; if present, they are still strictly
-validated. Workspaces with a newer schema version fail closed until this code
-supports them.
+required collections exist. Optional collections such as `playbook_sources` and
+`workbenches` may be absent from older v1 workspaces; if present, they are still
+strictly validated. Workspaces with a newer schema version fail closed until
+this code supports them.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first
@@ -110,4 +116,5 @@ Focused validation fixtures live in `tests/fixtures/workspaces/`. They include
 valid workspaces and deliberately invalid workspaces for unknown fields,
 unsupported schema versions, broken references, stale evidence, stale review,
 unqualified human approval, invalid lifecycle state, invalid completed work,
-source/receipt boundary failures, and valid accepted/completed work.
+source/receipt boundary failures, workbench graph failures, workbench boundary
+failures, and valid accepted/completed work.

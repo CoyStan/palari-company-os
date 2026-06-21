@@ -194,6 +194,50 @@
       "last_read_at": "2026-06-19T04:00:00Z"
     }
   ],
+  "workbenches": [
+    {
+      "id": "WORKBENCH-BETA",
+      "label": "Beta Operations",
+      "summary": "Shared beta launch and workspace-readiness work for Sofia and the founder.",
+      "goal_ids": [
+        "GOAL-0001"
+      ],
+      "palari_ids": [
+        "PALARI-SOFIA"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-OPS"
+      ],
+      "source_ids": [
+        "SOURCE-0001"
+      ],
+      "output_target_ids": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "WORKBENCH-AUTHORITY",
+      "label": "Authority Boundaries",
+      "summary": "High-risk authority and support-boundary decisions owned by Alfred and the founder.",
+      "goal_ids": [
+        "GOAL-0002"
+      ],
+      "palari_ids": [
+        "PALARI-ALFRED"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-OPS"
+      ],
+      "source_ids": [],
+      "output_target_ids": [
+        "support boundary proposal"
+      ],
+      "status": "active"
+    }
+  ],
   "playbook_sources": [
     {
       "id": "superpowers",
@@ -221,6 +265,7 @@
       "title": "Prepare beta launch checklist",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
       "risk": "R2",
       "intensity": "standard",
       "status": "in-review",
@@ -252,6 +297,7 @@
       "title": "Decide support inbox connection boundary",
       "goal": "GOAL-0002",
       "palari": "PALARI-ALFRED",
+      "workbench_id": "WORKBENCH-AUTHORITY",
       "risk": "R5",
       "intensity": "high",
       "status": "needs-human",
@@ -278,6 +324,7 @@
       "title": "Clean onboarding note copy",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
       "risk": "R1",
       "intensity": "light",
       "status": "active",
@@ -289,6 +336,10 @@
         "change schemas",
         "change authority behavior"
       ],
+      "conflict_targets": [
+        "docs/product/company-os.md"
+      ],
+      "parallel_policy": "independent",
       "acceptance_target": "Copy is clearer and tests still pass.",
       "verification_expectations": [
         "focused copy review",
@@ -303,6 +354,7 @@
       "title": "Record first queue prototype outcome",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
       "risk": "R1",
       "intensity": "light",
       "status": "completed",
@@ -327,6 +379,7 @@
       "title": "Refresh stale evidence example",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
       "risk": "R2",
       "intensity": "standard",
       "status": "active",
@@ -337,6 +390,10 @@
       "forbidden_actions": [
         "deploy"
       ],
+      "conflict_targets": [
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
       "acceptance_target": "Evidence is refreshed for the current attempt head.",
       "verification_expectations": [
         "queue reports stale evidence"
@@ -350,6 +407,7 @@
       "title": "Refresh stale review example",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
       "risk": "R2",
       "intensity": "standard",
       "status": "in-review",
@@ -373,6 +431,11 @@
       "title": "Summarize selected beta launch note",
       "goal": "GOAL-0001",
       "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "parent_work_item_id": "WORK-0001",
+      "dependency_ids": [
+        "WORK-0003"
+      ],
       "risk": "R1",
       "intensity": "light",
       "status": "active",
@@ -389,6 +452,10 @@
       "output_targets": [
         "examples/acme-company-os/outputs/beta-launch-summary.md"
       ],
+      "conflict_targets": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "parallel_policy": "independent",
       "forbidden_actions": [
         "external_write",
         "send messages",
@@ -413,10 +480,14 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0001",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T17:00:00Z",
+      "updated_at": "2026-06-18T17:30:00Z",
       "commits": [
         "abc1234"
       ],
       "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "output_targets": [
         "examples/acme-company-os/workspace.json"
       ],
       "cleanliness": "clean",
@@ -431,10 +502,14 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0003",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T17:20:00Z",
+      "updated_at": "2026-06-18T17:25:00Z",
       "commits": [
         "def5678"
       ],
       "changed_files": [
+        "docs/product/company-os.md"
+      ],
+      "output_targets": [
         "docs/product/company-os.md"
       ],
       "cleanliness": "dirty",
@@ -449,10 +524,14 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0004",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T16:00:00Z",
+      "updated_at": "2026-06-18T16:25:00Z",
       "commits": [
         "aaa1111"
       ],
       "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "output_targets": [
         "examples/acme-company-os/workspace.json"
       ],
       "cleanliness": "clean",
@@ -467,11 +546,15 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0005",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T18:10:00Z",
+      "updated_at": "2026-06-18T18:18:00Z",
       "commits": [
         "stale-old",
         "stale-new"
       ],
       "changed_files": [
+        "docs/product/command-reference.md"
+      ],
+      "output_targets": [
         "docs/product/command-reference.md"
       ],
       "cleanliness": "clean",
@@ -486,10 +569,14 @@
       "workspace_path": "/tmp/acme-company-os/WORK-0006",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-18T18:20:00Z",
+      "updated_at": "2026-06-18T18:28:00Z",
       "commits": [
         "review-fresh"
       ],
       "changed_files": [
+        "docs/product/schema-and-validation.md"
+      ],
+      "output_targets": [
         "docs/product/schema-and-validation.md"
       ],
       "cleanliness": "clean",
@@ -504,10 +591,14 @@
       "workspace_path": "examples/acme-company-os",
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-19T04:05:00Z",
+      "updated_at": "2026-06-19T04:08:00Z",
       "commits": [
         "receipt-head-1"
       ],
       "changed_files": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "output_targets": [
         "examples/acme-company-os/outputs/beta-launch-summary.md"
       ],
       "cleanliness": "clean",

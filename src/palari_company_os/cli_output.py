@@ -104,6 +104,7 @@ def print_validate(payload: dict[str, Any]) -> None:
     print(
         f"Records: {counts['goals']} goals, {counts['palaris']} Palaris, "
         f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
+        f"{counts.get('workbenches', 0)} workbenches, "
         f"{counts.get('playbook_sources', 0)} playbook sources, "
         f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
     )
@@ -254,6 +255,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
     for item in items:
         print(f"{item.id} [{item.intensity} / {item.risk}] {item.title}")
         print(f"  attention: {item.attention}")
+        if item.workbench_label:
+            print(f"  workbench: {item.workbench_label}")
         print(f"  goal: {item.goal_title}")
         print(f"  palari: {item.palari_name}")
         if item.owner:
@@ -272,6 +275,11 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             print(f"  learning: {item.learning_signal}")
         if item.playbook_recommendations:
             print(f"  playbooks: {', '.join(item.playbook_recommendations)}")
+        if item.active_attempts:
+            attempts = ", ".join(attempt["attempt_id"] for attempt in item.active_attempts)
+            print(f"  active attempts: {attempts}")
+        for warning in item.coordination_warnings:
+            print(f"  coordination: {warning}")
         if item.intensity != item.recommended_intensity:
             print(
                 f"  recommended intensity: {item.recommended_intensity} "
@@ -285,8 +293,11 @@ def print_detail(payload: dict[str, Any]) -> None:
     work = payload["work_item"]
     goal = payload["goal"] or {}
     palari = payload["palari"] or {}
+    workbench = payload.get("workbench") or {}
     print(f"{work['id']}: {work['title']}")
     print(f"Status: {work['status']} | Risk: {work['risk']} | Intensity: {work['intensity']}")
+    if workbench:
+        print(f"Workbench: {workbench.get('label', work['workbench_id'])}")
     print(f"Goal: {goal.get('title', work['goal'])}")
     print(f"Palari: {palari.get('name', work['palari'])}")
     print("")
@@ -305,6 +316,10 @@ def print_detail(payload: dict[str, Any]) -> None:
         print(f"  actions: {', '.join(work['allowed_actions'])}")
     if work.get("output_targets"):
         print(f"  outputs: {', '.join(work['output_targets'])}")
+    if work.get("conflict_targets"):
+        print(f"  conflict targets: {', '.join(work['conflict_targets'])}")
+    if work.get("parallel_policy"):
+        print(f"  parallel policy: {work['parallel_policy']}")
     if work["forbidden_actions"]:
         print(f"  forbidden: {', '.join(work['forbidden_actions'])}")
     if payload.get("playbooks", {}).get("recommended"):
@@ -312,6 +327,33 @@ def print_detail(payload: dict[str, Any]) -> None:
         for item in payload["playbooks"]["recommended"]:
             print(f"    {item['id']}: {item['reason']}")
     print("")
+    if payload.get("parent_work_item"):
+        parent = payload["parent_work_item"]
+        print(f"Parent work item: {parent['id']} - {parent['title']}")
+        print("")
+    if payload.get("child_work_items"):
+        print("Child Work Items")
+        for child in payload["child_work_items"]:
+            print(f"  {child['id']}: {child['title']} [{child['status']}]")
+        print("")
+    if payload.get("dependencies"):
+        print("Dependencies")
+        for dependency in payload["dependencies"]:
+            print(f"  {dependency['id']}: {dependency['title']} [{dependency['status']}]")
+        print("")
+    if payload.get("active_parallel_attempts"):
+        print("Active Parallel Attempts")
+        for attempt in payload["active_parallel_attempts"]:
+            print(
+                f"  {attempt['attempt_id']}: {attempt['actor']} on "
+                f"{attempt.get('branch', '') or attempt.get('workspace_path', '')}"
+            )
+        print("")
+    if payload.get("coordination_warnings"):
+        print("Coordination Warnings")
+        for warning in payload["coordination_warnings"]:
+            print(f"  {warning}")
+        print("")
     _print_section("Attempt", payload["attempt"])
     if payload.get("sources"):
         print("Sources")
@@ -371,6 +413,14 @@ def print_state(payload: dict[str, Any]) -> None:
     print("Attention")
     for key, value in payload["attention"].items():
         print(f"  {key}: {value}")
+    if payload.get("active_parallel_work"):
+        print("Active parallel work")
+        for item in payload["active_parallel_work"]:
+            print(f"  {item['work_item_id']} / {item['attempt_id']}: {item['actor']}")
+    if payload.get("coordination_warnings"):
+        print("Coordination warnings")
+        for warning in payload["coordination_warnings"]:
+            print(f"  {warning['message']}")
 
 
 def print_scope(payload: dict[str, Any]) -> None:

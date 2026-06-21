@@ -19,6 +19,7 @@ from .models import (
     Receipt,
     ReviewVerdict,
     Source,
+    Workbench,
     WorkItem,
 )
 from .validation import (
@@ -42,6 +43,7 @@ class Workspace:
     palaris: list[Palari]
     humans: list[Human]
     sources: list[Source]
+    workbenches: list[Workbench]
     playbook_sources: list[PlaybookSource]
     decisions: list[Decision]
     work_items: list[WorkItem]
@@ -105,6 +107,7 @@ class Workspace:
             palaris=[Palari.from_record(item) for item in _items(raw, "palaris")],
             humans=[Human.from_record(item) for item in _items(raw, "humans")],
             sources=[Source.from_record(item) for item in _items(raw, "sources")],
+            workbenches=[Workbench.from_record(item) for item in _items(raw, "workbenches")],
             playbook_sources=[
                 PlaybookSource.from_record(item) for item in _items(raw, "playbook_sources")
             ],
@@ -132,6 +135,7 @@ class Workspace:
             ("palaris", self.palaris),
             ("humans", self.humans),
             ("sources", self.sources),
+            ("workbenches", self.workbenches),
             ("playbook_sources", self.playbook_sources),
             ("decisions", self.decisions),
             ("work_items", self.work_items),
@@ -148,6 +152,7 @@ class Workspace:
         palari_ids = {palari.id for palari in self.palaris}
         human_ids = {human.id for human in self.humans}
         source_ids = {source.id for source in self.sources}
+        workbench_ids = {workbench.id for workbench in self.workbenches}
         playbook_source_ids = {source.id for source in self.playbook_sources}
         work_ids = {work.id for work in self.work_items}
         attempt_ids = {attempt.id for attempt in self.attempts}
@@ -164,9 +169,48 @@ class Workspace:
             for decision in goal.linked_decisions:
                 _require_ref("goals", goal.id, "linked_decisions", decision, decision_ids)
 
+        for workbench in self.workbenches:
+            if workbench.parent_workbench_id:
+                _require_ref(
+                    "workbenches",
+                    workbench.id,
+                    "parent_workbench_id",
+                    workbench.parent_workbench_id,
+                    workbench_ids,
+                )
+            for goal in workbench.goal_ids:
+                _require_ref("workbenches", workbench.id, "goal_ids", goal, goal_ids)
+            for palari in workbench.palari_ids:
+                _require_ref("workbenches", workbench.id, "palari_ids", palari, palari_ids)
+            for human in workbench.human_ids:
+                _require_ref("workbenches", workbench.id, "human_ids", human, human_ids)
+            for source in workbench.source_ids:
+                _require_ref("workbenches", workbench.id, "source_ids", source, source_ids)
+
+        _ensure_parent_graph_has_no_cycles(
+            "workbenches",
+            self.workbenches,
+            "parent_workbench_id",
+        )
+
         for work in self.work_items:
             _require_ref("work_items", work.id, "goal", work.goal, goal_ids)
             _require_ref("work_items", work.id, "palari", work.palari, palari_ids)
+            if work.workbench_id:
+                _require_ref(
+                    "work_items", work.id, "workbench_id", work.workbench_id, workbench_ids
+                )
+                _validate_workbench_boundary(self, work)
+            if work.parent_work_item_id:
+                _require_ref(
+                    "work_items",
+                    work.id,
+                    "parent_work_item_id",
+                    work.parent_work_item_id,
+                    work_ids,
+                )
+            for dependency in work.dependency_ids:
+                _require_ref("work_items", work.id, "dependency_ids", dependency, work_ids)
             if work.current_attempt:
                 _require_ref(
                     "work_items", work.id, "current_attempt", work.current_attempt, attempt_ids
@@ -186,6 +230,12 @@ class Workspace:
                 raise WorkspaceError(
                     f"work_items.{work.id}.required_approval_count must be zero or greater"
                 )
+
+        _ensure_parent_graph_has_no_cycles(
+            "work_items",
+            self.work_items,
+            "parent_work_item_id",
+        )
 
         for source in self.sources:
             if source.owner_human:
@@ -295,6 +345,9 @@ class Workspace:
     def source(self, source_id: str) -> Source | None:
         return _find(self.sources, source_id)
 
+    def workbench(self, workbench_id: str) -> Workbench | None:
+        return _find(self.workbenches, workbench_id)
+
 
 def default_workspace_path() -> Path:
     repo_root = Path(__file__).resolve().parents[2]
@@ -385,6 +438,65 @@ def _find(records: Iterable[T], identifier: str) -> T | None:
         if getattr(record, "id") == identifier:
             return record
     return None
+
+
+def _ensure_parent_graph_has_no_cycles(
+    label: str,
+    records: Iterable[object],
+    parent_field: str,
+) -> None:
+    by_id = {getattr(record, "id"): record for record in records}
+    for record_id in by_id:
+        seen: set[str] = set()
+        path: list[str] = []
+        current = record_id
+        while current:
+            if current in seen:
+                cycle_start = path.index(current)
+                cycle = " -> ".join([*path[cycle_start:], current])
+                raise WorkspaceError(f"{label} parent graph contains a cycle: {cycle}")
+            seen.add(current)
+            path.append(current)
+            record = by_id.get(current)
+            if record is None:
+                break
+            current = getattr(record, parent_field)
+
+
+def _validate_workbench_boundary(workspace: Workspace, work: WorkItem) -> None:
+    sources, outputs = _inherited_workbench_boundaries(workspace, work.workbench_id)
+    for source in work.allowed_sources:
+        if source not in sources:
+            raise WorkspaceError(
+                f"work_items.{work.id}.allowed_sources includes source {source} "
+                f"outside workbench {work.workbench_id}"
+            )
+    for output in work.output_targets:
+        if output not in outputs:
+            raise WorkspaceError(
+                f"work_items.{work.id}.output_targets includes target {output} "
+                f"outside workbench {work.workbench_id}"
+            )
+
+
+def _inherited_workbench_boundaries(
+    workspace: Workspace,
+    workbench_id: str,
+) -> tuple[set[str], set[str]]:
+    workbenches = {workbench.id: workbench for workbench in workspace.workbenches}
+    sources: set[str] = set()
+    outputs: set[str] = set()
+    current = workbench_id
+    seen: set[str] = set()
+    while current and current not in seen:
+        seen.add(current)
+        workbench = workbenches.get(current)
+        if workbench is None:
+            break
+        sources.update(workbench.source_ids)
+        outputs.update(workbench.output_target_ids)
+        current = workbench.parent_workbench_id
+    return sources, outputs
 
 
 def _ensure_unique_ids(label: str, records: Iterable[object]) -> None:
