@@ -6,24 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .authoring import (
-    complete_work,
-    create_human_decision,
-    create_record,
-    parse_setters,
-    update_human_decision,
-    update_record,
-)
-from .dashboard import generate_dashboard
-from .desktop_prototype import generate_desktop_prototype
-from .desktop_server import serve_desktop_prototype
-from .history import append_history_event, read_history
-from .maintainer import status as maintainer_status
-from .models import to_plain
-from .playbooks import playbook_catalog, recommend_playbooks
-from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
-from .scope import check_scope
-from .store import load_store, migrate_data, write_store
 from .workspace import Workspace, WorkspaceError
 
 
@@ -36,6 +18,8 @@ class CommandResult:
 
 def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "queue":
+        from .read_models import queue_items
+
         workspace = Workspace.load(args.workspace)
         return CommandResult(
             "queue",
@@ -44,6 +28,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "state":
+        from .models import to_plain
+        from .read_models import active_parallel_work, coordination_warnings, queue_items
+
         workspace = Workspace.load(args.workspace)
         items = queue_items(workspace)
         return CommandResult(
@@ -81,10 +68,14 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "detail":
+        from .read_models import detail
+
         workspace = Workspace.load(args.workspace)
         return CommandResult("detail", detail(workspace, args.work_id), args.json)
 
     if args.command == "scope":
+        from .scope import check_scope
+
         workspace = Workspace.load(args.workspace)
         payload = check_scope(workspace, args.work_id, args.changed, args.action)
         return CommandResult("scope", payload.to_dict(), args.json)
@@ -93,9 +84,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 
     if args.command == "history":
+        from .history import read_history
+
         return CommandResult("history", read_history(args.workspace, args.limit), args.json)
 
     if args.command == "dashboard":
+        from .dashboard import generate_dashboard
+
         return CommandResult(
             "dashboard",
             generate_dashboard(args.workspace, args.out),
@@ -103,6 +98,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "desktop-prototype":
+        from .desktop_prototype import generate_desktop_prototype
+
         return CommandResult(
             "desktop-prototype",
             generate_desktop_prototype(args.out),
@@ -110,6 +107,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "desktop-serve":
+        from .desktop_server import serve_desktop_prototype
+
         return CommandResult(
             "desktop-serve",
             serve_desktop_prototype(
@@ -141,10 +140,14 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("mutation", run_lifecycle_command(args), args.json)
 
     if args.command == "maintainer" and args.maintainer_command == "status":
+        from .maintainer import status as maintainer_status
+
         payload = maintainer_status(Path(args.repo)).to_dict()
         return CommandResult("maintainer-status", payload, args.json)
 
     if args.command == "playbooks":
+        from .playbooks import playbook_catalog, recommend_playbooks
+
         workspace = Workspace.load(args.workspace)
         if args.playbooks_command == "sources":
             return CommandResult("playbooks", playbook_catalog(workspace), args.json)
@@ -159,6 +162,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
 
 def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
+    from .history import append_history_event
+    from .store import load_store, migrate_data, write_store
+
     store = load_store(workspace_path)
     before = deepcopy(store.data)
     migrated, changes = migrate_data(store.data)
@@ -185,6 +191,14 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
 
 
 def run_authoring_command(args: argparse.Namespace) -> Any:
+    from .authoring import (
+        complete_work,
+        create_human_decision,
+        create_record,
+        update_human_decision,
+        update_record,
+    )
+
     command = f"{args.command} {args.object_command}"
     if args.object_command in {"create", "record"}:
         record = _record_from_args(args)
@@ -192,7 +206,7 @@ def run_authoring_command(args: argparse.Namespace) -> Any:
             return create_human_decision(args.workspace, record, command=command)
         return create_record(args.workspace, args.command, record, command=command)
     if args.object_command == "update":
-        updates = parse_setters(args.set, args.list)
+        updates = _parse_setters(args.set, args.list)
         _apply_known_args(args, updates, include_id=False)
         if args.command == "human-decision":
             return update_human_decision(args.workspace, args.id, updates, command=command)
@@ -203,6 +217,8 @@ def run_authoring_command(args: argparse.Namespace) -> Any:
 
 
 def run_lifecycle_command(args: argparse.Namespace) -> Any:
+    from .authoring import complete_work, create_human_decision, create_record
+
     command = f"lifecycle {args.lifecycle_command}"
     if args.lifecycle_command == "evidence":
         return create_record(args.workspace, "evidence", _record_from_args(args), command=command)
@@ -218,9 +234,15 @@ def run_lifecycle_command(args: argparse.Namespace) -> Any:
 
 
 def _record_from_args(args: argparse.Namespace) -> dict[str, Any]:
-    record = parse_setters(args.set, args.list)
+    record = _parse_setters(args.set, args.list)
     _apply_known_args(args, record, include_id=True)
     return {key: value for key, value in record.items() if value not in (None, "")}
+
+
+def _parse_setters(setters: list[str], lists: list[str]) -> dict[str, Any]:
+    from .authoring import parse_setters
+
+    return parse_setters(setters, lists)
 
 
 def _apply_known_args(args: argparse.Namespace, record: dict[str, Any], include_id: bool) -> None:

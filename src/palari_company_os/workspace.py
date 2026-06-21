@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, TypeVar
 
@@ -53,6 +54,24 @@ class Workspace:
     human_decisions: list[HumanDecision]
     receipts: list[Receipt]
     outcomes: list[Outcome]
+    _goals_by_id: dict[str, Goal] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _palaris_by_id: dict[str, Palari] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _humans_by_id: dict[str, Human] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _sources_by_id: dict[str, Source] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _work_items_by_id: dict[str, WorkItem] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _workbenches_by_id: dict[str, Workbench] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     @classmethod
     def load(cls, path: Path | str) -> "Workspace":
@@ -126,8 +145,21 @@ class Workspace:
             receipts=[Receipt.from_record(item) for item in _items(raw, "receipts")],
             outcomes=[Outcome.from_record(item) for item in _items(raw, "outcomes")],
         )
+        workspace._rebuild_indexes()
         workspace.validate()
         return workspace
+
+    def _rebuild_indexes(self) -> None:
+        object.__setattr__(self, "_goals_by_id", {goal.id: goal for goal in self.goals})
+        object.__setattr__(self, "_palaris_by_id", {palari.id: palari for palari in self.palaris})
+        object.__setattr__(self, "_humans_by_id", {human.id: human for human in self.humans})
+        object.__setattr__(self, "_sources_by_id", {source.id: source for source in self.sources})
+        object.__setattr__(self, "_work_items_by_id", {work.id: work for work in self.work_items})
+        object.__setattr__(
+            self,
+            "_workbenches_by_id",
+            {workbench.id: workbench for workbench in self.workbenches},
+        )
 
     def validate(self) -> None:
         for label, records in (
@@ -215,6 +247,13 @@ class Workspace:
                 _require_ref(
                     "work_items", work.id, "current_attempt", work.current_attempt, attempt_ids
                 )
+                current_attempt = _find(self.attempts, work.current_attempt)
+                if current_attempt is not None and current_attempt.work_item_id != work.id:
+                    raise WorkspaceError(
+                        f"work_items.{work.id}.current_attempt references attempt "
+                        f"{work.current_attempt} for different work item "
+                        f"{current_attempt.work_item_id}"
+                    )
             for source in work.allowed_sources:
                 _require_ref("work_items", work.id, "allowed_sources", source, source_ids)
             for playbook in work.recommended_playbooks:
@@ -331,34 +370,71 @@ class Workspace:
         validate_workspace_contract(self)
 
     def goal(self, goal_id: str) -> Goal | None:
-        return _find(self.goals, goal_id)
+        return self._goals_by_id.get(goal_id)
 
     def palari(self, palari_id: str) -> Palari | None:
-        return _find(self.palaris, palari_id)
+        return self._palaris_by_id.get(palari_id)
 
     def human(self, human_id: str) -> Human | None:
-        return _find(self.humans, human_id)
+        return self._humans_by_id.get(human_id)
 
     def work_item(self, work_id: str) -> WorkItem | None:
-        return _find(self.work_items, work_id)
+        return self._work_items_by_id.get(work_id)
 
     def source(self, source_id: str) -> Source | None:
-        return _find(self.sources, source_id)
+        return self._sources_by_id.get(source_id)
 
     def workbench(self, workbench_id: str) -> Workbench | None:
-        return _find(self.workbenches, workbench_id)
+        return self._workbenches_by_id.get(workbench_id)
 
 
 def default_workspace_path() -> Path:
     repo_root = Path(__file__).resolve().parents[2]
-    return repo_root / "examples" / "acme-company-os"
+    repo_fixture = repo_root / "examples" / "acme-company-os"
+    if repo_fixture.exists():
+        return repo_fixture
+    return _packaged_data_path("examples", "acme-company-os")
+
+
+def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Attempt | None:
+    latest: Attempt | None = None
+    latest_key: tuple[str, str, str, str] | None = None
+    for attempt in attempts:
+        if attempt.work_item_id != work.id:
+            continue
+        if work.current_attempt and attempt.id == work.current_attempt:
+            return attempt
+        key = _record_time_key(attempt)
+        if latest_key is None or key > latest_key:
+            latest = attempt
+            latest_key = key
+    return latest
 
 
 def latest_for_work(records: Iterable[T], work_id: str) -> T | None:
-    matching = [record for record in records if getattr(record, "work_item_id") == work_id]
-    if not matching:
-        return None
-    return sorted(matching, key=lambda item: getattr(item, "timestamp", ""))[-1]
+    latest: T | None = None
+    latest_key: tuple[str, str, str, str] | None = None
+    for record in records:
+        if getattr(record, "work_item_id") != work_id:
+            continue
+        key = _record_time_key(record)
+        if latest_key is None or key > latest_key:
+            latest = record
+            latest_key = key
+    return latest
+
+
+def _record_time_key(record: object) -> tuple[str, str, str, str]:
+    return (
+        str(getattr(record, "timestamp", "")),
+        str(getattr(record, "updated_at", "")),
+        str(getattr(record, "started_at", "")),
+        str(getattr(record, "id", "")),
+    )
+
+
+def _packaged_data_path(*parts: str) -> Path:
+    return Path(str(files("palari_company_os").joinpath("data", *parts)))
 
 
 def _items(raw: dict[str, object], key: str) -> list[dict[str, object]]:

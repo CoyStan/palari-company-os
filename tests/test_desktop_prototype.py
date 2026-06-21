@@ -44,6 +44,18 @@ class DesktopPrototypeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside work item boundary"):
             validate_desktop_app_data(data)
 
+    def test_desktop_demo_fixture_rejects_unsafe_document_html(self) -> None:
+        data = deepcopy(load_desktop_demo_data())
+        data["work_items"]["comment"]["attempts"]["comment-attempt-1"]["document_html"] = (
+            "<h2>Safe heading</h2><img src=x onerror=alert(1)><script>alert(1)</script>"
+        )
+
+        with self.assertRaisesRegex(ValueError, "unsafe markup"):
+            validate_desktop_app_data(data)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "unsafe markup"):
+                generate_desktop_prototype(directory, data=data)
+
     def test_desktop_prototype_renders_from_supplied_fixture_data(self) -> None:
         data = deepcopy(load_desktop_demo_data())
         data["sources"]["hcd-plan"]["title"] = "Fixture controlled housing plan"
@@ -256,19 +268,21 @@ class DesktopPrototypeTests(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                timeout=30,
             )
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-m", "palari_company_os", *args],
+            [sys.executable, "-S", "-m", "palari_company_os", *args],
             cwd=REPO_ROOT,
             env=env,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
 

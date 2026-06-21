@@ -5,12 +5,12 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
 bash -n scripts/install_smoke.sh scripts/verify.sh
-python3 -m unittest discover -s tests
-python3 scripts/check_style.py
-python3 -m compileall -q src
-python3 -m json.tool examples/acme-company-os/workspace.json >/tmp/palari-company-workspace-json-check.json
-python3 -m json.tool workspaces/palari-company-os/workspace.json >/tmp/palari-company-dogfood-workspace-json-check.json
-python3 -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-json-check.json
+python3 -S -m unittest discover -s tests
+python3 -S scripts/check_style.py
+python3 -S -m compileall -q src
+python3 -S -m json.tool examples/acme-company-os/workspace.json >/tmp/palari-company-workspace-json-check.json
+python3 -S -m json.tool workspaces/palari-company-os/workspace.json >/tmp/palari-company-dogfood-workspace-json-check.json
+python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schema-json-check.json
 
 ./bin/palari validate --json >/tmp/palari-company-validate.json
 ./bin/palari --workspace workspaces/palari-company-os validate --json >/tmp/palari-company-dogfood-validate.json

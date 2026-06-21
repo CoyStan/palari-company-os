@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "palari-company-os"
-version = "0.1.0"
+version = "0.1.1"
 description = "Queue-first operating layer for AI-assisted company work."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,3 +38,11 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+palari_company_os = [
+    "data/examples/acme-company-os/*.json",
+    "data/examples/acme-company-os/*.md",
+    "data/examples/desktop-demo/*.json",
+    "data/schemas/*.json",
+]

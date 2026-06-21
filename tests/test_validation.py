@@ -125,6 +125,47 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             self.modified_example_workspace(outside_output)
 
+    def test_attempt_changed_file_outside_declared_boundary_fails_closed(self) -> None:
+        def outside_changed_file(data: dict[str, object]) -> None:
+            data["attempts"][0]["changed_files"] = ["secrets.env"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "attempts.ATTEMPT-0001.changed_files includes path outside declared boundaries",
+        ):
+            self.modified_example_workspace(outside_changed_file)
+
+    def test_attempt_changed_file_with_traversal_fails_closed(self) -> None:
+        def traversal(data: dict[str, object]) -> None:
+            data["attempts"][0]["changed_files"] = ["docs/../secrets.env"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "attempts.ATTEMPT-0001.changed_files contains unsafe path",
+        ):
+            self.modified_example_workspace(traversal)
+
+    def test_receipt_output_outside_declared_boundary_fails_closed(self) -> None:
+        def outside_output(data: dict[str, object]) -> None:
+            data["receipts"][0]["outputs_created"] = ["secrets.env"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "receipts.RECEIPT-0001.outputs_created includes path outside declared boundaries",
+        ):
+            self.modified_example_workspace(outside_output)
+
+    def test_receipt_undo_ref_outside_declared_boundary_fails_closed(self) -> None:
+        def outside_undo(data: dict[str, object]) -> None:
+            data["receipts"][0]["undo_refs"] = ["delete secrets.env"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "receipts.RECEIPT-0001.undo_refs includes path outside declared boundaries",
+        ):
+            self.modified_example_workspace(outside_undo)
+
+
     def test_split_workspace_collection_file_loads(self) -> None:
         workspace = Workspace.load(FIXTURES / "split-workspace")
 
@@ -332,6 +373,7 @@ class WorkspaceValidationTests(unittest.TestCase):
         return subprocess.run(
             [
                 sys.executable,
+                "-S",
                 "-m",
                 "palari_company_os",
                 "--workspace",
@@ -344,6 +386,7 @@ class WorkspaceValidationTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
     def modified_split_workspace(self, mutate: object):

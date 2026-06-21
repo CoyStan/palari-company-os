@@ -1,0 +1,519 @@
+{
+  "schema_version": "desktop-app-data/v0",
+  "workspace": {
+    "id": "workspace_public_policy_demo",
+    "label": "Public Policy Demo Workspace",
+    "owner_human_id": "human_alex_ramirez",
+    "description": "Demo workspace for a Palari working on bounded public-policy review."
+  },
+  "selected_workbench_id": "workbench_public_policy_housing",
+  "workbenches": {
+    "workbench_public_policy_housing": {
+      "id": "workbench_public_policy_housing",
+      "path": ["Public Policy", "Housing"],
+      "title": "Workbench / Public Policy / Housing",
+      "selected_palari_id": "palari_maya_policy",
+      "assigned_human_ids": ["human_jordan_lee", "human_sam_patel"],
+      "source_groups": [
+        {
+          "id": "readable",
+          "label": "Readable",
+          "tone": "read",
+          "source_ids": ["hcd-plan", "housing-law", "adu-guide", "tenant-memo", "community-notes"]
+        },
+        {
+          "id": "inherited",
+          "label": "Inherited (readable)",
+          "tone": "inherit",
+          "source_ids": ["oakland-element", "rhna-targets"]
+        },
+        {
+          "id": "writable",
+          "label": "Writable after approval",
+          "tone": "write",
+          "source_ids": ["comment-portal", "work-drafts"]
+        },
+        {
+          "id": "blocked",
+          "label": "Blocked",
+          "tone": "blocked",
+          "source_ids": ["mayor-strategy", "council-notes", "private-email"]
+        }
+      ],
+      "work_queue": {
+        "tabs": [
+          {"label": "Active", "count": 4, "active": true},
+          {"label": "Review", "count": 2, "active": false},
+          {"label": "Done", "count": 7, "active": false}
+        ]
+      },
+      "work_item_ids": ["comment", "fees", "feedback", "memo"]
+    }
+  },
+  "humans": {
+    "human_alex_ramirez": {
+      "id": "human_alex_ramirez",
+      "name": "Alex Ramirez",
+      "role": "Founder",
+      "initials": "AR",
+      "avatar_class": "alex"
+    },
+    "human_jordan_lee": {
+      "id": "human_jordan_lee",
+      "name": "Jordan Lee",
+      "role": "Policy Counsel",
+      "initials": "JL",
+      "avatar_class": "jordan"
+    },
+    "human_sam_patel": {
+      "id": "human_sam_patel",
+      "name": "Sam Patel",
+      "role": "Program Lead",
+      "initials": "SP",
+      "avatar_class": "sam"
+    }
+  },
+  "palaris": {
+    "palari_maya_policy": {
+      "id": "palari_maya_policy",
+      "name": "Maya",
+      "role": "Policy Researcher",
+      "scope": "Prepare public-policy work from selected sources; never write externally without approval.",
+      "avatar_class": "maya"
+    }
+  },
+  "sources": {
+    "hcd-plan": {
+      "id": "hcd-plan",
+      "title": "California HCD - 2025 Housing Plan",
+      "provider": "Google Drive",
+      "external_id": "gdrive:file_hcd_2025_plan",
+      "access": "Read selected file",
+      "owner_human_id": "human_jordan_lee",
+      "owner_label": "Jordan Lee",
+      "last_seen": "Jun 20, 2026 9:20 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Readable",
+      "mode_class": "chip-green",
+      "tone": "green",
+      "type_label": "PDF",
+      "row_muted": false,
+      "summary": "Selected for Maya. She can read this statewide planning source for the current draft; no write access is granted."
+    },
+    "housing-law": {
+      "id": "housing-law",
+      "title": "State Housing Element Law (Gov Code 65580)",
+      "provider": "Public web",
+      "external_id": "ca.gov:gov-code-65580",
+      "access": "Read public page",
+      "owner_human_id": null,
+      "owner_label": "Public source",
+      "last_seen": "Jun 20, 2026 9:22 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Readable",
+      "mode_class": "chip-green",
+      "tone": "green",
+      "type_label": "HTML",
+      "row_muted": false,
+      "summary": "A selected legal source Maya may use for statutory housing-element requirements and terminology."
+    },
+    "adu-guide": {
+      "id": "adu-guide",
+      "title": "Urban Institute - ADU Guide",
+      "provider": "Uploaded file",
+      "external_id": "upload:adu-guide.pdf",
+      "access": "Read selected upload",
+      "owner_human_id": "human_alex_ramirez",
+      "owner_label": "Alex Ramirez",
+      "last_seen": "Jun 20, 2026 9:25 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Readable",
+      "mode_class": "chip-green",
+      "tone": "blue",
+      "type_label": "PDF",
+      "row_muted": false,
+      "summary": "A selected research guide Maya may use for ADU policy context and practical recommendations."
+    },
+    "tenant-memo": {
+      "id": "tenant-memo",
+      "title": "Oakland tenant protection memo",
+      "provider": "Google Doc",
+      "external_id": "gdoc:tenant-protection-memo",
+      "access": "Read selected document",
+      "owner_human_id": "human_sam_patel",
+      "owner_label": "Sam Patel",
+      "last_seen": "Jun 20, 2026 9:31 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Readable",
+      "mode_class": "chip-green",
+      "tone": "green",
+      "type_label": "Doc",
+      "row_muted": false,
+      "summary": "A selected working memo Maya may use for tenant-protection arguments, with no permission to edit the source."
+    },
+    "community-notes": {
+      "id": "community-notes",
+      "title": "June community workshop notes",
+      "provider": "Local note",
+      "external_id": "local-note:community-workshop-june",
+      "access": "Read workspace note",
+      "owner_human_id": "human_alex_ramirez",
+      "owner_label": "Alex Ramirez",
+      "last_seen": "Jun 20, 2026 9:34 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Readable",
+      "mode_class": "chip-green",
+      "tone": "green",
+      "type_label": "MD",
+      "row_muted": false,
+      "summary": "A local note selected for feedback summarization. It is safe to read and cannot be changed by this prototype."
+    },
+    "oakland-element": {
+      "id": "oakland-element",
+      "title": "City of Oakland - Housing Element",
+      "provider": "Parent workbench",
+      "external_id": "inherited:oakland-housing-element",
+      "access": "Inherited read",
+      "owner_human_id": null,
+      "owner_label": "Housing parent workbench",
+      "last_seen": "Jun 19, 2026 4:10 PM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Inherited",
+      "mode_class": "chip-blue",
+      "tone": "blue",
+      "type_label": "PDF",
+      "row_muted": false,
+      "summary": "Readable through the parent Public Policy workbench. Maya can cite it here, but this child workbench did not add new permissions."
+    },
+    "rhna-targets": {
+      "id": "rhna-targets",
+      "title": "Bay Area RHNA allocation table",
+      "provider": "Parent workbench",
+      "external_id": "inherited:rhna-targets",
+      "access": "Inherited read",
+      "owner_human_id": null,
+      "owner_label": "Housing parent workbench",
+      "last_seen": "Jun 19, 2026 4:15 PM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Inherited",
+      "mode_class": "chip-blue",
+      "tone": "blue",
+      "type_label": "XLS",
+      "row_muted": false,
+      "summary": "Inherited planning table Maya may use for context, but it remains managed by the parent workbench."
+    },
+    "comment-portal": {
+      "id": "comment-portal",
+      "title": "Oakland Planning Dept - Comment Portal",
+      "provider": "External web",
+      "external_id": "web:oakland-comment-portal",
+      "access": "Write only after approval",
+      "owner_human_id": null,
+      "owner_label": "Oakland Planning Dept",
+      "last_seen": "Not written",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Writable after approval",
+      "mode_class": "chip-amber",
+      "tone": "amber",
+      "type_label": "Web",
+      "row_muted": false,
+      "summary": "This is an output target. Maya may write here only after the required human approval, and the prototype will not perform the write."
+    },
+    "work-drafts": {
+      "id": "work-drafts",
+      "title": "Work / public-comment drafts",
+      "provider": "Google Drive",
+      "external_id": "gdrive:folder_public_comment_drafts",
+      "access": "Create approved work output",
+      "owner_human_id": "human_alex_ramirez",
+      "owner_label": "Alex Ramirez",
+      "last_seen": "Jun 20, 2026 10:42 AM",
+      "allowed_palari_ids": ["palari_maya_policy"],
+      "mode": "Writable after approval",
+      "mode_class": "chip-amber",
+      "tone": "amber",
+      "type_label": "Drive",
+      "row_muted": false,
+      "summary": "Maya can create reviewed drafts here after approval. Existing source files are not editable through this target."
+    },
+    "mayor-strategy": {
+      "id": "mayor-strategy",
+      "title": "Mayor's Office - Internal Strategy Doc",
+      "provider": "Google Drive",
+      "external_id": "gdrive:file_mayor_strategy_private",
+      "access": "Blocked",
+      "owner_human_id": null,
+      "owner_label": "Mayor's Office",
+      "last_seen": "Never",
+      "allowed_palari_ids": [],
+      "mode": "Blocked",
+      "mode_class": "chip-red",
+      "tone": "gray",
+      "type_label": "DOCX",
+      "row_muted": true,
+      "summary": "Maya cannot read this source in the current workbench. It is visible only to make the boundary explicit."
+    },
+    "council-notes": {
+      "id": "council-notes",
+      "title": "Councilmember Briefing Notes",
+      "provider": "Email attachment",
+      "external_id": "mail-attachment:council-briefing-notes",
+      "access": "Blocked",
+      "owner_human_id": null,
+      "owner_label": "Councilmember office",
+      "last_seen": "Never",
+      "allowed_palari_ids": [],
+      "mode": "Blocked",
+      "mode_class": "chip-red",
+      "tone": "gray",
+      "type_label": "PDF",
+      "row_muted": true,
+      "summary": "Maya cannot read this source unless a human explicitly adds it to the workbench later."
+    },
+    "private-email": {
+      "id": "private-email",
+      "title": "Private constituent email thread",
+      "provider": "Email",
+      "external_id": "mail:private-constituent-thread",
+      "access": "Blocked",
+      "owner_human_id": "human_alex_ramirez",
+      "owner_label": "Alex Ramirez",
+      "last_seen": "Never",
+      "allowed_palari_ids": [],
+      "mode": "Blocked",
+      "mode_class": "chip-red",
+      "tone": "gray",
+      "type_label": "EML",
+      "row_muted": true,
+      "summary": "Private email is outside Maya's current boundary. The prototype shows the denial instead of hiding the risk."
+    }
+  },
+  "work_items": {
+    "comment": {
+      "id": "comment",
+      "public_id": "PRL-HOUS-001",
+      "title": "Draft public comment on Housing Element",
+      "artifact_title": "Draft public comment",
+      "palari_id": "palari_maya_policy",
+      "due_label": "Jun 23, 2026",
+      "due_short": "Due Jun 23",
+      "priority_label": "High",
+      "priority_class": "chip-red",
+      "risk_label": "R2",
+      "allowed_source_ids": ["hcd-plan", "housing-law", "adu-guide"],
+      "output_target_ids": ["comment-portal", "work-drafts"],
+      "allowed_actions": ["create_draft", "request_human_approval"],
+      "approval_copy": "This work can be published to the Oakland Planning Dept portal after human approval.",
+      "current_attempt_id": "comment-attempt-1",
+      "attempts": {
+        "comment-attempt-1": {
+          "id": "comment-attempt-1",
+          "number": "1",
+          "status_label": "In Progress",
+          "status_class": "chip-blue",
+          "updated_label": "Jun 20, 2026 10:42 AM",
+          "word_count": "612",
+          "language": "English (US)",
+          "sources_used": ["hcd-plan", "housing-law", "adu-guide"],
+          "document_html": "<h2>I. Introduction</h2><p>Oakland's Housing Element update is a critical opportunity to advance housing affordability, fairness, and long-term community well-being.</p><h2>II. Support for Key Strategies</h2><ul><li>Preserve and expand affordable housing.</li><li>Increase approval certainty for middle housing and ADUs.</li><li>Invest in tenant protections and anti-displacement strategies.</li></ul><h2>III. Recommendations</h2><ol><li>Adopt clear, objective standards for ADU approval.</li><li>Expand right-to-counsel and tenant stabilization programs.</li><li>Align zoning and infrastructure planning with RHNA targets.</li></ol><h2>IV. Conclusion</h2><p>Thank you for the opportunity to comment. These steps will help Oakland build a more inclusive, resilient, and affordable future.</p>",
+          "receipt": {
+            "id": "receipt-comment-attempt-1",
+            "status_label": "Ready for review",
+            "status_class": "chip-blue",
+            "sources_used": "3 sources",
+            "created": "1 document draft",
+            "external_writes": "None",
+            "not_done": "Did not contact stakeholders",
+            "undo": "No external changes to undo"
+          },
+          "authority": {
+            "requirement": "Approval required - R2 - external write target",
+            "summary": "1 of 2 approvals",
+            "approvals": [
+              {"human_id": "human_jordan_lee", "role": "Policy Counsel", "status_label": "Pending", "status_class": "chip-amber"},
+              {"human_id": "human_sam_patel", "role": "Program Lead", "status_label": "Pending", "status_class": "chip-gray"}
+            ]
+          },
+          "chat_messages": [
+            {"id": "chat-comment-1", "speaker_kind": "human", "speaker_id": "human_alex_ramirez", "time": "10:25 AM", "text": "Please draft a public comment on Oakland's Housing Element update focused on ADUs, tenant protections, and anti-displacement."},
+            {"id": "chat-comment-2", "speaker_kind": "palari", "speaker_id": "palari_maya_policy", "time": "10:25 AM", "text": "On it. I'll use the selected sources and keep this within scope."},
+            {"id": "chat-comment-3", "speaker_kind": "palari", "speaker_id": "palari_maya_policy", "time": "10:42 AM", "text": "Draft ready. Please review and let me know if you want any changes before approval."}
+          ],
+          "history_events": [
+            {"id": "history-comment-1", "time": "Jun 20, 10:42 AM", "text": "Draft created by Maya", "badge": "Attempt 1"},
+            {"id": "history-comment-2", "time": "Jun 20, 10:30 AM", "text": "Sources selected", "badge": "Attempt 1"},
+            {"id": "history-comment-3", "time": "Jun 20, 10:25 AM", "text": "Work item created", "badge": "-"}
+          ]
+        }
+      }
+    },
+    "fees": {
+      "id": "fees",
+      "public_id": "PRL-HOUS-002",
+      "title": "Research ADU fee structures",
+      "artifact_title": "ADU fee research note",
+      "palari_id": "palari_maya_policy",
+      "due_label": "Jun 24, 2026",
+      "due_short": "Due Jun 24",
+      "priority_label": "Medium",
+      "priority_class": "chip-amber",
+      "risk_label": "R2",
+      "allowed_source_ids": ["housing-law", "adu-guide", "rhna-targets"],
+      "output_target_ids": ["work-drafts"],
+      "allowed_actions": ["create_research_note"],
+      "approval_copy": "No external write is planned. Maya can save a research note to Work after review.",
+      "current_attempt_id": "fees-attempt-1",
+      "attempts": {
+        "fees-attempt-1": {
+          "id": "fees-attempt-1",
+          "number": "1",
+          "status_label": "In Progress",
+          "status_class": "chip-blue",
+          "updated_label": "Jun 20, 2026 11:05 AM",
+          "word_count": "318",
+          "language": "English (US)",
+          "sources_used": ["housing-law", "adu-guide"],
+          "document_html": "<h2>I. What Maya is comparing</h2><p>Fee waivers, impact-fee timing, and ADU approval conditions across the selected housing sources.</p><h2>II. Early pattern</h2><ul><li>Delay fee collection until later in the ADU process where legally possible.</li><li>Separate affordability requirements from basic ministerial approval standards.</li><li>Ask staff to publish a plain-language fee table for property owners.</li></ul><h2>III. Next review question</h2><p>Confirm whether the comment should recommend a city fee schedule change or only ask for clearer standards.</p>",
+          "receipt": {
+            "id": "receipt-fees-attempt-1",
+            "status_label": "Drafting",
+            "status_class": "chip-blue",
+            "sources_used": "2 sources",
+            "created": "1 research note",
+            "external_writes": "None",
+            "not_done": "Did not estimate fees from unselected files",
+            "undo": "No external changes to undo"
+          },
+          "authority": {
+            "requirement": "Human review optional - R2 - no external write",
+            "summary": "Review can be requested before using the note",
+            "approvals": [
+              {"human_id": "human_jordan_lee", "role": "Policy Counsel", "status_label": "Available", "status_class": "chip-gray"}
+            ]
+          },
+          "chat_messages": [
+            {"id": "chat-fees-1", "speaker_kind": "human", "speaker_id": "human_alex_ramirez", "time": "10:58 AM", "text": "Can you compare the fee pieces separately from the comment draft?"},
+            {"id": "chat-fees-2", "speaker_kind": "palari", "speaker_id": "palari_maya_policy", "time": "11:05 AM", "text": "Yes. I made a research note and did not use any files outside the selected sources."}
+          ],
+          "history_events": [
+            {"id": "history-fees-1", "time": "Jun 20, 11:05 AM", "text": "Research note drafted", "badge": "Attempt 1"},
+            {"id": "history-fees-2", "time": "Jun 20, 10:58 AM", "text": "Work item split from public comment", "badge": "Split"}
+          ]
+        }
+      }
+    },
+    "feedback": {
+      "id": "feedback",
+      "public_id": "PRL-HOUS-003",
+      "title": "Summarize community feedback",
+      "artifact_title": "Community feedback summary",
+      "palari_id": "palari_maya_policy",
+      "due_label": "Jun 25, 2026",
+      "due_short": "Due Jun 25",
+      "priority_label": "Normal",
+      "priority_class": "chip-gray",
+      "risk_label": "R1",
+      "allowed_source_ids": ["community-notes", "oakland-element"],
+      "output_target_ids": ["work-drafts"],
+      "allowed_actions": ["create_summary"],
+      "approval_copy": "No draft has been created yet. Select readable community notes before Maya summarizes them.",
+      "current_attempt_id": "feedback-attempt-0",
+      "attempts": {
+        "feedback-attempt-0": {
+          "id": "feedback-attempt-0",
+          "number": "0",
+          "status_label": "Not Started",
+          "status_class": "chip-gray",
+          "updated_label": "Not started",
+          "word_count": "0",
+          "language": "English (US)",
+          "sources_used": ["oakland-element"],
+          "document_html": "<h2>Not started</h2><p>Maya is waiting for a readable community-feedback source before drafting this summary.</p><h2>What will happen next</h2><p>Once the source is selected, Maya can make a compact summary and record a receipt that says exactly what she used.</p>",
+          "receipt": {
+            "id": "receipt-feedback-attempt-0",
+            "status_label": "Waiting",
+            "status_class": "chip-gray",
+            "sources_used": "No sources yet",
+            "created": "Nothing yet",
+            "external_writes": "None",
+            "not_done": "No summary has been prepared",
+            "undo": "No changes to undo"
+          },
+          "authority": {
+            "requirement": "No approval required yet - R1 - local summary",
+            "summary": "No approvers assigned",
+            "approvals": []
+          },
+          "chat_messages": [
+            {"id": "chat-feedback-1", "speaker_kind": "palari", "speaker_id": "palari_maya_policy", "time": "11:12 AM", "text": "I can summarize workshop notes once you confirm the selected note is the right source."}
+          ],
+          "history_events": [
+            {"id": "history-feedback-1", "time": "Jun 20, 11:12 AM", "text": "Waiting for source confirmation", "badge": "Queued"}
+          ]
+        }
+      }
+    },
+    "memo": {
+      "id": "memo",
+      "public_id": "PRL-HOUS-004",
+      "title": "Prepare council memo for review",
+      "artifact_title": "Council memo review packet",
+      "palari_id": "palari_maya_policy",
+      "due_label": "Jun 26, 2026",
+      "due_short": "Due Jun 26",
+      "priority_label": "High",
+      "priority_class": "chip-red",
+      "risk_label": "R3",
+      "allowed_source_ids": ["hcd-plan", "tenant-memo", "community-notes", "rhna-targets"],
+      "output_target_ids": ["work-drafts"],
+      "allowed_actions": ["prepare_review_packet"],
+      "approval_copy": "This packet can be saved to Work for human review. It cannot be sent to council offices from the prototype.",
+      "current_attempt_id": "memo-attempt-2",
+      "attempts": {
+        "memo-attempt-2": {
+          "id": "memo-attempt-2",
+          "number": "2",
+          "status_label": "Needs review",
+          "status_class": "chip-amber",
+          "updated_label": "Jun 20, 2026 11:32 AM",
+          "word_count": "884",
+          "language": "English (US)",
+          "sources_used": ["hcd-plan", "tenant-memo", "community-notes", "rhna-targets"],
+          "document_html": "<h2>Review packet summary</h2><p>Maya prepared a council-facing memo outline with source-backed claims and unresolved questions separated for human review.</p><h2>Included sections</h2><ul><li>One-page policy position summary.</li><li>Evidence table mapping each claim to a selected source.</li><li>Questions for Jordan before the packet is shared externally.</li></ul><h2>Human review needed</h2><p>Confirm whether tenant-protection claims should be framed as recommendations or as conditions for support.</p>",
+          "receipt": {
+            "id": "receipt-memo-attempt-2",
+            "status_label": "Needs review",
+            "status_class": "chip-amber",
+            "sources_used": "4 sources",
+            "created": "1 review packet",
+            "external_writes": "None",
+            "not_done": "Did not email council offices",
+            "undo": "Remove draft packet from Work"
+          },
+          "authority": {
+            "requirement": "Review required - R3 - sensitive policy packet",
+            "summary": "0 of 2 approvals",
+            "approvals": [
+              {"human_id": "human_jordan_lee", "role": "Policy Counsel", "status_label": "Pending", "status_class": "chip-amber"},
+              {"human_id": "human_sam_patel", "role": "Program Lead", "status_label": "Pending", "status_class": "chip-amber"}
+            ]
+          },
+          "chat_messages": [
+            {"id": "chat-memo-1", "speaker_kind": "palari", "speaker_id": "palari_maya_policy", "time": "11:32 AM", "text": "I prepared the packet for review and kept it inside Work. Nothing was sent externally."},
+            {"id": "chat-memo-2", "speaker_kind": "human", "speaker_id": "human_alex_ramirez", "time": "11:34 AM", "text": "Good. Keep the source map visible so Jordan can audit it quickly."}
+          ],
+          "history_events": [
+            {"id": "history-memo-1", "time": "Jun 20, 11:32 AM", "text": "Review packet prepared", "badge": "Attempt 2"},
+            {"id": "history-memo-2", "time": "Jun 20, 11:18 AM", "text": "Tenant memo added as source", "badge": "Source"},
+            {"id": "history-memo-3", "time": "Jun 20, 11:10 AM", "text": "First packet attempt marked too broad", "badge": "Revised"}
+          ]
+        }
+      }
+    }
+  },
+  "ui": {
+    "default_source_id": "hcd-plan",
+    "default_work_item_id": "comment",
+    "mobile_breakpoint": 1100
+  }
+}

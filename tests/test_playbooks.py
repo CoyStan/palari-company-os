@@ -148,13 +148,14 @@ class PlaybookTests(unittest.TestCase):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-m", "palari_company_os", "--workspace", str(WORKSPACE), *args],
+            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(WORKSPACE), *args],
             cwd=REPO_ROOT,
             env=env,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
 

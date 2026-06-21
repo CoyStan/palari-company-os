@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from pathlib import PurePosixPath
 from typing import Any
 
+from .path_policy import path_allowed, validate_workspace_path
 from .workspace import Workspace
 
 
@@ -65,17 +65,12 @@ def check_scope(
 
 
 def _path_allowed(path: str, allowed_resources: list[str]) -> bool:
-    normalized = _normalize_path(path)
-    for allowed in allowed_resources:
-        allowed_path = _normalize_path(allowed)
-        if normalized == allowed_path:
-            return True
-        if normalized.startswith(f"{allowed_path}/"):
-            return True
-    return False
+    return path_allowed(path, allowed_resources)
 
 
 def _normalize_path(path: str) -> str:
-    cleaned = str(PurePosixPath(path.strip()))
-    return cleaned.removeprefix("./")
+    try:
+        return validate_workspace_path(path)
+    except ValueError:
+        return ""
 

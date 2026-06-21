@@ -200,6 +200,7 @@ class HistoryTests(unittest.TestCase):
         return subprocess.run(
             [
                 sys.executable,
+                "-S",
                 "-m",
                 "palari_company_os",
                 "--workspace",
@@ -212,6 +213,7 @@ class HistoryTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
 

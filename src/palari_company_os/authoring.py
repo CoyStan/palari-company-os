@@ -7,7 +7,7 @@ from typing import Any
 from .history import append_history_event
 from .read_models import detail, queue_items
 from .store import WorkspaceStore, load_store, validate_data, write_store
-from .workspace import WorkspaceError, latest_for_work
+from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
 
 
 COLLECTIONS = {
@@ -301,7 +301,7 @@ def _assert_acceptance_allowed(
             f"human {human_id} lacks required approval capability "
             f"{work.required_approval_capability}"
         )
-    attempt = latest_for_work(workspace.attempts, work_id)
+    attempt = current_attempt_for_work(work, workspace.attempts)
     evidence = latest_for_work(workspace.evidence_runs, work_id)
     review = latest_for_work(workspace.review_verdicts, work_id)
     if attempt is None:

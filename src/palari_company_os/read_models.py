@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Iterable, TypeVar
 
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
-from .workspace import Workspace, latest_for_work
+from .workspace import Workspace
+
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,31 @@ class QueueItem:
     coordination_warnings: list[str]
 
 
+@dataclass(frozen=True)
+class _ReadContext:
+    goals_by_id: dict[str, Any]
+    palaris_by_id: dict[str, Any]
+    humans_by_id: dict[str, Any]
+    sources_by_id: dict[str, Any]
+    workbenches_by_id: dict[str, Any]
+    work_by_id: dict[str, Any]
+    attempts_by_id: dict[str, Any]
+    outcomes_by_id: dict[str, Any]
+    latest_attempt_by_work: dict[str, Any]
+    current_attempt_by_work: dict[str, Any]
+    latest_evidence_by_work: dict[str, Any]
+    latest_review_by_work: dict[str, Any]
+    latest_human_decision_by_work: dict[str, Any]
+    human_decisions_by_work: dict[str, list[Any]]
+    latest_receipt_by_work: dict[str, Any]
+    latest_outcome_by_work: dict[str, Any]
+    open_decision_by_work: dict[str, Any]
+    active_parallel: list[dict[str, Any]]
+    active_attempts_by_work: dict[str, list[dict[str, Any]]]
+    coordination_warnings: list[dict[str, Any]]
+    warning_messages_by_work: dict[str, list[str]] = field(default_factory=dict)
+
+
 ATTENTION_PRIORITY = {
     "needs-human-decision": 0,
     "changes-requested": 1,
@@ -54,96 +82,46 @@ ATTENTION_PRIORITY = {
 
 
 def queue_items(workspace: Workspace) -> list[QueueItem]:
-    items = [_queue_item(workspace, work) for work in workspace.work_items]
+    context = _read_context(workspace)
+    items = [_queue_item(workspace, work, context) for work in workspace.work_items]
     return sorted(items, key=lambda item: (ATTENTION_PRIORITY.get(item.attention, 99), item.id))
 
 
 def active_parallel_work(workspace: Workspace) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for attempt in workspace.attempts:
-        if attempt.status != "active":
-            continue
-        work = workspace.work_item(attempt.work_item_id)
-        if work is None:
-            continue
-        workbench = workspace.workbench(work.workbench_id) if work.workbench_id else None
-        entries.append(
-            {
-                "work_item_id": work.id,
-                "work_item_title": work.title,
-                "workbench_id": work.workbench_id,
-                "workbench_label": workbench.label if workbench else "",
-                "attempt_id": attempt.id,
-                "actor": attempt.actor,
-                "status": attempt.status,
-                "branch": attempt.branch,
-                "workspace_path": attempt.workspace_path,
-                "started_at": attempt.started_at,
-                "updated_at": attempt.updated_at,
-                "output_targets": _attempt_targets(work, attempt),
-            }
-        )
-    return sorted(entries, key=lambda item: (item["workbench_id"], item["work_item_id"]))
+    return _read_context(workspace).active_parallel
 
 
 def coordination_warnings(workspace: Workspace) -> list[dict[str, Any]]:
-    subjects = _coordination_subjects(workspace)
-    warnings: list[dict[str, Any]] = []
-    for index, left in enumerate(subjects):
-        for right in subjects[index + 1 :]:
-            if left["workbench_id"] != right["workbench_id"]:
-                continue
-            if "exclusive" not in {left["parallel_policy"], right["parallel_policy"]}:
-                continue
-            overlap = sorted(left["normalized_targets"] & right["normalized_targets"])
-            if not overlap:
-                continue
-            warnings.append(
-                {
-                    "workbench_id": left["workbench_id"],
-                    "target": overlap[0],
-                    "targets": overlap,
-                    "work_item_ids": [left["work_item_id"], right["work_item_id"]],
-                    "message": (
-                        f"{left['work_item_id']} and {right['work_item_id']} both target "
-                        f"{overlap[0]} with exclusive coordination."
-                    ),
-                }
-            )
-    return warnings
+    return _read_context(workspace).coordination_warnings
 
 
 def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
-    work = workspace.work_item(work_id)
+    context = _read_context(workspace)
+    work = context.work_by_id.get(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
         raise KeyError(f"unknown work item {work_id}; known work items: {known}")
 
-    goal = workspace.goal(work.goal)
-    palari = workspace.palari(work.palari)
-    workbench = workspace.workbench(work.workbench_id) if work.workbench_id else None
-    attempt = latest_for_work(workspace.attempts, work.id)
-    evidence = latest_for_work(workspace.evidence_runs, work.id)
-    review = latest_for_work(workspace.review_verdicts, work.id)
-    human_decision = latest_for_work(workspace.human_decisions, work.id)
-    receipt = latest_for_work(workspace.receipts, work.id)
-    human_decisions = [
-        decision for decision in workspace.human_decisions if decision.work_item_id == work.id
-    ]
-    sources = [
-        source for source in workspace.sources if source.id in set(work.allowed_sources)
-    ]
-    outcome = latest_for_work(workspace.outcomes, work.id)
+    goal = context.goals_by_id.get(work.goal)
+    palari = context.palaris_by_id.get(work.palari)
+    workbench = context.workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
+    attempt = _attempt_for_work(context, work)
+    evidence = context.latest_evidence_by_work.get(work.id)
+    review = context.latest_review_by_work.get(work.id)
+    human_decision = context.latest_human_decision_by_work.get(work.id)
+    receipt = context.latest_receipt_by_work.get(work.id)
+    allowed_sources = set(work.allowed_sources)
+    sources = [source for source in workspace.sources if source.id in allowed_sources]
+    outcome = context.latest_outcome_by_work.get(work.id)
     linked_decisions = [decision for decision in workspace.decisions if decision.linked_work == work.id]
-    child_work_items = [
-        child for child in workspace.work_items if child.parent_work_item_id == work.id
-    ]
+    child_work_items = [child for child in workspace.work_items if child.parent_work_item_id == work.id]
     dependencies = [
         dependency
-        for dependency in (workspace.work_item(dependency_id) for dependency_id in work.dependency_ids)
+        for dependency in (context.work_by_id.get(dependency_id) for dependency_id in work.dependency_ids)
         if dependency is not None
     ]
-    queue_item = _queue_item(workspace, work)
+    human_decisions = context.human_decisions_by_work.get(work.id, [])
+    queue_item = _queue_item(workspace, work, context)
     playbooks = recommend_playbooks(workspace, work.id)
 
     return {
@@ -152,7 +130,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "palari": to_plain(palari) if palari else None,
         "workbench": to_plain(workbench) if workbench else None,
         "parent_work_item": (
-            to_plain(workspace.work_item(work.parent_work_item_id))
+            to_plain(context.work_by_id.get(work.parent_work_item_id))
             if work.parent_work_item_id
             else None
         ),
@@ -187,28 +165,76 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     }
 
 
-def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
-    goal = workspace.goal(work.goal)
-    palari = workspace.palari(work.palari)
-    workbench = workspace.workbench(work.workbench_id) if work.workbench_id else None
+def _read_context(workspace: Workspace) -> _ReadContext:
+    goals_by_id = {goal.id: goal for goal in workspace.goals}
+    palaris_by_id = {palari.id: palari for palari in workspace.palaris}
+    humans_by_id = {human.id: human for human in workspace.humans}
+    sources_by_id = {source.id: source for source in workspace.sources}
+    workbenches_by_id = {workbench.id: workbench for workbench in workspace.workbenches}
+    work_by_id = {work.id: work for work in workspace.work_items}
+    attempts_by_id = {attempt.id: attempt for attempt in workspace.attempts}
+    outcomes_by_id = {outcome.id: outcome for outcome in workspace.outcomes}
+    latest_attempt_by_work = _latest_by_work(workspace.attempts)
+    current_attempt_by_work = _current_attempts_by_work(
+        workspace.work_items,
+        attempts_by_id,
+        latest_attempt_by_work,
+    )
+    active_parallel = _build_active_parallel_work(
+        workspace,
+        work_by_id,
+        workbenches_by_id,
+    )
+    coordination = _build_coordination_warnings(workspace, current_attempt_by_work)
+    active_attempts_by_work = _group_active_attempts(active_parallel)
+    warning_messages_by_work = _group_warning_messages(coordination)
+    return _ReadContext(
+        goals_by_id=goals_by_id,
+        palaris_by_id=palaris_by_id,
+        humans_by_id=humans_by_id,
+        sources_by_id=sources_by_id,
+        workbenches_by_id=workbenches_by_id,
+        work_by_id=work_by_id,
+        attempts_by_id=attempts_by_id,
+        outcomes_by_id=outcomes_by_id,
+        latest_attempt_by_work=latest_attempt_by_work,
+        current_attempt_by_work=current_attempt_by_work,
+        latest_evidence_by_work=_latest_by_work(workspace.evidence_runs),
+        latest_review_by_work=_latest_by_work(workspace.review_verdicts),
+        latest_human_decision_by_work=_latest_by_work(workspace.human_decisions),
+        human_decisions_by_work=_group_by_work(workspace.human_decisions),
+        latest_receipt_by_work=_latest_by_work(workspace.receipts),
+        latest_outcome_by_work=_latest_by_work(workspace.outcomes),
+        open_decision_by_work=_open_decisions_by_work(workspace.decisions),
+        active_parallel=active_parallel,
+        active_attempts_by_work=active_attempts_by_work,
+        coordination_warnings=coordination,
+        warning_messages_by_work=warning_messages_by_work,
+    )
+
+
+def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> QueueItem:
+    goal = context.goals_by_id.get(work.goal)
+    palari = context.palaris_by_id.get(work.palari)
+    workbench = context.workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
     owner = ""
     if palari and palari.owner_human:
-        human = workspace.human(palari.owner_human)
+        human = context.humans_by_id.get(palari.owner_human)
         owner = human.name if human else palari.owner_human
 
-    attention, why, next_action = _attention(workspace, work)
-    evidence_state = _evidence_state(workspace, work)
-    review_state = _review_state(workspace, work)
-    receipt_state = _receipt_state(workspace, work)
-    integration_state = _integration_state(workspace, work)
-    approval_progress = _approval_progress(workspace, work)
+    attention, why, next_action = _attention(workspace, work, context)
+    evidence_state = _evidence_state(work, context)
+    review_state = _review_state(work, context)
+    receipt_state = _receipt_state(work, context)
+    integration_state = _integration_state(workspace, work, context)
+    approval_progress = _approval_progress(work, context)
     recommended_intensity, intensity_reason = recommend_intensity(work)
-    learning_signal = _learning_signal(workspace, palari)
+    learning_signal = _learning_signal(context, palari)
     playbook_recommendations = recommended_playbook_ids(workspace, work)
-    active_attempts = _active_attempts_for_work(workspace, work)
-    warnings = _coordination_warning_messages_for_work(workspace, work)
+    active_attempts = _active_attempts_for_work(work, context)
+    warnings = _coordination_warning_messages_for_work(work, context)
     waiting_on_human = attention == "needs-human-decision"
-    ai_safe_to_proceed = _ai_safe_to_proceed(workspace, work, attention)
+    ai_safe_to_proceed = _ai_safe_to_proceed(work, attention, context)
     return QueueItem(
         id=work.id,
         title=work.title,
@@ -241,8 +267,8 @@ def _queue_item(workspace: Workspace, work: Any) -> QueueItem:
     )
 
 
-def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
-    open_decision = _open_linked_decision(workspace, work.id)
+def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[str, str, str]:
+    open_decision = context.open_decision_by_work.get(work.id)
     if open_decision is not None:
         return (
             "needs-human-decision",
@@ -257,7 +283,7 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "Review outcomes or start a follow-up only if needed.",
         )
 
-    warnings = _coordination_warning_messages_for_work(workspace, work)
+    warnings = _coordination_warning_messages_for_work(work, context)
     if warnings:
         return (
             "blocked",
@@ -265,7 +291,7 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "Coordinate or split the overlapping output target before continuing.",
         )
 
-    attempt = latest_for_work(workspace.attempts, work.id)
+    attempt = _attempt_for_work(context, work)
     if attempt is None:
         return (
             "ready-for-ai-work",
@@ -273,14 +299,14 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "Start a bounded attempt using the declared scope and authority limits.",
         )
 
-    if _low_risk_receipt_ready(workspace, work, attempt):
+    if _low_risk_receipt_ready(work, attempt, context):
         return (
             "receipt-ready",
             "A completed low-risk attempt has a receipt showing sources, actions, outputs, and limits.",
             "Review the output, undo it if needed, or continue with the next bounded step.",
         )
 
-    evidence = latest_for_work(workspace.evidence_runs, work.id)
+    evidence = context.latest_evidence_by_work.get(work.id)
     if evidence is None:
         return (
             "needs-evidence",
@@ -300,7 +326,7 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "Repair the failing check or record an explicit blocker.",
         )
 
-    review = latest_for_work(workspace.review_verdicts, work.id)
+    review = context.latest_review_by_work.get(work.id)
     if review is None:
         return (
             "needs-review",
@@ -326,21 +352,21 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
             "Resolve the human decision before continuing.",
         )
 
-    human_decision = latest_for_work(workspace.human_decisions, work.id)
+    human_decision = context.latest_human_decision_by_work.get(work.id)
     if review.verdict == "accept-ready" and human_decision is None:
-        approval_progress = _approval_progress(workspace, work)
+        approval_progress = _approval_progress(work, context)
         return (
             "needs-human-decision",
             f"Review is accept-ready, but approval quorum is incomplete ({approval_progress}).",
             "Human accepts, requests changes, or blocks this work item.",
         )
-    if review.verdict == "accept-ready" and not _approval_quorum_met(workspace, work, review):
+    if review.verdict == "accept-ready" and not _approval_quorum_met(work, review, context):
         return (
             "needs-human-decision",
-            f"Review is accept-ready, but approval quorum is incomplete ({_approval_progress(workspace, work)}).",
+            f"Review is accept-ready, but approval quorum is incomplete ({_approval_progress(work, context)}).",
             "Collect the required human approval before integration.",
         )
-    if human_decision and _approval_quorum_met(workspace, work, review):
+    if human_decision and _approval_quorum_met(work, review, context):
         return (
             "ready-to-integrate",
             "Human decision is recorded after fresh evidence and review.",
@@ -352,13 +378,6 @@ def _attention(workspace: Workspace, work: Any) -> tuple[str, str, str]:
         "The current state is valid but does not map to a known next action.",
         "Inspect the work detail and record the missing state explicitly.",
     )
-
-
-def _open_linked_decision(workspace: Workspace, work_id: str) -> Any | None:
-    for decision in workspace.decisions:
-        if decision.linked_work == work_id and decision.status == "open":
-            return decision
-    return None
 
 
 def recommend_intensity(work: Any) -> tuple[str, str]:
@@ -401,9 +420,9 @@ def _attempt_head(attempt: Any) -> str:
     return attempt.commits[-1] if attempt.commits else ""
 
 
-def _evidence_state(workspace: Workspace, work: Any) -> str:
-    attempt = latest_for_work(workspace.attempts, work.id)
-    evidence = latest_for_work(workspace.evidence_runs, work.id)
+def _evidence_state(work: Any, context: _ReadContext) -> str:
+    attempt = _attempt_for_work(context, work)
+    evidence = context.latest_evidence_by_work.get(work.id)
     if attempt is None:
         return "not-started"
     if evidence is None:
@@ -413,9 +432,9 @@ def _evidence_state(workspace: Workspace, work: Any) -> str:
     return evidence.status
 
 
-def _review_state(workspace: Workspace, work: Any) -> str:
-    evidence = latest_for_work(workspace.evidence_runs, work.id)
-    review = latest_for_work(workspace.review_verdicts, work.id)
+def _review_state(work: Any, context: _ReadContext) -> str:
+    evidence = context.latest_evidence_by_work.get(work.id)
+    review = context.latest_review_by_work.get(work.id)
     if evidence is None:
         return "waiting-on-evidence"
     if review is None:
@@ -425,9 +444,9 @@ def _review_state(workspace: Workspace, work: Any) -> str:
     return review.verdict
 
 
-def _receipt_state(workspace: Workspace, work: Any) -> str:
-    attempt = latest_for_work(workspace.attempts, work.id)
-    receipt = latest_for_work(workspace.receipts, work.id)
+def _receipt_state(work: Any, context: _ReadContext) -> str:
+    attempt = _attempt_for_work(context, work)
+    receipt = context.latest_receipt_by_work.get(work.id)
     if attempt is None:
         return "not-started"
     if receipt is None:
@@ -437,37 +456,37 @@ def _receipt_state(workspace: Workspace, work: Any) -> str:
     return "ready"
 
 
-def _integration_state(workspace: Workspace, work: Any) -> str:
+def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     if work.status in {"closed", "completed", "done"}:
         return "closed"
-    attempt = latest_for_work(workspace.attempts, work.id)
-    if attempt and _low_risk_receipt_ready(workspace, work, attempt):
+    attempt = _attempt_for_work(context, work)
+    if attempt and _low_risk_receipt_ready(work, attempt, context):
         return "receipt-ready"
-    review = latest_for_work(workspace.review_verdicts, work.id)
-    if review and review.verdict == "accept-ready" and _approval_quorum_met(workspace, work, review):
+    review = context.latest_review_by_work.get(work.id)
+    if review and review.verdict == "accept-ready" and _approval_quorum_met(work, review, context):
         return "ready"
-    if _open_linked_decision(workspace, work.id):
+    if context.open_decision_by_work.get(work.id):
         return "blocked-by-decision"
     return "not-ready"
 
 
-def _approval_progress(workspace: Workspace, work: Any) -> str:
-    review = latest_for_work(workspace.review_verdicts, work.id)
+def _approval_progress(work: Any, context: _ReadContext) -> str:
+    review = context.latest_review_by_work.get(work.id)
     if review is None:
         return f"0/{work.required_approval_count}"
-    count = _qualified_approval_count(workspace, work, review)
+    count = _qualified_approval_count(work, review, context)
     return f"{count}/{work.required_approval_count}"
 
 
-def _approval_quorum_met(workspace: Workspace, work: Any, review: Any) -> bool:
+def _approval_quorum_met(work: Any, review: Any, context: _ReadContext) -> bool:
     if work.required_approval_count == 0:
         return True
-    return _qualified_approval_count(workspace, work, review) >= work.required_approval_count
+    return _qualified_approval_count(work, review, context) >= work.required_approval_count
 
 
-def _qualified_approval_count(workspace: Workspace, work: Any, review: Any) -> int:
+def _qualified_approval_count(work: Any, review: Any, context: _ReadContext) -> int:
     seen_humans: set[str] = set()
-    for decision in workspace.human_decisions:
+    for decision in context.human_decisions_by_work.get(work.id, []):
         if decision.work_item_id != work.id:
             continue
         if decision.reviewed_head != review.reviewed_head:
@@ -478,37 +497,99 @@ def _qualified_approval_count(workspace: Workspace, work: Any, review: Any) -> i
         }:
             continue
         if work.required_approval_capability:
-            human = workspace.human(decision.human_id)
+            human = context.humans_by_id.get(decision.human_id)
             if not human or work.required_approval_capability not in human.approval_capabilities:
                 continue
         seen_humans.add(decision.human_id)
     return len(seen_humans)
 
 
-def _active_attempts_for_work(workspace: Workspace, work: Any) -> list[dict[str, Any]]:
-    entries = []
-    for item in active_parallel_work(workspace):
-        if item["work_item_id"] == work.id:
-            entries.append(item)
-    return entries
+def _active_attempts_for_work(work: Any, context: _ReadContext) -> list[dict[str, Any]]:
+    return context.active_attempts_by_work.get(work.id, [])
 
 
-def _coordination_warning_messages_for_work(workspace: Workspace, work: Any) -> list[str]:
-    messages = []
-    for warning in coordination_warnings(workspace):
-        if work.id in warning["work_item_ids"]:
-            messages.append(warning["message"])
-    return messages
+def _coordination_warning_messages_for_work(work: Any, context: _ReadContext) -> list[str]:
+    return context.warning_messages_by_work.get(work.id, [])
 
 
-def _coordination_subjects(workspace: Workspace) -> list[dict[str, Any]]:
+def _build_active_parallel_work(
+    workspace: Workspace,
+    work_by_id: dict[str, Any],
+    workbenches_by_id: dict[str, Any],
+) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for attempt in workspace.attempts:
+        if attempt.status != "active":
+            continue
+        work = work_by_id.get(attempt.work_item_id)
+        if work is None:
+            continue
+        workbench = workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
+        entries.append(
+            {
+                "work_item_id": work.id,
+                "work_item_title": work.title,
+                "workbench_id": work.workbench_id,
+                "workbench_label": workbench.label if workbench else "",
+                "attempt_id": attempt.id,
+                "actor": attempt.actor,
+                "status": attempt.status,
+                "branch": attempt.branch,
+                "workspace_path": attempt.workspace_path,
+                "started_at": attempt.started_at,
+                "updated_at": attempt.updated_at,
+                "output_targets": _attempt_targets(work, attempt),
+            }
+        )
+    return sorted(entries, key=lambda item: (item["workbench_id"], item["work_item_id"]))
+
+
+def _build_coordination_warnings(
+    workspace: Workspace,
+    current_attempt_by_work: dict[str, Any],
+) -> list[dict[str, Any]]:
+    subjects = _coordination_subjects(workspace, current_attempt_by_work)
+    warnings: list[dict[str, Any]] = []
+    for index, left in enumerate(subjects):
+        for right in subjects[index + 1 :]:
+            if left["workbench_id"] != right["workbench_id"]:
+                continue
+            if "exclusive" not in {left["parallel_policy"], right["parallel_policy"]}:
+                continue
+            overlap = sorted(left["normalized_targets"] & right["normalized_targets"])
+            if not overlap:
+                continue
+            warnings.append(
+                {
+                    "workbench_id": left["workbench_id"],
+                    "target": overlap[0],
+                    "targets": overlap,
+                    "work_item_ids": [left["work_item_id"], right["work_item_id"]],
+                    "message": (
+                        f"{left['work_item_id']} and {right['work_item_id']} both target "
+                        f"{overlap[0]} with exclusive coordination."
+                    ),
+                }
+            )
+    return warnings
+
+
+def _coordination_subjects(
+    workspace: Workspace,
+    current_attempt_by_work: dict[str, Any],
+) -> list[dict[str, Any]]:
     subjects: list[dict[str, Any]] = []
     for work in workspace.work_items:
         if not work.workbench_id or work.status in {"closed", "completed", "done", "blocked"}:
             continue
-        attempt = latest_for_work(workspace.attempts, work.id)
+        attempt = current_attempt_by_work.get(work.id)
         has_active_attempt = attempt is not None and attempt.status == "active"
-        has_active_work = attempt is None and work.status in {"proposed", "active", "in-review", "needs-human"}
+        has_active_work = attempt is None and work.status in {
+            "proposed",
+            "active",
+            "in-review",
+            "needs-human",
+        }
         if not (has_active_attempt or has_active_work):
             continue
         targets = _conflict_targets(work)
@@ -524,6 +605,21 @@ def _coordination_subjects(workspace: Workspace) -> list[dict[str, Any]]:
             }
         )
     return subjects
+
+
+def _group_active_attempts(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        grouped.setdefault(entry["work_item_id"], []).append(entry)
+    return grouped
+
+
+def _group_warning_messages(warnings: list[dict[str, Any]]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for warning in warnings:
+        for work_id in warning["work_item_ids"]:
+            grouped.setdefault(work_id, []).append(warning["message"])
+    return grouped
 
 
 def _conflict_targets(work: Any) -> list[str]:
@@ -546,37 +642,94 @@ def _attempt_targets(work: Any, attempt: Any) -> list[str]:
     return attempt.changed_files
 
 
-def _ai_safe_to_proceed(workspace: Workspace, work: Any, attention: str) -> bool:
+def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> bool:
     if attention in {"needs-human-decision", "ready-to-integrate", "receipt-ready", "blocked", "closed"}:
         return False
     recommended, _ = recommend_intensity(work)
-    if recommended == "high" and latest_for_work(workspace.attempts, work.id) is None:
+    if recommended == "high" and _attempt_for_work(context, work) is None:
         return False
     return True
 
 
-def _low_risk_receipt_ready(workspace: Workspace, work: Any, attempt: Any) -> bool:
+def _low_risk_receipt_ready(work: Any, attempt: Any, context: _ReadContext) -> bool:
     if work.risk not in {"R1", "R2"}:
         return False
     if attempt.status not in {"complete", "completed"}:
         return False
-    receipt = latest_for_work(workspace.receipts, work.id)
-    return (
-        receipt is not None
-        and receipt.attempt_id == attempt.id
-        and not receipt.external_writes
-    )
+    receipt = context.latest_receipt_by_work.get(work.id)
+    return receipt is not None and receipt.attempt_id == attempt.id and not receipt.external_writes
 
 
-def _learning_signal(workspace: Workspace, palari: Any | None) -> str:
+def _learning_signal(context: _ReadContext, palari: Any | None) -> str:
     if palari is None:
         return ""
-    linked_outcomes = [outcome for outcome in workspace.outcomes if outcome.id in palari.outcomes]
+    linked_outcomes = [
+        context.outcomes_by_id[outcome_id]
+        for outcome_id in palari.outcomes
+        if outcome_id in context.outcomes_by_id
+    ]
     if not linked_outcomes:
         return ""
-    latest = sorted(linked_outcomes, key=lambda outcome: outcome.timestamp)[-1]
+    latest = max(linked_outcomes, key=lambda outcome: outcome.timestamp)
     if latest.follow_up_needed:
         return f"Outcome follow-up: {latest.follow_up_needed[0]}"
     if latest.model_worker_notes:
         return f"Model note: {latest.model_worker_notes[0]}"
     return latest.summary
+
+
+def _attempt_for_work(context: _ReadContext, work: Any) -> Any | None:
+    if work.current_attempt:
+        current = context.attempts_by_id.get(work.current_attempt)
+        if current is not None:
+            return current
+    return context.latest_attempt_by_work.get(work.id)
+
+
+def _current_attempts_by_work(
+    work_items: Iterable[Any],
+    attempts_by_id: dict[str, Any],
+    latest_attempt_by_work: dict[str, Any],
+) -> dict[str, Any]:
+    current: dict[str, Any] = {}
+    for work in work_items:
+        if work.current_attempt and work.current_attempt in attempts_by_id:
+            current[work.id] = attempts_by_id[work.current_attempt]
+        elif work.id in latest_attempt_by_work:
+            current[work.id] = latest_attempt_by_work[work.id]
+    return current
+
+
+def _open_decisions_by_work(decisions: Iterable[Any]) -> dict[str, Any]:
+    open_decisions: dict[str, Any] = {}
+    for decision in decisions:
+        if decision.linked_work and decision.status == "open":
+            open_decisions.setdefault(decision.linked_work, decision)
+    return open_decisions
+
+
+def _group_by_work(records: Iterable[T]) -> dict[str, list[T]]:
+    grouped: dict[str, list[T]] = {}
+    for record in records:
+        grouped.setdefault(getattr(record, "work_item_id"), []).append(record)
+    return grouped
+
+
+def _latest_by_work(records: Iterable[T]) -> dict[str, T]:
+    latest: dict[str, T] = {}
+    keys: dict[str, tuple[str, str, str]] = {}
+    for record in records:
+        work_id = getattr(record, "work_item_id")
+        key = _record_time_key(record)
+        if work_id not in latest or key >= keys[work_id]:
+            latest[work_id] = record
+            keys[work_id] = key
+    return latest
+
+
+def _record_time_key(record: object) -> tuple[str, str, str]:
+    return (
+        str(getattr(record, "timestamp", "") or getattr(record, "updated_at", "")),
+        str(getattr(record, "started_at", "")),
+        str(getattr(record, "id", "")),
+    )

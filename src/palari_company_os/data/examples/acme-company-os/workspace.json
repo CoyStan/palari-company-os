@@ -1,0 +1,812 @@
+{
+  "schema_version": 1,
+  "name": "Acme Company OS Example",
+  "goals": [
+    {
+      "id": "GOAL-0001",
+      "title": "Launch a calmer beta operating loop",
+      "owner": "HUMAN-FOUNDER",
+      "status": "active",
+      "priority": "high",
+      "success_criteria": [
+        "Beta work is visible in the queue",
+        "Humans can tell what needs approval",
+        "Evidence and review are attached to the work"
+      ],
+      "linked_palaris": [
+        "PALARI-SOFIA",
+        "PALARI-ALFRED"
+      ],
+      "linked_work": [
+        "WORK-0001",
+        "WORK-0003",
+        "WORK-0004",
+        "WORK-0005",
+        "WORK-0006",
+        "WORK-0007"
+      ],
+      "linked_decisions": []
+    },
+    {
+      "id": "GOAL-0002",
+      "title": "Keep authority boundaries explicit",
+      "owner": "HUMAN-FOUNDER",
+      "status": "active",
+      "priority": "high",
+      "success_criteria": [
+        "High-risk actions require human judgment",
+        "AI work cannot silently accept, merge, deploy, or activate policy"
+      ],
+      "linked_palaris": [
+        "PALARI-ALFRED"
+      ],
+      "linked_work": [
+        "WORK-0002"
+      ],
+      "linked_decisions": [
+        "DECISION-0001"
+      ]
+    }
+  ],
+  "humans": [
+    {
+      "id": "HUMAN-FOUNDER",
+      "name": "Rafa Founder",
+      "aliases": [
+        "Rafa"
+      ],
+      "role": "Founder",
+      "authority_level": "admin",
+      "approval_capabilities": [
+        "product",
+        "merge",
+        "deploy",
+        "policy"
+      ],
+      "skills": [
+        "product judgment",
+        "company priorities"
+      ],
+      "ownership_areas": [
+        "company direction",
+        "beta readiness"
+      ],
+      "availability": "active",
+      "capacity_signal": "one high-risk decision at a time"
+    },
+    {
+      "id": "HUMAN-OPS",
+      "name": "Maya Operations",
+      "aliases": [
+        "Maya"
+      ],
+      "role": "Operations Lead",
+      "authority_level": "standard",
+      "approval_capabilities": [
+        "operations"
+      ],
+      "skills": [
+        "launch operations",
+        "support"
+      ],
+      "ownership_areas": [
+        "customer support",
+        "beta operations"
+      ],
+      "availability": "active",
+      "capacity_signal": "available for standard review"
+    }
+  ],
+  "palaris": [
+    {
+      "id": "PALARI-SOFIA",
+      "name": "Sofia",
+      "role": "Workspace lead",
+      "scope": "Turn scattered beta context into useful plans, notes, and reviewable outputs.",
+      "allowed_inputs": [
+        "workspace notes",
+        "selected source files",
+        "human prompts"
+      ],
+      "forbidden_inputs": [
+        "unselected private files",
+        "live customer inbox"
+      ],
+      "forbidden_actions": [
+        "send external messages",
+        "write outside approved work areas"
+      ],
+      "standards": [
+        "calm first-person language",
+        "show sources before drafting"
+      ],
+      "memory_sources": [
+        "beta notes",
+        "product decisions"
+      ],
+      "default_worker": "gpt-5-codex",
+      "owner_human": "HUMAN-FOUNDER",
+      "linked_goals": [
+        "GOAL-0001"
+      ],
+      "active_work": [
+        "WORK-0001",
+        "WORK-0003",
+        "WORK-0005",
+        "WORK-0006",
+        "WORK-0007"
+      ],
+      "outcomes": [
+        "OUTCOME-0001"
+      ]
+    },
+    {
+      "id": "PALARI-ALFRED",
+      "name": "Alfred",
+      "role": "Operations partner",
+      "scope": "Prepare operational work while keeping authority and side effects explicit.",
+      "allowed_inputs": [
+        "operations notes",
+        "support summaries"
+      ],
+      "forbidden_inputs": [
+        "raw customer inbox",
+        "credentials"
+      ],
+      "forbidden_actions": [
+        "contact users",
+        "activate policy",
+        "spend money"
+      ],
+      "standards": [
+        "plain next actions",
+        "explicit blockers"
+      ],
+      "memory_sources": [
+        "operations runbook"
+      ],
+      "default_worker": "gpt-5-codex",
+      "owner_human": "HUMAN-OPS",
+      "linked_goals": [
+        "GOAL-0001",
+        "GOAL-0002"
+      ],
+      "active_work": [
+        "WORK-0002"
+      ],
+      "outcomes": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "SOURCE-0001",
+      "label": "Beta launch note",
+      "kind": "note",
+      "provider": "local_note",
+      "uri": "examples/acme-company-os/notes/beta-launch.md",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [
+        "PALARI-SOFIA"
+      ],
+      "last_seen_revision": "source-rev-1",
+      "last_read_at": "2026-06-19T04:00:00Z"
+    }
+  ],
+  "workbenches": [
+    {
+      "id": "WORKBENCH-BETA",
+      "label": "Beta Operations",
+      "summary": "Shared beta launch and workspace-readiness work for Sofia and the founder.",
+      "goal_ids": [
+        "GOAL-0001"
+      ],
+      "palari_ids": [
+        "PALARI-SOFIA"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-OPS"
+      ],
+      "source_ids": [
+        "SOURCE-0001"
+      ],
+      "output_target_ids": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "WORKBENCH-AUTHORITY",
+      "label": "Authority Boundaries",
+      "summary": "High-risk authority and support-boundary decisions owned by Alfred and the founder.",
+      "goal_ids": [
+        "GOAL-0002"
+      ],
+      "palari_ids": [
+        "PALARI-ALFRED"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-OPS"
+      ],
+      "source_ids": [],
+      "output_target_ids": [
+        "support boundary proposal"
+      ],
+      "status": "active"
+    }
+  ],
+  "playbook_sources": [
+    {
+      "id": "superpowers",
+      "label": "Superpowers skills",
+      "provider": "github",
+      "uri": "https://github.com/obra/Superpowers",
+      "ref": "main",
+      "license": "MIT",
+      "enabled": true,
+      "included_playbooks": [
+        "brainstorming",
+        "writing-plans",
+        "executing-plans",
+        "verification-before-completion",
+        "requesting-code-review",
+        "systematic-debugging",
+        "subagent-driven-development"
+      ],
+      "install_hint": "Review the linked skill before use; Palari recommendations are guidance, not authority."
+    }
+  ],
+  "work_items": [
+    {
+      "id": "WORK-0001",
+      "title": "Prepare beta launch checklist",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "in-review",
+      "scope": "Convert beta launch notes into a concise checklist with sources and assumptions.",
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json",
+        "docs/product/company-os.md"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "send messages",
+        "change authority settings"
+      ],
+      "acceptance_target": "Human confirms the checklist is useful enough for beta operations.",
+      "verification_expectations": [
+        "unit tests pass",
+        "queue/detail show fresh evidence and review"
+      ],
+      "current_attempt": "ATTEMPT-0001",
+      "required_approval_count": 1,
+      "required_approval_capability": "product",
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:requesting-code-review"
+      ]
+    },
+    {
+      "id": "WORK-0002",
+      "title": "Decide support inbox connection boundary",
+      "goal": "GOAL-0002",
+      "palari": "PALARI-ALFRED",
+      "workbench_id": "WORKBENCH-AUTHORITY",
+      "risk": "R5",
+      "intensity": "high",
+      "status": "needs-human",
+      "scope": "Define whether Alfred may read support inbox summaries in the beta.",
+      "allowed_resources": [
+        "support boundary proposal"
+      ],
+      "forbidden_actions": [
+        "connect live inbox",
+        "read customer data",
+        "grant OAuth scopes"
+      ],
+      "acceptance_target": "Founder records the allowed support boundary before any implementation starts.",
+      "verification_expectations": [
+        "open decision exists",
+        "no side effects occur"
+      ],
+      "current_attempt": "",
+      "required_approval_count": 2,
+      "required_approval_capability": "policy"
+    },
+    {
+      "id": "WORK-0003",
+      "title": "Clean onboarding note copy",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Tighten example onboarding copy without changing product behavior.",
+      "allowed_resources": [
+        "docs/product/company-os.md"
+      ],
+      "forbidden_actions": [
+        "change schemas",
+        "change authority behavior"
+      ],
+      "conflict_targets": [
+        "docs/product/company-os.md"
+      ],
+      "parallel_policy": "independent",
+      "acceptance_target": "Copy is clearer and tests still pass.",
+      "verification_expectations": [
+        "focused copy review",
+        "unit tests pass"
+      ],
+      "current_attempt": "ATTEMPT-0002",
+      "required_approval_count": 0,
+      "required_approval_capability": ""
+    },
+    {
+      "id": "WORK-0004",
+      "title": "Record first queue prototype outcome",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Capture what was learned from the first queue prototype.",
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "merge",
+        "deploy"
+      ],
+      "acceptance_target": "Outcome is recorded.",
+      "verification_expectations": [
+        "outcome exists"
+      ],
+      "current_attempt": "ATTEMPT-0003",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0005",
+      "title": "Refresh stale evidence example",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Demonstrate that old evidence cannot justify a newer attempt head.",
+      "allowed_resources": [
+        "docs/product/command-reference.md"
+      ],
+      "forbidden_actions": [
+        "deploy"
+      ],
+      "conflict_targets": [
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "acceptance_target": "Evidence is refreshed for the current attempt head.",
+      "verification_expectations": [
+        "queue reports stale evidence"
+      ],
+      "current_attempt": "ATTEMPT-0005",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0006",
+      "title": "Refresh stale review example",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "in-review",
+      "scope": "Demonstrate that a review must match the latest evidence head.",
+      "allowed_resources": [
+        "docs/product/schema-and-validation.md"
+      ],
+      "forbidden_actions": [
+        "deploy"
+      ],
+      "acceptance_target": "Review is refreshed against the latest evidence head.",
+      "verification_expectations": [
+        "queue reports stale review"
+      ],
+      "current_attempt": "ATTEMPT-0006",
+      "required_approval_count": 1,
+      "required_approval_capability": "product"
+    },
+    {
+      "id": "WORK-0007",
+      "title": "Summarize selected beta launch note",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-SOFIA",
+      "workbench_id": "WORKBENCH-BETA",
+      "parent_work_item_id": "WORK-0001",
+      "dependency_ids": [
+        "WORK-0003"
+      ],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Use one selected local source to create a local summary note.",
+      "allowed_resources": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-0001"
+      ],
+      "allowed_actions": [
+        "local_write"
+      ],
+      "output_targets": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "conflict_targets": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "external_write",
+        "send messages",
+        "write to Drive"
+      ],
+      "acceptance_target": "Human can review the local summary and receipt.",
+      "verification_expectations": [
+        "receipt lists source, output, limits, and undo reference"
+      ],
+      "current_attempt": "ATTEMPT-0007",
+      "required_approval_count": 0,
+      "required_approval_capability": ""
+    }
+  ],
+  "attempts": [
+    {
+      "id": "ATTEMPT-0001",
+      "work_item_id": "WORK-0001",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "feature/beta-launch-checklist",
+      "workspace_path": "/tmp/acme-company-os/WORK-0001",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T17:00:00Z",
+      "updated_at": "2026-06-18T17:30:00Z",
+      "commits": [
+        "abc1234"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "output_targets": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "cleanliness": "clean",
+      "result": "Draft checklist prepared for human acceptance."
+    },
+    {
+      "id": "ATTEMPT-0002",
+      "work_item_id": "WORK-0003",
+      "actor": "PALARI-SOFIA",
+      "status": "active",
+      "branch": "copy/onboarding-note",
+      "workspace_path": "/tmp/acme-company-os/WORK-0003",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T17:20:00Z",
+      "updated_at": "2026-06-18T17:25:00Z",
+      "commits": [
+        "def5678"
+      ],
+      "changed_files": [
+        "docs/product/company-os.md"
+      ],
+      "output_targets": [
+        "docs/product/company-os.md"
+      ],
+      "cleanliness": "dirty",
+      "result": "Copy draft in progress."
+    },
+    {
+      "id": "ATTEMPT-0003",
+      "work_item_id": "WORK-0004",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "prototype/queue-outcome",
+      "workspace_path": "/tmp/acme-company-os/WORK-0004",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T16:00:00Z",
+      "updated_at": "2026-06-18T16:25:00Z",
+      "commits": [
+        "aaa1111"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "output_targets": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "cleanliness": "clean",
+      "result": "Outcome captured."
+    },
+    {
+      "id": "ATTEMPT-0005",
+      "work_item_id": "WORK-0005",
+      "actor": "PALARI-SOFIA",
+      "status": "active",
+      "branch": "example/stale-evidence",
+      "workspace_path": "/tmp/acme-company-os/WORK-0005",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T18:10:00Z",
+      "updated_at": "2026-06-18T18:18:00Z",
+      "commits": [
+        "stale-old",
+        "stale-new"
+      ],
+      "changed_files": [
+        "docs/product/command-reference.md"
+      ],
+      "output_targets": [
+        "docs/product/command-reference.md"
+      ],
+      "cleanliness": "clean",
+      "result": "Changed after evidence was captured."
+    },
+    {
+      "id": "ATTEMPT-0006",
+      "work_item_id": "WORK-0006",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "example/stale-review",
+      "workspace_path": "/tmp/acme-company-os/WORK-0006",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-18T18:20:00Z",
+      "updated_at": "2026-06-18T18:28:00Z",
+      "commits": [
+        "review-fresh"
+      ],
+      "changed_files": [
+        "docs/product/schema-and-validation.md"
+      ],
+      "output_targets": [
+        "docs/product/schema-and-validation.md"
+      ],
+      "cleanliness": "clean",
+      "result": "Evidence refreshed after review."
+    },
+    {
+      "id": "ATTEMPT-0007",
+      "work_item_id": "WORK-0007",
+      "actor": "PALARI-SOFIA",
+      "status": "complete",
+      "branch": "local/receipt-trust-loop",
+      "workspace_path": "examples/acme-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-19T04:05:00Z",
+      "updated_at": "2026-06-19T04:08:00Z",
+      "commits": [
+        "receipt-head-1"
+      ],
+      "changed_files": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "output_targets": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "cleanliness": "clean",
+      "result": "Created a local summary note from one selected source."
+    }
+  ],
+  "evidence_runs": [
+    {
+      "id": "EVIDENCE-0001",
+      "work_item_id": "WORK-0001",
+      "attempt_id": "ATTEMPT-0001",
+      "head_sha": "abc1234",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": [
+        "python3 -m unittest discover -s tests",
+        "./bin/palari queue --json"
+      ],
+      "artifacts": [
+        "reports/evidence/WORK-0001/summary.json"
+      ],
+      "summary": "Unit tests and queue JSON passed for the beta checklist prototype.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-18T17:35:00Z"
+    },
+    {
+      "id": "EVIDENCE-0002",
+      "work_item_id": "WORK-0004",
+      "attempt_id": "ATTEMPT-0003",
+      "head_sha": "aaa1111",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": [
+        "./bin/palari detail WORK-0004 --json"
+      ],
+      "artifacts": [],
+      "summary": "Detail read model shows recorded outcome.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-18T16:30:00Z"
+    },
+    {
+      "id": "EVIDENCE-0005",
+      "work_item_id": "WORK-0005",
+      "attempt_id": "ATTEMPT-0005",
+      "head_sha": "stale-old",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": [
+        "./bin/palari queue --json"
+      ],
+      "artifacts": [],
+      "summary": "Evidence passed before a newer attempt commit was added.",
+      "freshness": "stale",
+      "timestamp": "2026-06-18T18:15:00Z"
+    },
+    {
+      "id": "EVIDENCE-0006",
+      "work_item_id": "WORK-0006",
+      "attempt_id": "ATTEMPT-0006",
+      "head_sha": "review-fresh",
+      "status": "passed",
+      "base_ref": "main",
+      "commands": [
+        "./bin/palari detail WORK-0006 --json"
+      ],
+      "artifacts": [],
+      "summary": "Evidence is fresh, but review still points to an older head.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-18T18:25:00Z"
+    }
+  ],
+  "review_verdicts": [
+    {
+      "id": "REVIEW-0001",
+      "work_item_id": "WORK-0001",
+      "reviewed_head": "abc1234",
+      "reviewer": "HUMAN-OPS",
+      "verdict": "accept-ready",
+      "findings": [],
+      "checks_inspected": [
+        "python3 -m unittest discover -s tests",
+        "./bin/palari queue --json"
+      ],
+      "residual_risks": [
+        "Checklist usefulness still depends on founder judgment."
+      ],
+      "timestamp": "2026-06-18T17:45:00Z"
+    },
+    {
+      "id": "REVIEW-0002",
+      "work_item_id": "WORK-0004",
+      "reviewed_head": "aaa1111",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "findings": [],
+      "checks_inspected": [
+        "./bin/palari detail WORK-0004 --json"
+      ],
+      "residual_risks": [],
+      "timestamp": "2026-06-18T16:40:00Z"
+    },
+    {
+      "id": "REVIEW-0006",
+      "work_item_id": "WORK-0006",
+      "reviewed_head": "review-old",
+      "reviewer": "HUMAN-OPS",
+      "verdict": "accept-ready",
+      "findings": [],
+      "checks_inspected": [
+        "./bin/palari detail WORK-0006 --json"
+      ],
+      "residual_risks": [
+        "Review must be rerun against review-fresh."
+      ],
+      "timestamp": "2026-06-18T18:22:00Z"
+    }
+  ],
+  "human_decisions": [
+    {
+      "id": "HUMAN-DECISION-0001",
+      "work_item_id": "WORK-0004",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "aaa1111",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-0002",
+      "review_reference": "REVIEW-0002",
+      "timestamp": "2026-06-18T16:45:00Z"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "RECEIPT-0001",
+      "work_item_id": "WORK-0007",
+      "attempt_id": "ATTEMPT-0007",
+      "actor": "PALARI-SOFIA",
+      "sources_used": [
+        "SOURCE-0001"
+      ],
+      "actions_taken": [
+        "read selected source",
+        "created local summary note"
+      ],
+      "outputs_created": [
+        "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No external messages sent",
+        "No Google Drive files written"
+      ],
+      "undo_refs": [
+        "remove examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "timestamp": "2026-06-19T04:10:00Z"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DECISION-0001",
+      "question": "May Alfred use support inbox summaries during beta, and under what redaction rules?",
+      "status": "open",
+      "context": "The support inbox may contain customer data. The boundary must be explicit before implementation.",
+      "options": [
+        "No inbox use during beta",
+        "Use manually redacted summaries only",
+        "Use selected inbox exports with strict review"
+      ],
+      "tradeoffs": [
+        "No inbox use is safest but slows beta support learning.",
+        "Redacted summaries preserve learning while reducing privacy risk.",
+        "Selected exports are more useful but require stronger controls."
+      ],
+      "recommendation": "Use manually redacted summaries only until access controls mature.",
+      "safe_default": "No inbox use during beta.",
+      "required_human": "HUMAN-FOUNDER",
+      "required_role": "Founder",
+      "due_date": "2026-06-21",
+      "linked_goal": "GOAL-0002",
+      "linked_work": "WORK-0002",
+      "linked_palari": "PALARI-ALFRED"
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "OUTCOME-0001",
+      "work_item_id": "WORK-0004",
+      "status": "captured",
+      "summary": "The queue prototype made next actions much easier to see than scattered ticket files.",
+      "what_happened": "The first queue read model grouped work by attention state.",
+      "what_changed": "Operators can see next action, Palari, goal, and authority state in one command.",
+      "useful": [
+        "attention categories",
+        "explicit next actions",
+        "Palari and goal linkage"
+      ],
+      "failed": [
+        "manual ceremony still feels too visible when overused"
+      ],
+      "follow_up_needed": [
+        "keep low-risk work light"
+      ],
+      "model_worker_notes": [
+        "The model performed better with one queue-oriented read model than with scattered status prose."
+      ],
+      "timestamp": "2026-06-18T16:50:00Z"
+    }
+  ]
+}

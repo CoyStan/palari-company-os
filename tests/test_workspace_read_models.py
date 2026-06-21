@@ -245,6 +245,57 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertIn("Path is outside allowed resources: secrets.env", blocked.violations)
         self.assertIn("Action is explicitly forbidden: deploy", blocked.violations)
 
+    def test_scope_check_rejects_path_traversal_prefix_bypass(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        blocked = check_scope(workspace, "WORK-0003", ["docs/../secrets.env"], [])
+
+        self.assertFalse(blocked.allowed)
+        self.assertIn(
+            "Path is outside allowed resources: docs/../secrets.env",
+            blocked.violations,
+        )
+
+    def test_detail_uses_declared_current_attempt_not_latest_attempt_record(self) -> None:
+        def add_non_current_later_attempt(data: dict[str, object]) -> None:
+            data["attempts"].append(
+                {
+                    "id": "ATTEMPT-NONCURRENT",
+                    "work_item_id": "WORK-0001",
+                    "actor": "PALARI-SOFIA",
+                    "status": "active",
+                    "branch": "non-current-later",
+                    "workspace_path": "/tmp/acme-company-os/WORK-0001-later",
+                    "started_at": "2026-06-19T10:00:00Z",
+                    "updated_at": "2026-06-19T10:30:00Z",
+                    "commits": ["different-head"],
+                    "changed_files": ["examples/acme-company-os/workspace.json"],
+                    "output_targets": ["examples/acme-company-os/workspace.json"],
+                }
+            )
+
+        workspace = self.modified_workspace(add_non_current_later_attempt)
+        payload = detail(workspace, "WORK-0001")
+
+        self.assertEqual(payload["attempt"]["id"], "ATTEMPT-0001")
+        self.assertEqual(payload["safety"]["evidence_state"], "passed")
+
+
+    def test_scope_check_rejects_parent_traversal(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        result = check_scope(
+            workspace,
+            "WORK-0001",
+            ["examples/acme-company-os/../secrets.env"],
+            [],
+        )
+
+        self.assertFalse(result.allowed)
+        self.assertIn(
+            "Path is outside allowed resources: examples/acme-company-os/../secrets.env",
+            result.violations,
+        )
+
     def modified_workspace(self, mutate: object) -> Workspace:
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         mutate(source)
@@ -556,13 +607,14 @@ class CliTests(unittest.TestCase):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-m", "palari_company_os", "--workspace", str(WORKSPACE), *args],
+            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(WORKSPACE), *args],
             cwd=REPO_ROOT,
             env=env,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
     def run_cli_in_workspace(
@@ -576,6 +628,7 @@ class CliTests(unittest.TestCase):
         return subprocess.run(
             [
                 sys.executable,
+                "-S",
                 "-m",
                 "palari_company_os",
                 "--workspace",
@@ -588,6 +641,7 @@ class CliTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=30,
         )
 
     def temp_workspace(self) -> Any:
@@ -598,10 +652,10 @@ class MaintainerStatusTests(unittest.TestCase):
     def test_maintainer_status_reports_tests_and_pr_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
-            subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+            subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE, timeout=30)
             (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
             (repo / ".gitignore").write_text(".palari-company-os/\n", encoding="utf-8")
-            subprocess.run(["git", "add", "README.md", ".gitignore"], cwd=repo, check=True)
+            subprocess.run(["git", "add", "README.md", ".gitignore"], cwd=repo, check=True, timeout=30)
             subprocess.run(
                 [
                     "git",
@@ -616,6 +670,7 @@ class MaintainerStatusTests(unittest.TestCase):
                 cwd=repo,
                 check=True,
                 stdout=subprocess.PIPE,
+                timeout=30,
             )
             state_dir = repo / ".palari-company-os"
             state_dir.mkdir()

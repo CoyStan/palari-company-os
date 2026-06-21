@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from html import escape
+from html.parser import HTMLParser
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +19,16 @@ class DesktopPrototypeResult:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DESKTOP_DEMO_FIXTURE = REPO_ROOT / "examples" / "desktop-demo" / "workspace.json"
+
+
+def _default_desktop_demo_fixture() -> Path:
+    checkout_fixture = REPO_ROOT / "examples" / "desktop-demo" / "workspace.json"
+    if checkout_fixture.exists():
+        return checkout_fixture
+    return Path(str(files("palari_company_os").joinpath("data/examples/desktop-demo/workspace.json")))
+
+
+DEFAULT_DESKTOP_DEMO_FIXTURE = _default_desktop_demo_fixture()
 
 
 def generate_desktop_prototype(
@@ -28,6 +40,7 @@ def generate_desktop_prototype(
     output.mkdir(parents=True, exist_ok=True)
     prototype_data = data if data is not None else load_desktop_demo_data(fixture_path)
     validate_desktop_app_data(prototype_data)
+    prototype_data = _sanitized_desktop_app_data(prototype_data)
 
     style_path = output / "styles.css"
     script_path = output / "app.js"
@@ -136,6 +149,10 @@ def validate_desktop_app_data(data: dict[str, Any]) -> None:
                     raise ValueError(f"attempt sources_used references missing source: {source_id}")
                 if source_id not in work_item["allowed_source_ids"] and source_id not in work_item["output_target_ids"]:
                     raise ValueError(f"attempt uses source outside work item boundary: {source_id}")
+            document_html = attempt.get("document_html")
+            if not isinstance(document_html, str):
+                raise ValueError(f"attempt document_html must be a string: {attempt_id}")
+            _sanitize_document_html(document_html, reject_unsafe=True)
             for approval in attempt["authority"]["approvals"]:
                 if approval["human_id"] not in humans:
                     raise ValueError(f"authority approval references missing human: {approval['human_id']}")
@@ -154,6 +171,82 @@ def validate_desktop_app_data(data: dict[str, Any]) -> None:
 
 def _e(value: str) -> str:
     return escape(value, quote=True)
+
+
+ALLOWED_DOCUMENT_TAGS = {
+    "blockquote",
+    "br",
+    "code",
+    "em",
+    "h1",
+    "h2",
+    "h3",
+    "i",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "strong",
+    "ul",
+}
+VOID_DOCUMENT_TAGS = {"br"}
+
+
+class _DocumentHTMLSanitizer(HTMLParser):
+    def __init__(self, reject_unsafe: bool = False) -> None:
+        super().__init__(convert_charrefs=True)
+        self.reject_unsafe = reject_unsafe
+        self.parts: list[str] = []
+        self.unsafe_reasons: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized = tag.lower()
+        if normalized not in ALLOWED_DOCUMENT_TAGS:
+            self._unsafe(f"unsupported tag <{normalized}>")
+            return
+        if attrs:
+            self._unsafe(f"attributes are not allowed on <{normalized}>")
+        self.parts.append(f"<{normalized}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized = tag.lower()
+        if normalized in ALLOWED_DOCUMENT_TAGS and normalized not in VOID_DOCUMENT_TAGS:
+            self.parts.append(f"</{normalized}>")
+        elif normalized not in ALLOWED_DOCUMENT_TAGS:
+            self._unsafe(f"unsupported tag </{normalized}>")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(escape(data, quote=False))
+
+    def handle_entityref(self, name: str) -> None:
+        self.parts.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        self.parts.append(f"&#{name};")
+
+    def handle_comment(self, data: str) -> None:
+        self._unsafe("comments are not allowed")
+
+    def _unsafe(self, reason: str) -> None:
+        self.unsafe_reasons.append(reason)
+
+
+def _sanitize_document_html(value: str, reject_unsafe: bool = False) -> str:
+    sanitizer = _DocumentHTMLSanitizer(reject_unsafe=reject_unsafe)
+    sanitizer.feed(value)
+    sanitizer.close()
+    if reject_unsafe and sanitizer.unsafe_reasons:
+        reasons = ", ".join(sanitizer.unsafe_reasons[:3])
+        raise ValueError(f"attempt document_html contains unsafe markup: {reasons}")
+    return "".join(sanitizer.parts)
+
+
+def _sanitized_desktop_app_data(data: dict[str, Any]) -> dict[str, Any]:
+    sanitized = deepcopy(data)
+    for work_item in sanitized["work_items"].values():
+        for attempt in work_item["attempts"].values():
+            attempt["document_html"] = _sanitize_document_html(attempt["document_html"])
+    return sanitized
 
 
 def _html(data: dict[str, Any]) -> str:
@@ -424,7 +517,7 @@ def _artifact_panel(data: dict[str, Any]) -> str:
     </section>
 
     <article class="document-card" data-document-card>
-      {attempt["document_html"]}
+      {_sanitize_document_html(str(attempt["document_html"]))}
     </article>
 
     <footer class="artifact-footer">
@@ -1498,7 +1591,7 @@ h1, h2, h3, p { margin: 0; }
 
 
 def _script(data: dict[str, Any]) -> str:
-    data_json = json.dumps(data, ensure_ascii=True, indent=2)
+    data_json = _safe_json_for_script(data)
     return f"""
 (function () {{
   const body = document.body;
@@ -1550,6 +1643,31 @@ def _script(data: dict[str, Any]) -> str:
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }}
+
+  const allowedDocumentTags = new Set([
+    "blockquote", "br", "code", "em", "h1", "h2", "h3",
+    "i", "li", "ol", "p", "pre", "strong", "ul",
+  ]);
+
+  function sanitizeDocumentHTML(value) {{
+    const template = document.createElement("template");
+    template.innerHTML = String(value);
+    Array.from(template.content.querySelectorAll("*")).forEach((element) => {{
+      const tag = element.tagName.toLowerCase();
+      if (!allowedDocumentTags.has(tag)) {{
+        const parent = element.parentNode;
+        if (parent) {{
+          while (element.firstChild) {{
+            parent.insertBefore(element.firstChild, element);
+          }}
+          parent.removeChild(element);
+        }}
+        return;
+      }}
+      Array.from(element.attributes).forEach((attribute) => element.removeAttribute(attribute.name));
+    }});
+    return template.innerHTML;
   }}
 
   function currentAttempt(work) {{
@@ -1706,7 +1824,7 @@ def _script(data: dict[str, Any]) -> str:
     setChip(document.querySelector("[data-artifact-status]"), attempt.status_label, attempt.status_class);
     setText("[data-approval-copy]", work.approval_copy);
     setHTML("[data-sources-used]", `<span>Sources used</span>${{attempt.sources_used.map(sourceChipHTML).join("")}}`);
-    setHTML("[data-document-card]", attempt.document_html);
+    setHTML("[data-document-card]", sanitizeDocumentHTML(attempt.document_html));
 
     setText("[data-footer-owner]", palari.name);
     setText("[data-footer-palari]", palari.role);
@@ -1799,3 +1917,14 @@ def _script(data: dict[str, Any]) -> str:
   setMobileTarget(initial);
 }})();
 """
+
+
+def _safe_json_for_script(data: dict[str, Any]) -> str:
+    return (
+        json.dumps(data, ensure_ascii=True, indent=2)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )

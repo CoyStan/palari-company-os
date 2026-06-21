@@ -207,8 +207,8 @@ python3 -m unittest discover -s tests
 
 `./scripts/verify.sh` runs unit tests, Python compilation, JSON validity checks,
 the lightweight style checker, and CLI smoke checks. `install_smoke.sh` creates
-a temporary virtual environment, installs the package, imports it, and checks
-the installed `palari` command.
+a temporary virtual environment, builds and installs a wheel, imports it, checks
+the installed `palari` command, and confirms packaged default fixtures work.
 
 GitHub Actions runs the same core checks on Python 3.10 and 3.12.
 

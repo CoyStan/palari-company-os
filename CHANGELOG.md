@@ -7,6 +7,23 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-21
+
+### Fixed
+
+- Packaged default example and desktop-demo data so installed wheels can run
+  default CLI commands without a source checkout.
+- Closed path traversal and output-boundary validation gaps for scope checks,
+  attempts, receipts, and undo references.
+- Made desktop prototype document HTML fail closed with a strict sanitizer.
+- Made read models honor a work item's declared `current_attempt`.
+
+### Changed
+
+- Lazy-load heavier command modules to reduce startup cost for lightweight CLI
+  commands.
+- Added indexed workspace lookups and faster, timeout-bounded test subprocesses.
+- Switched install smoke and CI package checks to exercise built wheels.
 - Added GitHub CI and install-smoke verification for normal package usage.
 - Added professional repository metadata, license, and maturity wording.
 - Added a repo-local dogfood workspace for Palari Company OS maturity work.

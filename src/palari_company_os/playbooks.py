@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .models import PlaybookSource, WorkItem, to_plain
-from .workspace import Workspace, WorkspaceError, latest_for_work
+from .workspace import Workspace, WorkspaceError, current_attempt_for_work, latest_for_work
 
 
 SUPERPOWERS_PLAYBOOKS: dict[str, dict[str, str]] = {
@@ -214,7 +214,7 @@ def _automatic_recommendations(
         )
 
     text = f"{work.title} {work.scope} {' '.join(work.verification_expectations)}".lower()
-    attempt = latest_for_work(workspace.attempts, work.id)
+    attempt = current_attempt_for_work(work, workspace.attempts)
     evidence = latest_for_work(workspace.evidence_runs, work.id)
     review = latest_for_work(workspace.review_verdicts, work.id)
     outcome = latest_for_work(workspace.outcomes, work.id)

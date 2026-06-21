@@ -4,6 +4,7 @@ from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
 from .models import Attempt, EvidenceRun, HumanDecision, Receipt, ReviewVerdict, WorkItem
+from .path_policy import path_allowed, validate_workspace_path
 
 
 T = TypeVar("T")
@@ -347,6 +348,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
+        _validate_attempt_boundaries(attempt, work_by_id)
 
     for evidence in workspace.evidence_runs:
         _require_allowed_value(
@@ -439,6 +441,78 @@ def _require_allowed_value(
             f"{collection}.{record_id}.{field} has unsupported value {value!r}; "
             f"expected one of: {allowed_values}"
         )
+
+
+def _validate_attempt_boundaries(
+    attempt: Attempt,
+    work_by_id: dict[str, WorkItem],
+) -> None:
+    work = work_by_id[attempt.work_item_id]
+    write_boundaries = _write_boundaries(work)
+    output_boundaries = _output_boundaries(work)
+
+    for changed_file in attempt.changed_files:
+        _require_path_in_boundaries(
+            f"attempts.{attempt.id}.changed_files",
+            changed_file,
+            write_boundaries,
+        )
+    for output_target in attempt.output_targets:
+        _require_path_in_boundaries(
+            f"attempts.{attempt.id}.output_targets",
+            output_target,
+            output_boundaries,
+        )
+
+
+def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
+    write_boundaries = _write_boundaries(work)
+    for output in receipt.outputs_created:
+        _require_path_in_boundaries(
+            f"receipts.{receipt.id}.outputs_created",
+            output,
+            write_boundaries,
+        )
+    for undo_ref in receipt.undo_refs:
+        undo_path = _undo_ref_path(undo_ref)
+        if undo_path:
+            _require_path_in_boundaries(
+                f"receipts.{receipt.id}.undo_refs",
+                undo_path,
+                write_boundaries,
+            )
+
+
+def _write_boundaries(work: WorkItem) -> list[str]:
+    return [*work.output_targets, *work.allowed_resources]
+
+
+def _output_boundaries(work: WorkItem) -> list[str]:
+    return list(work.output_targets or work.allowed_resources)
+
+
+def _require_path_in_boundaries(label: str, path: str, boundaries: list[str]) -> None:
+    if not boundaries:
+        raise WorkspaceError(f"{label} has no declared output or resource boundary for {path}")
+    try:
+        validate_workspace_path(path)
+    except ValueError as exc:
+        raise WorkspaceError(f"{label} contains unsafe path {path}: {exc}") from exc
+    if not path_allowed(path, boundaries):
+        raise WorkspaceError(f"{label} includes path outside declared boundaries: {path}")
+
+
+def _undo_ref_path(undo_ref: str) -> str:
+    stripped = undo_ref.strip()
+    if not stripped:
+        return ""
+    lower = stripped.lower()
+    for prefix in ("delete ", "remove ", "revert ", "restore ", "unlink "):
+        if lower.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    if "/" in stripped or "." in stripped:
+        return stripped
+    return ""
 
 
 def _validate_accepted_human_decision(
@@ -555,6 +629,7 @@ def _validate_receipt(
                 f"receipts.{receipt.id}.sources_used includes source {source_id} "
                 f"not allowed for Palari {work.palari}"
             )
+    _validate_receipt_boundaries(receipt, work)
     if receipt.external_writes and not _allows_external_writes(work):
         raise WorkspaceError(
             f"receipts.{receipt.id}.external_writes requires allowed action external_write"
@@ -634,7 +709,18 @@ def _open_linked_decision(workspace: Any, work_id: str) -> Any | None:
 
 
 def _latest_for_work(records: Iterable[T], work_id: str) -> T | None:
-    matching = [record for record in records if getattr(record, "work_item_id") == work_id]
-    if not matching:
-        return None
-    return sorted(matching, key=lambda item: getattr(item, "timestamp", ""))[-1]
+    latest: T | None = None
+    latest_key: tuple[str, str, str, str] | None = None
+    for record in records:
+        if getattr(record, "work_item_id") != work_id:
+            continue
+        key = (
+            str(getattr(record, "timestamp", "")),
+            str(getattr(record, "updated_at", "")),
+            str(getattr(record, "started_at", "")),
+            str(getattr(record, "id", "")),
+        )
+        if latest_key is None or key > latest_key:
+            latest = record
+            latest_key = key
+    return latest
