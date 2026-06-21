@@ -56,7 +56,11 @@ class PlaybookTests(unittest.TestCase):
         self.assertTrue(recommended["superpowers:requesting-code-review"]["selected_by_user"])
         self.assertTrue(recommended["superpowers:executing-plans"]["core_default"])
         self.assertTrue(recommended["superpowers:systematic-debugging"]["core_default"])
-        self.assertIn("Use or install", payload["next_action"])
+        self.assertIn("Use these playbooks as guidance", payload["next_action"])
+        self.assertEqual(
+            recommended["superpowers:verification-before-completion"]["action_guidance"],
+            "Run focused tests and full verification before claiming done.",
+        )
 
     def test_missing_evidence_recommends_verification_skill(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -102,6 +106,27 @@ class PlaybookTests(unittest.TestCase):
 
         self.assertEqual(payload["work_item"], "WORK-0003")
         self.assertEqual([item["id"] for item in payload["recommended"]], list(CORE_DEFAULT_PLAYBOOK_IDS))
+        self.assertEqual(
+            payload["recommended"][0]["action_guidance"],
+            "Run focused tests and full verification before claiming done.",
+        )
+        self.assertEqual(
+            payload["operating_guidance"][0]["guidance"],
+            "Run focused tests and full verification before claiming done.",
+        )
+
+    def test_cli_playbook_recommend_text_includes_operating_guidance(self) -> None:
+        result = self.run_cli("playbooks", "recommend", "WORK-0003")
+
+        self.assertIn("Operating guidance", result.stdout)
+        self.assertIn(
+            "Use this as guidance; the work item's scope and authority remain the source of truth.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Verification Before Completion: Run focused tests and full verification before claiming done.",
+            result.stdout,
+        )
 
     def modified_workspace(self, mutate: object):
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))

@@ -38,6 +38,18 @@ SUPERPOWERS_PLAYBOOKS: dict[str, dict[str, str]] = {
     },
 }
 
+PLAYBOOK_ACTION_GUIDANCE = {
+    "brainstorming": "Clarify the shape of the work before choosing implementation steps.",
+    "writing-plans": "Write a short plan that names scope, order, and verification before editing.",
+    "executing-plans": "Keep this as one bounded slice and preserve enough context to resume.",
+    "verification-before-completion": "Run focused tests and full verification before claiming done.",
+    "requesting-code-review": "Summarize changed files, checks, risks, and specific review focus.",
+    "systematic-debugging": "If checks fail, fix the smallest failing cause and rerun the relevant check.",
+    "subagent-driven-development": (
+        "Use separate focused agents only for genuinely separable research or review."
+    ),
+}
+
 CORE_DEFAULT_PLAYBOOK_IDS = (
     "superpowers:verification-before-completion",
     "superpowers:executing-plans",
@@ -67,6 +79,7 @@ class PlaybookRecommendation:
     reason: str
     selected_by_user: bool = False
     core_default: bool = False
+    action_guidance: str = ""
 
 
 def playbook_catalog(workspace: Workspace) -> dict[str, Any]:
@@ -114,6 +127,7 @@ def recommend_playbooks(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "defaults": [to_plain(item) for item in defaults],
         "suggested": [to_plain(item) for item in automatic],
         "recommended": [to_plain(item) for item in merged],
+        "operating_guidance": _operating_guidance(merged),
         "next_action": _playbook_next_action(workspace, work, merged),
     }
 
@@ -138,6 +152,7 @@ def _manual_recommendations(
                     reason="Pinned on the work item by a human or Palari.",
                     selected_by_user=True,
                     core_default=playbook.core_default,
+                    action_guidance=_action_guidance(playbook),
                 )
             )
     return recommendations
@@ -173,6 +188,7 @@ def _core_default_recommendations(
                 source_id=playbook.source_id,
                 reason=reasons[playbook_id],
                 core_default=True,
+                action_guidance=_action_guidance(playbook),
             )
         )
     return recommendations
@@ -193,6 +209,7 @@ def _automatic_recommendations(
                 label=playbook.label,
                 source_id=playbook.source_id,
                 reason=reason,
+                action_guidance=_action_guidance(playbook),
             )
         )
 
@@ -286,7 +303,21 @@ def _playbook_next_action(
     if not recommendations:
         return "No playbook recommendation right now; continue with the normal queue next action."
     ids = ", ".join(item.id for item in recommendations)
-    return f"Use or install these playbooks when preparing the next agent packet: {ids}."
+    return f"Use these playbooks as guidance for the next agent run: {ids}."
+
+
+def _operating_guidance(
+    recommendations: list[PlaybookRecommendation],
+) -> list[dict[str, str]]:
+    return [
+        {
+            "id": recommendation.id,
+            "label": recommendation.label,
+            "guidance": recommendation.action_guidance,
+        }
+        for recommendation in recommendations
+        if recommendation.action_guidance
+    ]
 
 
 def _playbook_from_source(source: PlaybookSource, key: str) -> Playbook:
@@ -311,6 +342,10 @@ def _playbook_uri(source: PlaybookSource, key: str) -> str:
         ref = source.ref or "main"
         return f"{source.uri.rstrip('/')}/blob/{ref}/skills/{key}/SKILL.md"
     return source.uri
+
+
+def _action_guidance(playbook: Playbook) -> str:
+    return PLAYBOOK_ACTION_GUIDANCE.get(playbook.key, "")
 
 
 def _attempt_head(attempt: Any) -> str:

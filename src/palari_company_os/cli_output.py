@@ -284,6 +284,12 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
             prefix = "suggested"
         print(f"{item['id']} [{prefix}]")
         print(f"  {item['reason']}")
+    if payload.get("operating_guidance"):
+        print("")
+        print("Operating guidance")
+        print("Use this as guidance; the work item's scope and authority remain the source of truth.")
+        for item in payload["operating_guidance"]:
+            print(f"- {item['label']}: {item['guidance']}")
     print(f"Next: {payload['next_action']}")
 
 

@@ -101,6 +101,11 @@ Ask Palari which playbooks fit a work item:
 ./bin/palari playbooks recommend WORK-0003 --json
 ```
 
+The recommendation output includes short operating guidance for each recommended
+playbook. This guidance is intentionally lightweight: it helps an agent start
+well, but it does not create a packet, gate, claim, review, or approval step.
+The work item's scope and authority remain the source of truth.
+
 Create a playbook source with the normal authoring command:
 
 ```bash
@@ -119,6 +124,9 @@ Palari combines two signals:
 
 - selected playbooks already listed on the work item
 - automatic recommendations from work state
+
+Each recommendation also carries one practical `action_guidance` sentence for
+CLI output and future UI/agent use.
 
 Examples:
 

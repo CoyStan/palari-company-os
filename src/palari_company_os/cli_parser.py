@@ -258,7 +258,7 @@ def _add_playbook_source_parser(subparsers: Any) -> None:
             ("uri", {"default": "", "help": "Source URI."}),
             ("ref", {"default": "", "help": "Pinned branch, tag, or commit."}),
             ("license", {"default": "", "help": "License label."}),
-            ("install_hint", {"default": "", "help": "Install or activation hint."}),
+            ("install_hint", {"default": "", "help": "Review or use hint."}),
         ],
     )
 

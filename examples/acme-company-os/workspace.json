@@ -212,7 +212,7 @@
         "systematic-debugging",
         "subagent-driven-development"
       ],
-      "install_hint": "Install or copy only the selected Superpowers skills needed for the work item."
+      "install_hint": "Review the linked skill before use; Palari recommendations are guidance, not authority."
     }
   ],
   "work_items": [

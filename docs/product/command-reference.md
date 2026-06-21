@@ -78,9 +78,10 @@ forbidden actions.
 
 `playbooks sources` lists external playbook sources and the allowed skills from
 each source. `playbooks recommend` combines user-selected playbooks from the
-work item with Palari's state-based suggestions. External playbooks are
-guidance only; Palari still owns goals, scope, sources, authority, receipts,
-evidence, review, human decisions, and outcomes.
+work item with Palari's state-based suggestions. It also prints a short
+operating guidance section with practical one-sentence advice for the next agent
+run. External playbooks are guidance only; Palari still owns goals, scope,
+sources, authority, receipts, evidence, review, human decisions, and outcomes.
 
 ## Receipt-Ready Low-Risk Work
 
