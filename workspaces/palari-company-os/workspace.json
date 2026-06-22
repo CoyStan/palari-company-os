@@ -25,7 +25,8 @@
         "WORK-REPO-0006",
         "WORK-REPO-0007",
         "WORK-REPO-0008",
-        "WORK-REPO-0009"
+        "WORK-REPO-0009",
+        "WORK-REPO-0010"
       ],
       "linked_decisions": []
     },
@@ -153,7 +154,8 @@
         "WORK-REPO-0006",
         "WORK-REPO-0007",
         "WORK-REPO-0008",
-        "WORK-REPO-0009"
+        "WORK-REPO-0009",
+        "WORK-REPO-0010"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -259,8 +261,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "ba99f37",
-      "last_read_at": "2026-06-22T04:55:00Z"
+      "last_seen_revision": "7be12db",
+      "last_read_at": "2026-06-22T05:04:00Z"
     }
   ],
   "workbenches": [
@@ -650,6 +652,40 @@
       "acceptance_target": "Workspace validation catches unsupported provider/action declarations, raw integration plan payload secrets, and outbox payload/source-boundary drift before any future execution boundary.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0009"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "forbidden_actions": [
+        "change safety gating",
+        "change governance semantics",
+        "deploy",
+        "add dependencies"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_workspace_read_models",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0010",
+      "title": "Clarify heuristic intensity warnings",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Make queue intensity wording distinguish declared work intensity from heuristic concerns so completed low-risk dogfood work does not look contradictory.",
+      "acceptance_target": "Queue text labels heuristic mismatches as intensity concern or note and explains the declared intensity without changing safety behavior.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0010"
     }
   ],
   "attempts": [
@@ -861,6 +897,26 @@
       "started_at": "2026-06-22T04:45:00Z",
       "cleanliness": "clean",
       "result": "Hardened dry-run integration validation by sharing provider/action support, scanning plan payload previews for raw secrets, and requiring outbox previews and source boundaries to match approved plans."
+    },
+    {
+      "commits": [
+        "7be12db"
+      ],
+      "changed_files": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "id": "ATTEMPT-REPO-0010",
+      "work_item_id": "WORK-REPO-0010",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T04:58:00Z",
+      "cleanliness": "clean",
+      "result": "Clarified queue intensity mismatch wording by separating declared intensity from heuristic concern and adding regression coverage."
     }
   ],
   "evidence_runs": [
@@ -1030,6 +1086,30 @@
       "summary": "Dry-run integration validation hardening passed focused integration/validation tests, full verification, full unit discovery, and install smoke.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T04:55:00Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_workspace_read_models",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari --workspace workspaces/palari-company-os queue"
+      ],
+      "artifacts": [
+        "focused read-model test output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output",
+        "queue CLI output"
+      ],
+      "id": "EVIDENCE-REPO-0010",
+      "work_item_id": "WORK-REPO-0010",
+      "attempt_id": "ATTEMPT-REPO-0010",
+      "head_sha": "7be12db",
+      "status": "passed",
+      "summary": "Heuristic intensity warning wording passed focused read-model tests, full verification, unit discovery, install smoke, and queue CLI smoke.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T05:04:00Z"
     }
   ],
   "review_verdicts": [
@@ -1349,6 +1429,36 @@
       "attempt_id": "ATTEMPT-REPO-0009",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T04:55:00Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "made heuristic intensity reasons mention declared intensity",
+        "renamed queue mismatch line to intensity concern or note",
+        "added dogfood queue regression coverage"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "not_done": [
+        "No safety gating changed",
+        "No governance semantics changed",
+        "No deployment performed",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_output.py"
+      ],
+      "id": "RECEIPT-REPO-0010",
+      "work_item_id": "WORK-REPO-0010",
+      "attempt_id": "ATTEMPT-REPO-0010",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:04:00Z"
     }
   ],
   "decisions": [
