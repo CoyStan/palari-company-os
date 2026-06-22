@@ -54,8 +54,9 @@ work that is missing proof points `next_commands` toward `agent check` and
 ```
 
 Shows a compact operator state: record counts, attention counts, top attention
-with its next command, queue items, active parallel work, and coordination
-warnings. This is the first fast read model for the whole workspace.
+with its `next_step_type` and next command, queue items, active parallel work,
+and coordination warnings. This is the first fast read model for the whole
+workspace.
 
 ## Validate
 

@@ -837,6 +837,8 @@ def print_state(payload: dict[str, Any]) -> None:
     if top:
         print("Top attention")
         print(f"  {top['id']}: {top['title']} ({top['attention']})")
+        if top.get("next_step_type"):
+            print(f"  step: {top['next_step_type']}")
         print(f"  why: {top['why']}")
         commands = top.get("next_commands") or []
         if commands:

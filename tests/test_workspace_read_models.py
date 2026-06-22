@@ -422,6 +422,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(state["attention"]["needs-human-decision"], 2)
         self.assertEqual(state["attention"]["receipt-ready"], 1)
         self.assertEqual(state["top_attention"]["id"], "WORK-0001")
+        self.assertEqual(state["top_attention"]["next_step_type"], "human-decision")
         self.assertEqual(
             state["top_attention"]["next_commands"][0],
             "palari detail WORK-0001 --json",
@@ -433,6 +434,7 @@ class CliTests(unittest.TestCase):
 
         self.assertIn("Top attention", result.stdout)
         self.assertIn("WORK-0001: Prepare beta launch checklist", result.stdout)
+        self.assertIn("step: human-decision", result.stdout)
         self.assertIn("command: palari detail WORK-0001 --json", result.stdout)
 
     def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
