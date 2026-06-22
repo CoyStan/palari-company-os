@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_checks import build_agent_check
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
-from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.workspace import Workspace
 
 
@@ -274,6 +274,14 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("Stop if you need to read or write outside allowed_paths.", packet["stop_conditions"])
         self.assertEqual(packet["blockers"], [])
         self.assertTrue(packet["context_hash"].startswith("sha256:"))
+
+    def test_packet_context_hash_ignores_created_at(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
+        changed_timestamp = dict(packet)
+        changed_timestamp["created_at"] = "2099-01-01T00:00:00Z"
+
+        self.assertEqual(_context_hash(packet), _context_hash(changed_timestamp))
 
     def test_blocked_packet_names_dependency_and_receipt_review_blockers(self) -> None:
         workspace = Workspace.load(WORKSPACE)
