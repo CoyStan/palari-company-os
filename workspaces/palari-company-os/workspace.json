@@ -30,7 +30,8 @@
         "WORK-REPO-0011",
         "WORK-REPO-0012",
         "WORK-REPO-0013",
-        "WORK-REPO-0014"
+        "WORK-REPO-0014",
+        "WORK-REPO-0015"
       ],
       "linked_decisions": []
     },
@@ -160,7 +161,8 @@
         "WORK-REPO-0011",
         "WORK-REPO-0012",
         "WORK-REPO-0013",
-        "WORK-REPO-0014"
+        "WORK-REPO-0014",
+        "WORK-REPO-0015"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -269,8 +271,8 @@
       "steward_human": "HUMAN-MAINTAINER",
       "freshness_sla": "per change",
       "redaction_required": false,
-      "last_seen_revision": "6ffed8a",
-      "last_read_at": "2026-06-22T05:39:09Z"
+      "last_seen_revision": "76a93bb",
+      "last_read_at": "2026-06-22T05:51:40Z"
     },
     {
       "id": "SOURCE-REPO-ARCHITECTURE",
@@ -869,6 +871,53 @@
       "acceptance_target": "R1/R2 receipt-ready work with approval count 0, terminal dependencies, no open decisions, and no external writes can complete; other work still fails closed.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0014"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_data_map.py",
+        "tests/test_workspace_read_models.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md"
+      ],
+      "forbidden_actions": [
+        "add live connectors",
+        "read secrets",
+        "add dependencies",
+        "change source access semantics"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_validation tests.test_data_map tests.test_workspace_read_models.CliTests.test_cli_authoring_and_lifecycle_on_temp_workspace",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0015",
+      "title": "Add source readiness metadata",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Add optional source readiness metadata for data class, authority, steward, freshness, and redaction needs.",
+      "acceptance_target": "Source readiness fields validate strictly, surface in data map, and preserve existing workspace behavior.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0015"
     }
   ],
   "attempts": [
@@ -1196,6 +1245,39 @@
       "started_at": "2026-06-22T05:39:09Z",
       "cleanliness": "clean",
       "result": "Allowed safe receipt-ready completion for local low-risk work while preserving dependency, decision, approval, and external-write blockers."
+    },
+    {
+      "commits": [
+        "76a93bb"
+      ],
+      "changed_files": [
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_data_map.py",
+        "tests/test_workspace_read_models.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md"
+      ],
+      "id": "ATTEMPT-REPO-0015",
+      "work_item_id": "WORK-REPO-0015",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T05:51:40Z",
+      "cleanliness": "clean",
+      "result": "Added source readiness metadata, strict validation, data-map output, examples, and regression coverage."
     }
   ],
   "evidence_runs": [
@@ -1484,6 +1566,27 @@
       "summary": "Receipt-ready completion path passed focused validation/read-model/history tests, full verification, unit discovery, and install smoke.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T05:39:09Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_validation tests.test_data_map tests.test_workspace_read_models.CliTests.test_cli_authoring_and_lifecycle_on_temp_workspace",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused validation/data-map/authoring output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0015",
+      "work_item_id": "WORK-REPO-0015",
+      "attempt_id": "ATTEMPT-REPO-0015",
+      "head_sha": "76a93bb",
+      "status": "passed",
+      "summary": "Source readiness metadata passed focused validation/data-map/authoring tests, full verification, unit discovery, and install smoke.",
+      "timestamp": "2026-06-22T05:51:40Z"
     }
   ],
   "review_verdicts": [
@@ -1980,6 +2083,52 @@
       "attempt_id": "ATTEMPT-REPO-0014",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:39:09Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "added source readiness fields",
+        "validated source readiness values",
+        "shown readiness in data map",
+        "kept connectors dry-run only"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_data_map.py",
+        "tests/test_workspace_read_models.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md"
+      ],
+      "not_done": [
+        "No live connectors added",
+        "No secrets read",
+        "No dependencies added",
+        "No source access semantics changed"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data_map.py",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "id": "RECEIPT-REPO-0015",
+      "work_item_id": "WORK-REPO-0015",
+      "attempt_id": "ATTEMPT-REPO-0015",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:51:40Z"
     }
   ],
   "decisions": [
