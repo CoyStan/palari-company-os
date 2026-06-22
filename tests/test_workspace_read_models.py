@@ -180,6 +180,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
             payload["agent_commands"]["finish"],
             "palari agent finish WORK-0007 --as PALARI-SOFIA --json",
         )
+        self.assertEqual(
+            payload["agent_commands"]["handoff"],
+            "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
+        )
 
     def test_parallel_attempts_are_visible_without_conflict(self) -> None:
         workspace = Workspace.load(WORKSPACE)

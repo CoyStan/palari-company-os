@@ -504,6 +504,7 @@ def _agent_commands(work: Any) -> dict[str, str]:
         "start": f"palari agent start {work.id} --as {work.palari} --mode execute --json",
         "check": f"palari agent check {work.id} --as {work.palari} --json",
         "finish": f"palari agent finish {work.id} --as {work.palari} --json",
+        "handoff": f"palari agent handoff {work.id} --as {work.palari} --json",
     }
 
 
