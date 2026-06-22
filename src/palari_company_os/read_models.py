@@ -18,6 +18,7 @@ class QueueItem:
     attention: str
     why: str
     next_action: str
+    next_step_type: str
     next_commands: list[str]
     status: str
     risk: str
@@ -158,6 +159,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "attention": queue_item.attention,
         "why": queue_item.why,
         "next_action": queue_item.next_action,
+        "next_step_type": queue_item.next_step_type,
         "next_commands": queue_item.next_commands,
         "active_parallel_attempts": queue_item.active_attempts,
         "coordination_warnings": queue_item.coordination_warnings,
@@ -258,12 +260,19 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
     warnings = _coordination_warning_messages_for_work(work, context)
     waiting_on_human = attention == "needs-human-decision"
     ai_safe_to_proceed = _ai_safe_to_proceed(work, attention, context)
+    next_step_type = _next_step_type(
+        attention,
+        ai_safe_to_proceed,
+        evidence_state,
+        active_attempts,
+    )
     return QueueItem(
         id=work.id,
         title=work.title,
         attention=attention,
         why=why,
         next_action=next_action,
+        next_step_type=next_step_type,
         next_commands=_work_next_commands(work, attention, context, ai_safe_to_proceed),
         status=work.status,
         risk=work.risk,
@@ -518,6 +527,35 @@ def _work_next_commands(
     commands.append(f"palari detail {work.id} --json")
     commands.append("palari validate --json")
     return commands
+
+
+def _next_step_type(
+    attention: str,
+    ai_safe_to_proceed: bool,
+    evidence_state: str,
+    active_attempts: list[dict[str, Any]],
+) -> str:
+    if (
+        attention == "needs-evidence"
+        and ai_safe_to_proceed
+        and evidence_state in {"missing", "stale", "failed"}
+        and active_attempts
+    ):
+        return "check-active-proof"
+    if (
+        attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"}
+        and ai_safe_to_proceed
+    ):
+        return "start-work"
+    if attention == "needs-human-decision":
+        return "human-decision"
+    if attention in {"needs-review", "receipt-ready"}:
+        return "review-handoff"
+    if attention == "changes-requested":
+        return "repair"
+    if attention == "closed":
+        return "closed"
+    return "inspect"
 
 
 def _evidence_state(work: Any, context: _ReadContext) -> str:

@@ -25,10 +25,12 @@ connections by itself.
 ./bin/palari queue --json
 ```
 
-Shows the operator queue with attention state, goal, Palari, owner, adaptive
-intensity, evidence state, review state, receipt state, approval progress,
-integration state, learning signal, workbench context, active attempts,
-coordination warnings, and next action.
+Shows the operator queue with attention state, `next_step_type`, goal, Palari,
+owner, adaptive intensity, evidence state, review state, receipt state,
+approval progress, integration state, learning signal, workbench context,
+active attempts, coordination warnings, and next action. `next_step_type`
+classifies intent for humans and agents without requiring them to parse the
+command string.
 
 ## Detail
 
@@ -40,9 +42,9 @@ coordination warnings, and next action.
 Assembles one work item with its workbench, goal, Palari, parent/child work
 items, dependencies, allowed sources, attempt, receipt, evidence, review,
 linked decisions, human decisions, outcome, active parallel attempts,
-coordination warnings, safety state, and next action. Active work that is
-missing proof points `next_commands` toward `agent check` and `agent finish`
-before review or human decision steps.
+coordination warnings, safety state, `next_step_type`, and next action. Active
+work that is missing proof points `next_commands` toward `agent check` and
+`agent finish` before review or human decision steps.
 
 ## State
 

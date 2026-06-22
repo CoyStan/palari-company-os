@@ -101,7 +101,6 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = f"palari agent check {work.id} --as {palari_id} --json"
         next_command = _candidate_next_command(item, can_start, brief_command)
-        next_step_type = _candidate_next_step_type(item, can_start)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -122,7 +121,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "blocker_codes": [blocker.get("code", "") for blocker in blockers],
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
-                "next_step_type": next_step_type,
+                "next_step_type": item.next_step_type,
                 "next_command": next_command,
                 "next_commands": item.next_commands,
                 "brief_command": brief_command,
@@ -146,22 +145,6 @@ def _has_active_proof_work(item: Any) -> bool:
         and item.evidence_state in {"missing", "stale", "failed"}
         and bool(item.active_attempts)
     )
-
-
-def _candidate_next_step_type(item: Any, can_start: bool) -> str:
-    if can_start and _has_active_proof_work(item):
-        return "check-active-proof"
-    if can_start:
-        return "start-work"
-    if item.attention == "needs-human-decision":
-        return "human-decision"
-    if item.attention in {"needs-review", "receipt-ready"}:
-        return "review-handoff"
-    if item.attention == "changes-requested":
-        return "repair"
-    if item.attention == "closed":
-        return "closed"
-    return "inspect"
 
 
 def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:

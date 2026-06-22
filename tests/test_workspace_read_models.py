@@ -53,6 +53,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         queue = {item.id: item for item in queue_items(workspace)}
 
         self.assertEqual(queue["WORK-REPO-0005"].attention, "needs-human-decision")
+        self.assertEqual(queue["WORK-REPO-0005"].next_step_type, "human-decision")
         self.assertEqual(
             queue["WORK-REPO-0005"].next_commands[0],
             "palari decision guide DECISION-REPO-0001 --json",
@@ -92,6 +93,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0002"].recommended_intensity, "high")
         self.assertEqual(by_id["WORK-0002"].approval_progress, "0/2")
         self.assertEqual(by_id["WORK-0003"].attention, "needs-evidence")
+        self.assertEqual(by_id["WORK-0003"].next_step_type, "check-active-proof")
         self.assertTrue(by_id["WORK-0003"].ai_safe_to_proceed)
         self.assertEqual(
             by_id["WORK-0003"].next_commands[:2],
@@ -110,6 +112,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
             ],
         )
         self.assertEqual(by_id["WORK-0006"].attention, "needs-review")
+        self.assertEqual(by_id["WORK-0006"].next_step_type, "review-handoff")
         self.assertEqual(by_id["WORK-0006"].review_state, "stale")
         self.assertFalse(by_id["WORK-0006"].ai_safe_to_proceed)
         self.assertEqual(
@@ -117,6 +120,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
             "palari review guide WORK-0006 --json",
         )
         self.assertEqual(by_id["WORK-0007"].attention, "receipt-ready")
+        self.assertEqual(by_id["WORK-0007"].next_step_type, "review-handoff")
         self.assertEqual(by_id["WORK-0007"].receipt_state, "ready")
         self.assertEqual(by_id["WORK-0007"].integration_state, "receipt-ready")
         self.assertIn("Review the output", by_id["WORK-0007"].next_action)
@@ -138,6 +142,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["review"]["verdict"], "accept-ready")
         self.assertIsNone(payload["human_decision"])
         self.assertEqual(payload["attention"], "needs-human-decision")
+        self.assertEqual(payload["next_step_type"], "human-decision")
         self.assertEqual(payload["safety"]["evidence_state"], "passed")
         self.assertEqual(payload["safety"]["review_state"], "accept-ready")
         self.assertEqual(payload["safety"]["approval_progress"], "0/1")
@@ -152,6 +157,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["sources_used"], ["SOURCE-0001"])
         self.assertEqual(payload["safety"]["receipt_state"], "ready")
         self.assertEqual(payload["attention"], "receipt-ready")
+        self.assertEqual(payload["next_step_type"], "review-handoff")
         self.assertEqual(payload["next_commands"][0], "palari review guide WORK-0007 --json")
         self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
         self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
@@ -395,6 +401,7 @@ class CliTests(unittest.TestCase):
         result = self.run_cli("detail", "WORK-0004", "--json")
         payload = json.loads(result.stdout)
         self.assertEqual(payload["work_item"]["id"], "WORK-0004")
+        self.assertEqual(payload["next_step_type"], "closed")
         self.assertEqual(payload["human_decision"]["status"], "accepted")
         self.assertEqual(payload["outcome"]["status"], "captured")
 

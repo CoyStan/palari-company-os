@@ -214,7 +214,7 @@ def _queue_card(item: Any) -> str:
     <span class="state-dot" aria-hidden="true"></span>
     <span class="queue-main">
       <span class="queue-title">{_e(item.title)}</span>
-      <span class="queue-meta">{_e(item.goal_title)} · {_owner_label(item.owner)} · {_stage_flow(item)}</span>
+      <span class="queue-meta">{_e(item.goal_title)} · {_owner_label(item.owner)} · {_stage_flow(item)} · step {_e(item.next_step_type)}</span>
       <span class="queue-next">{_e(item.next_action)}</span>
     </span>
     <span class="queue-side">
@@ -226,6 +226,7 @@ def _queue_card(item: Any) -> str:
     <dl class="state-grid">
       {_state("Attention", item.attention)}
       {_state("Risk", f"{item.risk} / {item.intensity}")}
+      {_state("Step", item.next_step_type)}
       {_state("Palari", item.palari_name)}
       {_state("Owner", item.owner or "unassigned")}
       {_state("AI safe", _yes_no(item.ai_safe_to_proceed))}
@@ -302,6 +303,9 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
       {_flow_step("Review", safety.get("review_state", "missing"))}
       {_flow_step("Human", safety.get("approval_progress", "0/0"))}
     </div>
+    <dl class="compact-dl">
+      {_state("Step", payload.get("next_step_type", "inspect"))}
+    </dl>
     <div class="detail-columns">
       <div>
         <h4>Scope</h4>

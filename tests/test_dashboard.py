@@ -47,6 +47,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("Next commands", html)
         self.assertIn("palari review guide WORK-0007 --json", html)
+        self.assertIn("step check-active-proof", html)
+        self.assertIn("<dt>Step</dt>", html)
+        self.assertIn("<dd>review-handoff</dd>", html)
 
     def test_dashboard_generation_handles_dogfood_workspace_trust_loop(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -60,6 +63,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("WORK-REPO-0005", html)
         self.assertIn("palari decision guide DECISION-REPO-0001 --json", html)
         self.assertIn("palari review guide WORK-REPO-0003 --json", html)
+        self.assertIn("human-decision", html)
         self.assertIn("Authority", html)
 
     def test_dashboard_uses_real_tab_panels(self) -> None:

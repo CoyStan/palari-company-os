@@ -671,6 +671,7 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
         )
         print(f"  integration: {item.integration_state}")
+        print(f"  step: {item.next_step_type}")
         if item.learning_signal:
             print(f"  learning: {item.learning_signal}")
         if item.playbook_recommendations:
@@ -705,6 +706,7 @@ def print_detail(payload: dict[str, Any]) -> None:
     print("")
     print(f"Attention: {payload['attention']}")
     print(f"Why: {payload['why']}")
+    print(f"Step: {payload['next_step_type']}")
     print(f"Next: {payload['next_action']}")
     if payload.get("next_commands"):
         print("Next commands:")
