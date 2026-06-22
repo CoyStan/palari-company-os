@@ -376,7 +376,8 @@
       "allowed_resources": [
         "src/palari_company_os/store.py",
         "src/palari_company_os/workspace.py",
-        "schemas",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data/schemas",
         "tests",
         "docs/product"
       ],
@@ -407,7 +408,8 @@
         "superpowers:executing-plans",
         "superpowers:systematic-debugging",
         "superpowers:subagent-driven-development"
-      ]
+      ],
+      "current_attempt": "ATTEMPT-REPO-0003"
     },
     {
       "allowed_resources": [
@@ -535,6 +537,34 @@
       "started_at": "2026-06-22T00:59:00Z",
       "cleanliness": "clean",
       "result": "Added a workspace init command, tests, and documentation."
+    },
+    {
+      "commits": [
+        "e0e70f"
+      ],
+      "changed_files": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/fixtures/workspaces/split-workspace/workspace.json",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "docs/product/source-of-truth.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/testing-guide.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0003",
+      "work_item_id": "WORK-REPO-0003",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-21T00:00:00Z",
+      "cleanliness": "clean",
+      "result": "Added read-only split workspace collection_files support while preserving single-file workspaces."
     }
   ],
   "evidence_runs": [
@@ -577,6 +607,28 @@
       "summary": "Workspace init command, tests, docs, full verifier, unit tests, and install smoke passed.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T01:05:00Z"
+    },
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate"
+      ],
+      "artifacts": [
+        "local verifier output",
+        "unit test output",
+        "install smoke output",
+        "split workspace fixture validation"
+      ],
+      "id": "EVIDENCE-REPO-0003",
+      "work_item_id": "WORK-REPO-0003",
+      "attempt_id": "ATTEMPT-REPO-0003",
+      "head_sha": "e0e70f",
+      "status": "passed",
+      "summary": "Split workspace collection file support is present; split fixture validation and current full verification passed.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T01:09:00Z"
     }
   ],
   "review_verdicts": [
@@ -687,6 +739,43 @@
       "attempt_id": "ATTEMPT-REPO-0002",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T01:06:00Z"
+    },
+    {
+      "actions_taken": [
+        "added collection_files manifest support",
+        "loaded workspace-relative collection files before validation",
+        "blocked unsafe absolute and parent traversal paths",
+        "kept authoring writes fail-closed for split workspaces",
+        "added split workspace fixture coverage"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/fixtures/workspaces/split-workspace/workspace.json",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "docs/product/source-of-truth.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/testing-guide.md",
+        "docs/product/command-reference.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No silent migration enabled",
+        "No authoring writes for split workspaces",
+        "No dependencies added",
+        "No external services connected"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/workspace.py"
+      ],
+      "id": "RECEIPT-REPO-0003",
+      "work_item_id": "WORK-REPO-0003",
+      "attempt_id": "ATTEMPT-REPO-0003",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T01:10:00Z"
     }
   ],
   "decisions": [
