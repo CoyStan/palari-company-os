@@ -56,6 +56,7 @@ def build_agent_finish(
             if item.get("required") and item.get("status") == "pass"
         ],
         "blockers": check.get("blockers", []),
+        "handoff_guidance": _handoff_guidance(check),
         "next_allowed_commands": _next_commands(check),
         "report_guidance": _report_guidance(status),
     }
@@ -92,6 +93,37 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
         commands.insert(0, review_command)
     _append_once(commands, "palari validate --json")
     return commands
+
+
+def _handoff_guidance(check: dict[str, Any]) -> list[dict[str, str]]:
+    guidance: list[dict[str, str]] = []
+    blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
+    work_id = check.get("work_item", {}).get("id", "WORK-ID")
+    if "RECEIPT_READY_REVIEW" in blocker_codes:
+        guidance.append(
+            {
+                "code": "REVIEW_HANDOFF",
+                "message": "Use the review guide to inspect the receipt and evidence; it includes ready-to-edit review record commands.",
+                "command": f"palari review guide {work_id} --json",
+            }
+        )
+    if "HUMAN_DECISION_REQUIRED" in blocker_codes:
+        guidance.append(
+            {
+                "code": "DECISION_HANDOFF",
+                "message": "Use the decision guide for required human authority; it includes suggested decision update commands.",
+                "command": _first_decision_command(check),
+            }
+        )
+    return guidance
+
+
+def _first_decision_command(check: dict[str, Any]) -> str:
+    for command in check.get("next_allowed_commands", []):
+        if command.startswith("palari decision guide "):
+            return command
+    work_id = check.get("work_item", {}).get("id", "WORK-ID")
+    return f"palari detail {work_id} --json"
 
 
 def _append_once(commands: list[str], command: str) -> None:

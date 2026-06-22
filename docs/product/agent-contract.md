@@ -135,3 +135,9 @@ missing proof from handoff-ready work, such as low-risk receipt-ready results
 that should stop execution and move to a human review path. Its
 `next_allowed_commands` prioritize missing proof or approval record templates
 before generic inspect/validate commands.
+
+When the next step is a human handoff, `agent finish` also returns
+`handoff_guidance`. Review handoffs point to `review guide`, which includes
+ready-to-edit review record commands. Decision handoffs point to `decision
+guide`, which includes suggested decision update commands. The agent still does
+not record those human actions itself.

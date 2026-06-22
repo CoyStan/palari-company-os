@@ -570,6 +570,12 @@ def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
         print("Blockers:")
         for blocker in payload["blockers"]:
             print(f"  - {blocker['code']}: {blocker['message']}")
+    if payload.get("handoff_guidance"):
+        print("Handoff guidance:")
+        for item in payload["handoff_guidance"]:
+            print(f"  - {item['code']}: {item['message']}")
+            if item.get("command"):
+                print(f"    command: {item['command']}")
     print(f"Guidance: {payload['report_guidance']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:

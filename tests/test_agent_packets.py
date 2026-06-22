@@ -248,6 +248,8 @@ class AgentPacketTests(unittest.TestCase):
             "RECEIPT_READY_REVIEW",
             {blocker["code"] for blocker in result["blockers"]},
         )
+        self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
+        self.assertIn("ready-to-edit review record commands", result["handoff_guidance"][0]["message"])
         self.assertEqual(result["next_allowed_commands"][0], "palari review guide WORK-0007 --json")
 
     def test_agent_finish_dogfood_agent_loop_record_hands_off_to_review(self) -> None:
@@ -267,6 +269,11 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn(
             "RECEIPT_READY_REVIEW",
             {blocker["code"] for blocker in result["blockers"]},
+        )
+        self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
+        self.assertEqual(
+            result["handoff_guidance"][0]["command"],
+            "palari review guide WORK-REPO-0006 --json",
         )
         self.assertEqual(
             result["next_allowed_commands"][0],
@@ -318,6 +325,8 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("Step: review-handoff", result.stdout)
         self.assertIn("Completed requirements:", result.stdout)
         self.assertIn("RECEIPT_PRESENT", result.stdout)
+        self.assertIn("Handoff guidance:", result.stdout)
+        self.assertIn("ready-to-edit review record commands", result.stdout)
         self.assertIn("Guidance: Do not continue execution.", result.stdout)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
