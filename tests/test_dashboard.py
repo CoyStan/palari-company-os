@@ -41,6 +41,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("RECEIPT-0001", html)
         self.assertIn("Read-only dashboard", html)
         self.assertIn("Top attention", html)
+        self.assertIn('<p class="top-step"><strong>Step</strong> human-decision</p>', html)
         self.assertIn("What Palaris used, made, did not do, and can undo", html)
         self.assertIn("Agent loop", html)
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)

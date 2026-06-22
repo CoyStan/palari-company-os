@@ -154,6 +154,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
         {_pill(top.attention, _attention_tone(top.attention))}
       </div>
       <h3>{_e(top.title)}</h3>
+      <p class="top-step"><strong>Step</strong> {_e(top.next_step_type)}</p>
       <p>{_e(top.why)}</p>
       <code>{_e(top_command)}</code>
     </article>
@@ -1009,6 +1010,15 @@ strong { font-weight: 600; }
   color: var(--ink-2);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+.top-attention-card .top-step {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.top-attention-card .top-step strong {
+  color: var(--ink);
+  font-weight: 650;
+  margin-right: 0.2rem;
 }
 .top-attention-card code {
   display: block;
