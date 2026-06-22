@@ -46,6 +46,10 @@ class AgentPacketTests(unittest.TestCase):
             result["candidates"][0]["loop_command"],
             "palari agent loop WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
+        self.assertEqual(
+            result["candidates"][0]["doctor_command"],
+            "palari agent doctor WORK-0003 --as PALARI-SOFIA --mode execute --json",
+        )
         self.assertEqual(result["candidates"][0]["next_step_type"], "check-active-proof")
         self.assertEqual(
             result["next_allowed_commands"][:2],
@@ -121,6 +125,11 @@ class AgentPacketTests(unittest.TestCase):
             candidate["loop_command"],
             "palari agent loop WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
+        self.assertEqual(
+            candidate["doctor_command"],
+            "palari agent doctor WORK-0003 --as PALARI-SOFIA --mode execute --json",
+        )
+        self.assertIn(candidate["doctor_command"], candidate["next_commands"])
         self.assertIn(candidate["loop_command"], candidate["next_commands"])
 
     def test_agent_next_does_not_offer_start_command_when_queue_is_not_ai_safe(self) -> None:
@@ -157,15 +166,16 @@ class AgentPacketTests(unittest.TestCase):
             "palari agent brief WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
         )
         self.assertEqual(
-            candidate["next_commands"][:3],
+            candidate["next_commands"][:4],
             [
                 "palari agent brief WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
                 "palari review guide WORK-REPO-0003 --json",
                 "palari agent check WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
+                "palari agent doctor WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
             ],
         )
         self.assertEqual(
-            candidate["next_commands"][3],
+            candidate["next_commands"][4],
             "palari agent loop WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
         )
 
@@ -251,6 +261,10 @@ class AgentPacketTests(unittest.TestCase):
             result["candidates"][0]["loop_command"],
             "palari agent loop WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
+        self.assertEqual(
+            result["candidates"][0]["doctor_command"],
+            "palari agent doctor WORK-0003 --as PALARI-SOFIA --mode execute --json",
+        )
 
     def test_cli_agent_next_text_prints_handoff_guidance(self) -> None:
         result = self.run_cli(
@@ -264,6 +278,7 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertIn("handoff: REVIEW_HANDOFF", result.stdout)
         self.assertIn("ready-to-edit review record commands", result.stdout)
+        self.assertIn("doctor: palari agent doctor WORK-REPO-0003", result.stdout)
         self.assertIn("loop: palari agent loop WORK-REPO-0003", result.stdout)
 
     def test_cli_agent_next_text_prints_mode(self) -> None:
@@ -277,6 +292,7 @@ class AgentPacketTests(unittest.TestCase):
         )
 
         self.assertIn("Mode: review", result.stdout)
+        self.assertIn("doctor: palari agent doctor", result.stdout)
         self.assertIn("loop: palari agent loop", result.stdout)
 
     def test_cli_agent_next_all_emits_json_shape(self) -> None:
@@ -320,6 +336,7 @@ class AgentPacketTests(unittest.TestCase):
         )
 
         self.assertIn("Mode: review", result.stdout)
+        self.assertIn("doctor: palari agent doctor", result.stdout)
         self.assertIn("loop: palari agent loop", result.stdout)
 
     def test_agent_finish_missing_proof_does_not_allow_completion_claim(self) -> None:
