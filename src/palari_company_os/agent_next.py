@@ -102,8 +102,9 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         start_blockers = _start_blockers(item, packet)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = f"palari agent check {work.id} --as {palari_id} --json"
-        next_command = _candidate_next_command(item, can_start, brief_command)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
+        handoff_guidance = _handoff_guidance(work.id, item, blocker_codes, palari_id)
+        next_command = _candidate_next_command(item, can_start, brief_command, handoff_guidance)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -124,10 +125,17 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "blocker_codes": blocker_codes,
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
-                "handoff_guidance": _handoff_guidance(work.id, item, blocker_codes),
+                "handoff_guidance": handoff_guidance,
                 "next_step_type": item.next_step_type,
                 "next_command": next_command,
-                "next_commands": item.next_commands,
+                "next_commands": _candidate_next_commands(
+                    item,
+                    can_start,
+                    brief_command,
+                    check_command,
+                    handoff_guidance,
+                    next_command,
+                ),
                 "brief_command": brief_command,
                 "check_command": check_command,
             }
@@ -135,12 +143,41 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
     return candidates
 
 
-def _candidate_next_command(item: Any, can_start: bool, brief_command: str) -> str:
+def _candidate_next_command(
+    item: Any,
+    can_start: bool,
+    brief_command: str,
+    handoff_guidance: list[dict[str, str]],
+) -> str:
     if can_start and _has_active_proof_work(item):
         return item.next_commands[0] if item.next_commands else brief_command
     if can_start:
         return brief_command
+    if handoff_guidance:
+        return handoff_guidance[0]["command"]
     return item.next_commands[0]
+
+
+def _candidate_next_commands(
+    item: Any,
+    can_start: bool,
+    brief_command: str,
+    check_command: str,
+    handoff_guidance: list[dict[str, str]],
+    next_command: str,
+) -> list[str]:
+    if handoff_guidance:
+        commands = [next_command]
+        for guidance in handoff_guidance:
+            _append_once(commands, guidance.get("guide_command", ""))
+        for command in item.next_commands:
+            _append_once(commands, command)
+        return commands
+    if can_start and _has_active_proof_work(item):
+        return item.next_commands or [next_command, check_command]
+    if can_start:
+        return [brief_command, check_command]
+    return item.next_commands
 
 
 def _has_active_proof_work(item: Any) -> bool:
@@ -185,22 +222,30 @@ def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
     return blockers
 
 
-def _handoff_guidance(work_id: str, item: Any, blocker_codes: list[str]) -> list[dict[str, str]]:
+def _handoff_guidance(
+    work_id: str,
+    item: Any,
+    blocker_codes: list[str],
+    palari_id: str,
+) -> list[dict[str, str]]:
     guidance: list[dict[str, str]] = []
+    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
     if item.next_step_type == "review-handoff" or "RECEIPT_READY_REVIEW" in blocker_codes:
         guidance.append(
             {
                 "code": "REVIEW_HANDOFF",
-                "message": "Use the review guide; it includes ready-to-edit review record commands.",
-                "command": f"palari review guide {work_id} --json",
+                "message": "Use agent handoff; it includes the review guide and ready-to-edit review record commands.",
+                "command": handoff_command,
+                "guide_command": f"palari review guide {work_id} --json",
             }
         )
     if item.next_step_type == "human-decision" or "HUMAN_DECISION_REQUIRED" in blocker_codes:
         guidance.append(
             {
                 "code": "DECISION_HANDOFF",
-                "message": "Use the decision guide; it includes suggested decision update commands.",
-                "command": item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json",
+                "message": "Use agent handoff; it includes the decision guide and suggested decision update commands.",
+                "command": handoff_command,
+                "guide_command": item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json",
             }
         )
     return guidance
@@ -275,8 +320,16 @@ def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
 
 def _candidate_commands(candidate: dict[str, Any]) -> list[str]:
     if candidate["next_command"] != candidate["brief_command"]:
-        return candidate.get("next_commands") or [candidate["next_command"], candidate["check_command"]]
+        return candidate.get("next_commands") or [
+            candidate["next_command"],
+            candidate["check_command"],
+        ]
     return [candidate["brief_command"], candidate["check_command"]]
+
+
+def _append_once(commands: list[str], command: str) -> None:
+    if command and command not in commands:
+        commands.append(command)
 
 
 def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:

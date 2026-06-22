@@ -102,8 +102,15 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("REVIEW_REQUIRED", candidate["blocker_codes"])
         self.assertIn("PACKET_BLOCKED", candidate["start_blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", candidate["start_blocker_codes"])
-        self.assertEqual(candidate["next_command"], "palari review guide WORK-0003 --json")
-        self.assertEqual(candidate["next_commands"][0], "palari review guide WORK-0003 --json")
+        self.assertEqual(
+            candidate["next_command"],
+            "palari agent handoff WORK-0003 --as PALARI-SOFIA --json",
+        )
+        self.assertEqual(
+            candidate["next_commands"][0],
+            "palari agent handoff WORK-0003 --as PALARI-SOFIA --json",
+        )
+        self.assertEqual(candidate["next_commands"][1], "palari review guide WORK-0003 --json")
 
     def test_agent_next_does_not_offer_start_command_when_queue_is_not_ai_safe(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -142,6 +149,10 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(
             result["next_allowed_commands"][0],
+            "palari agent handoff WORK-REPO-0005 --as PALARI-ARCHITECT --json",
+        )
+        self.assertEqual(
+            result["next_allowed_commands"][1],
             "palari decision guide DECISION-REPO-0001 --json",
         )
 
@@ -276,7 +287,11 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
         self.assertIn("ready-to-edit review record commands", result["handoff_guidance"][0]["message"])
-        self.assertEqual(result["next_allowed_commands"][0], "palari review guide WORK-0007 --json")
+        self.assertEqual(
+            result["next_allowed_commands"][0],
+            "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
+        )
+        self.assertEqual(result["next_allowed_commands"][1], "palari review guide WORK-0007 --json")
 
     def test_agent_finish_dogfood_agent_loop_record_hands_off_to_review(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -299,10 +314,18 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
         self.assertEqual(
             result["handoff_guidance"][0]["command"],
+            "palari agent handoff WORK-REPO-0006 --as PALARI-STEWARD --json",
+        )
+        self.assertEqual(
+            result["handoff_guidance"][0]["guide_command"],
             "palari review guide WORK-REPO-0006 --json",
         )
         self.assertEqual(
             result["next_allowed_commands"][0],
+            "palari agent handoff WORK-REPO-0006 --as PALARI-STEWARD --json",
+        )
+        self.assertEqual(
+            result["next_allowed_commands"][1],
             "palari review guide WORK-REPO-0006 --json",
         )
 

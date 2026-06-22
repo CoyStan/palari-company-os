@@ -129,8 +129,9 @@ Bare `agent next` returns the all-Palaris rollup with a top candidate and a
 tell an agent which receipt, evidence, review, or human decision record is
 still needed before it can claim completion. When proof is missing, concrete
 record commands appear before generic inspect/validate commands. `agent handoff`
-packages the relevant finish, review-guide, or decision-guide context for a
-human handoff without mutating the workspace.
+is the preferred bridge for human review or decision states; it packages the
+relevant finish, review-guide, or decision-guide context without mutating the
+workspace, while keeping human action commands separate from agent-safe reads.
 
 Run against another workspace:
 

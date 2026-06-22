@@ -168,17 +168,17 @@ receipt requirement without forcing review or human approval.
 returns whether the agent may claim completion, whether the work should be
 handed off to a human, `next_step_type`, missing requirements, completed
 requirements, blockers, and report guidance. Handoff-ready receipt work points
-to the review guide as the next human-facing command; missing approval points to
-a human-decision record template when evidence and review are known. Missing
-proof or approval templates appear before generic inspect/validate commands. It
-does not close work, record receipts, mutate history, or perform external
-actions.
+to `agent handoff` before the direct review guide; missing approval points to a
+human-decision record template when evidence and review are known. Missing proof
+or approval templates appear before generic inspect/validate commands. It does
+not close work, record receipts, mutate history, or perform external actions.
 
 `agent handoff` is read-only and meant for the moment after `agent finish`
 identifies a human review or decision step. It returns the compact finish
 summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
-workspace.
+workspace. `agent next` and receipt-ready `agent finish` prefer this command
+before lower-level direct guide commands.
 
 ## Playbooks
 

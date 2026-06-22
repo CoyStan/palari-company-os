@@ -32,8 +32,8 @@ Follow the packet:
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --json` before claiming done
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
-- run `palari agent handoff WORK-ID --as PALARI-ID --json` when `finish` says the
-  next step is human review or human decision
+- run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
+  `finish` says the next step is human review or human decision
 - follow concrete receipt/evidence/human-decision commands before generic
   inspect or validate commands when a check fails
 
