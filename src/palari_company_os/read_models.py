@@ -357,10 +357,14 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
 
     attempt = _attempt_for_work(context, work)
     if attempt is None:
+        recommended, _ = recommend_intensity(work)
+        next_action = "Start a bounded attempt using the declared scope and authority limits."
+        if recommended == "high":
+            next_action = "Inspect the high-risk scope and confirm authority before starting an attempt."
         return (
             "ready-for-ai-work",
             "No execution attempt exists yet.",
-            "Start a bounded attempt using the declared scope and authority limits.",
+            next_action,
         )
 
     if _low_risk_receipt_ready(work, attempt, context):

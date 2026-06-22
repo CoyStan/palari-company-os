@@ -66,6 +66,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         )
         self.assertEqual(queue["WORK-REPO-0004"].attention, "ready-for-ai-work")
         self.assertFalse(queue["WORK-REPO-0004"].ai_safe_to_proceed)
+        self.assertIn("Inspect the high-risk scope", queue["WORK-REPO-0004"].next_action)
         self.assertEqual(
             queue["WORK-REPO-0004"].next_commands[0],
             "palari detail WORK-REPO-0004 --json",
