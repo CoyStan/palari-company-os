@@ -4,7 +4,7 @@ External Maintainer Mode is a deliberate lightweight path for ordinary repo
 maintenance.
 
 It exists because Palari Company OS itself should be maintainable without
-requiring the old ticket ceremony for every small code fix.
+requiring heavy process ceremony for every small code fix.
 
 The first command is:
 

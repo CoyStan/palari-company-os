@@ -12,9 +12,8 @@ work. It models the loop between human intent, named AI work partners,
 selected sources, bounded execution, receipts, evidence, review, human
 authority, and outcomes.
 
-It is intentionally not the older Palari Orchestrator ceremony. This repo is a
-smaller, cleaner Python CLI foundation for making AI work legible without
-turning every task into process paperwork.
+The repo is a small, dependency-light Python CLI foundation for making AI work
+legible without turning every task into process paperwork.
 
 ## Why It Exists
 
@@ -60,7 +59,7 @@ Intentionally not implemented yet:
 - real broker execution
 - real policy acceptance
 - live Slack/GitHub/Jira/email connector execution
-- Google Drive or v05 integration
+- live document-drive integration
 - production deployment
 - enterprise administration
 - signed key custody

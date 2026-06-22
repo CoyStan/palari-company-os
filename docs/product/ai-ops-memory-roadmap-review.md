@@ -327,7 +327,7 @@ Useful fields:
 Why save it:
 
 Receipts are already a strong Palari primitive. Enriching them turns them into
-human-readable agent run records without adding old ticket ceremony.
+human-readable agent run records without adding heavy process ceremony.
 
 ### 10. Evals, Red-Team Records, And Incidents
 
@@ -401,7 +401,7 @@ Do not immediately build:
 - automatic permanent memory writes
 - memory provider lock-in
 - heavy enterprise administration
-- old Palari Orchestrator ceremony
+- heavy process ceremony
 
 ## Recommended Implementation Order
 

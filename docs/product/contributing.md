@@ -24,10 +24,10 @@ Avoid adding business rules directly to `cli.py`.
 
 Do not:
 
-- import old Palari Orchestrator POS ticket history
+- import unrelated legacy ticket history
 - import old evidence bundles, reports, claims, worktrees, caches, or runtime
   state
 - add secrets
 - enable real broker side effects
 - turn policy simulation into real authority
-- reintroduce the old ticket ceremony as the default workflow
+- introduce heavy process ceremony as the default workflow

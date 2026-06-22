@@ -214,7 +214,6 @@ The UI block is prototype configuration. It should not become product state.
 
 - The prototype is static and read-only.
 - No provider access occurs.
-- No Google Drive, v05, backend service, persistence, or mutation is connected.
+- No live document provider, backend service, persistence, or mutation is connected.
 - `document_html` is trusted demo content only.
 - The contract is not yet the canonical workspace schema.
-

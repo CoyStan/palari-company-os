@@ -58,7 +58,7 @@ other work items, and declare a parallel policy:
 - `exclusive` work should not overlap another active item touching the same
   conflict target without a coordination warning.
 
-This keeps parallel work legible without returning to old ticket ceremony.
+This keeps parallel work legible without burying it in process ceremony.
 
 ## Adaptive Intensity
 

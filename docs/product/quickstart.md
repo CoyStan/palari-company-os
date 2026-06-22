@@ -5,8 +5,8 @@
 - Python 3.10 or newer
 - Git
 
-No secrets, cloud credentials, external services, old Palari Orchestrator
-worktrees, or hidden local state are required.
+No secrets, cloud credentials, external services, or hidden local state are
+required.
 
 ## Clone And Verify
 
@@ -42,4 +42,3 @@ cp -R examples/acme-company-os /tmp/palari-company-os-demo
 ./bin/palari --workspace /tmp/palari-company-os-demo goal create GOAL-DEMO --title "Demo goal"
 ./bin/palari --workspace /tmp/palari-company-os-demo validate
 ```
-
