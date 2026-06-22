@@ -65,6 +65,18 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001")
         self.assertIn("receipt-ready low-risk work", " ".join(payload["review_focus"]))
 
+    def test_review_guide_keeps_dogfood_receipt_ready_lightweight_with_evidence(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        payload = build_review_guide(workspace, "WORK-REPO-0006")
+        focus = " ".join(payload["review_focus"])
+
+        self.assertEqual(payload["status"], "receipt-ready")
+        self.assertEqual(payload["evidence"]["id"], "EVIDENCE-REPO-0006")
+        self.assertEqual(payload["receipt"]["id"], "RECEIPT-REPO-0006")
+        self.assertIn("receipt-ready low-risk work", focus)
+        self.assertIn("Use the evidence as supporting context", focus)
+
     def test_cli_review_guide_emits_json_shape(self) -> None:
         result = json.loads(
             self.run_cli(

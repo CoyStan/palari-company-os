@@ -118,10 +118,14 @@ def _review_focus(payload: dict[str, Any]) -> list[str]:
     focus = [
         "Compare the attempt result and changed files against the work scope and acceptance target.",
     ]
-    if payload.get("evidence") is None and payload.get("attention") == "receipt-ready":
+    if payload.get("attention") == "receipt-ready":
         focus.append(
             "For receipt-ready low-risk work, inspect the output and receipt before requiring heavier proof."
         )
+        if payload.get("evidence") is not None:
+            focus.append(
+                "Use the evidence as supporting context; do not add a human-decision ceremony unless the scope or risk changed."
+            )
     else:
         focus.append("Confirm evidence commands and artifacts are enough for the stated risk.")
     if payload.get("receipt") is None:
