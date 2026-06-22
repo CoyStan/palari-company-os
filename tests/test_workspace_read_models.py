@@ -93,8 +93,22 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0002"].approval_progress, "0/2")
         self.assertEqual(by_id["WORK-0003"].attention, "needs-evidence")
         self.assertTrue(by_id["WORK-0003"].ai_safe_to_proceed)
+        self.assertEqual(
+            by_id["WORK-0003"].next_commands[:2],
+            [
+                "palari agent check WORK-0003 --as PALARI-SOFIA --json",
+                "palari agent finish WORK-0003 --as PALARI-SOFIA --json",
+            ],
+        )
         self.assertEqual(by_id["WORK-0005"].attention, "needs-evidence")
         self.assertEqual(by_id["WORK-0005"].evidence_state, "stale")
+        self.assertEqual(
+            by_id["WORK-0005"].next_commands[:2],
+            [
+                "palari agent check WORK-0005 --as PALARI-SOFIA --json",
+                "palari agent finish WORK-0005 --as PALARI-SOFIA --json",
+            ],
+        )
         self.assertEqual(by_id["WORK-0006"].attention, "needs-review")
         self.assertEqual(by_id["WORK-0006"].review_state, "stale")
         self.assertFalse(by_id["WORK-0006"].ai_safe_to_proceed)

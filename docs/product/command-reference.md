@@ -40,7 +40,9 @@ coordination warnings, and next action.
 Assembles one work item with its workbench, goal, Palari, parent/child work
 items, dependencies, allowed sources, attempt, receipt, evidence, review,
 linked decisions, human decisions, outcome, active parallel attempts,
-coordination warnings, safety state, and next action.
+coordination warnings, safety state, and next action. Active work that is
+missing proof points `next_commands` toward `agent check` and `agent finish`
+before review or human decision steps.
 
 ## State
 

@@ -510,6 +510,9 @@ def _work_next_commands(
         commands.append(f"palari decision guide {open_decision.id} --json")
     elif attention in {"needs-review", "receipt-ready"}:
         commands.append(f"palari review guide {work.id} --json")
+    elif attention == "needs-evidence" and context.current_attempt_by_work.get(work.id):
+        commands.append(f"palari agent check {work.id} --as {work.palari} --json")
+        commands.append(f"palari agent finish {work.id} --as {work.palari} --json")
     elif attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"} and ai_safe_to_proceed:
         commands.append(f"palari agent brief {work.id} --as {work.palari} --mode execute --json")
     commands.append(f"palari detail {work.id} --json")
