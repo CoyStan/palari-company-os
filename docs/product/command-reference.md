@@ -1,9 +1,22 @@
 # Command Reference
 
-Most commands are read-only. Authoring and lifecycle commands intentionally
-write to `workspace.json` after validation. No command merges, pushes, deploys,
-activates policy, executes broker side effects, uses secrets, or bypasses human
-authority.
+Most commands are read-only. Workspace initialization, authoring, and lifecycle
+commands intentionally write to `workspace.json` after validation. No command
+merges, pushes, deploys, activates policy, executes broker side effects, uses
+secrets, or bypasses human authority.
+
+## Workspace Init
+
+```bash
+./bin/palari workspace init workspaces/new-company --name "New Company"
+./bin/palari workspace init workspaces/new-company --name "New Company" --json
+```
+
+Creates a blank, single-file `workspace.json` with the current schema version
+and all known collections present. The command validates the file before
+writing success output and refuses to overwrite an existing workspace. It does
+not create humans, Palaris, goals, authority records, receipts, or external
+connections by itself.
 
 ## Queue
 

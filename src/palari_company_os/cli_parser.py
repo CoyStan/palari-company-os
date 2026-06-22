@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_integration_parser(subparsers)
     _add_agent_parser(subparsers)
+    _add_workspace_parser(subparsers)
 
     migrate_parser = subparsers.add_parser(
         "migrate", help="Migrate a workspace to the current schema."
@@ -160,6 +161,15 @@ def _add_agent_parser(subparsers: Any) -> None:
     finish.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     finish.add_argument("--mode", default="execute", help="Packet mode.")
     finish.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_workspace_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("workspace", help="Initialize or inspect workspaces.")
+    nested = parser.add_subparsers(dest="workspace_command", required=True)
+    init = nested.add_parser("init", help="Create a blank valid workspace.json.")
+    init.add_argument("path", help="Workspace directory or workspace.json path to create.")
+    init.add_argument("--name", required=True, help="Human-facing workspace name.")
+    init.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_integration_parser(subparsers: Any) -> None:

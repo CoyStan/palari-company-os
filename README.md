@@ -103,6 +103,14 @@ Use JSON when wiring the CLI into tools or agents:
 ./bin/palari state --json
 ```
 
+Create a blank local workspace when you do not want to hand-write the shell
+JSON:
+
+```bash
+./bin/palari workspace init workspaces/my-company --name "My Company"
+./bin/palari --workspace workspaces/my-company validate
+```
+
 For agents, start from one bounded packet instead of inferring the workflow:
 
 ```bash

@@ -121,6 +121,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "workspace":
+        from .workspace_init import initialize_workspace
+
+        if args.workspace_command == "init":
+            return CommandResult(
+                "workspace-init",
+                initialize_workspace(args.path, args.name),
+                args.json,
+            )
+
     if args.command == "integration":
         from .integrations import (
             cancel_integration_outbox_item,
