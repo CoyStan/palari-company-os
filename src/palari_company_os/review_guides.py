@@ -14,6 +14,9 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
     attempt = payload.get("attempt")
     receipt = payload.get("receipt")
     review_focus = _review_focus(payload)
+    reviewer_candidates = _reviewer_candidates(
+        workspace, payload.get("workbench"), work.get("required_approval_capability", ""), work_id, evidence
+    )
     return {
         "schema_version": "palari.review_guide.v1",
         "guide_id": f"REVIEW-GUIDE-{work_id}-V1",
@@ -38,9 +41,14 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "attempt": _attempt_summary(attempt),
         "receipt": _receipt_summary(receipt),
         "review_focus": review_focus,
-        "reviewer_candidates": _reviewer_candidates(
-            workspace, payload.get("workbench"), work.get("required_approval_capability", "")
-        ),
+        "reviewer_candidates": reviewer_candidates,
+        "review_record_commands": [
+            {
+                "reviewer": candidate["id"],
+                "command": candidate["review_record_command"],
+            }
+            for candidate in reviewer_candidates
+        ],
         "suggested_verdicts": ["accept-ready", "changes-requested", "needs-human-decision", "blocked"],
         "review_record_command_template": _review_record_command_template(work_id, evidence),
         "next_commands": _next_commands(work_id),
@@ -151,7 +159,11 @@ def _review_focus(payload: dict[str, Any]) -> list[str]:
 
 
 def _reviewer_candidates(
-    workspace: Workspace, workbench: dict[str, Any] | None, required_capability: str
+    workspace: Workspace,
+    workbench: dict[str, Any] | None,
+    required_capability: str,
+    work_id: str,
+    evidence: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     workbench_humans = set((workbench or {}).get("human_ids", []))
     candidates: list[dict[str, Any]] = []
@@ -170,6 +182,7 @@ def _reviewer_candidates(
                 "authority_level": human.authority_level,
                 "approval_capabilities": capabilities,
                 "reason": reason,
+                "review_record_command": _review_record_command(work_id, evidence, human.id),
             }
         )
     return sorted(candidates, key=_reviewer_sort_key)
@@ -200,13 +213,19 @@ def _reviewer_sort_key(candidate: dict[str, Any]) -> tuple[int, str]:
 
 
 def _review_record_command_template(work_id: str, evidence: dict[str, Any] | None) -> str:
+    return _review_record_command(work_id, evidence, "REVIEWER-ID")
+
+
+def _review_record_command(
+    work_id: str, evidence: dict[str, Any] | None, reviewer_id: str
+) -> str:
     if evidence is not None:
         reviewed_head = evidence.get("head_sha", "HEAD")
     else:
         reviewed_head = "HEAD"
     return (
         f"palari review record REVIEW-ID --work-item-id {work_id} "
-        f"--reviewed-head {reviewed_head} --reviewer REVIEWER-ID "
+        f"--reviewed-head {reviewed_head} --reviewer {reviewer_id} "
         "--verdict VERDICT --json"
     )
 

@@ -612,6 +612,8 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
         print("Reviewer candidates:")
         for candidate in candidates:
             print(f"  - {candidate['id']} ({candidate['name']}): {candidate['reason']}")
+            if candidate.get("review_record_command"):
+                print(f"    record: {candidate['review_record_command']}")
     print("Suggested verdicts:")
     print(f"  {', '.join(payload['suggested_verdicts'])}")
     print("Record template:")

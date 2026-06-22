@@ -36,6 +36,9 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("Confirm forbidden actions", " ".join(payload["review_focus"]))
         self.assertEqual(payload["reviewer_candidates"][0]["id"], "HUMAN-MAINTAINER")
         self.assertIn("technical-review", payload["reviewer_candidates"][0]["approval_capabilities"])
+        self.assertIn("--reviewer HUMAN-MAINTAINER", payload["reviewer_candidates"][0]["review_record_command"])
+        self.assertEqual(payload["review_record_commands"][0]["reviewer"], "HUMAN-MAINTAINER")
+        self.assertIn("--verdict VERDICT", payload["review_record_commands"][0]["command"])
         self.assertIn("separate from acceptance", payload["reviewer_candidates"][1]["reason"])
         self.assertIn("--verdict VERDICT", payload["review_record_command_template"])
 
@@ -100,6 +103,8 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("Reviewer candidates:", result.stdout)
         self.assertIn("HUMAN-MAINTAINER", result.stdout)
         self.assertIn("technical-review capability", result.stdout)
+        self.assertIn("record: palari review record REVIEW-ID", result.stdout)
+        self.assertIn("--reviewer HUMAN-MAINTAINER", result.stdout)
 
     def test_cli_agent_next_text_prints_start_blockers(self) -> None:
         result = self.run_cli("agent", "next", "--as", "PALARI-STEWARD")
