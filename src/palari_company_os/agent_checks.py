@@ -113,6 +113,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             safety.get("review_state"),
             pass_states={"accept-ready"},
             missing_message="Review is required before claiming this work is done.",
+            next_command=_review_command(packet),
         ),
         _human_decision_check(packet),
     ]
@@ -169,6 +170,15 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
             "HUMAN_DECISION_PRESENT",
             "pass",
             "Human decision quorum is recorded.",
+            required=True,
+        )
+    waiting_on = _human_decision_prerequisites(packet)
+    if waiting_on:
+        return _check(
+            "HUMAN_DECISION_PRESENT",
+            "fail",
+            "Human decision waits for required proof before approval: "
+            f"{', '.join(waiting_on)}.",
             required=True,
         )
     return _check(
@@ -269,6 +279,11 @@ def _evidence_command(packet: dict[str, Any]) -> str:
     )
 
 
+def _review_command(packet: dict[str, Any]) -> str:
+    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
+    return f"palari review guide {work_id} --json"
+
+
 def _human_decision_command(packet: dict[str, Any]) -> str:
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     proof = packet.get("proof_state", {})
@@ -284,6 +299,36 @@ def _human_decision_command(packet: dict[str, Any]) -> str:
         f"--quorum-status met --evidence-reference {evidence_ref} "
         f"--review-reference {review_ref} --json"
     )
+
+
+def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:
+    contract = packet.get("completion_contract", {})
+    proof = packet.get("proof_state", {})
+    safety = packet.get("state", {}).get("safety", {})
+    waiting_on: list[str] = []
+    if contract.get("requires_receipt", False) and not _proof_present(
+        proof.get("receipt"),
+        safety.get("receipt_state"),
+        {"ready"},
+    ):
+        waiting_on.append("receipt")
+    if contract.get("requires_evidence", False) and not _proof_present(
+        proof.get("evidence"),
+        safety.get("evidence_state"),
+        {"passed"},
+    ):
+        waiting_on.append("evidence")
+    if contract.get("requires_review", False) and not _proof_present(
+        proof.get("review"),
+        safety.get("review_state"),
+        {"accept-ready"},
+    ):
+        waiting_on.append("review")
+    return waiting_on
+
+
+def _proof_present(record: Any, state: str | None, pass_states: set[str]) -> bool:
+    return record is not None and (not state or state in pass_states)
 
 
 def _attempt(packet: dict[str, Any]) -> dict[str, Any]:

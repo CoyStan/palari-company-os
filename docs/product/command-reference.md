@@ -182,20 +182,22 @@ state satisfies the packet's completion contract. It returns `ok`, packet id,
 packet context hash, packet blockers, structured pass/fail/warn checks, and
 `next_step_type` plus next safe commands. A ready-to-start packet can still
 produce `ok: false` when the attempt is missing required receipt, evidence,
-review, or human-decision records. Missing receipt and evidence checks include
-concrete record-command templates for the current work item and attempt when
-possible, and failed required check commands appear before generic
-inspect/validate commands. Light low-risk receipt-ready work can satisfy the
-receipt requirement without forcing review or human approval.
+review, or human-decision records. Missing receipt, evidence, and review checks
+include concrete next-command guidance when possible, and failed required check
+commands appear before generic inspect/validate commands. Human-decision record
+commands are not surfaced until prerequisite proof is present. Light low-risk
+receipt-ready work can satisfy the receipt requirement without forcing review
+or human approval.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be
 handed off to a human, `next_step_type`, missing requirements, completed
 requirements, blockers, and report guidance. Handoff-ready receipt work points
-to `agent handoff` before the direct review guide; missing approval points to a
-human-decision record template when evidence and review are known. Missing proof
-or approval templates appear before generic inspect/validate commands. It does
-not close work, record receipts, mutate history, or perform external actions.
+to `agent handoff` before the direct review guide; work with evidence but no
+review does the same. Missing approval points to a human-decision record
+template only when prerequisite proof is known. Missing proof or approval
+templates appear before generic inspect/validate commands. It does not close
+work, record receipts, mutate history, or perform external actions.
 
 `agent handoff` is read-only and meant for the moment after `agent finish`
 identifies a human review or decision step. It returns the compact finish

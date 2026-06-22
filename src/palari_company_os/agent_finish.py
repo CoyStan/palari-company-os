@@ -91,9 +91,10 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
     review_command = f"palari review guide {work_id} --json"
-    if "RECEIPT_READY_REVIEW" in blocker_codes and handoff_command not in commands:
+    review_needed = "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
+    if review_needed and handoff_command not in commands:
         commands.insert(0, handoff_command)
-    if "RECEIPT_READY_REVIEW" in blocker_codes and review_command not in commands:
+    if review_needed and review_command not in commands:
         commands.insert(0, review_command)
         commands[0], commands[1] = commands[1], commands[0]
     _append_once(commands, "palari validate --json")
@@ -106,7 +107,7 @@ def _handoff_guidance(check: dict[str, Any]) -> list[dict[str, str]]:
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
-    if "RECEIPT_READY_REVIEW" in blocker_codes:
+    if "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes:
         guidance.append(
             {
                 "code": "REVIEW_HANDOFF",

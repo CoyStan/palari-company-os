@@ -135,10 +135,11 @@ Not implemented yet:
 completion contract. It returns `ok: false` when required receipt, evidence,
 review, human decision, source, dependency, or external-write checks fail. Light
 low-risk work may satisfy its trust loop with a valid receipt without requiring
-review or human approval. Missing receipt and evidence checks include
-record-command templates for the current work item and attempt when Palari can
-infer them, and failed required check commands are listed before generic
-inspect/validate commands.
+review or human approval. Missing receipt, evidence, and review checks include
+the next safe command Palari can infer for the current work item. Human-decision
+record commands are held back until prerequisite proof, such as receipt,
+evidence, and review, is present, so agents do not jump from missing review
+straight to approval.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,
@@ -153,8 +154,10 @@ workspace state in v1. It carries the same `next_step_type`, distinguishes
 missing proof from handoff-ready work, such as low-risk receipt-ready results
 that should stop execution and move to a human review path. Its
 `next_allowed_commands` prioritize missing proof or approval record templates
-before generic inspect/validate commands. For receipt-ready review handoffs,
-`agent handoff` is listed before the direct review guide command.
+before generic inspect/validate commands. For receipt-ready review handoffs and
+work that already has evidence but still needs review, `agent handoff` is
+listed before the direct review guide command. Approval commands appear only
+after the earlier proof required for approval is present.
 
 When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes

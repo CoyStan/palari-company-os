@@ -402,25 +402,40 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "missing-proof")
         self.assertEqual(result["can_finish"], False)
-        self.assertIn(
-            "HUMAN_DECISION_PRESENT",
-            {item["code"] for item in result["missing_requirements"]},
-        )
-        command = next(
-            item["next_command"]
-            for item in result["missing_requirements"]
-            if item["code"] == "HUMAN_DECISION_PRESENT"
-        )
-        self.assertIn("--work-item-id WORK-0001", command)
-        self.assertIn("--reviewed-head abc1234", command)
-        self.assertIn("--evidence-reference EVIDENCE-0001", command)
-        self.assertIn("--review-reference REVIEW-0001", command)
+        missing = {item["code"]: item for item in result["missing_requirements"]}
+        self.assertIn("RECEIPT_PRESENT", missing)
+        self.assertIn("HUMAN_DECISION_PRESENT", missing)
+        self.assertNotIn("next_command", missing["HUMAN_DECISION_PRESENT"])
+        self.assertIn("waits for required proof", missing["HUMAN_DECISION_PRESENT"]["message"])
         self.assertEqual(
             result["next_allowed_commands"][0],
             "palari receipt record RECEIPT-ID --work-item-id WORK-0001 "
             "--attempt-id ATTEMPT-0001 --actor PALARI-SOFIA --json",
         )
-        self.assertEqual(result["next_allowed_commands"][1], command)
+        self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
+
+    def test_agent_finish_waiting_for_review_prioritizes_review_handoff(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_finish(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
+        missing = {item["code"]: item for item in result["missing_requirements"]}
+
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["next_step_type"], "review-handoff")
+        self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
+        self.assertEqual(
+            result["next_allowed_commands"][:2],
+            [
+                "palari agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
+                "palari review guide WORK-REPO-0003 --json",
+            ],
+        )
+        self.assertEqual(
+            missing["REVIEW_PRESENT"]["next_command"],
+            "palari review guide WORK-REPO-0003 --json",
+        )
+        self.assertNotIn("next_command", missing["HUMAN_DECISION_PRESENT"])
+        self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
 
     def test_cli_agent_finish_emits_json_shape(self) -> None:
         result = json.loads(
@@ -476,6 +491,27 @@ class AgentPacketTests(unittest.TestCase):
         )
         human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
         self.assertIn("--reviewer HUMAN-MAINTAINER", human_commands)
+
+    def test_agent_handoff_waiting_for_review_compiles_review_context(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_handoff(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
+
+        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["handoff_types"], ["review"])
+        self.assertEqual(result["handoff_available"], True)
+        self.assertIsNotNone(result["review_handoff"])
+        self.assertIsNone(result["decision_handoff"])
+        self.assertEqual(result["review_handoff"]["status"], "review-needed")
+        self.assertEqual(
+            result["next_allowed_commands"][0],
+            "palari review guide WORK-REPO-0003 --json",
+        )
+        self.assertNotIn(
+            "palari human-decision record",
+            "\n".join(result["next_allowed_commands"]),
+        )
 
     def test_agent_handoff_human_decision_compiles_decision_context(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -809,6 +845,22 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "fail")
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["required"], True)
+
+    def test_agent_check_waiting_for_review_does_not_offer_human_decision(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_check(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
+        checks = self.checks_by_code(result)
+
+        self.assertEqual(result["next_step_type"], "review-handoff")
+        self.assertEqual(checks["REVIEW_PRESENT"]["status"], "fail")
+        self.assertEqual(
+            checks["REVIEW_PRESENT"]["next_command"],
+            "palari review guide WORK-REPO-0003 --json",
+        )
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "fail")
+        self.assertNotIn("next_command", checks["HUMAN_DECISION_PRESENT"])
+        self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
 
     def test_cli_agent_check_emits_json_shape(self) -> None:
         result = json.loads(
