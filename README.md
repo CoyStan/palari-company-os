@@ -5,208 +5,212 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v0.1%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
 
-![Palari Company OS operating console](docs/assets/palari-company-os-hero.svg)
+Palari Company OS is a local, file-backed control plane for AI-assisted work.
+It helps humans and AI agents agree on:
 
-Palari Company OS is a repo-native operating layer for AI-assisted company
-work. It models the loop between human intent, named AI work partners,
-selected sources, bounded execution, receipts, evidence, review, human
-authority, and outcomes.
+- what the agent is trying to do
+- which sources it may read
+- which files or outputs it may change
+- what it actually used, created, skipped, or left undoable
+- when a human must review or approve the work
 
-The repo is a small, dependency-light Python CLI foundation for making AI work
-legible without turning every task into process paperwork.
+It is not another chatbot. It is the operating contract around AI work: goals,
+workbenches, named AI partners, bounded work items, receipts, evidence, review,
+human decisions, and outcomes.
 
-## Why It Exists
+## Who This Is For
 
-AI work gets messy when the company cannot answer basic operational questions:
+This repo is for people experimenting with serious AI work:
 
-- What is the goal?
-- Which Palari or human is working on it?
-- What sources may be read?
-- What output may be changed?
-- What is running in parallel?
-- What did the attempt actually use, create, skip, or leave undoable?
-- What evidence and review exist?
-- Who has the authority to approve the result?
+- founders and operators using AI across messy company tasks
+- developers giving coding agents clearer boundaries
+- teams that want parallel AI work without losing human authority
+- researchers or builders exploring how agent work should be recorded
 
-Palari Company OS keeps those answers in inspectable workspace files and
-derives fast operator views from them.
+If you have ever asked "what did the AI actually read or change?", Palari is
+about making that answer inspectable.
 
-## Current Status
+## What You Can Try Today
 
-This is a **v0.1 alpha local CLI**. It is useful for modeling and dogfooding the
-core operating system, but it is not yet a production platform.
+This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
+package dependencies beyond the Python standard library, and does not require
+API keys, cloud accounts, databases, Slack, GitHub apps, Google Drive, or a
+background service.
 
 Implemented now:
 
-- strict workspace schema v1
+- strict workspace schema and validation
 - goals, humans, Palaris, workbenches, sources, work items, attempts, receipts,
   evidence, reviews, human decisions, outcomes, and history
-- queue/detail/state read models
-- agent packet contract for bounded AI-agent work context
-- fail-closed validation for references, stale evidence, stale reviews,
-  authority, quorum, receipts, workbench boundaries, and parallel-work conflicts
-- source and receipt trust loop for low-risk local work
-- workbench graph and parallel work visibility
-- dry-run integration plans, human approval decisions, and cancelable integration outbox
-  records without live provider calls
+- queue, detail, state, history, dashboard, and desktop prototype views
+- agent packets for bounded AI-agent context
+- local packet persistence and lightweight claims for `agent start`
+- file-change boundary checks for `agent check --changed` and `--git-diff`
+- source and receipt trust records
+- parallel workbench modeling and conflict warnings
+- dry-run integration plans, approvals, and cancelable outbox records
 - external playbook recommendations as lightweight guidance
-- static dashboard and desktop-shell prototype generators
-- repo-local dogfood workspace
-- dependency-free Python package with CI and install smoke tests
+- example and dogfood workspaces
+- CI, local verification, and install smoke tests
 
-Intentionally not implemented yet:
+Not implemented yet:
 
+- live Slack, GitHub, Jira, email, Google Drive, or document connector execution
+- hosted web app or multi-user server
+- background agent runner
 - real broker execution
 - real policy acceptance
-- live Slack/GitHub/Jira/email connector execution
-- live document-drive integration
-- production deployment
-- enterprise administration
-- signed key custody
-- autonomous acceptance, merge, push, or deploy
+- secret manager or signed key custody
+- autonomous acceptance, merge, push, deploy, or live external writes
 
-## Install
+## Quickstart
 
-From the repo root:
+Requirements:
+
+- Python 3.10 or newer
+- Git
+
+Clone the repo:
+
+```bash
+git clone https://github.com/CoyStan/palari-company-os.git
+cd palari-company-os
+```
+
+Use the repo-local CLI wrapper:
+
+```bash
+./bin/palari --help
+```
+
+Or install it in editable mode:
 
 ```bash
 python3 -m pip install -e .
 palari --help
 ```
 
-Or use the repo-local wrapper without installing:
+Run the local verification:
 
 ```bash
-./bin/palari --help
+./scripts/verify.sh
 ```
 
-Palari Company OS currently has no runtime package dependencies beyond the
-Python standard library.
-
-## Quickstart
-
-The default workspace is the ACME example:
+Copy the demo workspace into `/tmp` so experiments do not modify the committed
+example files:
 
 ```bash
-./bin/palari validate
-./bin/palari queue
-./bin/palari detail WORK-0001
-./bin/palari state
-./bin/palari data map
+rm -rf /tmp/palari-company-os-demo
+cp -R examples/acme-company-os /tmp/palari-company-os-demo
 ```
 
-Use JSON when wiring the CLI into tools or agents:
+Inspect the work queue:
 
 ```bash
-./bin/palari queue --json
-./bin/palari detail WORK-0007 --json
-./bin/palari state --json
+./bin/palari --workspace /tmp/palari-company-os-demo queue
 ```
 
-Create a blank local workspace when you do not want to hand-write the shell
-JSON:
+Open one work item:
 
 ```bash
-./bin/palari workspace init workspaces/my-company --name "My Company"
-./bin/palari --workspace workspaces/my-company validate
+./bin/palari --workspace /tmp/palari-company-os-demo detail WORK-0001
 ```
 
-For agents, start from one bounded packet instead of inferring the workflow:
+Generate a static dashboard:
 
 ```bash
-./bin/palari agent next --json
-./bin/palari agent next --as PALARI-SOFIA --json
-./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
-./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
-./bin/palari review guide WORK-0003 --json
+./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
 ```
 
-Bare `agent next` returns the all-Palaris rollup with a top candidate and a
-`next_step_type` such as `check-active-proof`, `review-handoff`, or
-`human-decision`. `agent check` and `agent finish` carry the same step type and
-tell an agent which receipt, evidence, review, or human decision record is
-still needed before it can claim completion. When proof is missing, concrete
-receipt, evidence, and review commands appear before generic inspect/validate
-commands, and human-decision commands are held until prerequisite proof exists.
-`agent brief` previews the packet; `agent start` persists that packet and writes
-a local claim for ready work. `agent check --changed PATH` or `--git-diff`
-compares observed file edits with the packet write boundary and current
-attempt/receipt records.
-`agent next` candidates also include a `loop_command` for the compact
-brief/check/finish/handoff summary when an agent needs orientation.
-`agent doctor` gives a plain-language diagnosis of why a work item is safe,
-blocked, missing proof, or waiting on human authority.
-`agent handoff` is the preferred bridge for human review or decision states; it
-packages the relevant finish, review-guide, or decision-guide context without
-mutating the workspace, while keeping human action commands separate from
-agent-safe reads. For work that is already waiting for review or receipt-ready,
-`agent brief --mode review` returns a read-only reviewer packet with review
-focus, attempt/evidence/receipt context, and review guide commands. In review
-mode, `agent finish` means the agent may report a review recommendation, not
-record a human review or claim the original work item is complete. `agent loop`
-summarizes the current brief/check/finish/handoff state when an agent needs the
-whole control flow without dumping every detailed payload.
+Then open:
 
-Run against another workspace:
-
-```bash
-./bin/palari --workspace workspaces/palari-company-os queue
-./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
+```text
+/tmp/palari-company-dashboard/index.html
 ```
 
-Generate the static dashboard:
-
-```bash
-./bin/palari dashboard --out /tmp/palari-company-dashboard
-```
-
-Generate the desktop-shell prototype:
+Generate the standalone desktop prototype:
 
 ```bash
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
 ```
 
-Serve the prototype locally:
+Then open:
 
-```bash
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
+```text
+/tmp/palari-desktop-prototype/index.html
 ```
 
-## Core Model
+## Agent Workflow
 
-Palari Company OS is organized around a few explicit records:
+The `agent` commands are mostly meant for coding agents or AI operators. Humans
+can run them to inspect the contract, but the normal idea is that an agent asks
+Palari what work is safe, reads one compact packet, starts a bounded local
+attempt, checks its file changes, and releases or finishes cleanly.
 
-| Object | Purpose |
+Find the next useful item:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent next --as PALARI-SOFIA --json
+```
+
+Read the packet the agent would receive:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+```
+
+Start the copied demo work item. This persists the packet and creates a local
+claim in the `/tmp` demo workspace:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+```
+
+Check whether an observed file change stays inside the allowed boundary:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
+```
+
+Release the local claim:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent release WORK-0003 --as PALARI-SOFIA --json
+```
+
+In plain language:
+
+```text
+find safe work -> read the packet -> claim the local attempt
+  -> compare changes against the boundary -> release, finish, or ask for help
+```
+
+## Core Concepts
+
+| Concept | Plain meaning |
 | --- | --- |
-| Goal | Company intent and success criteria. |
-| Human | Authority holder, reviewer, owner, or operator. |
-| Palari | Named AI work partner with scope, standards, and boundaries. |
-| Workbench | Bounded arena for shared context, sources, targets, people, and parallel work. |
-| Source | Selected readable context with provider and access boundaries. |
-| Work item | Intended unit of work with scope, risk, dependencies, targets, and policy. |
-| Attempt | Concrete execution by a human, Palari, worker, agent, or pair. |
-| Receipt | Human-facing trust record: used, created, wrote, did not do, and undo refs. |
-| Evidence | Verification tied to an artifact state or head. |
-| Review | Independent inspection of the evidence/result. |
-| Human decision | Authority-bearing approval, rejection, or blocker. |
-| Outcome | Learning record after the work is closed. |
+| Goal | Why the work exists. |
+| Human | A person with ownership, review, or approval authority. |
+| Palari | A named AI work partner with scope and standards. |
+| Workbench | A bounded arena of sources, people, Palaris, targets, and parallel work. |
+| Source | Selected context the work may read. |
+| Work item | One bounded unit of intended work. |
+| Attempt | One concrete execution of that work. |
+| Receipt | Human-facing record of what was used, created, skipped, and left undoable. |
+| Evidence | Verification tied to the attempt or artifact state. |
+| Review | Independent inspection of the result or evidence. |
+| Human decision | Explicit approval, rejection, or blocker. |
+| Outcome | What was learned after the work closed. |
 
 The product loop is:
 
 ```text
 goal -> workbench -> selected sources -> work item -> attempt
-  -> receipt -> evidence/review/human decision when risk requires it
-  -> outcome and learning
+  -> receipt -> evidence or review when needed
+    -> human decision when needed -> outcome
 ```
 
-## Important Commands
+## Useful Commands
 
 ```bash
 # Read models
@@ -219,6 +223,11 @@ goal -> workbench -> selected sources -> work item -> attempt
 ./bin/palari validate
 ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
 
+# Agent contract
+./bin/palari agent next --as PALARI-SOFIA --json
+./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+
 # Lightweight process guidance
 ./bin/palari playbooks sources
 ./bin/palari playbooks recommend WORK-0003
@@ -226,29 +235,48 @@ goal -> workbench -> selected sources -> work item -> attempt
 # Static visual surfaces
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-
-# External maintainer repo status
-./bin/palari maintainer status --repo .
+./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
 ```
 
-Authoring and lifecycle commands exist for the core records. See the
-[Command Reference](docs/product/command-reference.md) and
-[Lifecycle Guide](docs/product/lifecycle-guide.md).
+Use `--json` when wiring Palari into agents, scripts, or other tools.
 
 ## Repository Layout
 
 ```text
 bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
-schemas/workspace.schema.json      Inspectable workspace schema
+schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
 workspaces/palari-company-os/      Repo dogfood workspace
 docs/product/                      Product and operator documentation
-docs/assets/                       README and documentation assets
+docs/showcase/                     Public-facing examples and vignettes
 scripts/verify.sh                  Full local verification
 scripts/install_smoke.sh           Isolated package install smoke
 tests/                             Unit and fixture tests
 ```
+
+## Documentation
+
+Start here:
+
+- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md) for friendly examples
+- [Quickstart](docs/product/quickstart.md) for the shortest command path
+- [Product Model](docs/product/company-os.md) for the larger concept
+- [Agent Contract](docs/product/agent-contract.md) for AI-agent packet behavior
+- [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough
+- [Command Reference](docs/product/command-reference.md) for CLI details
+
+Then go deeper:
+
+- [Core Objects](docs/product/core-objects.md)
+- [Authority And Gates](docs/product/authority-and-gates.md)
+- [Schema And Validation](docs/product/schema-and-validation.md)
+- [Lifecycle Guide](docs/product/lifecycle-guide.md)
+- [External Playbooks](docs/product/playbooks.md)
+- [Testing Guide](docs/product/testing-guide.md)
+- [Security Notes](docs/product/security.md)
+- [Roadmap](docs/product/roadmap.md)
+- [Changelog](CHANGELOG.md)
 
 ## Verification
 
@@ -265,7 +293,7 @@ the lightweight style checker, and CLI smoke checks. `install_smoke.sh` creates
 a temporary virtual environment, builds and installs a wheel, imports it, checks
 the installed `palari` command, and confirms packaged default fixtures work.
 
-GitHub Actions runs the same core checks on Python 3.10 and 3.12.
+GitHub Actions runs the core checks on Python 3.10 and 3.12.
 
 ## Design Principles
 
@@ -276,31 +304,19 @@ GitHub Actions runs the same core checks on Python 3.10 and 3.12.
 - **Receipts are for trust.** Receipts explain what happened in human terms;
   they are not a replacement for governance evidence.
 - **Risk changes intensity.** Low-risk local work can stay light. Higher-risk
-  work still requires evidence, review, and human decision.
+  work still requires stronger proof and human decisions.
 - **Read models do not mutate authority.** Queue, detail, state, dashboard, and
   prototypes are derived from workspace data.
-- **Ordinary software maintenance wins.** This repo should stay simple,
-  inspectable, dependency-light, and easy for agents and humans to work on.
+- **Ordinary software maintenance wins.** The repo should stay simple,
+  inspectable, dependency-light, and easy for humans and agents to work on.
 
-## Documentation
+## Contributing
 
-- [Product Model](docs/product/company-os.md)
-- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md)
-- [Quickstart](docs/product/quickstart.md)
-- [Core Objects](docs/product/core-objects.md)
-- [Authority And Gates](docs/product/authority-and-gates.md)
-- [Source Of Truth](docs/product/source-of-truth.md)
-- [Schema And Validation](docs/product/schema-and-validation.md)
-- [Command Reference](docs/product/command-reference.md)
-- [Agent Loop Smoke](docs/product/agent-loop-smoke.md)
-- [Lifecycle Guide](docs/product/lifecycle-guide.md)
-- [External Playbooks](docs/product/playbooks.md)
-- [External Maintainer Mode](docs/product/external-maintainer-mode.md)
-- [Testing Guide](docs/product/testing-guide.md)
-- [Security Notes](docs/product/security.md)
-- [Contributing](docs/product/contributing.md)
-- [Roadmap](docs/product/roadmap.md)
-- [Changelog](CHANGELOG.md)
+This project is early and still changing quickly. Small, focused improvements
+are preferred. Good first contributions include documentation fixes, failing
+fixture reductions, command examples, and tests around existing behavior.
+
+See [Contributing](docs/product/contributing.md) for local development notes.
 
 ## License
 
