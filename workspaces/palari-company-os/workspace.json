@@ -2388,12 +2388,10 @@
         "Install smoke exposed a real Python 3.10 compatibility bug before closeout"
       ],
       "failed": [
-        "There is no init workspace command",
         "Long list fields through CLI flags are awkward",
         "Review findings cannot yet be structured through first-class CLI flags"
       ],
       "follow_up_needed": [
-        "Add a workspace init command later",
         "Consider import/export or seed helpers for larger workspaces",
         "Keep dogfood workspace updated as repo maturity work continues"
       ],
