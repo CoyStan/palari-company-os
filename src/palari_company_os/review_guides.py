@@ -57,6 +57,11 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
 
 def _status(payload: dict[str, Any]) -> str:
+    review_state = payload.get("safety", {}).get("review_state", "")
+    if payload.get("attention") == "receipt-ready":
+        return "receipt-ready"
+    if review_state == "stale":
+        return "stale-review"
     if payload.get("evidence") is None:
         return "missing-evidence"
     if payload.get("review") is not None:
@@ -112,10 +117,22 @@ def _receipt_summary(receipt: dict[str, Any] | None) -> dict[str, Any]:
 def _review_focus(payload: dict[str, Any]) -> list[str]:
     focus = [
         "Compare the attempt result and changed files against the work scope and acceptance target.",
-        "Confirm evidence commands and artifacts are enough for the stated risk.",
-        "Confirm the receipt honestly states sources used, outputs created, external writes, not-done items, and undo refs.",
-        "Confirm forbidden actions were not performed.",
     ]
+    if payload.get("evidence") is None and payload.get("attention") == "receipt-ready":
+        focus.append(
+            "For receipt-ready low-risk work, inspect the output and receipt before requiring heavier proof."
+        )
+    else:
+        focus.append("Confirm evidence commands and artifacts are enough for the stated risk.")
+    if payload.get("receipt") is None:
+        focus.append(
+            "Receipt is missing; confirm whether the work state intentionally relies on evidence and review instead."
+        )
+    else:
+        focus.append(
+            "Confirm the receipt honestly states sources used, outputs created, external writes, not-done items, and undo refs."
+        )
+    focus.append("Confirm forbidden actions were not performed.")
     if payload.get("work_item", {}).get("risk") in {"R3", "R4", "R5"}:
         focus.append("Check the higher-risk boundary before any human decision or integration.")
     receipt = payload.get("receipt") or {}

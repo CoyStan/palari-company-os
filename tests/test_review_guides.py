@@ -15,6 +15,7 @@ from palari_company_os.workspace import Workspace
 
 
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
+ACME = REPO_ROOT / "examples" / "acme-company-os"
 
 
 class ReviewGuideTests(unittest.TestCase):
@@ -44,6 +45,25 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["evidence"], {"present": False})
         self.assertEqual(payload["attempt"], {"present": False})
         self.assertEqual(payload["receipt"], {"present": False})
+
+    def test_review_guide_reports_stale_review_precisely(self) -> None:
+        workspace = Workspace.load(ACME)
+
+        payload = build_review_guide(workspace, "WORK-0006")
+
+        self.assertEqual(payload["status"], "stale-review")
+        self.assertEqual(payload["evidence"]["head_sha"], "review-fresh")
+        self.assertIn("A review already exists", " ".join(payload["review_focus"]))
+
+    def test_review_guide_keeps_receipt_ready_lightweight(self) -> None:
+        workspace = Workspace.load(ACME)
+
+        payload = build_review_guide(workspace, "WORK-0007")
+
+        self.assertEqual(payload["status"], "receipt-ready")
+        self.assertEqual(payload["evidence"], {"present": False})
+        self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001")
+        self.assertIn("receipt-ready low-risk work", " ".join(payload["review_focus"]))
 
     def test_cli_review_guide_emits_json_shape(self) -> None:
         result = json.loads(
