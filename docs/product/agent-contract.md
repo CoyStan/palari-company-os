@@ -177,3 +177,9 @@ first. Agent-safe read commands remain separate from `human_action_commands`, so
 a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
 decisions, receipts, evidence, claims, or history events.
+
+Review-mode `agent brief` packets may include ready-to-copy review record
+commands inside `review_context` because those are useful to the supervising
+human. They also include `human_action_boundary`, which states that the agent
+may quote or summarize those commands but must not execute them, claim to be the
+reviewer, or convert a recommendation into human acceptance.

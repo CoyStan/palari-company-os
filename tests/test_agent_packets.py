@@ -639,6 +639,11 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["completion_contract"]["review_mode"], True)
         self.assertEqual(packet["review_context"]["status"], "receipt-ready")
         self.assertIn("review_focus", packet["review_context"])
+        self.assertEqual(packet["human_action_boundary"]["agent_may_execute"], False)
+        self.assertIn(
+            "review_context.review_record_commands[].command",
+            packet["human_action_boundary"]["human_only_command_fields"],
+        )
         self.assertEqual(
             packet["next_allowed_commands"][0],
             "palari review guide WORK-0007 --json",
@@ -673,6 +678,10 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["review_context"]["status"], "review-needed")
         self.assertEqual(packet["review_context"]["evidence"]["id"], "EVIDENCE-WAITING-REVIEW")
         self.assertEqual(packet["completion_contract"]["requires_evidence"], False)
+        self.assertEqual(
+            packet["human_action_boundary"]["agent_allowed_use"],
+            "Quote or summarize human-only commands for a human supervisor.",
+        )
 
     def test_review_mode_blocks_work_that_is_not_review_ready(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -796,6 +805,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["mode"], "review")
         self.assertEqual(result["review_context"]["command"], "palari review guide WORK-0007 --json")
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
 
     def test_agent_check_ready_packet_fails_missing_completion_proof(self) -> None:
         workspace = Workspace.load(WORKSPACE)

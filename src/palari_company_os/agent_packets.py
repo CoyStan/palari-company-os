@@ -79,6 +79,7 @@ def build_agent_brief(
     )
     if review_context:
         packet["review_context"] = review_context
+        packet["human_action_boundary"] = _human_action_boundary()
     return _finalize_packet(packet, blockers)
 
 
@@ -599,6 +600,22 @@ def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, 
         "reviewer_candidates": guide.get("reviewer_candidates", []),
         "suggested_verdicts": guide.get("suggested_verdicts", []),
         "review_record_commands": guide.get("review_record_commands", []),
+    }
+
+
+def _human_action_boundary() -> dict[str, Any]:
+    return {
+        "agent_may_execute": False,
+        "agent_allowed_use": "Quote or summarize human-only commands for a human supervisor.",
+        "human_only_command_fields": [
+            "review_context.review_record_commands[].command",
+            "review_context.reviewer_candidates[].review_record_command",
+        ],
+        "must_not": [
+            "Do not run review record commands.",
+            "Do not claim to be the human reviewer.",
+            "Do not convert a review recommendation into human acceptance.",
+        ],
     }
 
 

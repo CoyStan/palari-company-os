@@ -49,6 +49,9 @@ Follow the packet:
 - in review mode, `agent finish` means you may report a review recommendation;
   it does not authorize you to record a human review or claim the original work
   item is complete
+- if a review-mode packet includes `human_action_boundary`, treat the referenced
+  review or decision commands as human-only; you may quote them for a supervisor
+  but must not run them yourself
 
 Never:
 
