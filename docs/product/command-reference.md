@@ -76,6 +76,23 @@ workspace-relative collection files before running the same checks.
 Checks paths and actions against a work item's declared allowed resources and
 forbidden actions.
 
+## Review Guide
+
+```bash
+./bin/palari review guide WORK-0001
+./bin/palari review guide WORK-0001 --json
+./bin/palari review record REVIEW-0001 --work-item-id WORK-0001 --reviewed-head HEAD --reviewer HUMAN-MAINTAINER --verdict accept-ready
+```
+
+`review guide` is read-only. It assembles the selected work item, workbench,
+Palari, attempt, evidence, receipt, changed files, suggested review focus,
+possible verdicts, and a neutral review-record command template. It does not
+record a review verdict, approve work, mutate history, or replace human
+judgment.
+
+`review record` is the explicit write path for a review verdict. Use it only
+after inspecting the evidence and receipt.
+
 ## Agent Packets
 
 ```bash

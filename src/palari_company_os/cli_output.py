@@ -86,6 +86,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_finish(result.payload, result.as_json)
         return
 
+    if result.kind == "review-guide":
+        print_review_guide(result.payload, result.as_json)
+        return
+
     if result.kind == "workspace-init":
         print_workspace_init(result.payload, result.as_json)
         return
@@ -451,6 +455,8 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
             print(f"    next: {candidate['brief_command']}")
             if candidate.get("blocker_codes"):
                 print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
+            if candidate.get("start_blocker_codes"):
+                print(f"    start blockers: {', '.join(candidate['start_blocker_codes'])}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")
@@ -512,6 +518,46 @@ def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  - {blocker['code']}: {blocker['message']}")
     print(f"Guidance: {payload['report_guidance']}")
     commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    evidence = payload["evidence"]
+    attempt = payload["attempt"]
+    receipt = payload["receipt"]
+    print(f"Review guide: {payload['guide_id']}")
+    print(f"Status: {payload['status']} | Would mutate: {_yes_no(payload['would_mutate'])}")
+    print(f"Work: {work['id']} {work['title']} ({work['risk']})")
+    print(f"Attention: {payload['attention']}")
+    print(f"Why: {payload['why']}")
+    print(f"Evidence: {_present_label(evidence)}")
+    if evidence.get("present"):
+        print(f"  head: {evidence.get('head_sha', '')} | status: {evidence.get('status', '')}")
+    print(f"Attempt: {_present_label(attempt)}")
+    if attempt.get("present") and attempt.get("changed_files"):
+        print("  changed:")
+        for path in attempt["changed_files"]:
+            print(f"    - {path}")
+    print(f"Receipt: {_present_label(receipt)}")
+    if receipt.get("present") and receipt.get("not_done"):
+        print("  not done:")
+        for item in receipt["not_done"]:
+            print(f"    - {item}")
+    print("Review focus:")
+    for item in payload["review_focus"]:
+        print(f"  - {item}")
+    print("Suggested verdicts:")
+    print(f"  {', '.join(payload['suggested_verdicts'])}")
+    print("Record template:")
+    print(f"  {payload['review_record_command_template']}")
+    commands = payload.get("next_commands", [])
     if commands:
         print("Next commands:")
         for command in commands:
@@ -729,3 +775,10 @@ def _print_section(title: str, value: dict[str, Any] | None) -> None:
 
 def _yes_no(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def _present_label(record: dict[str, Any]) -> str:
+    if not record.get("present"):
+        return "missing"
+    identifier = record.get("id", "present")
+    return str(identifier)

@@ -449,8 +449,11 @@ def _add_evidence_parser(subparsers: Any) -> None:
 
 
 def _add_review_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("review", help="Record or update review verdicts.")
+    parser = subparsers.add_parser("review", help="Guide, record, or update review verdicts.")
     nested = parser.add_subparsers(dest="object_command", required=True)
+    guide = nested.add_parser("guide", help="Build a read-only review guide for one work item.")
+    guide.add_argument("work_id")
+    guide.add_argument("--json", action="store_true", help="Emit JSON.")
     record = nested.add_parser("record", help="Record a review verdict.")
     record.add_argument("id")
     record.add_argument("--work-item-id", required=True, help="Work item id.")

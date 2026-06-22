@@ -247,6 +247,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             False,
         )
 
+    if args.command == "review" and args.object_command == "guide":
+        from .review_guides import build_review_guide
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult(
+            "review-guide",
+            build_review_guide(workspace, args.work_id),
+            args.json,
+        )
+
     if args.command in {
         "goal",
         "human",
