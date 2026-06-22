@@ -98,11 +98,9 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         blockers = packet.get("blockers", [])
         can_start = _can_start_agent_work(item, packet)
         start_blockers = _start_blockers(item, packet)
-        next_command = (
-            f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
-            if can_start
-            else item.next_commands[0]
-        )
+        brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
+        check_command = f"palari agent check {work.id} --as {palari_id} --json"
+        next_command = _candidate_next_command(item, can_start, brief_command)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -125,13 +123,27 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "start_blockers": start_blockers,
                 "next_command": next_command,
                 "next_commands": item.next_commands,
-                "brief_command": (
-                    f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
-                ),
-                "check_command": f"palari agent check {work.id} --as {palari_id} --json",
+                "brief_command": brief_command,
+                "check_command": check_command,
             }
         )
     return candidates
+
+
+def _candidate_next_command(item: Any, can_start: bool, brief_command: str) -> str:
+    if can_start and _has_active_proof_work(item):
+        return item.next_commands[0] if item.next_commands else brief_command
+    if can_start:
+        return brief_command
+    return item.next_commands[0]
+
+
+def _has_active_proof_work(item: Any) -> bool:
+    return (
+        item.attention == "needs-evidence"
+        and item.evidence_state in {"missing", "stale", "failed"}
+        and bool(item.active_attempts)
+    )
 
 
 def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:
@@ -198,7 +210,7 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
 def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) -> list[str]:
     for candidate in candidates:
         if candidate["can_start"]:
-            return [candidate["brief_command"], candidate["check_command"]]
+            return _candidate_commands(candidate)
     if candidates:
         first = candidates[0]
         return first.get("next_commands") or [
@@ -218,7 +230,7 @@ def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
     if top:
         candidate = top["candidate"]
         if candidate["can_start"]:
-            return [candidate["brief_command"], candidate["check_command"]]
+            return _candidate_commands(candidate)
         return candidate.get("next_commands") or [
             f"palari detail {candidate['work_item_id']} --json",
             "palari queue --json",
@@ -233,6 +245,12 @@ def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
         if commands:
             return commands
     return ["palari queue --json", "palari validate --json"]
+
+
+def _candidate_commands(candidate: dict[str, Any]) -> list[str]:
+    if candidate["next_command"] != candidate["brief_command"]:
+        return candidate.get("next_commands") or [candidate["next_command"], candidate["check_command"]]
+    return [candidate["brief_command"], candidate["check_command"]]
 
 
 def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
