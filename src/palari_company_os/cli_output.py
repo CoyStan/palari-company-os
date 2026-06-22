@@ -976,6 +976,8 @@ def print_state(payload: dict[str, Any]) -> None:
         if top.get("next_step_type"):
             print(f"  step: {top['next_step_type']}")
         print(f"  why: {top['why']}")
+        if top.get("agent_handoff_command"):
+            print(f"  agent handoff: {top['agent_handoff_command']}")
         commands = top.get("next_commands") or []
         if commands:
             print(f"  command: {commands[0]}")

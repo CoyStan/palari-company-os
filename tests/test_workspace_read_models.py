@@ -493,6 +493,10 @@ class CliTests(unittest.TestCase):
             state["top_attention"]["next_commands"][0],
             "palari detail WORK-0001 --json",
         )
+        self.assertEqual(
+            state["top_attention"]["agent_handoff_command"],
+            "palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
+        )
         self.assertTrue(scope["allowed"])
 
     def test_cli_state_text_shows_top_attention_command(self) -> None:
@@ -501,6 +505,10 @@ class CliTests(unittest.TestCase):
         self.assertIn("Top attention", result.stdout)
         self.assertIn("WORK-0001: Prepare beta launch checklist", result.stdout)
         self.assertIn("step: human-decision", result.stdout)
+        self.assertIn(
+            "agent handoff: palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
+            result.stdout,
+        )
         self.assertIn("command: palari detail WORK-0001 --json", result.stdout)
 
     def test_cli_queue_text_shows_agent_handoff_bridge(self) -> None:
