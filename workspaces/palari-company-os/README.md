@@ -25,6 +25,11 @@ next-step language. It is intentionally receipt-ready rather than accepted: the
 receipt and evidence are present, and the next step is human review, not more
 autonomous execution.
 
+`WORK-REPO-0007` records the follow-on handoff packet work. It added
+`agent handoff` as the compact bridge from an agent's final check to human
+review or decision, while keeping human action commands separate from
+agent-safe read commands. It is also receipt-ready rather than accepted.
+
 The workspace keeps two active workbenches: `Repo Foundation` for ordinary
 implementation and maintenance work, and `Product Architecture` for authority,
 broker, policy, and task-sizing decisions. That keeps agent packets tied to a
@@ -41,7 +46,9 @@ Useful commands:
 ./bin/palari --workspace workspaces/palari-company-os queue
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0006
+./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0007
 ./bin/palari --workspace workspaces/palari-company-os agent next --as PALARI-STEWARD --json
 ./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0006 --as PALARI-STEWARD --json
+./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0007 --as PALARI-STEWARD --json
 ./bin/palari --workspace workspaces/palari-company-os history
 ```

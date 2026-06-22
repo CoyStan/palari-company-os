@@ -22,7 +22,8 @@
         "WORK-REPO-0001",
         "WORK-REPO-0002",
         "WORK-REPO-0003",
-        "WORK-REPO-0006"
+        "WORK-REPO-0006",
+        "WORK-REPO-0007"
       ],
       "linked_decisions": []
     },
@@ -147,7 +148,8 @@
       "active_work": [
         "WORK-REPO-0002",
         "WORK-REPO-0003",
-        "WORK-REPO-0006"
+        "WORK-REPO-0006",
+        "WORK-REPO-0007"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -253,8 +255,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "0390308",
-      "last_read_at": "2026-06-22T02:58:00Z"
+      "last_seen_revision": "a647edf",
+      "last_read_at": "2026-06-22T03:50:00Z"
     }
   ],
   "workbenches": [
@@ -522,6 +524,48 @@
         "superpowers:systematic-debugging"
       ],
       "current_attempt": "ATTEMPT-REPO-0006"
+    },
+    {
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "README.md",
+        "AGENTS.md",
+        "docs/product",
+        "workspaces/palari-company-os"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "call live integrations",
+        "read secrets",
+        "reintroduce old ticket ceremony"
+      ],
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "agent handoff CLI smokes"
+      ],
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging"
+      ],
+      "id": "WORK-REPO-0007",
+      "title": "Add agent handoff packet contract",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Add a read-only agent handoff packet and route human review or decision states through it.",
+      "acceptance_target": "Agents can hand off review or decision states with compact context while human action commands remain separate from agent-safe reads.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0007",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION"
     }
   ],
   "attempts": [
@@ -647,6 +691,39 @@
       "updated_at": "2026-06-22T02:57:00Z",
       "cleanliness": "clean",
       "result": "Agent next, check, finish, and human-facing queue/state/detail/dashboard surfaces now share next-step classifications and prioritize missing proof commands."
+    },
+    {
+      "commits": [
+        "9b298b4",
+        "a9d4ea5",
+        "a647edf"
+      ],
+      "changed_files": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_agent_packets.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_dashboard.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0007",
+      "work_item_id": "WORK-REPO-0007",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T03:38:00Z",
+      "cleanliness": "clean",
+      "result": "Added read-only agent handoff packets and made agent next finish detail and dashboard surfaces point to the handoff bridge."
     }
   ],
   "evidence_runs": [
@@ -737,6 +814,32 @@
       "summary": "Agent loop readiness surfaces were verified locally; missing-proof commands now appear before generic inspect commands.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T02:58:00Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_agent_packets",
+        "python3 -m unittest tests.test_workspace_read_models tests.test_dashboard tests.test_agent_packets",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0006 --as PALARI-STEWARD --json",
+        "./bin/palari --workspace workspaces/palari-company-os agent next --all --json"
+      ],
+      "artifacts": [
+        "local verifier output",
+        "unit test output",
+        "install smoke output",
+        "agent handoff JSON output",
+        "agent next rollup output"
+      ],
+      "id": "EVIDENCE-REPO-0007",
+      "work_item_id": "WORK-REPO-0007",
+      "attempt_id": "ATTEMPT-REPO-0007",
+      "head_sha": "a647edf",
+      "status": "passed",
+      "summary": "Agent handoff command and routing were verified locally with focused tests full verification install smoke and CLI smokes.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T03:49:00Z"
     }
   ],
   "review_verdicts": [
@@ -929,6 +1032,53 @@
         "SOURCE-REPO-FOUNDATION"
       ],
       "timestamp": "2026-06-22T02:58:00Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "added read-only agent handoff packet",
+        "compiled compact review handoff context",
+        "compiled compact decision handoff context",
+        "separated agent-safe commands from human action commands",
+        "routed agent next and finish to handoff first",
+        "exposed handoff command in work detail and dashboard"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_agent_packets.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_dashboard.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No deployment performed",
+        "No live integrations called",
+        "No secrets read",
+        "No old ticket workflow reintroduced",
+        "No human review or decision recorded"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_finish.py"
+      ],
+      "id": "RECEIPT-REPO-0007",
+      "work_item_id": "WORK-REPO-0007",
+      "attempt_id": "ATTEMPT-REPO-0007",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T03:50:00Z"
     }
   ],
   "decisions": [
