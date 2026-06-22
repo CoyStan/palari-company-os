@@ -51,6 +51,8 @@ workflow from many separate commands. A packet answers:
 - which work item is in scope
 - why the work matters
 - which paths, sources, and actions are allowed
+- source readiness metadata such as data class, authority, steward, freshness,
+  and redaction requirement
 - which actions are forbidden
 - what output is required
 - what receipt, evidence, review, human decision, or integration state matters
@@ -90,6 +92,7 @@ Agents must never:
 - read secrets or raw provider tokens
 - read or write outside `allowed_paths`
 - use sources not listed in `allowed_sources`
+- ignore source readiness fields in `allowed_sources`
 - perform external writes without an approved integration plan and queued
   outbox state
 - create durable memory without a future approved memory contract

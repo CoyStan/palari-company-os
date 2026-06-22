@@ -33,6 +33,8 @@ Follow the packet:
 
 - continue only when `status` is `ready`
 - use only `allowed_paths` and `allowed_sources`
+- respect each allowed source's data class, authority, steward, freshness, and
+  redaction fields
 - produce the declared output and receipt/evidence state
 - stop for every blocker, missing source, human decision, or external write
 - run `palari validate --json` before reporting work as done

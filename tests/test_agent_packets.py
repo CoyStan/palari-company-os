@@ -656,6 +656,11 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("RECEIPT_READY_REVIEW", codes)
         self.assertEqual(packet["dependencies"][0]["id"], "WORK-0003")
         self.assertEqual(packet["allowed_sources"][0]["id"], "SOURCE-0001")
+        self.assertEqual(packet["allowed_sources"][0]["data_class"], "internal")
+        self.assertEqual(packet["allowed_sources"][0]["authority"], "company_owned")
+        self.assertEqual(packet["allowed_sources"][0]["steward_human"], "HUMAN-FOUNDER")
+        self.assertEqual(packet["allowed_sources"][0]["freshness_sla"], "weekly")
+        self.assertFalse(packet["allowed_sources"][0]["redaction_required"])
         self.assertEqual(packet["completion_contract"]["requires_evidence"], False)
         self.assertEqual(
             packet["next_allowed_commands"],

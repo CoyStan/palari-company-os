@@ -371,6 +371,11 @@ def _source_packet(record: dict[str, Any]) -> dict[str, Any]:
         "selected": record.get("selected", False),
         "owner_human": record.get("owner_human", ""),
         "allowed_palaris": record.get("allowed_palaris", []),
+        "data_class": record.get("data_class", ""),
+        "authority": record.get("authority", ""),
+        "steward_human": record.get("steward_human", ""),
+        "freshness_sla": record.get("freshness_sla", ""),
+        "redaction_required": record.get("redaction_required", False),
         "last_seen_revision": record.get("last_seen_revision", ""),
         "last_read_at": record.get("last_read_at", ""),
     }
