@@ -24,7 +24,8 @@
         "WORK-REPO-0003",
         "WORK-REPO-0006",
         "WORK-REPO-0007",
-        "WORK-REPO-0008"
+        "WORK-REPO-0008",
+        "WORK-REPO-0009"
       ],
       "linked_decisions": []
     },
@@ -151,7 +152,8 @@
         "WORK-REPO-0003",
         "WORK-REPO-0006",
         "WORK-REPO-0007",
-        "WORK-REPO-0008"
+        "WORK-REPO-0008",
+        "WORK-REPO-0009"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -257,8 +259,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "2596f66",
-      "last_read_at": "2026-06-22T04:39:00Z"
+      "last_seen_revision": "ba99f37",
+      "last_read_at": "2026-06-22T04:55:00Z"
     }
   ],
   "workbenches": [
@@ -612,6 +614,42 @@
       "acceptance_target": "Agents can tell whether they are in execute or review mode and can see the right packet/check command without guessing.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0008"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/integrations.py",
+        "src/palari_company_os/integration_contracts.py",
+        "tests/test_integrations.py",
+        "docs/product"
+      ],
+      "forbidden_actions": [
+        "call live integrations",
+        "read secrets",
+        "add dependencies",
+        "reintroduce old ticket ceremony"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_integrations tests.test_validation",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0009",
+      "title": "Harden dry-run integration validation",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Fail closed when hand-edited dry-run integration records declare unsupported provider actions, raw secret-looking plan payloads, or outbox payloads that differ from the approved plan.",
+      "acceptance_target": "Workspace validation catches unsupported provider/action declarations, raw integration plan payload secrets, and outbox payload/source-boundary drift before any future execution boundary.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0009"
     }
   ],
   "attempts": [
@@ -800,6 +838,29 @@
       "started_at": "2026-06-22T04:05:00Z",
       "cleanliness": "clean",
       "result": "Clarified agent review and mode command surfaces for detail dashboard next check text output and review handoff text."
+    },
+    {
+      "commits": [
+        "ba99f37"
+      ],
+      "changed_files": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/integrations.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "docs/product/schema-and-validation.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0009",
+      "work_item_id": "WORK-REPO-0009",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T04:45:00Z",
+      "cleanliness": "clean",
+      "result": "Hardened dry-run integration validation by sharing provider/action support, scanning plan payload previews for raw secrets, and requiring outbox previews and source boundaries to match approved plans."
     }
   ],
   "evidence_runs": [
@@ -947,6 +1008,28 @@
       "summary": "Agent review mode command ergonomics and handoff text focus passed focused tests full verification unit discovery install smoke and CLI smokes.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T04:39:00Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_integrations tests.test_validation",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused integration validation test output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0009",
+      "work_item_id": "WORK-REPO-0009",
+      "attempt_id": "ATTEMPT-REPO-0009",
+      "head_sha": "ba99f37",
+      "status": "passed",
+      "summary": "Dry-run integration validation hardening passed focused integration/validation tests, full verification, full unit discovery, and install smoke.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T04:55:00Z"
     }
   ],
   "review_verdicts": [
@@ -1228,6 +1311,44 @@
       "attempt_id": "ATTEMPT-REPO-0008",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T04:28:00Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "shared provider action matrix between planner and validator",
+        "blocked unsupported provider actions in workspace validation",
+        "blocked raw secret-looking integration plan payloads",
+        "blocked outbox payload and source boundary drift from approved plans",
+        "updated docs and regression tests"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/integrations.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "docs/product/schema-and-validation.md",
+        "docs/product/command-reference.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No live integrations called",
+        "No secrets read",
+        "No dependencies added",
+        "No old ticket workflow reintroduced",
+        "No deployment performed"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/integrations.py",
+        "src/palari_company_os/validation.py"
+      ],
+      "id": "RECEIPT-REPO-0009",
+      "work_item_id": "WORK-REPO-0009",
+      "attempt_id": "ATTEMPT-REPO-0009",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T04:55:00Z"
     }
   ],
   "decisions": [
