@@ -205,6 +205,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
             "palari agent finish WORK-0007 --as PALARI-SOFIA --json",
         )
         self.assertEqual(
+            payload["agent_commands"]["loop"],
+            "palari agent loop WORK-0007 --as PALARI-SOFIA --json",
+        )
+        self.assertEqual(
             payload["agent_commands"]["handoff"],
             "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
         )

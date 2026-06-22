@@ -529,6 +529,7 @@ def _agent_commands(work: Any, next_step_type: str = "") -> dict[str, str]:
         "start": f"palari agent start {work.id} --as {work.palari} --mode execute --json",
         "check": f"palari agent check {work.id} --as {work.palari} --mode execute --json",
         "finish": f"palari agent finish {work.id} --as {work.palari} --json",
+        "loop": f"palari agent loop {work.id} --as {work.palari} --json",
         "handoff": f"palari agent handoff {work.id} --as {work.palari} --json",
     }
     if next_step_type == "review-handoff":
