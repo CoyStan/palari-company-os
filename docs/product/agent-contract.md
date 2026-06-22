@@ -27,8 +27,9 @@ The v1 loop is:
 5. Stop if the packet is blocked or a stop condition is reached.
 6. Produce the required output and trust records.
 7. Run `palari agent check WORK-ID --as PALARI-ID --json`.
-8. Run `palari validate --json`.
-9. Report the packet status, compliance checks, changed files, and remaining blockers.
+8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
+9. Run `palari validate --json`.
+10. Report the packet status, finish guidance, changed files, checks, and blockers.
 
 ## Packet Purpose
 
@@ -94,9 +95,11 @@ Implemented:
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --json`
+- `palari agent finish WORK-ID --as PALARI-ID --json`
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
+- read-only completion report guidance
 - deterministic blocker codes
 - packet context hash
 - direct work, goal, workbench, source, dependency, proof, and integration state
@@ -104,7 +107,6 @@ Implemented:
 Not implemented yet:
 
 - claim/lease files
-- `palari agent finish`
 - packet expansion
 - review/planning/repair modes
 - live connector execution
@@ -119,3 +121,8 @@ a valid receipt without requiring review or human approval.
 `agent next` reads the current queue for one Palari, puts safe-to-start
 candidates first, and keeps blocked or waiting visible with blocker codes. It
 does not create a claim, mutate state, or assign work.
+
+`agent finish` wraps `agent check` into final-report guidance. It never mutates
+workspace state in v1. It distinguishes missing proof from handoff-ready work,
+such as low-risk receipt-ready results that should stop execution and move to a
+human review path.

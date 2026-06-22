@@ -109,6 +109,7 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ```
 
 Run against another workspace:

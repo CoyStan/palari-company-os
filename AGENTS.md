@@ -24,6 +24,7 @@ Follow the packet:
 - stop for every blocker, missing source, human decision, or external write
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --json` before claiming done
+- run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 
 Never:
 

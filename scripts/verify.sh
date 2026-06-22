@@ -29,6 +29,8 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari agent start WORK-0007 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-start-blocked.json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0003.json
 ./bin/palari agent check WORK-0007 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0007.json
+./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-finish-work-0003.json
+./bin/palari agent finish WORK-0007 --as PALARI-SOFIA --json >/tmp/palari-company-agent-finish-work-0007.json
 ./bin/palari playbooks sources --json >/tmp/palari-company-playbook-sources.json
 ./bin/palari playbooks recommend WORK-0003 --json >/tmp/palari-company-playbook-recommend.json
 ./bin/palari integrations --json >/tmp/palari-company-integrations.json
@@ -77,6 +79,9 @@ grep -q '"schema_version": "palari.agent_check.v1"' /tmp/palari-company-agent-ch
 grep -q '"ok": false' /tmp/palari-company-agent-check-work-0003.json
 grep -q 'RECEIPT_PRESENT' /tmp/palari-company-agent-check-work-0003.json
 grep -q 'DEPENDENCY_NOT_TERMINAL' /tmp/palari-company-agent-check-work-0007.json
+grep -q '"schema_version": "palari.agent_finish.v1"' /tmp/palari-company-agent-finish-work-0003.json
+grep -q '"status": "missing-proof"' /tmp/palari-company-agent-finish-work-0003.json
+grep -q '"status": "handoff-ready"' /tmp/palari-company-agent-finish-work-0007.json
 grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan.json
 grep -q '"recorded": true' /tmp/palari-company-integration-plan-recorded.json

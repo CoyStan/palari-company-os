@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_next import build_agent_next
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.workspace import Workspace
@@ -69,6 +70,60 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertIn("candidates", result)
         self.assertEqual(result["candidates"][0]["can_start"], True)
+
+    def test_agent_finish_missing_proof_does_not_allow_completion_claim(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_finish(workspace, "WORK-0003", "PALARI-SOFIA")
+        missing_codes = {item["code"] for item in result["missing_requirements"]}
+
+        self.assertEqual(result["schema_version"], "palari.agent_finish.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["can_finish"], False)
+        self.assertEqual(result["handoff_ready"], False)
+        self.assertEqual(result["would_mutate"], False)
+        self.assertIn("RECEIPT_PRESENT", missing_codes)
+        self.assertIn("EVIDENCE_PRESENT", missing_codes)
+
+    def test_agent_finish_low_risk_receipt_ready_hands_off_to_human(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_finish(workspace, "WORK-0007", "PALARI-SOFIA")
+
+        self.assertEqual(result["status"], "handoff-ready")
+        self.assertEqual(result["can_finish"], False)
+        self.assertEqual(result["handoff_ready"], True)
+        self.assertEqual(result["missing_requirements"], [])
+        self.assertIn(
+            "RECEIPT_PRESENT",
+            {item["code"] for item in result["completed_requirements"]},
+        )
+        self.assertIn(
+            "RECEIPT_READY_REVIEW",
+            {blocker["code"] for blocker in result["blockers"]},
+        )
+
+    def test_agent_finish_human_decision_required_remains_blocked(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_finish(workspace, "WORK-0001", "PALARI-SOFIA")
+
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["can_finish"], False)
+        self.assertIn(
+            "HUMAN_DECISION_PRESENT",
+            {item["code"] for item in result["missing_requirements"]},
+        )
+
+    def test_cli_agent_finish_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli("agent", "finish", "WORK-0003", "--as", "PALARI-SOFIA", "--json").stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_finish.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["can_finish"], False)
+        self.assertEqual(result["would_mutate"], False)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)

@@ -70,6 +70,7 @@ forbidden actions.
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ```
 
 `agent next` reads the current queue for one Palari, ranks safe-to-start
@@ -94,6 +95,12 @@ next safe commands. A ready-to-start packet can still produce `ok: false` when
 the attempt is missing required receipt, evidence, review, or human-decision
 records. Light low-risk receipt-ready work can satisfy the receipt requirement
 without forcing review or human approval.
+
+`agent finish` is a read-only final-report helper. It wraps `agent check` and
+returns whether the agent may claim completion, whether the work should be
+handed off to a human, missing requirements, completed requirements, blockers,
+and report guidance. It does not close work, record receipts, mutate history, or
+perform external actions.
 
 ## Playbooks
 

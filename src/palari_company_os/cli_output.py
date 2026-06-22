@@ -82,6 +82,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_check(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-finish":
+        print_agent_finish(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -462,6 +466,36 @@ def print_agent_check(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {check['code']} [{marker}, {required}]: {check['message']}")
         if check.get("next_command"):
             print(f"    next: {check['next_command']}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent finish: {payload['finish_id']}")
+    print(f"Status: {payload['status']}")
+    print(f"Can finish: {_yes_no(payload['can_finish'])}")
+    print(f"Handoff ready: {_yes_no(payload['handoff_ready'])}")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    if payload.get("missing_requirements"):
+        print("Missing requirements:")
+        for item in payload["missing_requirements"]:
+            print(f"  - {item['code']}: {item['message']}")
+            if item.get("next_command"):
+                print(f"    next: {item['next_command']}")
+    if payload.get("blockers"):
+        print("Blockers:")
+        for blocker in payload["blockers"]:
+            print(f"  - {blocker['code']}: {blocker['message']}")
+    print(f"Guidance: {payload['report_guidance']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

@@ -18,6 +18,7 @@ wheel_path="$(find "$tmp_dir/wheelhouse" -name 'palari_company_os-*.whl' -print 
 "$tmp_dir/venv/bin/palari" agent next --as PALARI-SOFIA --json >/tmp/palari-company-os-install-smoke-agent-next.json
 "$tmp_dir/venv/bin/palari" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-os-install-smoke-agent-brief.json
 "$tmp_dir/venv/bin/palari" agent check WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-os-install-smoke-agent-check.json
+"$tmp_dir/venv/bin/palari" agent finish WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-os-install-smoke-agent-finish.json
 "$tmp_dir/venv/bin/palari" integrations --json >/tmp/palari-company-os-install-smoke-integrations.json
 "$tmp_dir/venv/bin/palari" integration check INT-SLACK-OPS --json >/tmp/palari-company-os-install-smoke-integration-check.json
 "$tmp_dir/venv/bin/palari" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >/tmp/palari-company-os-install-smoke-integration-plan.json
