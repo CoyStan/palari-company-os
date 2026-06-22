@@ -34,6 +34,9 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("src/palari_company_os/workspace.py", payload["attempt"]["changed_files"])
         self.assertEqual(payload["receipt"]["id"], "RECEIPT-REPO-0003")
         self.assertIn("Confirm forbidden actions", " ".join(payload["review_focus"]))
+        self.assertEqual(payload["reviewer_candidates"][0]["id"], "HUMAN-MAINTAINER")
+        self.assertIn("technical-review", payload["reviewer_candidates"][0]["approval_capabilities"])
+        self.assertIn("separate from acceptance", payload["reviewer_candidates"][1]["reason"])
         self.assertIn("--verdict VERDICT", payload["review_record_command_template"])
 
     def test_review_guide_reports_missing_evidence(self) -> None:
@@ -90,6 +93,13 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], "palari.review_guide.v1")
         self.assertEqual(result["status"], "review-needed")
         self.assertEqual(result["work_item"]["id"], "WORK-REPO-0003")
+
+    def test_cli_review_guide_text_shows_reviewer_candidates(self) -> None:
+        result = self.run_cli("review", "guide", "WORK-REPO-0006")
+
+        self.assertIn("Reviewer candidates:", result.stdout)
+        self.assertIn("HUMAN-MAINTAINER", result.stdout)
+        self.assertIn("technical-review capability", result.stdout)
 
     def test_cli_agent_next_text_prints_start_blockers(self) -> None:
         result = self.run_cli("agent", "next", "--as", "PALARI-STEWARD")

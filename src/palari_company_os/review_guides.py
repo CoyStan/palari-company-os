@@ -38,6 +38,9 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "attempt": _attempt_summary(attempt),
         "receipt": _receipt_summary(receipt),
         "review_focus": review_focus,
+        "reviewer_candidates": _reviewer_candidates(
+            workspace, payload.get("workbench"), work.get("required_approval_capability", "")
+        ),
         "suggested_verdicts": ["accept-ready", "changes-requested", "needs-human-decision", "blocked"],
         "review_record_command_template": _review_record_command_template(work_id, evidence),
         "next_commands": _next_commands(work_id),
@@ -145,6 +148,55 @@ def _review_focus(payload: dict[str, Any]) -> list[str]:
     if payload.get("review") is not None:
         focus.append("A review already exists; verify whether it still matches the latest evidence head.")
     return focus
+
+
+def _reviewer_candidates(
+    workspace: Workspace, workbench: dict[str, Any] | None, required_capability: str
+) -> list[dict[str, Any]]:
+    workbench_humans = set((workbench or {}).get("human_ids", []))
+    candidates: list[dict[str, Any]] = []
+    for human in workspace.humans:
+        if human.availability == "inactive":
+            continue
+        if workbench_humans and human.id not in workbench_humans:
+            continue
+        capabilities = list(human.approval_capabilities)
+        reason = _reviewer_reason(human.authority_level, capabilities, required_capability)
+        candidates.append(
+            {
+                "id": human.id,
+                "name": human.name,
+                "role": human.role,
+                "authority_level": human.authority_level,
+                "approval_capabilities": capabilities,
+                "reason": reason,
+            }
+        )
+    return sorted(candidates, key=_reviewer_sort_key)
+
+
+def _reviewer_reason(
+    authority_level: str, capabilities: list[str], required_capability: str
+) -> str:
+    if "technical-review" in capabilities:
+        return "Has technical-review capability for independent inspection."
+    if required_capability and required_capability in capabilities:
+        return (
+            f"Has {required_capability} approval capability; review is still separate from acceptance."
+        )
+    if authority_level == "admin":
+        return "Has admin authority in this workbench; review remains advisory until a decision is recorded."
+    return "Assigned to this workbench."
+
+
+def _reviewer_sort_key(candidate: dict[str, Any]) -> tuple[int, str]:
+    capabilities = set(candidate["approval_capabilities"])
+    score = 0
+    if "technical-review" in capabilities:
+        score -= 3
+    if candidate["authority_level"] == "admin":
+        score -= 1
+    return (score, candidate["id"])
 
 
 def _review_record_command_template(work_id: str, evidence: dict[str, Any] | None) -> str:

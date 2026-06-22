@@ -91,9 +91,9 @@ forbidden actions.
 
 `review guide` is read-only. It assembles the selected work item, workbench,
 Palari, attempt, evidence, receipt, changed files, suggested review focus,
-possible verdicts, and a neutral review-record command template. It does not
-record a review verdict, approve work, mutate history, or replace human
-judgment.
+advisory reviewer candidates from the workbench humans, possible verdicts, and
+a neutral review-record command template. It does not record a review verdict,
+approve work, mutate history, or replace human judgment.
 
 `review record` is the explicit write path for a review verdict. Use it only
 after inspecting the evidence and receipt.

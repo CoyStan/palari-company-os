@@ -607,6 +607,11 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
     print("Review focus:")
     for item in payload["review_focus"]:
         print(f"  - {item}")
+    candidates = payload.get("reviewer_candidates", [])
+    if candidates:
+        print("Reviewer candidates:")
+        for candidate in candidates:
+            print(f"  - {candidate['id']} ({candidate['name']}): {candidate['reason']}")
     print("Suggested verdicts:")
     print(f"  {', '.join(payload['suggested_verdicts'])}")
     print("Record template:")
