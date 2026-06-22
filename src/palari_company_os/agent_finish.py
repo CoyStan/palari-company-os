@@ -56,7 +56,7 @@ def build_agent_finish(
             if item.get("required") and item.get("status") == "pass"
         ],
         "blockers": check.get("blockers", []),
-        "handoff_guidance": _handoff_guidance(check),
+        "handoff_guidance": _handoff_guidance(check, _linked_decision_command(workspace, work_id)),
         "next_allowed_commands": _next_commands(check),
         "report_guidance": _report_guidance(status, mode),
     }
@@ -98,7 +98,10 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     return commands
 
 
-def _handoff_guidance(check: dict[str, Any]) -> list[dict[str, str]]:
+def _handoff_guidance(
+    check: dict[str, Any],
+    linked_decision_command: str | None = None,
+) -> list[dict[str, str]]:
     guidance: list[dict[str, str]] = []
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
@@ -114,15 +117,29 @@ def _handoff_guidance(check: dict[str, Any]) -> list[dict[str, str]]:
             }
         )
     if "HUMAN_DECISION_REQUIRED" in blocker_codes:
+        decision_command = linked_decision_command or _first_decision_command(check)
+        if linked_decision_command or decision_command.startswith("palari decision guide "):
+            code = "DECISION_HANDOFF"
+            message = "Use agent handoff for required human authority and suggested decision update commands."
+        else:
+            code = "HUMAN_APPROVAL_HANDOFF"
+            message = "Use agent handoff for required work approval and human-only acceptance commands."
         guidance.append(
             {
-                "code": "DECISION_HANDOFF",
-                "message": "Use agent handoff for required human authority and suggested decision update commands.",
+                "code": code,
+                "message": message,
                 "command": handoff_command,
-                "guide_command": _first_decision_command(check),
+                "guide_command": decision_command,
             }
         )
     return guidance
+
+
+def _linked_decision_command(workspace: Workspace, work_id: str) -> str | None:
+    for decision in workspace.decisions:
+        if decision.linked_work == work_id:
+            return f"palari decision guide {decision.id} --json"
+    return None
 
 
 def _first_decision_command(check: dict[str, Any]) -> str:

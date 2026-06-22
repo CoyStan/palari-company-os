@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import html as html_lib
 import json
 import os
+import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -81,6 +84,25 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("human-decision", html)
         self.assertIn("Authority", html)
 
+    def test_dashboard_read_only_command_hints_are_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_dashboard(ACME, directory)
+            html = Path(result.index_path).read_text(encoding="utf-8")
+
+        commands = {
+            html_lib.unescape(command)
+            for command in re.findall(r"<code>(palari .*?)</code>", html)
+        }
+        read_only_commands = sorted(
+            command
+            for command in commands
+            if _is_read_only_command_hint(command)
+        )
+        self.assertGreater(len(read_only_commands), 0)
+        for command in read_only_commands:
+            with self.subTest(command=command):
+                self.run_cli("--workspace", str(ACME), *shlex.split(command)[1:])
+
     def test_dashboard_uses_real_tab_panels(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_dashboard(ACME, directory)
@@ -122,6 +144,19 @@ class DashboardTests(unittest.TestCase):
             text=True,
             timeout=30,
         )
+
+
+def _is_read_only_command_hint(command: str) -> bool:
+    return command.startswith(
+        (
+            "palari agent ",
+            "palari detail ",
+            "palari queue ",
+            "palari validate ",
+            "palari review guide ",
+            "palari decision guide ",
+        )
+    )
 
 
 if __name__ == "__main__":

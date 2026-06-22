@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -68,8 +69,8 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("WORK-0001", by_id)
         self.assertEqual(by_id["WORK-0001"]["can_start"], False)
         self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0001"]["blocker_codes"])
-        self.assertEqual(by_id["WORK-0001"]["handoff_guidance"][0]["code"], "DECISION_HANDOFF")
-        self.assertIn("decision guide", by_id["WORK-0001"]["handoff_guidance"][0]["message"])
+        self.assertEqual(by_id["WORK-0001"]["handoff_guidance"][0]["code"], "HUMAN_APPROVAL_HANDOFF")
+        self.assertIn("approval context", by_id["WORK-0001"]["handoff_guidance"][0]["message"])
         self.assertIn("PACKET_BLOCKED", by_id["WORK-0001"]["start_blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0001"]["start_blocker_codes"])
         self.assertIn("WORK-0007", by_id)
@@ -608,6 +609,63 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("'result=keep disabled'", human_commands)
         self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
         self.assertEqual(result["human_action_boundary"]["count"], len(result["human_action_commands"]))
+
+    def test_agent_handoff_human_approval_compiles_work_approval_context(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_handoff(workspace, "WORK-0001", "PALARI-SOFIA")
+
+        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
+        self.assertEqual(result["handoff_types"], ["human-approval"])
+        self.assertEqual(result["handoff_available"], True)
+        self.assertEqual(result["next_step_type"], "human-decision")
+        self.assertIsNone(result["review_handoff"])
+        self.assertIsNone(result["decision_handoff"])
+        approval = result["human_approval_handoff"]
+        self.assertIsNotNone(approval)
+        self.assertEqual(approval["work_item"]["id"], "WORK-0001")
+        self.assertEqual(approval["approval_progress"], "0/1")
+        self.assertEqual(approval["required_approval_capability"], "product")
+        self.assertEqual(approval["approval_candidates"][0]["id"], "HUMAN-FOUNDER")
+        self.assertIn("Receipt state is missing", " ".join(approval["approval_focus"]))
+        self.assertEqual(
+            result["next_allowed_commands"][:2],
+            ["palari detail WORK-0001 --json", "palari queue --json"],
+        )
+        commands = "\n".join(item["command"] for item in result["human_action_commands"])
+        self.assertIn("palari human-decision record", commands)
+        self.assertNotIn("'palari human-decision record'", commands)
+        self.assertIn("--decision accepted", commands)
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+
+    def test_emitted_agent_safe_commands_for_human_approval_work_execute(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        queue_payload = json.loads(self.run_cli("queue", "--json").stdout)
+        queue_item = {
+            item["id"]: item for item in queue_payload["queue"]
+        }["WORK-0001"]
+        next_payload = build_agent_next(workspace, "PALARI-SOFIA", limit=20)
+        candidate = {
+            item["work_item_id"]: item for item in next_payload["candidates"]
+        }["WORK-0001"]
+        loop_payload = build_agent_loop(workspace, "WORK-0001", "PALARI-SOFIA")
+        doctor_payload = build_agent_doctor(workspace, "WORK-0001", "PALARI-SOFIA")
+        handoff_payload = build_agent_handoff(workspace, "WORK-0001", "PALARI-SOFIA")
+
+        commands = [
+            queue_item["agent_handoff_command"],
+            queue_item["agent_loop_command"],
+            *queue_item["next_commands"],
+            candidate["next_command"],
+            *candidate["next_commands"],
+            loop_payload["commands"]["handoff"],
+            *loop_payload["next_allowed_commands"],
+            *doctor_payload["recommended_commands"],
+            *handoff_payload["next_allowed_commands"],
+        ]
+        for command in sorted(set(commands)):
+            with self.subTest(command=command):
+                self.run_cli(*shlex.split(command)[1:])
 
     def test_cli_agent_handoff_emits_json_shape(self) -> None:
         result = json.loads(

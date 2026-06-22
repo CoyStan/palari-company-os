@@ -104,7 +104,13 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
-        handoff_guidance = _handoff_guidance(work.id, item, blocker_codes, palari_id)
+        handoff_guidance = _handoff_guidance(
+            work.id,
+            item,
+            blocker_codes,
+            palari_id,
+            _linked_decision_command(workspace, work.id),
+        )
         next_command = _candidate_next_command(item, can_start, brief_command, handoff_guidance)
         doctor_command = _doctor_command(work.id, palari_id, mode)
         loop_command = _loop_command(work.id, palari_id, mode)
@@ -280,6 +286,7 @@ def _handoff_guidance(
     item: Any,
     blocker_codes: list[str],
     palari_id: str,
+    linked_decision_command: str | None = None,
 ) -> list[dict[str, str]]:
     guidance: list[dict[str, str]] = []
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
@@ -293,15 +300,32 @@ def _handoff_guidance(
             }
         )
     if item.next_step_type == "human-decision" or "HUMAN_DECISION_REQUIRED" in blocker_codes:
+        guide_command = (
+            linked_decision_command
+            or (item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json")
+        )
+        if linked_decision_command or guide_command.startswith("palari decision guide "):
+            code = "DECISION_HANDOFF"
+            message = "Use agent handoff; it includes the decision guide and suggested decision update commands."
+        else:
+            code = "HUMAN_APPROVAL_HANDOFF"
+            message = "Use agent handoff; it includes approval context and human-only acceptance commands."
         guidance.append(
             {
-                "code": "DECISION_HANDOFF",
-                "message": "Use agent handoff; it includes the decision guide and suggested decision update commands.",
+                "code": code,
+                "message": message,
                 "command": handoff_command,
-                "guide_command": item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json",
+                "guide_command": guide_command,
             }
         )
     return guidance
+
+
+def _linked_decision_command(workspace: Workspace, work_id: str) -> str | None:
+    for decision in workspace.decisions:
+        if decision.linked_work == work_id:
+            return f"palari decision guide {decision.id} --json"
+    return None
 
 
 def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:

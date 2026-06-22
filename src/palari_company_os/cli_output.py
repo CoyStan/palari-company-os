@@ -693,6 +693,30 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
             print("  suggested update commands:")
             for item in commands_for_results:
                 print(f"    - {item['result']}: {item['command']}")
+    approval = payload.get("human_approval_handoff")
+    if approval:
+        print("Human approval handoff:")
+        print(f"  status: {approval['status']}")
+        print(f"  command: {approval['command']}")
+        print(f"  approval progress: {approval.get('approval_progress', '')}")
+        print(f"  required approvals: {approval.get('required_approval_count', 0)}")
+        if approval.get("required_approval_capability"):
+            print(f"  required capability: {approval['required_approval_capability']}")
+        focus = approval.get("approval_focus", [])
+        if focus:
+            print("  approval focus:")
+            for item in focus:
+                print(f"    - {item}")
+        candidates = approval.get("approval_candidates", [])
+        if candidates:
+            print("  approval candidates:")
+            for candidate in candidates:
+                print(f"    - {candidate['id']} ({candidate['name']})")
+        record_commands = approval.get("human_decision_record_commands", [])
+        if record_commands:
+            print("  human decision record commands:")
+            for item in record_commands:
+                print(f"    - {item['human_id']} {item['decision']}: {item['command']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next agent-safe commands:")
