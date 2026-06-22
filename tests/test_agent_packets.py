@@ -246,6 +246,18 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("handoff: REVIEW_HANDOFF", result.stdout)
         self.assertIn("ready-to-edit review record commands", result.stdout)
 
+    def test_cli_agent_next_text_prints_mode(self) -> None:
+        result = self.run_cli(
+            "agent",
+            "next",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "review",
+        )
+
+        self.assertIn("Mode: review", result.stdout)
+
     def test_cli_agent_next_all_emits_json_shape(self) -> None:
         result = json.loads(
             self.run_cli(
@@ -274,6 +286,19 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
         self.assertEqual(len(result["agents"]), 2)
+
+    def test_cli_agent_next_all_text_prints_mode(self) -> None:
+        result = self.run_cli(
+            "--workspace",
+            str(DOGFOOD),
+            "agent",
+            "next",
+            "--all",
+            "--mode",
+            "review",
+        )
+
+        self.assertIn("Mode: review", result.stdout)
 
     def test_agent_finish_missing_proof_does_not_allow_completion_claim(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -787,6 +812,19 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["next_step_type"], "check-active-proof")
         self.assertIn("checks", result)
         self.assertIn("next_allowed_commands", result)
+
+    def test_cli_agent_check_text_prints_mode(self) -> None:
+        result = self.run_cli(
+            "agent",
+            "check",
+            "WORK-0003",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "execute",
+        )
+
+        self.assertIn("Mode: execute", result.stdout)
 
     def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
         return {check["code"]: check for check in result["checks"]}

@@ -449,6 +449,7 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
     agent = payload["agent"]
     print(f"Agent next: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Status: {payload['status']}")
+    print(f"Mode: {payload.get('mode', 'execute')}")
     print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
     blockers = payload.get("blockers", [])
     if blockers:
@@ -489,6 +490,7 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
         return
     print(f"Agent next rollup: {payload['workspace']}")
     print(f"Status: {payload['status']}")
+    print(f"Mode: {payload.get('mode', 'execute')}")
     print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
     top = payload.get("top_candidate")
     if top:
@@ -529,6 +531,7 @@ def print_agent_check(payload: dict[str, Any], as_json: bool) -> None:
     agent = payload["agent"]
     print(f"Agent check: {payload['check_id']}")
     print(f"OK: {_yes_no(payload['ok'])}")
+    print(f"Mode: {payload.get('mode', 'execute')}")
     print(f"Packet: {payload['packet_id']} ({payload['packet_status']})")
     print(f"Step: {payload.get('next_step_type', 'inspect')}")
     print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
