@@ -21,6 +21,7 @@ Use the ACME example when testing an agent that is doing work:
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
 ```
 
 Expected result:
@@ -32,6 +33,8 @@ Expected result:
   records are still missing.
 - `agent finish` tells the agent whether it may claim completion or must keep
   preparing proof or hand off to a human.
+- `agent loop` summarizes the same read-only sequence and points to the detailed
+  stage commands without dumping every payload.
 
 Do not treat a ready packet as completion. Completion is only credible after
 `agent check` and `agent finish` agree that the required trust records are
@@ -47,6 +50,7 @@ Use the dogfood workspace when testing a reviewer or supervisor handoff:
 ./bin/palari --workspace workspaces/palari-company-os agent check WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
 ./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
 ./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json
+./bin/palari --workspace workspaces/palari-company-os agent loop WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
 ```
 
 Expected result:

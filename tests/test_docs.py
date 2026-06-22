@@ -23,6 +23,7 @@ class DocumentationTests(unittest.TestCase):
             "./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
             "./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
             "./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json",
+            "./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json",
             "./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
             "human_action_boundary",
             "human_action_commands",

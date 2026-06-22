@@ -31,8 +31,10 @@ The v1 loop is:
 8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
 9. If the result is a human review or decision handoff, run
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
-10. Run `palari validate --json`.
-11. Report the packet status, finish guidance, changed files, checks, and blockers.
+10. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
+    compact summary of the current brief/check/finish/handoff state.
+11. Run `palari validate --json`.
+12. Report the packet status, finish guidance, changed files, checks, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -113,11 +115,13 @@ Implemented:
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
+- `palari agent loop WORK-ID --as PALARI-ID --json`
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - read-only completion report guidance
 - read-only human handoff packets
+- compact read-only agent loop summaries
 - deterministic blocker codes
 - packet context hash
 - direct work, goal, workbench, source, dependency, proof, and integration state
@@ -185,3 +189,8 @@ commands inside `review_context` because those are useful to the supervising
 human. They also include `human_action_boundary`, which states that the agent
 may quote or summarize those commands but must not execute them, claim to be the
 reviewer, or convert a recommendation into human acceptance.
+
+`agent loop` is a compact read-only control surface over the same commands. It
+summarizes `brief`, `check`, `finish`, and handoff status, includes the exact
+stage commands, and omits detailed payloads so agents can orient quickly without
+receiving the whole workspace.

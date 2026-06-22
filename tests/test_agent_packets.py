@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_checks import build_agent_check
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
+from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.workspace import Workspace
@@ -933,6 +934,60 @@ class AgentPacketTests(unittest.TestCase):
         )
 
         self.assertIn("Mode: execute", result.stdout)
+
+    def test_agent_loop_summarizes_existing_read_only_steps(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_loop(workspace, "WORK-0003", "PALARI-SOFIA")
+        stages = {stage["name"]: stage for stage in result["stages"]}
+
+        self.assertEqual(result["schema_version"], "palari.agent_loop.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["next_step_type"], "check-active-proof")
+        self.assertEqual(result["would_mutate"], False)
+        self.assertEqual(result["commands"]["brief"], stages["brief"]["command"])
+        self.assertEqual(result["commands"]["check"], stages["check"]["command"])
+        self.assertEqual(result["commands"]["finish"], stages["finish"]["command"])
+        self.assertNotIn("handoff", result["commands"])
+        self.assertEqual(stages["brief"]["status"], "ready")
+        self.assertEqual(stages["check"]["status"], "fail")
+        self.assertIn("RECEIPT_PRESENT", stages["check"]["failed_required_checks"])
+        self.assertIn("EVIDENCE_PRESENT", stages["check"]["failed_required_checks"])
+        self.assertIn("Run the stage commands", result["omitted_context"][0]["reason"])
+
+    def test_agent_loop_includes_human_boundary_for_handoff(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_loop(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
+        stages = {stage["name"]: stage for stage in result["stages"]}
+
+        self.assertEqual(result["status"], "handoff-required")
+        self.assertEqual(result["next_step_type"], "review-handoff")
+        self.assertIn("handoff", result["commands"])
+        self.assertEqual(stages["handoff"]["status"], "available")
+        self.assertEqual(stages["handoff"]["handoff_types"], ["review"])
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(
+            result["human_action_boundary"]["human_only_command_fields"],
+            ["human_action_commands[].command"],
+        )
+
+    def test_cli_agent_loop_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli("agent", "loop", "WORK-0003", "--as", "PALARI-SOFIA", "--json").stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_loop.v1")
+        self.assertEqual(result["loop_id"], "LOOP-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
+        self.assertEqual([stage["name"] for stage in result["stages"]], ["brief", "check", "finish"])
+        self.assertIn("next_allowed_commands", result)
+
+    def test_cli_agent_loop_text_prints_stage_commands(self) -> None:
+        result = self.run_cli("agent", "loop", "WORK-0003", "--as", "PALARI-SOFIA")
+
+        self.assertIn("Agent loop: LOOP-WORK-0003-PALARI-SOFIA-EXECUTE-V1", result.stdout)
+        self.assertIn("Stages:", result.stdout)
+        self.assertIn("palari agent brief WORK-0003 --as PALARI-SOFIA", result.stdout)
 
     def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
         return {check["code"]: check for check in result["checks"]}

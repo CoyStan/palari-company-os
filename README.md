@@ -122,6 +122,7 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari review guide WORK-0003 --json
 ```
 
@@ -139,7 +140,9 @@ agent-safe reads. For work that is already waiting for review or receipt-ready,
 `agent brief --mode review` returns a read-only reviewer packet with review
 focus, attempt/evidence/receipt context, and review guide commands. In review
 mode, `agent finish` means the agent may report a review recommendation, not
-record a human review or claim the original work item is complete.
+record a human review or claim the original work item is complete. `agent loop`
+summarizes the current brief/check/finish/handoff state when an agent needs the
+whole control flow without dumping every detailed payload.
 
 Run against another workspace:
 

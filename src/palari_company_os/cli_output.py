@@ -104,6 +104,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_handoff(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-loop":
+        print_agent_loop(result.payload, result.as_json)
+        return
+
     if result.kind == "review-guide":
         print_review_guide(result.payload, result.as_json)
         return
@@ -687,6 +691,35 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         for item in human_commands:
             detail = f" ({item.get('result', item.get('actor', ''))})"
             print(f"  - {item['type']}{detail}: {item['command']}")
+
+
+def print_agent_loop(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent loop: {payload['loop_id']}")
+    print(f"Status: {payload['status']}")
+    print(f"Mode: {payload.get('mode', 'execute')}")
+    print(f"Step: {payload.get('next_step_type', 'inspect')}")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    print("Stages:")
+    for stage in payload.get("stages", []):
+        print(f"  - {stage['name']} [{stage['status']}]: {stage['message']}")
+        print(f"    command: {stage['command']}")
+        failed = stage.get("failed_required_checks", [])
+        if failed:
+            print(f"    failed required checks: {', '.join(failed)}")
+    boundary = payload.get("human_action_boundary", {})
+    if boundary.get("agent_may_execute") is False:
+        print("Human action boundary: agent may quote human commands, but must not run them.")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
 
 
 def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:

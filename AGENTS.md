@@ -13,6 +13,7 @@ palari agent next --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
+palari agent loop WORK-ID --as PALARI-ID --mode execute --json
 ```
 
 Bare `agent next` shows the all-Palaris rollup. Use `--as PALARI-ID` when you
@@ -40,6 +41,8 @@ Follow the packet:
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
+- run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a compact
+  read-only summary of brief, check, finish, and handoff status
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
   `finish` says the next step is human review or human decision
 - follow concrete receipt, evidence, review, and approval guidance before

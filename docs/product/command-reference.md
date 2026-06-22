@@ -144,6 +144,7 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
 ```
 
 `agent next` reads the current open queue for one Palari, ranks safe-to-start
@@ -209,6 +210,12 @@ summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
 workspace. `agent next` and receipt-ready `agent finish` prefer this command
 before lower-level direct guide commands.
+
+`agent loop` is read-only and summarizes the current agent control flow for one
+work item. It includes stage status and exact commands for `brief`, `check`,
+`finish`, and `handoff` when a handoff is available. It deliberately omits the
+full stage payloads; run the listed command when you need the detailed packet,
+check, finish, or handoff output.
 
 Queue and detail read models keep `next_commands` oriented toward the human or
 operator step, such as `review guide` or `decision guide`. When a work item is
