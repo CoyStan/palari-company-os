@@ -18,6 +18,7 @@ class QueueItem:
     attention: str
     why: str
     next_action: str
+    next_commands: list[str]
     status: str
     risk: str
     intensity: str
@@ -157,6 +158,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "attention": queue_item.attention,
         "why": queue_item.why,
         "next_action": queue_item.next_action,
+        "next_commands": queue_item.next_commands,
         "active_parallel_attempts": queue_item.active_attempts,
         "coordination_warnings": queue_item.coordination_warnings,
         "safety": {
@@ -262,6 +264,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         attention=attention,
         why=why,
         next_action=next_action,
+        next_commands=_work_next_commands(work, attention),
         status=work.status,
         risk=work.risk,
         intensity=work.intensity,
@@ -489,6 +492,17 @@ def _agent_commands(work: Any) -> dict[str, str]:
         "check": f"palari agent check {work.id} --as {work.palari} --json",
         "finish": f"palari agent finish {work.id} --as {work.palari} --json",
     }
+
+
+def _work_next_commands(work: Any, attention: str) -> list[str]:
+    commands: list[str] = []
+    if attention in {"needs-review", "receipt-ready"}:
+        commands.append(f"palari review guide {work.id} --json")
+    elif attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"}:
+        commands.append(f"palari agent brief {work.id} --as {work.palari} --mode execute --json")
+    commands.append(f"palari detail {work.id} --json")
+    commands.append("palari validate --json")
+    return commands
 
 
 def _evidence_state(work: Any, context: _ReadContext) -> str:

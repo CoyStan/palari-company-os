@@ -86,6 +86,8 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("REVIEW_REQUIRED", candidate["blocker_codes"])
         self.assertIn("PACKET_BLOCKED", candidate["start_blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", candidate["start_blocker_codes"])
+        self.assertEqual(candidate["next_command"], "palari review guide WORK-0003 --json")
+        self.assertEqual(candidate["next_commands"][0], "palari review guide WORK-0003 --json")
 
     def test_agent_next_missing_palari_is_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)

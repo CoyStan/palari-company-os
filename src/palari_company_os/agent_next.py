@@ -77,6 +77,11 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         blockers = packet.get("blockers", [])
         can_start = _can_start_agent_work(item, packet)
         start_blockers = _start_blockers(item, packet)
+        next_command = (
+            f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
+            if can_start
+            else item.next_commands[0]
+        )
         candidates.append(
             {
                 "queue_rank": rank,
@@ -97,6 +102,8 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "blocker_codes": [blocker.get("code", "") for blocker in blockers],
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
+                "next_command": next_command,
+                "next_commands": item.next_commands,
                 "brief_command": (
                     f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
                 ),
@@ -173,7 +180,7 @@ def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) 
             return [candidate["brief_command"], candidate["check_command"]]
     if candidates:
         first = candidates[0]
-        return [
+        return first.get("next_commands") or [
             f"palari detail {first['work_item_id']} --json",
             "palari queue --json",
             "palari validate --json",

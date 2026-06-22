@@ -452,7 +452,7 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 f"  - {candidate['work_item_id']} [{marker}] "
                 f"{candidate['title']} ({candidate['attention']})"
             )
-            print(f"    next: {candidate['brief_command']}")
+            print(f"    next: {candidate['next_command']}")
             if candidate.get("blocker_codes"):
                 print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
             if candidate.get("start_blocker_codes"):
@@ -601,6 +601,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
                 f"({item.intensity_reason})"
             )
         print(f"  next: {item.next_action}")
+        if item.next_commands:
+            print(f"  command: {item.next_commands[0]}")
         print("")
 
 
@@ -619,6 +621,10 @@ def print_detail(payload: dict[str, Any]) -> None:
     print(f"Attention: {payload['attention']}")
     print(f"Why: {payload['why']}")
     print(f"Next: {payload['next_action']}")
+    if payload.get("next_commands"):
+        print("Next commands:")
+        for command in payload["next_commands"]:
+            print(f"  {command}")
     print(f"Safety: {payload['safety']}")
     if payload.get("agent_commands"):
         print("Agent commands:")

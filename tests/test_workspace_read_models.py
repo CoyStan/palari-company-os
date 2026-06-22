@@ -55,6 +55,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
         self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
         self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
+        self.assertEqual(
+            queue["WORK-REPO-0003"].next_commands[0],
+            "palari review guide WORK-REPO-0003 --json",
+        )
 
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -78,10 +82,18 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0006"].attention, "needs-review")
         self.assertEqual(by_id["WORK-0006"].review_state, "stale")
         self.assertFalse(by_id["WORK-0006"].ai_safe_to_proceed)
+        self.assertEqual(
+            by_id["WORK-0006"].next_commands[0],
+            "palari review guide WORK-0006 --json",
+        )
         self.assertEqual(by_id["WORK-0007"].attention, "receipt-ready")
         self.assertEqual(by_id["WORK-0007"].receipt_state, "ready")
         self.assertEqual(by_id["WORK-0007"].integration_state, "receipt-ready")
         self.assertIn("Review the output", by_id["WORK-0007"].next_action)
+        self.assertEqual(
+            by_id["WORK-0007"].next_commands[0],
+            "palari review guide WORK-0007 --json",
+        )
         self.assertEqual(by_id["WORK-0004"].attention, "closed")
 
     def test_detail_assembles_related_records(self) -> None:
@@ -110,6 +122,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["sources_used"], ["SOURCE-0001"])
         self.assertEqual(payload["safety"]["receipt_state"], "ready")
         self.assertEqual(payload["attention"], "receipt-ready")
+        self.assertEqual(payload["next_commands"][0], "palari review guide WORK-0007 --json")
         self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
         self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
         self.assertEqual(
