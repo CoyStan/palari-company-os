@@ -152,6 +152,20 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
         self.assertEqual(len(result["agents"]), 2)
 
+    def test_cli_agent_next_defaults_to_all_rollup(self) -> None:
+        result = json.loads(
+            self.run_cli(
+                "--workspace",
+                str(DOGFOOD),
+                "agent",
+                "next",
+                "--json",
+            ).stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
+        self.assertEqual(len(result["agents"]), 2)
+
     def test_agent_finish_missing_proof_does_not_allow_completion_claim(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 

@@ -91,6 +91,8 @@ Agent Packet Contract v1 is intentionally read-only.
 
 Implemented:
 
+- `palari agent next --json`
+- `palari agent next --all --json`
 - `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
@@ -118,9 +120,10 @@ when required receipt, evidence, review, human decision, source, dependency, or
 external-write checks fail. Light low-risk work may satisfy its trust loop with
 a valid receipt without requiring review or human approval.
 
-`agent next` reads the current queue for one Palari, puts safe-to-start
-candidates first, and keeps blocked or waiting visible with blocker codes. It
-does not create a claim, mutate state, or assign work.
+Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
+reads the current queue for one Palari, puts safe-to-start candidates first,
+and keeps blocked or waiting visible with blocker codes. It does not create a
+claim, mutate state, or assign work.
 
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
 workspace state in v1. It distinguishes missing proof from handoff-ready work,

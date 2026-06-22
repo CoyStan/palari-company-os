@@ -98,7 +98,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
-            if args.all:
+            if args.all or not args.palari_id:
                 return CommandResult(
                     "agent-next-all",
                     build_agent_next_all(workspace, args.mode, args.limit),

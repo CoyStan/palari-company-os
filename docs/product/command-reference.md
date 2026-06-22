@@ -110,6 +110,7 @@ the open decision linked to that work item.
 ## Agent Packets
 
 ```bash
+./bin/palari agent next --json
 ./bin/palari agent next --all --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
@@ -120,8 +121,9 @@ the open decision linked to that work item.
 
 `agent next` reads the current queue for one Palari, ranks safe-to-start
 candidates first, and includes blocked/waiting candidates with blocker codes.
-Use `--all` for an operator rollup across every Palari in the workspace. It is
-read-only and does not claim or assign work.
+With no `--as` argument, `agent next` defaults to an operator rollup across
+every Palari in the workspace. `--all` is still accepted as the explicit form.
+It is read-only and does not claim or assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 The packet is read-only in v1 and returns either `status: ready` or

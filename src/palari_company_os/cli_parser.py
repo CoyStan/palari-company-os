@@ -132,7 +132,7 @@ def _add_agent_parser(subparsers: Any) -> None:
         "next",
         help="Show the next safe work candidates for one Palari or all Palaris.",
     )
-    next_scope = next_parser.add_mutually_exclusive_group(required=True)
+    next_scope = next_parser.add_mutually_exclusive_group()
     next_scope.add_argument("--as", dest="palari_id", help="Acting Palari id.")
     next_scope.add_argument("--all", action="store_true", help="Show a rollup for all Palaris.")
     next_parser.add_argument("--mode", default="execute", help="Packet mode.")
