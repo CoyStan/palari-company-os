@@ -437,6 +437,23 @@ class AgentPacketTests(unittest.TestCase):
         self.assertNotIn("next_command", missing["HUMAN_DECISION_PRESENT"])
         self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
 
+    def test_agent_finish_review_mode_guides_review_recommendation_not_completion(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_finish(
+            workspace,
+            "WORK-REPO-0003",
+            "PALARI-STEWARD",
+            mode="review",
+        )
+
+        self.assertEqual(result["status"], "ready-to-report")
+        self.assertEqual(result["mode"], "review")
+        self.assertTrue(result["can_finish"])
+        self.assertIn("Report a review recommendation", result["report_guidance"])
+        self.assertIn("do not record a human review", result["report_guidance"])
+        self.assertIn("claim the work item is complete", result["report_guidance"])
+
     def test_cli_agent_finish_emits_json_shape(self) -> None:
         result = json.loads(
             self.run_cli("agent", "finish", "WORK-0003", "--as", "PALARI-SOFIA", "--json").stdout

@@ -199,6 +199,9 @@ review does the same. Missing approval points to a human-decision record
 template only when prerequisite proof is known. Missing proof or approval
 templates appear before generic inspect/validate commands. It does not close
 work, record receipts, mutate history, or perform external actions.
+In review mode, `ready-to-report` means the agent can report a review
+recommendation with evidence, not record a human review or claim the original
+work item is complete.
 
 `agent handoff` is read-only and meant for the moment after `agent finish`
 identifies a human review or decision step. It returns the compact finish

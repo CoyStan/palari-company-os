@@ -58,7 +58,7 @@ def build_agent_finish(
         "blockers": check.get("blockers", []),
         "handoff_guidance": _handoff_guidance(check),
         "next_allowed_commands": _next_commands(check),
-        "report_guidance": _report_guidance(status),
+        "report_guidance": _report_guidance(status, mode),
     }
 
 
@@ -155,8 +155,14 @@ def _requirement(check: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _report_guidance(status: str) -> str:
+def _report_guidance(status: str, mode: str) -> str:
     if status == "ready-to-report":
+        if (mode or "execute") == "review":
+            return (
+                "Review packet checks pass. Report a review recommendation with evidence, "
+                "but do not record a human review or claim the work item is complete unless "
+                "explicitly authorized."
+            )
         return "All required checks pass. Report completion and include the check result."
     if status == "handoff-ready":
         return "Do not continue execution. Hand off the completed proof to a human reviewer or approver."

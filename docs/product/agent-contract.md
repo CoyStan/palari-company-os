@@ -158,7 +158,10 @@ that should stop execution and move to a human review path. Its
 before generic inspect/validate commands. For receipt-ready review handoffs and
 work that already has evidence but still needs review, `agent handoff` is
 listed before the direct review guide command. Approval commands appear only
-after the earlier proof required for approval is present.
+after the earlier proof required for approval is present. In review mode,
+`agent finish` means the agent may report a review recommendation; it does not
+mean the agent may record a human review or claim the original work item is
+complete.
 
 When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes
