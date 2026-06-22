@@ -501,6 +501,13 @@ class CliTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_cli_queue_text_labels_heuristic_intensity_as_concern(self) -> None:
+        result = self.run_cli_in_workspace(DOGFOOD_WORKSPACE, "queue")
+
+        self.assertIn("WORK-REPO-0009 [light / R2] Harden dry-run integration validation", result.stdout)
+        self.assertIn("intensity concern: heuristic suggests high", result.stdout)
+        self.assertIn("Declared intensity is light", result.stdout)
+
     def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
         payload = json.loads(self.run_cli("maintainer", "status", "--repo", str(REPO_ROOT), "--json").stdout)
         self.assertIn("pr_readiness", payload)

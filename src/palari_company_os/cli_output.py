@@ -8,6 +8,9 @@ from .models import to_plain
 from .workspace import Workspace
 
 
+INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
+
+
 def print_result(result: CommandResult) -> None:
     if result.kind == "queue":
         workspace = result.payload["workspace"]
@@ -791,8 +794,13 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
         if item.intensity != item.recommended_intensity:
+            label = "intensity note"
+            if INTENSITY_RANK.get(item.recommended_intensity, 0) > INTENSITY_RANK.get(
+                item.intensity, 0
+            ):
+                label = "intensity concern"
             print(
-                f"  recommended intensity: {item.recommended_intensity} "
+                f"  {label}: heuristic suggests {item.recommended_intensity} "
                 f"({item.intensity_reason})"
             )
         print(f"  next: {item.next_action}")

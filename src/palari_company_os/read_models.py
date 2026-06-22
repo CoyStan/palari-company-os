@@ -88,6 +88,8 @@ ATTENTION_PRIORITY = {
     "closed": 8,
 }
 
+INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
+
 
 def queue_items(workspace: Workspace) -> list[QueueItem]:
     context = _read_context(workspace)
@@ -487,13 +489,33 @@ def recommend_intensity(work: Any) -> tuple[str, str]:
     ]
     standard_terms = ["r2", "r3", "schema", "shared authority", "shared standard"]
     if work.risk in {"R5", "R4"} or any(term in haystack for term in high_terms):
-        return (
+        return _intensity_recommendation(
+            work,
             "high",
-            "High-risk, external-side-effect, security, policy, broker, or authority language is present.",
+            "external-side-effect, security, policy, broker, or authority language is present",
         )
     if work.risk in {"R2", "R3"} or any(term in haystack for term in standard_terms):
-        return ("standard", "Normal governed work needs evidence, review, and possible human decision.")
-    return ("light", "Low-risk internal maintenance can use the lightest responsible proof.")
+        return _intensity_recommendation(
+            work,
+            "standard",
+            "normal governed work needs evidence, review, and possible human decision",
+        )
+    return _intensity_recommendation(
+        work,
+        "light",
+        "low-risk internal maintenance can use the lightest responsible proof",
+    )
+
+
+def _intensity_recommendation(work: Any, recommended: str, reason: str) -> tuple[str, str]:
+    declared = getattr(work, "intensity", "")
+    if declared in INTENSITY_RANK and declared != recommended:
+        direction = "above" if INTENSITY_RANK[recommended] > INTENSITY_RANK[declared] else "below"
+        return (
+            recommended,
+            f"Declared intensity is {declared}; heuristic is {direction} it because {reason}.",
+        )
+    return recommended, reason[0].upper() + reason[1:] + "."
 
 
 def _attempt_head(attempt: Any) -> str:
