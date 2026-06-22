@@ -66,7 +66,7 @@ grep -q 'data-tab-panel="history"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'data-tab-panel="authority"' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'palari agent finish WORK-0007 --as PALARI-SOFIA' /tmp/palari-company-dashboard-acme/index.html
 grep -q 'RECEIPT-0001' /tmp/palari-company-dashboard-acme/index.html
-grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.html
+grep -q 'RECEIPT-REPO-0001' /tmp/palari-company-dashboard-dogfood/index.html
 grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html

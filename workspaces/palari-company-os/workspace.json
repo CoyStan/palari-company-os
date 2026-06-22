@@ -238,7 +238,23 @@
       "notes": "Dry-run repo notification and issue/comment payload previews only."
     }
   ],
-  "sources": [],
+  "sources": [
+    {
+      "id": "SOURCE-REPO-FOUNDATION",
+      "label": "Repo foundation files",
+      "kind": "repo_files",
+      "provider": "local_repo",
+      "uri": ".",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [
+        "PALARI-STEWARD"
+      ],
+      "last_seen_revision": "4bcb912",
+      "last_read_at": "2026-06-19T03:00:00Z"
+    }
+  ],
   "work_items": [
     {
       "allowed_resources": [
@@ -272,6 +288,9 @@
       "intensity": "standard",
       "status": "completed",
       "scope": "Represent the recent strict validation fixtures, append-only workspace history, professional metadata, CI, install smoke, and maturity documentation as one completed repo foundation milestone.",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
       "acceptance_target": "Main contains the validation/history/hygiene commits, verification passes, GitHub CI passes, and the result is captured as dogfood history.",
       "required_approval_capability": "product",
       "required_approval_count": 1,
@@ -508,7 +527,47 @@
       "timestamp": "2026-06-19T03:39:00Z"
     }
   ],
-  "receipts": [],
+  "receipts": [
+    {
+      "id": "RECEIPT-REPO-0001",
+      "work_item_id": "WORK-REPO-0001",
+      "attempt_id": "ATTEMPT-REPO-0001",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "read selected repo files",
+        "implemented strict validation and history hardening",
+        "improved repository hygiene and documentation",
+        "ran local and GitHub verification"
+      ],
+      "outputs_created": [
+        "tests/fixtures/workspaces",
+        "tests/test_validation.py",
+        "src/palari_company_os/history.py",
+        "tests/test_history.py",
+        "pyproject.toml",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        ".github/workflows/ci.yml",
+        "scripts/install_smoke.sh",
+        "docs/product"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No deployment performed",
+        "No broker execution enabled",
+        "No policy acceptance enabled",
+        "No secrets read"
+      ],
+      "undo_refs": [
+        "CHANGELOG.md"
+      ],
+      "timestamp": "2026-06-19T03:41:00Z"
+    }
+  ],
   "decisions": [
     {
       "options": [

@@ -45,14 +45,14 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
 
-    def test_dashboard_generation_handles_dogfood_workspace_and_empty_trust(self) -> None:
+    def test_dashboard_generation_handles_dogfood_workspace_trust_loop(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_dashboard(DOGFOOD, directory)
             html = Path(result.index_path).read_text(encoding="utf-8")
 
         self.assertEqual(result.workspace, "Palari Company OS Dogfood Workspace")
-        self.assertIn("No selected sources recorded yet.", html)
-        self.assertIn("No receipts recorded yet.", html)
+        self.assertIn("SOURCE-REPO-FOUNDATION", html)
+        self.assertIn("RECEIPT-REPO-0001", html)
         self.assertIn("Authority", html)
 
     def test_dashboard_uses_real_tab_panels(self) -> None:
