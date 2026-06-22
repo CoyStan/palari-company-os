@@ -20,6 +20,7 @@ class QueueItem:
     next_action: str
     next_step_type: str
     next_commands: list[str]
+    agent_handoff_command: str
     status: str
     risk: str
     intensity: str
@@ -161,6 +162,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "next_action": queue_item.next_action,
         "next_step_type": queue_item.next_step_type,
         "next_commands": queue_item.next_commands,
+        "agent_handoff_command": queue_item.agent_handoff_command,
         "active_parallel_attempts": queue_item.active_attempts,
         "coordination_warnings": queue_item.coordination_warnings,
         "safety": {
@@ -274,6 +276,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         next_action=next_action,
         next_step_type=next_step_type,
         next_commands=_work_next_commands(work, attention, context, ai_safe_to_proceed),
+        agent_handoff_command=_agent_handoff_command(work, next_step_type),
         status=work.status,
         risk=work.risk,
         intensity=work.intensity,
@@ -506,6 +509,12 @@ def _agent_commands(work: Any) -> dict[str, str]:
         "finish": f"palari agent finish {work.id} --as {work.palari} --json",
         "handoff": f"palari agent handoff {work.id} --as {work.palari} --json",
     }
+
+
+def _agent_handoff_command(work: Any, next_step_type: str) -> str:
+    if next_step_type in {"human-decision", "review-handoff"}:
+        return f"palari agent handoff {work.id} --as {work.palari} --json"
+    return ""
 
 
 def _work_next_commands(

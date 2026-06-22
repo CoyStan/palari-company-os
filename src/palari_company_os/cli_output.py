@@ -778,6 +778,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
                 f"({item.intensity_reason})"
             )
         print(f"  next: {item.next_action}")
+        if item.agent_handoff_command:
+            print(f"  agent handoff: {item.agent_handoff_command}")
         if item.next_commands:
             print(f"  command: {item.next_commands[0]}")
         print("")
@@ -803,6 +805,9 @@ def print_detail(payload: dict[str, Any]) -> None:
         print("Next commands:")
         for command in payload["next_commands"]:
             print(f"  {command}")
+    if payload.get("agent_handoff_command"):
+        print("Agent handoff:")
+        print(f"  {payload['agent_handoff_command']}")
     print(f"Safety: {payload['safety']}")
     if payload.get("agent_commands"):
         print("Agent commands:")

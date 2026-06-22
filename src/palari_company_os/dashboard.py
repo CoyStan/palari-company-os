@@ -147,6 +147,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
     external_writes = sum(1 for receipt in workspace.receipts if receipt.external_writes)
     top = queue[0] if queue else None
     top_command = top.next_commands[0] if top and top.next_commands else "palari queue --json"
+    top_handoff = top.agent_handoff_command if top else ""
     top_card = (
         f"""
     <article class="top-attention-card attention-{_class_token(top.attention)}">
@@ -157,6 +158,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
       <h3>{_e(top.title)}</h3>
       <p class="top-step"><strong>Step</strong> {_e(top.next_step_type)}</p>
       <p>{_e(top.why)}</p>
+      {_agent_handoff_inline(top_handoff)}
       <code>{_e(top_command)}</code>
     </article>
 """
@@ -239,6 +241,7 @@ def _queue_card(item: Any) -> str:
       {_state("Approval", item.approval_progress)}
     </dl>
     <p class="subtle">{_e(item.why)}</p>
+    {_agent_handoff_block(item.agent_handoff_command)}
     {_command_list_block("Next commands", item.next_commands)}
   </div>
 </details>
@@ -328,6 +331,7 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
       </div>
     </div>
     {_command_list_block("Next commands", payload.get("next_commands", []))}
+    {_agent_handoff_block(payload.get("agent_handoff_command", ""))}
     {_agent_command_block(payload.get("agent_commands", {}))}
     <p class="next-action"><span class="na-label">Next</span>{_e(payload['next_action'])}</p>
   </div>
@@ -633,6 +637,23 @@ def _agent_command_block(commands: dict[str, str]) -> str:
         if command
     )
     return f'<div class="agent-command-block"><strong>Agent loop</strong><ul>{rows}</ul></div>'
+
+
+def _agent_handoff_block(command: str) -> str:
+    if not command:
+        return ""
+    return (
+        '<div class="agent-command-block agent-handoff-block">'
+        '<strong>Agent handoff</strong>'
+        f'<ul><li><span>bridge</span><code>{_e(command)}</code></li></ul>'
+        "</div>"
+    )
+
+
+def _agent_handoff_inline(command: str) -> str:
+    if not command:
+        return ""
+    return f'<p class="top-handoff"><strong>Agent handoff</strong> <code>{_e(command)}</code></p>'
 
 
 def _command_list_block(title: str, commands: list[str]) -> str:

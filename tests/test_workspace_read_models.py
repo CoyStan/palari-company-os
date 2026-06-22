@@ -59,12 +59,20 @@ class WorkspaceReadModelTests(unittest.TestCase):
             queue["WORK-REPO-0005"].next_commands[0],
             "palari decision guide DECISION-REPO-0001 --json",
         )
+        self.assertEqual(
+            queue["WORK-REPO-0005"].agent_handoff_command,
+            "palari agent handoff WORK-REPO-0005 --as PALARI-ARCHITECT --json",
+        )
         self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
         self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
         self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
         self.assertEqual(
             queue["WORK-REPO-0003"].next_commands[0],
             "palari review guide WORK-REPO-0003 --json",
+        )
+        self.assertEqual(
+            queue["WORK-REPO-0003"].agent_handoff_command,
+            "palari agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
         )
         self.assertEqual(queue["WORK-REPO-0004"].attention, "ready-for-ai-work")
         self.assertFalse(queue["WORK-REPO-0004"].ai_safe_to_proceed)
@@ -73,6 +81,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
             queue["WORK-REPO-0004"].next_commands[0],
             "palari detail WORK-REPO-0004 --json",
         )
+        self.assertEqual(queue["WORK-REPO-0004"].agent_handoff_command, "")
         self.assertEqual(queue["WORK-REPO-0006"].attention, "receipt-ready")
         self.assertEqual(queue["WORK-REPO-0006"].next_step_type, "review-handoff")
         self.assertEqual(queue["WORK-REPO-0006"].receipt_state, "ready")
@@ -82,6 +91,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(
             queue["WORK-REPO-0006"].next_commands[0],
             "palari review guide WORK-REPO-0006 --json",
+        )
+        self.assertEqual(
+            queue["WORK-REPO-0006"].agent_handoff_command,
+            "palari agent handoff WORK-REPO-0006 --as PALARI-STEWARD --json",
         )
 
     def test_queue_prioritizes_human_decisions(self) -> None:
@@ -170,6 +183,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["attention"], "receipt-ready")
         self.assertEqual(payload["next_step_type"], "review-handoff")
         self.assertEqual(payload["next_commands"][0], "palari review guide WORK-0007 --json")
+        self.assertEqual(
+            payload["agent_handoff_command"],
+            "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
+        )
         self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
         self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
         self.assertEqual(
@@ -411,6 +428,10 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["workspace"], "Acme Company OS Example")
         self.assertEqual(payload["queue"][0]["attention"], "needs-human-decision")
+        self.assertEqual(
+            payload["queue"][0]["agent_handoff_command"],
+            "palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
+        )
 
     def test_cli_detail_json(self) -> None:
         result = self.run_cli("detail", "WORK-0004", "--json")
@@ -451,6 +472,14 @@ class CliTests(unittest.TestCase):
         self.assertIn("WORK-0001: Prepare beta launch checklist", result.stdout)
         self.assertIn("step: human-decision", result.stdout)
         self.assertIn("command: palari detail WORK-0001 --json", result.stdout)
+
+    def test_cli_queue_text_shows_agent_handoff_bridge(self) -> None:
+        result = self.run_cli("queue")
+
+        self.assertIn(
+            "agent handoff: palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
+            result.stdout,
+        )
 
     def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
         payload = json.loads(self.run_cli("maintainer", "status", "--repo", str(REPO_ROOT), "--json").stdout)

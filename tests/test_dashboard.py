@@ -44,6 +44,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('<p class="top-step"><strong>Step</strong> human-decision</p>', html)
         self.assertIn("What Palaris used, made, did not do, and can undo", html)
         self.assertIn("Agent loop", html)
+        self.assertIn("Agent handoff", html)
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent handoff WORK-0007 --as PALARI-SOFIA", html)

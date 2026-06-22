@@ -180,6 +180,11 @@ agent-safe read commands from human action commands, and does not mutate the
 workspace. `agent next` and receipt-ready `agent finish` prefer this command
 before lower-level direct guide commands.
 
+Queue and detail read models keep `next_commands` oriented toward the human or
+operator step, such as `review guide` or `decision guide`. When a work item is
+waiting on review or a human decision, they also expose `agent_handoff_command`
+so an AI agent can bridge to the same context without mutating the workspace.
+
 ## Playbooks
 
 ```bash
