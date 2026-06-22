@@ -144,11 +144,23 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
     closed = attention_counts.get("closed", 0)
     selected = len([source for source in workspace.sources if source.selected])
     external_writes = sum(1 for receipt in workspace.receipts if receipt.external_writes)
-    blockers = [item for item in queue if item.waiting_on_human]
-    blocker_rows = "".join(
-        f'<li><a href="#work"><span class="mono">{_e(item.id)}</span><span>{_e(item.title)}</span></a></li>'
-        for item in blockers[:4]
-    ) or '<li class="none">No items are waiting on a human.</li>'
+    top = queue[0] if queue else None
+    top_command = top.next_commands[0] if top and top.next_commands else "palari queue --json"
+    top_card = (
+        f"""
+    <article class="top-attention-card attention-{_class_token(top.attention)}">
+      <div class="top-attention-head">
+        <span class="mono">{_e(top.id)}</span>
+        {_pill(top.attention, _attention_tone(top.attention))}
+      </div>
+      <h3>{_e(top.title)}</h3>
+      <p>{_e(top.why)}</p>
+      <code>{_e(top_command)}</code>
+    </article>
+"""
+        if top
+        else '<p class="none">No queue items need attention.</p>'
+    )
     chips = "".join(
         _metric(label.replace("-", " "), value, _attention_tone(label), label)
         for label, value in (
@@ -172,8 +184,8 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
     </div>
   </div>
   <div class="attn-right">
-    <h2 class="attn-right-title">Waiting on a human</h2>
-    <ul class="attn-blockers">{blocker_rows}</ul>
+    <h2 class="attn-right-title">Top attention</h2>
+    {top_card}
   </div>
 </section>
 """
@@ -958,19 +970,50 @@ strong { font-weight: 600; }
   border-left: 1px solid var(--line);
 }
 .attn-right-title { font-size: 0.76rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.attn-blockers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; min-width: 0; }
-.attn-blockers li { min-width: 0; }
-.attn-blockers li a {
-  display: grid; grid-template-columns: auto 1fr; gap: 0.5rem; align-items: baseline;
-  padding: 0.32rem 0.4rem; border-radius: 6px;
-  font-size: 0.82rem; color: var(--ink-2);
-  border-left: 2px solid var(--urgent);
-  background: var(--urgent-bg);
+.top-attention-card {
+  min-width: 0;
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--neutral);
+  border-radius: 6px;
+  background: var(--panel);
 }
-.attn-blockers li a:hover { background: #fbe2da; }
-.attn-blockers li a .mono { color: var(--urgent); }
-.attn-blockers li.none { color: var(--muted); font-size: 0.8rem; padding: 0.32rem 0.4rem; }
-
+.top-attention-card.attention-needs-human-decision { border-left-color: var(--urgent); }
+.top-attention-card.attention-needs-review,
+.top-attention-card.attention-needs-evidence,
+.top-attention-card.attention-receipt-ready { border-left-color: var(--warn); }
+.top-attention-card.attention-ready-for-ai-work { border-left-color: var(--trust); }
+.top-attention-head {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+.top-attention-head .mono { color: var(--muted); font-size: 0.72rem; }
+.top-attention-card h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  font-weight: 650;
+  color: var(--ink);
+}
+.top-attention-card p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.top-attention-card code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-top: 0.3rem;
+  border-top: 1px dashed var(--line);
+  color: var(--ink);
+}
 /* ---------- Panels ---------- */
 .panel {
   margin-bottom: 0.85rem;
@@ -1291,7 +1334,6 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
   .attention { grid-template-columns: 1fr; padding: 0.6rem 0.75rem; gap: 0.55rem; }
   .attn-right { border-left: 0; border-top: 1px solid var(--line); padding-top: 0.5rem; padding-left: 0; }
   .attn-right-title { margin-bottom: 0; }
-  .attn-blockers li a { padding: 0.28rem 0.4rem; font-size: 0.8rem; }
   .trust-grid, .authority-grid { grid-template-columns: 1fr; }
   .lane-grid { grid-template-columns: 1fr; }
   .detail-columns { grid-template-columns: 1fr; }
@@ -1558,13 +1600,6 @@ code {
 
 .attn-right {
   padding: 0.55rem 0.75rem;
-}
-
-.attn-blockers li a {
-  border-radius: 2px;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--urgent);
 }
 
 .panel {
