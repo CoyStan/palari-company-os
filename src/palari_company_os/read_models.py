@@ -177,7 +177,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "intensity_reason": queue_item.intensity_reason,
         },
         "playbooks": playbooks,
-        "agent_commands": _agent_commands(work),
+        "agent_commands": _agent_commands(work, queue_item.next_step_type),
     }
 
 
@@ -500,8 +500,8 @@ def _attempt_head(attempt: Any) -> str:
     return attempt.commits[-1] if attempt.commits else ""
 
 
-def _agent_commands(work: Any) -> dict[str, str]:
-    return {
+def _agent_commands(work: Any, next_step_type: str = "") -> dict[str, str]:
+    commands = {
         "next": f"palari agent next --as {work.palari} --json",
         "brief": f"palari agent brief {work.id} --as {work.palari} --mode execute --json",
         "start": f"palari agent start {work.id} --as {work.palari} --mode execute --json",
@@ -509,6 +509,14 @@ def _agent_commands(work: Any) -> dict[str, str]:
         "finish": f"palari agent finish {work.id} --as {work.palari} --json",
         "handoff": f"palari agent handoff {work.id} --as {work.palari} --json",
     }
+    if next_step_type == "review-handoff":
+        commands["review"] = (
+            f"palari agent brief {work.id} --as {work.palari} --mode review --json"
+        )
+        commands["review_check"] = (
+            f"palari agent check {work.id} --as {work.palari} --mode review --json"
+        )
+    return commands
 
 
 def _agent_handoff_command(work: Any, next_step_type: str) -> str:

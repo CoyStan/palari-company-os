@@ -48,6 +48,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent handoff WORK-0007 --as PALARI-SOFIA", html)
+        self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA --mode review", html)
+        self.assertIn("palari agent check WORK-0007 --as PALARI-SOFIA --mode review", html)
         self.assertIn("Next commands", html)
         self.assertIn("palari review guide WORK-0007 --json", html)
         self.assertIn("step check-active-proof", html)

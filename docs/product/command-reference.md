@@ -191,6 +191,8 @@ Queue and detail read models keep `next_commands` oriented toward the human or
 operator step, such as `review guide` or `decision guide`. When a work item is
 waiting on review or a human decision, they also expose `agent_handoff_command`
 so an AI agent can bridge to the same context without mutating the workspace.
+Detail and dashboard agent command blocks add review-mode packet/check commands
+when the selected work item is in a review handoff state.
 
 ## Playbooks
 

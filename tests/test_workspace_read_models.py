@@ -201,6 +201,22 @@ class WorkspaceReadModelTests(unittest.TestCase):
             payload["agent_commands"]["handoff"],
             "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
         )
+        self.assertEqual(
+            payload["agent_commands"]["review"],
+            "palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json",
+        )
+        self.assertEqual(
+            payload["agent_commands"]["review_check"],
+            "palari agent check WORK-0007 --as PALARI-SOFIA --mode review --json",
+        )
+
+    def test_detail_omits_review_packet_commands_when_not_review_ready(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        payload = detail(workspace, "WORK-0003")
+
+        self.assertEqual(payload["next_step_type"], "check-active-proof")
+        self.assertNotIn("review", payload["agent_commands"])
+        self.assertNotIn("review_check", payload["agent_commands"])
 
     def test_parallel_attempts_are_visible_without_conflict(self) -> None:
         workspace = Workspace.load(WORKSPACE)
