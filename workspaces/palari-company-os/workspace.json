@@ -32,7 +32,8 @@
         "WORK-REPO-0013",
         "WORK-REPO-0014",
         "WORK-REPO-0015",
-        "WORK-REPO-0016"
+        "WORK-REPO-0016",
+        "WORK-REPO-0017"
       ],
       "linked_decisions": []
     },
@@ -263,8 +264,8 @@
       "steward_human": "HUMAN-MAINTAINER",
       "freshness_sla": "per change",
       "redaction_required": false,
-      "last_seen_revision": "fd60b0d",
-      "last_read_at": "2026-06-22T05:56:35Z"
+      "last_seen_revision": "a22f3b9",
+      "last_read_at": "2026-06-22T06:05:04Z"
     },
     {
       "id": "SOURCE-REPO-ARCHITECTURE",
@@ -946,6 +947,42 @@
       "acceptance_target": "Allowed source packets include readiness metadata, packet docs mention the boundary, and existing packet behavior stays stable.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0016"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "change read model ordering",
+        "change agent next behavior",
+        "remove closed history",
+        "add dependencies"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_workspace_read_models.CliTests.test_cli_queue_json tests.test_workspace_read_models.CliTests.test_cli_queue_include_closed_json tests.test_workspace_read_models.CliTests.test_cli_queue_text_labels_heuristic_intensity_as_concern",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0017",
+      "title": "Focus queue output on current work",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Make the queue command focus on current non-closed work by default while preserving an include-closed audit path.",
+      "acceptance_target": "Default queue output omits closed items; --include-closed restores the full queue; docs and tests cover both paths.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0017"
     }
   ],
   "attempts": [
@@ -1327,6 +1364,27 @@
       "started_at": "2026-06-22T05:56:35Z",
       "cleanliness": "clean",
       "result": "Exposed source readiness metadata in agent brief packets and documented the boundary."
+    },
+    {
+      "commits": [
+        "a22f3b9"
+      ],
+      "changed_files": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0017",
+      "work_item_id": "WORK-REPO-0017",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T06:05:04Z",
+      "cleanliness": "clean",
+      "result": "Changed queue CLI output to omit closed work by default and added --include-closed for audit views."
     }
   ],
   "evidence_runs": [
@@ -1661,6 +1719,31 @@
       "status": "passed",
       "summary": "Agent packet readiness fields passed focused packet tests, packet smoke, full verification, unit discovery, and install smoke.",
       "timestamp": "2026-06-22T05:56:35Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_workspace_read_models.CliTests.test_cli_queue_json tests.test_workspace_read_models.CliTests.test_cli_queue_include_closed_json tests.test_workspace_read_models.CliTests.test_cli_queue_text_labels_heuristic_intensity_as_concern",
+        "./bin/palari --workspace workspaces/palari-company-os queue",
+        "./bin/palari --workspace workspaces/palari-company-os queue --include-closed",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused queue test output",
+        "queue smoke output",
+        "include-closed smoke output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0017",
+      "work_item_id": "WORK-REPO-0017",
+      "attempt_id": "ATTEMPT-REPO-0017",
+      "head_sha": "a22f3b9",
+      "status": "passed",
+      "summary": "Queue focus change passed focused queue CLI tests, queue smoke checks, full verification, unit discovery, and install smoke.",
+      "timestamp": "2026-06-22T06:05:04Z"
     }
   ],
   "review_verdicts": [
@@ -2236,6 +2319,39 @@
       "attempt_id": "ATTEMPT-REPO-0016",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:56:35Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "hid closed work from default queue",
+        "preserved include-closed audit view",
+        "documented queue behavior"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md"
+      ],
+      "not_done": [
+        "No read model ordering changed",
+        "No agent next behavior changed",
+        "No closed history removed",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md"
+      ],
+      "id": "RECEIPT-REPO-0017",
+      "work_item_id": "WORK-REPO-0017",
+      "attempt_id": "ATTEMPT-REPO-0017",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T06:05:04Z"
     }
   ],
   "decisions": [
