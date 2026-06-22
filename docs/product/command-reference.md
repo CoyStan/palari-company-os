@@ -66,13 +66,19 @@ forbidden actions.
 ## Agent Packets
 
 ```bash
+./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ```
 
-Compiles one bounded, context-window-safe packet for an AI agent. The packet is
-read-only in v1 and returns either `status: ready` or `status: blocked`.
+`agent next` reads the current queue for one Palari, ranks safe-to-start
+candidates first, and includes blocked/waiting candidates with blocker codes.
+It is read-only and does not claim or assign work.
+
+`agent brief` compiles one bounded, context-window-safe packet for an AI agent.
+The packet is read-only in v1 and returns either `status: ready` or
+`status: blocked`.
 `agent start` is currently an alias for `agent brief`; future versions may add
 claim/lease behavior to `start`.
 

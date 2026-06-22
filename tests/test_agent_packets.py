@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_next import build_agent_next
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.workspace import Workspace
 
@@ -20,6 +21,55 @@ WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
 
 
 class AgentPacketTests(unittest.TestCase):
+    def test_agent_next_lists_safe_candidates_first_for_palari(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_next(workspace, "PALARI-SOFIA")
+
+        self.assertEqual(result["schema_version"], "palari.agent_next.v1")
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["agent"]["id"], "PALARI-SOFIA")
+        self.assertGreaterEqual(result["ready_count"], 1)
+        self.assertEqual(result["candidates"][0]["work_item_id"], "WORK-0003")
+        self.assertEqual(result["candidates"][0]["can_start"], True)
+        self.assertIn(
+            "palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
+            result["next_allowed_commands"],
+        )
+
+    def test_agent_next_includes_blocked_visible_work_without_marking_it_safe(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_next(workspace, "PALARI-SOFIA", limit=20)
+        by_id = {item["work_item_id"]: item for item in result["candidates"]}
+
+        self.assertIn("WORK-0001", by_id)
+        self.assertEqual(by_id["WORK-0001"]["can_start"], False)
+        self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0001"]["blocker_codes"])
+        self.assertIn("WORK-0007", by_id)
+        self.assertEqual(by_id["WORK-0007"]["can_start"], False)
+        self.assertIn("RECEIPT_READY_REVIEW", by_id["WORK-0007"]["blocker_codes"])
+
+    def test_agent_next_missing_palari_is_blocked(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_next(workspace, "PALARI-MISSING")
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["ready_count"], 0)
+        self.assertEqual(result["blockers"][0]["code"], "MISSING_PALARI")
+        self.assertEqual(result["candidates"], [])
+
+    def test_cli_agent_next_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli("agent", "next", "--as", "PALARI-SOFIA", "--json").stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_next.v1")
+        self.assertEqual(result["status"], "ready")
+        self.assertIn("candidates", result)
+        self.assertEqual(result["candidates"][0]["can_start"], True)
+
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 

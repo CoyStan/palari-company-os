@@ -10,6 +10,7 @@ scope, and stop when human authority is required.
 Agent work should start with one packet command:
 
 ```bash
+palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 ```
 
@@ -19,14 +20,15 @@ entry point.
 
 The v1 loop is:
 
-1. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`.
-2. Continue only if the packet returns `status: ready`.
-3. Read and write only the packet's allowed paths and sources.
-4. Stop if the packet is blocked or a stop condition is reached.
-5. Produce the required output and trust records.
-6. Run `palari agent check WORK-ID --as PALARI-ID --json`.
-7. Run `palari validate --json`.
-8. Report the packet status, compliance checks, changed files, and remaining blockers.
+1. Run `palari agent next --as PALARI-ID --json` to discover safe candidates.
+2. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`.
+3. Continue only if the packet returns `status: ready`.
+4. Read and write only the packet's allowed paths and sources.
+5. Stop if the packet is blocked or a stop condition is reached.
+6. Produce the required output and trust records.
+7. Run `palari agent check WORK-ID --as PALARI-ID --json`.
+8. Run `palari validate --json`.
+9. Report the packet status, compliance checks, changed files, and remaining blockers.
 
 ## Packet Purpose
 
@@ -88,9 +90,11 @@ Agent Packet Contract v1 is intentionally read-only.
 
 Implemented:
 
+- `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --json`
+- compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - deterministic blocker codes
@@ -111,3 +115,7 @@ the current workspace against the completion contract. It returns `ok: false`
 when required receipt, evidence, review, human decision, source, dependency, or
 external-write checks fail. Light low-risk work may satisfy its trust loop with
 a valid receipt without requiring review or human approval.
+
+`agent next` reads the current queue for one Palari, puts safe-to-start
+candidates first, and keeps blocked or waiting visible with blocker codes. It
+does not create a claim, mutate state, or assign work.

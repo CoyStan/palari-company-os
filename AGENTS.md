@@ -5,9 +5,11 @@ supervisors. Humans should not need to drive every CLI command manually; agents
 use the CLI to stay inside company boundaries, and humans inspect blockers,
 approvals, receipts, and outcomes.
 
-Before changing files, run a packet command:
+Before changing files, either ask for the next safe work item or run a packet
+command for a known work item:
 
 ```bash
+palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 ```
 

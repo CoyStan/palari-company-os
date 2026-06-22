@@ -91,9 +91,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "agent":
         from .agent_checks import build_agent_check
+        from .agent_next import build_agent_next
         from .agent_packets import build_agent_brief
 
         workspace = Workspace.load(args.workspace)
+        if args.agent_command == "next":
+            return CommandResult(
+                "agent-next",
+                build_agent_next(workspace, args.palari_id, args.mode, args.limit),
+                args.json,
+            )
         if args.agent_command in {"brief", "start"}:
             return CommandResult(
                 "agent-brief",

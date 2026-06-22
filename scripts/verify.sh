@@ -24,6 +24,7 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari detail WORK-0001 --json >/tmp/palari-company-detail-work-0001.json
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001 --json >/tmp/palari-company-dogfood-detail-work-repo-0001.json
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >/tmp/palari-company-split-detail-work-split.json
+./bin/palari agent next --as PALARI-SOFIA --json >/tmp/palari-company-agent-next-sofia.json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-brief-ready.json
 ./bin/palari agent start WORK-0007 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-start-blocked.json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0003.json
@@ -66,6 +67,8 @@ grep -q 'No receipts recorded yet.' /tmp/palari-company-dashboard-dogfood/index.
 grep -q 'Palari Desktop Shell Prototype' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'External writes' /tmp/palari-company-desktop-prototype/index.html
 grep -q 'data-mobile-target="chat"' /tmp/palari-company-desktop-prototype/index.html
+grep -q '"schema_version": "palari.agent_next.v1"' /tmp/palari-company-agent-next-sofia.json
+grep -q '"work_item_id": "WORK-0003"' /tmp/palari-company-agent-next-sofia.json
 grep -q '"status": "ready"' /tmp/palari-company-agent-brief-ready.json
 grep -q '"packet_id": "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1"' /tmp/palari-company-agent-brief-ready.json
 grep -q '"status": "blocked"' /tmp/palari-company-agent-start-blocked.json

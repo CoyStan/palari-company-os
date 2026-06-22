@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from .agent_packets import build_agent_brief
+from .read_models import queue_items
+from .workspace import Workspace
+
+
+def build_agent_next(
+    workspace: Workspace,
+    palari_id: str,
+    mode: str = "execute",
+    limit: int = 5,
+) -> dict[str, Any]:
+    palari = workspace.palari(palari_id)
+    if palari is None:
+        return {
+            "schema_version": "palari.agent_next.v1",
+            "created_at": _timestamp(),
+            "workspace": workspace.name,
+            "status": "blocked",
+            "agent": {"id": palari_id, "found": False},
+            "mode": mode or "execute",
+            "ready_count": 0,
+            "blocked_count": 0,
+            "candidates": [],
+            "blockers": [
+                {
+                    "code": "MISSING_PALARI",
+                    "message": f"Palari not found: {palari_id}",
+                    "human_visible": True,
+                }
+            ],
+            "next_allowed_commands": ["palari queue --json", "palari validate --json"],
+            "omitted_context": [_omitted_context(workspace)],
+        }
+
+    candidates = _candidates(workspace, palari_id, mode or "execute")
+    ordered = sorted(candidates, key=lambda item: (not item["can_start"], item["queue_rank"]))
+    safe_limit = max(1, limit)
+    selected = ordered[:safe_limit]
+    ready_count = sum(1 for item in candidates if item["can_start"])
+    blocked_count = len(candidates) - ready_count
+    return {
+        "schema_version": "palari.agent_next.v1",
+        "created_at": _timestamp(),
+        "workspace": workspace.name,
+        "status": "ready" if ready_count else "no-ready-work",
+        "agent": {
+            "id": palari.id,
+            "name": palari.name,
+            "role": palari.role,
+            "found": True,
+        },
+        "mode": mode or "execute",
+        "ready_count": ready_count,
+        "blocked_count": blocked_count,
+        "candidates": selected,
+        "blockers": [] if ready_count else _no_ready_blockers(candidates),
+        "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
+        "omitted_context": [_omitted_context(workspace)],
+    }
+
+
+def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for rank, item in enumerate(queue_items(workspace), start=1):
+        work = workspace.work_item(item.id)
+        if work is None or not _palari_can_see_work(workspace, work, palari_id):
+            continue
+        packet = build_agent_brief(workspace, work.id, palari_id, mode)
+        blockers = packet.get("blockers", [])
+        can_start = packet.get("status") == "ready" and item.ai_safe_to_proceed
+        candidates.append(
+            {
+                "queue_rank": rank,
+                "work_item_id": work.id,
+                "title": work.title,
+                "risk": work.risk,
+                "intensity": work.intensity,
+                "status": work.status,
+                "attention": item.attention,
+                "why": item.why,
+                "next_action": item.next_action,
+                "workbench": {
+                    "id": item.workbench,
+                    "label": item.workbench_label,
+                },
+                "packet_status": packet.get("status", "blocked"),
+                "can_start": can_start,
+                "blocker_codes": [blocker.get("code", "") for blocker in blockers],
+                "brief_command": (
+                    f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
+                ),
+                "check_command": f"palari agent check {work.id} --as {palari_id} --json",
+            }
+        )
+    return candidates
+
+
+def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
+    if work.palari == palari_id:
+        return True
+    if not work.workbench_id:
+        return False
+    workbench = workspace.workbench(work.workbench_id)
+    return bool(workbench and palari_id in workbench.palari_ids)
+
+
+def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not candidates:
+        return [
+            {
+                "code": "NO_ASSIGNED_WORK",
+                "message": "No visible work items are assigned to or workbench-allowed for this Palari.",
+                "human_visible": True,
+            }
+        ]
+    return [
+        {
+            "code": "NO_READY_WORK",
+            "message": "Visible work exists, but none is currently safe to start.",
+            "human_visible": True,
+        }
+    ]
+
+
+def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) -> list[str]:
+    for candidate in candidates:
+        if candidate["can_start"]:
+            return [candidate["brief_command"], candidate["check_command"]]
+    if candidates:
+        first = candidates[0]
+        return [
+            f"palari detail {first['work_item_id']} --json",
+            "palari queue --json",
+            "palari validate --json",
+        ]
+    return [
+        f"palari agent next --as {palari_id} --mode {mode} --json",
+        "palari queue --json",
+        "palari validate --json",
+    ]
+
+
+def _omitted_context(workspace: Workspace) -> dict[str, Any]:
+    return {
+        "kind": "workspace_records",
+        "reason": "Agent next v1 includes compact queue candidates, not full workspace records.",
+        "counts": {
+            "work_items": len(workspace.work_items),
+            "palaris": len(workspace.palaris),
+            "workbenches": len(workspace.workbenches),
+            "sources": len(workspace.sources),
+        },
+    }
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")

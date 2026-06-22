@@ -74,6 +74,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_brief(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-next":
+        print_agent_next(result.payload, result.as_json)
+        return
+
     if result.kind == "agent-check":
         print_agent_check(result.payload, result.as_json)
         return
@@ -396,6 +400,38 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
         print("Blockers:")
         for blocker in blockers:
             print(f"  - {blocker['code']}: {blocker['message']}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    agent = payload["agent"]
+    print(f"Agent next: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Status: {payload['status']}")
+    print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
+    blockers = payload.get("blockers", [])
+    if blockers:
+        print("Blockers:")
+        for blocker in blockers:
+            print(f"  - {blocker['code']}: {blocker['message']}")
+    candidates = payload.get("candidates", [])
+    if candidates:
+        print("Candidates:")
+        for candidate in candidates:
+            marker = "ready" if candidate["can_start"] else "waiting"
+            print(
+                f"  - {candidate['work_item_id']} [{marker}] "
+                f"{candidate['title']} ({candidate['attention']})"
+            )
+            print(f"    next: {candidate['brief_command']}")
+            if candidate.get("blocker_codes"):
+                print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

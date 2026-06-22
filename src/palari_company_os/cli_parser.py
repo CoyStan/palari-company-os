@@ -127,6 +127,14 @@ def build_parser() -> argparse.ArgumentParser:
 def _add_agent_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("agent", help="Compile bounded packets for AI agents.")
     nested = parser.add_subparsers(dest="agent_command", required=True)
+    next_parser = nested.add_parser(
+        "next",
+        help="Show the next safe work candidates for one Palari.",
+    )
+    next_parser.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    next_parser.add_argument("--mode", default="execute", help="Packet mode.")
+    next_parser.add_argument("--limit", type=int, default=5, help="Maximum candidates to show.")
+    next_parser.add_argument("--json", action="store_true", help="Emit JSON.")
     for command in ("brief", "start"):
         packet = nested.add_parser(
             command,
