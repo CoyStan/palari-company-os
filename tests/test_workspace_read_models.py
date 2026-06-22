@@ -562,8 +562,18 @@ class CliTests(unittest.TestCase):
                 "read",
                 "--owner-human",
                 "HUMAN-X",
+                "--data-class",
+                "internal",
+                "--authority",
+                "company_owned",
+                "--steward-human",
+                "HUMAN-X",
+                "--freshness-sla",
+                "weekly",
                 "--set",
                 "selected=true",
+                "--set",
+                "redaction_required=true",
                 "--list",
                 "allowed_palaris=PALARI-X",
             )
@@ -700,6 +710,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["action"], "completed")
         self.assertEqual(final_detail["work_item"]["status"], "completed")
         self.assertEqual(final_detail["sources"][0]["id"], "SOURCE-X")
+        authored_source = final_workspace.source("SOURCE-X")
+        self.assertEqual(authored_source.data_class, "internal")
+        self.assertEqual(authored_source.authority, "company_owned")
+        self.assertEqual(authored_source.steward_human, "HUMAN-X")
+        self.assertTrue(authored_source.redaction_required)
         self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-X")
         self.assertEqual(final_detail["outcome"]["id"], "OUTCOME-X")
 

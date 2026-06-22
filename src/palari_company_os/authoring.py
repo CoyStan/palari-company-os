@@ -28,7 +28,7 @@ COLLECTIONS = {
 }
 
 INTEGER_FIELDS = {"required_approval_count"}
-BOOLEAN_FIELDS = {"selected", "enabled"}
+BOOLEAN_FIELDS = {"selected", "enabled", "redaction_required"}
 LIST_FIELDS = {
     "success_criteria",
     "linked_palaris",

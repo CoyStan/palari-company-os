@@ -322,6 +322,14 @@ class Workspace:
         for source in self.sources:
             if source.owner_human:
                 _require_ref("sources", source.id, "owner_human", source.owner_human, human_ids)
+            if source.steward_human:
+                _require_ref(
+                    "sources",
+                    source.id,
+                    "steward_human",
+                    source.steward_human,
+                    human_ids,
+                )
             for palari in source.allowed_palaris:
                 _require_ref("sources", source.id, "allowed_palaris", palari, palari_ids)
 

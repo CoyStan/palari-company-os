@@ -190,6 +190,11 @@
       "allowed_palaris": [
         "PALARI-SOFIA"
       ],
+      "data_class": "internal",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-FOUNDER",
+      "freshness_sla": "weekly",
+      "redaction_required": false,
       "last_seen_revision": "source-rev-1",
       "last_read_at": "2026-06-19T04:00:00Z"
     },
@@ -205,6 +210,11 @@
       "allowed_palaris": [
         "PALARI-SOFIA"
       ],
+      "data_class": "internal",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-FOUNDER",
+      "freshness_sla": "weekly",
+      "redaction_required": false,
       "last_seen_revision": "source-rev-1",
       "last_read_at": "2026-06-19T04:00:00Z"
     },
@@ -220,6 +230,11 @@
       "allowed_palaris": [
         "PALARI-ALFRED"
       ],
+      "data_class": "confidential",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-OPS",
+      "freshness_sla": "weekly",
+      "redaction_required": true,
       "last_seen_revision": "source-rev-1",
       "last_read_at": "2026-06-19T04:00:00Z"
     }

@@ -264,6 +264,11 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
+      "data_class": "internal",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-MAINTAINER",
+      "freshness_sla": "per change",
+      "redaction_required": false,
       "last_seen_revision": "6ffed8a",
       "last_read_at": "2026-06-22T05:39:09Z"
     },
@@ -279,6 +284,11 @@
       "allowed_palaris": [
         "PALARI-ARCHITECT"
       ],
+      "data_class": "internal",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-FOUNDER",
+      "freshness_sla": "per decision",
+      "redaction_required": false,
       "last_seen_revision": "ced5aaf",
       "last_read_at": "2026-06-22T05:11:00Z"
     }

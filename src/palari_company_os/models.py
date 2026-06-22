@@ -363,6 +363,11 @@ class Source:
     selected: bool = False
     owner_human: str = ""
     allowed_palaris: list[str] = field(default_factory=list)
+    data_class: str = ""
+    authority: str = ""
+    steward_human: str = ""
+    freshness_sla: str = ""
+    redaction_required: bool = False
     last_seen_revision: str = ""
     last_read_at: str = ""
 
@@ -379,6 +384,11 @@ class Source:
             selected=_boolean(record, "selected"),
             owner_human=_string(record, "owner_human"),
             allowed_palaris=_strings(record, "allowed_palaris"),
+            data_class=_string(record, "data_class"),
+            authority=_string(record, "authority"),
+            steward_human=_string(record, "steward_human"),
+            freshness_sla=_string(record, "freshness_sla"),
+            redaction_required=_boolean(record, "redaction_required"),
             last_seen_revision=_string(record, "last_seen_revision"),
             last_read_at=_string(record, "last_read_at"),
         )

@@ -160,6 +160,11 @@
         "selected": { "type": "boolean" },
         "owner_human": { "type": "string" },
         "allowed_palaris": { "$ref": "#/$defs/string_list" },
+        "data_class": { "type": "string" },
+        "authority": { "type": "string" },
+        "steward_human": { "type": "string" },
+        "freshness_sla": { "type": "string" },
+        "redaction_required": { "type": "boolean" },
         "last_seen_revision": { "type": "string" },
         "last_read_at": { "type": "string" }
       }

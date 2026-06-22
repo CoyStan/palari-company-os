@@ -147,6 +147,11 @@ def _source_record(source: Any, usage: dict[str, dict[str, list[str]]]) -> dict[
         "selected": source.selected,
         "owner_human": source.owner_human,
         "allowed_palaris": source.allowed_palaris,
+        "data_class": source.data_class,
+        "authority": source.authority,
+        "steward_human": source.steward_human,
+        "freshness_sla": source.freshness_sla,
+        "redaction_required": source.redaction_required,
         "last_seen_revision": source.last_seen_revision,
         "last_read_at": source.last_read_at,
         "used_by_work_items": sorted(record_usage["work_items"]),
@@ -225,6 +230,9 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
                 f"[{source['provider']}/{source['kind']}/{source['access_mode']}]"
             )
             lines.append(f"    allowed Palaris: {allowed}; memory for: {memory}")
+            readiness = _source_readiness_summary(source)
+            if readiness:
+                lines.append(f"    readiness: {readiness}")
     else:
         lines.append("  none declared")
     lines.append("")
@@ -260,3 +268,18 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
 def _join_or_none(values: Iterable[str]) -> str:
     values = list(values)
     return ", ".join(values) if values else "none"
+
+
+def _source_readiness_summary(source: dict[str, Any]) -> str:
+    parts = []
+    if source.get("data_class"):
+        parts.append(f"data={source['data_class']}")
+    if source.get("authority"):
+        parts.append(f"authority={source['authority']}")
+    if source.get("steward_human"):
+        parts.append(f"steward={source['steward_human']}")
+    if source.get("freshness_sla"):
+        parts.append(f"freshness={source['freshness_sla']}")
+    if source.get("redaction_required"):
+        parts.append("redaction required")
+    return "; ".join(parts)

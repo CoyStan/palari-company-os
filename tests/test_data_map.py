@@ -29,6 +29,11 @@ class DataMapTests(unittest.TestCase):
 
         source_ids = [source["id"] for source in payload["sources"]]
         self.assertEqual(source_ids, ["SOURCE-0001", "SOURCE-0002", "SOURCE-0003"])
+        source_by_id = {source["id"]: source for source in payload["sources"]}
+        self.assertEqual(source_by_id["SOURCE-0001"]["data_class"], "internal")
+        self.assertEqual(source_by_id["SOURCE-0001"]["authority"], "company_owned")
+        self.assertEqual(source_by_id["SOURCE-0003"]["steward_human"], "HUMAN-OPS")
+        self.assertTrue(source_by_id["SOURCE-0003"]["redaction_required"])
 
         provider_names = [provider["provider"] for provider in payload["external_systems"]]
         self.assertIn("local_note", provider_names)
@@ -47,6 +52,8 @@ class DataMapTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("Palari Data Map: Acme Company OS Example", result.stdout)
         self.assertIn("history: .palari/history.jsonl", result.stdout)
+        self.assertIn("readiness: data=internal", result.stdout)
+        self.assertIn("redaction required", result.stdout)
         self.assertIn("live execution: disabled", result.stdout)
         self.assertIn("Not Stored", result.stdout)
 

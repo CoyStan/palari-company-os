@@ -104,6 +104,11 @@ ALLOWED_RECORD_FIELDS = {
         "selected",
         "owner_human",
         "allowed_palaris",
+        "data_class",
+        "authority",
+        "steward_human",
+        "freshness_sla",
+        "redaction_required",
         "last_seen_revision",
         "last_read_at",
     },
@@ -347,6 +352,8 @@ OUTCOME_STATUSES = {"captured", "completed", "closed"}
 INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
+SOURCE_DATA_CLASSES = {"", "public", "internal", "confidential", "restricted"}
+SOURCE_AUTHORITIES = {"", "user_owned", "company_owned", "external_public", "external_private"}
 INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "rejected", "canceled"}
 INTEGRATION_OUTBOX_STATUSES = {"queued", "canceled"}
 INTEGRATION_EVENTS = {
@@ -419,6 +426,22 @@ def validate_workspace_contract(workspace: Any) -> None:
             "status",
             workbench.status,
             WORKBENCH_STATUSES,
+        )
+
+    for source in workspace.sources:
+        _require_allowed_value(
+            "sources",
+            source.id,
+            "data_class",
+            source.data_class,
+            SOURCE_DATA_CLASSES,
+        )
+        _require_allowed_value(
+            "sources",
+            source.id,
+            "authority",
+            source.authority,
+            SOURCE_AUTHORITIES,
         )
 
     for work in workspace.work_items:

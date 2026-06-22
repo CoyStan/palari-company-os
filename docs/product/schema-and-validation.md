@@ -77,6 +77,8 @@ Validation checks:
 - work item recommended playbooks reference declared playbook sources and
   included playbooks
 - source owner human and allowed Palari references
+- source readiness metadata uses supported data class and authority values
+- source steward humans reference existing human records
 - integration owner human and source references
 - integration allowed actions are supported by the declared provider
 - integration allowed actions are supported by the declared mode

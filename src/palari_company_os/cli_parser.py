@@ -343,6 +343,13 @@ def _add_source_parser(subparsers: Any) -> None:
             ("external_id", {"default": "", "help": "Provider-specific source id."}),
             ("access_mode", {"default": "", "help": "Read/write access mode."}),
             ("owner_human", {"default": "", "help": "Owner human id."}),
+            (
+                "data_class",
+                {"default": "", "help": "Data class: public/internal/confidential/restricted."},
+            ),
+            ("authority", {"default": "", "help": "Source authority, such as user_owned."}),
+            ("steward_human", {"default": "", "help": "Human steward responsible for this source."}),
+            ("freshness_sla", {"default": "", "help": "Freshness expectation, such as weekly."}),
             ("last_seen_revision", {"default": "", "help": "Last seen revision."}),
             ("last_read_at", {"default": "", "help": "Last read timestamp."}),
         ],

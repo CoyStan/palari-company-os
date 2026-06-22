@@ -364,6 +364,26 @@ class WorkspaceValidationTests(unittest.TestCase):
             "sources.SOURCE-1.allowed_palaris references missing id PALARI-MISSING",
         )
 
+    def test_source_readiness_values_are_strict(self) -> None:
+        def bad_data_class(data: dict[str, object]) -> None:
+            data["sources"][0]["data_class"] = "secretish"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "sources.SOURCE-0001.data_class has unsupported value 'secretish'",
+        ):
+            self.modified_example_workspace(bad_data_class)
+
+    def test_source_steward_human_must_exist(self) -> None:
+        def bad_steward(data: dict[str, object]) -> None:
+            data["sources"][0]["steward_human"] = "HUMAN-MISSING"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "sources.SOURCE-0001.steward_human references missing id HUMAN-MISSING",
+        ):
+            self.modified_example_workspace(bad_steward)
+
     def test_palari_memory_sources_must_exist(self) -> None:
         def missing_memory_source(data: dict[str, object]) -> None:
             data["palaris"][0]["memory_sources"] = ["SOURCE-MISSING"]

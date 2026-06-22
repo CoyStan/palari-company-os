@@ -27,8 +27,10 @@ of vague status text.
 
 Human-selected input that a Palari may use. Sources record label, provider,
 generic URI or external id, access mode, owner human, allowed Palaris, selected
-state, and last-read metadata. They model the boundary of what was available to
-the Palari; this v0 object does not connect to real providers yet.
+state, source readiness metadata, and last-read metadata. Readiness metadata
+currently covers data class, authority, steward human, freshness expectation,
+and whether redaction is required. Sources model the boundary of what was
+available to the Palari; this v0 object does not connect to real providers yet.
 
 ## Playbook Source
 
