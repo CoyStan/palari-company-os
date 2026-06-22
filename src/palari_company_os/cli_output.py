@@ -108,6 +108,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_loop(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-doctor":
+        print_agent_doctor(result.payload, result.as_json)
+        return
+
     if result.kind == "review-guide":
         print_review_guide(result.payload, result.as_json)
         return
@@ -724,6 +728,42 @@ def print_agent_loop(payload: dict[str, Any], as_json: bool) -> None:
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent doctor: {payload['doctor_id']}")
+    print(f"Status: {payload['status']}")
+    print(f"Agent safe: {_yes_no(payload['agent_safe'])}")
+    print(f"Human handoff required: {_yes_no(payload['human_handoff_required'])}")
+    print(f"Mode: {payload.get('mode', 'execute')}")
+    print(f"Step: {payload.get('next_step_type', 'inspect')}")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    print(f"Summary: {payload['summary']}")
+    checks = payload.get("checks", [])
+    if checks:
+        print("Diagnosis:")
+        for check in checks:
+            print(f"  - {check['code']} [{check['status']}]: {check['message']}")
+            if check.get("command"):
+                print(f"    command: {check['command']}")
+    if payload.get("missing_requirements"):
+        print("Missing requirements:")
+        for item in payload["missing_requirements"]:
+            print(f"  - {item['code']}: {item['message']}")
+    boundary = payload.get("human_action_boundary") or {}
+    if boundary.get("agent_may_execute") is False:
+        print("Human action boundary: agent may quote human commands, but must not run them.")
+    commands = payload.get("recommended_commands", [])
+    if commands:
+        print("Recommended commands:")
         for command in commands:
             print(f"  {command}")
 

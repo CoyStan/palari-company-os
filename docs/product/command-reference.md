@@ -144,6 +144,7 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
 ```
 
@@ -213,6 +214,10 @@ summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
 workspace. `agent next` and receipt-ready `agent finish` prefer this command
 before lower-level direct guide commands.
+
+`agent doctor` is read-only and explains why one work item is or is not safe for
+an agent right now. It summarizes packet readiness, completion checks, missing
+proof, human handoff boundaries, and recommended commands in plainer language.
 
 `agent loop` is read-only and summarizes the current agent control flow for one
 work item. It includes stage status and exact commands for `brief`, `check`,

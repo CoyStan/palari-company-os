@@ -31,10 +31,12 @@ The v1 loop is:
 8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
 9. If the result is a human review or decision handoff, run
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
-10. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
+10. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
+    plain-language diagnosis of the current safety state.
+11. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-11. Run `palari validate --json`.
-12. Report the packet status, finish guidance, changed files, checks, and blockers.
+12. Run `palari validate --json`.
+13. Report the packet status, finish guidance, changed files, checks, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -115,12 +117,14 @@ Implemented:
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
+- `palari agent doctor WORK-ID --as PALARI-ID --json`
 - `palari agent loop WORK-ID --as PALARI-ID --json`
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - read-only completion report guidance
 - read-only human handoff packets
+- plain-language read-only agent safety diagnoses
 - compact read-only agent loop summaries
 - deterministic blocker codes
 - packet context hash
@@ -196,3 +200,8 @@ reviewer, or convert a recommendation into human acceptance.
 summarizes `brief`, `check`, `finish`, and handoff status, includes the exact
 stage commands, and omits detailed payloads so agents can orient quickly without
 receiving the whole workspace.
+
+`agent doctor` is a plain-language read-only diagnosis over the same loop. It
+answers whether the work is agent-safe, missing proof, blocked, or waiting for a
+human handoff, and lists the next recommended commands without adding authority
+or mutating workspace state.

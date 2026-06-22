@@ -101,6 +101,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "agent":
         from .agent_checks import build_agent_check
+        from .agent_doctor import build_agent_doctor
         from .agent_finish import build_agent_finish
         from .agent_handoff import build_agent_handoff
         from .agent_loop import build_agent_loop
@@ -148,6 +149,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "agent-loop",
                 build_agent_loop(workspace, args.work_id, args.palari_id, args.mode),
+                args.json,
+            )
+        if args.agent_command == "doctor":
+            return CommandResult(
+                "agent-doctor",
+                build_agent_doctor(workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
 

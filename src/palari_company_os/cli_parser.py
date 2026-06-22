@@ -192,6 +192,14 @@ def _add_agent_parser(subparsers: Any) -> None:
     loop.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     loop.add_argument("--mode", default="execute", help="Packet mode.")
     loop.add_argument("--json", action="store_true", help="Emit JSON.")
+    doctor = nested.add_parser(
+        "doctor",
+        help="Explain why one work item is or is not safe for an agent right now.",
+    )
+    doctor.add_argument("work_id")
+    doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    doctor.add_argument("--mode", default="execute", help="Packet mode.")
+    doctor.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_workspace_parser(subparsers: Any) -> None:

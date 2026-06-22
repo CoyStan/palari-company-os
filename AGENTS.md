@@ -13,6 +13,7 @@ palari agent next --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
+palari agent doctor WORK-ID --as PALARI-ID --mode execute --json
 palari agent loop WORK-ID --as PALARI-ID --mode execute --json
 ```
 
@@ -41,6 +42,9 @@ Follow the packet:
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
+- run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
+  plain-language diagnosis of why work is safe, blocked, missing proof, or
+  waiting on human authority
 - run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a compact
   read-only summary of brief, check, finish, and handoff status
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or

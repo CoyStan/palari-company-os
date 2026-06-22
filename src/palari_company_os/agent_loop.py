@@ -183,6 +183,7 @@ def _commands(
         "brief": f"palari agent brief {work_id} --as {palari_id} --mode {mode} --json",
         "check": f"palari agent check {work_id} --as {palari_id} --mode {mode} --json",
         "finish": f"palari agent finish {work_id} --as {palari_id} --mode {mode} --json",
+        "loop": f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json",
     }
     if include_handoff:
         commands["handoff"] = (

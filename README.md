@@ -122,6 +122,7 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari review guide WORK-0003 --json
 ```
@@ -135,6 +136,8 @@ receipt, evidence, and review commands appear before generic inspect/validate
 commands, and human-decision commands are held until prerequisite proof exists.
 `agent next` candidates also include a `loop_command` for the compact
 brief/check/finish/handoff summary when an agent needs orientation.
+`agent doctor` gives a plain-language diagnosis of why a work item is safe,
+blocked, missing proof, or waiting on human authority.
 `agent handoff` is the preferred bridge for human review or decision states; it
 packages the relevant finish, review-guide, or decision-guide context without
 mutating the workspace, while keeping human action commands separate from

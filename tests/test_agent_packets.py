@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.agent_loop import build_agent_loop
@@ -1008,6 +1009,61 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("Agent loop: LOOP-WORK-0003-PALARI-SOFIA-EXECUTE-V1", result.stdout)
         self.assertIn("Stages:", result.stdout)
         self.assertIn("palari agent brief WORK-0003 --as PALARI-SOFIA", result.stdout)
+
+    def test_agent_doctor_explains_missing_proof_without_mutation(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_doctor(workspace, "WORK-0003", "PALARI-SOFIA")
+        checks = {check["code"]: check for check in result["checks"]}
+
+        self.assertEqual(result["schema_version"], "palari.agent_doctor.v1")
+        self.assertEqual(result["doctor_id"], "DOCTOR-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["agent_safe"], True)
+        self.assertEqual(result["human_handoff_required"], False)
+        self.assertEqual(result["would_mutate"], False)
+        self.assertIn("RECEIPT_PRESENT", result["summary"])
+        self.assertEqual(checks["PACKET"]["status"], "pass")
+        self.assertEqual(checks["CONTRACT"]["status"], "fail")
+        self.assertIn(
+            "palari receipt record RECEIPT-ID --work-item-id WORK-0003",
+            "\n".join(result["recommended_commands"]),
+        )
+        self.assertIn(
+            "palari agent loop WORK-0003 --as PALARI-SOFIA --mode execute --json",
+            result["recommended_commands"],
+        )
+
+    def test_agent_doctor_marks_human_handoff_boundary(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_doctor(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
+        checks = {check["code"]: check for check in result["checks"]}
+
+        self.assertEqual(result["status"], "human-handoff-required")
+        self.assertEqual(result["agent_safe"], False)
+        self.assertEqual(result["human_handoff_required"], True)
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(checks["HANDOFF"]["status"], "warn")
+        self.assertEqual(checks["HUMAN_ACTION_BOUNDARY"]["status"], "warn")
+        self.assertIn("agent handoff", result["recommended_commands"][0])
+
+    def test_cli_agent_doctor_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli("agent", "doctor", "WORK-0003", "--as", "PALARI-SOFIA", "--json").stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_doctor.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertIn("checks", result)
+        self.assertIn("recommended_commands", result)
+
+    def test_cli_agent_doctor_text_prints_summary(self) -> None:
+        result = self.run_cli("agent", "doctor", "WORK-0003", "--as", "PALARI-SOFIA")
+
+        self.assertIn("Agent doctor: DOCTOR-WORK-0003-PALARI-SOFIA-EXECUTE-V1", result.stdout)
+        self.assertIn("Summary:", result.stdout)
+        self.assertIn("Diagnosis:", result.stdout)
 
     def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
         return {check["code"]: check for check in result["checks"]}
