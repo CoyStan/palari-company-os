@@ -171,6 +171,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "intensity_reason": queue_item.intensity_reason,
         },
         "playbooks": playbooks,
+        "agent_commands": _agent_commands(work),
     }
 
 
@@ -478,6 +479,16 @@ def recommend_intensity(work: Any) -> tuple[str, str]:
 
 def _attempt_head(attempt: Any) -> str:
     return attempt.commits[-1] if attempt.commits else ""
+
+
+def _agent_commands(work: Any) -> dict[str, str]:
+    return {
+        "next": f"palari agent next --as {work.palari} --json",
+        "brief": f"palari agent brief {work.id} --as {work.palari} --mode execute --json",
+        "start": f"palari agent start {work.id} --as {work.palari} --mode execute --json",
+        "check": f"palari agent check {work.id} --as {work.palari} --json",
+        "finish": f"palari agent finish {work.id} --as {work.palari} --json",
+    }
 
 
 def _evidence_state(work: Any, context: _ReadContext) -> str:

@@ -559,6 +559,10 @@ def print_detail(payload: dict[str, Any]) -> None:
     print(f"Why: {payload['why']}")
     print(f"Next: {payload['next_action']}")
     print(f"Safety: {payload['safety']}")
+    if payload.get("agent_commands"):
+        print("Agent commands:")
+        for label, command in payload["agent_commands"].items():
+            print(f"  {label}: {command}")
     print("")
     print("Scope")
     print(f"  {work['scope']}")

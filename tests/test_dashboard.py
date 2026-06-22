@@ -41,6 +41,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("RECEIPT-0001", html)
         self.assertIn("Read-only dashboard", html)
         self.assertIn("What Palaris used, made, did not do, and can undo", html)
+        self.assertIn("Agent loop", html)
+        self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)
+        self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
 
     def test_dashboard_generation_handles_dogfood_workspace_and_empty_trust(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -308,6 +308,7 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
         {_kv("Human decision", _record_label(human_decision))}
       </div>
     </div>
+    {_agent_command_block(payload.get("agent_commands", {}))}
     <p class="next-action"><span class="na-label">Next</span>{_e(payload['next_action'])}</p>
   </div>
 </details>
@@ -586,6 +587,17 @@ def _list_block(title: str, values: list[Any]) -> str:
         return f'<div class="list-block"><strong>{_e(title)}</strong><p class="subtle">none</p></div>'
     items = "".join(f"<li>{_e(str(item))}</li>" for item in values)
     return f'<div class="list-block"><strong>{_e(title)}</strong><ul>{items}</ul></div>'
+
+
+def _agent_command_block(commands: dict[str, str]) -> str:
+    if not commands:
+        return ""
+    rows = "".join(
+        f"<li><span>{_e(label)}</span><code>{_e(command)}</code></li>"
+        for label, command in commands.items()
+        if command
+    )
+    return f'<div class="agent-command-block"><strong>Agent loop</strong><ul>{rows}</ul></div>'
 
 
 def _mini_list(values: list[Any], empty_label: str, heading: str = "") -> str:
@@ -1087,6 +1099,18 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 .list-block strong { display: block; font-size: 0.74rem; color: var(--muted); font-weight: 600; margin-bottom: 0.1rem; }
 .list-block ul { margin: 0; padding-left: 1rem; }
 .list-block li { font-size: 0.78rem; margin-bottom: 0.08rem; overflow-wrap: anywhere; }
+.agent-command-block {
+  margin-top: 0.55rem; padding: 0.5rem 0.55rem;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2);
+}
+.agent-command-block strong {
+  display: block; font-size: 0.72rem; color: var(--muted); font-weight: 650;
+  margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.agent-command-block ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.24rem; }
+.agent-command-block li { display: grid; grid-template-columns: 3.8rem minmax(0, 1fr); gap: 0.4rem; align-items: baseline; }
+.agent-command-block li span { color: var(--muted); font-size: 0.72rem; font-weight: 600; }
+.agent-command-block code { font-size: 0.72rem; overflow-wrap: anywhere; }
 .next-action {
   margin: 0.5rem 0 0; padding: 0.4rem 0.55rem;
   border: 1px solid var(--line); border-radius: 6px; background: #fffdf6;

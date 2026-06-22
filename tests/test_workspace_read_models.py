@@ -92,6 +92,14 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["attention"], "receipt-ready")
         self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
         self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
+        self.assertEqual(
+            payload["agent_commands"]["brief"],
+            "palari agent brief WORK-0007 --as PALARI-SOFIA --mode execute --json",
+        )
+        self.assertEqual(
+            payload["agent_commands"]["finish"],
+            "palari agent finish WORK-0007 --as PALARI-SOFIA --json",
+        )
 
     def test_parallel_attempts_are_visible_without_conflict(self) -> None:
         workspace = Workspace.load(WORKSPACE)
