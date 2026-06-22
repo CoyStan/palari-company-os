@@ -28,7 +28,8 @@
         "WORK-REPO-0009",
         "WORK-REPO-0010",
         "WORK-REPO-0011",
-        "WORK-REPO-0012"
+        "WORK-REPO-0012",
+        "WORK-REPO-0013"
       ],
       "linked_decisions": []
     },
@@ -156,7 +157,8 @@
         "WORK-REPO-0009",
         "WORK-REPO-0010",
         "WORK-REPO-0011",
-        "WORK-REPO-0012"
+        "WORK-REPO-0012",
+        "WORK-REPO-0013"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -260,8 +262,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "c8298bf",
-      "last_read_at": "2026-06-22T05:21:28Z"
+      "last_seen_revision": "0bb0e9a",
+      "last_read_at": "2026-06-22T05:28:49Z"
     },
     {
       "id": "SOURCE-REPO-ARCHITECTURE",
@@ -778,6 +780,45 @@
       "acceptance_target": "Workspace validation rejects missing Palari memory source references while preserving existing examples and dogfood workspaces.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0012"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_data_map.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "add live connectors",
+        "read secrets",
+        "add dependencies",
+        "change workspace semantics"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_data_map",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0013",
+      "title": "Add workspace data map command",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Add a read-only command that explains where workspace data, sources, integrations, memory references, and history live.",
+      "acceptance_target": "Users and agents can run palari data map in text or JSON to understand data boundaries without live connectors or memory engines.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0013"
     }
   ],
   "attempts": [
@@ -1058,6 +1099,30 @@
       "started_at": "2026-06-22T05:21:28Z",
       "cleanliness": "clean",
       "result": "Validated Palari memory source references, normalized example memory sources to source IDs, and added regression coverage."
+    },
+    {
+      "commits": [
+        "0bb0e9a"
+      ],
+      "changed_files": [
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_data_map.py",
+        "README.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0013",
+      "work_item_id": "WORK-REPO-0013",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T05:28:49Z",
+      "cleanliness": "clean",
+      "result": "Added read-only data map command covering storage, sources, integrations, memory-source references, history, and non-stored boundaries."
     }
   ],
   "evidence_runs": [
@@ -1298,6 +1363,32 @@
       "summary": "Memory source validation passed focused validation tests, full verification, unit discovery, install smoke, and workspace validation smokes.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T05:21:28Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_data_map",
+        "./bin/palari --workspace examples/acme-company-os data map",
+        "./bin/palari --workspace examples/acme-company-os data map --json",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused data-map test output",
+        "data map text output",
+        "data map JSON output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0013",
+      "work_item_id": "WORK-REPO-0013",
+      "attempt_id": "ATTEMPT-REPO-0013",
+      "head_sha": "0bb0e9a",
+      "status": "passed",
+      "summary": "Data map command passed focused data-map tests, full verification, unit discovery, install smoke, and text/JSON command smokes.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T05:28:49Z"
     }
   ],
   "review_verdicts": [
@@ -1721,6 +1812,44 @@
       "attempt_id": "ATTEMPT-REPO-0012",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:21:28Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "added data map read model",
+        "wired palari data map CLI output",
+        "added tests for text and JSON output",
+        "documented command and quickstart"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_data_map.py",
+        "README.md",
+        "docs/product/command-reference.md"
+      ],
+      "not_done": [
+        "No live connectors called",
+        "No secrets read",
+        "No memory engine added",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/data_map.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_data_map.py"
+      ],
+      "id": "RECEIPT-REPO-0013",
+      "work_item_id": "WORK-REPO-0013",
+      "attempt_id": "ATTEMPT-REPO-0013",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:28:49Z"
     }
   ],
   "decisions": [
