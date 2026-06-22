@@ -860,6 +860,13 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "fail")
         self.assertNotIn("next_command", checks["HUMAN_DECISION_PRESENT"])
+        self.assertEqual(
+            result["next_allowed_commands"][:2],
+            [
+                "palari agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
+                "palari review guide WORK-REPO-0003 --json",
+            ],
+        )
         self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
 
     def test_cli_agent_check_emits_json_shape(self) -> None:

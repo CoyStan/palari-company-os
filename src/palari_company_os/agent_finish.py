@@ -92,11 +92,8 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
     review_command = f"palari review guide {work_id} --json"
     review_needed = "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
-    if review_needed and handoff_command not in commands:
-        commands.insert(0, handoff_command)
-    if review_needed and review_command not in commands:
-        commands.insert(0, review_command)
-        commands[0], commands[1] = commands[1], commands[0]
+    if review_needed:
+        _prioritize(commands, [handoff_command, review_command])
     _append_once(commands, "palari validate --json")
     return commands
 
@@ -139,6 +136,13 @@ def _first_decision_command(check: dict[str, Any]) -> str:
 def _append_once(commands: list[str], command: str) -> None:
     if command and command not in commands:
         commands.append(command)
+
+
+def _prioritize(commands: list[str], prioritized: list[str]) -> None:
+    for command in reversed([item for item in prioritized if item]):
+        if command in commands:
+            commands.remove(command)
+        commands.insert(0, command)
 
 
 def _requirement(check: dict[str, Any]) -> dict[str, Any]:

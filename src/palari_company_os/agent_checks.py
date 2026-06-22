@@ -238,6 +238,7 @@ def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: boo
     for command in packet_commands_from_checks(packet):
         if command and command not in commands:
             commands.append(command)
+    _prioritize_review_handoff(commands, packet)
     return commands
 
 
@@ -255,6 +256,22 @@ def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
 def _first_command(packet: dict[str, Any]) -> str:
     commands = packet.get("next_allowed_commands", [])
     return commands[0] if commands else ""
+
+
+def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> None:
+    blocker_codes = {blocker.get("code", "") for blocker in packet.get("blockers", [])}
+    if not ({"REVIEW_REQUIRED", "RECEIPT_READY_REVIEW"} & blocker_codes):
+        return
+    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
+    palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
+    prioritized = [
+        f"palari agent handoff {work_id} --as {palari_id} --json",
+        f"palari review guide {work_id} --json",
+    ]
+    for command in reversed(prioritized):
+        if command in commands:
+            commands.remove(command)
+        commands.insert(0, command)
 
 
 def _receipt_command(packet: dict[str, Any]) -> str:

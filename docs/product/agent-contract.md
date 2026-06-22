@@ -139,7 +139,8 @@ review or human approval. Missing receipt, evidence, and review checks include
 the next safe command Palari can infer for the current work item. Human-decision
 record commands are held back until prerequisite proof, such as receipt,
 evidence, and review, is present, so agents do not jump from missing review
-straight to approval.
+straight to approval. When a blocked packet is already waiting on review,
+`agent check` points to `agent handoff` before lower-level inspect commands.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,

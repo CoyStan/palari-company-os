@@ -187,7 +187,8 @@ include concrete next-command guidance when possible, and failed required check
 commands appear before generic inspect/validate commands. Human-decision record
 commands are not surfaced until prerequisite proof is present. Light low-risk
 receipt-ready work can satisfy the receipt requirement without forcing review
-or human approval.
+or human approval. When blocked work is waiting on review, `agent check`
+prioritizes `agent handoff` before generic detail commands.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be
