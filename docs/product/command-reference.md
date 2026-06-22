@@ -157,6 +157,8 @@ commands. Agents should treat this packet as their working boundary.
 review or marked receipt-ready. It includes review focus and compact
 attempt/evidence/receipt context, sets write paths to empty, and points to the
 review guide without recording a verdict.
+`agent next --mode review` treats `needs-review` and `receipt-ready` work as
+ready review candidates while leaving other states blocked.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. It returns `ok`, packet id,

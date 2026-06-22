@@ -9,6 +9,7 @@ from .workspace import Workspace
 
 
 AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
+AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready"}
 
 
 def build_agent_next(
@@ -98,10 +99,10 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             continue
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
-        can_start = _can_start_agent_work(item, packet)
-        start_blockers = _start_blockers(item, packet)
+        can_start = _can_start_agent_work(item, packet, mode)
+        start_blockers = _start_blockers(item, packet, mode)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
-        check_command = f"palari agent check {work.id} --as {palari_id} --json"
+        check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
         handoff_guidance = _handoff_guidance(work.id, item, blocker_codes, palari_id)
         next_command = _candidate_next_command(item, can_start, brief_command, handoff_guidance)
@@ -135,6 +136,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                     check_command,
                     handoff_guidance,
                     next_command,
+                    mode,
                 ),
                 "brief_command": brief_command,
                 "check_command": check_command,
@@ -165,7 +167,14 @@ def _candidate_next_commands(
     check_command: str,
     handoff_guidance: list[dict[str, str]],
     next_command: str,
+    mode: str,
 ) -> list[str]:
+    if can_start and _has_active_proof_work(item):
+        return item.next_commands or [next_command, check_command]
+    if can_start and mode == "review":
+        return [brief_command, f"palari review guide {item.id} --json", check_command]
+    if can_start:
+        return [brief_command, check_command]
     if handoff_guidance:
         commands = [next_command]
         for guidance in handoff_guidance:
@@ -173,10 +182,6 @@ def _candidate_next_commands(
         for command in item.next_commands:
             _append_once(commands, command)
         return commands
-    if can_start and _has_active_proof_work(item):
-        return item.next_commands or [next_command, check_command]
-    if can_start:
-        return [brief_command, check_command]
     return item.next_commands
 
 
@@ -188,7 +193,9 @@ def _has_active_proof_work(item: Any) -> bool:
     )
 
 
-def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:
+def _can_start_agent_work(item: Any, packet: dict[str, Any], mode: str) -> bool:
+    if mode == "review":
+        return packet.get("status") == "ready" and item.attention in AGENT_REVIEWABLE_ATTENTIONS
     return (
         packet.get("status") == "ready"
         and item.ai_safe_to_proceed
@@ -196,7 +203,7 @@ def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:
     )
 
 
-def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
+def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     if packet.get("status") != "ready":
         blockers.append(
@@ -205,6 +212,18 @@ def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
                 "message": "The agent packet is blocked; inspect blocker_codes before starting.",
             }
         )
+    if mode == "review":
+        if item.attention not in AGENT_REVIEWABLE_ATTENTIONS:
+            blockers.append(
+                {
+                    "code": "ATTENTION_NOT_REVIEWABLE",
+                    "message": (
+                        f"Current attention state is {item.attention}; review mode is for "
+                        "needs-review or receipt-ready work."
+                    ),
+                }
+            )
+        return blockers
     if not item.ai_safe_to_proceed:
         blockers.append(
             {
@@ -220,6 +239,12 @@ def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return blockers
+
+
+def _check_command(work_id: str, palari_id: str, mode: str) -> str:
+    if mode == "execute":
+        return f"palari agent check {work_id} --as {palari_id} --json"
+    return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _handoff_guidance(
@@ -319,6 +344,8 @@ def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
 
 
 def _candidate_commands(candidate: dict[str, Any]) -> list[str]:
+    if candidate.get("next_commands"):
+        return list(candidate["next_commands"])
     if candidate["next_command"] != candidate["brief_command"]:
         return candidate.get("next_commands") or [
             candidate["next_command"],

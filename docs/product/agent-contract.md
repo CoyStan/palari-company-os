@@ -39,6 +39,8 @@ already in `needs-review` or `receipt-ready`. A review packet is read-only. It
 includes the review guide focus, attempt, evidence, receipt, suggested verdicts,
 and reviewer candidates, but it does not record a review verdict or mutate the
 workspace.
+`palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
+items as ready while keeping non-reviewable work blocked.
 
 ## Packet Purpose
 

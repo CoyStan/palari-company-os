@@ -126,6 +126,47 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("QUEUE_NOT_AI_SAFE", candidate["start_blocker_codes"])
         self.assertEqual(candidate["next_command"], "palari detail WORK-REPO-0004 --json")
 
+    def test_agent_next_review_mode_marks_reviewable_work_ready(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_next(workspace, "PALARI-STEWARD", mode="review", limit=20)
+        candidate = {
+            item["work_item_id"]: item for item in result["candidates"]
+        }["WORK-REPO-0003"]
+
+        self.assertEqual(result["schema_version"], "palari.agent_next.v1")
+        self.assertEqual(result["status"], "ready")
+        self.assertGreaterEqual(result["ready_count"], 1)
+        self.assertEqual(candidate["attention"], "needs-review")
+        self.assertEqual(candidate["packet_status"], "ready")
+        self.assertTrue(candidate["can_start"])
+        self.assertEqual(candidate["start_blockers"], [])
+        self.assertEqual(
+            candidate["next_command"],
+            "palari agent brief WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
+        )
+        self.assertEqual(
+            candidate["next_commands"][:3],
+            [
+                "palari agent brief WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
+                "palari review guide WORK-REPO-0003 --json",
+                "palari agent check WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
+            ],
+        )
+
+    def test_agent_next_review_mode_blocks_non_reviewable_work(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_next(workspace, "PALARI-ARCHITECT", mode="review", limit=20)
+        candidate = {
+            item["work_item_id"]: item for item in result["candidates"]
+        }["WORK-REPO-0004"]
+
+        self.assertFalse(candidate["can_start"])
+        self.assertEqual(candidate["packet_status"], "blocked")
+        self.assertIn("REVIEW_NOT_READY", candidate["blocker_codes"])
+        self.assertIn("ATTENTION_NOT_REVIEWABLE", candidate["start_blocker_codes"])
+
     def test_agent_next_all_rolls_up_all_palaris(self) -> None:
         workspace = Workspace.load(DOGFOOD)
 
