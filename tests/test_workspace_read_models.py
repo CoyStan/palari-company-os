@@ -64,6 +64,12 @@ class WorkspaceReadModelTests(unittest.TestCase):
             queue["WORK-REPO-0003"].next_commands[0],
             "palari review guide WORK-REPO-0003 --json",
         )
+        self.assertEqual(queue["WORK-REPO-0004"].attention, "ready-for-ai-work")
+        self.assertFalse(queue["WORK-REPO-0004"].ai_safe_to_proceed)
+        self.assertEqual(
+            queue["WORK-REPO-0004"].next_commands[0],
+            "palari detail WORK-REPO-0004 --json",
+        )
 
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)

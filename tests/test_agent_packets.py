@@ -19,6 +19,7 @@ from palari_company_os.workspace import Workspace
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
 
 
 class AgentPacketTests(unittest.TestCase):
@@ -88,6 +89,19 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("ATTENTION_NOT_STARTABLE", candidate["start_blocker_codes"])
         self.assertEqual(candidate["next_command"], "palari review guide WORK-0003 --json")
         self.assertEqual(candidate["next_commands"][0], "palari review guide WORK-0003 --json")
+
+    def test_agent_next_does_not_offer_start_command_when_queue_is_not_ai_safe(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_next(workspace, "PALARI-ARCHITECT", limit=20)
+        candidate = {
+            item["work_item_id"]: item for item in result["candidates"]
+        }["WORK-REPO-0004"]
+
+        self.assertEqual(candidate["attention"], "ready-for-ai-work")
+        self.assertEqual(candidate["can_start"], False)
+        self.assertIn("QUEUE_NOT_AI_SAFE", candidate["start_blocker_codes"])
+        self.assertEqual(candidate["next_command"], "palari detail WORK-REPO-0004 --json")
 
     def test_agent_next_missing_palari_is_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)
