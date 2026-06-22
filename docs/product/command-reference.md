@@ -153,8 +153,9 @@ or human approval.
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be
 handed off to a human, missing requirements, completed requirements, blockers,
-and report guidance. It does not close work, record receipts, mutate history, or
-perform external actions.
+and report guidance. Handoff-ready receipt work points to the review guide as
+the next human-facing command. It does not close work, record receipts, mutate
+history, or perform external actions.
 
 ## Playbooks
 

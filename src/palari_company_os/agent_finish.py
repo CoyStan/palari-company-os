@@ -79,6 +79,11 @@ def _finish_status(
 
 def _next_commands(check: dict[str, Any]) -> list[str]:
     commands = list(check.get("next_allowed_commands", []))
+    blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
+    work_id = check.get("work_item", {}).get("id", "WORK-ID")
+    review_command = f"palari review guide {work_id} --json"
+    if "RECEIPT_READY_REVIEW" in blocker_codes and review_command not in commands:
+        commands.insert(0, review_command)
     if "palari validate --json" not in commands:
         commands.append("palari validate --json")
     return commands

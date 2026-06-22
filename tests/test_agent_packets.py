@@ -226,6 +226,7 @@ class AgentPacketTests(unittest.TestCase):
             "RECEIPT_READY_REVIEW",
             {blocker["code"] for blocker in result["blockers"]},
         )
+        self.assertEqual(result["next_allowed_commands"][0], "palari review guide WORK-0007 --json")
 
     def test_agent_finish_human_decision_required_remains_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)
