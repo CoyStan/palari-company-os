@@ -228,7 +228,7 @@
       "id": "INT-GITHUB-REPO",
       "provider": "github",
       "label": "Palari Company OS GitHub repo",
-      "mode": "notify",
+      "mode": "dry_run",
       "owner_human": "HUMAN-MAINTAINER",
       "enabled": true,
       "allowed_events": [

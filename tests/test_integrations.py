@@ -124,6 +124,20 @@ class IntegrationRegistryTests(unittest.TestCase):
         ):
             self.modified_workspace(unsupported_provider_action)
 
+    def test_integration_mode_limits_allowed_actions(self) -> None:
+        def notify_mode_with_write_action(data: dict[str, object]) -> None:
+            data["integrations"][1]["mode"] = "notify"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "allowed_actions includes action 'comment' unsupported by mode notify",
+        ):
+            self.modified_workspace(notify_mode_with_write_action)
+
+        workspace = Workspace.load(WORKSPACE)
+        self.assertEqual(workspace.integration("INT-GITHUB-REPO").mode, "dry_run")
+        self.assertIn("comment", workspace.integration("INT-GITHUB-REPO").allowed_actions)
+
     def test_slack_plan_is_dry_run_payload_preview(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 

@@ -245,7 +245,10 @@ Raw tokens or keys fail validation. Planning also fails closed when an
 integration is disabled, when a requested event/action is not allowed, or when
 the provider does not support the requested action. Workspace validation applies
 the same provider/action matrix so hand-edited integration records cannot
-declare unsupported actions.
+declare unsupported actions. `mode` is also enforced: `notify` can only notify,
+`write` can plan write-style previews, `read` and `webhook` declare no outbound
+actions, and `dry_run` can preview any action supported by the provider while
+still making no live call.
 
 By default, `integration plan` is a preview and does not write workspace state.
 Use `--record` when the dry-run payload should become a reviewable integration

@@ -7,3 +7,17 @@ PROVIDER_ACTIONS = {
     "jira": {"notify", "comment", "create_issue", "update_issue"},
     "email": {"notify"},
 }
+
+MODE_ACTIONS = {
+    "notify": {"notify"},
+    "read": set(),
+    "write": {"comment", "create_issue", "update_issue"},
+    "read_write": {"notify", "comment", "create_issue", "update_issue"},
+    "webhook": set(),
+}
+
+
+def supported_actions_for_mode(mode: str, provider: str) -> set[str]:
+    if mode == "dry_run":
+        return set(PROVIDER_ACTIONS.get(provider, set()))
+    return set(MODE_ACTIONS.get(mode, set()))

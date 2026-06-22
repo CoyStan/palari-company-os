@@ -79,6 +79,7 @@ Validation checks:
 - source owner human and allowed Palari references
 - integration owner human and source references
 - integration allowed actions are supported by the declared provider
+- integration allowed actions are supported by the declared mode
 - integration plans reference enabled integrations and existing work items
 - integration plans use events and actions allowed by the referenced
   integration

@@ -4,7 +4,7 @@ import re
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .integration_contracts import PROVIDER_ACTIONS
+from .integration_contracts import PROVIDER_ACTIONS, supported_actions_for_mode
 from .models import (
     Attempt,
     EvidenceRun,
@@ -595,6 +595,11 @@ def _validate_integration(integration: Integration) -> None:
             raise WorkspaceError(
                 f"integrations.{integration.id}.allowed_actions includes action "
                 f"{action!r} unsupported by provider {integration.provider}"
+            )
+        if action not in supported_actions_for_mode(integration.mode, integration.provider):
+            raise WorkspaceError(
+                f"integrations.{integration.id}.allowed_actions includes action "
+                f"{action!r} unsupported by mode {integration.mode}"
             )
     if integration.secret_ref and not SECRET_REF_RE.match(integration.secret_ref):
         raise WorkspaceError(

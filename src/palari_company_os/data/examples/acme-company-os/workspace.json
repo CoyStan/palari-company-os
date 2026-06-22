@@ -286,7 +286,7 @@
       "id": "INT-GITHUB-REPO",
       "provider": "github",
       "label": "GitHub repo work notifications",
-      "mode": "notify",
+      "mode": "dry_run",
       "owner_human": "HUMAN-FOUNDER",
       "enabled": true,
       "allowed_events": [
@@ -307,7 +307,7 @@
       "id": "INT-JIRA-OPS",
       "provider": "jira",
       "label": "Jira ops queue",
-      "mode": "notify",
+      "mode": "dry_run",
       "owner_human": "HUMAN-OPS",
       "enabled": true,
       "allowed_events": [
