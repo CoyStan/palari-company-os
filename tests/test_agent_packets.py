@@ -283,6 +283,7 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], "palari.agent_finish.v1")
         self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["next_step_type"], "check-active-proof")
         self.assertEqual(result["can_finish"], False)
         self.assertEqual(result["would_mutate"], False)
 
@@ -290,6 +291,7 @@ class AgentPacketTests(unittest.TestCase):
         result = self.run_cli("agent", "finish", "WORK-0007", "--as", "PALARI-SOFIA")
 
         self.assertIn("Status: handoff-ready", result.stdout)
+        self.assertIn("Step: review-handoff", result.stdout)
         self.assertIn("Completed requirements:", result.stdout)
         self.assertIn("RECEIPT_PRESENT", result.stdout)
         self.assertIn("Guidance: Do not continue execution.", result.stdout)
@@ -309,6 +311,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/product/company-os.md"])
         self.assertEqual(packet["completion_contract"]["requires_receipt"], True)
         self.assertEqual(packet["completion_contract"]["requires_evidence"], True)
+        self.assertEqual(packet["state"]["next_step_type"], "check-active-proof")
         self.assertEqual(packet["proof_state"]["attempt"]["head_sha"], "def5678")
         self.assertIn("palari scope WORK-0003 --json", packet["next_allowed_commands"])
         self.assertIn(
@@ -470,6 +473,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["ok"], False)
         self.assertEqual(result["packet_id"], "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
         self.assertTrue(result["packet_context_hash"].startswith("sha256:"))
+        self.assertEqual(result["next_step_type"], "check-active-proof")
         self.assertIn("checks", result)
         self.assertIn("next_allowed_commands", result)
 

@@ -521,6 +521,7 @@ def print_agent_check(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent check: {payload['check_id']}")
     print(f"OK: {_yes_no(payload['ok'])}")
     print(f"Packet: {payload['packet_id']} ({payload['packet_status']})")
+    print(f"Step: {payload.get('next_step_type', 'inspect')}")
     print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Work: {work.get('id', '')} {work.get('title', '')}")
     blockers = payload.get("blockers", [])
@@ -552,6 +553,7 @@ def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Status: {payload['status']}")
     print(f"Can finish: {_yes_no(payload['can_finish'])}")
     print(f"Handoff ready: {_yes_no(payload['handoff_ready'])}")
+    print(f"Step: {payload.get('next_step_type', 'inspect')}")
     print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Work: {work.get('id', '')} {work.get('title', '')}")
     if payload.get("missing_requirements"):

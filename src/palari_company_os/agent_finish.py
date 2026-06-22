@@ -48,6 +48,7 @@ def build_agent_finish(
         "packet_id": check.get("packet_id", ""),
         "packet_context_hash": check.get("packet_context_hash", ""),
         "check_id": check.get("check_id", ""),
+        "next_step_type": check.get("next_step_type", "inspect"),
         "missing_requirements": [_requirement(item) for item in missing_proof],
         "completed_requirements": [
             _requirement(item)

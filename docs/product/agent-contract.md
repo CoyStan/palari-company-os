@@ -114,13 +114,14 @@ Not implemented yet:
 - live connector execution
 - memory providers or vector search
 
-`agent check` rebuilds the packet, reports packet blockers, and then evaluates
-the current workspace against the completion contract. It returns `ok: false`
-when required receipt, evidence, review, human decision, source, dependency, or
-external-write checks fail. Light low-risk work may satisfy its trust loop with
-a valid receipt without requiring review or human approval. Missing receipt and
-evidence checks include record-command templates for the current work item and
-attempt when Palari can infer them.
+`agent check` rebuilds the packet, reports packet blockers, carries the current
+`next_step_type`, and then evaluates the current workspace against the
+completion contract. It returns `ok: false` when required receipt, evidence,
+review, human decision, source, dependency, or external-write checks fail. Light
+low-risk work may satisfy its trust loop with a valid receipt without requiring
+review or human approval. Missing receipt and evidence checks include
+record-command templates for the current work item and attempt when Palari can
+infer them.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,
@@ -128,7 +129,8 @@ and keeps blocked or waiting visible with blocker codes. It does not create a
 claim, mutate state, or assign work.
 
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
-workspace state in v1. It distinguishes missing proof from handoff-ready work,
-such as low-risk receipt-ready results that should stop execution and move to a
-human review path. Its `next_allowed_commands` prioritize missing proof or
-approval record templates before generic inspect/validate commands.
+workspace state in v1. It carries the same `next_step_type`, distinguishes
+missing proof from handoff-ready work, such as low-risk receipt-ready results
+that should stop execution and move to a human review path. Its
+`next_allowed_commands` prioritize missing proof or approval record templates
+before generic inspect/validate commands.

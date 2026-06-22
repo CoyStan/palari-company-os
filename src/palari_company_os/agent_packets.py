@@ -408,6 +408,7 @@ def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
         "attention": work_detail["attention"],
         "why": work_detail["why"],
         "next_action": work_detail["next_action"],
+        "next_step_type": work_detail["next_step_type"],
         "safety": work_detail["safety"],
         "active_parallel_attempts": work_detail["active_parallel_attempts"],
         "coordination_warnings": work_detail["coordination_warnings"],

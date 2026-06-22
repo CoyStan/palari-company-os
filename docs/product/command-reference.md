@@ -150,21 +150,22 @@ commands. Agents should treat this packet as their working boundary.
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. It returns `ok`, packet id,
 packet context hash, packet blockers, structured pass/fail/warn checks, and
-next safe commands. A ready-to-start packet can still produce `ok: false` when
-the attempt is missing required receipt, evidence, review, or human-decision
-records. Missing receipt and evidence checks include concrete record-command
-templates for the current work item and attempt when possible. Light low-risk
-receipt-ready work can satisfy the receipt requirement without forcing review
-or human approval.
+`next_step_type` plus next safe commands. A ready-to-start packet can still
+produce `ok: false` when the attempt is missing required receipt, evidence,
+review, or human-decision records. Missing receipt and evidence checks include
+concrete record-command templates for the current work item and attempt when
+possible. Light low-risk receipt-ready work can satisfy the receipt requirement
+without forcing review or human approval.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be
-handed off to a human, missing requirements, completed requirements, blockers,
-and report guidance. Handoff-ready receipt work points to the review guide as
-the next human-facing command; missing approval points to a human-decision
-record template when evidence and review are known. Missing proof or approval
-templates appear before generic inspect/validate commands. It does not close
-work, record receipts, mutate history, or perform external actions.
+handed off to a human, `next_step_type`, missing requirements, completed
+requirements, blockers, and report guidance. Handoff-ready receipt work points
+to the review guide as the next human-facing command; missing approval points to
+a human-decision record template when evidence and review are known. Missing
+proof or approval templates appear before generic inspect/validate commands. It
+does not close work, record receipts, mutate history, or perform external
+actions.
 
 ## Playbooks
 
