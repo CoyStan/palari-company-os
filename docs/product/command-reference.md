@@ -58,6 +58,20 @@ with its `next_step_type` and next command, queue items, active parallel work,
 and coordination warnings. This is the first fast read model for the whole
 workspace.
 
+## Data Map
+
+```bash
+./bin/palari data map
+./bin/palari data map --json
+```
+
+Shows where workspace data lives without adding a memory engine or live
+connector. The map summarizes `workspace.json`, `.palari/history.jsonl`,
+collection counts, declared external providers, sources, integrations, Palari
+memory-source references, dry-run integration activity, and what Palari does
+not store, such as raw tokens, provider responses, OAuth state, vector indexes,
+or autonomous approvals.
+
 ## Validate
 
 ```bash

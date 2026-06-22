@@ -28,6 +28,13 @@ def print_result(result: CommandResult) -> None:
             print_state(result.payload)
         return
 
+    if result.kind == "data-map":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_data_map(result.payload)
+        return
+
     if result.kind == "validate":
         if result.as_json:
             print_json(result.payload)
@@ -227,6 +234,13 @@ def print_history(payload: dict[str, Any]) -> None:
         changed_fields = event.get("changed_fields") or {}
         if changed_fields:
             print(f"  changed: {', '.join(sorted(changed_fields))}")
+
+
+def print_data_map(payload: dict[str, Any]) -> None:
+    from .data_map import format_data_map
+
+    for line in format_data_map(payload):
+        print(line)
 
 
 def print_dashboard(result: Any, as_json: bool) -> None:

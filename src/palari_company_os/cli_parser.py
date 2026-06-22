@@ -21,6 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
     state_parser = subparsers.add_parser("state", help="Show compact operator state.")
     state_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    data_parser = subparsers.add_parser("data", help="Inspect workspace data boundaries.")
+    data_nested = data_parser.add_subparsers(dest="data_command", required=True)
+    data_map_parser = data_nested.add_parser(
+        "map",
+        help="Show where workspace data, sources, integrations, memory, and history live.",
+    )
+    data_map_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     validate_parser = subparsers.add_parser("validate", help="Validate the workspace.")
     validate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 

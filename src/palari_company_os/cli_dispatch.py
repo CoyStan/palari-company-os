@@ -47,6 +47,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
+    if args.command == "data" and args.data_command == "map":
+        from .data_map import build_data_map
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult("data-map", build_data_map(workspace), args.json)
+
     if args.command == "validate":
         workspace = Workspace.load(args.workspace)
         return CommandResult(

@@ -93,6 +93,7 @@ The default workspace is the ACME example:
 ./bin/palari queue
 ./bin/palari detail WORK-0001
 ./bin/palari state
+./bin/palari data map
 ```
 
 Use JSON when wiring the CLI into tools or agents:
