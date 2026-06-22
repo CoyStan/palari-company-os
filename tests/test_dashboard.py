@@ -55,6 +55,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(result.workspace, "Palari Company OS Dogfood Workspace")
         self.assertIn("SOURCE-REPO-FOUNDATION", html)
         self.assertIn("RECEIPT-REPO-0001", html)
+        self.assertIn("palari decision guide DECISION-REPO-0001 --json", html)
         self.assertIn("palari review guide WORK-REPO-0003 --json", html)
         self.assertIn("Authority", html)
 

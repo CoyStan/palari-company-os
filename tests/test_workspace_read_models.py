@@ -52,6 +52,11 @@ class WorkspaceReadModelTests(unittest.TestCase):
         workspace = Workspace.load(DOGFOOD_WORKSPACE)
         queue = {item.id: item for item in queue_items(workspace)}
 
+        self.assertEqual(queue["WORK-REPO-0005"].attention, "needs-human-decision")
+        self.assertEqual(
+            queue["WORK-REPO-0005"].next_commands[0],
+            "palari decision guide DECISION-REPO-0001 --json",
+        )
         self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
         self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
         self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
@@ -73,6 +78,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertIn("keep low-risk work light", by_id["WORK-0001"].learning_signal)
         self.assertEqual(by_id["WORK-0002"].attention, "needs-human-decision")
         self.assertIn("DECISION-0001", by_id["WORK-0002"].why)
+        self.assertEqual(
+            by_id["WORK-0002"].next_commands[0],
+            "palari decision guide DECISION-0001 --json",
+        )
         self.assertEqual(by_id["WORK-0002"].recommended_intensity, "high")
         self.assertEqual(by_id["WORK-0002"].approval_progress, "0/2")
         self.assertEqual(by_id["WORK-0003"].attention, "needs-evidence")

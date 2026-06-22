@@ -264,7 +264,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         attention=attention,
         why=why,
         next_action=next_action,
-        next_commands=_work_next_commands(work, attention),
+        next_commands=_work_next_commands(work, attention, context),
         status=work.status,
         risk=work.risk,
         intensity=work.intensity,
@@ -494,9 +494,12 @@ def _agent_commands(work: Any) -> dict[str, str]:
     }
 
 
-def _work_next_commands(work: Any, attention: str) -> list[str]:
+def _work_next_commands(work: Any, attention: str, context: _ReadContext) -> list[str]:
     commands: list[str] = []
-    if attention in {"needs-review", "receipt-ready"}:
+    open_decision = context.open_decision_by_work.get(work.id)
+    if open_decision is not None:
+        commands.append(f"palari decision guide {open_decision.id} --json")
+    elif attention in {"needs-review", "receipt-ready"}:
         commands.append(f"palari review guide {work.id} --json")
     elif attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"}:
         commands.append(f"palari agent brief {work.id} --as {work.palari} --mode execute --json")

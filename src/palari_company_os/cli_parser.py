@@ -348,10 +348,10 @@ def _add_playbook_source_parser(subparsers: Any) -> None:
 
 
 def _add_decision_parser(subparsers: Any) -> None:
-    _add_create_update(
+    nested, _create, _update = _add_create_update(
         subparsers,
         "decision",
-        "Create or update decisions.",
+        "Guide, create, or update decisions.",
         [
             ("question", {"required": True, "help": "Decision question."}),
             ("status", {"default": "open", "help": "Decision status."}),
@@ -366,6 +366,9 @@ def _add_decision_parser(subparsers: Any) -> None:
             ("linked_palari", {"default": "", "help": "Linked Palari id."}),
         ],
     )
+    guide = nested.add_parser("guide", help="Build a read-only decision guide.")
+    guide.add_argument("target_id", help="Decision id, or a work item id linked to a decision.")
+    guide.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_work_parser(subparsers: Any) -> None:

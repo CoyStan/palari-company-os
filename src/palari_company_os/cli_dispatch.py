@@ -257,6 +257,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
+    if args.command == "decision" and args.object_command == "guide":
+        from .decision_guides import build_decision_guide
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult(
+            "decision-guide",
+            build_decision_guide(workspace, args.target_id),
+            args.json,
+        )
+
     if args.command in {
         "goal",
         "human",

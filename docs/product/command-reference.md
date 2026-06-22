@@ -93,6 +93,20 @@ judgment.
 `review record` is the explicit write path for a review verdict. Use it only
 after inspecting the evidence and receipt.
 
+## Decision Guide
+
+```bash
+./bin/palari decision guide DECISION-0001
+./bin/palari decision guide WORK-0002 --json
+./bin/palari decision update DECISION-0001 --status decided --set "result=Use option A"
+```
+
+`decision guide` is read-only. It assembles one decision, its linked work item,
+required human, options, tradeoffs, recommendation, safe default, and a neutral
+decision-update command template. It does not decide, approve, mutate history,
+or authorize implementation. If the target is a work item id, Palari resolves
+the open decision linked to that work item.
+
 ## Agent Packets
 
 ```bash

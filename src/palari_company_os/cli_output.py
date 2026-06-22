@@ -90,6 +90,10 @@ def print_result(result: CommandResult) -> None:
         print_review_guide(result.payload, result.as_json)
         return
 
+    if result.kind == "decision-guide":
+        print_decision_guide(result.payload, result.as_json)
+        return
+
     if result.kind == "workspace-init":
         print_workspace_init(result.payload, result.as_json)
         return
@@ -557,6 +561,43 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
     print(f"  {', '.join(payload['suggested_verdicts'])}")
     print("Record template:")
     print(f"  {payload['review_record_command_template']}")
+    commands = payload.get("next_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    decision = payload["decision"]
+    linked_work = payload["linked_work"]
+    print(f"Decision guide: {payload['guide_id']}")
+    print(f"Status: {payload['status']} | Would mutate: {_yes_no(payload['would_mutate'])}")
+    print(f"Decision: {decision['id']} {decision['question']}")
+    if linked_work:
+        print(f"Linked work: {linked_work['id']} {linked_work['title']} ({linked_work['risk']})")
+    if decision.get("safe_default"):
+        print(f"Safe default: {decision['safe_default']}")
+    if decision.get("recommendation"):
+        print(f"Recommendation: {decision['recommendation']}")
+    if decision.get("options"):
+        print("Options:")
+        for option in decision["options"]:
+            print(f"  - {option}")
+    if decision.get("tradeoffs"):
+        print("Tradeoffs:")
+        for tradeoff in decision["tradeoffs"]:
+            print(f"  - {tradeoff}")
+    print("Decision focus:")
+    for item in payload["decision_focus"]:
+        print(f"  - {item}")
+    print("Suggested results:")
+    print(f"  {', '.join(payload['suggested_results'])}")
+    print("Update template:")
+    print(f"  {payload['decision_update_command_template']}")
     commands = payload.get("next_commands", [])
     if commands:
         print("Next commands:")
