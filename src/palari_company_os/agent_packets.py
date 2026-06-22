@@ -45,6 +45,7 @@ def build_agent_brief(
     work_detail = detail(workspace, work.id)
     blockers.extend(_work_blockers(workspace, work_detail, palari_id))
     status = "blocked" if blockers else "ready"
+    proof_state = _proof_state(work_detail)
 
     packet.update(
         {
@@ -63,8 +64,8 @@ def build_agent_brief(
             "completion_contract": _completion_contract(work_detail),
             "stop_conditions": _stop_conditions(work_detail, status),
             "state": _state_packet(work_detail),
-            "proof_state": _proof_state(work_detail),
-            "next_allowed_commands": _next_allowed_commands(work.id, palari_id, status),
+            "proof_state": proof_state,
+            "next_allowed_commands": _next_allowed_commands(work.id, palari_id, status, proof_state),
             "blockers": blockers,
         }
     )
@@ -415,7 +416,7 @@ def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
 
 def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
     return {
-        "attempt": _record_ref(work_detail["attempt"], ["id", "status", "actor", "branch"]),
+        "attempt": _attempt_ref(work_detail["attempt"]),
         "receipt": _record_ref(work_detail["receipt"], ["id", "attempt_id", "timestamp"]),
         "evidence": _record_ref(work_detail["evidence"], ["id", "status", "head_sha", "timestamp"]),
         "review": _record_ref(work_detail["review"], ["id", "verdict", "reviewed_head", "timestamp"]),
@@ -437,13 +438,28 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _attempt_ref(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    payload = _record_ref(record, ["id", "status", "actor", "branch"])
+    commits = record.get("commits", [])
+    if isinstance(commits, list) and commits:
+        payload["head_sha"] = str(commits[-1])
+    return payload
+
+
 def _record_ref(record: dict[str, Any] | None, fields: list[str]) -> dict[str, Any] | None:
     if record is None:
         return None
     return {field: record.get(field, "") for field in fields if field in record}
 
 
-def _next_allowed_commands(work_id: str, palari_id: str, status: str) -> list[str]:
+def _next_allowed_commands(
+    work_id: str,
+    palari_id: str,
+    status: str,
+    proof_state: dict[str, Any] | None = None,
+) -> list[str]:
     if status == "blocked":
         return [
             f"palari detail {work_id} --json",
@@ -454,11 +470,21 @@ def _next_allowed_commands(work_id: str, palari_id: str, status: str) -> list[st
         f"palari scope {work_id} --json",
         f"palari detail {work_id} --json",
         "palari validate --json",
-        (
-            "palari receipt record RECEIPT-ID "
-            f"--work-item-id {work_id} --attempt-id ATTEMPT-ID --actor {palari_id} --json"
-        ),
+        _receipt_command(work_id, palari_id, proof_state),
     ]
+
+
+def _receipt_command(
+    work_id: str,
+    palari_id: str,
+    proof_state: dict[str, Any] | None = None,
+) -> str:
+    attempt = (proof_state or {}).get("attempt")
+    attempt_id = attempt.get("id", "ATTEMPT-ID") if isinstance(attempt, dict) else "ATTEMPT-ID"
+    return (
+        "palari receipt record RECEIPT-ID "
+        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {palari_id} --json"
+    )
 
 
 def _blocker(code: str, message: str, *, missing: str = "") -> dict[str, Any]:

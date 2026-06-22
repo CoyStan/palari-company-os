@@ -103,6 +103,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             safety.get("evidence_state"),
             pass_states={"passed"},
             missing_message="Evidence is required before claiming this work is done.",
+            next_command=_evidence_command(packet),
         ),
         _proof_check(
             "REVIEW_PRESENT",
@@ -239,10 +240,28 @@ def _first_command(packet: dict[str, Any]) -> str:
 def _receipt_command(packet: dict[str, Any]) -> str:
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     actor = packet.get("agent", {}).get("id", "PALARI-ID")
+    attempt_id = _attempt(packet).get("id", "ATTEMPT-ID")
     return (
         "palari receipt record RECEIPT-ID "
-        f"--work-item-id {work_id} --attempt-id ATTEMPT-ID --actor {actor} --json"
+        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {actor} --json"
     )
+
+
+def _evidence_command(packet: dict[str, Any]) -> str:
+    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
+    attempt = _attempt(packet)
+    attempt_id = attempt.get("id", "ATTEMPT-ID")
+    head_sha = attempt.get("head_sha", "HEAD")
+    return (
+        "palari evidence record EVIDENCE-ID "
+        f"--work-item-id {work_id} --attempt-id {attempt_id} "
+        f"--head-sha {head_sha} --status passed --summary \"verification passed\" --json"
+    )
+
+
+def _attempt(packet: dict[str, Any]) -> dict[str, Any]:
+    attempt = packet.get("proof_state", {}).get("attempt")
+    return attempt if isinstance(attempt, dict) else {}
 
 
 def _approval_progress_met(progress: str) -> bool:

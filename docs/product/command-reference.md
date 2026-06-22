@@ -141,8 +141,10 @@ state satisfies the packet's completion contract. It returns `ok`, packet id,
 packet context hash, packet blockers, structured pass/fail/warn checks, and
 next safe commands. A ready-to-start packet can still produce `ok: false` when
 the attempt is missing required receipt, evidence, review, or human-decision
-records. Light low-risk receipt-ready work can satisfy the receipt requirement
-without forcing review or human approval.
+records. Missing receipt and evidence checks include concrete record-command
+templates for the current work item and attempt when possible. Light low-risk
+receipt-ready work can satisfy the receipt requirement without forcing review
+or human approval.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be

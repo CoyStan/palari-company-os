@@ -118,7 +118,9 @@ Not implemented yet:
 the current workspace against the completion contract. It returns `ok: false`
 when required receipt, evidence, review, human decision, source, dependency, or
 external-write checks fail. Light low-risk work may satisfy its trust loop with
-a valid receipt without requiring review or human approval.
+a valid receipt without requiring review or human approval. Missing receipt and
+evidence checks include record-command templates for the current work item and
+attempt when Palari can infer them.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,

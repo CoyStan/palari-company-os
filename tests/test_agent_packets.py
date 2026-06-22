@@ -179,6 +179,17 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["would_mutate"], False)
         self.assertIn("RECEIPT_PRESENT", missing_codes)
         self.assertIn("EVIDENCE_PRESENT", missing_codes)
+        commands = "\n".join(result["next_allowed_commands"])
+        self.assertIn(
+            "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
+            "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
+            commands,
+        )
+        self.assertIn(
+            "palari evidence record EVIDENCE-ID --work-item-id WORK-0003 "
+            "--attempt-id ATTEMPT-0002 --head-sha def5678 --status passed",
+            commands,
+        )
 
     def test_agent_finish_low_risk_receipt_ready_hands_off_to_human(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -235,7 +246,13 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/product/company-os.md"])
         self.assertEqual(packet["completion_contract"]["requires_receipt"], True)
         self.assertEqual(packet["completion_contract"]["requires_evidence"], True)
+        self.assertEqual(packet["proof_state"]["attempt"]["head_sha"], "def5678")
         self.assertIn("palari scope WORK-0003 --json", packet["next_allowed_commands"])
+        self.assertIn(
+            "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
+            "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
+            packet["next_allowed_commands"],
+        )
         self.assertIn("Stop if you need to read or write outside allowed_paths.", packet["stop_conditions"])
         self.assertEqual(packet["blockers"], [])
         self.assertTrue(packet["context_hash"].startswith("sha256:"))
