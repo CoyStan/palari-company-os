@@ -212,6 +212,22 @@ def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) 
 
 
 def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
+    candidates = [
+        candidate
+        for agent in agents
+        for candidate in agent.get("candidates", [])
+    ]
+    ready_candidates = [candidate for candidate in candidates if candidate["can_start"]]
+    if ready_candidates:
+        first = sorted(ready_candidates, key=lambda candidate: candidate["queue_rank"])[0]
+        return [first["brief_command"], first["check_command"]]
+    if candidates:
+        first = sorted(candidates, key=lambda candidate: candidate["queue_rank"])[0]
+        return first.get("next_commands") or [
+            f"palari detail {first['work_item_id']} --json",
+            "palari queue --json",
+            "palari validate --json",
+        ]
     for agent in agents:
         if agent["ready_count"]:
             agent_id = agent["agent"]["id"]
