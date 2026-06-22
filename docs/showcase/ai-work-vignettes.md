@@ -32,6 +32,133 @@ something before anything moves forward.
 
 ---
 
+## Try It In 3 Minutes
+
+You only need Python 3.10 or newer and Git. No API keys, cloud accounts, Slack,
+GitHub app, Google Drive, database, or background service are required.
+
+Clone the repo:
+
+```bash
+git clone https://github.com/CoyStan/palari-company-os.git
+cd palari-company-os
+```
+
+Install the CLI in editable mode:
+
+```bash
+python3 -m pip install -e .
+palari --help
+```
+
+If you do not want to install it yet, use the repo-local wrapper instead:
+
+```bash
+./bin/palari --help
+```
+
+Run the local verification:
+
+```bash
+./scripts/verify.sh
+```
+
+Copy the demo workspace into `/tmp` so you can try commands without changing
+the committed example files:
+
+```bash
+rm -rf /tmp/palari-company-os-demo
+cp -R examples/acme-company-os /tmp/palari-company-os-demo
+```
+
+Ask Palari what is waiting:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo queue
+```
+
+Open one piece of work:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo detail WORK-0001
+```
+
+Generate a static dashboard you can open in a browser:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
+```
+
+Then open:
+
+```text
+/tmp/palari-company-dashboard/index.html
+```
+
+If you want a more app-like prototype, generate the desktop shell:
+
+```bash
+./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
+```
+
+Then open:
+
+```text
+/tmp/palari-desktop-prototype/index.html
+```
+
+Nothing here calls live providers or writes outside the local files you point it
+at. These commands are for seeing the model, the dashboard, the prototype, and
+the agent contract.
+
+---
+
+## Try The Agent Contract
+
+If you use coding agents like Codex, Claude Code, Cursor, or similar tools, this
+is the part that matters most.
+
+Ask Palari for the next useful item:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent next --as PALARI-SOFIA --json
+```
+
+Read the task brief for one work item:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+```
+
+Start the work item in the copied demo workspace:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+```
+
+Check whether an observed file change stays inside the packet boundary:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
+```
+
+Release the local claim when you are done exploring:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo agent release WORK-0003 --as PALARI-SOFIA --json
+```
+
+In plain language, this loop says:
+
+```text
+find safe work -> read the task brief -> claim the local work item
+  -> compare changes against the allowed boundary -> release or continue
+```
+
+The examples below explain why that loop is useful.
+
+---
+
 ## How to Describe This
 
 If you want to explain Palari to someone who has never heard of it:
