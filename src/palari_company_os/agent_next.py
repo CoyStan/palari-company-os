@@ -8,6 +8,9 @@ from .read_models import queue_items
 from .workspace import Workspace
 
 
+AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
+
+
 def build_agent_next(
     workspace: Workspace,
     palari_id: str,
@@ -72,7 +75,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             continue
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
-        can_start = packet.get("status") == "ready" and item.ai_safe_to_proceed
+        can_start = _can_start_agent_work(item, packet)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -98,6 +101,14 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             }
         )
     return candidates
+
+
+def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:
+    return (
+        packet.get("status") == "ready"
+        and item.ai_safe_to_proceed
+        and item.attention in AGENT_STARTABLE_ATTENTIONS
+    )
 
 
 def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:

@@ -51,6 +51,36 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0007"]["can_start"], False)
         self.assertIn("RECEIPT_READY_REVIEW", by_id["WORK-0007"]["blocker_codes"])
 
+    def test_agent_next_does_not_restart_work_waiting_for_review(self) -> None:
+        def add_evidence_without_review(data: dict[str, object]) -> None:
+            work = data["work_items"][2]
+            attempt = next(
+                item for item in data["attempts"] if item["id"] == work["current_attempt"]
+            )
+            data["evidence_runs"].append(
+                {
+                    "id": "EVIDENCE-WAITING-REVIEW",
+                    "work_item_id": work["id"],
+                    "attempt_id": attempt["id"],
+                    "head_sha": attempt["commits"][-1],
+                    "status": "passed",
+                    "summary": "Evidence is present, but no review exists yet.",
+                    "timestamp": "2026-06-22T01:00:00Z",
+                }
+            )
+
+        workspace = self.modified_workspace(add_evidence_without_review)
+
+        result = build_agent_next(workspace, "PALARI-SOFIA", limit=20)
+        candidate = {
+            item["work_item_id"]: item for item in result["candidates"]
+        }["WORK-0003"]
+
+        self.assertEqual(candidate["attention"], "needs-review")
+        self.assertEqual(candidate["packet_status"], "blocked")
+        self.assertEqual(candidate["can_start"], False)
+        self.assertIn("REVIEW_REQUIRED", candidate["blocker_codes"])
+
     def test_agent_next_missing_palari_is_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
