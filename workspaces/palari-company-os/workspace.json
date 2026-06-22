@@ -29,7 +29,8 @@
         "WORK-REPO-0010",
         "WORK-REPO-0011",
         "WORK-REPO-0012",
-        "WORK-REPO-0013"
+        "WORK-REPO-0013",
+        "WORK-REPO-0014"
       ],
       "linked_decisions": []
     },
@@ -158,7 +159,8 @@
         "WORK-REPO-0010",
         "WORK-REPO-0011",
         "WORK-REPO-0012",
-        "WORK-REPO-0013"
+        "WORK-REPO-0013",
+        "WORK-REPO-0014"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -262,8 +264,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "0bb0e9a",
-      "last_read_at": "2026-06-22T05:28:49Z"
+      "last_seen_revision": "6ffed8a",
+      "last_read_at": "2026-06-22T05:39:09Z"
     },
     {
       "id": "SOURCE-REPO-ARCHITECTURE",
@@ -819,6 +821,44 @@
       "acceptance_target": "Users and agents can run palari data map in text or JSON to understand data boundaries without live connectors or memory engines.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0013"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md",
+        "docs/product/troubleshooting.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "weaken high risk completion gates",
+        "skip dependency checks",
+        "allow external writes",
+        "add dependencies"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_validation tests.test_workspace_read_models tests.test_history",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0014",
+      "title": "Allow safe receipt-ready work completion",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Let local low-risk receipt-ready work complete without forcing heavier evidence/review ceremony, while preserving dependency and external-write blockers.",
+      "acceptance_target": "R1/R2 receipt-ready work with approval count 0, terminal dependencies, no open decisions, and no external writes can complete; other work still fails closed.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0014"
     }
   ],
   "attempts": [
@@ -1123,6 +1163,29 @@
       "started_at": "2026-06-22T05:28:49Z",
       "cleanliness": "clean",
       "result": "Added read-only data map command covering storage, sources, integrations, memory-source references, history, and non-stored boundaries."
+    },
+    {
+      "commits": [
+        "6ffed8a"
+      ],
+      "changed_files": [
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md",
+        "docs/product/troubleshooting.md"
+      ],
+      "id": "ATTEMPT-REPO-0014",
+      "work_item_id": "WORK-REPO-0014",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T05:39:09Z",
+      "cleanliness": "clean",
+      "result": "Allowed safe receipt-ready completion for local low-risk work while preserving dependency, decision, approval, and external-write blockers."
     }
   ],
   "evidence_runs": [
@@ -1389,6 +1452,28 @@
       "summary": "Data map command passed focused data-map tests, full verification, unit discovery, install smoke, and text/JSON command smokes.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T05:28:49Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_validation tests.test_workspace_read_models tests.test_history",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused validation/read-model/history output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0014",
+      "work_item_id": "WORK-REPO-0014",
+      "attempt_id": "ATTEMPT-REPO-0014",
+      "head_sha": "6ffed8a",
+      "status": "passed",
+      "summary": "Receipt-ready completion path passed focused validation/read-model/history tests, full verification, unit discovery, and install smoke.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T05:39:09Z"
     }
   ],
   "review_verdicts": [
@@ -1850,6 +1935,41 @@
       "attempt_id": "ATTEMPT-REPO-0013",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:28:49Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "allowed safe receipt-ready completion",
+        "kept high risk completion gates intact",
+        "added terminal dependency validation",
+        "documented completion rules"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "docs/product/command-reference.md",
+        "docs/product/troubleshooting.md"
+      ],
+      "not_done": [
+        "No high-risk gate weakening",
+        "No external writes allowed",
+        "No live connectors called",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "id": "RECEIPT-REPO-0014",
+      "work_item_id": "WORK-REPO-0014",
+      "attempt_id": "ATTEMPT-REPO-0014",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:39:09Z"
     }
   ],
   "decisions": [
