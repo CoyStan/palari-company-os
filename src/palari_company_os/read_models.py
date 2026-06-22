@@ -5,6 +5,18 @@ from typing import Any, Iterable, TypeVar
 
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
+from .read_model_commands import (
+    agent_commands,
+    agent_handoff_command,
+    agent_loop_command,
+    work_next_commands,
+)
+from .read_model_coordination import (
+    build_active_parallel_work,
+    build_coordination_warnings,
+    group_active_attempts,
+    group_warning_messages,
+)
 from .workspace import Workspace
 
 
@@ -181,7 +193,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "intensity_reason": queue_item.intensity_reason,
         },
         "playbooks": playbooks,
-        "agent_commands": _agent_commands(work, queue_item.next_step_type),
+        "agent_commands": agent_commands(work, queue_item.next_step_type),
     }
 
 
@@ -200,14 +212,14 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         attempts_by_id,
         latest_attempt_by_work,
     )
-    active_parallel = _build_active_parallel_work(
+    active_parallel = build_active_parallel_work(
         workspace,
         work_by_id,
         workbenches_by_id,
     )
-    coordination = _build_coordination_warnings(workspace, current_attempt_by_work)
-    active_attempts_by_work = _group_active_attempts(active_parallel)
-    warning_messages_by_work = _group_warning_messages(coordination)
+    coordination = build_coordination_warnings(workspace, current_attempt_by_work)
+    active_attempts_by_work = group_active_attempts(active_parallel)
+    warning_messages_by_work = group_warning_messages(coordination)
     return _ReadContext(
         goals_by_id=goals_by_id,
         palaris_by_id=palaris_by_id,
@@ -279,9 +291,15 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         why=why,
         next_action=next_action,
         next_step_type=next_step_type,
-        next_commands=_work_next_commands(work, attention, context, ai_safe_to_proceed),
-        agent_loop_command=_agent_loop_command(work),
-        agent_handoff_command=_agent_handoff_command(work, next_step_type),
+        next_commands=work_next_commands(
+            work,
+            attention,
+            context.open_decision_by_work.get(work.id),
+            context.current_attempt_by_work.get(work.id) is not None,
+            ai_safe_to_proceed,
+        ),
+        agent_loop_command=agent_loop_command(work),
+        agent_handoff_command=agent_handoff_command(work, next_step_type),
         status=work.status,
         risk=work.risk,
         intensity=work.intensity,
@@ -525,59 +543,6 @@ def _attempt_head(attempt: Any) -> str:
     return attempt.commits[-1] if attempt.commits else ""
 
 
-def _agent_commands(work: Any, next_step_type: str = "") -> dict[str, str]:
-    commands = {
-        "next": f"palari agent next --as {work.palari} --json",
-        "brief": f"palari agent brief {work.id} --as {work.palari} --mode execute --json",
-        "start": f"palari agent start {work.id} --as {work.palari} --mode execute --json",
-        "check": f"palari agent check {work.id} --as {work.palari} --mode execute --json",
-        "finish": f"palari agent finish {work.id} --as {work.palari} --json",
-        "doctor": f"palari agent doctor {work.id} --as {work.palari} --json",
-        "loop": f"palari agent loop {work.id} --as {work.palari} --json",
-        "handoff": f"palari agent handoff {work.id} --as {work.palari} --json",
-    }
-    if next_step_type == "review-handoff":
-        commands["review"] = (
-            f"palari agent brief {work.id} --as {work.palari} --mode review --json"
-        )
-        commands["review_check"] = (
-            f"palari agent check {work.id} --as {work.palari} --mode review --json"
-        )
-    return commands
-
-
-def _agent_loop_command(work: Any) -> str:
-    return f"palari agent loop {work.id} --as {work.palari} --json"
-
-
-def _agent_handoff_command(work: Any, next_step_type: str) -> str:
-    if next_step_type in {"human-decision", "review-handoff"}:
-        return f"palari agent handoff {work.id} --as {work.palari} --json"
-    return ""
-
-
-def _work_next_commands(
-    work: Any,
-    attention: str,
-    context: _ReadContext,
-    ai_safe_to_proceed: bool,
-) -> list[str]:
-    commands: list[str] = []
-    open_decision = context.open_decision_by_work.get(work.id)
-    if open_decision is not None:
-        commands.append(f"palari decision guide {open_decision.id} --json")
-    elif attention in {"needs-review", "receipt-ready"}:
-        commands.append(f"palari review guide {work.id} --json")
-    elif attention == "needs-evidence" and context.current_attempt_by_work.get(work.id):
-        commands.append(f"palari agent check {work.id} --as {work.palari} --mode execute --json")
-        commands.append(f"palari agent finish {work.id} --as {work.palari} --json")
-    elif attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"} and ai_safe_to_proceed:
-        commands.append(f"palari agent brief {work.id} --as {work.palari} --mode execute --json")
-    commands.append(f"palari detail {work.id} --json")
-    commands.append("palari validate --json")
-    return commands
-
-
 def _next_step_type(
     attention: str,
     ai_safe_to_proceed: bool,
@@ -744,136 +709,6 @@ def _latest_decided_integration_plan_state_for_work(work: Any, context: _ReadCon
         return ""
     plan = max(plans, key=_record_time_key)
     return f"plan-{plan.status}"
-
-
-def _build_active_parallel_work(
-    workspace: Workspace,
-    work_by_id: dict[str, Any],
-    workbenches_by_id: dict[str, Any],
-) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for attempt in workspace.attempts:
-        if attempt.status != "active":
-            continue
-        work = work_by_id.get(attempt.work_item_id)
-        if work is None:
-            continue
-        workbench = workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
-        entries.append(
-            {
-                "work_item_id": work.id,
-                "work_item_title": work.title,
-                "workbench_id": work.workbench_id,
-                "workbench_label": workbench.label if workbench else "",
-                "attempt_id": attempt.id,
-                "actor": attempt.actor,
-                "status": attempt.status,
-                "branch": attempt.branch,
-                "workspace_path": attempt.workspace_path,
-                "started_at": attempt.started_at,
-                "updated_at": attempt.updated_at,
-                "output_targets": _attempt_targets(work, attempt),
-            }
-        )
-    return sorted(entries, key=lambda item: (item["workbench_id"], item["work_item_id"]))
-
-
-def _build_coordination_warnings(
-    workspace: Workspace,
-    current_attempt_by_work: dict[str, Any],
-) -> list[dict[str, Any]]:
-    subjects = _coordination_subjects(workspace, current_attempt_by_work)
-    warnings: list[dict[str, Any]] = []
-    for index, left in enumerate(subjects):
-        for right in subjects[index + 1 :]:
-            if left["workbench_id"] != right["workbench_id"]:
-                continue
-            if "exclusive" not in {left["parallel_policy"], right["parallel_policy"]}:
-                continue
-            overlap = sorted(left["normalized_targets"] & right["normalized_targets"])
-            if not overlap:
-                continue
-            warnings.append(
-                {
-                    "workbench_id": left["workbench_id"],
-                    "target": overlap[0],
-                    "targets": overlap,
-                    "work_item_ids": [left["work_item_id"], right["work_item_id"]],
-                    "message": (
-                        f"{left['work_item_id']} and {right['work_item_id']} both target "
-                        f"{overlap[0]} with exclusive coordination."
-                    ),
-                }
-            )
-    return warnings
-
-
-def _coordination_subjects(
-    workspace: Workspace,
-    current_attempt_by_work: dict[str, Any],
-) -> list[dict[str, Any]]:
-    subjects: list[dict[str, Any]] = []
-    for work in workspace.work_items:
-        if not work.workbench_id or work.status in {"closed", "completed", "done", "blocked"}:
-            continue
-        attempt = current_attempt_by_work.get(work.id)
-        has_active_attempt = attempt is not None and attempt.status == "active"
-        has_active_work = attempt is None and work.status in {
-            "proposed",
-            "active",
-            "in-review",
-            "needs-human",
-        }
-        if not (has_active_attempt or has_active_work):
-            continue
-        targets = _conflict_targets(work)
-        normalized_targets = {_normalize_target(target) for target in targets if target.strip()}
-        if not normalized_targets:
-            continue
-        subjects.append(
-            {
-                "work_item_id": work.id,
-                "workbench_id": work.workbench_id,
-                "parallel_policy": work.parallel_policy,
-                "normalized_targets": normalized_targets,
-            }
-        )
-    return subjects
-
-
-def _group_active_attempts(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for entry in entries:
-        grouped.setdefault(entry["work_item_id"], []).append(entry)
-    return grouped
-
-
-def _group_warning_messages(warnings: list[dict[str, Any]]) -> dict[str, list[str]]:
-    grouped: dict[str, list[str]] = {}
-    for warning in warnings:
-        for work_id in warning["work_item_ids"]:
-            grouped.setdefault(work_id, []).append(warning["message"])
-    return grouped
-
-
-def _conflict_targets(work: Any) -> list[str]:
-    if work.conflict_targets:
-        return work.conflict_targets
-    return work.output_targets
-
-
-def _normalize_target(target: str) -> str:
-    return " ".join(target.strip().lower().replace("\\", "/").split())
-
-
-def _attempt_targets(work: Any, attempt: Any) -> list[str]:
-    if attempt.output_targets:
-        return attempt.output_targets
-    if work.conflict_targets:
-        return work.conflict_targets
-    if work.output_targets:
-        return work.output_targets
-    return attempt.changed_files
 
 
 def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> bool:
