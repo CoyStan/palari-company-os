@@ -133,6 +133,8 @@ tell an agent which receipt, evidence, review, or human decision record is
 still needed before it can claim completion. When proof is missing, concrete
 receipt, evidence, and review commands appear before generic inspect/validate
 commands, and human-decision commands are held until prerequisite proof exists.
+`agent next` candidates also include a `loop_command` for the compact
+brief/check/finish/handoff summary when an agent needs orientation.
 `agent handoff` is the preferred bridge for human review or decision states; it
 packages the relevant finish, review-guide, or decision-guide context without
 mutating the workspace, while keeping human action commands separate from

@@ -159,7 +159,10 @@ or blocking next step without scanning every nested candidate. Candidates includ
 `human-decision`, or `review-handoff`, so tools do not have to infer intent from
 the command string alone. Active work that already has an attempt and needs
 proof points to `agent check` / `agent finish` instead of re-starting with
-another brief. It is read-only and does not claim or assign work.
+another brief. Each candidate also includes `loop_command`, a compact
+orientation helper that summarizes brief/check/finish/handoff status without
+replacing the concrete `next_command`. It is read-only and does not claim or
+assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 The packet is read-only in v1 and returns either `status: ready` or

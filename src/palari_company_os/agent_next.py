@@ -106,6 +106,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
         handoff_guidance = _handoff_guidance(work.id, item, blocker_codes, palari_id)
         next_command = _candidate_next_command(item, can_start, brief_command, handoff_guidance)
+        loop_command = _loop_command(work.id, palari_id, mode)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -129,6 +130,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "handoff_guidance": handoff_guidance,
                 "next_step_type": item.next_step_type,
                 "next_command": next_command,
+                "loop_command": loop_command,
                 "next_commands": _candidate_next_commands(
                     item,
                     can_start,
@@ -136,6 +138,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                     check_command,
                     handoff_guidance,
                     next_command,
+                    loop_command,
                     mode,
                 ),
                 "brief_command": brief_command,
@@ -167,22 +170,28 @@ def _candidate_next_commands(
     check_command: str,
     handoff_guidance: list[dict[str, str]],
     next_command: str,
+    loop_command: str,
     mode: str,
 ) -> list[str]:
     if can_start and _has_active_proof_work(item):
-        return item.next_commands or [next_command, check_command]
+        commands = list(item.next_commands or [next_command, check_command])
+        _append_once(commands, loop_command)
+        return commands
     if can_start and mode == "review":
-        return [brief_command, f"palari review guide {item.id} --json", check_command]
+        return [brief_command, f"palari review guide {item.id} --json", check_command, loop_command]
     if can_start:
-        return [brief_command, check_command]
+        return [brief_command, check_command, loop_command]
     if handoff_guidance:
         commands = [next_command]
         for guidance in handoff_guidance:
             _append_once(commands, guidance.get("guide_command", ""))
         for command in item.next_commands:
             _append_once(commands, command)
+        _append_once(commands, loop_command)
         return commands
-    return item.next_commands
+    commands = list(item.next_commands)
+    _append_once(commands, loop_command)
+    return commands
 
 
 def _has_active_proof_work(item: Any) -> bool:
@@ -243,6 +252,10 @@ def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[s
 
 def _check_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
+
+
+def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
+    return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _handoff_guidance(
