@@ -78,15 +78,24 @@ def _finish_status(
 
 
 def _next_commands(check: dict[str, Any]) -> list[str]:
-    commands = list(check.get("next_allowed_commands", []))
+    commands: list[str] = []
+    for item in check.get("checks", []):
+        if item.get("required") and item.get("status") == "fail" and item.get("code") != "PACKET_READY":
+            _append_once(commands, item.get("next_command", ""))
+    for command in check.get("next_allowed_commands", []):
+        _append_once(commands, command)
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     review_command = f"palari review guide {work_id} --json"
     if "RECEIPT_READY_REVIEW" in blocker_codes and review_command not in commands:
         commands.insert(0, review_command)
-    if "palari validate --json" not in commands:
-        commands.append("palari validate --json")
+    _append_once(commands, "palari validate --json")
     return commands
+
+
+def _append_once(commands: list[str], command: str) -> None:
+    if command and command not in commands:
+        commands.append(command)
 
 
 def _requirement(check: dict[str, Any]) -> dict[str, Any]:

@@ -210,6 +210,15 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("RECEIPT_PRESENT", missing_codes)
         self.assertIn("EVIDENCE_PRESENT", missing_codes)
         commands = "\n".join(result["next_allowed_commands"])
+        self.assertEqual(
+            result["next_allowed_commands"][:2],
+            [
+                "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
+                "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
+                "palari evidence record EVIDENCE-ID --work-item-id WORK-0003 "
+                '--attempt-id ATTEMPT-0002 --head-sha def5678 --status passed --summary "verification passed" --json',
+            ],
+        )
         self.assertIn(
             "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
             "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
@@ -260,6 +269,12 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("--reviewed-head abc1234", command)
         self.assertIn("--evidence-reference EVIDENCE-0001", command)
         self.assertIn("--review-reference REVIEW-0001", command)
+        self.assertEqual(
+            result["next_allowed_commands"][0],
+            "palari receipt record RECEIPT-ID --work-item-id WORK-0001 "
+            "--attempt-id ATTEMPT-0001 --actor PALARI-SOFIA --json",
+        )
+        self.assertEqual(result["next_allowed_commands"][1], command)
 
     def test_cli_agent_finish_emits_json_shape(self) -> None:
         result = json.loads(

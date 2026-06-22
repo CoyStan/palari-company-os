@@ -130,4 +130,5 @@ claim, mutate state, or assign work.
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
 workspace state in v1. It distinguishes missing proof from handoff-ready work,
 such as low-risk receipt-ready results that should stop execution and move to a
-human review path.
+human review path. Its `next_allowed_commands` prioritize missing proof or
+approval record templates before generic inspect/validate commands.

@@ -159,8 +159,9 @@ returns whether the agent may claim completion, whether the work should be
 handed off to a human, missing requirements, completed requirements, blockers,
 and report guidance. Handoff-ready receipt work points to the review guide as
 the next human-facing command; missing approval points to a human-decision
-record template when evidence and review are known. It does not close work,
-record receipts, mutate history, or perform external actions.
+record template when evidence and review are known. Missing proof or approval
+templates appear before generic inspect/validate commands. It does not close
+work, record receipts, mutate history, or perform external actions.
 
 ## Playbooks
 
