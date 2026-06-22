@@ -243,7 +243,9 @@ or any other provider.
 `secret_ref` values must be references such as `env:PALARI_SLACK_WEBHOOK_URL`.
 Raw tokens or keys fail validation. Planning also fails closed when an
 integration is disabled, when a requested event/action is not allowed, or when
-the provider does not support the requested action.
+the provider does not support the requested action. Workspace validation applies
+the same provider/action matrix so hand-edited integration records cannot
+declare unsupported actions.
 
 By default, `integration plan` is a preview and does not write workspace state.
 Use `--record` when the dry-run payload should become a reviewable integration
@@ -259,9 +261,11 @@ Approved plans can be placed into `integration_outbox` with `integration
 enqueue`. The outbox is the explicit future-execution boundary: it preserves the
 approved payload preview, source boundary, risk, and enqueuing human, but still
 does not call providers or read secrets. Pending, rejected, canceled, or already
-enqueued plans fail closed. Queued outbox items can be canceled by a qualified
-human with `integration outbox-cancel`; cancellation is recorded in history,
-keeps the dry-run boundary intact, and still performs no provider call.
+enqueued plans fail closed. Hand-edited outbox items must keep the exact payload
+preview and source boundary that the human approved on the plan. Queued outbox
+items can be canceled by a qualified human with `integration outbox-cancel`;
+cancellation is recorded in history, keeps the dry-run boundary intact, and
+still performs no provider call.
 
 ## Receipt-Ready Low-Risk Work
 

@@ -7,17 +7,10 @@ from typing import Any
 
 from .errors import WorkspaceError
 from .history import append_history_event
+from .integration_contracts import PROVIDER_ACTIONS
 from .models import Human, Integration, IntegrationPlan, WorkItem, to_plain
 from .store import load_store, validate_data, write_store
 from .workspace import Workspace
-
-
-PROVIDER_ACTIONS = {
-    "slack": {"notify"},
-    "github": {"notify", "comment", "create_issue"},
-    "jira": {"notify", "comment", "create_issue", "update_issue"},
-    "email": {"notify"},
-}
 
 
 def list_integrations(workspace: Workspace) -> dict[str, Any]:

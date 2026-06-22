@@ -78,14 +78,18 @@ Validation checks:
   included playbooks
 - source owner human and allowed Palari references
 - integration owner human and source references
+- integration allowed actions are supported by the declared provider
 - integration plans reference enabled integrations and existing work items
 - integration plans use events and actions allowed by the referenced
   integration
+- integration plan payload previews must not contain raw secret-looking values
 - integration plans require human approval before any future external action
 - approved, rejected, and canceled integration plans record the qualified human
   reviewer and review timestamp
 - integration outbox items reference approved integration plans and qualified
   enqueueing humans
+- integration outbox payload previews and source boundaries must match the
+  approved plan
 - duplicate integration outbox items for the same plan fail closed
 - integration outbox payload previews must not contain raw secret-looking values
 - canceled integration outbox items require qualified `canceled_by`,

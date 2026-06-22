@@ -114,6 +114,16 @@ class IntegrationRegistryTests(unittest.TestCase):
                 "comment",
             )
 
+    def test_provider_action_matrix_is_validated_for_workspace_records(self) -> None:
+        def unsupported_provider_action(data: dict[str, object]) -> None:
+            data["integrations"][0]["allowed_actions"] = ["notify", "comment"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "allowed_actions includes action 'comment' unsupported by provider slack",
+        ):
+            self.modified_workspace(unsupported_provider_action)
+
     def test_slack_plan_is_dry_run_payload_preview(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
@@ -789,6 +799,30 @@ class IntegrationRegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "approval_required must be true"):
             self.modified_workspace(no_approval)
 
+    def test_plan_payload_cannot_store_raw_secret(self) -> None:
+        def raw_secret_plan_payload(data: dict[str, object]) -> None:
+            data["integration_plans"] = [
+                {
+                    "id": "PLAN-RAW-PAYLOAD",
+                    "integration_id": "INT-SLACK-OPS",
+                    "work_item_id": "WORK-0001",
+                    "event": "approval_requested",
+                    "action": "notify",
+                    "actor": "PALARI-SOFIA",
+                    "status": "pending-approval",
+                    "payload_preview": {
+                        "operation": "post_message",
+                        "webhook_ref": "xoxb-real-token-looking-value",
+                    },
+                    "source_boundary": {},
+                    "risk": "standard",
+                    "approval_required": True,
+                }
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "not a raw secret"):
+            self.modified_workspace(raw_secret_plan_payload)
+
     def test_receipt_planned_external_write_references_plan_without_actual_write(self) -> None:
         def add_plan_to_receipt(data: dict[str, object]) -> None:
             data["integration_plans"] = [
@@ -967,6 +1001,56 @@ class IntegrationRegistryTests(unittest.TestCase):
             self.modified_workspace(wrong_work)
         with self.assertRaisesRegex(WorkspaceError, "requires queued outbox item"):
             self.modified_workspace(canceled_item)
+
+    def test_outbox_payload_and_source_boundary_must_match_approved_plan(self) -> None:
+        def base_plan_and_outbox() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+            plan = {
+                "id": "PLAN-OUTBOX-MATCH",
+                "integration_id": "INT-SLACK-OPS",
+                "work_item_id": "WORK-0007",
+                "event": "approval_requested",
+                "action": "notify",
+                "actor": "PALARI-SOFIA",
+                "status": "approved",
+                "payload_preview": {"operation": "post_message", "text": "approved preview"},
+                "source_boundary": {"sources": ["SOURCE-0001"]},
+                "risk": "standard",
+                "approval_required": True,
+                "reviewed_by": "HUMAN-FOUNDER",
+                "reviewed_at": "2026-06-21T00:00:00Z",
+            }
+            outbox = {
+                "id": "OUTBOX-DRIFT",
+                "plan_id": "PLAN-OUTBOX-MATCH",
+                "integration_id": "INT-SLACK-OPS",
+                "work_item_id": "WORK-0007",
+                "event": "approval_requested",
+                "action": "notify",
+                "enqueued_by": "HUMAN-FOUNDER",
+                "status": "queued",
+                "payload_preview": {"operation": "post_message", "text": "approved preview"},
+                "source_boundary": {"sources": ["SOURCE-0001"]},
+                "risk": "standard",
+                "timestamp": "2026-06-21T00:00:01Z",
+            }
+            return [plan], [outbox]
+
+        def payload_drift(data: dict[str, object]) -> None:
+            plans, outbox = base_plan_and_outbox()
+            outbox[0]["payload_preview"] = {"operation": "post_message", "text": "changed"}
+            data["integration_plans"] = plans
+            data["integration_outbox"] = outbox
+
+        def source_boundary_drift(data: dict[str, object]) -> None:
+            plans, outbox = base_plan_and_outbox()
+            outbox[0]["source_boundary"] = {"sources": []}
+            data["integration_plans"] = plans
+            data["integration_outbox"] = outbox
+
+        with self.assertRaisesRegex(WorkspaceError, "payload_preview does not match"):
+            self.modified_workspace(payload_drift)
+        with self.assertRaisesRegex(WorkspaceError, "source_boundary does not match"):
+            self.modified_workspace(source_boundary_drift)
 
     def test_outbox_payload_cannot_store_raw_secret(self) -> None:
         def raw_secret_payload(data: dict[str, object]) -> None:

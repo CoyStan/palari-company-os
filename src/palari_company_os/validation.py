@@ -4,6 +4,7 @@ import re
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
+from .integration_contracts import PROVIDER_ACTIONS
 from .models import (
     Attempt,
     EvidenceRun,
@@ -590,6 +591,11 @@ def _validate_integration(integration: Integration) -> None:
             action,
             INTEGRATION_ACTIONS,
         )
+        if action not in PROVIDER_ACTIONS[integration.provider]:
+            raise WorkspaceError(
+                f"integrations.{integration.id}.allowed_actions includes action "
+                f"{action!r} unsupported by provider {integration.provider}"
+            )
     if integration.secret_ref and not SECRET_REF_RE.match(integration.secret_ref):
         raise WorkspaceError(
             f"integrations.{integration.id}.secret_ref must be an env:NAME reference, "
@@ -656,6 +662,10 @@ def _validate_integration_plan(
         raise WorkspaceError(f"integration_plans.{plan.id}.payload_preview must be an object")
     if not isinstance(plan.source_boundary, dict):
         raise WorkspaceError(f"integration_plans.{plan.id}.source_boundary must be an object")
+    _validate_no_raw_secret_values(
+        f"integration_plans.{plan.id}.payload_preview",
+        plan.payload_preview,
+    )
     if plan.status in {"approved", "rejected", "canceled"}:
         if not plan.reviewed_by:
             raise WorkspaceError(
@@ -796,6 +806,16 @@ def _validate_integration_outbox_item(
     if not isinstance(item.source_boundary, dict):
         raise WorkspaceError(f"integration_outbox.{item.id}.source_boundary must be an object")
     _validate_no_raw_secret_values(f"integration_outbox.{item.id}.payload_preview", item.payload_preview)
+    if item.payload_preview != plan.payload_preview:
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.payload_preview does not match approved "
+            f"plan {plan.id}"
+        )
+    if item.source_boundary != plan.source_boundary:
+        raise WorkspaceError(
+            f"integration_outbox.{item.id}.source_boundary does not match approved "
+            f"plan {plan.id}"
+        )
 
 
 RAW_SECRET_VALUE_RE = re.compile(r"(xox[baprs]-|sk-[A-Za-z0-9]|gh[pousr]_|ya29\.|-----BEGIN)")
