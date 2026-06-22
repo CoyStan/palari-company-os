@@ -224,6 +224,7 @@ def _queue_card(item: Any) -> str:
       {_state("Approval", item.approval_progress)}
     </dl>
     <p class="subtle">{_e(item.why)}</p>
+    {_command_list_block("Next commands", item.next_commands)}
   </div>
 </details>
 """
@@ -308,6 +309,7 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
         {_kv("Human decision", _record_label(human_decision))}
       </div>
     </div>
+    {_command_list_block("Next commands", payload.get("next_commands", []))}
     {_agent_command_block(payload.get("agent_commands", {}))}
     <p class="next-action"><span class="na-label">Next</span>{_e(payload['next_action'])}</p>
   </div>
@@ -598,6 +600,16 @@ def _agent_command_block(commands: dict[str, str]) -> str:
         if command
     )
     return f'<div class="agent-command-block"><strong>Agent loop</strong><ul>{rows}</ul></div>'
+
+
+def _command_list_block(title: str, commands: list[str]) -> str:
+    if not commands:
+        return ""
+    rows = "".join(
+        f"<li><span>{index}</span><code>{_e(command)}</code></li>"
+        for index, command in enumerate(commands, start=1)
+    )
+    return f'<div class="agent-command-block"><strong>{_e(title)}</strong><ul>{rows}</ul></div>'
 
 
 def _mini_list(values: list[Any], empty_label: str, heading: str = "") -> str:
