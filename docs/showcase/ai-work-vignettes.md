@@ -113,24 +113,28 @@ the agent contract.
 
 ---
 
-## Try The Agent Contract
+## See What The Agent Would Run
 
-If you use coding agents like Codex, Claude Code, Cursor, or similar tools, this
-is the part that matters most.
+Palari is designed so a coding agent can read the work contract directly. A
+human can run the commands below to inspect the flow, but in normal use these
+are mostly agent-facing commands: the agent asks for a brief, starts a bounded
+local work item, checks whether its changes stayed inside the allowed boundary,
+and releases the claim when it is done.
 
-Ask Palari for the next useful item:
+Ask Palari for the next useful item for Sofia:
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo agent next --as PALARI-SOFIA --json
 ```
 
-Read the task brief for one work item:
+Read the task brief the agent would receive:
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ```
 
-Start the work item in the copied demo workspace:
+Start the copied demo work item. This saves the exact packet locally and creates
+a local claim in the `/tmp` demo workspace:
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
@@ -142,26 +146,26 @@ Check whether an observed file change stays inside the packet boundary:
 ./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
 ```
 
-Release the local claim when you are done exploring:
+Release the local claim:
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo agent release WORK-0003 --as PALARI-SOFIA --json
 ```
 
-In plain language, this loop says:
+In plain language, this is the agent operating loop:
 
 ```text
 find safe work -> read the task brief -> claim the local work item
   -> compare changes against the allowed boundary -> release or continue
 ```
 
-The examples below explain why that loop is useful.
+The examples below explain why that loop is useful for both humans and agents.
 
 ---
 
-## How to Describe This
+## What Palari Is
 
-If you want to explain Palari to someone who has never heard of it:
+Palari is:
 
 > A way to make AI work legible, bounded, and reviewable.
 
@@ -240,8 +244,7 @@ boundaries, a clear record, and an explicit next step.
 
 ## A Quick Vocabulary Map
 
-Now that you have seen it in action, here are the words Palari uses and what
-they mean:
+After the quick tour, the core vocabulary is small:
 
 | Palari term | Plain meaning |
 |-------------|---------------|
@@ -253,7 +256,8 @@ they mean:
 | Human decision | The explicit stop where a person must choose |
 | Palari | A named AI work partner with a defined scope |
 
-You do not need to memorize these. They appear naturally in the examples below.
+The labels matter less than the shape: selected sources, bounded work, visible
+receipt, and explicit human authority when risk increases.
 
 ---
 
@@ -477,9 +481,9 @@ Warning:
 
 Work items carry a **parallel policy**: `independent` (can run beside other
 work), `coordinate` (should be visible to other operators), or `exclusive`
-(should not overlap another item touching the same target). You do not need to
-remember those terms for a workshop demo. The plain version is enough: who is
-doing what, what they may touch, and where things might collide.
+(should not overlap another item touching the same target). The plain version
+is the important part: who is doing what, what they may touch, and where things
+might collide.
 
 ### Why it matters
 
@@ -530,29 +534,35 @@ keeps the two things separate.
 
 ---
 
-## A Friendly Demo Script
+## Workshop-Friendly Demo Flow
 
-### Five minutes
+For a live workshop or a quick project walkthrough, Palari works best when the
+dashboard comes first and the schema stays in the background.
 
-1. Open the dashboard or desktop prototype first. Show the work map, not the
-   schema.
-2. Point to one task. Ask: "What is this AI allowed to read?"
-3. Show the sources. Ask: "What is it not allowed to touch?"
-4. Run `agent brief` and show the compact packet.
-5. Show a receipt. Ask the room: "Would this make you more comfortable trusting
-   the result?"
+### Five-minute version
 
-### Fifteen minutes
+A short demo can stay visual:
 
-1. Start with a messy real-world ask the room recognizes ("help me prep for
-   this meeting," "fix this bug," "draft this message for the team").
-2. Walk through: what is the goal, which sources are selected, who is the AI
-   partner, what is the task.
-3. Generate or inspect an agent packet. Point out what the AI cannot do.
-4. Show how evidence, review, and human decisions appear only when risk is
+1. Open the dashboard or desktop prototype on the work map.
+2. Pick one task and inspect what the AI is allowed to read.
+3. Compare that with what it is not allowed to touch.
+4. Open the compact `agent brief` packet the agent would receive.
+5. Open a receipt and check whether the result feels easier to trust.
+
+### Fifteen-minute version
+
+A longer walkthrough can use a messy real-world ask, such as "help me prep for
+this meeting," "fix this bug," or "draft this message for the team." The useful
+sequence is:
+
+1. Define the goal, selected sources, AI partner, and bounded task.
+2. Inspect the agent packet and the explicit forbidden actions.
+3. Show that evidence, review, and human decisions appear only when risk is
    higher. Low-risk work stays light.
-5. Show the dry-run integration preview. Emphasize: it does not send.
-6. End with: "AI should be useful. The work should also be inspectable."
+4. Inspect the dry-run integration preview and confirm that it does not send
+   anything.
+5. Close on the core idea: AI should be useful, and the work should also be
+   inspectable.
 
 ---
 
