@@ -620,6 +620,21 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         print("Review handoff:")
         print(f"  status: {review['status']}")
         print(f"  command: {review['command']}")
+        focus = review.get("review_focus", [])
+        if focus:
+            print("  review focus:")
+            for item in focus:
+                print(f"    - {item}")
+        receipt = review.get("receipt", {})
+        if receipt.get("present"):
+            print("  receipt:")
+            outputs = receipt.get("outputs_created", [])
+            if outputs:
+                _print_limited_items("outputs", outputs, limit=8, indent="    ", item_indent="      ")
+            print(f"    external writes: {_comma_or_none(receipt.get('external_writes', []))}")
+            not_done = receipt.get("not_done", [])
+            if not_done:
+                _print_limited_items("not done", not_done, limit=8, indent="    ", item_indent="      ")
         candidates = review.get("reviewer_candidates", [])
         if candidates:
             print("  reviewer candidates:")
@@ -977,6 +992,30 @@ def _print_section(title: str, value: dict[str, Any] | None) -> None:
 
 def _yes_no(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def _comma_or_none(items: list[Any]) -> str:
+    values = [str(item) for item in items if str(item)]
+    return ", ".join(values) if values else "none"
+
+
+def _print_limited_items(
+    label: str,
+    items: list[Any],
+    *,
+    limit: int,
+    indent: str = "  ",
+    item_indent: str = "    ",
+) -> None:
+    values = [str(item) for item in items if str(item)]
+    if not values:
+        return
+    print(f"{indent}{label}:")
+    for item in values[:limit]:
+        print(f"{item_indent}- {item}")
+    remaining = len(values) - limit
+    if remaining > 0:
+        print(f"{item_indent}+ {remaining} more")
 
 
 def _present_label(record: dict[str, Any]) -> str:

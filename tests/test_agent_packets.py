@@ -539,6 +539,11 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertIn("Agent handoff:", result.stdout)
         self.assertIn("Review handoff:", result.stdout)
+        self.assertIn("review focus:", result.stdout)
+        self.assertIn("Compare the attempt result", result.stdout)
+        self.assertIn("receipt:", result.stdout)
+        self.assertIn("external writes: none", result.stdout)
+        self.assertIn("No deployment performed", result.stdout)
         self.assertIn("ready-to-edit review record commands", result.stdout)
         self.assertIn("review record commands:", result.stdout)
 

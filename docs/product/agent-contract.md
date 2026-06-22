@@ -155,14 +155,15 @@ before generic inspect/validate commands. For receipt-ready review handoffs,
 
 When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes
-ready-to-edit review record commands. Decision handoffs point to `decision
-guide`, which includes suggested decision update commands. The agent still does
-not record those human actions itself.
+review focus, receipt limits, and ready-to-edit review record commands.
+Decision handoffs point to `decision guide`, which includes suggested decision
+update commands. The agent still does not record those human actions itself.
 
 `agent handoff` compiles the final handoff packet for that moment. It wraps the
 `agent finish` result and includes compact `review guide` or `decision guide`
-context when applicable. Agent-safe read commands remain separate from
-`human_action_commands`, so a model can show the right review or decision
-commands without pretending it is authorized to perform them. It is read-only in
-v1 and does not create reviews, decisions, receipts, evidence, claims, or
-history events.
+context when applicable. Text handoff output surfaces the same review focus and
+receipt claims so a human can inspect the right thing without parsing JSON
+first. Agent-safe read commands remain separate from `human_action_commands`, so
+a model can show the right review or decision commands without pretending it is
+authorized to perform them. It is read-only in v1 and does not create reviews,
+decisions, receipts, evidence, claims, or history events.
