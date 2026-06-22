@@ -5,6 +5,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from .decision_guides import build_decision_guide
 from .history import read_history
 from .read_models import detail, queue_items
 from .workspace import Workspace
@@ -495,9 +496,13 @@ def _authority_section(
     palaris = "\n".join(_palari_card(palari) for palari in workspace.palaris) or _empty(
         "No Palaris recorded."
     )
-    decisions = "\n".join(_decision_card(decision) for decision in open_decisions) or _empty(
-        "No open decisions."
-    )
+    decision_guides = {
+        decision.id: build_decision_guide(workspace, decision.id) for decision in open_decisions
+    }
+    decisions = "\n".join(
+        _decision_card(decision, decision_guides.get(decision.id, {}))
+        for decision in open_decisions
+    ) or _empty("No open decisions.")
     blockers = "\n".join(_blocker_card(item) for item in human_blockers) or _empty(
         "No queue items are waiting on a human."
     )
@@ -555,7 +560,7 @@ def _palari_card(palari: Any) -> str:
 """
 
 
-def _decision_card(decision: Any) -> str:
+def _decision_card(decision: Any, guide: dict[str, Any]) -> str:
     return f"""
 <article class="auth-row auth-decision">
   <div class="card-title-row">
@@ -564,6 +569,7 @@ def _decision_card(decision: Any) -> str:
   </div>
   <p class="auth-question">{_e(decision.question)}</p>
   <p class="subtle">Required: {_e(decision.required_human or decision.required_role or 'unspecified')}</p>
+  {_command_list_block("Decision commands", _decision_commands(guide))}
 </article>
 """
 
@@ -579,6 +585,16 @@ def _blocker_card(item: Any) -> str:
   <p class="next-action"><span class="na-label">Next</span>{_e(item.next_action)}</p>
 </article>
 """
+
+
+def _decision_commands(guide: dict[str, Any]) -> list[str]:
+    if not guide:
+        return []
+    commands = [f"palari decision guide {guide['decision']['id']} --json"]
+    suggested = guide.get("decision_update_commands", [])
+    if suggested:
+        commands.append(suggested[0]["command"])
+    return commands
 
 
 def _metric(label: str, value: int, tone: str, filter_value: str = "") -> str:
