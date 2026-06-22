@@ -122,9 +122,12 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari review guide WORK-0003 --json
 ```
 
-Bare `agent next` returns the all-Palaris rollup with a top candidate. `agent
-check` and `agent finish` tell an agent which receipt, evidence, review, or
-human decision record is still needed before it can claim completion.
+Bare `agent next` returns the all-Palaris rollup with a top candidate and a
+`next_step_type` such as `check-active-proof`, `review-handoff`, or
+`human-decision`. `agent check` and `agent finish` carry the same step type and
+tell an agent which receipt, evidence, review, or human decision record is
+still needed before it can claim completion. When proof is missing, concrete
+record commands appear before generic inspect/validate commands.
 
 Run against another workspace:
 
