@@ -257,8 +257,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "b1e3709",
-      "last_read_at": "2026-06-22T04:28:00Z"
+      "last_seen_revision": "2596f66",
+      "last_read_at": "2026-06-22T04:39:00Z"
     }
   ],
   "workbenches": [
@@ -775,7 +775,8 @@
       "commits": [
         "3d77872",
         "6874b65",
-        "b1e3709"
+        "b1e3709",
+        "2596f66"
       ],
       "changed_files": [
         "src/palari_company_os/read_models.py",
@@ -798,7 +799,7 @@
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-06-22T04:05:00Z",
       "cleanliness": "clean",
-      "result": "Clarified agent review and mode command surfaces for detail dashboard next check and text output."
+      "result": "Clarified agent review and mode command surfaces for detail dashboard next check text output and review handoff text."
     }
   ],
   "evidence_runs": [
@@ -925,7 +926,8 @@
         "./scripts/install_smoke.sh",
         "./bin/palari --workspace examples/acme-company-os detail WORK-0007 --json",
         "./bin/palari --workspace examples/acme-company-os agent next --as PALARI-SOFIA --mode review",
-        "./bin/palari --workspace examples/acme-company-os agent check WORK-0003 --as PALARI-SOFIA --mode execute"
+        "./bin/palari --workspace examples/acme-company-os agent check WORK-0003 --as PALARI-SOFIA --mode execute",
+        "./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0008 --as PALARI-STEWARD"
       ],
       "artifacts": [
         "focused unit test output",
@@ -934,16 +936,17 @@
         "install smoke output",
         "detail JSON output",
         "agent next text output",
-        "agent check text output"
+        "agent check text output",
+        "agent handoff text output"
       ],
       "id": "EVIDENCE-REPO-0008",
       "work_item_id": "WORK-REPO-0008",
       "attempt_id": "ATTEMPT-REPO-0008",
-      "head_sha": "b1e3709",
+      "head_sha": "2596f66",
       "status": "passed",
-      "summary": "Agent review and mode command ergonomics passed focused tests full verification unit discovery install smoke and CLI smokes.",
+      "summary": "Agent review mode command ergonomics and handoff text focus passed focused tests full verification unit discovery install smoke and CLI smokes.",
       "freshness": "fresh",
-      "timestamp": "2026-06-22T04:27:00Z"
+      "timestamp": "2026-06-22T04:39:00Z"
     }
   ],
   "review_verdicts": [
@@ -1192,6 +1195,7 @@
         "exposed review-mode agent commands in work detail and dashboard",
         "made execute-mode agent check commands explicit",
         "printed agent mode in text output",
+        "surfaced review focus and receipt claims in agent handoff text",
         "updated docs and tests for agent command ergonomics"
       ],
       "outputs_created": [
