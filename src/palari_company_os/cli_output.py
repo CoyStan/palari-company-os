@@ -74,6 +74,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_brief(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-check":
+        print_agent_check(result.payload, result.as_json)
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)
@@ -392,6 +396,36 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
         print("Blockers:")
         for blocker in blockers:
             print(f"  - {blocker['code']}: {blocker['message']}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_agent_check(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent check: {payload['check_id']}")
+    print(f"OK: {_yes_no(payload['ok'])}")
+    print(f"Packet: {payload['packet_id']} ({payload['packet_status']})")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    blockers = payload.get("blockers", [])
+    if blockers:
+        print("Packet blockers:")
+        for blocker in blockers:
+            print(f"  - {blocker['code']}: {blocker['message']}")
+    print("Checks:")
+    for check in payload.get("checks", []):
+        marker = check["status"]
+        required = "required" if check.get("required") else "optional"
+        print(f"  - {check['code']} [{marker}, {required}]: {check['message']}")
+        if check.get("next_command"):
+            print(f"    next: {check['next_command']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

@@ -90,6 +90,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
     if args.command == "agent":
+        from .agent_checks import build_agent_check
         from .agent_packets import build_agent_brief
 
         workspace = Workspace.load(args.workspace)
@@ -97,6 +98,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "agent-brief",
                 build_agent_brief(workspace, args.work_id, args.palari_id, args.mode),
+                args.json,
+            )
+        if args.agent_command == "check":
+            return CommandResult(
+                "agent-check",
+                build_agent_check(workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
 

@@ -136,6 +136,14 @@ def _add_agent_parser(subparsers: Any) -> None:
         packet.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
         packet.add_argument("--mode", default="execute", help="Packet mode.")
         packet.add_argument("--json", action="store_true", help="Emit JSON.")
+    check = nested.add_parser(
+        "check",
+        help="Check whether one work item currently satisfies its agent packet contract.",
+    )
+    check.add_argument("work_id")
+    check.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    check.add_argument("--mode", default="execute", help="Packet mode.")
+    check.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_integration_parser(subparsers: Any) -> None:

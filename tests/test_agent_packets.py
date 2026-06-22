@@ -11,6 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.agent_checks import build_agent_check
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.workspace import Workspace
 
@@ -114,6 +115,78 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(brief["status"], "ready")
         self.assertEqual(start["status"], "ready")
         self.assertEqual(brief["packet_id"], start["packet_id"])
+
+    def test_agent_check_ready_packet_fails_missing_completion_proof(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_check(workspace, "WORK-0003", "PALARI-SOFIA")
+        checks = self.checks_by_code(result)
+
+        self.assertEqual(result["schema_version"], "palari.agent_check.v1")
+        self.assertEqual(result["ok"], False)
+        self.assertEqual(result["packet_status"], "ready")
+        self.assertEqual(checks["PACKET_READY"]["status"], "pass")
+        self.assertEqual(checks["RECEIPT_PRESENT"]["status"], "fail")
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["status"], "fail")
+        self.assertEqual(checks["REVIEW_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["REVIEW_PRESENT"]["required"], False)
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["required"], False)
+
+    def test_agent_check_blocked_packet_returns_packet_blockers(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_check(workspace, "WORK-0007", "PALARI-SOFIA")
+        codes = {blocker["code"] for blocker in result["blockers"]}
+
+        self.assertEqual(result["ok"], False)
+        self.assertEqual(result["packet_status"], "blocked")
+        self.assertIn("DEPENDENCY_NOT_TERMINAL", codes)
+        self.assertIn("RECEIPT_READY_REVIEW", codes)
+        self.assertEqual(self.checks_by_code(result)["PACKET_READY"]["status"], "fail")
+
+    def test_agent_check_receipt_ready_low_risk_does_not_require_review_or_human_decision(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_check(workspace, "WORK-0007", "PALARI-SOFIA")
+        checks = self.checks_by_code(result)
+
+        self.assertEqual(checks["RECEIPT_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["required"], False)
+        self.assertEqual(checks["REVIEW_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["REVIEW_PRESENT"]["required"], False)
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "pass")
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["required"], False)
+
+    def test_agent_check_human_decision_required_work_fails_until_approval_exists(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_check(workspace, "WORK-0001", "PALARI-SOFIA")
+        checks = self.checks_by_code(result)
+
+        self.assertEqual(result["ok"], False)
+        self.assertIn(
+            "HUMAN_DECISION_REQUIRED",
+            {blocker["code"] for blocker in result["blockers"]},
+        )
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "fail")
+        self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["required"], True)
+
+    def test_cli_agent_check_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli("agent", "check", "WORK-0003", "--as", "PALARI-SOFIA", "--json").stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_check.v1")
+        self.assertEqual(result["ok"], False)
+        self.assertEqual(result["packet_id"], "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
+        self.assertTrue(result["packet_context_hash"].startswith("sha256:"))
+        self.assertIn("checks", result)
+        self.assertIn("next_allowed_commands", result)
+
+    def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
+        return {check["code"]: check for check in result["checks"]}
 
     def modified_workspace(self, mutate: object) -> Workspace:
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))

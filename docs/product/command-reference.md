@@ -68,6 +68,7 @@ forbidden actions.
 ```bash
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ```
 
 Compiles one bounded, context-window-safe packet for an AI agent. The packet is
@@ -79,6 +80,14 @@ The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
 contract, proof/integration state, stop conditions, blockers, and safe next
 commands. Agents should treat this packet as their working boundary.
+
+`agent check` rebuilds the current packet and verifies whether the workspace
+state satisfies the packet's completion contract. It returns `ok`, packet id,
+packet context hash, packet blockers, structured pass/fail/warn checks, and
+next safe commands. A ready-to-start packet can still produce `ok: false` when
+the attempt is missing required receipt, evidence, review, or human-decision
+records. Light low-risk receipt-ready work can satisfy the receipt requirement
+without forcing review or human approval.
 
 ## Playbooks
 

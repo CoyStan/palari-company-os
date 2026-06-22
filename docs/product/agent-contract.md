@@ -24,8 +24,9 @@ The v1 loop is:
 3. Read and write only the packet's allowed paths and sources.
 4. Stop if the packet is blocked or a stop condition is reached.
 5. Produce the required output and trust records.
-6. Run `palari validate --json`.
-7. Report the packet status, changed files, checks, and remaining blockers.
+6. Run `palari agent check WORK-ID --as PALARI-ID --json`.
+7. Run `palari validate --json`.
+8. Report the packet status, compliance checks, changed files, and remaining blockers.
 
 ## Packet Purpose
 
@@ -89,7 +90,9 @@ Implemented:
 
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
+- `palari agent check WORK-ID --as PALARI-ID --json`
 - compact ready/blocked packets
+- machine-readable packet compliance checks
 - deterministic blocker codes
 - packet context hash
 - direct work, goal, workbench, source, dependency, proof, and integration state
@@ -97,13 +100,14 @@ Implemented:
 Not implemented yet:
 
 - claim/lease files
-- `palari agent check`
 - `palari agent finish`
 - packet expansion
 - review/planning/repair modes
 - live connector execution
 - memory providers or vector search
 
-The next likely slice is `palari agent check`, which should compare the current
-workspace/repo state against the packet and return machine-readable pass/fail
-checks.
+`agent check` rebuilds the packet, reports packet blockers, and then evaluates
+the current workspace against the completion contract. It returns `ok: false`
+when required receipt, evidence, review, human decision, source, dependency, or
+external-write checks fail. Light low-risk work may satisfy its trust loop with
+a valid receipt without requiring review or human approval.

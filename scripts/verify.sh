@@ -26,6 +26,8 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >/tmp/palari-company-split-detail-work-split.json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-brief-ready.json
 ./bin/palari agent start WORK-0007 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-start-blocked.json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0003.json
+./bin/palari agent check WORK-0007 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0007.json
 ./bin/palari playbooks sources --json >/tmp/palari-company-playbook-sources.json
 ./bin/palari playbooks recommend WORK-0003 --json >/tmp/palari-company-playbook-recommend.json
 ./bin/palari integrations --json >/tmp/palari-company-integrations.json
@@ -68,6 +70,10 @@ grep -q '"status": "ready"' /tmp/palari-company-agent-brief-ready.json
 grep -q '"packet_id": "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1"' /tmp/palari-company-agent-brief-ready.json
 grep -q '"status": "blocked"' /tmp/palari-company-agent-start-blocked.json
 grep -q 'DEPENDENCY_NOT_TERMINAL' /tmp/palari-company-agent-start-blocked.json
+grep -q '"schema_version": "palari.agent_check.v1"' /tmp/palari-company-agent-check-work-0003.json
+grep -q '"ok": false' /tmp/palari-company-agent-check-work-0003.json
+grep -q 'RECEIPT_PRESENT' /tmp/palari-company-agent-check-work-0003.json
+grep -q 'DEPENDENCY_NOT_TERMINAL' /tmp/palari-company-agent-check-work-0007.json
 grep -q 'superpowers:verification-before-completion' /tmp/palari-company-playbook-recommend.json
 grep -q '"would_call_provider": false' /tmp/palari-company-integration-plan.json
 grep -q '"recorded": true' /tmp/palari-company-integration-plan-recorded.json
