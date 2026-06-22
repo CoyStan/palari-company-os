@@ -2,34 +2,39 @@
 
 Palari Company OS is easiest to understand through situations.
 
-This page is for people who already use Claude, ChatGPT, Codex, Cursor, or other
-AI tools in daily life and work, but feel the same recurring problem:
+This page is for people who already use Claude, ChatGPT, Codex, Cursor, or
+similar AI tools, and who keep running into the same nagging gap:
 
-> The AI can help, but I still need to know what it read, what it changed, what
-> it did not do, and when a human has to decide.
+> "The AI gave me something useful. But I still can't tell what it actually
+> read, what it changed, and what I'm supposed to do next."
 
-Palari is a local operating contract for that missing layer. It gives AI work a
-small amount of structure without turning every request into bureaucracy.
+Palari is the operating layer for that missing part. It gives AI work a small
+amount of structure, just enough to make it legible, bounded, and easy to hand
+off for review.
 
-## The 30-Second Pitch
+---
 
-Most AI tools are good at answering, drafting, and coding. They are less good at
-showing the operating shape around the work:
+## The 30-Second Version
 
-- Which goal is this helping?
-- Which sources was the AI allowed to read?
-- Which files or outputs may it change?
-- What is blocked until a human decides?
-- What evidence or review exists?
-- What receipt explains what happened?
-- What else is running in parallel?
+Think about the last time you got a long AI-generated output and wondered:
 
-Palari Company OS keeps those answers in plain local workspace files and exposes
-them through a Python CLI, agent packets, static dashboards, and prototypes.
+- Wait, which file or note did it actually use?
+- Did it invent any of this, or did it stick to what I gave it?
+- Is this a finished thing, or something I still need to approve?
+- If something looks wrong, what exactly did it touch?
 
-## Workshop Framing
+Those questions rarely have good answers in most AI tools. The output arrives.
+The process disappears.
 
-If you are showing this to friends in an AI workshop, describe Palari as:
+Palari keeps a simple record around the work: what the AI was allowed to read,
+what it produced, what it did not do, and whether a human needs to approve
+something before anything moves forward.
+
+---
+
+## How to Describe This
+
+If you want to explain Palari to someone who has never heard of it:
 
 > A way to make AI work legible, bounded, and reviewable.
 
@@ -39,393 +44,401 @@ Not:
 
 Not:
 
-> A replacement for Claude, ChatGPT, Codex, Cursor, or the model you already use.
+> A replacement for Claude, ChatGPT, Codex, or whatever model you already use.
 
-Palari is closer to a control panel around AI work. The model can still be
-Claude, GPT, Gemini, a coding agent, or a human. Palari describes the work,
-boundaries, receipts, and approvals.
+Palari is closer to a control panel *around* AI work. The model can still be
+Claude, GPT, Gemini, a coding agent, or a human collaborator. Palari describes
+the work, the boundaries, the receipts, and the approval steps.
 
-For a workshop audience, translate the core words like this:
-
-- goal = why we are doing the work
-- source = what the AI is allowed to read
-- work item = one bounded task
-- attempt = one session of doing the task
-- receipt = what happened
-- human decision = where the AI stops and a person chooses
+---
 
 ## Vignette 1: The Founder With Too Many Threads
 
-### Situation
+### The situation
 
-A founder has a messy mix of notes:
+It is Monday morning. Maya runs a small software company. She has:
 
-- a customer interview
-- a copied Slack thread or exported chat note
-- a pricing idea
-- a bug report
-- a half-written launch plan
+- notes from a Friday customer call
+- a pricing question she jotted down in a doc
+- an exported Slack thread from the weekend launch discussion
+- a half-finished launch checklist she started on Friday
 
-They ask an AI:
+She asks Claude:
 
-> Can you turn yesterday's launch mess into something useful for today?
+> "Can you pull this together and tell me what we need to do before launch?"
 
-### Normal AI Failure Mode
+Claude gives her a polished reply. It sounds right. Then ten minutes later she
+starts wondering:
 
-The AI gives a polished answer, but the founder still wonders:
+- Did it use the pricing note, or just the Slack thread?
+- Is this checklist its idea or mine?
+- Should I send this to the team, or is this still a draft?
+- What did it skip?
 
-- Did it use the right notes?
-- Did it invent context?
-- Is this a plan, a draft, or a decision?
-- What should happen next?
-- Did anything get saved?
+### What Palari adds
 
-### Palari Version
+Before the AI runs, the work gets a visible shape:
 
-Palari turns the mess into one visible task:
+- **Goal:** Ship the beta calmly.
+- **Sources** (what it may read): customer call notes, pricing questions,
+  weekend Slack export.
+- **Task:** Prepare a beta launch checklist.
+- **AI partner:** Sofia.
 
-- Goal: "Launch the beta calmly."
-- Area: "Beta Operations."
-- Allowed sources: launch notes, customer interview, pricing questions.
-- AI partner: Sofia.
-- Task: "Prepare beta launch checklist."
-- Result: a checklist plus a receipt record showing what Sofia used, created,
-  skipped, and left for the founder.
-
-In a demo, show the task row first:
+When Sofia finishes, the task row looks like this:
 
 ```text
-Prepare beta launch checklist | Sources: 3 | Status: ready for founder review
+Prepare beta launch checklist | Sources: 3 | Status: ready for Maya's review
 ```
 
-Then open the detail:
+Open the detail:
 
 ```text
-What I used: launch notes, customer interview, pricing questions
-What I made: beta launch checklist
-What I did not do: send messages, change pricing, publish anything
-Next step: founder review
+What I read:        customer call notes, pricing questions, Slack export
+What I made:        beta-checklist.md
+What I did not do:  edit the roadmap, change pricing, send any messages
+Next step:          Maya reviews and approves
 ```
 
-The founder does not need to read raw JSON. The important thing is that the work
-has shape.
+This is a **receipt**: a plain-language record of what happened. Maya does not
+need to parse a log. She can tell at a glance that the work stayed in bounds and
+that she is the next decision-maker.
 
-### Why It Matters
+### Why it matters
 
-The founder is not just getting text. They are getting a visible unit of work
-with source boundaries and a next step.
+Maya is not just getting text. She is getting a visible unit of work with source
+boundaries, a clear record, and an explicit next step.
 
-## Vignette 2: The Daily-Life Version
+---
 
-### Situation
+## A Quick Vocabulary Map
 
-Someone is not running a company. They are planning a week:
+Now that you have seen it in action, here are the words Palari uses and what
+they mean:
 
-- appointments
-- notes from a call
-- a half-written email
-- a task list
-- a document they need to update
+| Palari term | Plain meaning |
+|-------------|---------------|
+| Goal | Why the work exists |
+| Source | What the AI was allowed to read |
+| Work item | One bounded task |
+| Attempt | One session of doing the task |
+| Receipt | What the AI read, made, and did NOT do |
+| Human decision | The explicit stop where a person must choose |
+| Palari | A named AI work partner with a defined scope |
 
-They ask:
+You do not need to memorize these. They appear naturally in the examples below.
 
-> Help me turn this into a plan for tomorrow.
+---
 
-### Normal AI Failure Mode
+## Vignette 2: Planning Your Week (The Daily-Life Version)
 
-The AI makes a nice plan, but the person cannot tell which notes it used,
-whether it changed anything, or which tasks are still only suggestions.
+### The situation
 
-### Palari Version
+You are not running a company. You are just trying to plan tomorrow. You have:
 
-The same primitives still work, just lighter:
+- a few calendar notes from today
+- notes from a call you took
+- a task list that got away from you
 
-- selected notes as sources
-- one bounded task
-- one attempt record for the AI-assisted session
-- one output: tomorrow's plan
-- one receipt record: what was used, created, and not changed
+You ask an AI to help you figure out what to focus on. The AI gives you a neat
+plan. You feel better for about five minutes. Then:
 
-In a simple demo, the receipt might say:
+- Did it look at the task list or just the call notes?
+- Is "reschedule the dentist" something it decided, or something I already
+  planned?
+- Did it mark anything done?
+
+### What Palari adds
+
+The same structure scales down to personal use: lighter, but the same shape:
+
+- **Sources** it may read: call notes, today's calendar notes, task list.
+- **Task:** Plan tomorrow.
+- **Output:** tomorrow-plan.md
+
+Receipt:
 
 ```text
-Read: call notes, calendar notes, task list
-Created: tomorrow plan
-Did not do: send email, edit calendar, delete tasks
-Needs review: yes
+Read:          call notes, calendar notes, task list
+Created:       tomorrow-plan.md
+Did not read:  your emails (not selected as a source)
+Did not do:    edit your calendar, mark tasks complete, send anything
+Needs review:  yes
 ```
 
-No enterprise ceremony is needed. The structure can stay small.
+No enterprise ceremony needed. The structure stays small; the legibility stays
+the same.
 
-### Why It Matters
+### Why it matters
 
-The same idea scales down to daily life: a person should know what the AI used,
-what it made, and what it did not do.
+The same idea scales down to daily life: you should know what the AI used, what
+it made, and what it left untouched.
 
-## Vignette 3: Giving A Coding Agent A Brief
+---
 
-### Situation
+## Vignette 3: Giving a Coding Agent a Real Brief
 
-A developer opens a repo and wants Codex or another coding agent to help.
+### The situation
 
-The usual prompt is something like:
+A developer wants to use Codex or a similar agent to help fix a bug. The usual
+prompt is:
 
-> Read the repo and fix the issue.
+> "Read the repo and fix the failing test."
 
-That works sometimes, but it is vague. The agent has to infer:
+That works sometimes. But the agent has to guess a lot:
 
-- which files matter
-- what it is allowed to touch
-- what "done" means
-- what evidence is required
-- what should make it stop
+- Which files actually matter?
+- Which ones am I allowed to change?
+- What does "done" look like?
+- When should I stop and ask a human?
 
-### Palari Version
+### What Palari adds
 
-For a non-technical explanation, call this a task brief: one page that tells the
-AI what the job is, what it may read, what it may change, and what proof it
-needs before claiming it is done.
+Palari generates an **agent packet**: a compact brief that answers all of those
+questions in one place, in machine-readable form.
 
-For a technical demo, the same idea appears as an agent packet:
+For a non-technical explanation, think of it as a task card handed to a
+contractor:
+
+> "Here is what you are fixing. Here is what you can read. Here is what you can
+> write. Here is what done looks like. Do not touch anything else."
+
+For a technical demo, the same idea looks like this:
 
 ```bash
 palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ```
 
-The brief says, in machine-readable form:
+The packet tells the agent:
 
-- who the Palari is
+- who they are (Sofia)
 - what the task is
-- which paths can be read
-- which paths can be written
-- which sources are allowed
+- which paths they may read and write
 - which actions are forbidden
-- what output is required
-- what proof is missing
-- what commands are safe next
+- what proof is required before claiming done
+- which commands are safe to run next
 
-When the packet is ready, `agent start` saves the exact local packet under
-`.palari/packets/` and records a local claim under `.palari/claims/`. If the
-packet is blocked, `agent start` reports the blockers and writes nothing.
+`agent start` saves the exact packet locally and records a claim on the work.
+If the packet says `blocked`, nothing is saved and the agent stops.
 
-### Why It Matters
+After the work, `agent check` can compare which files were actually edited
+against what the packet allowed, catching drift before it becomes a problem.
 
-The agent no longer has to guess the operating contract. It gets one compact
-brief and can later point back to the exact local task brief it was given.
+### Why it matters
+
+The agent does not have to infer the scope from clues in the codebase. It gets
+one compact brief, and it can always point back to the exact brief it was given.
+
+---
 
 ## Vignette 4: The Trust Receipt
 
-### Situation
+### The situation
 
-An AI assistant edits a document or prepares a draft.
+An AI assistant finishes editing a document. You ask:
 
-The human asks:
+> "What did you actually do?"
 
-> What did you actually do?
+The AI replies:
 
-### Normal AI Failure Mode
+> "I updated the summary section and improved the tone throughout."
 
-The assistant replies conversationally:
+That is useful, but it is conversational. It does not tell you:
 
-> I updated the summary and improved the tone.
+- Which version of the file did you start from?
+- Did you edit the pricing section I said to leave alone?
+- Did you write anything externally?
+- If something looks off, what exactly changed?
 
-That is helpful, but not operational. It does not clearly answer:
+### What Palari adds
 
-- What did you read?
-- What did you create?
-- Did you write externally?
-- What did you avoid doing?
-- Can I undo this?
-- Which task brief produced this work?
-
-### Palari Version
-
-A Palari workspace can record a receipt like:
+A Palari workspace can record a receipt in a consistent format:
 
 ```text
-Read: launch notes and customer interview
-Changed: beta checklist draft
-Did not do: send messages, change pricing, edit the roadmap
-External writes: none
+Read:               launch-notes.md, customer-interview.md
+Changed:            beta-checklist.md (draft)
+Did not change:     pricing.md, roadmap.md
+External writes:    none
 Needs human review: yes
-Undo/check: see the saved draft and task packet
+Undo reference:     see saved draft and task packet
 ```
 
-This receipt is not a legal audit system. It is a human-facing trust record.
-It gives the person supervising the AI a plain explanation of the work.
+A receipt is not a legal audit log. It is a human-facing trust record: the
+plain explanation a person needs to feel comfortable with the output before
+acting on it.
 
-### Why It Matters
+### Why it matters
 
 The value is not only the output. The value is the confidence around the output.
+You can hand this receipt to a colleague or a future version of yourself and it
+will make sense.
+
+---
 
 ## Vignette 5: The Human Approval Boundary
 
-### Situation
+### The situation
 
-A Palari prepares a message that could be posted to Slack, GitHub, Jira, email,
-or a customer-facing system.
+An AI finishes drafting a message to post in Slack, or to open as a GitHub
+issue, or to send to a customer. You wanted help drafting it. You did not want
+it sent yet.
 
-The human wants help drafting, but does not want the AI to send anything by
-itself.
+In most AI tools, the boundary lives in the prompt:
 
-### Normal AI Failure Mode
+> "Do not send this yet."
 
-The boundary lives in the prompt:
+That is fragile. The model may or may not remember it across a long session.
 
-> Do not send this yet.
+### What Palari adds
 
-That is fragile. It depends on the model remembering the instruction.
+Palari treats "send this" as a **prepared action**, not a completed action. The
+AI prepares the message and stops. A human must explicitly approve before it
+goes anywhere.
 
-### Palari Version
-
-Palari treats the send as a prepared action, not a completed action:
+The planned message looks like this:
 
 ```text
-Destination: Slack #launch
-Preview: "Beta checklist is ready for review..."
-Status: waiting for human approval
-Approver: launch communications owner
-Current behavior: saved as a dry-run payload preview only; Palari does not call Slack
+Destination:    Slack #launch
+Preview:        "Beta checklist is ready for review..."
+Status:         waiting for human approval
+Approver:       launch communications owner
+Current state:  saved as dry-run preview only; Palari has not called Slack
 ```
 
-The underlying dry-run plan can describe:
+**Important:** This is dry-run only today. Palari does not connect to Slack,
+GitHub, email, or any external system. The preview shows what *would* be sent
+if a live connector existed. It does not send anything. That gap is
+intentional.
 
-- provider: Slack, GitHub, Jira, or email
-- event: approval requested, review requested, work completed, work blocked, or incident opened
-- action: notify, comment, create issue, or update issue
-- payload preview: what would be sent
-- approval requirement: who must approve
+### Why it matters
 
-Today this is dry-run only. Palari does not call the real provider.
+The AI can prepare work right up to the edge of the company. The human decides
+whether it crosses. That boundary is explicit, not implied by a prompt the
+model might forget.
 
-### Why It Matters
+---
 
-The AI can prepare work near the edge of the company without silently crossing
-the edge. The human approval boundary is explicit.
+## Vignette 6: Two People (or Agents) Working at the Same Time
 
-## Vignette 6: Two People Or Agents Working In Parallel
+### The situation
 
-### Situation
+Three threads are active on the same project at once:
 
-Two people are working on the same project:
+- Jordan is editing the launch copy in `docs/launch.md`
+- Alex is reviewing the pricing note in `docs/pricing.md`
+- Sofia (an AI partner) is preparing the changelog in `CHANGELOG.md`
 
-- one person is editing the launch copy
-- another is checking the pricing note
-- an agent is preparing the changelog
+Everyone is working from the same repo. Nobody is coordinating in real time.
 
-Everyone is using the same repo or workspace.
+In most team workflows, the answer to "is anyone else touching this file?" is:
+"I think so, probably not, let me check Slack."
 
-### Normal AI Failure Mode
-
-The team relies on chat memory and vibes:
-
-- "I think I am working on this file."
-- "I think the agent is only touching docs."
-- "I think nobody else is editing the same thing."
-
-That is fine for tiny work. It gets risky as soon as multiple threads are active.
-
-### Palari Version
+### What Palari adds
 
 Palari can show the shared work map:
 
 ```text
 Active work:
-- Launch copy polish | Owner: Maya | Target: docs/launch.md | independent
-- Pricing note review | Owner: Jordan | Target: docs/pricing.md | independent
-- Changelog prep | Owner: Sofia | Target: CHANGELOG.md | coordinate
+- Launch copy polish  | Owner: Jordan | Target: docs/launch.md    | independent
+- Pricing review      | Owner: Alex   | Target: docs/pricing.md   | independent
+- Changelog prep      | Owner: Sofia  | Target: CHANGELOG.md      | coordinate
 
 Warning:
 - Two active tasks want to edit docs/launch.md with exclusive access.
 ```
 
-Under the hood, Palari models workbenches, work items, attempts, dependencies,
-output targets, conflict targets, and parallel policies. In a workshop, the
-plain version is enough: who is doing what, what they may touch, and whether
-anything collides.
+Work items carry a **parallel policy**: `independent` (can run beside other
+work), `coordinate` (should be visible to other operators), or `exclusive`
+(should not overlap another item touching the same target). You do not need to
+remember those terms for a workshop demo. The plain version is enough: who is
+doing what, what they may touch, and where things might collide.
 
-### Why It Matters
+### Why it matters
 
 Parallel AI work needs more than prompts. It needs a shared map of who is doing
-what and where collisions might happen.
+what and where the risks of collision are.
 
-## Vignette 7: AI Skills Without Blindly Installing Everything
+---
 
-### Situation
+## Vignette 7: Skills and Plugins Without Blindly Installing Everything
+
+### The situation
 
 Someone in a workshop asks:
 
-> Which AI skills, plugins, or extensions should I use?
+> "Which AI skills, plugins, or extensions should I use for this?"
 
-That is a good question, but a dangerous default answer is:
+The dangerous default answer is: "Install a pile of tools and hope they
+compose."
 
-> Install a pile of tools and hope they help.
+### What Palari adds
 
-### Palari Version
+Palari treats external skills and playbooks as **process guidance**, not
+authority grants. Recommending a skill does not change what the AI is allowed
+to read, write, or send. Those boundaries live in the workspace and do not
+move.
 
-Palari treats external playbooks and skills as guidance, not authority.
-
-Example:
+Example: an agent is about to debug a failing checkout test. Palari recommends:
 
 ```text
 Task: debug failing checkout test
-Recommended playbooks:
-- systematic debugging: find the smallest failing cause
+Suggested playbooks:
+- systematic debugging: find the smallest failing cause first
 - verification before completion: rerun the focused test before claiming done
 - executing plans: keep the work structured and resumable
 ```
 
-The playbook can suggest how to work, but it cannot expand what the AI is
-allowed to read, write, approve, or send. The workspace still controls:
+These are suggestions for *how* to work. They do not change:
 
-- goal
-- scope
-- allowed sources
-- allowed paths
-- forbidden actions
-- proof requirements
-- human decisions
+- which files the agent may touch
+- which sources it may read
+- which actions require human approval
+- what proof is needed before the work closes
 
-### Why It Matters
+### Why it matters
 
-Skills can improve performance, but they should not quietly expand authority.
-Palari gives the agent process help while keeping company boundaries explicit.
+Skills can sharpen performance. They should not quietly expand scope. Palari
+keeps the two things separate.
+
+---
 
 ## A Friendly Demo Script
 
-If you have five minutes in a workshop:
+### Five minutes
 
-1. Show the dashboard or desktop prototype first, not the schema.
-2. Explain that a Palari is a named AI work partner with scope.
-3. Show one task and its selected sources.
-4. Show `agent brief` as the compact task brief.
-5. Show `agent start` saving the packet and local claim for a ready packet.
-6. Show `agent check --changed` catching whether edits stayed inside bounds.
-7. Show a receipt and ask: "Would this make you more comfortable trusting the result?"
+1. Open the dashboard or desktop prototype first. Show the work map, not the
+   schema.
+2. Point to one task. Ask: "What is this AI allowed to read?"
+3. Show the sources. Ask: "What is it not allowed to touch?"
+4. Run `agent brief` and show the compact packet.
+5. Show a receipt. Ask the room: "Would this make you more comfortable trusting
+   the result?"
 
-If you have fifteen minutes:
+### Fifteen minutes
 
-1. Start with a messy real-world ask.
-2. Convert it into a goal, source, task, and Palari.
-3. Generate or inspect an agent packet.
-4. Discuss what is allowed and forbidden.
-5. Show how evidence, review, and human decisions appear only when risk requires
-   them.
-6. End with the idea: "AI should be useful, but the work should still be
-   inspectable."
+1. Start with a messy real-world ask the room recognizes ("help me prep for
+   this meeting," "fix this bug," "draft this message for the team").
+2. Walk through: what is the goal, which sources are selected, who is the AI
+   partner, what is the task.
+3. Generate or inspect an agent packet. Point out what the AI cannot do.
+4. Show how evidence, review, and human decisions appear only when risk is
+   higher. Low-risk work stays light.
+5. Show the dry-run integration preview. Emphasize: it does not send.
+6. End with: "AI should be useful. The work should also be inspectable."
+
+---
 
 ## What Exists Today
 
-This repo currently provides:
+This is a v0.1 local CLI. Here is what is real:
 
-- a dependency-light Python CLI
+- dependency-light Python CLI (no external packages needed)
 - strict local workspace validation
-- queue, detail, state, history, dashboard, and prototype surfaces
-- agent packets for bounded AI work
-- local packet persistence and claims
+- queue, detail, state, history, dashboard, and desktop prototype views
+- agent packets for bounded AI work, with local packet persistence and claims
 - source and receipt trust records
-- dry-run integration planning and outbox states
+- dry-run integration planning and cancelable outbox records (no live calls)
 - workbench and parallel-work modeling
 - example and dogfood workspaces
 
@@ -433,25 +446,32 @@ This repo currently provides:
 
 Palari Company OS is not yet:
 
-- a hosted web app
+- a hosted web app you can log into
 - a real Slack, GitHub, Jira, email, or Drive connector
 - a background agent runner
 - a secret manager
+- a system that executes live external actions automatically
 - a replacement for human judgment
-- a system that executes live external actions
 
-For now, it is a local operating foundation: useful for modeling, testing,
-dogfooding, and giving AI agents a clearer work contract.
+For now, it is a local operating foundation, useful for modeling AI work,
+testing the contract, and giving agents a clearer brief.
+
+---
 
 ## The Core Takeaway
 
 The point is not to make AI work heavier.
 
-The point is to make AI work safer to trust:
+The point is to make AI work safe to hand off.
+
+When someone asks "what did the AI actually do?", you should be able to show
+them, not guess.
 
 ```text
-selected sources -> bounded work -> agent packet -> attempt
-  -> receipt -> evidence or review when needed -> human decision when needed
+selected sources -> bounded task -> agent packet -> attempt
+  -> receipt -> evidence or review when needed
+    -> human decision when needed -> outcome
 ```
 
-That is Palari Company OS in one line.
+Each step in that chain is inspectable. Each step has a human override point.
+The AI does the work; the record shows the shape.
