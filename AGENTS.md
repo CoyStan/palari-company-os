@@ -42,8 +42,13 @@ Follow the packet:
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
   `finish` says the next step is human review or human decision
-- follow concrete receipt/evidence/human-decision commands before generic
-  inspect or validate commands when a check fails
+- follow concrete receipt, evidence, review, and approval guidance before
+  generic inspect or validate commands when a check fails
+- treat human-decision commands as unavailable until prerequisite proof, such as
+  receipt, evidence, and review, is present
+- in review mode, `agent finish` means you may report a review recommendation;
+  it does not authorize you to record a human review or claim the original work
+  item is complete
 
 Never:
 

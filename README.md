@@ -130,13 +130,16 @@ Bare `agent next` returns the all-Palaris rollup with a top candidate and a
 `human-decision`. `agent check` and `agent finish` carry the same step type and
 tell an agent which receipt, evidence, review, or human decision record is
 still needed before it can claim completion. When proof is missing, concrete
-record commands appear before generic inspect/validate commands. `agent handoff`
-is the preferred bridge for human review or decision states; it packages the
-relevant finish, review-guide, or decision-guide context without mutating the
-workspace, while keeping human action commands separate from agent-safe reads.
-For work that is already waiting for review or receipt-ready, `agent brief
---mode review` returns a read-only reviewer packet with review focus,
-attempt/evidence/receipt context, and review guide commands.
+receipt, evidence, and review commands appear before generic inspect/validate
+commands, and human-decision commands are held until prerequisite proof exists.
+`agent handoff` is the preferred bridge for human review or decision states; it
+packages the relevant finish, review-guide, or decision-guide context without
+mutating the workspace, while keeping human action commands separate from
+agent-safe reads. For work that is already waiting for review or receipt-ready,
+`agent brief --mode review` returns a read-only reviewer packet with review
+focus, attempt/evidence/receipt context, and review guide commands. In review
+mode, `agent finish` means the agent may report a review recommendation, not
+record a human review or claim the original work item is complete.
 
 Run against another workspace:
 
