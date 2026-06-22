@@ -451,10 +451,17 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["workspace"], "Acme Company OS Example")
         self.assertEqual(payload["queue"][0]["attention"], "needs-human-decision")
+        self.assertNotIn("closed", {item["attention"] for item in payload["queue"]})
         self.assertEqual(
             payload["queue"][0]["agent_handoff_command"],
             "palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
         )
+
+    def test_cli_queue_include_closed_json(self) -> None:
+        result = self.run_cli("queue", "--include-closed", "--json")
+        payload = json.loads(result.stdout)
+
+        self.assertIn("closed", {item["attention"] for item in payload["queue"]})
 
     def test_cli_detail_json(self) -> None:
         result = self.run_cli("detail", "WORK-0004", "--json")
@@ -505,7 +512,7 @@ class CliTests(unittest.TestCase):
         )
 
     def test_cli_queue_text_labels_heuristic_intensity_as_concern(self) -> None:
-        result = self.run_cli_in_workspace(DOGFOOD_WORKSPACE, "queue")
+        result = self.run_cli_in_workspace(DOGFOOD_WORKSPACE, "queue", "--include-closed")
 
         self.assertIn("WORK-REPO-0009 [light / R2] Harden dry-run integration validation", result.stdout)
         self.assertIn("intensity concern: heuristic suggests high", result.stdout)

@@ -23,12 +23,15 @@ connections by itself.
 ```bash
 ./bin/palari queue
 ./bin/palari queue --json
+./bin/palari queue --include-closed --json
 ```
 
-Shows the operator queue with attention state, `next_step_type`, goal, Palari,
-owner, adaptive intensity, evidence state, review state, receipt state,
+Shows the current operator queue with attention state, `next_step_type`, goal,
+Palari, owner, adaptive intensity, evidence state, review state, receipt state,
 approval progress, integration state, learning signal, workbench context,
-active attempts, coordination warnings, and next action. `next_step_type`
+active attempts, coordination warnings, and next action. Closed work is omitted
+by default so the command stays focused on current attention. Use
+`--include-closed` for audit/history-style inspection. `next_step_type`
 classifies intent for humans and agents without requiring them to parse the
 command string.
 

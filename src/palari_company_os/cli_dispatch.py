@@ -21,9 +21,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .read_models import queue_items
 
         workspace = Workspace.load(args.workspace)
+        items = queue_items(workspace)
+        if not args.include_closed:
+            items = [item for item in items if item.attention != "closed"]
         return CommandResult(
             "queue",
-            {"workspace": workspace, "items": queue_items(workspace)},
+            {"workspace": workspace, "items": items},
             args.json,
         )
 

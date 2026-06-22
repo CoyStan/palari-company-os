@@ -16,6 +16,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")
+    queue_parser.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="Include completed/closed work items in the queue output.",
+    )
     queue_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     state_parser = subparsers.add_parser("state", help="Show compact operator state.")
