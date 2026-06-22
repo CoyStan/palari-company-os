@@ -285,6 +285,7 @@ GitHub Actions runs the same core checks on Python 3.10 and 3.12.
 ## Documentation
 
 - [Product Model](docs/product/company-os.md)
+- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md)
 - [Quickstart](docs/product/quickstart.md)
 - [Core Objects](docs/product/core-objects.md)
 - [Authority And Gates](docs/product/authority-and-gates.md)
