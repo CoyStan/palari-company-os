@@ -286,6 +286,14 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["can_finish"], False)
         self.assertEqual(result["would_mutate"], False)
 
+    def test_cli_agent_finish_text_shows_completed_requirements(self) -> None:
+        result = self.run_cli("agent", "finish", "WORK-0007", "--as", "PALARI-SOFIA")
+
+        self.assertIn("Status: handoff-ready", result.stdout)
+        self.assertIn("Completed requirements:", result.stdout)
+        self.assertIn("RECEIPT_PRESENT", result.stdout)
+        self.assertIn("Guidance: Do not continue execution.", result.stdout)
+
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 

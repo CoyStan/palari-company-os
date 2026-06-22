@@ -560,6 +560,10 @@ def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  - {item['code']}: {item['message']}")
             if item.get("next_command"):
                 print(f"    next: {item['next_command']}")
+    if payload.get("completed_requirements"):
+        print("Completed requirements:")
+        for item in payload["completed_requirements"]:
+            print(f"  - {item['code']}: {item['message']}")
     if payload.get("blockers"):
         print("Blockers:")
         for blocker in payload["blockers"]:
