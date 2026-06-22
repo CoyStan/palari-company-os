@@ -57,11 +57,15 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("WORK-0001", by_id)
         self.assertEqual(by_id["WORK-0001"]["can_start"], False)
         self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0001"]["blocker_codes"])
+        self.assertEqual(by_id["WORK-0001"]["handoff_guidance"][0]["code"], "DECISION_HANDOFF")
+        self.assertIn("decision guide", by_id["WORK-0001"]["handoff_guidance"][0]["message"])
         self.assertIn("PACKET_BLOCKED", by_id["WORK-0001"]["start_blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0001"]["start_blocker_codes"])
         self.assertIn("WORK-0007", by_id)
         self.assertEqual(by_id["WORK-0007"]["can_start"], False)
         self.assertIn("RECEIPT_READY_REVIEW", by_id["WORK-0007"]["blocker_codes"])
+        self.assertEqual(by_id["WORK-0007"]["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
+        self.assertIn("review guide", by_id["WORK-0007"]["handoff_guidance"][0]["message"])
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0007"]["start_blocker_codes"])
         self.assertNotIn("WORK-0004", by_id)
 
@@ -128,6 +132,14 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
         self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "human-decision")
         self.assertEqual(
+            result["top_candidate"]["candidate"]["handoff_guidance"][0]["code"],
+            "DECISION_HANDOFF",
+        )
+        self.assertIn(
+            "suggested decision update commands",
+            result["top_candidate"]["candidate"]["handoff_guidance"][0]["message"],
+        )
+        self.assertEqual(
             result["next_allowed_commands"][0],
             "palari decision guide DECISION-REPO-0001 --json",
         )
@@ -167,6 +179,19 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertIn("candidates", result)
         self.assertEqual(result["candidates"][0]["can_start"], True)
+
+    def test_cli_agent_next_text_prints_handoff_guidance(self) -> None:
+        result = self.run_cli(
+            "--workspace",
+            str(DOGFOOD),
+            "agent",
+            "next",
+            "--as",
+            "PALARI-STEWARD",
+        )
+
+        self.assertIn("handoff: REVIEW_HANDOFF", result.stdout)
+        self.assertIn("ready-to-edit review record commands", result.stdout)
 
     def test_cli_agent_next_all_emits_json_shape(self) -> None:
         result = json.loads(

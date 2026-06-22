@@ -467,6 +467,11 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
             if candidate.get("start_blocker_codes"):
                 print(f"    start blockers: {', '.join(candidate['start_blocker_codes'])}")
+            if candidate.get("handoff_guidance"):
+                for item in candidate["handoff_guidance"]:
+                    print(f"    handoff: {item['code']} - {item['message']}")
+                    if item.get("command"):
+                        print(f"      command: {item['command']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

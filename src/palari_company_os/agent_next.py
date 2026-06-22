@@ -103,6 +103,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = f"palari agent check {work.id} --as {palari_id} --json"
         next_command = _candidate_next_command(item, can_start, brief_command)
+        blocker_codes = [blocker.get("code", "") for blocker in blockers]
         candidates.append(
             {
                 "queue_rank": rank,
@@ -120,9 +121,10 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 },
                 "packet_status": packet.get("status", "blocked"),
                 "can_start": can_start,
-                "blocker_codes": [blocker.get("code", "") for blocker in blockers],
+                "blocker_codes": blocker_codes,
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
+                "handoff_guidance": _handoff_guidance(work.id, item, blocker_codes),
                 "next_step_type": item.next_step_type,
                 "next_command": next_command,
                 "next_commands": item.next_commands,
@@ -181,6 +183,27 @@ def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return blockers
+
+
+def _handoff_guidance(work_id: str, item: Any, blocker_codes: list[str]) -> list[dict[str, str]]:
+    guidance: list[dict[str, str]] = []
+    if item.next_step_type == "review-handoff" or "RECEIPT_READY_REVIEW" in blocker_codes:
+        guidance.append(
+            {
+                "code": "REVIEW_HANDOFF",
+                "message": "Use the review guide; it includes ready-to-edit review record commands.",
+                "command": f"palari review guide {work_id} --json",
+            }
+        )
+    if item.next_step_type == "human-decision" or "HUMAN_DECISION_REQUIRED" in blocker_codes:
+        guidance.append(
+            {
+                "code": "DECISION_HANDOFF",
+                "message": "Use the decision guide; it includes suggested decision update commands.",
+                "command": item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json",
+            }
+        )
+    return guidance
 
 
 def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
