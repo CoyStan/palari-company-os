@@ -30,6 +30,11 @@ autonomous execution.
 review or decision, while keeping human action commands separate from
 agent-safe read commands. It is also receipt-ready rather than accepted.
 
+`WORK-REPO-0008` records the follow-on agent command ergonomics pass. It made
+review-mode packet/check commands visible in detail and dashboard, made
+execute-mode check commands explicit, and made CLI text output print its mode.
+It is receipt-ready rather than accepted.
+
 The workspace keeps two active workbenches: `Repo Foundation` for ordinary
 implementation and maintenance work, and `Product Architecture` for authority,
 broker, policy, and task-sizing decisions. That keeps agent packets tied to a
@@ -47,6 +52,7 @@ Useful commands:
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0006
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0007
+./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0008
 ./bin/palari --workspace workspaces/palari-company-os agent next --as PALARI-STEWARD --json
 ./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0006 --as PALARI-STEWARD --json
 ./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0007 --as PALARI-STEWARD --json

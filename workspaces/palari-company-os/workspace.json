@@ -23,7 +23,8 @@
         "WORK-REPO-0002",
         "WORK-REPO-0003",
         "WORK-REPO-0006",
-        "WORK-REPO-0007"
+        "WORK-REPO-0007",
+        "WORK-REPO-0008"
       ],
       "linked_decisions": []
     },
@@ -149,7 +150,8 @@
         "WORK-REPO-0002",
         "WORK-REPO-0003",
         "WORK-REPO-0006",
-        "WORK-REPO-0007"
+        "WORK-REPO-0007",
+        "WORK-REPO-0008"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -255,8 +257,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "a647edf",
-      "last_read_at": "2026-06-22T03:50:00Z"
+      "last_seen_revision": "b1e3709",
+      "last_read_at": "2026-06-22T04:28:00Z"
     }
   ],
   "workbenches": [
@@ -566,6 +568,50 @@
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0007",
       "workbench_id": "WORKBENCH-REPO-FOUNDATION"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_resources": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py",
+        "tests",
+        "README.md",
+        "AGENTS.md",
+        "docs/product",
+        "workspaces/palari-company-os"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "call live integrations",
+        "read secrets",
+        "reintroduce old ticket ceremony"
+      ],
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "agent next/check/detail/dashboard smokes"
+      ],
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging"
+      ],
+      "id": "WORK-REPO-0008",
+      "title": "Clarify agent review and mode commands",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Make agent command surfaces clearer by exposing review-mode packet/check commands in detail/dashboard and making execute/review modes explicit in emitted commands and text output.",
+      "acceptance_target": "Agents can tell whether they are in execute or review mode and can see the right packet/check command without guessing.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0008"
     }
   ],
   "attempts": [
@@ -724,6 +770,35 @@
       "started_at": "2026-06-22T03:38:00Z",
       "cleanliness": "clean",
       "result": "Added read-only agent handoff packets and made agent next finish detail and dashboard surfaces point to the handoff bridge."
+    },
+    {
+      "commits": [
+        "3d77872",
+        "6874b65",
+        "b1e3709"
+      ],
+      "changed_files": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_dashboard.py",
+        "tests/test_agent_packets.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0008",
+      "work_item_id": "WORK-REPO-0008",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T04:05:00Z",
+      "cleanliness": "clean",
+      "result": "Clarified agent review and mode command surfaces for detail dashboard next check and text output."
     }
   ],
   "evidence_runs": [
@@ -840,6 +915,35 @@
       "summary": "Agent handoff command and routing were verified locally with focused tests full verification install smoke and CLI smokes.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T03:49:00Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_workspace_read_models tests.test_dashboard",
+        "python3 -m unittest tests.test_agent_packets",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari --workspace examples/acme-company-os detail WORK-0007 --json",
+        "./bin/palari --workspace examples/acme-company-os agent next --as PALARI-SOFIA --mode review",
+        "./bin/palari --workspace examples/acme-company-os agent check WORK-0003 --as PALARI-SOFIA --mode execute"
+      ],
+      "artifacts": [
+        "focused unit test output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output",
+        "detail JSON output",
+        "agent next text output",
+        "agent check text output"
+      ],
+      "id": "EVIDENCE-REPO-0008",
+      "work_item_id": "WORK-REPO-0008",
+      "attempt_id": "ATTEMPT-REPO-0008",
+      "head_sha": "b1e3709",
+      "status": "passed",
+      "summary": "Agent review and mode command ergonomics passed focused tests full verification unit discovery install smoke and CLI smokes.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T04:27:00Z"
     }
   ],
   "review_verdicts": [
@@ -1079,6 +1183,47 @@
       "attempt_id": "ATTEMPT-REPO-0007",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T03:50:00Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "exposed review-mode agent commands in work detail and dashboard",
+        "made execute-mode agent check commands explicit",
+        "printed agent mode in text output",
+        "updated docs and tests for agent command ergonomics"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_dashboard.py",
+        "tests/test_agent_packets.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No deployment performed",
+        "No live integrations called",
+        "No secrets read",
+        "No old ticket workflow reintroduced",
+        "No human acceptance recorded"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py"
+      ],
+      "id": "RECEIPT-REPO-0008",
+      "work_item_id": "WORK-REPO-0008",
+      "attempt_id": "ATTEMPT-REPO-0008",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T04:28:00Z"
     }
   ],
   "decisions": [
