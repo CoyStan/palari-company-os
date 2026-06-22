@@ -860,6 +860,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
                 f"({item.intensity_reason})"
             )
         print(f"  next: {item.next_action}")
+        if item.agent_loop_command:
+            print(f"  agent loop: {item.agent_loop_command}")
         if item.agent_handoff_command:
             print(f"  agent handoff: {item.agent_handoff_command}")
         if item.next_commands:
@@ -1018,6 +1020,8 @@ def print_state(payload: dict[str, Any]) -> None:
         if top.get("next_step_type"):
             print(f"  step: {top['next_step_type']}")
         print(f"  why: {top['why']}")
+        if top.get("agent_loop_command"):
+            print(f"  agent loop: {top['agent_loop_command']}")
         if top.get("agent_handoff_command"):
             print(f"  agent handoff: {top['agent_handoff_command']}")
         commands = top.get("next_commands") or []

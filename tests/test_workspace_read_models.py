@@ -66,6 +66,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
             queue["WORK-REPO-0005"].agent_handoff_command,
             "palari agent handoff WORK-REPO-0005 --as PALARI-ARCHITECT --json",
         )
+        self.assertEqual(
+            queue["WORK-REPO-0005"].agent_loop_command,
+            "palari agent loop WORK-REPO-0005 --as PALARI-ARCHITECT --json",
+        )
         self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
         self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
         self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
@@ -129,6 +133,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
                 "palari agent finish WORK-0003 --as PALARI-SOFIA --json",
             ],
         )
+        self.assertEqual(
+            by_id["WORK-0003"].agent_loop_command,
+            "palari agent loop WORK-0003 --as PALARI-SOFIA --json",
+        )
         self.assertEqual(by_id["WORK-0005"].attention, "needs-evidence")
         self.assertEqual(by_id["WORK-0005"].evidence_state, "stale")
         self.assertEqual(
@@ -186,6 +194,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["attention"], "receipt-ready")
         self.assertEqual(payload["next_step_type"], "review-handoff")
         self.assertEqual(payload["next_commands"][0], "palari review guide WORK-0007 --json")
+        self.assertEqual(
+            payload["agent_loop_command"],
+            "palari agent loop WORK-0007 --as PALARI-SOFIA --json",
+        )
         self.assertEqual(
             payload["agent_handoff_command"],
             "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
@@ -460,6 +472,10 @@ class CliTests(unittest.TestCase):
             payload["queue"][0]["agent_handoff_command"],
             "palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
         )
+        self.assertEqual(
+            payload["queue"][0]["agent_loop_command"],
+            "palari agent loop WORK-0001 --as PALARI-SOFIA --json",
+        )
 
     def test_cli_queue_include_closed_json(self) -> None:
         result = self.run_cli("queue", "--include-closed", "--json")
@@ -501,6 +517,10 @@ class CliTests(unittest.TestCase):
             state["top_attention"]["agent_handoff_command"],
             "palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
         )
+        self.assertEqual(
+            state["top_attention"]["agent_loop_command"],
+            "palari agent loop WORK-0001 --as PALARI-SOFIA --json",
+        )
         self.assertTrue(scope["allowed"])
 
     def test_cli_state_text_shows_top_attention_command(self) -> None:
@@ -511,6 +531,10 @@ class CliTests(unittest.TestCase):
         self.assertIn("step: human-decision", result.stdout)
         self.assertIn(
             "agent handoff: palari agent handoff WORK-0001 --as PALARI-SOFIA --json",
+            result.stdout,
+        )
+        self.assertIn(
+            "agent loop: palari agent loop WORK-0001 --as PALARI-SOFIA --json",
             result.stdout,
         )
         self.assertIn("command: palari detail WORK-0001 --json", result.stdout)
