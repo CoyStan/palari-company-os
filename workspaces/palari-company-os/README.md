@@ -19,6 +19,11 @@ records. They demonstrate the local source/receipt trust loop using repo-local
 files only; they do not imply live external access, deployment, or autonomous
 acceptance.
 
+The workspace keeps two active workbenches: `Repo Foundation` for ordinary
+implementation and maintenance work, and `Product Architecture` for authority,
+broker, policy, and task-sizing decisions. That keeps agent packets tied to a
+bounded arena instead of a flat task list.
+
 Committed paths in this workspace should be repo-relative or workspace-relative.
 Avoid machine-local absolute paths so the workspace remains portable across
 clones.

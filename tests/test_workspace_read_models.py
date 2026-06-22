@@ -23,6 +23,7 @@ from palari_company_os.workspace import Workspace
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+DOGFOOD_WORKSPACE = REPO_ROOT / "workspaces" / "palari-company-os"
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 
@@ -36,6 +37,16 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(len(workspace.workbenches), 2)
         self.assertEqual(len(workspace.work_items), 7)
         self.assertEqual(len(workspace.receipts), 1)
+
+    def test_dogfood_workspace_has_real_workbench_context(self) -> None:
+        workspace = Workspace.load(DOGFOOD_WORKSPACE)
+        payload = detail(workspace, "WORK-REPO-0002")
+        queue = {item.id: item for item in queue_items(workspace)}
+
+        self.assertEqual(len(workspace.workbenches), 2)
+        self.assertEqual(payload["workbench"]["id"], "WORKBENCH-REPO-FOUNDATION")
+        self.assertEqual(payload["workbench"]["label"], "Repo Foundation")
+        self.assertEqual(queue["WORK-REPO-0002"].workbench_label, "Repo Foundation")
 
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)

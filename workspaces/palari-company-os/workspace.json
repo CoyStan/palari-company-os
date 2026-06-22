@@ -255,6 +255,46 @@
       "last_read_at": "2026-06-19T03:00:00Z"
     }
   ],
+  "workbenches": [
+    {
+      "id": "WORKBENCH-REPO-FOUNDATION",
+      "label": "Repo Foundation",
+      "summary": "Maintainer work for the Python CLI, schemas, tests, docs, and local agent operating contract.",
+      "goal_ids": [
+        "GOAL-REPO-0001"
+      ],
+      "palari_ids": [
+        "PALARI-STEWARD"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-MAINTAINER"
+      ],
+      "source_ids": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_target_ids": [],
+      "status": "active"
+    },
+    {
+      "id": "WORKBENCH-REPO-ARCHITECTURE",
+      "label": "Product Architecture",
+      "summary": "Design work for adaptive intensity, authority boundaries, broker safety, and future policy controls.",
+      "goal_ids": [
+        "GOAL-REPO-0002"
+      ],
+      "palari_ids": [
+        "PALARI-ARCHITECT"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER",
+        "HUMAN-MAINTAINER"
+      ],
+      "source_ids": [],
+      "output_target_ids": [],
+      "status": "active"
+    }
+  ],
   "work_items": [
     {
       "allowed_resources": [
@@ -283,6 +323,7 @@
       "id": "WORK-REPO-0001",
       "title": "Complete strict validation history and repo hygiene foundation",
       "goal": "GOAL-REPO-0001",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
       "palari": "PALARI-STEWARD",
       "risk": "R2",
       "intensity": "standard",
@@ -315,6 +356,7 @@
       "id": "WORK-REPO-0002",
       "title": "Add workspace init and seed ergonomics",
       "goal": "GOAL-REPO-0001",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
       "palari": "PALARI-STEWARD",
       "risk": "R2",
       "intensity": "standard",
@@ -350,6 +392,7 @@
       "id": "WORK-REPO-0003",
       "title": "Split larger workspaces into maintainable source files",
       "goal": "GOAL-REPO-0001",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
       "palari": "PALARI-STEWARD",
       "risk": "R3",
       "intensity": "high",
@@ -384,6 +427,7 @@
       "id": "WORK-REPO-0004",
       "title": "Design adaptive intensity for task sizing",
       "goal": "GOAL-REPO-0002",
+      "workbench_id": "WORKBENCH-REPO-ARCHITECTURE",
       "palari": "PALARI-ARCHITECT",
       "risk": "R3",
       "intensity": "high",
@@ -417,6 +461,7 @@
       "id": "WORK-REPO-0005",
       "title": "Define future broker and policy boundary roadmap",
       "goal": "GOAL-REPO-0002",
+      "workbench_id": "WORKBENCH-REPO-ARCHITECTURE",
       "palari": "PALARI-ARCHITECT",
       "risk": "R5",
       "intensity": "high",
