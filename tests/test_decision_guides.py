@@ -32,6 +32,10 @@ class DecisionGuideTests(unittest.TestCase):
         self.assertIn("Do not implement external side effects", payload["decision"]["safe_default"])
         self.assertIn("safe default", " ".join(payload["decision_focus"]))
         self.assertIn("--set \"result=...\"", payload["decision_update_command_template"])
+        commands = {item["result"]: item["command"] for item in payload["decision_update_commands"]}
+        self.assertIn("keep disabled", commands)
+        self.assertIn("--set 'result=keep disabled'", commands["keep disabled"])
+        self.assertIn("defer", commands)
 
     def test_decision_guide_can_resolve_by_linked_work(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -52,6 +56,14 @@ class DecisionGuideTests(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], "palari.decision_guide.v1")
         self.assertEqual(result["decision"]["id"], "DECISION-REPO-0001")
+        self.assertIn("decision_update_commands", result)
+
+    def test_cli_decision_guide_text_shows_suggested_update_commands(self) -> None:
+        result = self.run_cli("decision", "guide", "WORK-REPO-0005")
+
+        self.assertIn("Suggested update commands:", result.stdout)
+        self.assertIn("--set 'result=keep disabled'", result.stdout)
+        self.assertIn("--set result=defer", result.stdout)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

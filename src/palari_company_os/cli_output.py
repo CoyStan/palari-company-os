@@ -653,6 +653,11 @@ def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item}")
     print("Suggested results:")
     print(f"  {', '.join(payload['suggested_results'])}")
+    commands_for_results = payload.get("decision_update_commands", [])
+    if commands_for_results:
+        print("Suggested update commands:")
+        for item in commands_for_results:
+            print(f"  - {item['result']}: {item['command']}")
     print("Update template:")
     print(f"  {payload['decision_update_command_template']}")
     commands = payload.get("next_commands", [])

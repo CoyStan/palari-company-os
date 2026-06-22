@@ -110,9 +110,10 @@ after inspecting the evidence and receipt.
 
 `decision guide` is read-only. It assembles one decision, its linked work item,
 required human, options, tradeoffs, recommendation, safe default, and a neutral
-decision-update command template. It does not decide, approve, mutate history,
-or authorize implementation. If the target is a work item id, Palari resolves
-the open decision linked to that work item.
+decision-update command template. It also includes ready-to-edit update commands
+for each suggested result, such as the safe default or `defer`. It does not
+decide, approve, mutate history, or authorize implementation. If the target is a
+work item id, Palari resolves the open decision linked to that work item.
 
 ## Agent Packets
 

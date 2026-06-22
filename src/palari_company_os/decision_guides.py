@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from shlex import quote
 from typing import Any
 
 from .read_models import detail
@@ -35,6 +36,7 @@ def build_decision_guide(workspace: Workspace, target_id: str) -> dict[str, Any]
         "decision_focus": _decision_focus(decision, work_detail),
         "suggested_results": _suggested_results(decision),
         "decision_update_command_template": _decision_update_command_template(decision),
+        "decision_update_commands": _decision_update_commands(decision),
         "next_commands": _next_commands(decision),
         "omitted_context": [
             {
@@ -140,6 +142,23 @@ def _suggested_results(decision: Any) -> list[str]:
 
 def _decision_update_command_template(decision: Any) -> str:
     return f'palari decision update {decision.id} --status decided --set "result=..." --json'
+
+
+def _decision_update_commands(decision: Any) -> list[dict[str, str]]:
+    return [
+        {
+            "result": result,
+            "command": _decision_update_command(decision, result),
+        }
+        for result in _suggested_results(decision)
+    ]
+
+
+def _decision_update_command(decision: Any, result: str) -> str:
+    return (
+        f"palari decision update {decision.id} --status decided "
+        f"--set {quote(f'result={result}')} --json"
+    )
 
 
 def _next_commands(decision: Any) -> list[str]:
