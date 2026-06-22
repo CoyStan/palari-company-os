@@ -424,6 +424,15 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(checks["REVIEW_PRESENT"]["required"], False)
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "pass")
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["required"], False)
+        self.assertEqual(
+            result["next_allowed_commands"][:2],
+            [
+                "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
+                "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
+                "palari evidence record EVIDENCE-ID --work-item-id WORK-0003 "
+                '--attempt-id ATTEMPT-0002 --head-sha def5678 --status passed --summary "verification passed" --json',
+            ],
+        )
 
     def test_agent_check_blocked_packet_returns_packet_blockers(self) -> None:
         workspace = Workspace.load(WORKSPACE)

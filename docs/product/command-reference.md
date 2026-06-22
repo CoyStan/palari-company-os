@@ -156,8 +156,9 @@ packet context hash, packet blockers, structured pass/fail/warn checks, and
 produce `ok: false` when the attempt is missing required receipt, evidence,
 review, or human-decision records. Missing receipt and evidence checks include
 concrete record-command templates for the current work item and attempt when
-possible. Light low-risk receipt-ready work can satisfy the receipt requirement
-without forcing review or human approval.
+possible, and failed required check commands appear before generic
+inspect/validate commands. Light low-risk receipt-ready work can satisfy the
+receipt requirement without forcing review or human approval.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be

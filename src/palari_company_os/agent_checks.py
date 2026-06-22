@@ -212,9 +212,17 @@ def _external_write_check(packet: dict[str, Any]) -> dict[str, Any]:
 def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: bool) -> list[str]:
     if ok:
         return list(packet.get("next_allowed_commands", []))
-    commands = list(packet.get("next_allowed_commands", []))
+    commands: list[str] = []
     for check in checks:
         command = check.get("next_command", "")
+        if (
+            check.get("required")
+            and check.get("status") == "fail"
+            and command
+            and command not in commands
+        ):
+            commands.append(command)
+    for command in packet.get("next_allowed_commands", []):
         if command and command not in commands:
             commands.append(command)
     for command in packet_commands_from_checks(packet):
