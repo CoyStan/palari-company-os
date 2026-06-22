@@ -124,8 +124,10 @@ the open decision linked to that work item.
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ```
 
-`agent next` reads the current queue for one Palari, ranks safe-to-start
+`agent next` reads the current open queue for one Palari, ranks safe-to-start
 candidates first, and includes blocked/waiting candidates with blocker codes.
+Closed work remains visible through `queue` and `detail`, but is omitted from
+agent candidate lists.
 With no `--as` argument, `agent next` defaults to an operator rollup across
 every Palari in the workspace. `--all` is still accepted as the explicit form.
 The rollup includes a `top_candidate` field so agents can follow the first safe

@@ -91,6 +91,8 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
 def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for rank, item in enumerate(queue_items(workspace), start=1):
+        if item.attention == "closed":
+            continue
         work = workspace.work_item(item.id)
         if work is None or not _palari_can_see_work(workspace, work, palari_id):
             continue

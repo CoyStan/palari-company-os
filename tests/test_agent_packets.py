@@ -63,6 +63,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0007"]["can_start"], False)
         self.assertIn("RECEIPT_READY_REVIEW", by_id["WORK-0007"]["blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0007"]["start_blocker_codes"])
+        self.assertNotIn("WORK-0004", by_id)
 
     def test_agent_next_does_not_restart_work_waiting_for_review(self) -> None:
         def add_evidence_without_review(data: dict[str, object]) -> None:

@@ -125,8 +125,8 @@ infer them.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,
-and keeps blocked or waiting visible with blocker codes. It does not create a
-claim, mutate state, or assign work.
+keeps blocked or waiting visible with blocker codes, and omits closed work from
+candidate lists. It does not create a claim, mutate state, or assign work.
 
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
 workspace state in v1. It carries the same `next_step_type`, distinguishes
