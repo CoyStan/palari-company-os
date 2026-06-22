@@ -62,4 +62,6 @@ Never:
 - invent durable memory or company policy
 - bypass human decisions, reviews, receipts, or approval boundaries
 
-The canonical contract is in `docs/product/agent-contract.md`.
+The canonical contract is in `docs/product/agent-contract.md`. For a compact
+command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
+`handoff`, see `docs/product/agent-loop-smoke.md`.

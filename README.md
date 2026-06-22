@@ -278,6 +278,7 @@ GitHub Actions runs the same core checks on Python 3.10 and 3.12.
 - [Source Of Truth](docs/product/source-of-truth.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Command Reference](docs/product/command-reference.md)
+- [Agent Loop Smoke](docs/product/agent-loop-smoke.md)
 - [Lifecycle Guide](docs/product/lifecycle-guide.md)
 - [External Playbooks](docs/product/playbooks.md)
 - [External Maintainer Mode](docs/product/external-maintainer-mode.md)
