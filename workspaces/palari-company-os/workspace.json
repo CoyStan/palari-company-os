@@ -31,7 +31,8 @@
         "WORK-REPO-0012",
         "WORK-REPO-0013",
         "WORK-REPO-0014",
-        "WORK-REPO-0015"
+        "WORK-REPO-0015",
+        "WORK-REPO-0016"
       ],
       "linked_decisions": []
     },
@@ -162,7 +163,8 @@
         "WORK-REPO-0012",
         "WORK-REPO-0013",
         "WORK-REPO-0014",
-        "WORK-REPO-0015"
+        "WORK-REPO-0015",
+        "WORK-REPO-0016"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -271,8 +273,8 @@
       "steward_human": "HUMAN-MAINTAINER",
       "freshness_sla": "per change",
       "redaction_required": false,
-      "last_seen_revision": "76a93bb",
-      "last_read_at": "2026-06-22T05:51:40Z"
+      "last_seen_revision": "fd60b0d",
+      "last_read_at": "2026-06-22T05:56:35Z"
     },
     {
       "id": "SOURCE-REPO-ARCHITECTURE",
@@ -918,6 +920,42 @@
       "acceptance_target": "Source readiness fields validate strictly, surface in data map, and preserve existing workspace behavior.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0015"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "docs/product/agent-contract.md",
+        "AGENTS.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "change packet authority semantics",
+        "add claims or leases",
+        "add external connectors",
+        "read secrets"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_agent_packets",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0016",
+      "title": "Expose source readiness in agent packets",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Carry source readiness metadata into agent brief packets so agents see data class, authority, steward, freshness, and redaction boundaries.",
+      "acceptance_target": "Allowed source packets include readiness metadata, packet docs mention the boundary, and existing packet behavior stays stable.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0016"
     }
   ],
   "attempts": [
@@ -1278,6 +1316,27 @@
       "started_at": "2026-06-22T05:51:40Z",
       "cleanliness": "clean",
       "result": "Added source readiness metadata, strict validation, data-map output, examples, and regression coverage."
+    },
+    {
+      "commits": [
+        "fd60b0d"
+      ],
+      "changed_files": [
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "docs/product/agent-contract.md",
+        "AGENTS.md"
+      ],
+      "id": "ATTEMPT-REPO-0016",
+      "work_item_id": "WORK-REPO-0016",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T05:56:35Z",
+      "cleanliness": "clean",
+      "result": "Exposed source readiness metadata in agent brief packets and documented the boundary."
     }
   ],
   "evidence_runs": [
@@ -1587,6 +1646,31 @@
       "status": "passed",
       "summary": "Source readiness metadata passed focused validation/data-map/authoring tests, full verification, unit discovery, and install smoke.",
       "timestamp": "2026-06-22T05:51:40Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_agent_packets",
+        "./bin/palari --workspace examples/acme-company-os agent brief WORK-0007 --as PALARI-SOFIA --mode execute --json",
+        "./bin/palari --workspace examples/acme-company-os agent check WORK-0007 --as PALARI-SOFIA --json",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused packet test output",
+        "agent brief smoke output",
+        "agent check smoke output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0016",
+      "work_item_id": "WORK-REPO-0016",
+      "attempt_id": "ATTEMPT-REPO-0016",
+      "head_sha": "fd60b0d",
+      "status": "passed",
+      "summary": "Agent packet readiness fields passed focused packet tests, packet smoke, full verification, unit discovery, and install smoke.",
+      "timestamp": "2026-06-22T05:56:35Z"
     }
   ],
   "review_verdicts": [
@@ -2129,6 +2213,39 @@
       "attempt_id": "ATTEMPT-REPO-0015",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:51:40Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "passed source readiness into agent packets",
+        "added packet regression coverage",
+        "documented source readiness boundary"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "docs/product/agent-contract.md",
+        "AGENTS.md"
+      ],
+      "not_done": [
+        "No claims or leases added",
+        "No connectors added",
+        "No secrets read",
+        "No authority semantics changed"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "docs/product/agent-contract.md",
+        "AGENTS.md"
+      ],
+      "id": "RECEIPT-REPO-0016",
+      "work_item_id": "WORK-REPO-0016",
+      "attempt_id": "ATTEMPT-REPO-0016",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:56:35Z"
     }
   ],
   "decisions": [
