@@ -23,6 +23,7 @@ def build_agent_handoff(
     decision_handoff = (
         _decision_handoff(workspace, work_id) if "DECISION_HANDOFF" in guidance_codes else None
     )
+    human_action_commands = _human_action_commands(review_handoff, decision_handoff)
     return {
         "schema_version": "palari.agent_handoff.v1",
         "handoff_id": _handoff_id(work_id, palari_id, mode),
@@ -40,7 +41,8 @@ def build_agent_handoff(
         "review_handoff": review_handoff,
         "decision_handoff": decision_handoff,
         "next_allowed_commands": _agent_safe_commands(finish, review_handoff, decision_handoff),
-        "human_action_commands": _human_action_commands(review_handoff, decision_handoff),
+        "human_action_commands": human_action_commands,
+        "human_action_boundary": _human_action_boundary(human_action_commands),
         "omitted_context": [
             {
                 "kind": "workspace_records",
@@ -197,6 +199,20 @@ def _human_action_commands(
                 }
             )
     return commands
+
+
+def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[str, Any]:
+    return {
+        "agent_may_execute": False,
+        "agent_allowed_use": "Quote or summarize human-only commands for a human supervisor.",
+        "human_only_command_fields": ["human_action_commands[].command"],
+        "count": len(human_action_commands),
+        "must_not": [
+            "Do not run human action commands.",
+            "Do not claim to be the required human actor.",
+            "Do not convert a recommendation into human review, decision, or acceptance.",
+        ],
+    }
 
 
 def _is_read_only_command(command: str) -> bool:

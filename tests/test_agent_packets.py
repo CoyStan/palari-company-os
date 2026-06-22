@@ -508,6 +508,12 @@ class AgentPacketTests(unittest.TestCase):
         )
         human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
         self.assertIn("--reviewer HUMAN-MAINTAINER", human_commands)
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(result["human_action_boundary"]["count"], len(result["human_action_commands"]))
+        self.assertIn(
+            "human_action_commands[].command",
+            result["human_action_boundary"]["human_only_command_fields"],
+        )
 
     def test_agent_handoff_waiting_for_review_compiles_review_context(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -529,6 +535,8 @@ class AgentPacketTests(unittest.TestCase):
             "palari human-decision record",
             "\n".join(result["next_allowed_commands"]),
         )
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(result["human_action_boundary"]["count"], len(result["human_action_commands"]))
 
     def test_agent_handoff_human_decision_compiles_decision_context(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -559,6 +567,8 @@ class AgentPacketTests(unittest.TestCase):
         human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
         self.assertIn("palari decision update DECISION-REPO-0001", human_commands)
         self.assertIn("'result=keep disabled'", human_commands)
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(result["human_action_boundary"]["count"], len(result["human_action_commands"]))
 
     def test_cli_agent_handoff_emits_json_shape(self) -> None:
         result = json.loads(
@@ -578,6 +588,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["handoff_types"], ["review"])
         self.assertEqual(result["review_handoff"]["status"], "receipt-ready")
         self.assertEqual(result["human_action_commands"][0]["type"], "review-record")
+        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
 
     def test_cli_agent_handoff_text_shows_review_commands(self) -> None:
         result = self.run_cli(
@@ -599,6 +610,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("No deployment performed", result.stdout)
         self.assertIn("ready-to-edit review record commands", result.stdout)
         self.assertIn("review record commands:", result.stdout)
+        self.assertIn("Human action boundary: agent may quote", result.stdout)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)

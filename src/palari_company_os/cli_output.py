@@ -680,6 +680,9 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  {command}")
     human_commands = payload.get("human_action_commands", [])
     if human_commands:
+        boundary = payload.get("human_action_boundary", {})
+        if boundary.get("agent_may_execute") is False:
+            print("Human action boundary: agent may quote these commands, but must not run them.")
         print("Human action commands:")
         for item in human_commands:
             detail = f" ({item.get('result', item.get('actor', ''))})"

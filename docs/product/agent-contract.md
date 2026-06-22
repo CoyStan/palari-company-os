@@ -176,7 +176,9 @@ receipt claims so a human can inspect the right thing without parsing JSON
 first. Agent-safe read commands remain separate from `human_action_commands`, so
 a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
-decisions, receipts, evidence, claims, or history events.
+decisions, receipts, evidence, claims, or history events. Handoff packets also
+include `human_action_boundary`, which marks every `human_action_commands`
+entry as human-only.
 
 Review-mode `agent brief` packets may include ready-to-copy review record
 commands inside `review_context` because those are useful to the supervising
