@@ -33,6 +33,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertGreaterEqual(result["ready_count"], 1)
         self.assertEqual(result["candidates"][0]["work_item_id"], "WORK-0003")
         self.assertEqual(result["candidates"][0]["can_start"], True)
+        self.assertEqual(result["candidates"][0]["start_blockers"], [])
         self.assertIn(
             "palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
             result["next_allowed_commands"],
@@ -47,9 +48,12 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("WORK-0001", by_id)
         self.assertEqual(by_id["WORK-0001"]["can_start"], False)
         self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0001"]["blocker_codes"])
+        self.assertIn("PACKET_BLOCKED", by_id["WORK-0001"]["start_blocker_codes"])
+        self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0001"]["start_blocker_codes"])
         self.assertIn("WORK-0007", by_id)
         self.assertEqual(by_id["WORK-0007"]["can_start"], False)
         self.assertIn("RECEIPT_READY_REVIEW", by_id["WORK-0007"]["blocker_codes"])
+        self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0007"]["start_blocker_codes"])
 
     def test_agent_next_does_not_restart_work_waiting_for_review(self) -> None:
         def add_evidence_without_review(data: dict[str, object]) -> None:
@@ -80,6 +84,8 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(candidate["packet_status"], "blocked")
         self.assertEqual(candidate["can_start"], False)
         self.assertIn("REVIEW_REQUIRED", candidate["blocker_codes"])
+        self.assertIn("PACKET_BLOCKED", candidate["start_blocker_codes"])
+        self.assertIn("ATTENTION_NOT_STARTABLE", candidate["start_blocker_codes"])
 
     def test_agent_next_missing_palari_is_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)

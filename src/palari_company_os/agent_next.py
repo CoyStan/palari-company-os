@@ -76,6 +76,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
         can_start = _can_start_agent_work(item, packet)
+        start_blockers = _start_blockers(item, packet)
         candidates.append(
             {
                 "queue_rank": rank,
@@ -94,6 +95,8 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "packet_status": packet.get("status", "blocked"),
                 "can_start": can_start,
                 "blocker_codes": [blocker.get("code", "") for blocker in blockers],
+                "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
+                "start_blockers": start_blockers,
                 "brief_command": (
                     f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
                 ),
@@ -109,6 +112,32 @@ def _can_start_agent_work(item: Any, packet: dict[str, Any]) -> bool:
         and item.ai_safe_to_proceed
         and item.attention in AGENT_STARTABLE_ATTENTIONS
     )
+
+
+def _start_blockers(item: Any, packet: dict[str, Any]) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    if packet.get("status") != "ready":
+        blockers.append(
+            {
+                "code": "PACKET_BLOCKED",
+                "message": "The agent packet is blocked; inspect blocker_codes before starting.",
+            }
+        )
+    if not item.ai_safe_to_proceed:
+        blockers.append(
+            {
+                "code": "QUEUE_NOT_AI_SAFE",
+                "message": "The queue does not mark this work safe for autonomous AI execution.",
+            }
+        )
+    if item.attention not in AGENT_STARTABLE_ATTENTIONS:
+        blockers.append(
+            {
+                "code": "ATTENTION_NOT_STARTABLE",
+                "message": f"Current attention state is {item.attention}; follow next_action instead.",
+            }
+        )
+    return blockers
 
 
 def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
