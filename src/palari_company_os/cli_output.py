@@ -78,6 +78,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_next(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-next-all":
+        print_agent_next_all(result.payload, result.as_json)
+        return
+
     if result.kind == "agent-check":
         print_agent_check(result.payload, result.as_json)
         return
@@ -461,6 +465,30 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
             if candidate.get("start_blocker_codes"):
                 print(f"    start blockers: {', '.join(candidate['start_blocker_codes'])}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next commands:")
+        for command in commands:
+            print(f"  {command}")
+
+
+def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Agent next rollup: {payload['workspace']}")
+    print(f"Status: {payload['status']}")
+    print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
+    for agent_payload in payload.get("agents", []):
+        agent = agent_payload["agent"]
+        print(
+            f"  - {agent.get('id', '')} ({agent.get('name', 'unknown')}): "
+            f"{agent_payload['ready_count']} ready / {agent_payload['blocked_count']} waiting"
+        )
+        candidates = agent_payload.get("candidates", [])
+        if candidates:
+            first = candidates[0]
+            print(f"    next: {first['next_command']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

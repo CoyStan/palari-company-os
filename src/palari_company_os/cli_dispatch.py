@@ -92,11 +92,17 @@ def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "agent":
         from .agent_checks import build_agent_check
         from .agent_finish import build_agent_finish
-        from .agent_next import build_agent_next
+        from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
 
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
+            if args.all:
+                return CommandResult(
+                    "agent-next-all",
+                    build_agent_next_all(workspace, args.mode, args.limit),
+                    args.json,
+                )
             return CommandResult(
                 "agent-next",
                 build_agent_next(workspace, args.palari_id, args.mode, args.limit),

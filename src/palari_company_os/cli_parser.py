@@ -130,9 +130,11 @@ def _add_agent_parser(subparsers: Any) -> None:
     nested = parser.add_subparsers(dest="agent_command", required=True)
     next_parser = nested.add_parser(
         "next",
-        help="Show the next safe work candidates for one Palari.",
+        help="Show the next safe work candidates for one Palari or all Palaris.",
     )
-    next_parser.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    next_scope = next_parser.add_mutually_exclusive_group(required=True)
+    next_scope.add_argument("--as", dest="palari_id", help="Acting Palari id.")
+    next_scope.add_argument("--all", action="store_true", help="Show a rollup for all Palaris.")
     next_parser.add_argument("--mode", default="execute", help="Packet mode.")
     next_parser.add_argument("--limit", type=int, default=5, help="Maximum candidates to show.")
     next_parser.add_argument("--json", action="store_true", help="Emit JSON.")

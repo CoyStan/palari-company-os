@@ -67,6 +67,25 @@ def build_agent_next(
     }
 
 
+def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
+    agents = [build_agent_next(workspace, palari.id, mode, limit) for palari in workspace.palaris]
+    ready_count = sum(agent["ready_count"] for agent in agents)
+    blocked_count = sum(agent["blocked_count"] for agent in agents)
+    next_commands = _all_next_commands(agents, mode)
+    return {
+        "schema_version": "palari.agent_next_all.v1",
+        "created_at": _timestamp(),
+        "workspace": workspace.name,
+        "status": "ready" if ready_count else "no-ready-work",
+        "mode": mode or "execute",
+        "ready_count": ready_count,
+        "blocked_count": blocked_count,
+        "agents": agents,
+        "next_allowed_commands": next_commands,
+        "omitted_context": [_omitted_context(workspace)],
+    }
+
+
 def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for rank, item in enumerate(queue_items(workspace), start=1):
@@ -190,6 +209,18 @@ def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) 
         "palari queue --json",
         "palari validate --json",
     ]
+
+
+def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
+    for agent in agents:
+        if agent["ready_count"]:
+            agent_id = agent["agent"]["id"]
+            return [f"palari agent next --as {agent_id} --mode {mode} --json"]
+    for agent in agents:
+        commands = agent.get("next_allowed_commands") or []
+        if commands:
+            return commands
+    return ["palari queue --json", "palari validate --json"]
 
 
 def _omitted_context(workspace: Workspace) -> dict[str, Any]:
