@@ -49,9 +49,9 @@ coordination warnings, safety state, and next action.
 ./bin/palari state --json
 ```
 
-Shows a compact operator state: record counts, attention counts, queue items,
-active parallel work, and coordination warnings. This is the first fast read
-model for the whole workspace.
+Shows a compact operator state: record counts, attention counts, top attention
+with its next command, queue items, active parallel work, and coordination
+warnings. This is the first fast read model for the whole workspace.
 
 ## Validate
 
