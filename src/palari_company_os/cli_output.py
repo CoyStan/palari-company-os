@@ -461,6 +461,8 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 f"{candidate['title']} ({candidate['attention']})"
             )
             print(f"    next: {candidate['next_command']}")
+            if candidate.get("next_step_type"):
+                print(f"    step: {candidate['next_step_type']}")
             if candidate.get("blocker_codes"):
                 print(f"    blockers: {', '.join(candidate['blocker_codes'])}")
             if candidate.get("start_blocker_codes"):
@@ -489,6 +491,8 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             f"via {agent.get('id', '')} - {candidate.get('title', '')}"
         )
         print(f"  next: {candidate.get('next_command', '')}")
+        if candidate.get("next_step_type"):
+            print(f"  step: {candidate.get('next_step_type', '')}")
     for agent_payload in payload.get("agents", []):
         agent = agent_payload["agent"]
         print(
@@ -499,6 +503,8 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
         if candidates:
             first = candidates[0]
             print(f"    next: {first['next_command']}")
+            if first.get("next_step_type"):
+                print(f"    step: {first['next_step_type']}")
     commands = payload.get("next_allowed_commands", [])
     if commands:
         print("Next commands:")

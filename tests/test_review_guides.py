@@ -84,11 +84,13 @@ class ReviewGuideTests(unittest.TestCase):
 
         self.assertIn("start blockers:", result.stdout)
         self.assertIn("ATTENTION_NOT_STARTABLE", result.stdout)
+        self.assertIn("step: review-handoff", result.stdout)
 
     def test_cli_agent_next_rollup_text_prints_top_candidate(self) -> None:
         result = self.run_cli("agent", "next")
 
         self.assertIn("Top: WORK-REPO-0005 [waiting] via PALARI-ARCHITECT", result.stdout)
+        self.assertIn("step: human-decision", result.stdout)
         self.assertIn("palari decision guide DECISION-REPO-0001 --json", result.stdout)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
