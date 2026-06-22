@@ -400,7 +400,19 @@ class CliTests(unittest.TestCase):
         self.assertTrue(validate["valid"])
         self.assertEqual(state["attention"]["needs-human-decision"], 2)
         self.assertEqual(state["attention"]["receipt-ready"], 1)
+        self.assertEqual(state["top_attention"]["id"], "WORK-0001")
+        self.assertEqual(
+            state["top_attention"]["next_commands"][0],
+            "palari detail WORK-0001 --json",
+        )
         self.assertTrue(scope["allowed"])
+
+    def test_cli_state_text_shows_top_attention_command(self) -> None:
+        result = self.run_cli("state")
+
+        self.assertIn("Top attention", result.stdout)
+        self.assertIn("WORK-0001: Prepare beta launch checklist", result.stdout)
+        self.assertIn("command: palari detail WORK-0001 --json", result.stdout)
 
     def test_cli_maintainer_status_json_has_pr_readiness(self) -> None:
         payload = json.loads(self.run_cli("maintainer", "status", "--repo", str(REPO_ROOT), "--json").stdout)

@@ -815,6 +815,14 @@ def print_state(payload: dict[str, Any]) -> None:
     print("Attention")
     for key, value in payload["attention"].items():
         print(f"  {key}: {value}")
+    top = payload.get("top_attention")
+    if top:
+        print("Top attention")
+        print(f"  {top['id']}: {top['title']} ({top['attention']})")
+        print(f"  why: {top['why']}")
+        commands = top.get("next_commands") or []
+        if commands:
+            print(f"  command: {commands[0]}")
     if payload.get("active_parallel_work"):
         print("Active parallel work")
         for item in payload["active_parallel_work"]:

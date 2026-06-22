@@ -39,6 +39,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 "workspace": workspace.name,
                 "counts": _workspace_counts(workspace),
                 "attention": _attention_counts(items),
+                "top_attention": to_plain(items[0]) if items else None,
                 "queue": to_plain(items),
                 "active_parallel_work": active_parallel_work(workspace),
                 "coordination_warnings": coordination_warnings(workspace),
