@@ -114,6 +114,7 @@ JSON:
 For agents, start from one bounded packet instead of inferring the workflow:
 
 ```bash
+./bin/palari agent next --all --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
