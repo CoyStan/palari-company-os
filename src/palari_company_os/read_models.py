@@ -761,7 +761,14 @@ def _attempt_targets(work: Any, attempt: Any) -> list[str]:
 
 
 def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> bool:
-    if attention in {"needs-human-decision", "ready-to-integrate", "receipt-ready", "blocked", "closed"}:
+    if attention in {
+        "needs-human-decision",
+        "needs-review",
+        "ready-to-integrate",
+        "receipt-ready",
+        "blocked",
+        "closed",
+    }:
         return False
     recommended, _ = recommend_intensity(work)
     if recommended == "high" and _attempt_for_work(context, work) is None:

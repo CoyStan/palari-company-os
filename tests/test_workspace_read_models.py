@@ -48,6 +48,14 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["workbench"]["label"], "Repo Foundation")
         self.assertEqual(queue["WORK-REPO-0002"].workbench_label, "Repo Foundation")
 
+    def test_dogfood_review_waiting_work_is_not_ai_safe(self) -> None:
+        workspace = Workspace.load(DOGFOOD_WORKSPACE)
+        queue = {item.id: item for item in queue_items(workspace)}
+
+        self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
+        self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
+        self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
+
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         items = queue_items(workspace)
@@ -69,6 +77,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(by_id["WORK-0005"].evidence_state, "stale")
         self.assertEqual(by_id["WORK-0006"].attention, "needs-review")
         self.assertEqual(by_id["WORK-0006"].review_state, "stale")
+        self.assertFalse(by_id["WORK-0006"].ai_safe_to_proceed)
         self.assertEqual(by_id["WORK-0007"].attention, "receipt-ready")
         self.assertEqual(by_id["WORK-0007"].receipt_state, "ready")
         self.assertEqual(by_id["WORK-0007"].integration_state, "receipt-ready")
