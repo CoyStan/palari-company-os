@@ -355,6 +355,9 @@ The first dashboard has five sections:
 - History: append-only event timeline
 - Authority: humans, Palaris, open decisions, and human blockers
 
+Dashboard agent handoff commands are read-only bridges. The UI labels them as
+agent-safe and keeps human review or decision actions human-only.
+
 ## Desktop Prototype
 
 ```bash

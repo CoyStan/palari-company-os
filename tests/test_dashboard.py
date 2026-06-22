@@ -45,6 +45,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("What Palaris used, made, did not do, and can undo", html)
         self.assertIn("Agent loop", html)
         self.assertIn("Agent handoff", html)
+        self.assertIn("agent-safe bridge", html)
+        self.assertIn("Human review and decision actions stay human-only", html)
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent finish WORK-0007 --as PALARI-SOFIA", html)
         self.assertIn("palari agent handoff WORK-0007 --as PALARI-SOFIA", html)
@@ -73,6 +75,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("result=keep disabled", html)
         self.assertIn("palari review guide WORK-REPO-0006 --json", html)
         self.assertIn("palari review guide WORK-REPO-0003 --json", html)
+        self.assertIn("Human review and decision actions stay human-only", html)
         self.assertIn("human-decision", html)
         self.assertIn("Authority", html)
 

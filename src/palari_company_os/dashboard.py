@@ -645,6 +645,7 @@ def _agent_handoff_block(command: str) -> str:
     return (
         '<div class="agent-command-block agent-handoff-block">'
         '<strong>Agent handoff</strong>'
+        '<p class="agent-boundary">Agent-safe bridge. Human review and decision actions stay human-only.</p>'
         f'<ul><li><span>bridge</span><code>{_e(command)}</code></li></ul>'
         "</div>"
     )
@@ -653,7 +654,11 @@ def _agent_handoff_block(command: str) -> str:
 def _agent_handoff_inline(command: str) -> str:
     if not command:
         return ""
-    return f'<p class="top-handoff"><strong>Agent handoff</strong> <code>{_e(command)}</code></p>'
+    return (
+        '<p class="top-handoff"><strong>Agent handoff</strong> '
+        '<span>agent-safe bridge</span> '
+        f'<code>{_e(command)}</code></p>'
+    )
 
 
 def _command_list_block(title: str, commands: list[str]) -> str:
@@ -1217,6 +1222,12 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 .agent-command-block li { display: grid; grid-template-columns: 3.8rem minmax(0, 1fr); gap: 0.4rem; align-items: baseline; }
 .agent-command-block li span { color: var(--muted); font-size: 0.72rem; font-weight: 600; }
 .agent-command-block code { font-size: 0.72rem; overflow-wrap: anywhere; }
+.agent-boundary {
+  margin: -0.08rem 0 0.32rem; color: var(--muted); font-size: 0.72rem;
+}
+.top-handoff span {
+  color: var(--muted); font-size: 0.72rem; font-weight: 600; margin-right: 0.3rem;
+}
 .next-action {
   margin: 0.5rem 0 0; padding: 0.4rem 0.55rem;
   border: 1px solid var(--line); border-radius: 6px; background: #fffdf6;
