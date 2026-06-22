@@ -71,6 +71,7 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
     agents = [build_agent_next(workspace, palari.id, mode, limit) for palari in workspace.palaris]
     ready_count = sum(agent["ready_count"] for agent in agents)
     blocked_count = sum(agent["blocked_count"] for agent in agents)
+    top_candidate = _all_top_candidate(agents)
     next_commands = _all_next_commands(agents, mode)
     return {
         "schema_version": "palari.agent_next_all.v1",
@@ -80,6 +81,7 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
         "mode": mode or "execute",
         "ready_count": ready_count,
         "blocked_count": blocked_count,
+        "top_candidate": top_candidate,
         "agents": agents,
         "next_allowed_commands": next_commands,
         "omitted_context": [_omitted_context(workspace)],
@@ -212,19 +214,13 @@ def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) 
 
 
 def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
-    candidates = [
-        candidate
-        for agent in agents
-        for candidate in agent.get("candidates", [])
-    ]
-    ready_candidates = [candidate for candidate in candidates if candidate["can_start"]]
-    if ready_candidates:
-        first = sorted(ready_candidates, key=lambda candidate: candidate["queue_rank"])[0]
-        return [first["brief_command"], first["check_command"]]
-    if candidates:
-        first = sorted(candidates, key=lambda candidate: candidate["queue_rank"])[0]
-        return first.get("next_commands") or [
-            f"palari detail {first['work_item_id']} --json",
+    top = _all_top_candidate(agents)
+    if top:
+        candidate = top["candidate"]
+        if candidate["can_start"]:
+            return [candidate["brief_command"], candidate["check_command"]]
+        return candidate.get("next_commands") or [
+            f"palari detail {candidate['work_item_id']} --json",
             "palari queue --json",
             "palari validate --json",
         ]
@@ -237,6 +233,23 @@ def _all_next_commands(agents: list[dict[str, Any]], mode: str) -> list[str]:
         if commands:
             return commands
     return ["palari queue --json", "palari validate --json"]
+
+
+def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates = [
+        {
+            "agent": agent.get("agent", {}),
+            "candidate": candidate,
+        }
+        for agent in agents
+        for candidate in agent.get("candidates", [])
+    ]
+    ready_candidates = [item for item in candidates if item["candidate"]["can_start"]]
+    if ready_candidates:
+        return sorted(ready_candidates, key=lambda item: item["candidate"]["queue_rank"])[0]
+    if candidates:
+        return sorted(candidates, key=lambda item: item["candidate"]["queue_rank"])[0]
+    return None
 
 
 def _omitted_context(workspace: Workspace) -> dict[str, Any]:

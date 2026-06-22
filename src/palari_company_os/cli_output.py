@@ -479,6 +479,16 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent next rollup: {payload['workspace']}")
     print(f"Status: {payload['status']}")
     print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
+    top = payload.get("top_candidate")
+    if top:
+        agent = top.get("agent", {})
+        candidate = top.get("candidate", {})
+        marker = "ready" if candidate.get("can_start") else "waiting"
+        print(
+            f"Top: {candidate.get('work_item_id', '')} [{marker}] "
+            f"via {agent.get('id', '')} - {candidate.get('title', '')}"
+        )
+        print(f"  next: {candidate.get('next_command', '')}")
     for agent_payload in payload.get("agents", []):
         agent = agent_payload["agent"]
         print(

@@ -112,9 +112,27 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
         self.assertEqual(result["status"], "no-ready-work")
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
+        self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-ARCHITECT")
+        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0005")
+        self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
         self.assertEqual(
             result["next_allowed_commands"][0],
             "palari decision guide DECISION-REPO-0001 --json",
+        )
+
+    def test_agent_next_all_exposes_top_ready_candidate(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = build_agent_next_all(workspace)
+
+        self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-SOFIA")
+        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-0003")
+        self.assertEqual(result["top_candidate"]["candidate"]["can_start"], True)
+        self.assertEqual(
+            result["next_allowed_commands"][0],
+            "palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
 
     def test_agent_next_missing_palari_is_blocked(self) -> None:
