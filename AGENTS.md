@@ -12,6 +12,7 @@ command for a known work item:
 palari agent next --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
 Bare `agent next` shows the all-Palaris rollup. Use `--as PALARI-ID` when you
@@ -22,6 +23,11 @@ command strings.
 
 In v1, `palari agent start` is a read-only alias for `agent brief`. It does not
 claim work yet.
+
+Use `--mode review` only when work is already waiting for review or is
+receipt-ready. Review packets are read-only: they include review focus,
+attempt/evidence/receipt context, and review guide commands, but they do not
+record a verdict.
 
 Follow the packet:
 

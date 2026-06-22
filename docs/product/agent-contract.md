@@ -12,6 +12,7 @@ Agent work should start with one packet command:
 ```bash
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
 `palari agent start` is currently a read-only alias for `agent brief`. It exists
@@ -32,6 +33,12 @@ The v1 loop is:
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
 10. Run `palari validate --json`.
 11. Report the packet status, finish guidance, changed files, checks, and blockers.
+
+For independent inspection work, use `--mode review` only after a work item is
+already in `needs-review` or `receipt-ready`. A review packet is read-only. It
+includes the review guide focus, attempt, evidence, receipt, suggested verdicts,
+and reviewer candidates, but it does not record a review verdict or mutate the
+workspace.
 
 ## Packet Purpose
 

@@ -117,6 +117,7 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent next --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
@@ -132,6 +133,9 @@ record commands appear before generic inspect/validate commands. `agent handoff`
 is the preferred bridge for human review or decision states; it packages the
 relevant finish, review-guide, or decision-guide context without mutating the
 workspace, while keeping human action commands separate from agent-safe reads.
+For work that is already waiting for review or receipt-ready, `agent brief
+--mode review` returns a read-only reviewer packet with review focus,
+attempt/evidence/receipt context, and review guide commands.
 
 Run against another workspace:
 

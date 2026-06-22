@@ -503,6 +503,69 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["blockers"], [])
         self.assertTrue(packet["context_hash"].startswith("sha256:"))
 
+    def test_review_mode_packet_is_ready_for_receipt_ready_work(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        packet = build_agent_brief(workspace, "WORK-0007", "PALARI-SOFIA", "review")
+
+        self.assertEqual(packet["schema_version"], "palari.agent_packet.v1")
+        self.assertEqual(packet["status"], "ready")
+        self.assertEqual(packet["mode"], "review")
+        self.assertEqual(packet["allowed_paths"]["write"], [])
+        self.assertEqual(packet["completion_contract"]["review_mode"], True)
+        self.assertEqual(packet["review_context"]["status"], "receipt-ready")
+        self.assertIn("review_focus", packet["review_context"])
+        self.assertEqual(
+            packet["next_allowed_commands"][0],
+            "palari review guide WORK-0007 --json",
+        )
+        self.assertIn("Stop before editing work outputs", packet["stop_conditions"][0])
+        self.assertEqual(packet["blockers"], [])
+
+    def test_review_mode_packet_is_ready_for_needs_review_work(self) -> None:
+        def add_evidence_without_review(data: dict[str, object]) -> None:
+            work = data["work_items"][2]
+            attempt = next(
+                item for item in data["attempts"] if item["id"] == work["current_attempt"]
+            )
+            data["evidence_runs"].append(
+                {
+                    "id": "EVIDENCE-WAITING-REVIEW",
+                    "work_item_id": work["id"],
+                    "attempt_id": attempt["id"],
+                    "head_sha": attempt["commits"][-1],
+                    "status": "passed",
+                    "summary": "Evidence is present, but no review exists yet.",
+                    "timestamp": "2026-06-22T04:10:00Z",
+                }
+            )
+
+        workspace = self.modified_workspace(add_evidence_without_review)
+
+        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "review")
+
+        self.assertEqual(packet["status"], "ready")
+        self.assertEqual(packet["mode"], "review")
+        self.assertEqual(packet["review_context"]["status"], "review-needed")
+        self.assertEqual(packet["review_context"]["evidence"]["id"], "EVIDENCE-WAITING-REVIEW")
+        self.assertEqual(packet["completion_contract"]["requires_evidence"], False)
+
+    def test_review_mode_blocks_work_that_is_not_review_ready(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "review")
+
+        self.assertEqual(packet["status"], "blocked")
+        self.assertIn("REVIEW_NOT_READY", {blocker["code"] for blocker in packet["blockers"]})
+        self.assertEqual(
+            packet["next_allowed_commands"],
+            [
+                "palari detail WORK-0003 --json",
+                "palari queue --json",
+                "palari validate --json",
+            ],
+        )
+
     def test_packet_context_hash_ignores_created_at(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
@@ -586,6 +649,24 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(brief["status"], "ready")
         self.assertEqual(start["status"], "ready")
         self.assertEqual(brief["packet_id"], start["packet_id"])
+
+    def test_cli_agent_brief_review_mode_emits_review_context(self) -> None:
+        result = json.loads(
+            self.run_cli(
+                "agent",
+                "brief",
+                "WORK-0007",
+                "--as",
+                "PALARI-SOFIA",
+                "--mode",
+                "review",
+                "--json",
+            ).stdout
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["mode"], "review")
+        self.assertEqual(result["review_context"]["command"], "palari review guide WORK-0007 --json")
 
     def test_agent_check_ready_packet_fails_missing_completion_proof(self) -> None:
         workspace = Workspace.load(WORKSPACE)

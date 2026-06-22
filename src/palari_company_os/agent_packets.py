@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .read_models import detail
+from .review_guides import build_review_guide
 from .workspace import Workspace
 
 
-SUPPORTED_MODES = {"execute"}
+SUPPORTED_MODES = {"execute", "review"}
 TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 EXTERNAL_WRITE_ACTIONS = {"external_write", "write_external", "write"}
 
@@ -43,9 +44,10 @@ def build_agent_brief(
         return _finalize_packet(packet, blockers)
 
     work_detail = detail(workspace, work.id)
-    blockers.extend(_work_blockers(workspace, work_detail, palari_id))
+    blockers.extend(_work_blockers(workspace, work_detail, palari_id, mode))
     status = "blocked" if blockers else "ready"
     proof_state = _proof_state(work_detail)
+    review_context = _review_context(workspace, work.id, mode)
 
     packet.update(
         {
@@ -55,20 +57,28 @@ def build_agent_brief(
             "goal": _goal_packet(work_detail["goal"]),
             "workbench": _workbench_packet(work_detail["workbench"]),
             "dependencies": [_dependency_packet(item) for item in work_detail["dependencies"]],
-            "one_sentence_instruction": _instruction(work_detail, status),
-            "allowed_paths": _allowed_paths(work_detail["work_item"]),
+            "one_sentence_instruction": _instruction(work_detail, status, mode),
+            "allowed_paths": _allowed_paths(work_detail["work_item"], mode),
             "allowed_resources": list(work.allowed_resources),
             "allowed_sources": [_source_packet(item) for item in work_detail["sources"]],
             "forbidden_actions": _forbidden_actions(work_detail),
-            "required_output": _required_output(work_detail["work_item"]),
-            "completion_contract": _completion_contract(work_detail),
-            "stop_conditions": _stop_conditions(work_detail, status),
+            "required_output": _required_output(work_detail["work_item"], mode),
+            "completion_contract": _completion_contract(work_detail, mode),
+            "stop_conditions": _stop_conditions(work_detail, status, mode),
             "state": _state_packet(work_detail),
             "proof_state": proof_state,
-            "next_allowed_commands": _next_allowed_commands(work.id, palari_id, status, proof_state),
+            "next_allowed_commands": _next_allowed_commands(
+                work.id,
+                palari_id,
+                status,
+                mode,
+                proof_state,
+            ),
             "blockers": blockers,
         }
     )
+    if review_context:
+        packet["review_context"] = review_context
     return _finalize_packet(packet, blockers)
 
 
@@ -111,6 +121,7 @@ def _work_blockers(
     workspace: Workspace,
     work_detail: dict[str, Any],
     palari_id: str,
+    mode: str,
 ) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     work = work_detail["work_item"]
@@ -126,15 +137,16 @@ def _work_blockers(
             )
         )
 
-    for dependency in work_detail["dependencies"]:
-        if dependency.get("status") not in TERMINAL_WORK_STATUSES:
-            blockers.append(
-                _blocker(
-                    "DEPENDENCY_NOT_TERMINAL",
-                    f"Dependency {dependency['id']} is {dependency.get('status', 'unknown')}.",
-                    missing="terminal dependency",
+    if mode == "execute":
+        for dependency in work_detail["dependencies"]:
+            if dependency.get("status") not in TERMINAL_WORK_STATUSES:
+                blockers.append(
+                    _blocker(
+                        "DEPENDENCY_NOT_TERMINAL",
+                        f"Dependency {dependency['id']} is {dependency.get('status', 'unknown')}.",
+                        missing="terminal dependency",
+                    )
                 )
-            )
 
     source_ids = {source["id"] for source in work_detail["sources"]}
     for source_id in work.get("allowed_sources", []):
@@ -157,23 +169,56 @@ def _work_blockers(
                 )
             )
 
-    external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
-    has_approved_plan = any(
-        plan.get("status") == "approved" for plan in work_detail["integration_plans"]
-    )
-    has_queued_outbox = any(
-        item.get("status") == "queued" for item in work_detail["integration_outbox"]
-    )
-    if external_actions and not (has_approved_plan or has_queued_outbox):
-        blockers.append(
-            _blocker(
-                "EXTERNAL_WRITE_REQUIRES_APPROVAL",
-                "This work allows an external write, but no approved integration plan or queued outbox item exists.",
-                missing="approved integration plan",
-            )
+    if mode == "execute":
+        external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
+        has_approved_plan = any(
+            plan.get("status") == "approved" for plan in work_detail["integration_plans"]
         )
+        has_queued_outbox = any(
+            item.get("status") == "queued" for item in work_detail["integration_outbox"]
+        )
+        if external_actions and not (has_approved_plan or has_queued_outbox):
+            blockers.append(
+                _blocker(
+                    "EXTERNAL_WRITE_REQUIRES_APPROVAL",
+                    "This work allows an external write, but no approved integration plan or queued outbox item exists.",
+                    missing="approved integration plan",
+                )
+            )
 
     attention = work_detail["attention"]
+    if mode == "review":
+        if attention in {"needs-review", "receipt-ready"}:
+            if work_detail.get("evidence") is None and work_detail.get("receipt") is None:
+                blockers.append(
+                    _blocker(
+                        "REVIEW_CONTEXT_MISSING",
+                        "Review mode needs evidence or a receipt to inspect.",
+                        missing="reviewable evidence or receipt",
+                    )
+                )
+            return blockers
+        if attention == "needs-human-decision":
+            blockers.append(
+                _blocker(
+                    "HUMAN_DECISION_REQUIRED",
+                    work_detail["why"],
+                    missing="human decision",
+                )
+            )
+            return blockers
+        if attention == "closed":
+            blockers.append(_blocker("WORK_CLOSED", work_detail["why"], missing="open work item"))
+            return blockers
+        blockers.append(
+            _blocker(
+                "REVIEW_NOT_READY",
+                f"Current attention state is {attention}; review mode is for needs-review or receipt-ready work.",
+                missing="review-ready work",
+            )
+        )
+        return blockers
+
     if attention == "needs-human-decision":
         blockers.append(
             _blocker(
@@ -331,19 +376,29 @@ def _source_packet(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _instruction(work_detail: dict[str, Any], status: str) -> str:
+def _instruction(work_detail: dict[str, Any], status: str, mode: str) -> str:
     work = work_detail["work_item"]
     palari = work_detail["palari"] or {"name": work.get("palari", "Palari")}
     if status == "blocked":
         return f"Do not execute {work['id']} yet; resolve the packet blockers first."
     objective = work.get("scope") or work.get("title", "")
+    if mode == "review":
+        return (
+            f"{palari.get('name', work.get('palari', 'Palari'))} should review "
+            f"{work['id']} against its scope, evidence, receipt, and forbidden actions."
+        )
     return (
         f"{palari.get('name', work.get('palari', 'Palari'))} should work on "
         f"{work['id']}: {objective}"
     )
 
 
-def _allowed_paths(work: dict[str, Any]) -> dict[str, list[str]]:
+def _allowed_paths(work: dict[str, Any], mode: str) -> dict[str, list[str]]:
+    if mode == "review":
+        return {
+            "read": list(work.get("allowed_resources", [])),
+            "write": [],
+        }
     return {
         "read": list(work.get("allowed_resources", [])),
         "write": list(work.get("output_targets", []) or work.get("allowed_resources", [])),
@@ -356,7 +411,22 @@ def _forbidden_actions(work_detail: dict[str, Any]) -> list[str]:
     return sorted(set(work_actions + palari_actions))
 
 
-def _required_output(work: dict[str, Any]) -> dict[str, Any]:
+def _required_output(work: dict[str, Any], mode: str) -> dict[str, Any]:
+    if mode == "review":
+        return {
+            "review_summary": "State whether the work matches scope, evidence, receipt, and safety boundaries.",
+            "suggested_verdicts": [
+                "accept-ready",
+                "changes-requested",
+                "needs-human-decision",
+                "blocked",
+            ],
+            "must_not": [
+                "edit work outputs",
+                "record a human review without explicit human instruction",
+                "perform external writes",
+            ],
+        }
     return {
         "output_targets": list(work.get("output_targets", [])),
         "fallback_write_paths": list(work.get("allowed_resources", [])),
@@ -366,7 +436,17 @@ def _required_output(work: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _completion_contract(work_detail: dict[str, Any]) -> dict[str, Any]:
+def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, Any]:
+    if mode == "review":
+        return {
+            "requires_receipt": False,
+            "requires_evidence": False,
+            "requires_review": False,
+            "requires_human_decision": False,
+            "external_writes_allowed": False,
+            "external_write_actions": [],
+            "review_mode": True,
+        }
     work = work_detail["work_item"]
     external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
     low_risk_light = (
@@ -388,7 +468,7 @@ def _completion_contract(work_detail: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _stop_conditions(work_detail: dict[str, Any], status: str) -> list[str]:
+def _stop_conditions(work_detail: dict[str, Any], status: str, mode: str) -> list[str]:
     conditions = [
         "Stop if you need to read or write outside allowed_paths.",
         "Stop if you need a source not listed in allowed_sources.",
@@ -396,6 +476,9 @@ def _stop_conditions(work_detail: dict[str, Any], status: str) -> list[str]:
         "Stop if a human decision, approval, or clarification is required.",
         "Stop if the work objective is ambiguous after reading this packet.",
     ]
+    if mode == "review":
+        conditions.insert(0, "Stop before editing work outputs; review mode is read-only.")
+        conditions.append("Stop if the review requires human authority beyond a recommendation.")
     if status == "blocked":
         conditions.insert(0, "Stop because this packet is blocked.")
     if work_detail["work_item"].get("forbidden_actions"):
@@ -459,12 +542,19 @@ def _next_allowed_commands(
     work_id: str,
     palari_id: str,
     status: str,
+    mode: str,
     proof_state: dict[str, Any] | None = None,
 ) -> list[str]:
     if status == "blocked":
         return [
             f"palari detail {work_id} --json",
             "palari queue --json",
+            "palari validate --json",
+        ]
+    if mode == "review":
+        return [
+            f"palari review guide {work_id} --json",
+            f"palari detail {work_id} --json",
             "palari validate --json",
         ]
     return [
@@ -486,6 +576,25 @@ def _receipt_command(
         "palari receipt record RECEIPT-ID "
         f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {palari_id} --json"
     )
+
+
+def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, Any] | None:
+    if mode != "review":
+        return None
+    guide = build_review_guide(workspace, work_id)
+    return {
+        "command": f"palari review guide {work_id} --json",
+        "status": guide.get("status", ""),
+        "attention": guide.get("attention", ""),
+        "why": guide.get("why", ""),
+        "attempt": guide.get("attempt", {}),
+        "evidence": guide.get("evidence", {}),
+        "receipt": guide.get("receipt", {}),
+        "review_focus": guide.get("review_focus", []),
+        "reviewer_candidates": guide.get("reviewer_candidates", []),
+        "suggested_verdicts": guide.get("suggested_verdicts", []),
+        "review_record_commands": guide.get("review_record_commands", []),
+    }
 
 
 def _blocker(code: str, message: str, *, missing: str = "") -> dict[str, Any]:

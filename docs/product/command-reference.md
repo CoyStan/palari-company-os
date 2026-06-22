@@ -122,6 +122,7 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent next --all --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
@@ -152,6 +153,10 @@ The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
 contract, proof/integration state, stop conditions, blockers, and safe next
 commands. Agents should treat this packet as their working boundary.
+`--mode review` compiles a read-only reviewer packet for work already waiting on
+review or marked receipt-ready. It includes review focus and compact
+attempt/evidence/receipt context, sets write paths to empty, and points to the
+review guide without recording a verdict.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. It returns `ok`, packet id,
