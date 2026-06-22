@@ -142,6 +142,9 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/output.md --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --git-diff --json
+./bin/palari agent release WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
@@ -166,10 +169,13 @@ summarizes brief/check/finish/handoff status without replacing the concrete
 `next_command`. It is read-only and does not claim or assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
-The packet is read-only in v1 and returns either `status: ready` or
+It is a read-only preview and returns either `status: ready` or
 `status: blocked`.
-`agent start` is currently an alias for `agent brief`; future versions may add
-claim/lease behavior to `start`.
+`agent start` is the execution entry point for ready work. It persists the exact
+packet under `.palari/packets/`, records a local lease claim under
+`.palari/claims/`, and returns the same packet with `start` metadata. If the
+packet is blocked, `agent start` reports blockers and writes nothing. `agent
+release` removes this Palari's local claim when work is abandoned or handed off.
 
 The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -183,17 +189,30 @@ review guide without recording a verdict.
 ready review candidates while leaving other states blocked.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
-state satisfies the packet's completion contract. It returns `ok`, packet id,
-packet context hash, packet blockers, structured pass/fail/warn checks, and
-`next_step_type` plus next safe commands. A ready-to-start packet can still
-produce `ok: false` when the attempt is missing required receipt, evidence,
-review, or human-decision records. Missing receipt, evidence, and review checks
-include concrete next-command guidance when possible, and failed required check
-commands appear before generic inspect/validate commands. Human-decision record
-commands are not surfaced until prerequisite proof is present. Light low-risk
-receipt-ready work can satisfy the receipt requirement without forcing review
-or human approval. When blocked work is waiting on review, `agent check`
-prioritizes `agent handoff` before generic detail commands.
+state satisfies the packet's completion contract. For ready packets, it also
+checks that this Palari owns an active matching local claim. It returns `ok`,
+packet id, packet context hash, packet blockers, structured pass/fail/warn
+checks, and `next_step_type` plus next safe commands. A ready-to-start packet
+can still produce `ok: false` when the claim, receipt, evidence, review, or
+human-decision records are missing. Missing receipt, evidence, and review
+checks include concrete next-command guidance when possible, and failed
+required check commands appear before generic inspect/validate commands.
+Human-decision record commands are not surfaced until prerequisite proof is
+present. Light low-risk receipt-ready work can satisfy the receipt requirement
+without forcing review or human approval. When blocked work is waiting on
+review, `agent check` prioritizes `agent handoff` before generic detail
+commands.
+
+With `--changed PATH`, repeated as needed, or `--git-diff`, `agent check`
+performs a lightweight file boundary audit. It reports modified, untracked, and
+deleted files; which changed files are inside or outside `allowed_paths.write`;
+missing file-backed required outputs; and changed files not represented by the
+current attempt `changed_files` or receipt `outputs_created`.
+
+Agent subcommands that receive `--json` return machine-readable failures on
+workspace or command errors instead of plain text. The error payload includes
+`ok: false`, an error code, the target work item and Palari when known, and next
+safe read commands.
 
 `agent finish` is a read-only final-report helper. It wraps `agent check` and
 returns whether the agent may claim completion, whether the work should be
@@ -342,6 +361,8 @@ success events.
   --work-item-id WORK-X \
   --attempt-id ATTEMPT-X \
   --actor PALARI-X \
+  --set context_packet=PACKET-WORK-X-PALARI-X-EXECUTE-V1 \
+  --set context_hash=sha256:... \
   --list sources_used=SOURCE-X \
   --list outputs_created=notes/summary.md \
   --list queued_external_writes=OUTBOX-X
@@ -351,6 +372,9 @@ Receipts are human-facing trust records. `queued_external_writes` points to an
 approved integration plan that has been placed in the outbox, not to a live
 provider call. Use it when a human needs to see that an external write is queued
 at the future execution boundary and can still be canceled or reviewed.
+`context_packet` and `context_hash` let the receipt point back to the exact
+agent packet created by `agent start`, rather than a packet recomputed after the
+workspace has changed.
 
 ## Dashboard
 

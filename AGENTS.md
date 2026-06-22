@@ -12,6 +12,7 @@ command for a known work item:
 palari agent next --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 palari agent doctor WORK-ID --as PALARI-ID --mode execute --json
 palari agent loop WORK-ID --as PALARI-ID --mode execute --json
@@ -23,8 +24,10 @@ already know which Palari should take the next step. Candidate payloads include
 handoff, human decisions, closed work, and inspect-only states without parsing
 command strings.
 
-In v1, `palari agent start` is a read-only alias for `agent brief`. It does not
-claim work yet.
+`agent brief` is a read-only preview. `agent start` is the operational entry
+point for ready execution work: it persists the packet under `.palari/packets/`
+and writes a local claim under `.palari/claims/`. If the packet is blocked,
+`agent start` reports the blockers and does not write a claim.
 
 Use `--mode review` only when work is already waiting for review or is
 receipt-ready. Review packets are read-only: they include review focus,
@@ -37,10 +40,13 @@ Follow the packet:
 - use only `allowed_paths` and `allowed_sources`
 - respect each allowed source's data class, authority, steward, freshness, and
   redaction fields
+- use `agent start`, not only `agent brief`, before doing ready execution work
 - produce the declared output and receipt/evidence state
 - stop for every blocker, missing source, human decision, or external write
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
+- add `--changed PATH` or `--git-diff` to `agent check` when file edits need to
+  be compared against the packet write boundary
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 - run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
   plain-language diagnosis of why work is safe, blocked, missing proof, or
@@ -59,6 +65,8 @@ Follow the packet:
 - if a review-mode packet or handoff packet includes `human_action_boundary`,
   treat the referenced review or decision commands as human-only; you may quote
   them for a supervisor but must not run them yourself
+- run `palari agent release WORK-ID --as PALARI-ID --json` when abandoning or
+  handing off a local claim
 
 Never:
 

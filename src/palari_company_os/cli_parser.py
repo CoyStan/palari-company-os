@@ -151,15 +151,35 @@ def _add_agent_parser(subparsers: Any) -> None:
     next_parser.add_argument("--mode", default="execute", help="Packet mode.")
     next_parser.add_argument("--limit", type=int, default=5, help="Maximum candidates to show.")
     next_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-    for command in ("brief", "start"):
-        packet = nested.add_parser(
-            command,
-            help="Compile a read-only agent packet for one work item.",
-        )
-        packet.add_argument("work_id")
-        packet.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
-        packet.add_argument("--mode", default="execute", help="Packet mode.")
-        packet.add_argument("--json", action="store_true", help="Emit JSON.")
+    brief = nested.add_parser(
+        "brief",
+        help="Compile a read-only agent packet for one work item.",
+    )
+    brief.add_argument("work_id")
+    brief.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    brief.add_argument("--mode", default="execute", help="Packet mode.")
+    brief.add_argument("--json", action="store_true", help="Emit JSON.")
+    start = nested.add_parser(
+        "start",
+        help="Persist the agent packet and claim one ready work item.",
+    )
+    start.add_argument("work_id")
+    start.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    start.add_argument("--mode", default="execute", help="Packet mode.")
+    start.add_argument(
+        "--lease-minutes",
+        type=int,
+        default=30,
+        help="Claim lease length in minutes.",
+    )
+    start.add_argument("--json", action="store_true", help="Emit JSON.")
+    release = nested.add_parser(
+        "release",
+        help="Release this Palari's local claim for one work item.",
+    )
+    release.add_argument("work_id")
+    release.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    release.add_argument("--json", action="store_true", help="Emit JSON.")
     check = nested.add_parser(
         "check",
         help="Check whether one work item currently satisfies its agent packet contract.",
@@ -167,6 +187,18 @@ def _add_agent_parser(subparsers: Any) -> None:
     check.add_argument("work_id")
     check.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     check.add_argument("--mode", default="execute", help="Packet mode.")
+    check.add_argument(
+        "--changed",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Observed changed path to compare with packet write boundaries. Repeatable.",
+    )
+    check.add_argument(
+        "--git-diff",
+        action="store_true",
+        help="Inspect current git status against packet write boundaries.",
+    )
     check.add_argument("--json", action="store_true", help="Emit JSON.")
     finish = nested.add_parser(
         "finish",

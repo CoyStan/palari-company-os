@@ -84,6 +84,14 @@ def print_result(result: CommandResult) -> None:
         print_agent_brief(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-start":
+        print_agent_start(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-release":
+        print_agent_release(result.payload, result.as_json)
+        return
+
     if result.kind == "agent-next":
         print_agent_next(result.payload, result.as_json)
         return
@@ -465,6 +473,35 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
+
+
+def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print_agent_brief(payload, False)
+    start = payload.get("start") or {}
+    print(f"Start: {start.get('status', 'unknown')}")
+    if start.get("packet_path"):
+        print(f"Packet file: {start['packet_path']}")
+    if start.get("claim_path"):
+        print(f"Claim file: {start['claim_path']}")
+    claim = start.get("claim") or {}
+    if claim:
+        print(f"Claimed by: {claim.get('claimed_by', '')}")
+        print(f"Lease expires: {claim.get('lease_expires_at', '')}")
+
+
+def print_agent_release(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Agent release: {payload['work_item']}")
+    print(f"Status: {payload['status']}")
+    print(f"Released: {_yes_no(payload['released'])}")
+    print(f"By: {payload['released_by']}")
+    print(f"Claim file: {payload['claim_path']}")
+    print(f"Message: {payload['message']}")
 
 
 def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:

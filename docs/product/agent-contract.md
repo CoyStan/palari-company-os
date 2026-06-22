@@ -12,31 +12,38 @@ Agent work should start with one packet command:
 ```bash
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
-`palari agent start` is currently a read-only alias for `agent brief`. It exists
-so future versions can add claim/lease behavior without changing the agent
-entry point.
+`palari agent brief` is a read-only preview. `palari agent start` is the
+operational entry point for ready execution work: it persists the exact packet
+the agent received and records a local lease claim. Blocked packets remain
+read-only and are not claimed.
 
 The v1 loop is:
 
 1. Run `palari agent next --as PALARI-ID --json` to discover safe candidates.
-2. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`.
-3. Continue only if the packet returns `status: ready`.
-4. Read and write only the packet's allowed paths and sources.
-5. Stop if the packet is blocked or a stop condition is reached.
-6. Produce the required output and trust records.
-7. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json`.
-8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
-9. If the result is a human review or decision handoff, run
+2. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json` to preview scope.
+3. Run `palari agent start WORK-ID --as PALARI-ID --mode execute --json` to persist the packet and claim the work.
+4. Continue only if the packet returns `status: ready`.
+5. Read and write only the packet's allowed paths and sources.
+6. Stop if the packet is blocked or a stop condition is reached.
+7. Produce the required output and trust records.
+8. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
+   or `--git-diff` to compare observed edits with the packet boundary.
+9. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` for the normal proof-state check.
+10. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
+11. If the result is a human review or decision handoff, run
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
-10. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
+12. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
     plain-language diagnosis of the current safety state.
-11. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
+13. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-12. Run `palari validate --json`.
-13. Report the packet status, finish guidance, changed files, checks, and blockers.
+14. Run `palari validate --json`.
+15. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
+    handing off the local claim before completion.
+16. Report the packet status, finish guidance, changed files, checks, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -105,7 +112,12 @@ Agents must never:
 
 ## V1 Scope
 
-Agent Packet Contract v1 is intentionally read-only.
+Agent Packet Contract v1 keeps provider actions read-only, but the local agent
+runtime now writes two audit files for ready started work:
+
+- `.palari/packets/PACKET-...json` stores the exact bounded packet.
+- `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
+  and context hash for the active local claim.
 
 Implemented:
 
@@ -115,6 +127,9 @@ Implemented:
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
+- `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
+- `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
+- `palari agent release WORK-ID --as PALARI-ID --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
@@ -122,23 +137,27 @@ Implemented:
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
+- local packet persistence and local claim leases
+- optional changed-file boundary checks
+- machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
 - plain-language read-only agent safety diagnoses
 - compact read-only agent loop summaries
 - deterministic blocker codes
 - packet context hash
+- receipt `context_packet` and `context_hash` fields
 - direct work, goal, workbench, source, dependency, proof, and integration state
 
 Not implemented yet:
 
-- claim/lease files
 - packet expansion
 - review/planning/repair modes
 - live connector execution
 - memory providers or vector search
 
-`agent check` rebuilds the packet, reports packet blockers, carries the current
+`agent check` rebuilds the packet, reports packet blockers, verifies the active
+local claim for ready packets, carries the current
 `next_step_type`, and then evaluates the current workspace against the
 completion contract. It returns `ok: false` when required receipt, evidence,
 review, human decision, source, dependency, or external-write checks fail. Light
@@ -149,6 +168,18 @@ record commands are held back until prerequisite proof, such as receipt,
 evidence, and review, is present, so agents do not jump from missing review
 straight to approval. When a blocked packet is already waiting on review,
 `agent check` points to `agent handoff` before lower-level inspect commands.
+
+When `--changed PATH` or `--git-diff` is supplied, `agent check` also compares
+observed file changes against the packet's writable paths and required outputs.
+It reports changed files inside and outside the write boundary, missing file
+outputs, and changed files not represented by the current attempt/receipt
+records. This is intentionally lightweight: Palari does not inspect file
+contents, but it can catch edits outside the packet boundary before an agent
+claims work is done.
+
+Agent command failures are JSON when `--json` is requested. The payload uses
+`ok: false`, a stable error code where possible, the message, target work item
+and Palari when present, and next safe read commands.
 
 Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
 reads the current queue for one Palari, puts safe-to-start candidates first,

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
+from .agent_runtime import claim_check
 from .workspace import Workspace
 
 
@@ -12,9 +15,23 @@ def build_agent_check(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    changed_paths: list[str] | None = None,
+    git_diff: bool = False,
+    cwd: Path | str | None = None,
 ) -> dict[str, Any]:
     packet = build_agent_brief(workspace, work_id, palari_id, mode)
     checks = _packet_boundary_checks(packet)
+    if packet.get("status") == "ready":
+        checks.append(_claim_owned_check(workspace, work_id, palari_id, mode, packet))
+    file_changes = inspect_file_changes(
+        packet,
+        changed_paths=changed_paths,
+        git_diff=git_diff,
+        cwd=cwd,
+    )
+    if file_changes is not None:
+        checks.extend(_file_change_checks(file_changes))
     if "completion_contract" in packet:
         checks.extend(_completion_checks(packet))
 
@@ -34,6 +51,7 @@ def build_agent_check(
         "next_step_type": packet.get("state", {}).get("next_step_type", "inspect"),
         "blockers": packet.get("blockers", []),
         "checks": checks,
+        "file_changes": file_changes,
         "next_allowed_commands": _next_commands(packet, checks, ok),
     }
 
@@ -117,6 +135,65 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
         ),
         _human_decision_check(packet),
     ]
+
+
+def _claim_owned_check(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+    packet: dict[str, Any],
+) -> dict[str, Any]:
+    result = claim_check(workspace.path, work_id, palari_id, mode or "execute", packet.get("context_hash", ""))
+    return _check(
+        "CLAIM_OWNED",
+        result["status"],
+        result["message"],
+        required=True,
+        next_command=result.get("next_command", ""),
+    )
+
+
+def _file_change_checks(file_changes: dict[str, Any]) -> list[dict[str, Any]]:
+    outside = file_changes.get("outside_write_boundary", [])
+    missing_outputs = file_changes.get("missing_required_outputs", [])
+    unrecorded = file_changes.get("unrecorded_changed_files", [])
+    checks = [
+        _check(
+            "FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
+            "fail" if outside else "pass",
+            (
+                "Observed file changes stay inside allowed write paths."
+                if not outside
+                else "Observed file changes outside allowed write paths: "
+                f"{', '.join(outside)}."
+            ),
+            required=True,
+        ),
+        _check(
+            "REQUIRED_OUTPUT_EXISTS",
+            "fail" if missing_outputs else "pass",
+            (
+                "Required output targets exist or are not file-backed in this checkout."
+                if not missing_outputs
+                else "Required output targets are missing: "
+                f"{', '.join(missing_outputs)}."
+            ),
+            required=True,
+        ),
+        _check(
+            "FILE_CHANGES_RECORDED",
+            "fail" if unrecorded else "pass",
+            (
+                "Observed file changes match attempt or receipt records."
+                if not unrecorded
+                else "Observed file changes are not recorded in the current attempt or receipt: "
+                f"{', '.join(unrecorded)}."
+            ),
+            required=True,
+        ),
+    ]
+    return checks
 
 
 def _proof_check(

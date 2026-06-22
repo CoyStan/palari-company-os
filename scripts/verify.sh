@@ -26,6 +26,12 @@ python3 -S -m json.tool schemas/workspace.schema.json >/tmp/palari-company-schem
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >/tmp/palari-company-split-detail-work-split.json
 ./bin/palari agent next --as PALARI-SOFIA --json >/tmp/palari-company-agent-next-sofia.json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-brief-ready.json
+agent_smoke_dir="$integration_smoke_dir/agent"
+mkdir -p "$agent_smoke_dir"
+cp examples/acme-company-os/workspace.json "$agent_smoke_dir/workspace.json"
+./bin/palari --workspace "$agent_smoke_dir" agent start WORK-0003 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-start-ready.json
+./bin/palari --workspace "$agent_smoke_dir" agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json >/tmp/palari-company-agent-check-changed.json
+./bin/palari --workspace "$agent_smoke_dir" agent release WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-release.json
 ./bin/palari agent start WORK-0007 --as PALARI-SOFIA --mode execute --json >/tmp/palari-company-agent-start-blocked.json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0003.json
 ./bin/palari agent check WORK-0007 --as PALARI-SOFIA --json >/tmp/palari-company-agent-check-work-0007.json
@@ -74,6 +80,10 @@ grep -q '"schema_version": "palari.agent_next.v1"' /tmp/palari-company-agent-nex
 grep -q '"work_item_id": "WORK-0003"' /tmp/palari-company-agent-next-sofia.json
 grep -q '"status": "ready"' /tmp/palari-company-agent-brief-ready.json
 grep -q '"packet_id": "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1"' /tmp/palari-company-agent-brief-ready.json
+grep -q '"status": "claimed"' /tmp/palari-company-agent-start-ready.json
+grep -q '"packet_path": ".palari/packets/PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1.json"' /tmp/palari-company-agent-start-ready.json
+grep -q '"code": "FILE_CHANGES_WITHIN_WRITE_BOUNDARY"' /tmp/palari-company-agent-check-changed.json
+grep -q '"status": "released"' /tmp/palari-company-agent-release.json
 grep -q '"status": "blocked"' /tmp/palari-company-agent-start-blocked.json
 grep -q 'DEPENDENCY_NOT_TERMINAL' /tmp/palari-company-agent-start-blocked.json
 grep -q '"schema_version": "palari.agent_check.v1"' /tmp/palari-company-agent-check-work-0003.json

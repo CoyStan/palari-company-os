@@ -7,9 +7,10 @@ The loop is:
 
 1. Find the next safe item.
 2. Read one bounded packet.
-3. Check whether the packet contract is satisfied.
-4. Ask for final report guidance.
-5. Hand off to a human when review or decision authority is required.
+3. Start ready work to persist the packet and local claim.
+4. Check whether the packet contract is satisfied.
+5. Ask for final report guidance.
+6. Hand off to a human when review or decision authority is required.
 
 ## Execute-Mode Smoke
 
@@ -19,10 +20,13 @@ Use the ACME example when testing an agent that is doing work:
 ./bin/palari agent next --all
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent release WORK-0003 --as PALARI-SOFIA --json
 ```
 
 Expected result:
@@ -30,13 +34,17 @@ Expected result:
 - `agent next` points Sofia at the next active proof step.
 - `agent brief` returns a compact packet with allowed sources, paths, stop
   conditions, and completion requirements.
+- `agent start` persists that packet and writes a local claim for ready work.
 - `agent check` reports whether receipt, evidence, review, or human decision
   records are still missing.
+- `agent check --changed` reports whether observed edits are inside the packet
+  write boundary and represented by current attempt or receipt records.
 - `agent finish` tells the agent whether it may claim completion or must keep
   preparing proof or hand off to a human.
 - `agent doctor` explains the current safety state in plainer language.
 - `agent loop` summarizes the same read-only sequence and points to the detailed
   stage commands without dumping every payload.
+- `agent release` removes the local claim when the smoke is complete.
 
 Do not treat a ready packet as completion. Completion is only credible after
 `agent check` and `agent finish` agree that the required trust records are
@@ -87,6 +95,7 @@ An agent may report done only when:
 - required receipt, evidence, review, and human-decision records are present or
   the missing records are explicitly listed
 - human-only commands remain human-only
+- ready execution work was started before completion was checked
 - no external provider call, secret read, deployment, or live write was made
 
 ## Do Not

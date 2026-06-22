@@ -7,7 +7,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -357,12 +359,12 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(
             result["next_allowed_commands"][:2],
             [
+                "palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json",
                 "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
                 "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
-                "palari evidence record EVIDENCE-ID --work-item-id WORK-0003 "
-                '--attempt-id ATTEMPT-0002 --head-sha def5678 --status passed --summary "verification passed" --json',
             ],
         )
+        self.assertIn("CLAIM_OWNED", missing_codes)
         self.assertIn(
             "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
             "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
@@ -487,12 +489,14 @@ class AgentPacketTests(unittest.TestCase):
             mode="review",
         )
 
-        self.assertEqual(result["status"], "ready-to-report")
+        self.assertEqual(result["status"], "missing-proof")
         self.assertEqual(result["mode"], "review")
-        self.assertTrue(result["can_finish"])
-        self.assertIn("Report a review recommendation", result["report_guidance"])
-        self.assertIn("do not record a human review", result["report_guidance"])
-        self.assertIn("claim the work item is complete", result["report_guidance"])
+        self.assertFalse(result["can_finish"])
+        self.assertIn("CLAIM_OWNED", {item["code"] for item in result["missing_requirements"]})
+        self.assertIn(
+            "palari agent start WORK-REPO-0003 --as PALARI-STEWARD --mode review --json",
+            result["next_allowed_commands"],
+        )
 
     def test_cli_agent_finish_emits_json_shape(self) -> None:
         result = json.loads(
@@ -639,33 +643,36 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
 
     def test_emitted_agent_safe_commands_for_human_approval_work_execute(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-        queue_payload = json.loads(self.run_cli("queue", "--json").stdout)
-        queue_item = {
-            item["id"]: item for item in queue_payload["queue"]
-        }["WORK-0001"]
-        next_payload = build_agent_next(workspace, "PALARI-SOFIA", limit=20)
-        candidate = {
-            item["work_item_id"]: item for item in next_payload["candidates"]
-        }["WORK-0001"]
-        loop_payload = build_agent_loop(workspace, "WORK-0001", "PALARI-SOFIA")
-        doctor_payload = build_agent_doctor(workspace, "WORK-0001", "PALARI-SOFIA")
-        handoff_payload = build_agent_handoff(workspace, "WORK-0001", "PALARI-SOFIA")
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            workspace = Workspace.load(workspace_file)
+            queue_payload = json.loads(
+                self.run_cli_in_workspace(workspace_file, "queue", "--json").stdout
+            )
+            queue_item = {
+                item["id"]: item for item in queue_payload["queue"]
+            }["WORK-0001"]
+            next_payload = build_agent_next(workspace, "PALARI-SOFIA", limit=20)
+            candidate = {
+                item["work_item_id"]: item for item in next_payload["candidates"]
+            }["WORK-0001"]
+            loop_payload = build_agent_loop(workspace, "WORK-0001", "PALARI-SOFIA")
+            doctor_payload = build_agent_doctor(workspace, "WORK-0001", "PALARI-SOFIA")
+            handoff_payload = build_agent_handoff(workspace, "WORK-0001", "PALARI-SOFIA")
 
-        commands = [
-            queue_item["agent_handoff_command"],
-            queue_item["agent_loop_command"],
-            *queue_item["next_commands"],
-            candidate["next_command"],
-            *candidate["next_commands"],
-            loop_payload["commands"]["handoff"],
-            *loop_payload["next_allowed_commands"],
-            *doctor_payload["recommended_commands"],
-            *handoff_payload["next_allowed_commands"],
-        ]
-        for command in sorted(set(commands)):
-            with self.subTest(command=command):
-                self.run_cli(*shlex.split(command)[1:])
+            commands = [
+                queue_item["agent_handoff_command"],
+                queue_item["agent_loop_command"],
+                *queue_item["next_commands"],
+                candidate["next_command"],
+                *candidate["next_commands"],
+                loop_payload["commands"]["handoff"],
+                *loop_payload["next_allowed_commands"],
+                *doctor_payload["recommended_commands"],
+                *handoff_payload["next_allowed_commands"],
+            ]
+            for command in sorted(set(commands)):
+                with self.subTest(command=command):
+                    self.run_cli_in_workspace(workspace_file, *shlex.split(command)[1:])
 
     def test_cli_agent_handoff_emits_json_shape(self) -> None:
         result = json.loads(
@@ -885,17 +892,52 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("omitted_context", packet)
         self.assertEqual(packet["omitted_context"][0]["counts"]["work_items"], 7)
 
-    def test_cli_agent_brief_and_start_alias_emit_json(self) -> None:
+    def test_cli_agent_brief_is_read_only_and_start_persists_packet_and_claim(self) -> None:
         brief = json.loads(
             self.run_cli("agent", "brief", "WORK-0003", "--as", "PALARI-SOFIA", "--mode", "execute", "--json").stdout
         )
-        start = json.loads(
-            self.run_cli("agent", "start", "WORK-0003", "--as", "PALARI-SOFIA", "--mode", "execute", "--json").stdout
-        )
 
         self.assertEqual(brief["status"], "ready")
-        self.assertEqual(start["status"], "ready")
-        self.assertEqual(brief["packet_id"], start["packet_id"])
+        self.assertNotIn("start", brief)
+
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            start = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--mode",
+                    "execute",
+                    "--json",
+                ).stdout
+            )
+            packet_path = workspace_file.parent / start["start"]["packet_path"]
+            claim_path = workspace_file.parent / start["start"]["claim_path"]
+
+            self.assertEqual(start["status"], "ready")
+            self.assertEqual(brief["packet_id"], start["packet_id"])
+            self.assertEqual(start["start"]["status"], "claimed")
+            self.assertTrue(packet_path.exists())
+            self.assertTrue(claim_path.exists())
+            self.assertEqual(json.loads(packet_path.read_text())["packet_id"], start["packet_id"])
+            self.assertEqual(json.loads(claim_path.read_text())["claimed_by"], "PALARI-SOFIA")
+
+            release = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "release",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            self.assertTrue(release["released"])
+            self.assertFalse(claim_path.exists())
 
     def test_cli_agent_brief_review_mode_emits_review_context(self) -> None:
         result = json.loads(
@@ -928,6 +970,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(checks["PACKET_READY"]["status"], "pass")
         self.assertEqual(checks["RECEIPT_PRESENT"]["status"], "fail")
         self.assertEqual(checks["EVIDENCE_PRESENT"]["status"], "fail")
+        self.assertEqual(checks["CLAIM_OWNED"]["status"], "fail")
         self.assertEqual(checks["REVIEW_PRESENT"]["status"], "pass")
         self.assertEqual(checks["REVIEW_PRESENT"]["required"], False)
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "pass")
@@ -935,12 +978,111 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(
             result["next_allowed_commands"][:2],
             [
+                "palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json",
                 "palari receipt record RECEIPT-ID --work-item-id WORK-0003 "
                 "--attempt-id ATTEMPT-0002 --actor PALARI-SOFIA --json",
-                "palari evidence record EVIDENCE-ID --work-item-id WORK-0003 "
-                '--attempt-id ATTEMPT-0002 --head-sha def5678 --status passed --summary "verification passed" --json',
             ],
         )
+
+    def test_agent_check_passes_claim_and_file_boundary_after_start(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+            )
+            result = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "check",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--changed",
+                    "docs/product/company-os.md",
+                    "--json",
+                ).stdout
+            )
+            checks = self.checks_by_code(result)
+
+            self.assertEqual(checks["CLAIM_OWNED"]["status"], "pass")
+            self.assertEqual(checks["FILE_CHANGES_WITHIN_WRITE_BOUNDARY"]["status"], "pass")
+            self.assertEqual(checks["FILE_CHANGES_RECORDED"]["status"], "pass")
+            self.assertEqual(result["file_changes"]["inside_write_boundary"], ["docs/product/company-os.md"])
+
+    def test_agent_check_reports_out_of_boundary_and_unrecorded_changes(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+            )
+            result = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "check",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--changed",
+                    "secrets.env",
+                    "--json",
+                ).stdout
+            )
+            checks = self.checks_by_code(result)
+
+            self.assertEqual(checks["FILE_CHANGES_WITHIN_WRITE_BOUNDARY"]["status"], "fail")
+            self.assertEqual(checks["FILE_CHANGES_RECORDED"]["status"], "fail")
+            self.assertEqual(result["file_changes"]["outside_write_boundary"], ["secrets.env"])
+            self.assertEqual(result["file_changes"]["unrecorded_changed_files"], ["secrets.env"])
+
+    def test_agent_json_errors_are_machine_readable(self) -> None:
+        result = self.run_cli_in_workspace(
+            Path("/tmp/palari-missing-workspace"),
+            "agent",
+            "check",
+            "WORK-0003",
+            "--as",
+            "PALARI-SOFIA",
+            "--json",
+            check=False,
+        )
+        payload = json.loads(result.stdout)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(payload["ok"], False)
+        self.assertEqual(payload["error"]["code"], "WORKSPACE_FILE_NOT_FOUND")
+        self.assertEqual(payload["error"]["work_item"], "WORK-0003")
+        self.assertIn("palari agent brief WORK-0003 --as PALARI-SOFIA", payload["next_allowed_commands"][0])
+
+    def test_agent_json_parse_errors_are_machine_readable(self) -> None:
+        result = self.run_cli_in_workspace(
+            WORKSPACE,
+            "agent",
+            "check",
+            "WORK-0003",
+            "--json",
+            check=False,
+        )
+        payload = json.loads(result.stdout)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(payload["ok"], False)
+        self.assertEqual(payload["error"]["code"], "ARGUMENT_PARSE_ERROR")
+        self.assertEqual(payload["error"]["work_item"], "WORK-0003")
+        self.assertIn("--as", payload["error"]["message"])
+        self.assertIn("palari queue --json", payload["next_allowed_commands"])
 
     def test_agent_check_blocked_packet_returns_packet_blockers(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -1151,6 +1293,14 @@ class AgentPacketTests(unittest.TestCase):
             workspace_file.write_text(json.dumps(source), encoding="utf-8")
             return Workspace.load(workspace_file)
 
+    @contextmanager
+    def temp_workspace_file(self, source_workspace: Path) -> Iterator[Path]:
+        source = json.loads((source_workspace / "workspace.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            workspace_file.write_text(json.dumps(source), encoding="utf-8")
+            yield workspace_file
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
@@ -1159,6 +1309,25 @@ class AgentPacketTests(unittest.TestCase):
             cwd=REPO_ROOT,
             env=env,
             check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+    def run_cli_in_workspace(
+        self,
+        workspace: Path,
+        *args: str,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        return subprocess.run(
+            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(workspace), *args],
+            cwd=REPO_ROOT,
+            env=env,
+            check=check,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

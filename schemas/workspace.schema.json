@@ -496,6 +496,8 @@
         "work_item_id": { "type": "string" },
         "attempt_id": { "type": "string" },
         "actor": { "type": "string" },
+        "context_packet": { "type": "string" },
+        "context_hash": { "type": "string" },
         "sources_used": { "$ref": "#/$defs/string_list" },
         "actions_taken": { "$ref": "#/$defs/string_list" },
         "outputs_created": { "$ref": "#/$defs/string_list" },

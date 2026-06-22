@@ -118,8 +118,10 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent next --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
@@ -134,6 +136,10 @@ tell an agent which receipt, evidence, review, or human decision record is
 still needed before it can claim completion. When proof is missing, concrete
 receipt, evidence, and review commands appear before generic inspect/validate
 commands, and human-decision commands are held until prerequisite proof exists.
+`agent brief` previews the packet; `agent start` persists that packet and writes
+a local claim for ready work. `agent check --changed PATH` or `--git-diff`
+compares observed file edits with the packet write boundary and current
+attempt/receipt records.
 `agent next` candidates also include a `loop_command` for the compact
 brief/check/finish/handoff summary when an agent needs orientation.
 `agent doctor` gives a plain-language diagnosis of why a work item is safe,

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -84,7 +85,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("human-decision", html)
         self.assertIn("Authority", html)
 
-    def test_dashboard_read_only_command_hints_are_executable(self) -> None:
+    def test_dashboard_agent_safe_command_hints_are_executable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = generate_dashboard(ACME, directory)
             html = Path(result.index_path).read_text(encoding="utf-8")
@@ -93,15 +94,18 @@ class DashboardTests(unittest.TestCase):
             html_lib.unescape(command)
             for command in re.findall(r"<code>(palari .*?)</code>", html)
         }
-        read_only_commands = sorted(
+        agent_safe_commands = sorted(
             command
             for command in commands
-            if _is_read_only_command_hint(command)
+            if _is_agent_safe_command_hint(command)
         )
-        self.assertGreater(len(read_only_commands), 0)
-        for command in read_only_commands:
-            with self.subTest(command=command):
-                self.run_cli("--workspace", str(ACME), *shlex.split(command)[1:])
+        self.assertGreater(len(agent_safe_commands), 0)
+        with tempfile.TemporaryDirectory() as workspace_dir:
+            workspace_path = Path(workspace_dir) / "workspace.json"
+            shutil.copy(ACME / "workspace.json", workspace_path)
+            for command in agent_safe_commands:
+                with self.subTest(command=command):
+                    self.run_cli("--workspace", str(workspace_path), *shlex.split(command)[1:])
 
     def test_dashboard_uses_real_tab_panels(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -146,7 +150,7 @@ class DashboardTests(unittest.TestCase):
         )
 
 
-def _is_read_only_command_hint(command: str) -> bool:
+def _is_agent_safe_command_hint(command: str) -> bool:
     return command.startswith(
         (
             "palari agent ",

@@ -107,6 +107,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_loop import build_agent_loop
         from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
+        from .agent_runtime import release_agent, start_agent
 
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
@@ -121,16 +122,43 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 build_agent_next(workspace, args.palari_id, args.mode, args.limit),
                 args.json,
             )
-        if args.agent_command in {"brief", "start"}:
+        if args.agent_command == "brief":
             return CommandResult(
                 "agent-brief",
                 build_agent_brief(workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
+        if args.agent_command == "start":
+            return CommandResult(
+                "agent-start",
+                start_agent(
+                    workspace,
+                    args.workspace,
+                    args.work_id,
+                    args.palari_id,
+                    args.mode,
+                    lease_minutes=args.lease_minutes,
+                ),
+                args.json,
+            )
+        if args.agent_command == "release":
+            return CommandResult(
+                "agent-release",
+                release_agent(workspace, args.workspace, args.work_id, args.palari_id),
+                args.json,
+            )
         if args.agent_command == "check":
             return CommandResult(
                 "agent-check",
-                build_agent_check(workspace, args.work_id, args.palari_id, args.mode),
+                build_agent_check(
+                    workspace,
+                    args.work_id,
+                    args.palari_id,
+                    args.mode,
+                    changed_paths=args.changed,
+                    git_diff=args.git_diff,
+                    cwd=Path.cwd(),
+                ),
                 args.json,
             )
         if args.agent_command == "finish":

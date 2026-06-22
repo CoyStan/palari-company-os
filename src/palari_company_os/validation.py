@@ -269,6 +269,8 @@ ALLOWED_RECORD_FIELDS = {
         "work_item_id",
         "attempt_id",
         "actor",
+        "context_packet",
+        "context_hash",
         "sources_used",
         "actions_taken",
         "outputs_created",

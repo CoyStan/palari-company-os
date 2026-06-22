@@ -507,7 +507,17 @@ def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
 def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
     return {
         "attempt": _attempt_ref(work_detail["attempt"]),
-        "receipt": _record_ref(work_detail["receipt"], ["id", "attempt_id", "timestamp"]),
+        "receipt": _record_ref(
+            work_detail["receipt"],
+            [
+                "id",
+                "attempt_id",
+                "outputs_created",
+                "context_packet",
+                "context_hash",
+                "timestamp",
+            ],
+        ),
         "evidence": _record_ref(work_detail["evidence"], ["id", "status", "head_sha", "timestamp"]),
         "review": _record_ref(work_detail["review"], ["id", "verdict", "reviewed_head", "timestamp"]),
         "human_decision": _record_ref(
@@ -531,7 +541,7 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
 def _attempt_ref(record: dict[str, Any] | None) -> dict[str, Any] | None:
     if record is None:
         return None
-    payload = _record_ref(record, ["id", "status", "actor", "branch"])
+    payload = _record_ref(record, ["id", "status", "actor", "branch", "changed_files"])
     commits = record.get("commits", [])
     if isinstance(commits, list) and commits:
         payload["head_sha"] = str(commits[-1])

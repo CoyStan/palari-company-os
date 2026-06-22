@@ -5,6 +5,8 @@ __pycache__/
 .mypy_cache/
 .venv/
 .palari-company-os/
+**/.palari/claims/
+**/.palari/packets/
 dist/
 build/
 *.egg-info/

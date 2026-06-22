@@ -604,6 +604,8 @@ class Receipt:
     work_item_id: str
     attempt_id: str
     actor: str
+    context_packet: str = ""
+    context_hash: str = ""
     sources_used: list[str] = field(default_factory=list)
     actions_taken: list[str] = field(default_factory=list)
     outputs_created: list[str] = field(default_factory=list)
@@ -621,6 +623,8 @@ class Receipt:
             work_item_id=_string(record, "work_item_id"),
             attempt_id=_string(record, "attempt_id"),
             actor=_string(record, "actor"),
+            context_packet=_string(record, "context_packet"),
+            context_hash=_string(record, "context_hash"),
             sources_used=_strings(record, "sources_used"),
             actions_taken=_strings(record, "actions_taken"),
             outputs_created=_strings(record, "outputs_created"),
