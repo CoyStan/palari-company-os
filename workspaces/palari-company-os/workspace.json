@@ -26,7 +26,8 @@
         "WORK-REPO-0007",
         "WORK-REPO-0008",
         "WORK-REPO-0009",
-        "WORK-REPO-0010"
+        "WORK-REPO-0010",
+        "WORK-REPO-0011"
       ],
       "linked_decisions": []
     },
@@ -155,7 +156,8 @@
         "WORK-REPO-0007",
         "WORK-REPO-0008",
         "WORK-REPO-0009",
-        "WORK-REPO-0010"
+        "WORK-REPO-0010",
+        "WORK-REPO-0011"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -261,8 +263,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "7be12db",
-      "last_read_at": "2026-06-22T05:04:00Z"
+      "last_seen_revision": "ced5aaf",
+      "last_read_at": "2026-06-22T05:11:00Z"
     }
   ],
   "workbenches": [
@@ -686,6 +688,44 @@
       "acceptance_target": "Queue text labels heuristic mismatches as intensity concern or note and explains the declared intensity without changing safety behavior.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0010"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product"
+      ],
+      "forbidden_actions": [
+        "call live integrations",
+        "read secrets",
+        "add dependencies",
+        "change execution semantics"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_integrations tests.test_validation",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "id": "WORK-REPO-0011",
+      "title": "Enforce integration mode action boundaries",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Make integration mode authoritative so hand-edited dry-run integration records cannot declare actions outside their mode boundary.",
+      "acceptance_target": "Workspace validation rejects mode/action mismatches while preserving dry-run provider previews and no live external calls.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0011"
     }
   ],
   "attempts": [
@@ -917,6 +957,31 @@
       "started_at": "2026-06-22T04:58:00Z",
       "cleanliness": "clean",
       "result": "Clarified queue intensity mismatch wording by separating declared intensity from heuristic concern and adding regression coverage."
+    },
+    {
+      "commits": [
+        "ced5aaf"
+      ],
+      "changed_files": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product/schema-and-validation.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0011",
+      "work_item_id": "WORK-REPO-0011",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T05:08:00Z",
+      "cleanliness": "clean",
+      "result": "Made integration mode enforce action boundaries, updated example modes, and added regression coverage."
     }
   ],
   "evidence_runs": [
@@ -1110,6 +1175,28 @@
       "summary": "Heuristic intensity warning wording passed focused read-model tests, full verification, unit discovery, install smoke, and queue CLI smoke.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T05:04:00Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_integrations tests.test_validation",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh"
+      ],
+      "artifacts": [
+        "focused integration validation test output",
+        "full verifier output",
+        "unit discovery output",
+        "install smoke output"
+      ],
+      "id": "EVIDENCE-REPO-0011",
+      "work_item_id": "WORK-REPO-0011",
+      "attempt_id": "ATTEMPT-REPO-0011",
+      "head_sha": "ced5aaf",
+      "status": "passed",
+      "summary": "Integration mode/action validation passed focused integration/validation tests, full verification, unit discovery, and install smoke.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T05:11:00Z"
     }
   ],
   "review_verdicts": [
@@ -1459,6 +1546,44 @@
       "attempt_id": "ATTEMPT-REPO-0010",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T05:04:00Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "added integration mode action matrix",
+        "enforced mode action boundaries in workspace validation",
+        "updated example integration modes",
+        "documented mode behavior",
+        "added regression tests"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "docs/product/schema-and-validation.md",
+        "docs/product/command-reference.md"
+      ],
+      "not_done": [
+        "No live integrations called",
+        "No secrets read",
+        "No dependencies added",
+        "No execution semantics changed"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/integration_contracts.py",
+        "src/palari_company_os/validation.py",
+        "examples/acme-company-os/workspace.json"
+      ],
+      "id": "RECEIPT-REPO-0011",
+      "work_item_id": "WORK-REPO-0011",
+      "attempt_id": "ATTEMPT-REPO-0011",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-06-22T05:11:00Z"
     }
   ],
   "decisions": [
