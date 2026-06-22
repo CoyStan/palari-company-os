@@ -38,13 +38,13 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["candidates"][0]["start_blockers"], [])
         self.assertEqual(
             result["candidates"][0]["next_command"],
-            "palari agent check WORK-0003 --as PALARI-SOFIA --json",
+            "palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
         self.assertEqual(result["candidates"][0]["next_step_type"], "check-active-proof")
         self.assertEqual(
             result["next_allowed_commands"][:2],
             [
-                "palari agent check WORK-0003 --as PALARI-SOFIA --json",
+                "palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
                 "palari agent finish WORK-0003 --as PALARI-SOFIA --json",
             ],
         )
@@ -210,7 +210,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "check-active-proof")
         self.assertEqual(
             result["next_allowed_commands"][0],
-            "palari agent check WORK-0003 --as PALARI-SOFIA --json",
+            "palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
         )
 
     def test_agent_next_missing_palari_is_blocked(self) -> None:

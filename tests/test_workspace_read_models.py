@@ -122,7 +122,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(
             by_id["WORK-0003"].next_commands[:2],
             [
-                "palari agent check WORK-0003 --as PALARI-SOFIA --json",
+                "palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
                 "palari agent finish WORK-0003 --as PALARI-SOFIA --json",
             ],
         )
@@ -131,7 +131,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(
             by_id["WORK-0005"].next_commands[:2],
             [
-                "palari agent check WORK-0005 --as PALARI-SOFIA --json",
+                "palari agent check WORK-0005 --as PALARI-SOFIA --mode execute --json",
                 "palari agent finish WORK-0005 --as PALARI-SOFIA --json",
             ],
         )
@@ -192,6 +192,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(
             payload["agent_commands"]["brief"],
             "palari agent brief WORK-0007 --as PALARI-SOFIA --mode execute --json",
+        )
+        self.assertEqual(
+            payload["agent_commands"]["check"],
+            "palari agent check WORK-0007 --as PALARI-SOFIA --mode execute --json",
         )
         self.assertEqual(
             payload["agent_commands"]["finish"],

@@ -27,7 +27,7 @@ The v1 loop is:
 4. Read and write only the packet's allowed paths and sources.
 5. Stop if the packet is blocked or a stop condition is reached.
 6. Produce the required output and trust records.
-7. Run `palari agent check WORK-ID --as PALARI-ID --json`.
+7. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json`.
 8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
 9. If the result is a human review or decision handoff, run
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
@@ -107,7 +107,7 @@ Implemented:
 - `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
-- `palari agent check WORK-ID --as PALARI-ID --json`
+- `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - compact Palari-specific work candidate discovery

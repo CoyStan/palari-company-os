@@ -124,7 +124,7 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ```

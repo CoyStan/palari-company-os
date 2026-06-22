@@ -36,7 +36,7 @@ Follow the packet:
 - produce the declared output and receipt/evidence state
 - stop for every blocker, missing source, human decision, or external write
 - run `palari validate --json` before reporting work as done
-- run `palari agent check WORK-ID --as PALARI-ID --json` before claiming done
+- run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
   `finish` says the next step is human review or human decision

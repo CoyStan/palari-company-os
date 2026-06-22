@@ -242,8 +242,6 @@ def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[s
 
 
 def _check_command(work_id: str, palari_id: str, mode: str) -> str:
-    if mode == "execute":
-        return f"palari agent check {work_id} --as {palari_id} --json"
     return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
 
 
