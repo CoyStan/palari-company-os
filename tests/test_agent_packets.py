@@ -39,6 +39,7 @@ class AgentPacketTests(unittest.TestCase):
             result["candidates"][0]["next_command"],
             "palari agent check WORK-0003 --as PALARI-SOFIA --json",
         )
+        self.assertEqual(result["candidates"][0]["next_step_type"], "check-active-proof")
         self.assertEqual(
             result["next_allowed_commands"][:2],
             [
@@ -91,6 +92,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(candidate["attention"], "needs-review")
         self.assertEqual(candidate["packet_status"], "blocked")
         self.assertEqual(candidate["can_start"], False)
+        self.assertEqual(candidate["next_step_type"], "review-handoff")
         self.assertIn("REVIEW_REQUIRED", candidate["blocker_codes"])
         self.assertIn("PACKET_BLOCKED", candidate["start_blocker_codes"])
         self.assertIn("ATTENTION_NOT_STARTABLE", candidate["start_blocker_codes"])
@@ -107,6 +109,7 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertEqual(candidate["attention"], "ready-for-ai-work")
         self.assertEqual(candidate["can_start"], False)
+        self.assertEqual(candidate["next_step_type"], "inspect")
         self.assertIn("QUEUE_NOT_AI_SAFE", candidate["start_blocker_codes"])
         self.assertEqual(candidate["next_command"], "palari detail WORK-REPO-0004 --json")
 
@@ -122,6 +125,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-ARCHITECT")
         self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0005")
         self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
+        self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "human-decision")
         self.assertEqual(
             result["next_allowed_commands"][0],
             "palari decision guide DECISION-REPO-0001 --json",
@@ -137,6 +141,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-SOFIA")
         self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-0003")
         self.assertEqual(result["top_candidate"]["candidate"]["can_start"], True)
+        self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "check-active-proof")
         self.assertEqual(
             result["next_allowed_commands"][0],
             "palari agent check WORK-0003 --as PALARI-SOFIA --json",

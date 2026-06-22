@@ -126,10 +126,12 @@ candidates first, and includes blocked/waiting candidates with blocker codes.
 With no `--as` argument, `agent next` defaults to an operator rollup across
 every Palari in the workspace. `--all` is still accepted as the explicit form.
 The rollup includes a `top_candidate` field so agents can follow the first safe
-or blocking next step without scanning every nested candidate. Active work that
-already has an attempt and needs proof points to `agent check` / `agent finish`
-instead of re-starting with another brief. It is read-only and does not claim or
-assign work.
+or blocking next step without scanning every nested candidate. Candidates include
+`next_step_type`, such as `start-work`, `check-active-proof`,
+`human-decision`, or `review-handoff`, so tools do not have to infer intent from
+the command string alone. Active work that already has an attempt and needs
+proof points to `agent check` / `agent finish` instead of re-starting with
+another brief. It is read-only and does not claim or assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 The packet is read-only in v1 and returns either `status: ready` or
