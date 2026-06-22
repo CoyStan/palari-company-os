@@ -28,8 +28,10 @@ The v1 loop is:
 6. Produce the required output and trust records.
 7. Run `palari agent check WORK-ID --as PALARI-ID --json`.
 8. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
-9. Run `palari validate --json`.
-10. Report the packet status, finish guidance, changed files, checks, and blockers.
+9. If the result is a human review or decision handoff, run
+   `palari agent handoff WORK-ID --as PALARI-ID --json`.
+10. Run `palari validate --json`.
+11. Report the packet status, finish guidance, changed files, checks, and blockers.
 
 ## Packet Purpose
 
@@ -98,10 +100,12 @@ Implemented:
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
+- `palari agent handoff WORK-ID --as PALARI-ID --json`
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - read-only completion report guidance
+- read-only human handoff packets
 - deterministic blocker codes
 - packet context hash
 - direct work, goal, workbench, source, dependency, proof, and integration state
@@ -143,3 +147,11 @@ When the next step is a human handoff, `agent finish` also returns
 ready-to-edit review record commands. Decision handoffs point to `decision
 guide`, which includes suggested decision update commands. The agent still does
 not record those human actions itself.
+
+`agent handoff` compiles the final handoff packet for that moment. It wraps the
+`agent finish` result and includes compact `review guide` or `decision guide`
+context when applicable. Agent-safe read commands remain separate from
+`human_action_commands`, so a model can show the right review or decision
+commands without pretending it is authorized to perform them. It is read-only in
+v1 and does not create reviews, decisions, receipts, evidence, claims, or
+history events.

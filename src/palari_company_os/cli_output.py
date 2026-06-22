@@ -90,6 +90,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_finish(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-handoff":
+        print_agent_handoff(result.payload, result.as_json)
+        return
+
     if result.kind == "review-guide":
         print_review_guide(result.payload, result.as_json)
         return
@@ -587,6 +591,64 @@ def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
+
+
+def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    agent = payload["agent"]
+    print(f"Agent handoff: {payload['handoff_id']}")
+    print(f"Status: {payload['status']} | Handoff: {_yes_no(payload['handoff_available'])}")
+    print(f"Step: {payload.get('next_step_type', 'inspect')}")
+    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    finish = payload["finish"]
+    print(f"Finish guidance: {finish['report_guidance']}")
+    if finish.get("handoff_guidance"):
+        print("Handoff guidance:")
+        for item in finish["handoff_guidance"]:
+            print(f"  - {item['code']}: {item['message']}")
+            if item.get("command"):
+                print(f"    command: {item['command']}")
+    review = payload.get("review_handoff")
+    if review:
+        print("Review handoff:")
+        print(f"  status: {review['status']}")
+        print(f"  command: {review['command']}")
+        candidates = review.get("reviewer_candidates", [])
+        if candidates:
+            print("  reviewer candidates:")
+            for candidate in candidates:
+                print(f"    - {candidate['id']} ({candidate['name']})")
+        record_commands = review.get("review_record_commands", [])
+        if record_commands:
+            print("  review record commands:")
+            for item in record_commands:
+                print(f"    - {item['reviewer']}: {item['command']}")
+    decision = payload.get("decision_handoff")
+    if decision:
+        print("Decision handoff:")
+        print(f"  status: {decision['status']}")
+        print(f"  command: {decision['command']}")
+        print(f"  decision: {decision['decision']['id']} {decision['decision']['question']}")
+        commands_for_results = decision.get("decision_update_commands", [])
+        if commands_for_results:
+            print("  suggested update commands:")
+            for item in commands_for_results:
+                print(f"    - {item['result']}: {item['command']}")
+    commands = payload.get("next_allowed_commands", [])
+    if commands:
+        print("Next agent-safe commands:")
+        for command in commands:
+            print(f"  {command}")
+    human_commands = payload.get("human_action_commands", [])
+    if human_commands:
+        print("Human action commands:")
+        for item in human_commands:
+            detail = f" ({item.get('result', item.get('actor', ''))})"
+            print(f"  - {item['type']}{detail}: {item['command']}")
 
 
 def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:

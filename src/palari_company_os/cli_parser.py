@@ -163,6 +163,14 @@ def _add_agent_parser(subparsers: Any) -> None:
     finish.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     finish.add_argument("--mode", default="execute", help="Packet mode.")
     finish.add_argument("--json", action="store_true", help="Emit JSON.")
+    handoff = nested.add_parser(
+        "handoff",
+        help="Compile a read-only human handoff packet for one work item.",
+    )
+    handoff.add_argument("work_id")
+    handoff.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    handoff.add_argument("--mode", default="execute", help="Packet mode.")
+    handoff.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_workspace_parser(subparsers: Any) -> None:

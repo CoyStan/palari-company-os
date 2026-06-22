@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
 from palari_company_os.agent_finish import build_agent_finish
+from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.workspace import Workspace
@@ -353,6 +354,104 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("Handoff guidance:", result.stdout)
         self.assertIn("ready-to-edit review record commands", result.stdout)
         self.assertIn("Guidance: Do not continue execution.", result.stdout)
+
+    def test_agent_handoff_receipt_ready_compiles_review_context(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_handoff(workspace, "WORK-REPO-0006", "PALARI-STEWARD")
+
+        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
+        self.assertEqual(result["status"], "handoff-ready")
+        self.assertEqual(result["handoff_types"], ["review"])
+        self.assertEqual(result["handoff_available"], True)
+        self.assertEqual(result["would_mutate"], False)
+        self.assertEqual(result["finish"]["handoff_ready"], True)
+        self.assertEqual(result["finish"]["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
+        self.assertIsNotNone(result["review_handoff"])
+        self.assertIsNone(result["decision_handoff"])
+        review = result["review_handoff"]
+        self.assertEqual(review["status"], "receipt-ready")
+        self.assertEqual(review["command"], "palari review guide WORK-REPO-0006 --json")
+        self.assertIn("Hand off", result["finish"]["report_guidance"])
+        self.assertIn(
+            "palari review guide WORK-REPO-0006 --json",
+            result["next_allowed_commands"],
+        )
+        self.assertNotIn(
+            "palari review record REVIEW-ID",
+            "\n".join(result["next_allowed_commands"]),
+        )
+        self.assertIn(
+            "HUMAN-MAINTAINER",
+            {candidate["id"] for candidate in review["reviewer_candidates"]},
+        )
+        human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
+        self.assertIn("--reviewer HUMAN-MAINTAINER", human_commands)
+
+    def test_agent_handoff_human_decision_compiles_decision_context(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_handoff(workspace, "WORK-REPO-0005", "PALARI-ARCHITECT")
+
+        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(result["handoff_types"], ["decision"])
+        self.assertEqual(result["handoff_available"], True)
+        self.assertEqual(result["next_step_type"], "human-decision")
+        self.assertIsNone(result["review_handoff"])
+        decision = result["decision_handoff"]
+        self.assertIsNotNone(decision)
+        self.assertEqual(decision["decision"]["id"], "DECISION-REPO-0001")
+        self.assertEqual(
+            decision["command"],
+            "palari decision guide DECISION-REPO-0001 --json",
+        )
+        self.assertIn(
+            "palari decision guide DECISION-REPO-0001 --json",
+            result["next_allowed_commands"],
+        )
+        self.assertIn(
+            "keep disabled",
+            {item["result"] for item in decision["decision_update_commands"]},
+        )
+        human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
+        self.assertIn("palari decision update DECISION-REPO-0001", human_commands)
+        self.assertIn("'result=keep disabled'", human_commands)
+
+    def test_cli_agent_handoff_emits_json_shape(self) -> None:
+        result = json.loads(
+            self.run_cli(
+                "--workspace",
+                str(DOGFOOD),
+                "agent",
+                "handoff",
+                "WORK-REPO-0006",
+                "--as",
+                "PALARI-STEWARD",
+                "--json",
+            ).stdout
+        )
+
+        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
+        self.assertEqual(result["handoff_types"], ["review"])
+        self.assertEqual(result["review_handoff"]["status"], "receipt-ready")
+        self.assertEqual(result["human_action_commands"][0]["type"], "review-record")
+
+    def test_cli_agent_handoff_text_shows_review_commands(self) -> None:
+        result = self.run_cli(
+            "--workspace",
+            str(DOGFOOD),
+            "agent",
+            "handoff",
+            "WORK-REPO-0006",
+            "--as",
+            "PALARI-STEWARD",
+        )
+
+        self.assertIn("Agent handoff:", result.stdout)
+        self.assertIn("Review handoff:", result.stdout)
+        self.assertIn("ready-to-edit review record commands", result.stdout)
+        self.assertIn("review record commands:", result.stdout)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)

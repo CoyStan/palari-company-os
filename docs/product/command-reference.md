@@ -125,6 +125,7 @@ work item id, Palari resolves the open decision linked to that work item.
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ```
 
 `agent next` reads the current open queue for one Palari, ranks safe-to-start
@@ -172,6 +173,12 @@ a human-decision record template when evidence and review are known. Missing
 proof or approval templates appear before generic inspect/validate commands. It
 does not close work, record receipts, mutate history, or perform external
 actions.
+
+`agent handoff` is read-only and meant for the moment after `agent finish`
+identifies a human review or decision step. It returns the compact finish
+summary plus relevant review-guide or decision-guide context, separates
+agent-safe read commands from human action commands, and does not mutate the
+workspace.
 
 ## Playbooks
 

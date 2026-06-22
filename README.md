@@ -119,6 +119,7 @@ For agents, start from one bounded packet instead of inferring the workflow:
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari review guide WORK-0003 --json
 ```
 
@@ -127,7 +128,9 @@ Bare `agent next` returns the all-Palaris rollup with a top candidate and a
 `human-decision`. `agent check` and `agent finish` carry the same step type and
 tell an agent which receipt, evidence, review, or human decision record is
 still needed before it can claim completion. When proof is missing, concrete
-record commands appear before generic inspect/validate commands.
+record commands appear before generic inspect/validate commands. `agent handoff`
+packages the relevant finish, review-guide, or decision-guide context for a
+human handoff without mutating the workspace.
 
 Run against another workspace:
 
