@@ -239,6 +239,15 @@ class AgentPacketTests(unittest.TestCase):
             "HUMAN_DECISION_PRESENT",
             {item["code"] for item in result["missing_requirements"]},
         )
+        command = next(
+            item["next_command"]
+            for item in result["missing_requirements"]
+            if item["code"] == "HUMAN_DECISION_PRESENT"
+        )
+        self.assertIn("--work-item-id WORK-0001", command)
+        self.assertIn("--reviewed-head abc1234", command)
+        self.assertIn("--evidence-reference EVIDENCE-0001", command)
+        self.assertIn("--review-reference REVIEW-0001", command)
 
     def test_cli_agent_finish_emits_json_shape(self) -> None:
         result = json.loads(

@@ -154,8 +154,9 @@ or human approval.
 returns whether the agent may claim completion, whether the work should be
 handed off to a human, missing requirements, completed requirements, blockers,
 and report guidance. Handoff-ready receipt work points to the review guide as
-the next human-facing command. It does not close work, record receipts, mutate
-history, or perform external actions.
+the next human-facing command; missing approval points to a human-decision
+record template when evidence and review are known. It does not close work,
+record receipts, mutate history, or perform external actions.
 
 ## Playbooks
 

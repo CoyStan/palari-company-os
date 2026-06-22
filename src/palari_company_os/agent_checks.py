@@ -175,6 +175,7 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
         "fail",
         f"Human decision quorum is incomplete ({safety.get('approval_progress', 'unknown')}).",
         required=True,
+        next_command=_human_decision_command(packet),
     )
 
 
@@ -256,6 +257,23 @@ def _evidence_command(packet: dict[str, Any]) -> str:
         "palari evidence record EVIDENCE-ID "
         f"--work-item-id {work_id} --attempt-id {attempt_id} "
         f"--head-sha {head_sha} --status passed --summary \"verification passed\" --json"
+    )
+
+
+def _human_decision_command(packet: dict[str, Any]) -> str:
+    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
+    proof = packet.get("proof_state", {})
+    evidence = proof.get("evidence") if isinstance(proof.get("evidence"), dict) else {}
+    review = proof.get("review") if isinstance(proof.get("review"), dict) else {}
+    reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or "HEAD"
+    evidence_ref = evidence.get("id", "EVIDENCE-ID")
+    review_ref = review.get("id", "REVIEW-ID")
+    return (
+        "palari human-decision record HUMAN-DECISION-ID "
+        f"--work-item-id {work_id} --human-id HUMAN-ID "
+        f"--reviewed-head {reviewed_head} --decision accepted --status accepted "
+        f"--quorum-status met --evidence-reference {evidence_ref} "
+        f"--review-reference {review_ref} --json"
     )
 
 
