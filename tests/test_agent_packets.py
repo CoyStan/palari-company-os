@@ -250,6 +250,29 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(result["next_allowed_commands"][0], "palari review guide WORK-0007 --json")
 
+    def test_agent_finish_dogfood_agent_loop_record_hands_off_to_review(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        result = build_agent_finish(workspace, "WORK-REPO-0006", "PALARI-STEWARD")
+
+        self.assertEqual(result["status"], "handoff-ready")
+        self.assertEqual(result["next_step_type"], "review-handoff")
+        self.assertEqual(result["can_finish"], False)
+        self.assertEqual(result["handoff_ready"], True)
+        self.assertEqual(result["missing_requirements"], [])
+        self.assertIn(
+            "RECEIPT_PRESENT",
+            {item["code"] for item in result["completed_requirements"]},
+        )
+        self.assertIn(
+            "RECEIPT_READY_REVIEW",
+            {blocker["code"] for blocker in result["blockers"]},
+        )
+        self.assertEqual(
+            result["next_allowed_commands"][0],
+            "palari review guide WORK-REPO-0006 --json",
+        )
+
     def test_agent_finish_human_decision_required_remains_blocked(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 

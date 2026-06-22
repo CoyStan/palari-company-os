@@ -47,6 +47,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["workbench"]["id"], "WORKBENCH-REPO-FOUNDATION")
         self.assertEqual(payload["workbench"]["label"], "Repo Foundation")
         self.assertEqual(queue["WORK-REPO-0002"].workbench_label, "Repo Foundation")
+        self.assertEqual(queue["WORK-REPO-0006"].workbench_label, "Repo Foundation")
 
     def test_dogfood_review_waiting_work_is_not_ai_safe(self) -> None:
         workspace = Workspace.load(DOGFOOD_WORKSPACE)
@@ -71,6 +72,16 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(
             queue["WORK-REPO-0004"].next_commands[0],
             "palari detail WORK-REPO-0004 --json",
+        )
+        self.assertEqual(queue["WORK-REPO-0006"].attention, "receipt-ready")
+        self.assertEqual(queue["WORK-REPO-0006"].next_step_type, "review-handoff")
+        self.assertEqual(queue["WORK-REPO-0006"].receipt_state, "ready")
+        self.assertEqual(queue["WORK-REPO-0006"].evidence_state, "passed")
+        self.assertEqual(queue["WORK-REPO-0006"].approval_progress, "0/0")
+        self.assertFalse(queue["WORK-REPO-0006"].ai_safe_to_proceed)
+        self.assertEqual(
+            queue["WORK-REPO-0006"].next_commands[0],
+            "palari review guide WORK-REPO-0006 --json",
         )
 
     def test_queue_prioritizes_human_decisions(self) -> None:

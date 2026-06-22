@@ -19,6 +19,12 @@ records. They demonstrate the local source/receipt trust loop using repo-local
 files only; they do not imply live external access, deployment, or autonomous
 acceptance.
 
+`WORK-REPO-0006` records the lightweight agent-loop polish that made
+`agent next`, `agent check`, `agent finish`, and the dashboard show the same
+next-step language. It is intentionally receipt-ready rather than accepted: the
+receipt and evidence are present, and the next step is human review, not more
+autonomous execution.
+
 The workspace keeps two active workbenches: `Repo Foundation` for ordinary
 implementation and maintenance work, and `Product Architecture` for authority,
 broker, policy, and task-sizing decisions. That keeps agent packets tied to a
@@ -34,6 +40,8 @@ Useful commands:
 ./bin/palari --workspace workspaces/palari-company-os validate
 ./bin/palari --workspace workspaces/palari-company-os queue
 ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
+./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0006
 ./bin/palari --workspace workspaces/palari-company-os agent next --as PALARI-STEWARD --json
+./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0006 --as PALARI-STEWARD --json
 ./bin/palari --workspace workspaces/palari-company-os history
 ```

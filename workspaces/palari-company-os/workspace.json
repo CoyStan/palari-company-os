@@ -21,7 +21,8 @@
       "linked_work": [
         "WORK-REPO-0001",
         "WORK-REPO-0002",
-        "WORK-REPO-0003"
+        "WORK-REPO-0003",
+        "WORK-REPO-0006"
       ],
       "linked_decisions": []
     },
@@ -145,7 +146,8 @@
       "default_worker": "gpt-5-codex",
       "active_work": [
         "WORK-REPO-0002",
-        "WORK-REPO-0003"
+        "WORK-REPO-0003",
+        "WORK-REPO-0006"
       ],
       "outcomes": [
         "OUTCOME-REPO-0001"
@@ -251,8 +253,8 @@
       "allowed_palaris": [
         "PALARI-STEWARD"
       ],
-      "last_seen_revision": "4bcb912",
-      "last_read_at": "2026-06-19T03:00:00Z"
+      "last_seen_revision": "0390308",
+      "last_read_at": "2026-06-22T02:58:00Z"
     }
   ],
   "workbenches": [
@@ -479,6 +481,47 @@
         "superpowers:systematic-debugging",
         "superpowers:subagent-driven-development"
       ]
+    },
+    {
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "README.md",
+        "AGENTS.md",
+        "docs/product"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "call live integrations",
+        "change authority semantics",
+        "reintroduce old ticket ceremony"
+      ],
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "agent next/check/finish CLI smokes"
+      ],
+      "id": "WORK-REPO-0006",
+      "title": "Polish agent loop readiness surfaces",
+      "goal": "GOAL-REPO-0001",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "palari": "PALARI-STEWARD",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Make the agent loop easier to follow by surfacing next-step types and missing-proof commands across CLI, dashboard, and docs.",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "acceptance_target": "Agents can see the next safe step, missing proof commands, and handoff state without parsing raw attention text.",
+      "required_approval_count": 0,
+      "recommended_playbooks": [
+        "superpowers:verification-before-completion",
+        "superpowers:executing-plans",
+        "superpowers:systematic-debugging"
+      ],
+      "current_attempt": "ATTEMPT-REPO-0006"
     }
   ],
   "attempts": [
@@ -565,6 +608,45 @@
       "started_at": "2026-06-21T00:00:00Z",
       "cleanliness": "clean",
       "result": "Added read-only split workspace collection_files support while preserving single-file workspaces."
+    },
+    {
+      "commits": [
+        "1ecc208",
+        "b156ef5",
+        "31fd041",
+        "e23d298",
+        "c34b763",
+        "bb98217",
+        "571b3f2",
+        "0390308"
+      ],
+      "changed_files": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/dashboard.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_dashboard.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "id": "ATTEMPT-REPO-0006",
+      "work_item_id": "WORK-REPO-0006",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "main",
+      "workspace_path": "repo:.",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-06-22T02:30:00Z",
+      "updated_at": "2026-06-22T02:57:00Z",
+      "cleanliness": "clean",
+      "result": "Agent next, check, finish, and human-facing queue/state/detail/dashboard surfaces now share next-step classifications and prioritize missing proof commands."
     }
   ],
   "evidence_runs": [
@@ -629,6 +711,32 @@
       "summary": "Split workspace collection file support is present; split fixture validation and current full verification passed.",
       "freshness": "fresh",
       "timestamp": "2026-06-22T01:09:00Z"
+    },
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari --workspace examples/acme-company-os agent next --as PALARI-SOFIA --json",
+        "./bin/palari --workspace examples/acme-company-os agent check WORK-0003 --as PALARI-SOFIA --json",
+        "./bin/palari --workspace examples/acme-company-os agent finish WORK-0003 --as PALARI-SOFIA",
+        "./bin/palari --workspace examples/acme-company-os dashboard --out /tmp/palari-dashboard-top-step --json"
+      ],
+      "artifacts": [
+        "local verifier output",
+        "unit test output",
+        "install smoke output",
+        "agent loop CLI smoke output",
+        "generated dashboard HTML"
+      ],
+      "id": "EVIDENCE-REPO-0006",
+      "work_item_id": "WORK-REPO-0006",
+      "attempt_id": "ATTEMPT-REPO-0006",
+      "head_sha": "0390308",
+      "status": "passed",
+      "summary": "Agent loop readiness surfaces were verified locally; missing-proof commands now appear before generic inspect commands.",
+      "freshness": "fresh",
+      "timestamp": "2026-06-22T02:58:00Z"
     }
   ],
   "review_verdicts": [
@@ -776,6 +884,51 @@
       "attempt_id": "ATTEMPT-REPO-0003",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T01:10:00Z"
+    },
+    {
+      "actions_taken": [
+        "centralized next_step_type in read models",
+        "surfaced next-step classifications in queue, state, detail, dashboard, agent check, and agent finish",
+        "prioritized missing receipt and evidence commands in agent check",
+        "removed closed work from agent next candidates",
+        "refreshed agent loop quickstart documentation"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/dashboard.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_dashboard.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No deployment performed",
+        "No live integrations called",
+        "No secrets read",
+        "No old ticket workflow reintroduced"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_checks.py",
+        "README.md"
+      ],
+      "id": "RECEIPT-REPO-0006",
+      "work_item_id": "WORK-REPO-0006",
+      "attempt_id": "ATTEMPT-REPO-0006",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "timestamp": "2026-06-22T02:58:00Z"
     }
   ],
   "decisions": [
