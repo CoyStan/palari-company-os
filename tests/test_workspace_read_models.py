@@ -703,6 +703,51 @@ class CliTests(unittest.TestCase):
         self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-X")
         self.assertEqual(final_detail["outcome"]["id"], "OUTCOME-X")
 
+    def test_cli_complete_allows_low_risk_receipt_ready_work(self) -> None:
+        with self.temp_workspace() as workspace:
+            self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "update",
+                "WORK-0007",
+                "--list",
+                "dependency_ids=",
+            )
+            complete = self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "complete",
+                "WORK-0007",
+                "--json",
+            )
+            payload = json.loads(complete.stdout)
+            final_detail = detail(Workspace.load(workspace), "WORK-0007")
+
+        self.assertEqual(payload["action"], "completed")
+        self.assertEqual(final_detail["work_item"]["status"], "completed")
+        self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-0001")
+
+    def test_cli_complete_blocks_receipt_ready_work_with_unfinished_dependency(self) -> None:
+        with self.temp_workspace() as workspace:
+            self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "update",
+                "WORK-0007",
+                "--list",
+                "dependency_ids=WORK-0003",
+            )
+            result = self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "complete",
+                "WORK-0007",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("dependencies are unfinished: WORK-0003", result.stderr)
+
     def test_cli_acceptance_fails_closed_for_wrong_human_capability(self) -> None:
         with self.temp_workspace() as workspace:
             result = self.run_cli_in_workspace(

@@ -428,7 +428,13 @@ Accepted human decisions fail closed if:
 - review is missing, not accept-ready, or stale
 - the decision head does not match the reviewed head
 
-Completion fails closed unless the queue integration state is `ready`.
+Completion fails closed unless one of these is true:
+
+- the queue integration state is `ready`, meaning evidence, review, and any
+  required human approval are complete
+- the work is receipt-ready local R1/R2 work with `required_approval_count: 0`,
+  terminal dependencies, no open linked decisions, and no actual, planned, or
+  queued external writes
 
 ## External Maintainer Status
 

@@ -39,6 +39,35 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.sources[0].id, "SOURCE-1")
         self.assertEqual(workspace.receipts[0].sources_used, ["SOURCE-1"])
 
+    def test_completed_low_risk_receipt_ready_work_loads(self) -> None:
+        raw = json.loads((FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8"))
+        raw["work_items"][0]["status"] = "completed"
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].status, "completed")
+
+    def test_completed_work_with_unfinished_dependency_fails_closed(self) -> None:
+        raw = json.loads((FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8"))
+        raw["work_items"][0]["status"] = "completed"
+        raw["work_items"][0]["dependency_ids"] = ["WORK-OPEN"]
+        raw["work_items"].append(
+            {
+                "id": "WORK-OPEN",
+                "title": "Open dependency",
+                "goal": "GOAL-1",
+                "palari": "PALARI-1",
+                "risk": "R1",
+                "intensity": "light",
+                "status": "active",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "work_items.WORK-1.status is terminal but dependencies are unfinished: WORK-OPEN",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_example_workbench_graph_loads(self) -> None:
         workspace = Workspace.load(EXAMPLE_WORKSPACE)
 

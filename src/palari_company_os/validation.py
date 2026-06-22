@@ -989,6 +989,14 @@ def _validate_completed_work(
     if not work.current_attempt:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but current_attempt is missing")
     attempt = attempts_by_id[work.current_attempt]
+    unfinished_dependencies = _unfinished_dependency_ids(workspace, work)
+    if unfinished_dependencies:
+        raise WorkspaceError(
+            f"work_items.{work.id}.status is terminal but dependencies are unfinished: "
+            f"{', '.join(unfinished_dependencies)}"
+        )
+    if _completed_via_low_risk_receipt(workspace, work, attempt):
+        return
     evidence = _latest_for_work(workspace.evidence_runs, work.id)
     if evidence is None:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
@@ -1008,6 +1016,34 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but approval quorum is "
             f"{count}/{work.required_approval_count}"
         )
+
+
+def _completed_via_low_risk_receipt(workspace: Any, work: WorkItem, attempt: Attempt) -> bool:
+    if work.risk not in {"R1", "R2"}:
+        return False
+    if work.required_approval_count != 0:
+        return False
+    if attempt.status not in {"complete", "completed"}:
+        return False
+    if _unfinished_dependency_ids(workspace, work):
+        return False
+    receipt = _latest_for_work(workspace.receipts, work.id)
+    if receipt is None or receipt.attempt_id != work.current_attempt:
+        return False
+    return not (
+        receipt.external_writes
+        or receipt.planned_external_writes
+        or receipt.queued_external_writes
+    )
+
+
+def _unfinished_dependency_ids(workspace: Any, work: WorkItem) -> list[str]:
+    work_by_id = {item.id: item for item in workspace.work_items}
+    return [
+        dependency_id
+        for dependency_id in work.dependency_ids
+        if work_by_id[dependency_id].status not in TERMINAL_WORK_STATUSES
+    ]
 
 
 def _validate_receipt(

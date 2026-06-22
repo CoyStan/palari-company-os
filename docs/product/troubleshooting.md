@@ -41,11 +41,14 @@ work item's `required_approval_capability`.
 
 ## `cannot be completed`
 
-Completion is gated by queue integration state. Use:
+Completion is gated by the work's safety state. High-risk or approval-required
+work must reach the normal `ready` state with evidence, review, and approvals.
+Light local work may complete from `receipt-ready` only when it has no required
+approval, no unfinished dependencies, no open linked decisions, and no actual,
+planned, or queued external writes. Use:
 
 ```bash
 ./bin/palari detail WORK-ID
 ```
 
 Then follow the `next` action shown by the CLI.
-

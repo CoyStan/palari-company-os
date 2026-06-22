@@ -213,11 +213,11 @@ def complete_work(
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
     work_detail = detail(workspace, work_id)
-    if work_detail["safety"]["integration_state"] != "ready":
+    blocker = _completion_blocker(work_detail)
+    if blocker:
         raise WorkspaceError(
-            f"work {work_id} cannot be completed: integration_state is "
-            f"{work_detail['safety']['integration_state']}; next action is "
-            f"{work_detail['next_action']}"
+            f"work {work_id} cannot be completed: {blocker}; "
+            f"next action is {work_detail['next_action']}"
         )
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
@@ -238,6 +238,47 @@ def complete_work(
         after=work,
     )
     return MutationResult("completed", "work_items", work_id, workspace.name)
+
+
+def _completion_blocker(work_detail: dict[str, Any]) -> str:
+    integration_state = work_detail["safety"]["integration_state"]
+    if integration_state == "ready":
+        return ""
+    if integration_state != "receipt-ready":
+        return f"integration_state is {integration_state}"
+    return _receipt_ready_completion_blocker(work_detail)
+
+
+def _receipt_ready_completion_blocker(work_detail: dict[str, Any]) -> str:
+    work = work_detail["work_item"]
+    if work["risk"] not in {"R1", "R2"}:
+        return f"receipt-ready completion requires R1/R2 risk, found {work['risk']}"
+    if work.get("required_approval_count", 0) != 0:
+        return "receipt-ready completion requires required_approval_count 0"
+    unfinished_dependencies = [
+        dependency["id"]
+        for dependency in work_detail.get("dependencies", [])
+        if dependency.get("status") not in {"completed", "closed", "done"}
+    ]
+    if unfinished_dependencies:
+        return f"dependencies are unfinished: {', '.join(unfinished_dependencies)}"
+    open_decisions = [
+        decision["id"]
+        for decision in work_detail.get("linked_decisions", [])
+        if decision.get("status") not in {"decided", "answered", "closed"}
+    ]
+    if open_decisions:
+        return f"linked decisions are open: {', '.join(open_decisions)}"
+    receipt = work_detail.get("receipt") or {}
+    if not receipt:
+        return "receipt-ready completion requires a receipt"
+    if (
+        receipt.get("external_writes")
+        or receipt.get("planned_external_writes")
+        or receipt.get("queued_external_writes")
+    ):
+        return "receipt-ready completion requires no external writes"
+    return ""
 
 
 def create_human_decision(
