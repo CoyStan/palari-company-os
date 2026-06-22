@@ -121,8 +121,8 @@
         "show sources before drafting"
       ],
       "memory_sources": [
-        "beta notes",
-        "product decisions"
+        "SOURCE-0001",
+        "SOURCE-0002"
       ],
       "default_worker": "gpt-5-codex",
       "owner_human": "HUMAN-FOUNDER",
@@ -163,7 +163,7 @@
         "explicit blockers"
       ],
       "memory_sources": [
-        "operations runbook"
+        "SOURCE-0003"
       ],
       "default_worker": "gpt-5-codex",
       "owner_human": "HUMAN-OPS",
@@ -192,6 +192,36 @@
       ],
       "last_seen_revision": "source-rev-1",
       "last_read_at": "2026-06-19T04:00:00Z"
+    },
+    {
+      "id": "SOURCE-0002",
+      "label": "Product decisions",
+      "kind": "note",
+      "provider": "local_note",
+      "uri": "examples/acme-company-os/notes/product-decisions.md",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [
+        "PALARI-SOFIA"
+      ],
+      "last_seen_revision": "source-rev-1",
+      "last_read_at": "2026-06-19T04:00:00Z"
+    },
+    {
+      "id": "SOURCE-0003",
+      "label": "Operations runbook",
+      "kind": "runbook",
+      "provider": "local_note",
+      "uri": "examples/acme-company-os/notes/operations-runbook.md",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-OPS",
+      "allowed_palaris": [
+        "PALARI-ALFRED"
+      ],
+      "last_seen_revision": "source-rev-1",
+      "last_read_at": "2026-06-19T04:00:00Z"
     }
   ],
   "workbenches": [
@@ -210,7 +240,8 @@
         "HUMAN-OPS"
       ],
       "source_ids": [
-        "SOURCE-0001"
+        "SOURCE-0001",
+        "SOURCE-0002"
       ],
       "output_target_ids": [
         "examples/acme-company-os/outputs/beta-launch-summary.md"
@@ -231,7 +262,9 @@
         "HUMAN-FOUNDER",
         "HUMAN-OPS"
       ],
-      "source_ids": [],
+      "source_ids": [
+        "SOURCE-0003"
+      ],
       "output_target_ids": [
         "support boundary proposal"
       ],

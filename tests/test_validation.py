@@ -335,6 +335,16 @@ class WorkspaceValidationTests(unittest.TestCase):
             "sources.SOURCE-1.allowed_palaris references missing id PALARI-MISSING",
         )
 
+    def test_palari_memory_sources_must_exist(self) -> None:
+        def missing_memory_source(data: dict[str, object]) -> None:
+            data["palaris"][0]["memory_sources"] = ["SOURCE-MISSING"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "palaris.PALARI-SOFIA.memory_sources references missing id SOURCE-MISSING",
+        ):
+            self.modified_example_workspace(missing_memory_source)
+
     def test_cli_validate_reports_clear_fixture_errors(self) -> None:
         result = self.run_cli_validate(FIXTURES / "unknown-field.json")
 

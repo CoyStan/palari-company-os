@@ -408,6 +408,8 @@ class Workspace:
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
+            for source in palari.memory_sources:
+                _require_ref("palaris", palari.id, "memory_sources", source, source_ids)
             for goal in palari.linked_goals:
                 _require_ref("palaris", palari.id, "linked_goals", goal, goal_ids)
             for work in palari.active_work:

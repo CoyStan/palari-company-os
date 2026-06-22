@@ -97,6 +97,7 @@ Validation checks:
   `canceled_at`, and `cancel_reason` metadata
 - optional playbook source record shape
 - Palari owner, goal, active-work, and outcome references
+- Palari memory sources reference existing source records
 - decision human, goal, work, and Palari references
 - attempt, evidence, review, human decision, receipt, and outcome references
 - non-negative approval quorum counts

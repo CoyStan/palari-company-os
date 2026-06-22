@@ -33,7 +33,10 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(workspace.name, "Acme Company OS Example")
         self.assertEqual(len(workspace.goals), 2)
         self.assertEqual(len(workspace.palaris), 2)
-        self.assertEqual(len(workspace.sources), 1)
+        self.assertEqual(
+            [source.id for source in workspace.sources],
+            ["SOURCE-0001", "SOURCE-0002", "SOURCE-0003"],
+        )
         self.assertEqual(len(workspace.workbenches), 2)
         self.assertEqual(len(workspace.work_items), 7)
         self.assertEqual(len(workspace.receipts), 1)

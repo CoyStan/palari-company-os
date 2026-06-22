@@ -134,10 +134,7 @@
         "honest maturity language"
       ],
       "memory_sources": [
-        "README.md",
-        "docs/product",
-        "CHANGELOG.md",
-        "workspaces/palari-company-os"
+        "SOURCE-REPO-FOUNDATION"
       ],
       "linked_goals": [
         "GOAL-REPO-0001",
@@ -184,9 +181,7 @@
         "prefer adaptive intensity over fixed ceremony"
       ],
       "memory_sources": [
-        "docs/product/company-os.md",
-        "docs/product/authority-and-gates.md",
-        "docs/product/roadmap.md"
+        "SOURCE-REPO-ARCHITECTURE"
       ],
       "linked_goals": [
         "GOAL-REPO-0002"
@@ -265,6 +260,21 @@
       ],
       "last_seen_revision": "ced5aaf",
       "last_read_at": "2026-06-22T05:11:00Z"
+    },
+    {
+      "id": "SOURCE-REPO-ARCHITECTURE",
+      "label": "Product architecture docs",
+      "kind": "repo_files",
+      "provider": "local_repo",
+      "uri": "docs/product",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [
+        "PALARI-ARCHITECT"
+      ],
+      "last_seen_revision": "ced5aaf",
+      "last_read_at": "2026-06-22T05:11:00Z"
     }
   ],
   "workbenches": [
@@ -302,7 +312,9 @@
         "HUMAN-FOUNDER",
         "HUMAN-MAINTAINER"
       ],
-      "source_ids": [],
+      "source_ids": [
+        "SOURCE-REPO-ARCHITECTURE"
+      ],
       "output_target_ids": [],
       "status": "active"
     }
