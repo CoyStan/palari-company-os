@@ -371,6 +371,19 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "gate":
+        from .gate_profiles import gate_profile_catalog, recommend_gates
+
+        workspace = Workspace.load(args.workspace)
+        if args.gate_command == "profiles":
+            return CommandResult("gate-profiles", gate_profile_catalog(workspace), args.json)
+        if args.gate_command == "recommend":
+            return CommandResult(
+                "gate-recommendations",
+                recommend_gates(workspace, args.work_id),
+                args.json,
+            )
+
     raise WorkspaceError("unknown command")
 
 

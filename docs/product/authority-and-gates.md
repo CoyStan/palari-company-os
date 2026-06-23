@@ -57,6 +57,44 @@ Future broker integration should require:
 - human approval for high-risk or external side effects
 - no raw secret exposure to models
 
+## Review Gate Profiles
+
+Gate profiles are lightweight review contracts. They recover the useful part of
+the older Palari v05 practice: a reviewer should know which failure mode they
+are hunting before they inspect work.
+
+Gate profiles do not create tickets, claims, leases, reviewer notes, acceptance
+flows, or authority. They are read-only recommendations for the kind of review a
+work item deserves.
+
+Built-in gates:
+
+- `prompt-authority`: untrusted source, OCR, image, or user text must not become
+  system/developer prompt authority.
+- `source-boundary`: work must use only selected or allowed sources, and receipts
+  must report source use honestly.
+- `external-write`: dry-run, planned, queued, and actual external writes must
+  remain distinct.
+- `human-approval`: review recommendations, approval quorum, and human authority
+  must not be bypassed.
+- `deploy-runtime`: production, beta, runtime data, storage, provider routing,
+  secrets, and deploy boundaries require explicit evidence.
+- `privacy-multimodal`: images, OCR, screenshots, uploads, audio, and video must
+  stay minimized, bounded, and untrusted.
+- `product-overclaim`: public or user-facing copy must not claim capabilities
+  stronger than the implemented product.
+
+Use:
+
+```bash
+palari gate profiles --json
+palari gate recommend WORK-ID --json
+```
+
+The output includes a compact reviewer contract: reviewer role, what to inspect,
+blocker checklist, required evidence, and the accept-ready standard. A gate
+recommendation never means the work is accepted.
+
 ## Gate And Key Custody
 
 Gate keys are authority-bearing infrastructure, not convenience tokens.

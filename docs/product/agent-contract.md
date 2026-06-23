@@ -29,21 +29,24 @@ The v1 loop is:
 4. Continue only if the packet returns `status: ready`.
 5. Read and write only the packet's allowed paths and sources.
 6. Stop if the packet is blocked or a stop condition is reached.
-7. Produce the required output and trust records.
-8. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
+7. Run `palari gate recommend WORK-ID --json` when the work crosses source,
+   prompt-authority, external-write, human-approval, deploy/runtime,
+   multimodal/privacy, or product-claim boundaries.
+8. Produce the required output and trust records.
+9. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
    or `--git-diff` to compare observed edits with the packet boundary.
-9. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` for the normal proof-state check.
-10. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
-11. If the result is a human review or decision handoff, run
+10. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` for the normal proof-state check.
+11. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
+12. If the result is a human review or decision handoff, run
    `palari agent handoff WORK-ID --as PALARI-ID --json`.
-12. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
+13. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
     plain-language diagnosis of the current safety state.
-13. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
+14. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-14. Run `palari validate --json`.
-15. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
+15. Run `palari validate --json`.
+16. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
     handing off the local claim before completion.
-16. Report the packet status, finish guidance, changed files, checks, and blockers.
+17. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -72,6 +75,26 @@ workflow from many separate commands. A packet answers:
 
 The packet must not dump the whole workspace. It includes only directly related
 records and explicit omitted-context notes.
+
+## Gate Recommendations
+
+`palari gate recommend WORK-ID --json` is a read-only companion to packets and
+review guides. It does not review work and does not grant acceptance authority.
+It chooses the review contracts likely to matter for the selected work item:
+
+- prompt authority
+- source boundary
+- external writes
+- human approval
+- deploy/runtime
+- privacy/multimodal
+- product overclaim
+
+Each recommended gate includes a reviewer role, what to inspect, blocker
+checklist, required evidence, and accept-ready standard. Simple low-risk work can
+return `no_special_gate_required: true`; that means use the normal
+receipt/evidence/review loop, not that review is waived where the work item
+requires it.
 
 ## Packet Status
 

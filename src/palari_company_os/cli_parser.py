@@ -134,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
     _add_playbooks_parser(subparsers)
+    _add_gate_parser(subparsers)
 
     return parser
 
@@ -614,6 +615,19 @@ def _add_playbooks_parser(subparsers: Any) -> None:
     sources = nested.add_parser("sources", help="List configured playbook sources.")
     sources.add_argument("--json", action="store_true", help="Emit JSON.")
     recommend = nested.add_parser("recommend", help="Recommend playbooks for one work item.")
+    recommend.add_argument("work_id")
+    recommend.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_gate_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "gate",
+        help="Inspect built-in review gate profiles and work-item gate recommendations.",
+    )
+    nested = parser.add_subparsers(dest="gate_command", required=True)
+    profiles = nested.add_parser("profiles", help="List built-in review gate profiles.")
+    profiles.add_argument("--json", action="store_true", help="Emit JSON.")
+    recommend = nested.add_parser("recommend", help="Recommend review gates for one work item.")
     recommend.add_argument("work_id")
     recommend.add_argument("--json", action="store_true", help="Emit JSON.")
 

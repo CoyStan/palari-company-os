@@ -177,6 +177,14 @@ def print_result(result: CommandResult) -> None:
         print_playbook_recommendations(result.payload, result.as_json)
         return
 
+    if result.kind == "gate-profiles":
+        print_gate_profiles(result.payload, result.as_json)
+        return
+
+    if result.kind == "gate-recommendations":
+        print_gate_recommendations(result.payload, result.as_json)
+        return
+
     raise ValueError(f"unknown command result kind: {result.kind}")
 
 
@@ -353,6 +361,39 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
         print("Use this as guidance; the work item's scope and authority remain the source of truth.")
         for item in payload["operating_guidance"]:
             print(f"- {item['label']}: {item['guidance']}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_gate_profiles(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Gate profiles: {payload['workspace']}")
+    for profile in payload["profiles"]:
+        print(f"{profile['id']}: {profile['label']}")
+        print(f"  {profile['summary']}")
+        print(f"  reviewer: {profile['reviewer_role']}")
+
+
+def print_gate_recommendations(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    print(f"Gate recommendations for {work['id']}: {work['title']}")
+    if payload["no_special_gate_required"]:
+        print("No special gate required.")
+        print(f"Next: {payload['next_action']}")
+        return
+    for gate in payload["recommended_gates"]:
+        print(f"{gate['id']}: {gate['label']}")
+        print(f"  reason: {gate['reason']}")
+        contract = gate["review_contract"]
+        print(f"  reviewer: {contract['reviewer_role']}")
+        print("  blockers:")
+        for item in contract["blocker_checklist"]:
+            print(f"    - {item}")
+        print(f"  accept-ready: {contract['accept_ready_standard']}")
     print(f"Next: {payload['next_action']}")
 
 

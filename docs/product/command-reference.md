@@ -132,6 +132,30 @@ for each suggested result, such as the safe default or `defer`. It does not
 decide, approve, mutate history, or authorize implementation. If the target is a
 work item id, Palari resolves the open decision linked to that work item.
 
+## Gate Profiles
+
+```bash
+./bin/palari gate profiles
+./bin/palari gate profiles --json
+./bin/palari gate recommend WORK-0001
+./bin/palari gate recommend WORK-0001 --json
+```
+
+`gate profiles` lists the built-in review contracts Palari can recommend:
+prompt authority, source boundary, external write, human approval,
+deploy/runtime, privacy/multimodal, and product overclaim.
+
+`gate recommend` is read-only. It inspects the selected work item, risk, sources,
+allowed actions, output targets, integration plans, outbox records, receipt,
+evidence, review, and human-decision state. It returns the relevant gates, why
+each applies, and a compact reviewer contract with reviewer role, inspection
+targets, blocker checklist, required evidence, and accept-ready standard.
+
+Gate recommendations do not execute reviews, mutate workspace state, create
+claims, record reviewer notes, or grant acceptance authority. Simple low-risk
+work may return `no_special_gate_required: true`; that means no extra
+risk-specific gate was detected beyond the normal receipt/evidence/review loop.
+
 ## Agent Packets
 
 ```bash
