@@ -15,6 +15,8 @@ Implemented in the v0.1 local foundation:
 - fail-closed gates for scope, stale evidence, stale review, human authority,
   quorum, integration references, integration allowed events/actions, and raw
   secret values
+- agent-ready repo documentation with `docs check`, `docs map`, `docs init`,
+  compact packet doc hints, and canonical `docs/agent/` orientation docs
 - append-only workspace history for successful mutating commands
 - CI and install-smoke verification
 - repo-local dogfood workspace for real Palari Company OS maturity work

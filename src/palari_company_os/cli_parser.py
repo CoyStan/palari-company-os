@@ -34,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     data_map_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    _add_docs_parser(subparsers)
+
     validate_parser = subparsers.add_parser("validate", help="Validate the workspace.")
     validate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -233,6 +235,37 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_docs_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "docs",
+        help="Inspect and bootstrap agent-ready repository documentation.",
+    )
+    nested = parser.add_subparsers(dest="docs_command", required=True)
+
+    check = nested.add_parser("check", help="Check agent-ready repo documentation freshness.")
+    check.add_argument("--repo", default=".", help="Repository path to inspect.")
+    check.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    init = nested.add_parser("init", help="Propose or create starter agent-ready repo docs.")
+    init.add_argument("--repo", default=".", help="Repository path to inspect.")
+    init.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the proposed starter docs without writing files.",
+    )
+    init.add_argument("--write", action="store_true", help="Create missing starter docs.")
+    init.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="With --write, replace existing starter docs.",
+    )
+    init.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    docs_map = nested.add_parser("map", help="Show the agent-ready documentation map.")
+    docs_map.add_argument("--repo", default=".", help="Repository path to inspect.")
+    docs_map.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_workspace_parser(subparsers: Any) -> None:

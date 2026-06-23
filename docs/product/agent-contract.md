@@ -76,6 +76,22 @@ workflow from many separate commands. A packet answers:
 The packet must not dump the whole workspace. It includes only directly related
 records and explicit omitted-context notes.
 
+## Documentation Hints
+
+Agent packets include compact repo-documentation context:
+
+- `documentation_state` says whether agent-ready repo docs are present,
+  partial, or missing.
+- `recommended_docs` points to committed docs likely to help with the selected
+  work item.
+- `omitted_context` states that full documentation text was not loaded into the
+  packet.
+
+This keeps packets context-window-safe. Agents should read recommended docs only
+when they need that orientation. Missing docs are low context, not a work
+blocker; use `palari docs init --dry-run --json` to inspect the proposed starter
+set.
+
 ## Gate Recommendations
 
 `palari gate recommend WORK-ID --json` is a read-only companion to packets and

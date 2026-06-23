@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .read_models import detail
+from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
 from .workspace import Workspace
 
@@ -25,6 +26,7 @@ def build_agent_brief(
     created_at = _timestamp()
     work = workspace.work_item(work_id)
     palari = workspace.palari(palari_id)
+    docs_state = documentation_state(workspace.path)
     packet: dict[str, Any] = {
         "schema_version": "palari.agent_packet.v1",
         "packet_id": _packet_id(work_id, palari_id, mode),
@@ -34,9 +36,11 @@ def build_agent_brief(
         "status": "blocked",
         "agent": _palari_ref(palari_id, palari),
         "work_item": _work_ref(work_id, work),
+        "documentation_state": docs_state,
+        "recommended_docs": [],
         "blockers": [],
         "next_allowed_commands": [],
-        "omitted_context": [_omitted_context(workspace)],
+        "omitted_context": [_omitted_context(workspace), _omitted_doc_context(docs_state)],
     }
 
     blockers = _initial_blockers(mode, work_id, work, palari_id, palari)
@@ -67,6 +71,8 @@ def build_agent_brief(
             "stop_conditions": _stop_conditions(work_detail, status, mode),
             "state": _state_packet(work_detail),
             "proof_state": proof_state,
+            "documentation_state": docs_state,
+            "recommended_docs": recommended_docs_for_work(work_detail, workspace.path),
             "next_allowed_commands": _next_allowed_commands(
                 work.id,
                 palari_id,
@@ -649,6 +655,15 @@ def _omitted_context(workspace: Workspace) -> dict[str, Any]:
             "sources": len(workspace.sources),
             "history_events": "not included",
         },
+    }
+
+
+def _omitted_doc_context(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "agent_ready_docs",
+        "reason": "Agent packet v1 points to relevant docs but does not include full documentation text.",
+        "documentation_status": state.get("status", "unknown"),
+        "recommended_next_command": state.get("recommended_next_command", ""),
     }
 
 

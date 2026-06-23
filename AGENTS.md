@@ -80,3 +80,16 @@ Never:
 The canonical contract is in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
+
+## Agent-Ready Repo Docs
+
+Use these committed docs before rereading large parts of the repo:
+
+- `docs/agent/repo-map.md` for file ownership and orientation.
+- `docs/agent/contracts-and-invariants.md` for boundaries that must not drift.
+- `docs/agent/common-workflows.md` for common implementation patterns.
+- `docs/agent/verification.md` for focused and full checks.
+- `docs/agent/documentation-freshness.md` for when docs need updates.
+
+Run `palari docs check --json` after changing public commands, schema,
+agent behavior, gates, integrations, examples, or documentation structure.

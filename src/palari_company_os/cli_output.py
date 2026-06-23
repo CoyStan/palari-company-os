@@ -35,6 +35,18 @@ def print_result(result: CommandResult) -> None:
             print_data_map(result.payload)
         return
 
+    if result.kind == "docs-check":
+        print_docs_check(result.payload, result.as_json)
+        return
+
+    if result.kind == "docs-init":
+        print_docs_init(result.payload, result.as_json)
+        return
+
+    if result.kind == "docs-map":
+        print_docs_map(result.payload, result.as_json)
+        return
+
     if result.kind == "validate":
         if result.as_json:
             print_json(result.payload)
@@ -265,6 +277,58 @@ def print_data_map(payload: dict[str, Any]) -> None:
 
     for line in format_data_map(payload):
         print(line)
+
+
+def print_docs_check(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    summary = payload["summary"]
+    print(f"Docs check: {payload['status']} ({payload['repo']})")
+    print(
+        f"Checks: {summary['checks']} | warnings: {summary['warnings']} | "
+        f"failures: {summary['failures']}"
+    )
+    for check in payload["checks"]:
+        if check["status"] == "pass":
+            continue
+        path = f" [{check['path']}]" if check.get("path") else ""
+        print(f"- {check['code']} [{check['status']}]{path}: {check['message']}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_docs_init(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Docs init: {payload['mode']} ({payload['repo']})")
+    print(f"Would mutate: {_yes_no(payload['would_mutate'])}")
+    for item in payload["files"]:
+        print(f"- {item['path']} [{item['action']}]: {item['summary']}")
+    if payload.get("created"):
+        print(f"Created: {', '.join(payload['created'])}")
+    if payload.get("overwritten"):
+        print(f"Overwritten: {', '.join(payload['overwritten'])}")
+    if payload.get("skipped_existing"):
+        print(f"Skipped existing: {', '.join(payload['skipped_existing'])}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    state = payload["documentation_state"]
+    print(f"Docs map: {payload['repo']}")
+    print(f"Documentation: {state['status']} - {state['message']}")
+    print("Root entrypoints:")
+    for item in payload["root_entrypoints"]:
+        print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
+    print("Canonical agent docs:")
+    for item in payload["canonical_agent_docs"]:
+        print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
+    print("Major command groups:")
+    print("  " + ", ".join(payload["major_command_groups"]))
 
 
 def print_dashboard(result: Any, as_json: bool) -> None:
@@ -504,6 +568,14 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Work: {work.get('id', '')} {work.get('title', '')}")
     print(f"Instruction: {payload.get('one_sentence_instruction', '')}")
+    docs_state = payload.get("documentation_state") or {}
+    if docs_state:
+        print(f"Docs: {docs_state.get('status', 'unknown')} - {docs_state.get('message', '')}")
+    recommended_docs = payload.get("recommended_docs") or []
+    if recommended_docs:
+        print("Recommended docs:")
+        for item in recommended_docs:
+            print(f"  - {item['path']}: {item['why']}")
     blockers = payload.get("blockers", [])
     if blockers:
         print("Blockers:")

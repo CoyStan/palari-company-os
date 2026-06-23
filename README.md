@@ -232,6 +232,11 @@ goal -> workbench -> selected sources -> work item -> attempt
 ./bin/palari playbooks sources
 ./bin/palari playbooks recommend WORK-0003
 
+# Agent-ready repo docs
+./bin/palari docs check --json
+./bin/palari docs map
+./bin/palari docs init --dry-run --json
+
 # Static visual surfaces
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
@@ -249,6 +254,7 @@ schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
 workspaces/palari-company-os/      Repo dogfood workspace
 docs/product/                      Product and operator documentation
+docs/agent/                        Agent-ready repo orientation and invariants
 docs/showcase/                     Public-facing examples and vignettes
 scripts/verify.sh                  Full local verification
 scripts/install_smoke.sh           Isolated package install smoke
@@ -265,6 +271,8 @@ Start here:
 - [Agent Contract](docs/product/agent-contract.md) for AI-agent packet behavior
 - [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough
 - [Command Reference](docs/product/command-reference.md) for CLI details
+- [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation
+- [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for boundaries agents must preserve
 
 Then go deeper:
 

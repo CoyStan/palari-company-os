@@ -48,6 +48,8 @@ def build_agent_check(
         "packet_id": packet.get("packet_id", ""),
         "packet_context_hash": packet.get("context_hash", ""),
         "packet_status": packet.get("status", "blocked"),
+        "documentation_state": packet.get("documentation_state", {}),
+        "recommended_docs": packet.get("recommended_docs", []),
         "next_step_type": packet.get("state", {}).get("next_step_type", "inspect"),
         "blockers": packet.get("blockers", []),
         "checks": checks,

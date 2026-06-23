@@ -75,6 +75,31 @@ memory-source references, dry-run integration activity, and what Palari does
 not store, such as raw tokens, provider responses, OAuth state, vector indexes,
 or autonomous approvals.
 
+## Docs
+
+```bash
+./bin/palari docs check
+./bin/palari docs check --json
+./bin/palari docs map
+./bin/palari docs map --json
+./bin/palari docs init --dry-run --json
+./bin/palari docs init --write
+```
+
+`docs check` inspects agent-ready repository documentation. It checks for a
+compact `AGENTS.md`, canonical `docs/agent/` files, local documentation links,
+major command-reference coverage, schema/core-object coverage, README links,
+and stale old-orchestrator terminology. Missing agent docs are a warning, not a
+work blocker.
+
+`docs map` prints the current documentation surfaces and canonical agent docs.
+It is read-only.
+
+`docs init` inspects the repository and proposes starter agent-ready docs. It is
+dry-run by default. Use `--write` to create missing files. Existing files are
+skipped unless `--overwrite` is also provided, so the command does not silently
+replace committed repo truth.
+
 ## Validate
 
 ```bash

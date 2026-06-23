@@ -12,4 +12,6 @@ do not improvise; report the blocker or run only the listed safe commands.
 The shared contract lives in:
 
 - `AGENTS.md`
+- `docs/agent/repo-map.md`
+- `docs/agent/contracts-and-invariants.md`
 - `docs/product/agent-contract.md`

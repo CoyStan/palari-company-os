@@ -56,6 +56,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         workspace = Workspace.load(args.workspace)
         return CommandResult("data-map", build_data_map(workspace), args.json)
 
+    if args.command == "docs":
+        from .repo_docs import build_docs_map, check_docs, init_docs
+
+        if args.docs_command == "check":
+            return CommandResult("docs-check", check_docs(args.repo), args.json)
+        if args.docs_command == "init":
+            return CommandResult(
+                "docs-init",
+                init_docs(args.repo, write=args.write, overwrite=args.overwrite),
+                args.json,
+            )
+        if args.docs_command == "map":
+            return CommandResult("docs-map", build_docs_map(args.repo), args.json)
+
     if args.command == "validate":
         workspace = Workspace.load(args.workspace)
         return CommandResult(
