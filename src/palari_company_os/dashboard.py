@@ -159,7 +159,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
       <p class="top-step"><strong>Step</strong> {_e(top.next_step_type)}</p>
       <p>{_e(top.why)}</p>
       {_agent_handoff_inline(top_handoff)}
-      <code>{_e(top_command)}</code>
+      {_command_inline(top_command)}
     </article>
 """
         if top
@@ -632,7 +632,7 @@ def _agent_command_block(commands: dict[str, str]) -> str:
     if not commands:
         return ""
     rows = "".join(
-        f"<li><span>{_e(label)}</span><code>{_e(command)}</code></li>"
+        _command_row(str(label), command)
         for label, command in commands.items()
         if command
     )
@@ -646,7 +646,7 @@ def _agent_handoff_block(command: str) -> str:
         '<div class="agent-command-block agent-handoff-block">'
         '<strong>Agent handoff</strong>'
         '<p class="agent-boundary">Agent-safe bridge. Human review and decision actions stay human-only.</p>'
-        f'<ul><li><span>bridge</span><code>{_e(command)}</code></li></ul>'
+        f'<ul>{_command_row("bridge", command)}</ul>'
         "</div>"
     )
 
@@ -657,7 +657,7 @@ def _agent_handoff_inline(command: str) -> str:
     return (
         '<p class="top-handoff"><strong>Agent handoff</strong> '
         '<span>agent-safe bridge</span> '
-        f'<code>{_e(command)}</code></p>'
+        f'{_command_inline(command)}</p>'
     )
 
 
@@ -665,10 +665,31 @@ def _command_list_block(title: str, commands: list[str]) -> str:
     if not commands:
         return ""
     rows = "".join(
-        f"<li><span>{index}</span><code>{_e(command)}</code></li>"
+        _command_row(str(index), command)
         for index, command in enumerate(commands, start=1)
     )
     return f'<div class="agent-command-block"><strong>{_e(title)}</strong><ul>{rows}</ul></div>'
+
+
+def _command_row(label: str, command: str) -> str:
+    return (
+        '<li class="command-row">'
+        f'<span>{_e(label)}</span>'
+        f'<code>{_e(command)}</code>'
+        f'<button class="copy-command" type="button" data-copy-command="{_e(command)}" '
+        f'aria-label="Copy command: {_e(command)}">Copy</button>'
+        "</li>"
+    )
+
+
+def _command_inline(command: str) -> str:
+    return (
+        '<span class="command-inline">'
+        f'<code>{_e(command)}</code>'
+        f'<button class="copy-command" type="button" data-copy-command="{_e(command)}" '
+        f'aria-label="Copy command: {_e(command)}">Copy</button>'
+        "</span>"
+    )
 
 
 def _mini_list(values: list[Any], empty_label: str, heading: str = "") -> str:
@@ -1219,9 +1240,27 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
   margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em;
 }
 .agent-command-block ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.24rem; }
-.agent-command-block li { display: grid; grid-template-columns: 3.8rem minmax(0, 1fr); gap: 0.4rem; align-items: baseline; }
+.agent-command-block li { display: grid; grid-template-columns: 3.8rem minmax(0, 1fr) auto; gap: 0.4rem; align-items: baseline; }
 .agent-command-block li span { color: var(--muted); font-size: 0.72rem; font-weight: 600; }
 .agent-command-block code { font-size: 0.72rem; overflow-wrap: anywhere; }
+.command-inline {
+  display: flex; align-items: center; gap: 0.38rem; min-width: 0; flex-wrap: wrap;
+}
+.command-inline code { min-width: 0; overflow-wrap: anywhere; }
+.copy-command {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 1.45rem; padding: 0.12rem 0.42rem;
+  border: 1px solid var(--line-strong); border-radius: 4px;
+  background: var(--panel); color: var(--ink-2);
+  font-size: 0.68rem; font-weight: 650; line-height: 1;
+}
+.copy-command:hover,
+.copy-command:focus-visible {
+  border-color: var(--accent); color: var(--accent); outline: none;
+}
+.copy-command.is-copied {
+  border-color: var(--trust-line); color: var(--trust); background: var(--trust-bg);
+}
 .agent-boundary {
   margin: -0.08rem 0 0.32rem; color: var(--muted); font-size: 0.72rem;
 }
@@ -1912,6 +1951,43 @@ def _script() -> str:
 
   for (const button of filters) {
     button.addEventListener('click', () => applyFilter(button.getAttribute('data-filter')));
+  }
+
+  const copyButtons = Array.from(document.querySelectorAll('[data-copy-command]'));
+
+  async function copyCommand(command) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(command);
+      return;
+    }
+    const area = document.createElement('textarea');
+    area.value = command;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.left = '-9999px';
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+
+  for (const button of copyButtons) {
+    button.addEventListener('click', async () => {
+      const command = button.getAttribute('data-copy-command') || '';
+      const original = button.textContent || 'Copy';
+      try {
+        await copyCommand(command);
+        button.textContent = 'Copied';
+        button.classList.add('is-copied');
+        setTimeout(() => {
+          button.textContent = original;
+          button.classList.remove('is-copied');
+        }, 1200);
+      } catch (error) {
+        button.textContent = 'Select';
+        button.classList.remove('is-copied');
+      }
+    });
   }
 
   window.addEventListener('popstate', () => {

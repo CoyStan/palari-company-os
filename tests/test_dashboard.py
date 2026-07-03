@@ -59,6 +59,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("palari agent brief WORK-0007 --as PALARI-SOFIA --mode review", html)
         self.assertIn("palari agent check WORK-0007 --as PALARI-SOFIA --mode review", html)
         self.assertIn("Next commands", html)
+        self.assertIn('class="copy-command"', html)
+        self.assertIn('data-copy-command="palari agent handoff WORK-0007', html)
         self.assertIn("palari review guide WORK-0007 --json", html)
         self.assertIn("step check-active-proof", html)
         self.assertIn("<dt>Step</dt>", html)
@@ -106,6 +108,26 @@ class DashboardTests(unittest.TestCase):
             for command in agent_safe_commands:
                 with self.subTest(command=command):
                     self.run_cli("--workspace", str(workspace_path), *shlex.split(command)[1:])
+
+    def test_dashboard_copy_actions_match_rendered_command_hints(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_dashboard(ACME, directory)
+            html = Path(result.index_path).read_text(encoding="utf-8")
+            script = Path(result.assets[1]).read_text(encoding="utf-8")
+
+        code_commands = {
+            html_lib.unescape(command)
+            for command in re.findall(r"<code>(palari .*?)</code>", html)
+        }
+        copy_commands = {
+            html_lib.unescape(command)
+            for command in re.findall(r'data-copy-command="(palari .*?)"', html)
+        }
+
+        self.assertGreater(len(copy_commands), 0)
+        self.assertEqual(copy_commands, code_commands)
+        self.assertIn("async function copyCommand", script)
+        self.assertIn("navigator.clipboard.writeText", script)
 
     def test_dashboard_uses_real_tab_panels(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
