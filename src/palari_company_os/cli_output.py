@@ -88,6 +88,10 @@ def print_result(result: CommandResult) -> None:
         print_integration_enqueue(result.payload, result.as_json)
         return
 
+    if result.kind == "integration-outbox-check":
+        print_integration_outbox_check(result.payload, result.as_json)
+        return
+
     if result.kind == "integration-outbox-cancel":
         print_integration_outbox_cancel(result.payload, result.as_json)
         return
@@ -542,6 +546,27 @@ def print_integration_enqueue(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Plan: {item['plan_id']} | Work: {item['work_item_id']}")
     print(f"By: {human['id']} ({human['name']})")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
+    print(f"Next: {payload['next_action']}")
+
+
+def print_integration_outbox_check(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    item = payload["integration_outbox_item"]
+    integration = payload["integration"]
+    print(f"Integration outbox preflight: {item['id']} -> {payload['status']}")
+    print(f"Integration: {integration['id']} ({integration['provider']})")
+    print(f"Plan: {item['plan_id']} | Work: {item['work_item_id']}")
+    print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
+    print(f"Execution enabled: {_yes_no(payload['execution_enabled'])}")
+    failed = [check for check in payload["checks"] if check["status"] != "pass"]
+    if failed:
+        print("Failed checks:")
+        for check in failed:
+            print(f"- {check['code']}: {check['message']}")
+    else:
+        print("Checks: pass")
     print(f"Next: {payload['next_action']}")
 
 

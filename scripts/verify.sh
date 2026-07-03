@@ -68,6 +68,7 @@ with open(os.environ["PALARI_SMOKE_ENQUEUE_JSON"], encoding="utf-8") as handle:
     print(json.load(handle)["integration_outbox_item"]["id"])
 PY
 )"
+./bin/palari --workspace "$integration_smoke_dir" integration outbox-check "$smoke_outbox_id" --json >$verify_output_dir/palari-company-integration-outbox-check.json
 ./bin/palari --workspace "$integration_smoke_dir" integration outbox-cancel "$smoke_outbox_id" --by HUMAN-FOUNDER --reason "verification smoke cancel" --json >$verify_output_dir/palari-company-integration-outbox-canceled.json
 ./bin/palari --workspace "$integration_smoke_dir" queue --json >$verify_output_dir/palari-company-integration-plan-queue.json
 ./bin/palari --workspace "$integration_smoke_dir" detail WORK-0001 --json >$verify_output_dir/palari-company-integration-plan-detail.json
@@ -122,6 +123,9 @@ grep -q '"status": "approved"' $verify_output_dir/palari-company-integration-pla
 grep -q '"would_call_provider": false' $verify_output_dir/palari-company-integration-plan-approved.json
 grep -q '"status": "queued"' $verify_output_dir/palari-company-integration-plan-enqueued.json
 grep -q '"would_call_provider": false' $verify_output_dir/palari-company-integration-plan-enqueued.json
+grep -q '"status": "queued-preflight-ready"' $verify_output_dir/palari-company-integration-outbox-check.json
+grep -q '"execution_enabled": false' $verify_output_dir/palari-company-integration-outbox-check.json
+grep -q '"would_call_provider": false' $verify_output_dir/palari-company-integration-outbox-check.json
 grep -q '"status": "canceled"' $verify_output_dir/palari-company-integration-outbox-canceled.json
 grep -q '"would_call_provider": false' $verify_output_dir/palari-company-integration-outbox-canceled.json
 grep -q 'outbox-canceled' $verify_output_dir/palari-company-integration-plan-queue.json

@@ -474,6 +474,36 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
         self.assertEqual(history["events"][-1]["action"], "queued")
 
+    def test_outbox_check_preflights_queued_item_without_provider_call(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            enqueued = self.record_approve_enqueue(workspace_path, "PLAN-PREFLIGHT")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "outbox-check",
+                    outbox_id,
+                    "--json",
+                ).stdout
+            )
+            text = self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "outbox-check",
+                outbox_id,
+            ).stdout
+
+        self.assertEqual(payload["schema_version"], "palari.integration_outbox_check.v1")
+        self.assertEqual(payload["status"], "queued-preflight-ready")
+        self.assertFalse(payload["would_call_provider"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertEqual(payload["integration"]["provider"], "slack")
+        self.assertEqual(payload["payload_preview"]["provider"], "slack")
+        self.assertTrue(all(check["status"] == "pass" for check in payload["checks"]))
+        self.assertIn("Integration outbox preflight", text)
+        self.assertIn("Execution enabled: no", text)
+
     def test_queued_outbox_can_be_canceled_without_provider_call(self) -> None:
         with self.temp_workspace() as workspace_path:
             enqueued = self.record_approve_enqueue(workspace_path, "PLAN-CANCEL-OUTBOX")
@@ -509,6 +539,37 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
         self.assertEqual(history["events"][-1]["action"], "canceled")
         self.assertIn("cancel_reason", history["events"][-1]["changed_fields"])
+
+    def test_outbox_check_blocks_canceled_item_without_provider_call(self) -> None:
+        with self.temp_workspace() as workspace_path:
+            enqueued = self.record_approve_enqueue(workspace_path, "PLAN-PREFLIGHT-CANCELED")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            self.run_cli_in_workspace(
+                workspace_path,
+                "integration",
+                "outbox-cancel",
+                outbox_id,
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reason",
+                "not needed after all",
+                "--json",
+            )
+            payload = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_path,
+                    "integration",
+                    "outbox-check",
+                    outbox_id,
+                    "--json",
+                ).stdout
+            )
+
+        checks = {check["code"]: check for check in payload["checks"]}
+        self.assertEqual(payload["status"], "blocked")
+        self.assertFalse(payload["would_call_provider"])
+        self.assertEqual(checks["STATUS_QUEUED"]["status"], "fail")
+        self.assertIn("canceled", checks["STATUS_QUEUED"]["message"])
 
     def test_non_queued_outbox_cannot_be_canceled(self) -> None:
         with self.temp_workspace() as workspace_path:

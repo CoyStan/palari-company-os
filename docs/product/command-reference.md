@@ -354,6 +354,7 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration reject PLAN-X --by HUMAN-FOUNDER --reason "wrong audience"
 ./bin/palari integration cancel PLAN-X --by HUMAN-FOUNDER --reason "no longer needed"
 ./bin/palari integration enqueue PLAN-X --by HUMAN-FOUNDER
+./bin/palari integration outbox-check OUTBOX-X --json
 ./bin/palari integration outbox-cancel OUTBOX-X --by HUMAN-FOUNDER --reason "no longer needed"
 ```
 
@@ -392,6 +393,14 @@ preview and source boundary that the human approved on the plan. Queued outbox
 items can be canceled by a qualified human with `integration outbox-cancel`;
 cancellation is recorded in history, keeps the dry-run boundary intact, and
 still performs no provider call.
+
+`integration outbox-check` is a read-only execution preflight for a queued
+outbox item. It confirms that the item is still queued, the plan is approved,
+the integration remains enabled, the event/action are allowed, and the payload
+and source boundary still match what the human approved. It also reports
+`execution_enabled: false` and `would_call_provider: false`; this command is
+preparation for future executor wiring, not live Slack/GitHub/Jira/email
+execution.
 
 ## Receipt-Ready Low-Risk Work
 

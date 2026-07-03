@@ -390,6 +390,104 @@ def cancel_integration_outbox_item(
     }
 
 
+def check_integration_outbox(workspace: Workspace, outbox_id: str) -> dict[str, Any]:
+    item = workspace.integration_outbox_item(outbox_id)
+    if item is None:
+        known = ", ".join(sorted(record.id for record in workspace.integration_outbox))
+        raise WorkspaceError(f"integration outbox item not found: {outbox_id}; known items: {known}")
+    plan = workspace.integration_plan(item.plan_id)
+    if plan is None:
+        raise WorkspaceError(f"integration plan not found: {item.plan_id}")
+    integration = _integration_or_raise(workspace, item.integration_id)
+    work = workspace.work_item(item.work_item_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {item.work_item_id}")
+
+    checks = [
+        _outbox_check(
+            "STATUS_QUEUED",
+            item.status == "queued",
+            f"Outbox status is {item.status}.",
+            f"Outbox status is {item.status}; only queued items can be considered for future execution.",
+        ),
+        _outbox_check(
+            "PLAN_APPROVED",
+            plan.status == "approved",
+            f"Integration plan status is {plan.status}.",
+            "Outbox execution requires an approved integration plan.",
+        ),
+        _outbox_check(
+            "INTEGRATION_ENABLED",
+            integration.enabled,
+            f"Integration {integration.id} is enabled.",
+            f"Integration {integration.id} is disabled.",
+        ),
+        _outbox_check(
+            "EVENT_ALLOWED",
+            item.event in integration.allowed_events,
+            f"Event {item.event} is allowed by {integration.id}.",
+            f"Event {item.event} is not allowed by {integration.id}.",
+        ),
+        _outbox_check(
+            "ACTION_ALLOWED",
+            item.action in integration.allowed_actions,
+            f"Action {item.action} is allowed by {integration.id}.",
+            f"Action {item.action} is not allowed by {integration.id}.",
+        ),
+        _outbox_check(
+            "PAYLOAD_MATCHES_PLAN",
+            item.payload_preview == plan.payload_preview,
+            "Payload preview matches the approved plan.",
+            "Payload preview drifted from the approved plan.",
+        ),
+        _outbox_check(
+            "SOURCE_BOUNDARY_MATCHES_PLAN",
+            item.source_boundary == plan.source_boundary,
+            "Source boundary matches the approved plan.",
+            "Source boundary drifted from the approved plan.",
+        ),
+        _outbox_check(
+            "SECRET_REF_ONLY",
+            not integration.secret_ref or integration.secret_ref.startswith("env:"),
+            "Secret handling is reference-only; no secret value was read.",
+            "Integration secret_ref is not an env:NAME reference.",
+        ),
+        _outbox_check(
+            "EXECUTOR_DISABLED",
+            True,
+            "Live provider execution is not implemented in this CLI.",
+            "Live provider execution unexpectedly enabled.",
+        ),
+    ]
+    ready = all(check["status"] == "pass" for check in checks[:-1])
+    return {
+        "schema_version": "palari.integration_outbox_check.v1",
+        "workspace": workspace.name,
+        "dry_run": True,
+        "would_call_provider": False,
+        "execution_enabled": False,
+        "status": "queued-preflight-ready" if ready else "blocked",
+        "integration_outbox_item": to_plain(item),
+        "integration_plan": to_plain(plan),
+        "integration": _integration_summary(integration),
+        "work_item": {
+            "id": work.id,
+            "title": work.title,
+            "risk": work.risk,
+            "status": work.status,
+        },
+        "payload_preview": deepcopy(item.payload_preview),
+        "source_boundary": deepcopy(item.source_boundary),
+        "checks": checks,
+        "next_action": (
+            "Outbox item is coherent for future executor wiring; this CLI still "
+            "does not call providers or read secrets."
+            if ready
+            else "Resolve failed preflight checks before any future executor can use this item."
+        ),
+    }
+
+
 def _integration_summary(integration: Integration) -> dict[str, Any]:
     return {
         "id": integration.id,
@@ -459,6 +557,14 @@ def _integration_or_raise(workspace: Workspace, integration_id: str) -> Integrat
         known = ", ".join(sorted(item.id for item in workspace.integrations))
         raise WorkspaceError(f"integration not found: {integration_id}; known integrations: {known}")
     return integration
+
+
+def _outbox_check(code: str, ok: bool, pass_message: str, fail_message: str) -> dict[str, str]:
+    return {
+        "code": code,
+        "status": "pass" if ok else "fail",
+        "message": pass_message if ok else fail_message,
+    }
 
 
 def _assert_can_plan(integration: Integration, event: str, action: str) -> None:

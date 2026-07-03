@@ -219,6 +219,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "integration":
         from .integrations import (
             cancel_integration_outbox_item,
+            check_integration_outbox,
             check_integration,
             decide_integration_plan,
             enqueue_integration_plan,
@@ -267,6 +268,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.plan_id,
                     args.human_id,
                 ),
+                args.json,
+            )
+        if args.integration_command == "outbox-check":
+            return CommandResult(
+                "integration-outbox-check",
+                check_integration_outbox(workspace, args.outbox_id),
                 args.json,
             )
         if args.integration_command == "outbox-cancel":

@@ -333,6 +333,13 @@ def _add_integration_parser(subparsers: Any) -> None:
     enqueue.add_argument("--by", dest="human_id", required=True, help="Enqueuing human id.")
     enqueue.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    outbox_check = nested.add_parser(
+        "outbox-check",
+        help="Preflight a queued integration outbox item without executing it.",
+    )
+    outbox_check.add_argument("outbox_id")
+    outbox_check.add_argument("--json", action="store_true", help="Emit JSON.")
+
     outbox_cancel = nested.add_parser(
         "outbox-cancel",
         help="Cancel a queued integration outbox item.",
