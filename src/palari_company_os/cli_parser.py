@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_integration_parser(subparsers)
     _add_agent_parser(subparsers)
     _add_workspace_parser(subparsers)
+    _add_mcp_parser(subparsers)
 
     migrate_parser = subparsers.add_parser(
         "migrate", help="Migrate a workspace to the current schema."
@@ -275,6 +276,20 @@ def _add_workspace_parser(subparsers: Any) -> None:
     init.add_argument("path", help="Workspace directory or workspace.json path to create.")
     init.add_argument("--name", required=True, help="Human-facing workspace name.")
     init.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_mcp_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("mcp", help="Serve Palari tools through MCP.")
+    nested = parser.add_subparsers(dest="mcp_command", required=True)
+    serve = nested.add_parser(
+        "serve",
+        help="Run a read-only stdio MCP server for Palari agent tools.",
+    )
+    serve.add_argument(
+        "--repo",
+        default=".",
+        help="Repository path for docs tools.",
+    )
 
 
 def _add_integration_parser(subparsers: Any) -> None:

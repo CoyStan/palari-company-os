@@ -144,6 +144,9 @@ def print_result(result: CommandResult) -> None:
         print_workspace_init(result.payload, result.as_json)
         return
 
+    if result.kind == "mcp-server":
+        return
+
     if result.kind == "migration":
         if result.as_json:
             print_json(result.payload)

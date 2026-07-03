@@ -210,6 +210,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "mcp" and args.mcp_command == "serve":
+        from .mcp_server import serve_mcp
+
+        serve_mcp(args.workspace, repo=args.repo)
+        return CommandResult("mcp-server", {}, False)
+
     if args.command == "integration":
         from .integrations import (
             cancel_integration_outbox_item,

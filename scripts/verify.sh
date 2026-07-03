@@ -38,6 +38,12 @@ cp examples/acme-company-os/workspace.json "$agent_smoke_dir/workspace.json"
 ./bin/palari agent check WORK-0007 --as PALARI-SOFIA --json >$verify_output_dir/palari-company-agent-check-work-0007.json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json >$verify_output_dir/palari-company-agent-finish-work-0003.json
 ./bin/palari agent finish WORK-0007 --as PALARI-SOFIA --json >$verify_output_dir/palari-company-agent-finish-work-0007.json
+./bin/palari --workspace examples/acme-company-os mcp serve --repo . >$verify_output_dir/palari-company-mcp.jsonl <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"palari_agent_brief","arguments":{"work_id":"WORK-0003","palari_id":"PALARI-SOFIA","mode":"execute"}}}
+EOF
 ./bin/palari playbooks sources --json >$verify_output_dir/palari-company-playbook-sources.json
 ./bin/palari playbooks recommend WORK-0003 --json >$verify_output_dir/palari-company-playbook-recommend.json
 ./bin/palari integrations --json >$verify_output_dir/palari-company-integrations.json
@@ -96,6 +102,9 @@ grep -q 'DEPENDENCY_NOT_TERMINAL' $verify_output_dir/palari-company-agent-check-
 grep -q '"schema_version": "palari.agent_finish.v1"' $verify_output_dir/palari-company-agent-finish-work-0003.json
 grep -q '"status": "missing-proof"' $verify_output_dir/palari-company-agent-finish-work-0003.json
 grep -q '"status": "handoff-ready"' $verify_output_dir/palari-company-agent-finish-work-0007.json
+grep -q '"serverInfo"' $verify_output_dir/palari-company-mcp.jsonl
+grep -q '"palari_agent_brief"' $verify_output_dir/palari-company-mcp.jsonl
+grep -q '"structuredContent"' $verify_output_dir/palari-company-mcp.jsonl
 grep -q 'superpowers:verification-before-completion' $verify_output_dir/palari-company-playbook-recommend.json
 grep -q '"would_call_provider": false' $verify_output_dir/palari-company-integration-plan.json
 grep -q '"recorded": true' $verify_output_dir/palari-company-integration-plan-recorded.json

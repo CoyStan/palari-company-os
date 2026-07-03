@@ -183,6 +183,17 @@ risk-specific gate was detected beyond the normal receipt/evidence/review loop.
 
 ## Agent Packets
 
+### MCP Server
+
+```bash
+./bin/palari --workspace examples/acme-company-os mcp serve
+```
+
+`mcp serve` runs a read-only stdio MCP server for agents and MCP-speaking
+clients. It exposes compact Palari tools for queue, state, detail, agent next,
+agent brief, agent check, and docs check. The server writes only JSON-RPC MCP
+messages to stdout and does not mutate workspace state.
+
 ```bash
 ./bin/palari agent next --json
 ./bin/palari agent next --all --json

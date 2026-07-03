@@ -19,6 +19,7 @@ ROOT_ENTRYPOINTS = ["AGENTS.md", "CLAUDE.md"]
 
 MAJOR_COMMAND_GROUPS = [
     "workspace",
+    "mcp",
     "queue",
     "state",
     "data",
