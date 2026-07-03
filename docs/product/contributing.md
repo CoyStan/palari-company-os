@@ -9,6 +9,8 @@ Do:
 - add regression tests for lifecycle, authority, scope, evidence, and review
   behavior
 - run `./scripts/verify.sh`
+- for lint parity with CI, install `.[dev]` in a virtual environment and run
+  `ruff check .`
 
 ## CLI Structure
 

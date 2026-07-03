@@ -479,7 +479,6 @@ def _queue_item(data: dict[str, Any], work_item: dict[str, Any]) -> str:
 def _artifact_panel(data: dict[str, Any]) -> str:
     work_item = _selected_work_item(data)
     attempt = _current_attempt(work_item)
-    receipt = attempt["receipt"]
     source_chips = "\n        ".join(_source_chip(data, source_id) for source_id in attempt["sources_used"])
     palari = data["palaris"][work_item["palari_id"]]
     return f"""

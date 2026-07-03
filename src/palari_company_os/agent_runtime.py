@@ -50,16 +50,20 @@ def start_agent(
         "packet_path": _runtime_relative(data_path, _packet_path(data_path, packet["packet_id"])),
     }
 
-    existing = read_claim(workspace_path, work_id)
-    if existing and _claim_active(existing) and existing.get("claimed_by") != palari_id:
-        raise WorkspaceError(
-            f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
-        )
-
     packet_path = _packet_path(data_path, packet["packet_id"])
     claim_path = _claim_path(data_path, work_id)
-    _write_json(packet_path, packet)
-    _write_json(claim_path, claim)
+    lock_path = _acquire_claim_lock(data_path, work_id)
+    try:
+        existing = read_claim(workspace_path, work_id)
+        if existing and _claim_active(existing) and existing.get("claimed_by") != palari_id:
+            raise WorkspaceError(
+                f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
+            )
+
+        _write_json(packet_path, packet)
+        _write_json(claim_path, claim)
+    finally:
+        lock_path.unlink(missing_ok=True)
     packet["start"] = {
         "status": "claimed",
         "would_mutate": True,
@@ -184,6 +188,22 @@ def _packet_path(data_path: Path, packet_id: str) -> Path:
 
 def _claim_path(data_path: Path, work_id: str) -> Path:
     return data_path.parent / ".palari" / "claims" / f"{_safe_file_id(work_id)}.json"
+
+
+def _claim_lock_path(data_path: Path, work_id: str) -> Path:
+    return data_path.parent / ".palari" / "claims" / f"{_safe_file_id(work_id)}.lock"
+
+
+def _acquire_claim_lock(data_path: Path, work_id: str) -> Path:
+    path = _claim_lock_path(data_path, work_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as exc:
+        raise WorkspaceError(f"work {work_id} claim is being updated; retry shortly") from exc
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(f"{_timestamp()}\n")
+    return path
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

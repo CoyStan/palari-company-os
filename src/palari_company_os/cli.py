@@ -168,6 +168,8 @@ def _error_code(message: str) -> str:
         return "MISSING_PALARI"
     if "workspace file not found" in lowered:
         return "WORKSPACE_FILE_NOT_FOUND"
+    if "claim is being updated" in lowered:
+        return "CLAIM_UPDATE_IN_PROGRESS"
     if "already claimed" in lowered:
         return "CLAIM_CONFLICT"
     if "claimed by" in lowered:

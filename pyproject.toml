@@ -20,10 +20,17 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: System :: Systems Administration",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9",
+]
 
 [project.scripts]
 palari = "palari_company_os.cli:main"
@@ -41,8 +48,17 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 palari_company_os = [
+    "py.typed",
     "data/examples/acme-company-os/*.json",
     "data/examples/acme-company-os/*.md",
     "data/examples/desktop-demo/*.json",
     "data/schemas/*.json",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+per-file-ignores = {"tests/*.py" = ["E402"]}

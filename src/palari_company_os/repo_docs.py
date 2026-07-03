@@ -5,9 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .workspace import Workspace, WorkspaceError
-
-
 DOC_SCHEMA_VERSION = "palari.repo_docs.v1"
 
 CANONICAL_AGENT_DOCS = [

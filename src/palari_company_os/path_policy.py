@@ -63,7 +63,7 @@ def path_candidates(value: str) -> list[str]:
     """Return path-like tokens from prose, preserving order."""
     candidates: list[str] = []
     for token in re.split(r"\s+", value):
-        candidate = token.strip("'\"`()[]{}<>,;:")
+        candidate = token.strip("'\"`()[]{}<>,;:.")
         if not candidate:
             continue
         looks_path_like = (
@@ -75,7 +75,7 @@ def path_candidates(value: str) -> list[str]:
         if looks_path_like and candidate not in candidates:
             candidates.append(candidate)
     for match in _PATH_TOKEN_RE.finditer(value):
-        candidate = match.group(0).strip("'\"`()[]{}<>,;:")
+        candidate = match.group(0).strip("'\"`()[]{}<>,;:.")
         if candidate and candidate not in candidates:
             candidates.append(candidate)
     return candidates

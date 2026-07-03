@@ -939,6 +939,35 @@ class AgentPacketTests(unittest.TestCase):
             self.assertTrue(release["released"])
             self.assertFalse(claim_path.exists())
 
+    def test_cli_agent_start_reports_claim_update_lock_as_json(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            lock_dir = workspace_file.parent / ".palari" / "claims"
+            lock_dir.mkdir(parents=True)
+            lock_path = lock_dir / "WORK-0003.lock"
+            lock_path.write_text("test lock\n", encoding="utf-8")
+
+            result = self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--mode",
+                "execute",
+                "--json",
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stderr, "")
+            self.assertEqual(payload["ok"], False)
+            self.assertEqual(payload["error"]["code"], "CLAIM_UPDATE_IN_PROGRESS")
+            self.assertEqual(payload["error"]["work_item"], "WORK-0003")
+            self.assertIn("retry shortly", payload["error"]["message"])
+            self.assertTrue(lock_path.exists())
+
     def test_cli_agent_brief_review_mode_emits_review_context(self) -> None:
         result = json.loads(
             self.run_cli(
