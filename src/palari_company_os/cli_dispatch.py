@@ -420,7 +420,7 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
         "changes": changes,
     }
     if write:
-        store = type(store)(store.data_path, migrated)
+        store = store.with_data(migrated)
         workspace = write_store(store)
         append_history_event(
             store.data_path,

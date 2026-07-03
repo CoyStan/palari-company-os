@@ -6,6 +6,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 
 - Workspace data is local, file-backed, inspectable JSON.
 - Unknown workspace fields fail closed.
+- Workspace writes are one-writer-at-a-time. If the file changed after a
+  command loaded it, the command must fail closed and ask the agent to retry.
 - Split collection files are read-time only for now; authoring writes refuse
   split workspaces rather than silently collapsing records.
 - Collection file paths must be workspace-relative and must not contain `..`.

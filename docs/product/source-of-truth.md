@@ -36,6 +36,12 @@ The history file is append-only local audit evidence for successful mutations.
 It is not yet the source for rebuilding `workspace.json`; event-sourced
 projection is intentionally future work.
 
+Writes to `workspace.json` use a local lock plus optimistic change detection.
+Atomic replace prevents partial files; the loaded-file hash prevents stale
+read-modify-write commands from overwriting newer workspace changes. When a
+second writer wins first, the stale command fails closed and should be retried
+after reloading the workspace.
+
 ## Design Direction
 
 Future workspaces may add richer authoring for split records or support other

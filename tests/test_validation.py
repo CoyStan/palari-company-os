@@ -286,6 +286,42 @@ class WorkspaceValidationTests(unittest.TestCase):
             ):
                 write_store(store)
 
+    def test_write_store_fails_when_workspace_changed_after_load(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            stale_store = load_store(workspace_file)
+            fresh_store = load_store(workspace_file)
+            fresh_store.data["name"] = "Fresh write wins"
+            write_store(fresh_store)
+
+            stale_store.data["name"] = "Stale write loses"
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "workspace changed since it was loaded; retry command",
+            ):
+                write_store(stale_store)
+
+            self.assertEqual(load_store(workspace_file).data["name"], "Fresh write wins")
+
+    def test_write_store_fails_when_workspace_lock_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            store = load_store(workspace_file)
+            store.data["name"] = "Blocked by lock"
+            lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
+            lock_path.parent.mkdir(parents=True)
+            lock_path.write_text("test lock\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "workspace write is already in progress; retry shortly",
+            ):
+                write_store(store)
+
+            self.assertTrue(lock_path.exists())
+
     def test_unknown_record_field_fails_closed(self) -> None:
         self.assert_fixture_error(
             "unknown-field.json",
