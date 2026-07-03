@@ -8,8 +8,13 @@ from typing import Any, TextIO
 
 from . import __version__
 from .agent_checks import build_agent_check
+from .agent_doctor import build_agent_doctor
+from .agent_finish import build_agent_finish
+from .agent_handoff import build_agent_handoff
+from .agent_loop import build_agent_loop
 from .agent_next import build_agent_next, build_agent_next_all
 from .agent_packets import build_agent_brief
+from .agent_runtime import release_agent, start_agent
 from .models import to_plain
 from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .repo_docs import check_docs
@@ -130,6 +135,21 @@ def tool_definitions() -> list[dict[str, Any]]:
             required=["work_id", "palari_id"],
         ),
         _tool(
+            "palari_agent_start",
+            "Palari Agent Start",
+            "Persist the bounded agent packet and claim one ready work item locally.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "mode": _string("Agent packet mode.", default="execute"),
+                "lease_minutes": _integer("Claim lease duration in minutes.", default=30, minimum=1),
+            },
+            required=["work_id", "palari_id"],
+            read_only=False,
+            idempotent=False,
+        ),
+        _tool(
             "palari_agent_check",
             "Palari Agent Check",
             "Check whether one work item currently satisfies its agent packet contract.",
@@ -142,6 +162,67 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "git_diff": _boolean("Inspect current git status against packet write boundaries."),
             },
             required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_finish",
+            "Palari Agent Finish",
+            "Summarize whether one agent may report completion or must hand off.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "mode": _string("Agent packet mode.", default="execute"),
+            },
+            required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_handoff",
+            "Palari Agent Handoff",
+            "Compile a read-only handoff packet for review, decision, or approval.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "mode": _string("Agent packet mode.", default="execute"),
+            },
+            required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_loop",
+            "Palari Agent Loop",
+            "Show the compact read-only control loop for one agent and work item.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "mode": _string("Agent packet mode.", default="execute"),
+            },
+            required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_doctor",
+            "Palari Agent Doctor",
+            "Explain the current agent loop safety state in plain language.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "mode": _string("Agent packet mode.", default="execute"),
+            },
+            required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_release",
+            "Palari Agent Release",
+            "Release one local agent claim without changing workspace records.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+            },
+            required=["work_id", "palari_id"],
+            read_only=False,
+            idempotent=False,
         ),
         _tool(
             "palari_docs_check",
@@ -213,6 +294,15 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
         )
+    if name == "palari_agent_start":
+        return start_agent(
+            workspace,
+            workspace_path,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            _optional_string(arguments, "mode", "execute"),
+            lease_minutes=_optional_int(arguments, "lease_minutes", 30),
+        )
     if name == "palari_agent_check":
         return build_agent_check(
             workspace,
@@ -222,6 +312,41 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             changed_paths=_string_list(arguments.get("changed_paths", [])),
             git_diff=bool(arguments.get("git_diff", False)),
             cwd=Path.cwd(),
+        )
+    if name == "palari_agent_finish":
+        return build_agent_finish(
+            workspace,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            _optional_string(arguments, "mode", "execute"),
+        )
+    if name == "palari_agent_handoff":
+        return build_agent_handoff(
+            workspace,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            _optional_string(arguments, "mode", "execute"),
+        )
+    if name == "palari_agent_loop":
+        return build_agent_loop(
+            workspace,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            _optional_string(arguments, "mode", "execute"),
+        )
+    if name == "palari_agent_doctor":
+        return build_agent_doctor(
+            workspace,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            _optional_string(arguments, "mode", "execute"),
+        )
+    if name == "palari_agent_release":
+        return release_agent(
+            workspace,
+            workspace_path,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
         )
     raise ValueError(f"unsupported tool: {name}")
 
@@ -240,7 +365,8 @@ def _initialize_result(message: dict[str, Any]) -> dict[str, Any]:
         },
         "instructions": (
             "Use Palari tools to inspect workspace state and compile/check bounded "
-            "agent packets. This MCP server exposes read-only tools only."
+            "agent packets. Most tools are read-only; agent start/release only "
+            "persist or remove local packet and claim files."
         ),
     }
 
@@ -270,6 +396,9 @@ def _tool(
     properties: dict[str, Any],
     *,
     required: list[str] | None = None,
+    read_only: bool = True,
+    destructive: bool = False,
+    idempotent: bool = True,
 ) -> dict[str, Any]:
     return {
         "name": name,
@@ -282,9 +411,9 @@ def _tool(
             "additionalProperties": False,
         },
         "annotations": {
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
+            "readOnlyHint": read_only,
+            "destructiveHint": destructive,
+            "idempotentHint": idempotent,
             "openWorldHint": False,
         },
     }

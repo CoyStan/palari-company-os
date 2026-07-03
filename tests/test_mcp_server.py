@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from typing import Iterator
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -34,7 +37,7 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result["capabilities"], {"tools": {"listChanged": False}})
         self.assertEqual(result["serverInfo"]["name"], "palari-company-os")
 
-    def test_tools_list_exposes_expected_read_only_tools(self) -> None:
+    def test_tools_list_exposes_expected_lifecycle_tools(self) -> None:
         names = {tool["name"] for tool in tool_definitions()}
 
         self.assertEqual(
@@ -45,13 +48,27 @@ class McpServerTests(unittest.TestCase):
                 "palari_detail",
                 "palari_agent_next",
                 "palari_agent_brief",
+                "palari_agent_start",
                 "palari_agent_check",
+                "palari_agent_finish",
+                "palari_agent_handoff",
+                "palari_agent_loop",
+                "palari_agent_doctor",
+                "palari_agent_release",
                 "palari_docs_check",
             },
         )
+        mutating_local_tools = {"palari_agent_start", "palari_agent_release"}
         for tool in tool_definitions():
-            self.assertEqual(tool["annotations"]["readOnlyHint"], True)
+            self.assertEqual(
+                tool["annotations"]["readOnlyHint"],
+                tool["name"] not in mutating_local_tools,
+            )
             self.assertEqual(tool["annotations"]["destructiveHint"], False)
+            self.assertEqual(
+                tool["annotations"]["idempotentHint"],
+                tool["name"] not in mutating_local_tools,
+            )
 
     def test_tools_call_returns_structured_content_and_text_fallback(self) -> None:
         response = handle_mcp_message(
@@ -100,6 +117,93 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result["structuredContent"]["ok"], False)
         self.assertIn("unknown work item", result["structuredContent"]["error"]["message"])
 
+    def test_agent_start_and_release_tools_manage_local_runtime_files(self) -> None:
+        with self.temporary_workspace() as workspace_file:
+            start_response = handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 10,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "palari_agent_start",
+                        "arguments": {
+                            "work_id": "WORK-0003",
+                            "palari_id": "PALARI-SOFIA",
+                            "mode": "execute",
+                            "lease_minutes": 5,
+                        },
+                    },
+                },
+                self.context(workspace_file),
+            )
+
+            self.assertIsNotNone(start_response)
+            start_result = start_response["result"]
+            start_payload = start_result["structuredContent"]
+            self.assertEqual(start_result["isError"], False)
+            self.assertEqual(start_payload["start"]["status"], "claimed")
+            packet_path = workspace_file.parent / start_payload["start"]["packet_path"]
+            claim_path = workspace_file.parent / start_payload["start"]["claim_path"]
+            self.assertTrue(packet_path.exists())
+            self.assertTrue(claim_path.exists())
+
+            release_response = handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 11,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "palari_agent_release",
+                        "arguments": {
+                            "work_id": "WORK-0003",
+                            "palari_id": "PALARI-SOFIA",
+                        },
+                    },
+                },
+                self.context(workspace_file),
+            )
+
+            self.assertIsNotNone(release_response)
+            release_result = release_response["result"]
+            release_payload = release_result["structuredContent"]
+            self.assertEqual(release_result["isError"], False)
+            self.assertEqual(release_payload["status"], "released")
+            self.assertFalse(claim_path.exists())
+            self.assertTrue(packet_path.exists())
+
+    def test_agent_lifecycle_read_only_tools_return_structured_packets(self) -> None:
+        expected_versions = {
+            "palari_agent_finish": "palari.agent_finish.v1",
+            "palari_agent_handoff": "palari.agent_handoff.v1",
+            "palari_agent_loop": "palari.agent_loop.v1",
+            "palari_agent_doctor": "palari.agent_doctor.v1",
+        }
+
+        for tool_name, schema_version in expected_versions.items():
+            with self.subTest(tool_name=tool_name):
+                response = handle_mcp_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 20,
+                        "method": "tools/call",
+                        "params": {
+                            "name": tool_name,
+                            "arguments": {
+                                "work_id": "WORK-0007",
+                                "palari_id": "PALARI-SOFIA",
+                                "mode": "execute",
+                            },
+                        },
+                    },
+                    self.context(),
+                )
+
+                self.assertIsNotNone(response)
+                result = response["result"]
+                self.assertEqual(result["isError"], False)
+                self.assertEqual(result["structuredContent"]["schema_version"], schema_version)
+                self.assertEqual(result["structuredContent"]["would_mutate"], False)
+
     def test_unknown_tool_returns_protocol_error(self) -> None:
         response = handle_mcp_message(
             {
@@ -145,8 +249,18 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(responses[2]["result"]["isError"], False)
         self.assertIn("queue", responses[2]["result"]["structuredContent"])
 
-    def context(self) -> McpContext:
-        return McpContext(workspace=str(WORKSPACE), repo=str(REPO_ROOT))
+    def context(self, workspace: Path | None = None) -> McpContext:
+        return McpContext(workspace=str(workspace or WORKSPACE), repo=str(REPO_ROOT))
+
+    @contextmanager
+    def temporary_workspace(self) -> Iterator[Path]:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            workspace_file.write_text(
+                (WORKSPACE / "workspace.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            yield workspace_file
 
     def run_mcp(self, messages: list[dict[str, object]]) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

@@ -189,10 +189,14 @@ risk-specific gate was detected beyond the normal receipt/evidence/review loop.
 ./bin/palari --workspace examples/acme-company-os mcp serve
 ```
 
-`mcp serve` runs a read-only stdio MCP server for agents and MCP-speaking
-clients. It exposes compact Palari tools for queue, state, detail, agent next,
-agent brief, agent check, and docs check. The server writes only JSON-RPC MCP
-messages to stdout and does not mutate workspace state.
+`mcp serve` runs a stdio MCP server for agents and MCP-speaking clients. It
+exposes compact Palari tools for queue, state, detail, docs check, and the
+agent loop: next, brief, start, check, finish, handoff, doctor, loop, and
+release. Most tools are read-only. `palari_agent_start` and
+`palari_agent_release` only write or remove local `.palari/packets` and
+`.palari/claims` runtime files; they do not change workspace records, call
+providers, read secrets, or perform external writes. The server writes only
+JSON-RPC MCP messages to stdout.
 
 ```bash
 ./bin/palari agent next --json
