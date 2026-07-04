@@ -694,9 +694,10 @@ def _source_boundary(
         "work_allowed_sources": sorted(work_sources),
         "shared_sources": shared,
         "shared_source_labels": [
-            workspace.source(source_id).label
+            source.label
             for source_id in shared
-            if workspace.source(source_id) is not None
+            for source in [workspace.source(source_id)]
+            if source is not None
         ],
     }
 

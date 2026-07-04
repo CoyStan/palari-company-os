@@ -547,7 +547,11 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
 def _attempt_ref(record: dict[str, Any] | None) -> dict[str, Any] | None:
     if record is None:
         return None
-    payload = _record_ref(record, ["id", "status", "actor", "branch", "changed_files"])
+    payload = {
+        field: record.get(field, "")
+        for field in ("id", "status", "actor", "branch", "changed_files")
+        if field in record
+    }
     commits = record.get("commits", [])
     if isinstance(commits, list) and commits:
         payload["head_sha"] = str(commits[-1])

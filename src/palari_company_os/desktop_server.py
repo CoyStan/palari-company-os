@@ -32,7 +32,10 @@ def serve_desktop_prototype(
     )
     handler = make_desktop_handler(config)
     server = ThreadingHTTPServer((host, port), handler)
-    url = f"http://{server.server_address[0]}:{server.server_address[1]}/"
+    bound_host = server.server_address[0]
+    if isinstance(bound_host, bytes):
+        bound_host = bound_host.decode("utf-8")
+    url = f"http://{bound_host}:{server.server_address[1]}/"
     print(f"Palari Desktop server: {url}", flush=True)
     print(f"Prototype files: {output}", flush=True)
     try:

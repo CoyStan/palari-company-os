@@ -10,7 +10,7 @@ Do:
   behavior
 - run `./scripts/verify.sh`
 - for lint parity with CI, install `.[dev]` in a virtual environment and run
-  `ruff check .`
+  `ruff check .` and `mypy`
 
 ## CLI Structure
 
@@ -19,7 +19,12 @@ work should usually fit into one of these modules:
 
 - `cli_parser.py`: argparse setup and command flags.
 - `cli_dispatch.py`: command execution and CLI-to-domain record assembly.
-- `cli_output.py`: human-readable and JSON rendering.
+- `cli_output.py`: dispatch and shared human-readable/JSON rendering.
+- `cli_output_agent.py`: agent packet, check, lifecycle, handoff, loop, and
+  doctor output.
+- `cli_output_integrations.py`: integration registry, plan, outbox, and
+  preflight output.
+- `cli_output_utils.py`: small shared output helpers.
 - `authoring.py`: workspace mutations and lifecycle safety gates.
 
 Avoid adding business rules directly to `cli.py`.

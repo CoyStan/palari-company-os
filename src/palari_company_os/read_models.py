@@ -798,7 +798,7 @@ def _pending_integration_plans_by_work(records: Iterable[T]) -> dict[str, list[T
             "planned",
             "pending-approval",
         }:
-            grouped.setdefault(record.work_item_id, []).append(record)
+            grouped.setdefault(getattr(record, "work_item_id"), []).append(record)
     for plans in grouped.values():
         plans.sort(key=_record_time_key, reverse=True)
     return grouped
@@ -808,7 +808,7 @@ def _queued_integration_outbox_by_work(records: Iterable[T]) -> dict[str, list[T
     grouped: dict[str, list[T]] = {}
     for record in records:
         if getattr(record, "status", "") == "queued":
-            grouped.setdefault(record.work_item_id, []).append(record)
+            grouped.setdefault(getattr(record, "work_item_id"), []).append(record)
     for items in grouped.values():
         items.sort(key=_record_time_key, reverse=True)
     return grouped
