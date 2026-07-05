@@ -237,12 +237,12 @@ class Workspace:
         outcome_ids = {outcome.id for outcome in self.outcomes}
 
         for goal in self.goals:
-            for palari in goal.linked_palaris:
-                _require_ref("goals", goal.id, "linked_palaris", palari, palari_ids)
-            for work in goal.linked_work:
-                _require_ref("goals", goal.id, "linked_work", work, work_ids)
-            for decision in goal.linked_decisions:
-                _require_ref("goals", goal.id, "linked_decisions", decision, decision_ids)
+            for palari_id in goal.linked_palaris:
+                _require_ref("goals", goal.id, "linked_palaris", palari_id, palari_ids)
+            for work_id in goal.linked_work:
+                _require_ref("goals", goal.id, "linked_work", work_id, work_ids)
+            for decision_id in goal.linked_decisions:
+                _require_ref("goals", goal.id, "linked_decisions", decision_id, decision_ids)
 
         for workbench in self.workbenches:
             if workbench.parent_workbench_id:
@@ -253,14 +253,14 @@ class Workspace:
                     workbench.parent_workbench_id,
                     workbench_ids,
                 )
-            for goal in workbench.goal_ids:
-                _require_ref("workbenches", workbench.id, "goal_ids", goal, goal_ids)
-            for palari in workbench.palari_ids:
-                _require_ref("workbenches", workbench.id, "palari_ids", palari, palari_ids)
-            for human in workbench.human_ids:
-                _require_ref("workbenches", workbench.id, "human_ids", human, human_ids)
-            for source in workbench.source_ids:
-                _require_ref("workbenches", workbench.id, "source_ids", source, source_ids)
+            for goal_id in workbench.goal_ids:
+                _require_ref("workbenches", workbench.id, "goal_ids", goal_id, goal_ids)
+            for palari_id in workbench.palari_ids:
+                _require_ref("workbenches", workbench.id, "palari_ids", palari_id, palari_ids)
+            for human_id in workbench.human_ids:
+                _require_ref("workbenches", workbench.id, "human_ids", human_id, human_ids)
+            for source_id in workbench.source_ids:
+                _require_ref("workbenches", workbench.id, "source_ids", source_id, source_ids)
 
         _ensure_parent_graph_has_no_cycles(
             "workbenches",
@@ -268,49 +268,57 @@ class Workspace:
             "parent_workbench_id",
         )
 
-        for work in self.work_items:
-            _require_ref("work_items", work.id, "goal", work.goal, goal_ids)
-            _require_ref("work_items", work.id, "palari", work.palari, palari_ids)
-            if work.workbench_id:
-                _require_ref(
-                    "work_items", work.id, "workbench_id", work.workbench_id, workbench_ids
-                )
-                _validate_workbench_boundary(self, work)
-            if work.parent_work_item_id:
+        for work_item in self.work_items:
+            _require_ref("work_items", work_item.id, "goal", work_item.goal, goal_ids)
+            _require_ref("work_items", work_item.id, "palari", work_item.palari, palari_ids)
+            if work_item.workbench_id:
                 _require_ref(
                     "work_items",
-                    work.id,
+                    work_item.id,
+                    "workbench_id",
+                    work_item.workbench_id,
+                    workbench_ids,
+                )
+                _validate_workbench_boundary(self, work_item)
+            if work_item.parent_work_item_id:
+                _require_ref(
+                    "work_items",
+                    work_item.id,
                     "parent_work_item_id",
-                    work.parent_work_item_id,
+                    work_item.parent_work_item_id,
                     work_ids,
                 )
-            for dependency in work.dependency_ids:
-                _require_ref("work_items", work.id, "dependency_ids", dependency, work_ids)
-            if work.current_attempt:
+            for dependency_id in work_item.dependency_ids:
+                _require_ref("work_items", work_item.id, "dependency_ids", dependency_id, work_ids)
+            if work_item.current_attempt:
                 _require_ref(
-                    "work_items", work.id, "current_attempt", work.current_attempt, attempt_ids
+                    "work_items",
+                    work_item.id,
+                    "current_attempt",
+                    work_item.current_attempt,
+                    attempt_ids,
                 )
-                current_attempt = _find(self.attempts, work.current_attempt)
-                if current_attempt is not None and current_attempt.work_item_id != work.id:
+                current_attempt = _find(self.attempts, work_item.current_attempt)
+                if current_attempt is not None and current_attempt.work_item_id != work_item.id:
                     raise WorkspaceError(
-                        f"work_items.{work.id}.current_attempt references attempt "
-                        f"{work.current_attempt} for different work item "
+                        f"work_items.{work_item.id}.current_attempt references attempt "
+                        f"{work_item.current_attempt} for different work item "
                         f"{current_attempt.work_item_id}"
                     )
-            for source in work.allowed_sources:
-                _require_ref("work_items", work.id, "allowed_sources", source, source_ids)
-            for playbook in work.recommended_playbooks:
+            for source_id in work_item.allowed_sources:
+                _require_ref("work_items", work_item.id, "allowed_sources", source_id, source_ids)
+            for playbook_ref in work_item.recommended_playbooks:
                 _require_playbook_ref(
                     "work_items",
-                    work.id,
+                    work_item.id,
                     "recommended_playbooks",
-                    playbook,
+                    playbook_ref,
                     playbook_source_ids,
                     self.playbook_sources,
                 )
-            if work.required_approval_count < 0:
+            if work_item.required_approval_count < 0:
                 raise WorkspaceError(
-                    f"work_items.{work.id}.required_approval_count must be zero or greater"
+                    f"work_items.{work_item.id}.required_approval_count must be zero or greater"
                 )
 
         _ensure_parent_graph_has_no_cycles(
@@ -319,19 +327,31 @@ class Workspace:
             "parent_work_item_id",
         )
 
-        for source in self.sources:
-            if source.owner_human:
-                _require_ref("sources", source.id, "owner_human", source.owner_human, human_ids)
-            if source.steward_human:
+        for source_record in self.sources:
+            if source_record.owner_human:
                 _require_ref(
                     "sources",
-                    source.id,
-                    "steward_human",
-                    source.steward_human,
+                    source_record.id,
+                    "owner_human",
+                    source_record.owner_human,
                     human_ids,
                 )
-            for palari in source.allowed_palaris:
-                _require_ref("sources", source.id, "allowed_palaris", palari, palari_ids)
+            if source_record.steward_human:
+                _require_ref(
+                    "sources",
+                    source_record.id,
+                    "steward_human",
+                    source_record.steward_human,
+                    human_ids,
+                )
+            for palari_id in source_record.allowed_palaris:
+                _require_ref(
+                    "sources",
+                    source_record.id,
+                    "allowed_palaris",
+                    palari_id,
+                    palari_ids,
+                )
 
         for integration in self.integrations:
             if integration.owner_human:
@@ -342,8 +362,8 @@ class Workspace:
                     integration.owner_human,
                     human_ids,
                 )
-            for source in integration.source_ids:
-                _require_ref("integrations", integration.id, "source_ids", source, source_ids)
+            for source_id in integration.source_ids:
+                _require_ref("integrations", integration.id, "source_ids", source_id, source_ids)
 
         for plan in self.integration_plans:
             _require_ref(
@@ -416,14 +436,14 @@ class Workspace:
         for palari in self.palaris:
             if palari.owner_human:
                 _require_ref("palaris", palari.id, "owner_human", palari.owner_human, human_ids)
-            for source in palari.memory_sources:
-                _require_ref("palaris", palari.id, "memory_sources", source, source_ids)
-            for goal in palari.linked_goals:
-                _require_ref("palaris", palari.id, "linked_goals", goal, goal_ids)
-            for work in palari.active_work:
-                _require_ref("palaris", palari.id, "active_work", work, work_ids)
-            for outcome in palari.outcomes:
-                _require_ref("palaris", palari.id, "outcomes", outcome, outcome_ids)
+            for source_id in palari.memory_sources:
+                _require_ref("palaris", palari.id, "memory_sources", source_id, source_ids)
+            for goal_id in palari.linked_goals:
+                _require_ref("palaris", palari.id, "linked_goals", goal_id, goal_ids)
+            for work_id in palari.active_work:
+                _require_ref("palaris", palari.id, "active_work", work_id, work_ids)
+            for outcome_id in palari.outcomes:
+                _require_ref("palaris", palari.id, "outcomes", outcome_id, outcome_ids)
 
         for attempt in self.attempts:
             _require_ref("attempts", attempt.id, "work_item_id", attempt.work_item_id, work_ids)
@@ -441,22 +461,38 @@ class Workspace:
                 "review_verdicts", review.id, "work_item_id", review.work_item_id, work_ids
             )
 
-        for decision in self.decisions:
-            if decision.required_human:
+        for decision_record in self.decisions:
+            if decision_record.required_human:
                 _require_ref(
                     "decisions",
-                    decision.id,
+                    decision_record.id,
                     "required_human",
-                    decision.required_human,
+                    decision_record.required_human,
                     human_ids,
                 )
-            if decision.linked_work:
-                _require_ref("decisions", decision.id, "linked_work", decision.linked_work, work_ids)
-            if decision.linked_goal:
-                _require_ref("decisions", decision.id, "linked_goal", decision.linked_goal, goal_ids)
-            if decision.linked_palari:
+            if decision_record.linked_work:
                 _require_ref(
-                    "decisions", decision.id, "linked_palari", decision.linked_palari, palari_ids
+                    "decisions",
+                    decision_record.id,
+                    "linked_work",
+                    decision_record.linked_work,
+                    work_ids,
+                )
+            if decision_record.linked_goal:
+                _require_ref(
+                    "decisions",
+                    decision_record.id,
+                    "linked_goal",
+                    decision_record.linked_goal,
+                    goal_ids,
+                )
+            if decision_record.linked_palari:
+                _require_ref(
+                    "decisions",
+                    decision_record.id,
+                    "linked_palari",
+                    decision_record.linked_palari,
+                    palari_ids,
                 )
 
         for human_decision in self.human_decisions:
@@ -494,22 +530,22 @@ class Workspace:
         for receipt in self.receipts:
             _require_ref("receipts", receipt.id, "work_item_id", receipt.work_item_id, work_ids)
             _require_ref("receipts", receipt.id, "attempt_id", receipt.attempt_id, attempt_ids)
-            for source in receipt.sources_used:
-                _require_ref("receipts", receipt.id, "sources_used", source, source_ids)
-            for plan in receipt.planned_external_writes:
+            for source_id in receipt.sources_used:
+                _require_ref("receipts", receipt.id, "sources_used", source_id, source_ids)
+            for plan_id in receipt.planned_external_writes:
                 _require_ref(
                     "receipts",
                     receipt.id,
                     "planned_external_writes",
-                    plan,
+                    plan_id,
                     integration_plan_ids,
                 )
-            for item in receipt.queued_external_writes:
+            for outbox_item_id in receipt.queued_external_writes:
                 _require_ref(
                     "receipts",
                     receipt.id,
                     "queued_external_writes",
-                    item,
+                    outbox_item_id,
                     integration_outbox_ids,
                 )
 

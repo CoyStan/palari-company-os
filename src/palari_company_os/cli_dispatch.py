@@ -382,8 +382,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "maintainer" and args.maintainer_command == "status":
         from .maintainer import status as maintainer_status
 
-        payload = maintainer_status(Path(args.repo)).to_dict()
-        return CommandResult("maintainer-status", payload, args.json)
+        maintainer_payload = maintainer_status(Path(args.repo)).to_dict()
+        return CommandResult("maintainer-status", maintainer_payload, args.json)
 
     if args.command == "playbooks":
         from .playbooks import playbook_catalog, recommend_playbooks
