@@ -52,3 +52,25 @@ planned, or queued external writes. Use:
 ```
 
 Then follow the `next` action shown by the CLI.
+
+## `workspace write is already in progress`
+
+Palari protects `workspace.json` writes with a small lock file under
+`.palari/locks/`. Normal commands remove that lock as soon as the write finishes.
+
+If a process is killed during the write, Palari now reclaims a stale lock when
+the recorded `pid=` is no longer running or the lock file is older than 30
+seconds. A fresh lock owned by a live process still fails closed with:
+
+```text
+workspace write is already in progress; retry shortly
+```
+
+If that message persists and you have confirmed no Palari write command is still
+running, remove the stale lock manually:
+
+```bash
+rm .palari/locks/*.lock
+```
+
+Then rerun the original command.

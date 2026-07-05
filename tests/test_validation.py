@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -304,7 +305,42 @@ class WorkspaceValidationTests(unittest.TestCase):
 
             self.assertEqual(load_store(workspace_file).data["name"], "Fresh write wins")
 
-    def test_write_store_fails_when_workspace_lock_exists(self) -> None:
+    def test_write_store_reclaims_stale_workspace_lock_with_dead_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            store = load_store(workspace_file)
+            store.data["name"] = "Recovered from dead lock pid"
+            lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
+            lock_path.parent.mkdir(parents=True)
+            dead_process = subprocess.Popen([sys.executable, "-c", "pass"])
+            dead_pid = dead_process.pid
+            dead_process.wait(timeout=30)
+            lock_path.write_text(f"pid={dead_pid}\n", encoding="utf-8")
+
+            write_store(store)
+
+            self.assertEqual(load_store(workspace_file).data["name"], "Recovered from dead lock pid")
+            self.assertFalse(lock_path.exists())
+
+    def test_write_store_reclaims_old_workspace_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            store = load_store(workspace_file)
+            store.data["name"] = "Recovered from old lock"
+            lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
+            lock_path.parent.mkdir(parents=True)
+            lock_path.write_text("not a parseable lock\n", encoding="utf-8")
+            old_time = time.time() - 120
+            os.utime(lock_path, (old_time, old_time))
+
+            write_store(store)
+
+            self.assertEqual(load_store(workspace_file).data["name"], "Recovered from old lock")
+            self.assertFalse(lock_path.exists())
+
+    def test_write_store_fails_when_fresh_live_workspace_lock_exists(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace_file = Path(directory) / "workspace.json"
             shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
@@ -312,7 +348,7 @@ class WorkspaceValidationTests(unittest.TestCase):
             store.data["name"] = "Blocked by lock"
             lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
             lock_path.parent.mkdir(parents=True)
-            lock_path.write_text("test lock\n", encoding="utf-8")
+            lock_path.write_text(f"pid={os.getpid()}\n", encoding="utf-8")
 
             with self.assertRaisesRegex(
                 WorkspaceError,
@@ -321,6 +357,19 @@ class WorkspaceValidationTests(unittest.TestCase):
                 write_store(store)
 
             self.assertTrue(lock_path.exists())
+
+    def test_write_store_removes_workspace_lock_after_successful_write(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            store = load_store(workspace_file)
+            store.data["name"] = "Normal write"
+            lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
+
+            write_store(store)
+
+            self.assertEqual(load_store(workspace_file).data["name"], "Normal write")
+            self.assertFalse(lock_path.exists())
 
     def test_unknown_record_field_fails_closed(self) -> None:
         self.assert_fixture_error(

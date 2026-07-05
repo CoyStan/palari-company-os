@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from .workspace import CURRENT_SCHEMA_VERSION, Workspace, WorkspaceError
+
+
+STALE_WORKSPACE_LOCK_SECONDS = 30.0
+WORKSPACE_LOCK_ERROR = "workspace write is already in progress; retry shortly"
 
 
 @dataclass(frozen=True)
@@ -85,12 +90,68 @@ def _acquire_workspace_lock(data_path: Path) -> Path:
     lock_path = data_path.parent / ".palari" / "locks" / f"{data_path.name}.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        descriptor = _create_workspace_lock(lock_path)
     except FileExistsError as exc:
-        raise WorkspaceError("workspace write is already in progress; retry shortly") from exc
+        if not _workspace_lock_is_stale(lock_path):
+            raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+        _remove_workspace_lock(lock_path)
+        try:
+            descriptor = _create_workspace_lock(lock_path)
+        except FileExistsError as retry_exc:
+            raise WorkspaceError(WORKSPACE_LOCK_ERROR) from retry_exc
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(f"pid={os.getpid()}\n")
     return lock_path
+
+
+def _create_workspace_lock(lock_path: Path) -> int:
+    return os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+
+
+def _remove_workspace_lock(lock_path: Path) -> None:
+    try:
+        lock_path.unlink()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+
+
+def _workspace_lock_is_stale(lock_path: Path) -> bool:
+    try:
+        lock_stat = lock_path.stat()
+    except FileNotFoundError:
+        return True
+
+    pid = _workspace_lock_pid(lock_path)
+    if pid is not None and not _pid_is_alive(pid):
+        return True
+    return (time.time() - lock_stat.st_mtime) > STALE_WORKSPACE_LOCK_SECONDS
+
+
+def _workspace_lock_pid(lock_path: Path) -> int | None:
+    try:
+        text = lock_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        if not line.startswith("pid="):
+            continue
+        try:
+            return int(line.removeprefix("pid=").strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _pid_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _assert_workspace_file_unchanged(store: WorkspaceStore) -> None:
