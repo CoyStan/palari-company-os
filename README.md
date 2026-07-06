@@ -53,7 +53,7 @@ Then open the live local supervision desk:
 `serve` is local only by default. It lets you click through work that needs
 human attention while the files remain the source of truth.
 
-GitHub Pages target after the repo owner enables Pages: `https://coystan.github.io/palari-company-os/`.
+Live demo: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
 
 ## What Palari Is
 

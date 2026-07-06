@@ -34,10 +34,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
         self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
-        self.assertIn(
-            "GitHub Pages target after the repo owner enables Pages",
-            readme,
-        )
+        self.assertIn("https://coystan.github.io/palari-company-os/", readme)
         for late_noun in (
             "workbench",
             "work item",

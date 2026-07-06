@@ -354,8 +354,9 @@ _The working agent fills this in as the final task of each loop iteration._
 - `scripts/make_demo_assets.sh` regenerates the blocked-terminal README image
   along with the dashboard screenshots.
 - Verified on 2026-07-06 that `https://coystan.github.io/palari-company-os/`
-  still returns HTTP 404. The README now labels it as a GitHub Pages target
-  after the repo owner enables Pages, not as a live demo.
+  returned HTTP 404 while Pages was not enabled. The Pages workflow now passes
+  `enablement: true` to `actions/configure-pages@v5` so the GitHub Actions run
+  can create the Pages site instead of requiring a separate settings click.
 
 ### 2026-07-06 — Workstream 1: `palari demo`
 
