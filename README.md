@@ -3,7 +3,7 @@
 AI agents can change files faster than people can review them. Palari gives
 them a visible boundary and stops them when they cross it.
 
-![Palari blocks an out-of-bound file change](docs/assets/blocked-write-dashboard.svg)
+![Palari blocks an out-of-bound file change](docs/assets/palari-dashboard-light-desktop.png)
 
 Maya asks Sofia to clean up launch notes.
 

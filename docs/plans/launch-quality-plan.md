@@ -226,10 +226,10 @@ Done when:
 
 Done when:
 
-- [ ] Asset script exists, is idempotent, and is covered by `bash -n` in the
+- [x] Asset script exists, is idempotent, and is covered by `bash -n` in the
       style/verify gate.
-- [ ] README images exist in the repo and render on GitHub (relative paths).
-- [ ] The recording script is complete enough that a person who has never
+- [x] README images exist in the repo and render on GitHub (relative paths).
+- [x] The recording script is complete enough that a person who has never
       used Palari could record the demo by following it literally.
 
 ## Workstream 7: `palari serve` — live Mission Control
@@ -472,3 +472,42 @@ _The working agent fills this in as the final task of each loop iteration._
   PyPI because the plan did not require one; if PyPI Trusted Publishing is
   configured with an environment later, the workflow should be updated in the
   same release-rails area.
+
+### 2026-07-06 — Workstream 6: demo assets
+
+- Added `scripts/make_demo_assets.sh`. It regenerates the Acme dashboard into a
+  repo-local temporary directory, prepares explicit light/dark capture pages,
+  and captures PNG screenshots with a Chromium-compatible browser when one is
+  available.
+- The script degrades gracefully if no Chromium-compatible browser is found:
+  it still regenerates dashboard HTML, prints the missing-browser remedy, and
+  exits without pretending screenshots were captured.
+- Added `bash -n scripts/make_demo_assets.sh` to `scripts/verify.sh` and docs
+  tests that assert the screenshot assets and recording script exist.
+- Generated and committed four dashboard screenshots:
+  `docs/assets/palari-dashboard-light-desktop.png`,
+  `docs/assets/palari-dashboard-dark-desktop.png`,
+  `docs/assets/palari-dashboard-light-mobile.png`, and
+  `docs/assets/palari-dashboard-dark-mobile.png`.
+- Replaced the README's temporary SVG screenshot with the generated light
+  desktop PNG. Removed the old temporary SVG so committed README visuals are
+  regeneratable by the script.
+- Added `docs/plans/demo-recording-script.md`, a literal 90-second shot list
+  with exact commands, captions, expected screen content, and the final human
+  GIF/MP4 replacement step.
+- Visual screenshot check:
+  - Light desktop: the eye lands first on "What needs attention now" and the
+    human-decision card.
+  - Dark desktop: the same hierarchy holds, with readable text and status
+    chips.
+  - Light mobile: the attention card and blocked/handoff command remain
+    visible without horizontal clipping.
+  - Dark mobile: the bottom nav and attention card remain readable.
+- Human follow-up: record the GIF or short video by following
+  `docs/plans/demo-recording-script.md`, place the exported file under
+  `docs/assets/`, and replace the README PNG link with the GIF/MP4 if GitHub
+  renders it reliably.
+- Ambiguity decision: the workstream asked to regenerate "every visual asset
+  from source." I interpreted that strictly for README/demo visuals, removed
+  the old hand-authored SVG, and made the dashboard PNGs the committed visual
+  source of truth for launch.

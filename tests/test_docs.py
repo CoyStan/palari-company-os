@@ -26,7 +26,8 @@ class DocumentationTests(unittest.TestCase):
         first_screen = readme[:quickstart_index]
 
         self.assertIn("![Palari blocks an out-of-bound file change]", first_screen)
-        self.assertIn("(docs/assets/blocked-write-dashboard.svg)", first_screen)
+        self.assertIn("(docs/assets/palari-dashboard-light-desktop.png)", first_screen)
+        self.assertTrue((REPO_ROOT / "scripts/make_demo_assets.sh").exists())
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
         self.assertIn("https://coystan.github.io/palari-company-os/", readme)
@@ -39,6 +40,32 @@ class DocumentationTests(unittest.TestCase):
             "gate profile",
         ):
             self.assertNotIn(late_noun, first_screen.lower())
+
+    def test_demo_assets_are_committed_and_regeneratable(self) -> None:
+        for asset in (
+            "palari-dashboard-light-desktop.png",
+            "palari-dashboard-dark-desktop.png",
+            "palari-dashboard-light-mobile.png",
+            "palari-dashboard-dark-mobile.png",
+        ):
+            with self.subTest(asset=asset):
+                path = REPO_ROOT / "docs" / "assets" / asset
+                self.assertTrue(path.exists())
+                self.assertGreater(path.stat().st_size, 1000)
+        self.assertTrue((REPO_ROOT / "scripts" / "make_demo_assets.sh").exists())
+
+    def test_demo_recording_script_is_literal_enough_for_human(self) -> None:
+        script = (REPO_ROOT / "docs" / "plans" / "demo-recording-script.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("./bin/palari demo", script)
+        self.assertIn("*** BLOCKED: file change is outside Sofia's write boundary ***", script)
+        self.assertIn("deploy/production.yml", script)
+        self.assertIn("docs/product/company-os.md", script)
+        self.assertIn("0:00-0:08", script)
+        self.assertIn("1:17-1:30", script)
+        self.assertIn("Human Finish Step", script)
 
     def test_glossary_covers_core_object_headings(self) -> None:
         core = (REPO_ROOT / "docs/product/core-objects.md").read_text(encoding="utf-8")
