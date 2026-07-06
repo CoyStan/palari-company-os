@@ -265,7 +265,6 @@ class Workspace:
         integration_outbox_ids = {item.id for item in self.integration_outbox}
         workbench_ids = {workbench.id for workbench in self.workbenches}
         playbook_source_ids = {source.id for source in self.playbook_sources}
-        capability_ids = {capability.id for capability in self.capabilities}
         authority_profile_ids = {profile.id for profile in self.authority_profiles}
         work_ids = {work.id for work in self.work_items}
         attempt_ids = {attempt.id for attempt in self.attempts}
@@ -273,7 +272,6 @@ class Workspace:
         review_ids = {review.id for review in self.review_verdicts}
         human_decision_ids = {decision.id for decision in self.human_decisions}
         decision_ids = {decision.id for decision in self.decisions}
-        proposal_ids = {proposal.id for proposal in self.proposals}
         outcome_ids = {outcome.id for outcome in self.outcomes}
 
         for goal in self.goals:
