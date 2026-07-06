@@ -354,9 +354,11 @@ _The working agent fills this in as the final task of each loop iteration._
 - `scripts/make_demo_assets.sh` regenerates the blocked-terminal README image
   along with the dashboard screenshots.
 - Verified on 2026-07-06 that `https://coystan.github.io/palari-company-os/`
-  returned HTTP 404 while Pages was not enabled. The Pages workflow now passes
-  `enablement: true` to `actions/configure-pages@v5` so the GitHub Actions run
-  can create the Pages site instead of requiring a separate settings click.
+  returned HTTP 404 while Pages was not enabled. The workflow now passes
+  `enablement: true` to `actions/configure-pages@v5`; the repository Pages
+  site was then enabled through the GitHub API, the Pages workflow rerun
+  passed, and both `/palari-company-os/` and `/palari-company-os/desktop/`
+  returned HTTP 200.
 
 ### 2026-07-06 — Workstream 1: `palari demo`
 
@@ -424,10 +426,8 @@ _The working agent fills this in as the final task of each loop iteration._
   blocks an attempted change outside those boundaries, and shows the human
   exactly what happened and what command is safe next. That matches the current
   `palari demo` behavior.
-- Ambiguity decision: the README now links the GitHub Pages live-demo target
-  near the top even though Workstream 5 still has to enable the workflow. The
-  quickstart labels it "Live demo target" to avoid claiming the deployment is
-  already complete.
+- Ambiguity decision: the README links the GitHub Pages live demo near the top
+  after the Pages workflow successfully deployed the static dashboard.
 
 ### 2026-07-06 — Workstream 4: vocabulary tax
 
@@ -473,14 +473,10 @@ _The working agent fills this in as the final task of each loop iteration._
 - Verified release artifacts locally with:
   `/tmp/palari-release-tools/bin/python -m build --outdir /tmp/palari-release-dist`
   and `/tmp/palari-release-tools/bin/twine check /tmp/palari-release-dist/*`.
-- Human follow-up: enable GitHub Pages if it is not already enabled.
-  1. Open the GitHub repo settings.
-  2. Go to Pages.
-  3. Set Source to GitHub Actions.
-  4. Run or re-run the Pages workflow.
-  5. Confirm the public URL serves the dashboard at
-     `https://coystan.github.io/palari-company-os/` and the prototype at
-     `https://coystan.github.io/palari-company-os/desktop/`.
+- Completed follow-up: GitHub Pages is enabled with workflow deployments.
+  Confirmed on 2026-07-06 that the public URL serves the dashboard at
+  `https://coystan.github.io/palari-company-os/` and the prototype at
+  `https://coystan.github.io/palari-company-os/desktop/`.
 - Human follow-up: configure the PyPI release path before tagging.
   1. Ensure the PyPI project name `palari-company-os` exists or is available.
   2. Configure PyPI Trusted Publishing for GitHub repository
