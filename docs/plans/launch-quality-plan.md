@@ -232,16 +232,91 @@ Done when:
 - [ ] The recording script is complete enough that a person who has never
       used Palari could record the demo by following it literally.
 
+## Workstream 7: `palari serve` — live Mission Control
+
+The static dashboard is the export/share format. This workstream adds the
+product people will actually screenshot: a LIVE local web app where a human
+supervises agents and clicks the buttons. Positioning: an approval desk for
+your AI workforce.
+
+Architecture constraints (these protect the product's core claims):
+
+- Stdlib only: `ThreadingHTTPServer`, following the existing pattern in
+  `desktop_server.py`. No frameworks, no npm, no build step.
+- Files stay the source of truth: every GET re-reads `workspace.json` (or
+  serves from a cache keyed by the file's content hash); the server holds no
+  state that is not in the files.
+- Every POST goes through the existing store/authoring layer, so the write
+  lock, load-hash conflict check, and validation all apply. A conflict
+  returns a clear "workspace changed, refresh" response, never a silent
+  overwrite.
+- Localhost by default (`127.0.0.1`, port 0 or `--port`). Every mutating
+  request requires a per-session CSRF token embedded in the served page.
+  `--host` other than localhost prints a loud warning (no auth exists yet).
+- Attribution is explicit: `palari serve --as HUMAN-ID` is required; every
+  decision made in the UI records that human, identically to the CLI path.
+
+The experience (in priority order — the first two ARE the product):
+
+1. **The "Needs You" lane (hero).** Pending approvals, blocked agents, and
+   items awaiting human decision, sorted by urgency. Each card: what the
+   agent wants, why it stopped, and real Approve / Reject / Cancel buttons
+   that write the same human-decision and integration-plan records the CLI
+   writes. Empty state: "Nothing needs you. Your agents are inside their
+   boundaries." (That sentence is the product pitch; keep it.)
+2. **The boundary view (screenshot magnet).** For a selected work item with
+   an active claim: allowed read sources and write paths rendered as a
+   visual fence, with any out-of-bounds attempted change from
+   `agent check` shown loudly outside it. This is the blocked-write moment
+   as a picture instead of a paragraph.
+3. **Live activity feed.** Claims, checks, finishes, handoffs, and decisions
+   as a reverse-chronological stream sourced from workspace history, updated
+   without manual refresh.
+4. **Receipt drawer.** Click any finished item: the receipt card (read /
+   changed / skipped / undoable) slides in; one keypress or click to get
+   back to the queue.
+5. Liveness via polling `fetch` every ~2s against a `/state-hash` endpoint;
+   re-render only when the hash changes. No SSE/WebSockets in v1 (keep the
+   server trivial); document this choice.
+6. Same design system, themes, responsive, and accessibility bar as
+   Workstream 2 — one visual language across static and live.
+7. Demo synergy: `palari demo --serve` runs the demo scenario against the
+   live UI so the newcomer's aha-moment is clickable, not just printed.
+
+Done when:
+
+- [ ] `palari serve --as HUMAN-ID` starts, serves the UI, and shuts down
+      cleanly on Ctrl+C; covered by tests using a port-0 server instance.
+- [ ] Tests prove UI-approve and CLI-approve produce byte-identical record
+      shapes (same fields, same history entries) for the same scenario.
+- [ ] Tests prove: mutating POST without the CSRF token is rejected; POST
+      after an out-of-band workspace edit returns the conflict response and
+      changes nothing; all writes hold the workspace lock.
+- [ ] `/state-hash` changes when and only when the workspace file changes
+      (test with two edits and one no-op touch).
+- [ ] The Needs You lane, boundary view, activity feed, and receipt drawer
+      all render with the acme example data, each covered by a markup
+      assertion test, and each with an intentional empty state.
+- [ ] No external network references in any served asset (test).
+- [ ] `--host 0.0.0.0` prints the security warning (test); default bind is
+      loopback (test).
+- [ ] README and quickstart show `palari serve` as the second thing to try
+      (after `palari demo`); the static `palari dashboard` is repositioned
+      in docs as the export/share/Pages format.
+- [ ] Squint Test self-audit for the live UI, same rule as Workstream 2:
+      the eye must land on the Needs You lane first.
+
 ---
 
 ## Definition of Perfect (the exit gate)
 
-The work is complete ONLY when every box in Workstreams 1-6 is checked AND
+The work is complete ONLY when every box in Workstreams 1-7 is checked AND
 all of the following hold:
 
 1. **Two-minute test:** from a fresh clone, `./bin/palari demo --no-pause`
    shows the blocked-write moment; from README alone the path is two
-   commands.
+   commands. `palari serve` then makes that moment clickable in one more
+   command.
 2. **Quality gate:** the full command list in Operating Rules passes, and CI
    is green on the working branch.
 3. **First-screen test:** README first screen = hook + image + scenario, ≤ 3
