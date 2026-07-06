@@ -149,15 +149,15 @@ Structure (top to bottom):
 
 Done when:
 
-- [ ] Everything above the quickstart fits in the first ~50 lines.
-- [ ] The first screen contains zero invented nouns except "Palari" itself
+- [x] Everything above the quickstart fits in the first ~50 lines.
+- [x] The first screen contains zero invented nouns except "Palari" itself
       (no workbench, receipt, gate profile, adaptive intensity until after
       the quickstart; "receipt" may appear once if immediately shown).
-- [ ] Every feature claim in the README is demonstrated by a command a
+- [x] Every feature claim in the README is demonstrated by a command a
       reader can run, or linked to the doc that proves it.
-- [ ] `tests/test_docs.py` (extend it) asserts the README contains: an image
+- [x] `tests/test_docs.py` (extend it) asserts the README contains: an image
       before the quickstart, a `palari demo` mention, and the live demo link.
-- [ ] A "60-second skeptic" self-audit is written into this file: read only
+- [x] A "60-second skeptic" self-audit is written into this file: read only
       the first screen of the README and write down what a skeptic now
       believes the product does. It must match the actual product.
 
@@ -382,3 +382,28 @@ _The working agent fills this in as the final task of each loop iteration._
 - Browser note: Chromium headless rendered the generated pages and screenshots
   successfully. The only stderr noise observed was Snap/DBus environment
   logging, not dashboard page-console output.
+
+### 2026-07-06 — Workstream 3: README scenario first
+
+- Rewrote the README opening so it starts with the concrete blocked-write
+  scenario, a repo-local visual asset, the real blocked output shape, and then
+  the quickstart.
+- Added `docs/assets/blocked-write-dashboard.svg` as a temporary screenshot
+  slot until Workstream 6 generates and commits browser screenshots/GIF assets.
+- Added a docs regression test asserting image-before-quickstart, `palari demo`,
+  the live demo link, and no late object-model nouns in the pre-quickstart
+  first screen.
+- First-screen audit: the Quickstart begins after 25 lines, below the
+  ~50-line target.
+- First-screen noun count: 0 of the late Palari nouns (`workbench`,
+  `work item`, `receipt`, `evidence`, `human decision`, `gate profile`) appear
+  before Quickstart; only the name Palari appears.
+- 60-second skeptic audit: a skeptical reader who only sees the first screen
+  should believe Palari lets an AI agent work inside visible file boundaries,
+  blocks an attempted change outside those boundaries, and shows the human
+  exactly what happened and what command is safe next. That matches the current
+  `palari demo` behavior.
+- Ambiguity decision: the README now links the GitHub Pages live-demo target
+  near the top even though Workstream 5 still has to enable the workflow. The
+  quickstart labels it "Live demo target" to avoid claiming the deployment is
+  already complete.

@@ -1,5 +1,53 @@
 # Palari Company OS
 
+AI agents can change files faster than people can review them. Palari gives
+them a visible boundary and stops them when they cross it.
+
+![Palari blocks an out-of-bound file change](docs/assets/blocked-write-dashboard.svg)
+
+Maya asks Sofia to clean up launch notes.
+
+Sofia is allowed to read the selected notes and change one docs file.
+
+Then Sofia tries to touch `deploy/production.yml`.
+
+Palari stops the run:
+
+```text
+*** BLOCKED: file change is outside Sofia's write boundary ***
+changed: deploy/production.yml
+allowed: docs/product/company-os.md
+```
+
+The human sees what Sofia tried, what was allowed, and the next safe command.
+
+That is the product: AI work with a boundary you can inspect.
+
+## Quickstart
+
+Requirements: Python 3.10 or newer and Git.
+
+Two commands from a fresh clone:
+
+```bash
+git clone https://github.com/CoyStan/palari-company-os.git && cd palari-company-os
+./bin/palari demo
+```
+
+Or install it first:
+
+```bash
+python3 -m pip install -e .
+palari demo
+```
+
+The demo is offline and uses a throwaway temp directory. It shows the blocked
+file change, a passing in-bound change, and the human handoff.
+
+Live demo target: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
+
+## What Palari Is
+
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -18,19 +66,7 @@ It is not another chatbot. It is the operating contract around AI work: goals,
 workbenches, named AI partners, bounded work items, receipts, evidence, review,
 human decisions, and outcomes.
 
-## Who This Is For
-
-This repo is for people experimenting with serious AI work:
-
-- founders and operators using AI across messy company tasks
-- developers giving coding agents clearer boundaries
-- teams that want parallel AI work without losing human authority
-- researchers or builders exploring how agent work should be recorded
-
-If you have ever asked "what did the AI actually read or change?", Palari is
-about making that answer inspectable.
-
-## What You Can Try Today
+## What Works Today
 
 This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
 package dependencies beyond the Python standard library, and does not require
@@ -63,36 +99,7 @@ Not implemented yet:
 - secret manager or signed key custody
 - autonomous acceptance, merge, push, deploy, or live external writes
 
-## Quickstart
-
-Requirements:
-
-- Python 3.10 or newer
-- Git
-
-Clone the repo:
-
-```bash
-git clone https://github.com/CoyStan/palari-company-os.git
-cd palari-company-os
-```
-
-Use the repo-local CLI wrapper:
-
-```bash
-./bin/palari demo
-```
-
-Or install it in editable mode:
-
-```bash
-python3 -m pip install -e .
-palari demo
-```
-
-The demo copies a throwaway workspace into a temp directory, shows Sofia's file
-boundary, blocks an attempted change to `deploy/production.yml`, then shows the
-receipt and human handoff path.
+## Try More Locally
 
 Run the local verification:
 

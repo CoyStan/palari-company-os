@@ -19,6 +19,26 @@ WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_readme_launch_path_is_scenario_first(self) -> None:
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        quickstart_index = readme.index("## Quickstart")
+        first_screen = readme[:quickstart_index]
+
+        self.assertIn("![Palari blocks an out-of-bound file change]", first_screen)
+        self.assertIn("(docs/assets/blocked-write-dashboard.svg)", first_screen)
+        self.assertLess(first_screen.count("\n"), 50)
+        self.assertIn("palari demo", readme)
+        self.assertIn("https://coystan.github.io/palari-company-os/", readme)
+        for late_noun in (
+            "workbench",
+            "work item",
+            "receipt",
+            "evidence",
+            "human decision",
+            "gate profile",
+        ):
+            self.assertNotIn(late_noun, first_screen.lower())
+
     def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
         smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(
             encoding="utf-8"
