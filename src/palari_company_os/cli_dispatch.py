@@ -19,6 +19,11 @@ class CommandResult:
 def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "demo":
         from .demo import run_demo
+        from .demo import serve_demo
+
+        if args.serve:
+            serve_demo(args.demo_dir, host=args.host, port=args.port)
+            return CommandResult("demo-serve", {}, False)
 
         return CommandResult(
             "demo",
@@ -342,6 +347,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             "desktop-serve",
             serve_desktop_prototype(
                 args.out,
+                host=args.host,
+                port=args.port,
+            ),
+            False,
+        )
+
+    if args.command == "serve":
+        from .mission_control import serve_mission_control
+
+        return CommandResult(
+            "mission-control-serve",
+            serve_mission_control(
+                args.workspace,
+                args.human_id,
                 host=args.host,
                 port=args.port,
             ),

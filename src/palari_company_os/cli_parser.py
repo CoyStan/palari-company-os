@@ -29,6 +29,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not wait between demo acts.",
     )
+    demo_parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Prepare the demo workspace and open it in live Mission Control.",
+    )
+    demo_parser.add_argument("--host", default="127.0.0.1", help="Host to bind with --serve.")
+    demo_parser.add_argument("--port", type=int, default=0, help="Port to bind with --serve.")
     demo_parser.add_argument("--json", action="store_true", help="Emit JSON transcript.")
 
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")
@@ -136,6 +143,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     desktop_serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
     desktop_serve_parser.add_argument("--port", type=int, default=0, help="Port to bind.")
+
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Serve live local Mission Control for one human operator.",
+    )
+    serve_parser.add_argument("--as", dest="human_id", required=True, help="Acting human id.")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
+    serve_parser.add_argument("--port", type=int, default=0, help="Port to bind.")
 
     _add_goal_parser(subparsers)
     _add_human_parser(subparsers)

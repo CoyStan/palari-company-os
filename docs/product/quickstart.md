@@ -31,6 +31,17 @@ allowed: docs/product/company-os.md
 
 That is the main idea: the AI partner can work, but Palari checks the boundary.
 
+## Open The Live Local Desk
+
+```bash
+./bin/palari serve --as HUMAN-FOUNDER
+```
+
+This starts a local browser UI for the example workspace. It shows what needs
+human attention, the allowed boundary, recent activity, and the receipt for the
+selected work. It binds to `127.0.0.1` by default and writes through the same
+local files as the CLI.
+
 ## Verify The Repo
 
 ```bash
@@ -65,7 +76,7 @@ This path is blocked:
 ./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed deploy/production.yml --json
 ```
 
-## Open The Static Dashboard
+## Export The Static Dashboard
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
@@ -76,6 +87,9 @@ Then open:
 ```text
 /tmp/palari-company-dashboard/index.html
 ```
+
+Use the static dashboard when you want a read-only artifact to share or publish.
+Use `palari serve` when you want clickable local supervision.
 
 ## Next Reading
 

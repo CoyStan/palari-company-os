@@ -158,6 +158,23 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             temp_directory.cleanup()
 
 
+def serve_demo(demo_dir: str | None, *, host: str = "127.0.0.1", port: int = 0) -> dict[str, Any]:
+    from .mission_control import serve_mission_control
+
+    temp_directory: tempfile.TemporaryDirectory[str] | None = None
+    if demo_dir:
+        workspace_dir = Path(demo_dir).expanduser().resolve()
+    else:
+        temp_directory = tempfile.TemporaryDirectory(prefix="palari-demo-serve-")
+        workspace_dir = Path(temp_directory.name)
+    try:
+        run_demo(str(workspace_dir), no_pause=True)
+        return serve_mission_control(workspace_dir, "HUMAN-FOUNDER", host=host, port=port)
+    finally:
+        if temp_directory is not None:
+            temp_directory.cleanup()
+
+
 def _ensure_empty_demo_dir(path: Path) -> None:
     if path.exists() and any(path.iterdir()):
         raise WorkspaceError(f"demo directory must be empty: {path}")

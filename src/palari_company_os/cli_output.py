@@ -202,6 +202,13 @@ def print_result(result: CommandResult) -> None:
         print_desktop_serve(result.payload)
         return
 
+    if result.kind == "mission-control-serve":
+        print_mission_control_serve(result.payload)
+        return
+
+    if result.kind == "demo-serve":
+        return
+
     if result.kind == "mutation":
         print_mutation(result.payload, result.as_json)
         return
@@ -434,6 +441,11 @@ def print_desktop_prototype(result: Any, as_json: bool) -> None:
 def print_desktop_serve(payload: dict[str, Any]) -> None:
     print(f"Desktop server stopped: {payload['url']}")
     print(f"Prototype files: {payload['output_dir']}")
+
+
+def print_mission_control_serve(payload: dict[str, Any]) -> None:
+    print(f"Mission Control stopped: {payload['url']}")
+    print(f"Workspace file: {payload['workspace_file']}")
 
 
 def print_playbooks(payload: dict[str, Any], as_json: bool) -> None:

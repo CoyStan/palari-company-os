@@ -285,25 +285,25 @@ The experience (in priority order — the first two ARE the product):
 
 Done when:
 
-- [ ] `palari serve --as HUMAN-ID` starts, serves the UI, and shuts down
+- [x] `palari serve --as HUMAN-ID` starts, serves the UI, and shuts down
       cleanly on Ctrl+C; covered by tests using a port-0 server instance.
-- [ ] Tests prove UI-approve and CLI-approve produce byte-identical record
+- [x] Tests prove UI-approve and CLI-approve produce byte-identical record
       shapes (same fields, same history entries) for the same scenario.
-- [ ] Tests prove: mutating POST without the CSRF token is rejected; POST
+- [x] Tests prove: mutating POST without the CSRF token is rejected; POST
       after an out-of-band workspace edit returns the conflict response and
       changes nothing; all writes hold the workspace lock.
-- [ ] `/state-hash` changes when and only when the workspace file changes
+- [x] `/state-hash` changes when and only when the workspace file changes
       (test with two edits and one no-op touch).
-- [ ] The Needs You lane, boundary view, activity feed, and receipt drawer
+- [x] The Needs You lane, boundary view, activity feed, and receipt drawer
       all render with the acme example data, each covered by a markup
       assertion test, and each with an intentional empty state.
-- [ ] No external network references in any served asset (test).
-- [ ] `--host 0.0.0.0` prints the security warning (test); default bind is
+- [x] No external network references in any served asset (test).
+- [x] `--host 0.0.0.0` prints the security warning (test); default bind is
       loopback (test).
-- [ ] README and quickstart show `palari serve` as the second thing to try
+- [x] README and quickstart show `palari serve` as the second thing to try
       (after `palari demo`); the static `palari dashboard` is repositioned
       in docs as the export/share/Pages format.
-- [ ] Squint Test self-audit for the live UI, same rule as Workstream 2:
+- [x] Squint Test self-audit for the live UI, same rule as Workstream 2:
       the eye must land on the Needs You lane first.
 
 ---
@@ -511,3 +511,41 @@ _The working agent fills this in as the final task of each loop iteration._
   from source." I interpreted that strictly for README/demo visuals, removed
   the old hand-authored SVG, and made the dashboard PNGs the committed visual
   source of truth for launch.
+
+### 2026-07-06 — Workstream 7: live Mission Control
+
+- Added `palari serve --as HUMAN-ID`, a stdlib-only local Mission Control
+  server built on `ThreadingHTTPServer`. It binds to `127.0.0.1` by default,
+  validates the acting human, serves self-contained HTML/CSS/JS, and prints a
+  security warning when `--host` is not localhost.
+- Added `palari demo --serve`, which prepares the throwaway blocked-write demo
+  state and opens the same live UI against that local copy.
+- The served UI has four launch-critical surfaces: Needs You, Boundary View,
+  Live Activity, and Receipt Drawer. Empty states are explicit, including:
+  "Nothing needs you. Your agents are inside their boundaries."
+- Mutating UI forms require the per-session CSRF token and the current
+  workspace content hash. Tests prove missing CSRF is rejected, out-of-band
+  workspace edits return conflict and change nothing, and the existing
+  workspace write lock blocks UI writes exactly like CLI writes.
+- UI approval uses the same `create_human_decision` path as the CLI. Tests
+  compare the resulting human-decision record shape and normalized history
+  event against the CLI path for the same scenario.
+- `/state-hash` returns a content hash of the workspace file. Tests prove it
+  does not change for a no-op touch and does change when file content changes.
+- README and quickstart now show `palari serve --as HUMAN-FOUNDER` immediately
+  after `palari demo`. The command reference now positions `palari dashboard`
+  as the static export/share/GitHub Pages format, while `palari serve` is the
+  local clickable supervision surface.
+- Live UI Squint Test: captured a temporary 1440x900 Chromium screenshot of
+  the Acme Mission Control page. The eye lands first on the Needs You panel
+  because it spans the page width, has the only red left rail, and contains
+  the approval cards and buttons. The boundary view is second. Header chrome
+  and secondary panels are quieter.
+- Browser note: Chromium headless emitted Snap/DBus environment logging while
+  capturing the screenshot. The page loaded and screenshot was written
+  successfully; this is the same benign environment noise observed during
+  earlier dashboard visual checks.
+- Ambiguity decision: "Live activity updated without manual refresh" is
+  implemented as the plan requested: polling `/state-hash` every two seconds
+  and reloading only when the workspace file content hash changes, rather than
+  introducing SSE/WebSockets or server-side state.

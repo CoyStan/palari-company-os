@@ -449,6 +449,34 @@ at the future execution boundary and can still be canceled or reviewed.
 agent packet created by `agent start`, rather than a packet recomputed after the
 workspace has changed.
 
+## Mission Control
+
+```bash
+./bin/palari serve --as HUMAN-FOUNDER
+./bin/palari --workspace examples/acme-company-os serve --as HUMAN-FOUNDER --port 8787
+./bin/palari demo --serve
+```
+
+`serve` starts a live local Mission Control UI for one human operator. It is the
+clickable supervision surface: work needing human attention, boundary view,
+recent activity, and receipt context in one browser page.
+
+Important boundaries:
+
+- It binds to `127.0.0.1` by default.
+- `--host` values outside localhost print a warning because this v1 server has
+  no login/auth layer.
+- Mutating requests require a per-session CSRF token embedded in the page.
+- Every write goes through the normal authoring/store path, including workspace
+  validation, stale-write conflict checks, and the workspace write lock.
+- Files remain the source of truth; `/state-hash` changes only when the
+  workspace file content changes.
+- The server uses polling rather than SSE/WebSockets so the implementation
+  stays stdlib-only and easy to inspect.
+
+`palari demo --serve` prepares the throwaway demo workspace, runs the blocked
+write scenario, and opens the same local UI against that demo state.
+
 ## Dashboard
 
 ```bash
@@ -456,7 +484,7 @@ workspace has changed.
 ./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-dogfood-dashboard --json
 ```
 
-Generates a static read-only dashboard with local `index.html`, `styles.css`,
+Generates the static export/share format with local `index.html`, `styles.css`,
 and `app.js` files. The dashboard reads `workspace.json` and
 `.palari/history.jsonl`; it does not mutate the workspace, run broker actions,
 connect external providers, or require a web server.

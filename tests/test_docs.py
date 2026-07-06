@@ -30,6 +30,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue((REPO_ROOT / "scripts/make_demo_assets.sh").exists())
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
+        self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
         self.assertIn("https://coystan.github.io/palari-company-os/", readme)
         for late_noun in (
             "workbench",
@@ -88,6 +89,15 @@ class DocumentationTests(unittest.TestCase):
 
         self.assertIn("[Glossary](docs/product/glossary.md)", readme)
         self.assertIn("[Glossary](glossary.md)", quickstart)
+        self.assertLess(
+            quickstart.index("./bin/palari serve --as HUMAN-FOUNDER"),
+            quickstart.index("## Verify The Repo"),
+        )
+        command_reference = (REPO_ROOT / "docs/product/command-reference.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("## Mission Control", command_reference)
+        self.assertIn("palari demo --serve", command_reference)
 
     def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
         smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(

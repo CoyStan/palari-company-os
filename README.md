@@ -44,6 +44,15 @@ palari demo
 The demo is offline and uses a throwaway temp directory. It shows the blocked
 file change, a passing in-bound change, and the human handoff.
 
+Then open the live local supervision desk:
+
+```bash
+./bin/palari serve --as HUMAN-FOUNDER
+```
+
+`serve` is local only by default. It lets you click through work that needs
+human attention while the files remain the source of truth.
+
 Live demo target: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
 
 ## What Palari Is
@@ -130,7 +139,19 @@ Open one work item:
 ./bin/palari --workspace /tmp/palari-company-os-demo detail WORK-0001
 ```
 
-Generate a static dashboard:
+Open the live local supervision desk:
+
+```bash
+./bin/palari --workspace /tmp/palari-company-os-demo serve --as HUMAN-FOUNDER
+```
+
+Or prepare the demo workspace and open the same live view in one command:
+
+```bash
+./bin/palari demo --serve
+```
+
+Generate a static dashboard for sharing, publishing, or GitHub Pages:
 
 ```bash
 ./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
@@ -253,6 +274,7 @@ goal -> workbench -> selected sources -> work item -> attempt
 
 # Static visual surfaces
 ./bin/palari dashboard --out /tmp/palari-company-dashboard
+./bin/palari serve --as HUMAN-FOUNDER
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
 ```
