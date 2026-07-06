@@ -39,6 +39,18 @@ A playbook source is outside operating guidance Palari may recommend.
 
 You see it when Palari suggests a lightweight skill or practice for how to work.
 
+## Capability
+
+A capability is governed power an adapter or Palari may use inside a boundary.
+
+You see it when Palari exports what tools, paths, or actions are allowed for one work item.
+
+## Authority Profile
+
+An authority profile is the risk and quorum posture for accepting work.
+
+You see it when Palari checks whether R3, R4, or R5 work needs human approval.
+
 ## Integration
 
 An integration is a declared external service boundary.
@@ -63,6 +75,12 @@ A work item is one bounded assignment.
 
 You see it when an AI partner gets one objective, allowed inputs, allowed outputs, and stop rules.
 
+## Proposal
+
+A proposal is planned work that has not become an accepted work item yet.
+
+You see it when an AI partner can suggest work but a human still has to adopt it.
+
 ## Attempt
 
 An attempt is one concrete try at doing a work item.
@@ -86,6 +104,12 @@ You see it when a reviewer says accept-ready, changes-requested, blocked, or nee
 A human decision is an authority-bearing approval, rejection, or blocker.
 
 You see it when AI work is reviewed but still needs a person to make the final call.
+
+## Acceptance Record
+
+An acceptance record is the audit trail of final human acceptance.
+
+You see it when Palari records who accepted reviewed evidence and under which authority profile.
 
 ## Receipt
 

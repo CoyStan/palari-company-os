@@ -40,6 +40,20 @@ state, and the explicit list of included playbooks. Superpowers compatibility
 uses this object to link to allowed `SKILL.md` playbooks without making them
 Palari authority.
 
+## Capability
+
+Governed power that a Palari or adapter may use. Capabilities can describe repo
+work, external tools, skill packs, MCP-style adapters, integrations, playbooks,
+or policy exports. They expose allowed actions and risk, but they do not grant
+acceptance authority.
+
+## Authority Profile
+
+Risk and quorum posture for a workspace or operating mode. Built-in profiles
+include `solo-founder`, `team-safe`, and `strict`; custom profiles can make the
+same relationship between risk, human review, receipt-ready shortcuts, and
+approval count explicit.
+
 ## Integration
 
 Dry-run declaration for a possible external provider such as Slack, GitHub,
@@ -75,15 +89,23 @@ Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
 allowed sources, allowed actions, output targets, forbidden actions, acceptance
 target, verification expectations, and optional recommended playbooks.
 
+## Proposal
+
+AI-safe planning record that can become a work item only when a human adopts it.
+Proposals carry most work-item boundaries, but adoption creates the actual work
+record explicitly. Scope expansion requests create decisions rather than
+silently broadening a work item.
+
 ## Attempt
 
 Concrete execution session for a work item. Attempts record actor, branch or
-workspace, worker/model, commits, and changed files.
+workspace, worker/model, base SHA, head SHA, changed files, allowed paths,
+forbidden paths, claim lease metadata, and cleanliness.
 
 ## Evidence Run
 
 Proof attached to a work item and attempt. Evidence records commands, status,
-head SHA, artifacts, summary, and timestamp.
+head SHA, artifacts, artifact hashes, manifest hash, summary, and timestamp.
 
 ## Review Verdict
 
@@ -99,6 +121,12 @@ Independent inspection. Verdicts are intentionally small:
 Authority-bearing human action tied to reviewed evidence. This is separate from
 the review verdict.
 
+## Acceptance Record
+
+Audit record for the final human acceptance gate. It links work, human,
+reviewed head, evidence, review, receipt hash, authority profile, quorum state,
+and reason so acceptance is visible beyond a status toggle.
+
 ## Receipt
 
 Human-facing trust record for an attempt. A receipt says which sources were
@@ -109,7 +137,8 @@ the user review, undo, or continue bounded work. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
 used as receipt-backed external-write claims. Canceled outbox items also cannot
-be used as receipt-backed queued-write claims.
+be used as receipt-backed queued-write claims. CLI-created receipts include a
+receipt hash and can chain to the previous receipt for the same work item.
 
 ## Outcome
 

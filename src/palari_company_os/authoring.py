@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,18 +18,27 @@ COLLECTIONS = {
     "source": "sources",
     "workbench": "workbenches",
     "playbook-source": "playbook_sources",
+    "capability": "capabilities",
+    "authority-profile": "authority_profiles",
     "decision": "decisions",
+    "proposal": "proposals",
     "work": "work_items",
     "attempt": "attempts",
     "evidence": "evidence_runs",
     "review": "review_verdicts",
     "human-decision": "human_decisions",
+    "acceptance": "acceptance_records",
     "receipt": "receipts",
     "outcome": "outcomes",
 }
 
-INTEGER_FIELDS = {"required_approval_count"}
-BOOLEAN_FIELDS = {"selected", "enabled", "redaction_required"}
+INTEGER_FIELDS = {"required_approval_count", "minimum_approval_count", "r5_approval_count"}
+BOOLEAN_FIELDS = {
+    "selected",
+    "enabled",
+    "redaction_required",
+    "allow_agent_scope_expansion",
+}
 LIST_FIELDS = {
     "success_criteria",
     "linked_palaris",
@@ -52,6 +62,12 @@ LIST_FIELDS = {
     "allowed_sources",
     "allowed_actions",
     "output_targets",
+    "allowed_paths",
+    "forbidden_paths",
+    "allowed_palaris",
+    "source_ids",
+    "require_human_for_risks",
+    "receipt_ready_risks",
     "verification_expectations",
     "recommended_playbooks",
     "included_playbooks",
@@ -108,6 +124,7 @@ def create_record(
     records = _records(store, collection)
     if _find(records, record_id) is not None:
         raise WorkspaceError(f"{kind} already exists: {record_id}")
+    record = _prepare_record_for_create(store, kind, record)
     records.append(record)
     workspace = write_store(store)
     append_history_event(
@@ -142,6 +159,7 @@ def update_record(
         raise WorkspaceError(f"{kind} not found: {record_id}")
     before = deepcopy(record)
     record.update(updates)
+    _prepare_record_for_update(store, kind, record)
     workspace = write_store(store)
     append_history_event(
         store.data_path,
@@ -219,11 +237,15 @@ def complete_work(
             f"work {work_id} cannot be completed: {blocker}; "
             f"next action is {work_detail['next_action']}"
         )
+    integrity_blocker = _completion_integrity_blocker(workspace, work_id)
+    if integrity_blocker:
+        raise WorkspaceError(f"work {work_id} cannot be completed: {integrity_blocker}")
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
     before = deepcopy(work)
     work["status"] = status
+    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
     workspace = write_store(store)
     append_history_event(
         store.data_path,
@@ -241,6 +263,8 @@ def complete_work(
 
 
 def _completion_blocker(work_detail: dict[str, Any]) -> str:
+    if work_detail["attention"] == "blocked":
+        return work_detail["why"]
     integration_state = work_detail["safety"]["integration_state"]
     if integration_state == "ready":
         return ""
@@ -281,6 +305,18 @@ def _receipt_ready_completion_blocker(work_detail: dict[str, Any]) -> str:
     return ""
 
 
+def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
+    evidence = latest_for_work(workspace.evidence_runs, work_id)
+    if evidence is None or not evidence.manifest_hash:
+        return ""
+    from .evidence_manifest import verify_evidence
+
+    verification = verify_evidence(workspace, evidence.id)
+    if verification["ok"]:
+        return ""
+    return "evidence manifest verification failed"
+
+
 def create_human_decision(
     workspace_path: str,
     record: dict[str, Any],
@@ -314,6 +350,151 @@ def create_human_decision(
     )
 
 
+def accept_work(
+    workspace_path: str,
+    work_id: str,
+    human_id: str,
+    reviewed_head: str,
+    *,
+    decision_id: str = "",
+    acceptance_id: str = "",
+    reason: str = "",
+    authority_profile: str = "team-safe",
+    command: str = "",
+) -> MutationResult:
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    evidence = latest_for_work(workspace.evidence_runs, work_id)
+    review = latest_for_work(workspace.review_verdicts, work_id)
+    receipt = latest_for_work(workspace.receipts, work_id)
+    if evidence is None or review is None:
+        raise WorkspaceError(f"work {work_id} is missing evidence or review; cannot accept")
+    human_decisions = _records(store, "human_decisions")
+    acceptance_records = _records(store, "acceptance_records")
+    decision_id = decision_id or f"HUMAN-DECISION-{work_id}-{human_id}"
+    acceptance_id = acceptance_id or f"ACCEPTANCE-{work_id}-{human_id}"
+    if _find(human_decisions, decision_id) is not None:
+        raise WorkspaceError(f"human-decision already exists: {decision_id}")
+    if _find(acceptance_records, acceptance_id) is not None:
+        raise WorkspaceError(f"acceptance already exists: {acceptance_id}")
+    qualified_count = _qualified_approval_count_after(workspace, work_id, human_id, reviewed_head)
+    if qualified_count < work.required_approval_count:
+        raise WorkspaceError(
+            f"work {work_id} cannot be accepted: approval quorum would be "
+            f"{qualified_count}/{work.required_approval_count}"
+        )
+    timestamp = _timestamp()
+    decision = {
+        "id": decision_id,
+        "work_item_id": work_id,
+        "human_id": human_id,
+        "reviewed_head": reviewed_head,
+        "decision": "accepted",
+        "status": "accepted",
+        "acceptance_mode": "human",
+        "quorum_status": "met",
+        "evidence_reference": evidence.id,
+        "review_reference": review.id,
+        "timestamp": timestamp,
+    }
+    acceptance = {
+        "id": acceptance_id,
+        "work_item_id": work_id,
+        "human_id": human_id,
+        "reviewed_head": reviewed_head,
+        "status": "accepted",
+        "decision_id": decision_id,
+        "evidence_reference": evidence.id,
+        "review_reference": review.id,
+        "receipt_hash": receipt.receipt_hash if receipt else "",
+        "authority_profile": authority_profile,
+        "quorum_status": "met",
+        "reason": reason,
+        "accepted_at": timestamp,
+    }
+    human_decisions.append(decision)
+    acceptance_records.append(acceptance)
+    workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or "work accept",
+        action="accepted",
+        object_type="acceptance",
+        object_collection="acceptance_records",
+        object_id=acceptance_id,
+        actor=human_id,
+        before=None,
+        after=acceptance,
+    )
+    return MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name)
+
+
+def closeout_attempt(
+    workspace_path: str,
+    attempt_id: str,
+    *,
+    status: str,
+    head_sha: str,
+    cleanliness: str,
+    changed_files: list[str],
+    output_targets: list[str],
+    allow_missing_evidence: bool,
+    command: str = "",
+    actor: str = "",
+) -> MutationResult:
+    store = load_store(workspace_path)
+    attempts = _records(store, "attempts")
+    attempt = _find(attempts, attempt_id)
+    if attempt is None:
+        raise WorkspaceError(f"attempt not found: {attempt_id}")
+    if cleanliness.lower() not in {"clean", "pristine"}:
+        raise WorkspaceError(f"attempt {attempt_id} cannot close out with cleanliness {cleanliness}")
+    before = deepcopy(attempt)
+    attempt["status"] = status
+    attempt["head_sha"] = head_sha
+    commits = list(attempt.get("commits", []))
+    if head_sha and (not commits or commits[-1] != head_sha):
+        commits.append(head_sha)
+    attempt["commits"] = commits
+    attempt["cleanliness"] = cleanliness
+    attempt["updated_at"] = _timestamp()
+    if changed_files:
+        attempt["changed_files"] = changed_files
+    if output_targets:
+        attempt["output_targets"] = output_targets
+    workspace = validate_data(store.data_path, store.data)
+    work_id = str(attempt.get("work_item_id") or "")
+    if not allow_missing_evidence:
+        matching_evidence = [
+            evidence
+            for evidence in workspace.evidence_runs
+            if evidence.attempt_id == attempt_id and evidence.head_sha == head_sha
+        ]
+        if not matching_evidence:
+            raise WorkspaceError(
+                f"attempt {attempt_id} cannot close out without evidence for head {head_sha}"
+            )
+    workspace = write_store(store)
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command=command or "attempt closeout",
+        action="closed-out",
+        object_type="attempt",
+        object_collection="attempts",
+        object_id=attempt_id,
+        actor=actor or str(attempt.get("actor") or ""),
+        before=before,
+        after=attempt,
+    )
+    return MutationResult("closed-out", "attempts", attempt_id, workspace.name, next_action=work_id)
+
+
 def parse_setters(setters: list[str], list_setters: list[str]) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     for item in setters:
@@ -344,12 +525,28 @@ def _assert_acceptance_allowed(
             f"human {human_id} lacks required approval capability "
             f"{work.required_approval_capability}"
         )
+    open_decisions = [
+        decision.id
+        for decision in workspace.decisions
+        if decision.linked_work == work_id and decision.status == "open"
+    ]
+    if open_decisions:
+        raise WorkspaceError(
+            f"work {work_id} has open decisions: {', '.join(open_decisions)}; cannot accept"
+        )
+    work_detail = detail(workspace, work_id)
+    if work_detail.get("coordination_warnings"):
+        raise WorkspaceError(
+            f"work {work_id} has scope coordination warnings; cannot accept"
+        )
     attempt = current_attempt_for_work(work, workspace.attempts)
     evidence = latest_for_work(workspace.evidence_runs, work_id)
     review = latest_for_work(workspace.review_verdicts, work_id)
     if attempt is None:
         raise WorkspaceError(f"work {work_id} has no attempt; cannot accept")
-    attempt_head = attempt.commits[-1] if attempt.commits else ""
+    if attempt.cleanliness.lower() in {"dirty", "unclean"}:
+        raise WorkspaceError(f"work {work_id} attempt {attempt.id} is dirty; cannot accept")
+    attempt_head = _attempt_head(attempt)
     if evidence is None:
         raise WorkspaceError(f"work {work_id} has no evidence; cannot accept")
     if evidence.status != "passed":
@@ -366,6 +563,115 @@ def _assert_acceptance_allowed(
         raise WorkspaceError(
             f"human decision head {reviewed_head} does not match reviewed head {review.reviewed_head}"
         )
+    if evidence.manifest_hash:
+        from .evidence_manifest import verify_evidence
+
+        verification = verify_evidence(workspace, evidence.id)
+        if not verification["ok"]:
+            raise WorkspaceError(
+                f"work {work_id} evidence manifest verification failed; cannot accept"
+            )
+
+
+def _prepare_record_for_create(
+    store: WorkspaceStore,
+    kind: str,
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    if kind == "evidence":
+        from .evidence_manifest import stamp_evidence_record
+
+        return stamp_evidence_record(record, store.data_path.parent)
+    if kind == "receipt":
+        from .evidence_manifest import stamp_receipt_record
+
+        return stamp_receipt_record(record, _records(store, "receipts"))
+    return record
+
+
+def _prepare_record_for_update(store: WorkspaceStore, kind: str, record: dict[str, Any]) -> None:
+    if kind == "evidence":
+        from .evidence_manifest import stamp_evidence_record
+
+        record.update(stamp_evidence_record(record, store.data_path.parent))
+    if kind == "receipt":
+        from .evidence_manifest import stamp_receipt_record
+
+        other_receipts = [
+            item for item in _records(store, "receipts") if item.get("id") != record.get("id")
+        ]
+        record.update(stamp_receipt_record(record, other_receipts))
+
+
+def _ensure_acceptance_record_for_completion(
+    store: WorkspaceStore,
+    workspace: Any,
+    work_id: str,
+    actor: str,
+) -> None:
+    work = workspace.work_item(work_id)
+    if work is None or work.risk in {"R1", "R2"} and work.required_approval_count == 0:
+        return
+    if any(item.get("work_item_id") == work_id for item in _records(store, "acceptance_records")):
+        return
+    review = latest_for_work(workspace.review_verdicts, work_id)
+    evidence = latest_for_work(workspace.evidence_runs, work_id)
+    decision = latest_for_work(workspace.human_decisions, work_id)
+    receipt = latest_for_work(workspace.receipts, work_id)
+    if review is None or evidence is None or decision is None:
+        return
+    acceptance_id = f"ACCEPTANCE-{work_id}-{decision.human_id}"
+    if _find(_records(store, "acceptance_records"), acceptance_id) is not None:
+        return
+    _records(store, "acceptance_records").append(
+        {
+            "id": acceptance_id,
+            "work_item_id": work_id,
+            "human_id": decision.human_id,
+            "reviewed_head": review.reviewed_head,
+            "status": "accepted",
+            "decision_id": decision.id,
+            "evidence_reference": evidence.id,
+            "review_reference": review.id,
+            "receipt_hash": receipt.receipt_hash if receipt else "",
+            "authority_profile": "team-safe",
+            "quorum_status": "met",
+            "reason": actor or "completion gate",
+            "accepted_at": _timestamp(),
+        }
+    )
+
+
+def _qualified_approval_count_after(
+    workspace: Any,
+    work_id: str,
+    human_id: str,
+    reviewed_head: str,
+) -> int:
+    work = workspace.work_item(work_id)
+    if work is None:
+        return 0
+    humans_by_id = {human.id: human for human in workspace.humans}
+    seen = {human_id}
+    for decision in workspace.human_decisions:
+        if decision.work_item_id != work_id or decision.reviewed_head != reviewed_head:
+            continue
+        if decision.status not in {"accepted", "approved"} and decision.decision not in {
+            "accepted",
+            "approved",
+        }:
+            continue
+        human = humans_by_id.get(decision.human_id)
+        if work.required_approval_capability and (
+            human is None or work.required_approval_capability not in human.approval_capabilities
+        ):
+            continue
+        seen.add(decision.human_id)
+    return len(seen)
+
+
+def _attempt_head(attempt: Any) -> str:
+    return attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
 
 
 def _collection(kind: str) -> str:
@@ -429,3 +735,7 @@ def _coerce_list(value: str) -> list[str]:
 
 def _event_actor(record: dict[str, Any], actor: str) -> str:
     return actor or str(record.get("human_id") or record.get("actor") or "")
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")

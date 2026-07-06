@@ -349,4 +349,4 @@ def _action_guidance(playbook: Playbook) -> str:
 
 
 def _attempt_head(attempt: Any) -> str:
-    return attempt.commits[-1] if attempt.commits else ""
+    return getattr(attempt, "head_sha", "") or (attempt.commits[-1] if attempt.commits else "")

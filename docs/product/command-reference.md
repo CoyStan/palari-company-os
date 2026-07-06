@@ -181,6 +181,65 @@ claims, record reviewer notes, or grant acceptance authority. Simple low-risk
 work may return `no_special_gate_required: true`; that means no extra
 risk-specific gate was detected beyond the normal receipt/evidence/review loop.
 
+## Capabilities And Authority
+
+```bash
+./bin/palari capability list --json
+./bin/palari capability check WORK-0001 --json
+./bin/palari capability export-policy WORK-0001 --json
+./bin/palari authority profiles --json
+./bin/palari authority check WORK-0002 --profile team-safe --json
+```
+
+Capabilities describe adapters, skill packs, integrations, repo work, and other
+power a Palari may use. `capability check` returns the capabilities allowed for
+one work item. `capability export-policy` emits a compact adapter policy with
+read/write paths, external-action boundaries, and the invariant that adapters
+cannot accept work or expand scope.
+
+Authority profiles describe risk/quorum posture. Built-ins are
+`solo-founder`, `team-safe`, and `strict`. `authority check` shows whether the
+work item's declared approval count satisfies the profile and whether
+receipt-ready completion is allowed for that risk tier.
+
+## Proposals And Scope Expansion
+
+```bash
+./bin/palari proposal create PROP-0001 --title "Draft note" --goal GOAL-0001 --palari PALARI-SOFIA
+./bin/palari proposal adopt PROP-0001 --work-id WORK-0100 --by HUMAN-FOUNDER --json
+./bin/palari proposal reject PROP-0001 --by HUMAN-FOUNDER --reason "Out of scope"
+./bin/palari work expand-scope WORK-0100 --id DECISION-0100 --by PALARI-SOFIA --write docs/new.md --reason "Need another output"
+```
+
+Proposals are AI-safe planning objects. A Palari may propose work, but adoption
+requires a real human id and creates the work item explicitly. Scope expansion
+does not mutate a work item; it creates an open decision linked to the work so
+the queue blocks until a human answers.
+
+## Evidence, Attempts, And Acceptance
+
+```bash
+./bin/palari attempt closeout ATTEMPT-0001 --head-sha HEAD --cleanliness clean --changed docs/output.md
+./bin/palari evidence verify EVIDENCE-0001 --json
+./bin/palari work accept WORK-0001 --by HUMAN-FOUNDER --reviewed-head HEAD --json
+./bin/palari work complete WORK-0001 --json
+```
+
+`attempt closeout` records explicit head SHA, changed paths, cleanliness, and
+closeout status. By default it requires matching evidence for the head.
+
+Evidence records automatically get artifact hashes and a manifest hash when
+recorded through the CLI. Receipts automatically get a receipt hash. `evidence
+verify` recomputes artifact and receipt hashes and fails when artifacts changed
+after recording.
+
+`work accept` is the explicit human acceptance gate. It requires fresh passing
+evidence, fresh accept-ready review, qualified human authority, no open linked
+decision, no scope-overlap warning, and a valid evidence manifest when present.
+It records both a human decision and an acceptance record. `work complete` keeps
+the terminal status gate and records a missing acceptance record from the latest
+qualified human decision when needed.
+
 ## Agent Packets
 
 ### MCP Server

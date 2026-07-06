@@ -98,10 +98,19 @@ Validation checks:
 - canceled integration outbox items require qualified `canceled_by`,
   `canceled_at`, and `cancel_reason` metadata
 - optional playbook source record shape
+- capability record kind, status, risk level, owner, source, and allowed Palari
+  references
+- built-in and custom authority profile risk/quorum settings
+- proposal status, risk, intensity, scope boundary references, adoption link,
+  and human decision metadata
 - Palari owner, goal, active-work, and outcome references
 - Palari memory sources reference existing source records
 - decision human, goal, work, and Palari references
 - attempt, evidence, review, human decision, receipt, and outcome references
+- attempt isolation metadata such as explicit head SHA, allowed paths,
+  forbidden paths, and claim lease fields
+- evidence manifest hash shape and artifact hash path safety
+- receipt hash, previous receipt hash, and evidence manifest hash shape
 - non-negative approval quorum counts
 - receipts use only sources allowed by the work item
 - receipt actor matches the attempt actor or work Palari
@@ -116,6 +125,8 @@ Validation checks:
   accept-ready review
 - accepted human decisions are made by a human with the required approval
   capability
+- acceptance records reference fresh passing evidence, fresh accept-ready
+  review, qualified human authority, and a matching human-decision record
 - completed work has fresh passing evidence, fresh accept-ready review, no open
   linked decision, and enough qualified human approvals
 
@@ -130,10 +141,11 @@ Migration:
 ```
 
 `migrate` adds `schema_version: 1` to old unversioned workspaces and ensures
-required collections exist. Optional collections such as `playbook_sources`,
-`workbenches`, `integrations`, and `integration_plans` may be absent from older
-v1 workspaces; if present, they are still strictly validated. Workspaces with a
-newer schema version fail closed until this code supports them.
+known collections exist, including optional governance collections such as
+`capabilities`, `authority_profiles`, `proposals`, and `acceptance_records`.
+Older v1 workspaces may still omit optional collections when read directly; if
+present, they are strictly validated. Workspaces with a newer schema version
+fail closed until this code supports them.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

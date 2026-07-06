@@ -421,6 +421,8 @@ def _human_decision_record_command(
 
 
 def _attempt_head(attempt: dict[str, Any]) -> str:
+    if attempt.get("head_sha"):
+        return str(attempt["head_sha"])
     commits = attempt.get("commits", [])
     return commits[-1] if commits else ""
 

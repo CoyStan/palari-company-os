@@ -98,10 +98,14 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     "sources": len(workspace.sources),
                     "workbenches": len(workspace.workbenches),
                     "playbook_sources": len(workspace.playbook_sources),
+                    "capabilities": len(workspace.capabilities),
+                    "authority_profiles": len(workspace.authority_profiles),
                     "integrations": len(workspace.integrations),
                     "integration_plans": len(workspace.integration_plans),
                     "integration_outbox": len(workspace.integration_outbox),
+                    "proposals": len(workspace.proposals),
                     "work_items": len(workspace.work_items),
+                    "acceptance_records": len(workspace.acceptance_records),
                     "receipts": len(workspace.receipts),
                 },
             },
@@ -387,13 +391,103 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
+    if args.command == "capability" and args.object_command in {
+        "list",
+        "check",
+        "export-policy",
+    }:
+        from .capabilities import capability_catalog, capability_check, export_policy
+
+        workspace = Workspace.load(args.workspace)
+        if args.object_command == "list":
+            return CommandResult("capabilities", capability_catalog(workspace), args.json)
+        if args.object_command == "check":
+            return CommandResult(
+                "capability-check",
+                capability_check(workspace, args.work_id, args.palari_id),
+                args.json,
+            )
+        if args.object_command == "export-policy":
+            return CommandResult(
+                "capability-policy",
+                export_policy(workspace, args.work_id, args.palari_id),
+                args.json,
+            )
+
+    if args.command == "authority":
+        from .authority import authority_check, authority_profiles
+
+        workspace = Workspace.load(args.workspace)
+        if args.authority_command == "profiles":
+            return CommandResult("authority-profiles", authority_profiles(workspace), args.json)
+        if args.authority_command == "check":
+            return CommandResult(
+                "authority-check",
+                authority_check(workspace, args.work_id, args.profile),
+                args.json,
+            )
+
+    if args.command == "evidence" and args.object_command == "verify":
+        from .evidence_manifest import verify_evidence
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult("evidence-verify", verify_evidence(workspace, args.id), args.json)
+
+    if args.command == "proposal" and args.object_command in {"adopt", "reject", "defer"}:
+        from .proposals import adopt_proposal, decide_proposal
+
+        if args.object_command == "adopt":
+            return CommandResult(
+                "proposal-decision",
+                adopt_proposal(
+                    args.workspace,
+                    args.proposal_id,
+                    args.work_id,
+                    args.human_id,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
+        return CommandResult(
+            "proposal-decision",
+            decide_proposal(
+                args.workspace,
+                args.proposal_id,
+                args.human_id,
+                args.object_command,
+                reason=args.reason,
+            ),
+            args.json,
+        )
+
+    if args.command == "work" and args.object_command == "expand-scope":
+        from .proposals import request_scope_expansion
+
+        return CommandResult(
+            "proposal-decision",
+            request_scope_expansion(
+                args.workspace,
+                args.work_id,
+                args.decision_id,
+                args.actor,
+                read_paths=args.read,
+                write_paths=args.write,
+                actions=args.action,
+                reason=args.reason,
+            ),
+            args.json,
+        )
+
     if args.command in {
         "goal",
         "human",
         "palari",
         "source",
         "playbook-source",
+        "capability",
+        "authority-profile",
         "decision",
+        "proposal",
         "work",
         "attempt",
         "evidence",
@@ -473,6 +567,8 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
 
 def run_authoring_command(args: argparse.Namespace) -> Any:
     from .authoring import (
+        accept_work,
+        closeout_attempt,
         complete_work,
         create_human_decision,
         create_record,
@@ -481,6 +577,30 @@ def run_authoring_command(args: argparse.Namespace) -> Any:
     )
 
     command = f"{args.command} {args.object_command}"
+    if args.command == "work" and args.object_command == "accept":
+        return accept_work(
+            args.workspace,
+            args.work_id,
+            args.human_id,
+            args.reviewed_head,
+            decision_id=args.decision_id,
+            acceptance_id=args.acceptance_id,
+            reason=args.reason,
+            authority_profile=args.authority_profile,
+            command=command,
+        )
+    if args.command == "attempt" and args.object_command == "closeout":
+        return closeout_attempt(
+            args.workspace,
+            args.id,
+            status=args.status,
+            head_sha=args.head_sha,
+            cleanliness=args.cleanliness,
+            changed_files=args.changed,
+            output_targets=args.output_target,
+            allow_missing_evidence=args.allow_missing_evidence,
+            command=command,
+        )
     if args.object_command in {"create", "record"}:
         record = _record_from_args(args)
         if args.command == "human-decision":
@@ -532,6 +652,7 @@ def _apply_known_args(args: argparse.Namespace, record: dict[str, Any], include_
             "command",
             "object_command",
             "lifecycle_command",
+            "authority_command",
             "workspace",
             "json",
             "set",
@@ -553,15 +674,19 @@ def _workspace_counts(workspace: Workspace) -> dict[str, int]:
         "sources": len(workspace.sources),
         "workbenches": len(workspace.workbenches),
         "playbook_sources": len(workspace.playbook_sources),
+        "capabilities": len(workspace.capabilities),
+        "authority_profiles": len(workspace.authority_profiles),
         "integrations": len(workspace.integrations),
         "integration_plans": len(workspace.integration_plans),
         "integration_outbox": len(workspace.integration_outbox),
         "decisions": len(workspace.decisions),
+        "proposals": len(workspace.proposals),
         "work_items": len(workspace.work_items),
         "attempts": len(workspace.attempts),
         "evidence_runs": len(workspace.evidence_runs),
         "review_verdicts": len(workspace.review_verdicts),
         "human_decisions": len(workspace.human_decisions),
+        "acceptance_records": len(workspace.acceptance_records),
         "receipts": len(workspace.receipts),
         "outcomes": len(workspace.outcomes),
     }

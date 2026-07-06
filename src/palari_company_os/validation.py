@@ -6,12 +6,16 @@ from typing import Any, Iterable, TypeVar
 from .errors import WorkspaceError
 from .integration_contracts import PROVIDER_ACTIONS, supported_actions_for_mode
 from .models import (
+    AcceptanceRecord,
     Attempt,
+    AuthorityProfile,
+    Capability,
     EvidenceRun,
     HumanDecision,
     Integration,
     IntegrationOutboxItem,
     IntegrationPlan,
+    Proposal,
     Receipt,
     ReviewVerdict,
     WorkItem,
@@ -39,9 +43,13 @@ COLLECTION_KEYS = (
 OPTIONAL_COLLECTION_KEYS = (
     "playbook_sources",
     "workbenches",
+    "capabilities",
+    "authority_profiles",
     "integrations",
     "integration_plans",
     "integration_outbox",
+    "proposals",
+    "acceptance_records",
 )
 COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
@@ -161,6 +169,33 @@ ALLOWED_RECORD_FIELDS = {
         "included_playbooks",
         "install_hint",
     },
+    "capabilities": {
+        "id",
+        "label",
+        "kind",
+        "provider",
+        "status",
+        "owner_human",
+        "allowed_actions",
+        "allowed_palaris",
+        "source_ids",
+        "risk_level",
+        "policy_ref",
+        "notes",
+    },
+    "authority_profiles": {
+        "id",
+        "label",
+        "mode",
+        "summary",
+        "require_human_for_risks",
+        "receipt_ready_risks",
+        "minimum_approval_count",
+        "r5_approval_count",
+        "required_approval_capability",
+        "allow_agent_scope_expansion",
+        "notes",
+    },
     "integrations": {
         "id",
         "provider",
@@ -218,9 +253,15 @@ ALLOWED_RECORD_FIELDS = {
         "status",
         "branch",
         "workspace_path",
+        "base_sha",
+        "head_sha",
         "model_or_worker",
         "commits",
         "changed_files",
+        "allowed_paths",
+        "forbidden_paths",
+        "claim_id",
+        "claim_expires_at",
         "cleanliness",
         "result",
         "started_at",
@@ -236,6 +277,10 @@ ALLOWED_RECORD_FIELDS = {
         "base_ref",
         "commands",
         "artifacts",
+        "artifact_hashes",
+        "manifest_hash",
+        "receipt_hash",
+        "previous_receipt_hash",
         "summary",
         "freshness",
         "timestamp",
@@ -264,6 +309,21 @@ ALLOWED_RECORD_FIELDS = {
         "review_reference",
         "timestamp",
     },
+    "acceptance_records": {
+        "id",
+        "work_item_id",
+        "human_id",
+        "reviewed_head",
+        "status",
+        "decision_id",
+        "evidence_reference",
+        "review_reference",
+        "receipt_hash",
+        "authority_profile",
+        "quorum_status",
+        "reason",
+        "accepted_at",
+    },
     "receipts": {
         "id",
         "work_item_id",
@@ -279,6 +339,9 @@ ALLOWED_RECORD_FIELDS = {
         "external_writes",
         "not_done",
         "undo_refs",
+        "receipt_hash",
+        "previous_receipt_hash",
+        "evidence_manifest_hash",
         "timestamp",
     },
     "decisions": {
@@ -297,6 +360,34 @@ ALLOWED_RECORD_FIELDS = {
         "linked_work",
         "linked_palari",
         "result",
+    },
+    "proposals": {
+        "id",
+        "title",
+        "goal",
+        "palari",
+        "proposer",
+        "status",
+        "summary",
+        "scope",
+        "risk",
+        "intensity",
+        "allowed_resources",
+        "allowed_sources",
+        "allowed_actions",
+        "output_targets",
+        "forbidden_actions",
+        "acceptance_target",
+        "verification_expectations",
+        "recommended_playbooks",
+        "conflict_targets",
+        "parallel_policy",
+        "linked_work",
+        "decision_id",
+        "created_at",
+        "decided_by",
+        "decided_at",
+        "reason",
     },
     "outcomes": {
         "id",
@@ -329,6 +420,18 @@ TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}
 PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
+CAPABILITY_KINDS = {
+    "repo",
+    "external_tool",
+    "skill_pack",
+    "mcp_adapter",
+    "integration",
+    "playbook",
+    "policy",
+}
+CAPABILITY_STATUSES = {"enabled", "disabled", "review", "deprecated"}
+PROPOSAL_STATUSES = {"proposed", "under-review", "adopted", "rejected", "deferred"}
+AUTHORITY_MODES = {"solo-founder", "team-safe", "strict", "custom"}
 ATTEMPT_STATUSES = {"active", "complete", "completed", "failed", "blocked"}
 EVIDENCE_STATUSES = {"passed", "failed", "skipped"}
 REVIEW_VERDICTS = {"accept-ready", "changes-requested", "needs-human-decision", "blocked"}
@@ -350,6 +453,7 @@ HUMAN_DECISION_VALUES = {
     "blocked",
 }
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
+ACCEPTANCE_RECORD_STATUSES = {"accepted", "rejected", "revoked"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
 INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
@@ -417,6 +521,7 @@ def validate_workspace_contract(workspace: Any) -> None:
     integrations_by_id = {integration.id: integration for integration in workspace.integrations}
     integration_plans_by_id = {plan.id: plan for plan in workspace.integration_plans}
     integration_outbox_by_id = {item.id: item for item in workspace.integration_outbox}
+    decisions_by_id = {decision.id: decision for decision in workspace.decisions}
 
     for goal in workspace.goals:
         _require_allowed_value("goals", goal.id, "status", goal.status, GOAL_STATUSES)
@@ -445,6 +550,15 @@ def validate_workspace_contract(workspace: Any) -> None:
             source.authority,
             SOURCE_AUTHORITIES,
         )
+
+    for capability in workspace.capabilities:
+        _validate_capability(capability)
+
+    for profile in workspace.authority_profiles:
+        _validate_authority_profile(profile)
+
+    for proposal in workspace.proposals:
+        _validate_proposal(proposal, work_by_id, decisions_by_id)
 
     for work in workspace.work_items:
         _require_allowed_value("work_items", work.id, "status", work.status, WORK_STATUSES)
@@ -488,6 +602,7 @@ def validate_workspace_contract(workspace: Any) -> None:
                 f"evidence_runs.{evidence.id}.attempt_id references attempt "
                 f"{attempt.id} for different work item {attempt.work_item_id}"
             )
+        _validate_evidence_manifest_shape(evidence)
 
     for review in workspace.review_verdicts:
         _require_allowed_value(
@@ -529,6 +644,16 @@ def validate_workspace_contract(workspace: Any) -> None:
                 reviews_by_id,
             )
 
+    for acceptance in workspace.acceptance_records:
+        _validate_acceptance_record(
+            acceptance,
+            work_by_id,
+            humans_by_id,
+            attempts_by_id,
+            evidence_by_id,
+            reviews_by_id,
+        )
+
     for receipt in workspace.receipts:
         _validate_receipt(
             receipt,
@@ -538,6 +663,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             integration_plans_by_id,
             integration_outbox_by_id,
         )
+        _validate_receipt_hash_shape(receipt)
 
     for outcome in workspace.outcomes:
         _require_allowed_value("outcomes", outcome.id, "status", outcome.status, OUTCOME_STATUSES)
@@ -631,6 +757,81 @@ def _validate_integration(integration: Integration) -> None:
             f"integrations.{integration.id}.secret_ref must be an env:NAME reference, "
             "not a raw token or key"
         )
+
+
+def _validate_capability(capability: Capability) -> None:
+    _require_allowed_value(
+        "capabilities",
+        capability.id,
+        "kind",
+        capability.kind,
+        CAPABILITY_KINDS,
+    )
+    _require_allowed_value(
+        "capabilities",
+        capability.id,
+        "status",
+        capability.status,
+        CAPABILITY_STATUSES,
+    )
+    _require_allowed_value(
+        "capabilities",
+        capability.id,
+        "risk_level",
+        capability.risk_level,
+        INTEGRATION_RISK_LEVELS,
+    )
+
+
+def _validate_authority_profile(profile: AuthorityProfile) -> None:
+    _require_allowed_value("authority_profiles", profile.id, "mode", profile.mode, AUTHORITY_MODES)
+    for risk in profile.require_human_for_risks:
+        _require_allowed_value("authority_profiles", profile.id, "require_human_for_risks", risk, RISKS)
+    for risk in profile.receipt_ready_risks:
+        _require_allowed_value("authority_profiles", profile.id, "receipt_ready_risks", risk, RISKS)
+    if profile.minimum_approval_count < 0:
+        raise WorkspaceError(
+            f"authority_profiles.{profile.id}.minimum_approval_count must be zero or greater"
+        )
+    if profile.r5_approval_count < profile.minimum_approval_count:
+        raise WorkspaceError(
+            f"authority_profiles.{profile.id}.r5_approval_count must be at least "
+            "minimum_approval_count"
+        )
+
+
+def _validate_proposal(
+    proposal: Proposal,
+    work_by_id: dict[str, WorkItem],
+    decisions_by_id: dict[str, Any],
+) -> None:
+    _require_allowed_value("proposals", proposal.id, "status", proposal.status, PROPOSAL_STATUSES)
+    _require_allowed_value("proposals", proposal.id, "risk", proposal.risk, RISKS)
+    _require_allowed_value("proposals", proposal.id, "intensity", proposal.intensity, INTENSITIES)
+    _require_allowed_value(
+        "proposals",
+        proposal.id,
+        "parallel_policy",
+        proposal.parallel_policy,
+        PARALLEL_POLICIES,
+    )
+    if proposal.status == "adopted":
+        if not proposal.linked_work:
+            raise WorkspaceError(f"proposals.{proposal.id}.linked_work is required when adopted")
+        work = work_by_id[proposal.linked_work]
+        if work.title != proposal.title:
+            raise WorkspaceError(
+                f"proposals.{proposal.id}.linked_work {work.id} title does not match proposal"
+            )
+    if proposal.status in {"rejected", "deferred"} and not proposal.reason:
+        raise WorkspaceError(f"proposals.{proposal.id}.reason is required when {proposal.status}")
+    if proposal.decision_id:
+        decision = decisions_by_id[proposal.decision_id]
+        if decision.linked_work and proposal.linked_work and decision.linked_work != proposal.linked_work:
+            raise WorkspaceError(
+                f"proposals.{proposal.id}.decision_id links to decision {decision.id} "
+                f"for different work item {decision.linked_work}"
+            )
 
 
 def _validate_integration_plan(
@@ -885,13 +1086,16 @@ def _validate_attempt_boundaries(
     work = work_by_id[attempt.work_item_id]
     write_boundaries = _write_boundaries(work)
     output_boundaries = _output_boundaries(work)
+    attempt_boundaries = attempt.allowed_paths or write_boundaries
 
     for changed_file in attempt.changed_files:
         _require_path_in_boundaries(
             f"attempts.{attempt.id}.changed_files",
             changed_file,
-            write_boundaries,
+            attempt_boundaries,
         )
+        for forbidden_path in attempt.forbidden_paths:
+            _require_changed_file_outside_forbidden_path(attempt.id, changed_file, forbidden_path)
     for output_target in attempt.output_targets:
         _require_path_in_boundaries(
             f"attempts.{attempt.id}.output_targets",
@@ -935,6 +1139,23 @@ def _require_path_in_boundaries(label: str, path: str, boundaries: list[str]) ->
         raise WorkspaceError(f"{label} contains unsafe path {path}: {exc}") from exc
     if not path_allowed(path, boundaries):
         raise WorkspaceError(f"{label} includes path outside declared boundaries: {path}")
+
+
+def _require_changed_file_outside_forbidden_path(
+    attempt_id: str,
+    changed_file: str,
+    forbidden_path: str,
+) -> None:
+    try:
+        validate_workspace_path(forbidden_path)
+    except ValueError as exc:
+        raise WorkspaceError(
+            f"attempts.{attempt_id}.forbidden_paths contains unsafe path {forbidden_path}: {exc}"
+        ) from exc
+    if path_allowed(changed_file, [forbidden_path]):
+        raise WorkspaceError(
+            f"attempts.{attempt_id}.changed_files includes forbidden path {changed_file}"
+        )
 
 
 def _undo_ref_path(undo_ref: str) -> str:
@@ -1000,6 +1221,74 @@ def _validate_accepted_human_decision(
     if decision.reviewed_head != review.reviewed_head:
         raise WorkspaceError(
             f"human_decisions.{decision.id}.reviewed_head does not match "
+            f"review_reference head {review.reviewed_head}"
+        )
+
+
+def _validate_acceptance_record(
+    acceptance: AcceptanceRecord,
+    work_by_id: dict[str, WorkItem],
+    humans_by_id: dict[str, Any],
+    attempts_by_id: dict[str, Attempt],
+    evidence_by_id: dict[str, EvidenceRun],
+    reviews_by_id: dict[str, ReviewVerdict],
+) -> None:
+    _require_allowed_value(
+        "acceptance_records",
+        acceptance.id,
+        "status",
+        acceptance.status,
+        ACCEPTANCE_RECORD_STATUSES,
+    )
+    _require_allowed_value(
+        "acceptance_records",
+        acceptance.id,
+        "quorum_status",
+        acceptance.quorum_status,
+        QUORUM_STATUSES,
+    )
+    if acceptance.status != "accepted":
+        return
+    work = work_by_id[acceptance.work_item_id]
+    human = humans_by_id[acceptance.human_id]
+    if work.required_approval_capability and (
+        work.required_approval_capability not in human.approval_capabilities
+    ):
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.human_id lacks required approval "
+            f"capability {work.required_approval_capability}"
+        )
+    if acceptance.quorum_status != "met":
+        raise WorkspaceError(f"acceptance_records.{acceptance.id}.quorum_status must be met")
+    if not acceptance.evidence_reference:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference is required"
+        )
+    if not acceptance.review_reference:
+        raise WorkspaceError(f"acceptance_records.{acceptance.id}.review_reference is required")
+    evidence = evidence_by_id[acceptance.evidence_reference]
+    review = reviews_by_id[acceptance.review_reference]
+    if evidence.work_item_id != work.id:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference points to "
+            f"evidence for {evidence.work_item_id}, not {work.id}"
+        )
+    if review.work_item_id != work.id:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.review_reference points to "
+            f"review for {review.work_item_id}, not {work.id}"
+        )
+    attempt = attempts_by_id[evidence.attempt_id]
+    if work.current_attempt and evidence.attempt_id != work.current_attempt:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference is not for "
+            f"current attempt {work.current_attempt}"
+        )
+    _require_fresh_passed_evidence(work.id, attempt, evidence)
+    _require_fresh_accept_ready_review(work.id, evidence, review)
+    if acceptance.reviewed_head != review.reviewed_head:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.reviewed_head does not match "
             f"review_reference head {review.reviewed_head}"
         )
 
@@ -1133,6 +1422,55 @@ def _validate_receipt(
         )
 
 
+def _validate_evidence_manifest_shape(evidence: EvidenceRun) -> None:
+    for artifact_hash in evidence.artifact_hashes:
+        path = artifact_hash.get("path")
+        digest = artifact_hash.get("sha256")
+        if not isinstance(path, str) or not path:
+            raise WorkspaceError(
+                f"evidence_runs.{evidence.id}.artifact_hashes items require path"
+            )
+        if not isinstance(digest, str) or not digest.startswith("sha256:"):
+            raise WorkspaceError(
+                f"evidence_runs.{evidence.id}.artifact_hashes.{path} requires sha256 digest"
+            )
+        try:
+            validate_workspace_path(path)
+        except ValueError as exc:
+            raise WorkspaceError(
+                f"evidence_runs.{evidence.id}.artifact_hashes contains unsafe path {path}: {exc}"
+            ) from exc
+    _require_hash_prefix("evidence_runs", evidence.id, "manifest_hash", evidence.manifest_hash)
+    _require_hash_prefix("evidence_runs", evidence.id, "receipt_hash", evidence.receipt_hash)
+    _require_hash_prefix(
+        "evidence_runs",
+        evidence.id,
+        "previous_receipt_hash",
+        evidence.previous_receipt_hash,
+    )
+
+
+def _validate_receipt_hash_shape(receipt: Receipt) -> None:
+    _require_hash_prefix("receipts", receipt.id, "receipt_hash", receipt.receipt_hash)
+    _require_hash_prefix(
+        "receipts",
+        receipt.id,
+        "previous_receipt_hash",
+        receipt.previous_receipt_hash,
+    )
+    _require_hash_prefix(
+        "receipts",
+        receipt.id,
+        "evidence_manifest_hash",
+        receipt.evidence_manifest_hash,
+    )
+
+
+def _require_hash_prefix(collection: str, record_id: str, field: str, value: str) -> None:
+    if value and not value.startswith("sha256:"):
+        raise WorkspaceError(f"{collection}.{record_id}.{field} must use sha256:HEX format")
+
+
 def _allows_external_writes(work: WorkItem) -> bool:
     allowed = set(work.allowed_actions)
     return bool(allowed & {"external_write", "write_external", "write"})
@@ -1195,7 +1533,7 @@ def _is_acceptance(decision: HumanDecision) -> bool:
 
 
 def _attempt_head(attempt: Attempt) -> str:
-    return attempt.commits[-1] if attempt.commits else ""
+    return attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
 
 
 def _open_linked_decision(workspace: Any, work_id: str) -> Any | None:

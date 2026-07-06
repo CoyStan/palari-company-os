@@ -157,7 +157,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_palari_parser(subparsers)
     _add_source_parser(subparsers)
     _add_playbook_source_parser(subparsers)
+    _add_capability_parser(subparsers)
+    _add_authority_parser(subparsers)
     _add_decision_parser(subparsers)
+    _add_proposal_parser(subparsers)
     _add_work_parser(subparsers)
     _add_attempt_parser(subparsers)
     _add_evidence_parser(subparsers)
@@ -512,6 +515,66 @@ def _add_playbook_source_parser(subparsers: Any) -> None:
     )
 
 
+def _add_capability_parser(subparsers: Any) -> None:
+    nested, _create, _update = _add_create_update(
+        subparsers,
+        "capability",
+        "Create, update, list, check, or export governed capabilities.",
+        [
+            ("label", {"required": True, "help": "Capability label."}),
+            ("kind", {"required": True, "help": "Capability kind."}),
+            ("provider", {"default": "", "help": "Provider or adapter name."}),
+            ("status", {"default": "enabled", "help": "Capability status."}),
+            ("owner_human", {"default": "", "help": "Owning human id."}),
+            ("risk_level", {"default": "standard", "help": "Risk level."}),
+            ("policy_ref", {"default": "", "help": "Policy or contract reference."}),
+            ("notes", {"default": "", "help": "Capability notes."}),
+        ],
+    )
+    list_parser = nested.add_parser("list", help="List governed capabilities.")
+    list_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+    check = nested.add_parser("check", help="Check capabilities allowed for one work item.")
+    check.add_argument("work_id")
+    check.add_argument("--as", dest="palari_id", default="", help="Acting Palari id.")
+    check.add_argument("--json", action="store_true", help="Emit JSON.")
+    export = nested.add_parser(
+        "export-policy",
+        help="Export adapter policy for one work item.",
+    )
+    export.add_argument("work_id")
+    export.add_argument("--as", dest="palari_id", default="", help="Acting Palari id.")
+    export.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_authority_parser(subparsers: Any) -> None:
+    _add_create_update(
+        subparsers,
+        "authority-profile",
+        "Create or update custom authority profiles.",
+        [
+            ("label", {"required": True, "help": "Authority profile label."}),
+            ("mode", {"default": "custom", "help": "Authority mode."}),
+            ("summary", {"default": "", "help": "Profile summary."}),
+            (
+                "required_approval_capability",
+                {"default": "", "help": "Required approval capability."},
+            ),
+            ("notes", {"default": "", "help": "Profile notes."}),
+        ],
+    )
+    parser = subparsers.add_parser(
+        "authority",
+        help="Inspect authority profiles and risk/quorum checks.",
+    )
+    nested = parser.add_subparsers(dest="authority_command", required=True)
+    profiles = nested.add_parser("profiles", help="List built-in and custom authority profiles.")
+    profiles.add_argument("--json", action="store_true", help="Emit JSON.")
+    check = nested.add_parser("check", help="Check one work item against an authority profile.")
+    check.add_argument("work_id")
+    check.add_argument("--profile", default="team-safe", help="Authority profile id.")
+    check.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
 def _add_decision_parser(subparsers: Any) -> None:
     nested, _create, _update = _add_create_update(
         subparsers,
@@ -534,6 +597,43 @@ def _add_decision_parser(subparsers: Any) -> None:
     guide = nested.add_parser("guide", help="Build a read-only decision guide.")
     guide.add_argument("target_id", help="Decision id, or a work item id linked to a decision.")
     guide.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_proposal_parser(subparsers: Any) -> None:
+    nested, _create, _update = _add_create_update(
+        subparsers,
+        "proposal",
+        "Create, update, adopt, reject, or defer work proposals.",
+        [
+            ("title", {"required": True, "help": "Proposal title."}),
+            ("goal", {"required": True, "help": "Goal id."}),
+            ("palari", {"required": True, "help": "Palari id."}),
+            ("proposer", {"default": "", "help": "Human or Palari proposer id."}),
+            ("status", {"default": "proposed", "help": "Proposal status."}),
+            ("summary", {"default": "", "help": "Proposal summary."}),
+            ("scope", {"default": "", "help": "Proposed scope."}),
+            ("risk", {"default": "R1", "help": "Risk level."}),
+            ("intensity", {"default": "light", "help": "Operating intensity."}),
+            ("acceptance_target", {"default": "", "help": "Acceptance target."}),
+            ("parallel_policy", {"default": "independent", "help": "Parallel policy."}),
+        ],
+    )
+    adopt = nested.add_parser("adopt", help="Adopt a proposal into a real work item.")
+    adopt.add_argument("proposal_id")
+    adopt.add_argument("--work-id", required=True, help="Work item id to create.")
+    adopt.add_argument("--by", dest="human_id", required=True, help="Adopting human id.")
+    adopt.add_argument("--reason", default="", help="Adoption reason.")
+    adopt.add_argument("--json", action="store_true", help="Emit JSON.")
+    reject = nested.add_parser("reject", help="Reject a proposal.")
+    reject.add_argument("proposal_id")
+    reject.add_argument("--by", dest="human_id", required=True, help="Deciding human id.")
+    reject.add_argument("--reason", required=True, help="Rejection reason.")
+    reject.add_argument("--json", action="store_true", help="Emit JSON.")
+    defer = nested.add_parser("defer", help="Defer a proposal.")
+    defer.add_argument("proposal_id")
+    defer.add_argument("--by", dest="human_id", required=True, help="Deciding human id.")
+    defer.add_argument("--reason", required=True, help="Deferral reason.")
+    defer.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_work_parser(subparsers: Any) -> None:
@@ -575,6 +675,24 @@ def _add_work_parser(subparsers: Any) -> None:
     complete.add_argument("work_id")
     complete.add_argument("--status", default="completed", help="Terminal status to write.")
     complete.add_argument("--json", action="store_true", help="Emit JSON.")
+    accept = nested.add_parser("accept", help="Accept a work item after fresh evidence and review.")
+    accept.add_argument("work_id")
+    accept.add_argument("--by", dest="human_id", required=True, help="Accepting human id.")
+    accept.add_argument("--reviewed-head", required=True, help="Reviewed head to accept.")
+    accept.add_argument("--id", dest="decision_id", default="", help="Human decision id.")
+    accept.add_argument("--acceptance-id", default="", help="Acceptance record id.")
+    accept.add_argument("--authority-profile", default="team-safe", help="Authority profile id.")
+    accept.add_argument("--reason", default="", help="Acceptance reason.")
+    accept.add_argument("--json", action="store_true", help="Emit JSON.")
+    expand = nested.add_parser("expand-scope", help="Request scope expansion as a human decision.")
+    expand.add_argument("work_id")
+    expand.add_argument("--id", dest="decision_id", required=True, help="Decision id to create.")
+    expand.add_argument("--by", dest="actor", required=True, help="Requesting actor id.")
+    expand.add_argument("--read", action="append", default=[], help="Requested read path.")
+    expand.add_argument("--write", action="append", default=[], help="Requested write path.")
+    expand.add_argument("--action", action="append", default=[], help="Requested action.")
+    expand.add_argument("--reason", required=True, help="Why the existing scope is insufficient.")
+    expand.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_attempt_parser(subparsers: Any) -> None:
@@ -595,6 +713,19 @@ def _add_attempt_parser(subparsers: Any) -> None:
     update = nested.add_parser("update", help="Update an attempt.")
     update.add_argument("id")
     _add_common_mutation_args(update)
+    closeout = nested.add_parser("closeout", help="Close out an attempt after evidence exists.")
+    closeout.add_argument("id")
+    closeout.add_argument("--status", default="complete", help="Closeout status.")
+    closeout.add_argument("--head-sha", required=True, help="Attempt head sha.")
+    closeout.add_argument("--cleanliness", default="clean", help="Repo cleanliness state.")
+    closeout.add_argument("--changed", action="append", default=[], help="Changed path.")
+    closeout.add_argument("--output-target", action="append", default=[], help="Output target.")
+    closeout.add_argument(
+        "--allow-missing-evidence",
+        action="store_true",
+        help="Close out even when no evidence exists yet.",
+    )
+    closeout.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_evidence_parser(subparsers: Any) -> None:
@@ -614,6 +745,9 @@ def _add_evidence_parser(subparsers: Any) -> None:
     update = nested.add_parser("update", help="Update evidence.")
     update.add_argument("id")
     _add_common_mutation_args(update)
+    verify = nested.add_parser("verify", help="Verify evidence artifact and receipt hashes.")
+    verify.add_argument("id")
+    verify.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_review_parser(subparsers: Any) -> None:

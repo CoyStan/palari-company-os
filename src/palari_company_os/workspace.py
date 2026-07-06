@@ -8,7 +8,10 @@ from typing import Iterable, TypeVar
 
 from .errors import WorkspaceError
 from .models import (
+    AcceptanceRecord,
     Attempt,
+    AuthorityProfile,
+    Capability,
     Decision,
     EvidenceRun,
     Goal,
@@ -20,6 +23,7 @@ from .models import (
     Outcome,
     Palari,
     PlaybookSource,
+    Proposal,
     Receipt,
     ReviewVerdict,
     Source,
@@ -49,15 +53,19 @@ class Workspace:
     sources: list[Source]
     workbenches: list[Workbench]
     playbook_sources: list[PlaybookSource]
+    capabilities: list[Capability]
+    authority_profiles: list[AuthorityProfile]
     integrations: list[Integration]
     integration_plans: list[IntegrationPlan]
     integration_outbox: list[IntegrationOutboxItem]
     decisions: list[Decision]
+    proposals: list[Proposal]
     work_items: list[WorkItem]
     attempts: list[Attempt]
     evidence_runs: list[EvidenceRun]
     review_verdicts: list[ReviewVerdict]
     human_decisions: list[HumanDecision]
+    acceptance_records: list[AcceptanceRecord]
     receipts: list[Receipt]
     outcomes: list[Outcome]
     _goals_by_id: dict[str, Goal] = field(
@@ -79,6 +87,12 @@ class Workspace:
         default_factory=dict, init=False, repr=False, compare=False
     )
     _integration_outbox_by_id: dict[str, IntegrationOutboxItem] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _capabilities_by_id: dict[str, Capability] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _proposals_by_id: dict[str, Proposal] = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
     _work_items_by_id: dict[str, WorkItem] = field(
@@ -145,6 +159,10 @@ class Workspace:
             playbook_sources=[
                 PlaybookSource.from_record(item) for item in _items(raw, "playbook_sources")
             ],
+            capabilities=[Capability.from_record(item) for item in _items(raw, "capabilities")],
+            authority_profiles=[
+                AuthorityProfile.from_record(item) for item in _items(raw, "authority_profiles")
+            ],
             integrations=[Integration.from_record(item) for item in _items(raw, "integrations")],
             integration_plans=[
                 IntegrationPlan.from_record(item) for item in _items(raw, "integration_plans")
@@ -153,6 +171,7 @@ class Workspace:
                 IntegrationOutboxItem.from_record(item) for item in _items(raw, "integration_outbox")
             ],
             decisions=[Decision.from_record(item) for item in _items(raw, "decisions")],
+            proposals=[Proposal.from_record(item) for item in _items(raw, "proposals")],
             work_items=[WorkItem.from_record(item) for item in _items(raw, "work_items")],
             attempts=[Attempt.from_record(item) for item in _items(raw, "attempts")],
             evidence_runs=[
@@ -163,6 +182,9 @@ class Workspace:
             ],
             human_decisions=[
                 HumanDecision.from_record(item) for item in _items(raw, "human_decisions")
+            ],
+            acceptance_records=[
+                AcceptanceRecord.from_record(item) for item in _items(raw, "acceptance_records")
             ],
             receipts=[Receipt.from_record(item) for item in _items(raw, "receipts")],
             outcomes=[Outcome.from_record(item) for item in _items(raw, "outcomes")],
@@ -178,6 +200,11 @@ class Workspace:
         object.__setattr__(self, "_sources_by_id", {source.id: source for source in self.sources})
         object.__setattr__(
             self,
+            "_capabilities_by_id",
+            {capability.id: capability for capability in self.capabilities},
+        )
+        object.__setattr__(
+            self,
             "_integrations_by_id",
             {integration.id: integration for integration in self.integrations},
         )
@@ -190,6 +217,11 @@ class Workspace:
             self,
             "_integration_outbox_by_id",
             {item.id: item for item in self.integration_outbox},
+        )
+        object.__setattr__(
+            self,
+            "_proposals_by_id",
+            {proposal.id: proposal for proposal in self.proposals},
         )
         object.__setattr__(self, "_work_items_by_id", {work.id: work for work in self.work_items})
         object.__setattr__(
@@ -206,15 +238,19 @@ class Workspace:
             ("sources", self.sources),
             ("workbenches", self.workbenches),
             ("playbook_sources", self.playbook_sources),
+            ("capabilities", self.capabilities),
+            ("authority_profiles", self.authority_profiles),
             ("integrations", self.integrations),
             ("integration_plans", self.integration_plans),
             ("integration_outbox", self.integration_outbox),
             ("decisions", self.decisions),
+            ("proposals", self.proposals),
             ("work_items", self.work_items),
             ("attempts", self.attempts),
             ("evidence_runs", self.evidence_runs),
             ("review_verdicts", self.review_verdicts),
             ("human_decisions", self.human_decisions),
+            ("acceptance_records", self.acceptance_records),
             ("receipts", self.receipts),
             ("outcomes", self.outcomes),
         ):
@@ -229,11 +265,15 @@ class Workspace:
         integration_outbox_ids = {item.id for item in self.integration_outbox}
         workbench_ids = {workbench.id for workbench in self.workbenches}
         playbook_source_ids = {source.id for source in self.playbook_sources}
+        capability_ids = {capability.id for capability in self.capabilities}
+        authority_profile_ids = {profile.id for profile in self.authority_profiles}
         work_ids = {work.id for work in self.work_items}
         attempt_ids = {attempt.id for attempt in self.attempts}
         evidence_ids = {evidence.id for evidence in self.evidence_runs}
         review_ids = {review.id for review in self.review_verdicts}
+        human_decision_ids = {decision.id for decision in self.human_decisions}
         decision_ids = {decision.id for decision in self.decisions}
+        proposal_ids = {proposal.id for proposal in self.proposals}
         outcome_ids = {outcome.id for outcome in self.outcomes}
 
         for goal in self.goals:
@@ -267,6 +307,52 @@ class Workspace:
             self.workbenches,
             "parent_workbench_id",
         )
+
+        for capability in self.capabilities:
+            if capability.owner_human:
+                _require_ref(
+                    "capabilities",
+                    capability.id,
+                    "owner_human",
+                    capability.owner_human,
+                    human_ids,
+                )
+            for palari_id in capability.allowed_palaris:
+                _require_ref(
+                    "capabilities",
+                    capability.id,
+                    "allowed_palaris",
+                    palari_id,
+                    palari_ids,
+                )
+            for source_id in capability.source_ids:
+                _require_ref("capabilities", capability.id, "source_ids", source_id, source_ids)
+
+        for proposal in self.proposals:
+            _require_ref("proposals", proposal.id, "goal", proposal.goal, goal_ids)
+            _require_ref("proposals", proposal.id, "palari", proposal.palari, palari_ids)
+            if proposal.proposer and proposal.proposer not in human_ids and proposal.proposer not in palari_ids:
+                raise WorkspaceError(
+                    f"proposals.{proposal.id}.proposer references missing human or Palari id "
+                    f"{proposal.proposer}"
+                )
+            if proposal.linked_work:
+                _require_ref("proposals", proposal.id, "linked_work", proposal.linked_work, work_ids)
+            if proposal.decision_id:
+                _require_ref("proposals", proposal.id, "decision_id", proposal.decision_id, decision_ids)
+            if proposal.decided_by:
+                _require_ref("proposals", proposal.id, "decided_by", proposal.decided_by, human_ids)
+            for source_id in proposal.allowed_sources:
+                _require_ref("proposals", proposal.id, "allowed_sources", source_id, source_ids)
+            for playbook_ref in proposal.recommended_playbooks:
+                _require_playbook_ref(
+                    "proposals",
+                    proposal.id,
+                    "recommended_playbooks",
+                    playbook_ref,
+                    playbook_source_ids,
+                    self.playbook_sources,
+                )
 
         for work_item in self.work_items:
             _require_ref("work_items", work_item.id, "goal", work_item.goal, goal_ids)
@@ -527,6 +613,56 @@ class Workspace:
                     review_ids,
                 )
 
+        for acceptance in self.acceptance_records:
+            _require_ref(
+                "acceptance_records",
+                acceptance.id,
+                "work_item_id",
+                acceptance.work_item_id,
+                work_ids,
+            )
+            _require_ref(
+                "acceptance_records",
+                acceptance.id,
+                "human_id",
+                acceptance.human_id,
+                human_ids,
+            )
+            if acceptance.decision_id:
+                _require_ref(
+                    "acceptance_records",
+                    acceptance.id,
+                    "decision_id",
+                    acceptance.decision_id,
+                    human_decision_ids,
+                )
+            if acceptance.evidence_reference:
+                _require_ref(
+                    "acceptance_records",
+                    acceptance.id,
+                    "evidence_reference",
+                    acceptance.evidence_reference,
+                    evidence_ids,
+                )
+            if acceptance.review_reference:
+                _require_ref(
+                    "acceptance_records",
+                    acceptance.id,
+                    "review_reference",
+                    acceptance.review_reference,
+                    review_ids,
+                )
+            if acceptance.authority_profile and acceptance.authority_profile not in {
+                "solo-founder",
+                "team-safe",
+                "strict",
+                *authority_profile_ids,
+            }:
+                raise WorkspaceError(
+                    f"acceptance_records.{acceptance.id}.authority_profile references "
+                    f"missing profile {acceptance.authority_profile}"
+                )
+
         for receipt in self.receipts:
             _require_ref("receipts", receipt.id, "work_item_id", receipt.work_item_id, work_ids)
             _require_ref("receipts", receipt.id, "attempt_id", receipt.attempt_id, attempt_ids)
@@ -568,6 +704,12 @@ class Workspace:
 
     def source(self, source_id: str) -> Source | None:
         return self._sources_by_id.get(source_id)
+
+    def capability(self, capability_id: str) -> Capability | None:
+        return self._capabilities_by_id.get(capability_id)
+
+    def proposal(self, proposal_id: str) -> Proposal | None:
+        return self._proposals_by_id.get(proposal_id)
 
     def integration(self, integration_id: str) -> Integration | None:
         return self._integrations_by_id.get(integration_id)

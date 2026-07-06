@@ -52,6 +52,7 @@ def build_agent_brief(
     status = "blocked" if blockers else "ready"
     proof_state = _proof_state(work_detail)
     review_context = _review_context(workspace, work.id, mode)
+    capability_policy = _capability_policy(workspace, work.id, palari_id)
 
     packet.update(
         {
@@ -64,6 +65,8 @@ def build_agent_brief(
             "one_sentence_instruction": _instruction(work_detail, status, mode),
             "allowed_paths": _allowed_paths(work_detail["work_item"], mode),
             "allowed_resources": list(work.allowed_resources),
+            "allowed_capabilities": capability_policy["allowed_capabilities"],
+            "capability_policy": capability_policy["policy_boundary"],
             "allowed_sources": [_source_packet(item) for item in work_detail["sources"]],
             "forbidden_actions": _forbidden_actions(work_detail),
             "required_output": _required_output(work_detail["work_item"], mode),
@@ -521,10 +524,16 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
                 "outputs_created",
                 "context_packet",
                 "context_hash",
+                "receipt_hash",
+                "previous_receipt_hash",
+                "evidence_manifest_hash",
                 "timestamp",
             ],
         ),
-        "evidence": _record_ref(work_detail["evidence"], ["id", "status", "head_sha", "timestamp"]),
+        "evidence": _record_ref(
+            work_detail["evidence"],
+            ["id", "status", "head_sha", "manifest_hash", "timestamp"],
+        ),
         "review": _record_ref(work_detail["review"], ["id", "verdict", "reviewed_head", "timestamp"]),
         "human_decision": _record_ref(
             work_detail["human_decision"],
@@ -549,11 +558,24 @@ def _attempt_ref(record: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
     payload = {
         field: record.get(field, "")
-        for field in ("id", "status", "actor", "branch", "changed_files")
+        for field in (
+            "id",
+            "status",
+            "actor",
+            "branch",
+            "workspace_path",
+            "base_sha",
+            "head_sha",
+            "changed_files",
+            "allowed_paths",
+            "forbidden_paths",
+            "claim_id",
+            "claim_expires_at",
+        )
         if field in record
     }
     commits = record.get("commits", [])
-    if isinstance(commits, list) and commits:
+    if not payload.get("head_sha") and isinstance(commits, list) and commits:
         payload["head_sha"] = str(commits[-1])
     return payload
 
@@ -637,6 +659,12 @@ def _human_action_boundary() -> dict[str, Any]:
             "Do not convert a review recommendation into human acceptance.",
         ],
     }
+
+
+def _capability_policy(workspace: Workspace, work_id: str, palari_id: str) -> dict[str, Any]:
+    from .capabilities import capability_check
+
+    return capability_check(workspace, work_id, palari_id)
 
 
 def _blocker(code: str, message: str, *, missing: str = "") -> dict[str, Any]:

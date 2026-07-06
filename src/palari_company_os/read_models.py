@@ -49,6 +49,9 @@ class QueueItem:
     receipt_state: str
     integration_state: str
     approval_progress: str
+    acceptance_state: str
+    authority_state: str
+    scope_overlap_state: str
     recommended_intensity: str
     intensity_reason: str
     learning_signal: str
@@ -75,6 +78,7 @@ class _ReadContext:
     latest_review_by_work: dict[str, Any]
     latest_human_decision_by_work: dict[str, Any]
     human_decisions_by_work: dict[str, list[Any]]
+    latest_acceptance_by_work: dict[str, Any]
     latest_receipt_by_work: dict[str, Any]
     integration_plans_by_work: dict[str, list[Any]]
     pending_integration_plans_by_work: dict[str, list[Any]]
@@ -189,6 +193,9 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "receipt_state": queue_item.receipt_state,
             "integration_state": queue_item.integration_state,
             "approval_progress": queue_item.approval_progress,
+            "acceptance_state": queue_item.acceptance_state,
+            "authority_state": queue_item.authority_state,
+            "scope_overlap_state": queue_item.scope_overlap_state,
             "recommended_intensity": queue_item.recommended_intensity,
             "intensity_reason": queue_item.intensity_reason,
         },
@@ -235,6 +242,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         latest_review_by_work=_latest_by_work(workspace.review_verdicts),
         latest_human_decision_by_work=_latest_by_work(workspace.human_decisions),
         human_decisions_by_work=_group_by_work(workspace.human_decisions),
+        latest_acceptance_by_work=_latest_by_work(workspace.acceptance_records),
         latest_receipt_by_work=_latest_by_work(workspace.receipts),
         integration_plans_by_work=_group_by_work(workspace.integration_plans),
         pending_integration_plans_by_work=_pending_integration_plans_by_work(
@@ -271,6 +279,8 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
     receipt_state = _receipt_state(work, context)
     integration_state = _integration_state(workspace, work, context)
     approval_progress = _approval_progress(work, context)
+    acceptance_state = _acceptance_state(work, context)
+    authority_state = _authority_state(workspace, work)
     recommended_intensity, intensity_reason = recommend_intensity(work)
     learning_signal = _learning_signal(context, palari)
     playbook_recommendations = recommended_playbook_ids(workspace, work)
@@ -315,6 +325,9 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         receipt_state=receipt_state,
         integration_state=integration_state,
         approval_progress=approval_progress,
+        acceptance_state=acceptance_state,
+        authority_state=authority_state,
+        scope_overlap_state="blocked" if warnings else "clear",
         recommended_intensity=recommended_intensity,
         intensity_reason=intensity_reason,
         learning_signal=learning_signal,
@@ -540,7 +553,7 @@ def _intensity_recommendation(work: Any, recommended: str, reason: str) -> tuple
 
 
 def _attempt_head(attempt: Any) -> str:
-    return attempt.commits[-1] if attempt.commits else ""
+    return getattr(attempt, "head_sha", "") or (attempt.commits[-1] if attempt.commits else "")
 
 
 def _next_step_type(
@@ -637,6 +650,25 @@ def _approval_progress(work: Any, context: _ReadContext) -> str:
         return f"0/{work.required_approval_count}"
     count = _qualified_approval_count(work, review, context)
     return f"{count}/{work.required_approval_count}"
+
+
+def _acceptance_state(work: Any, context: _ReadContext) -> str:
+    acceptance = context.latest_acceptance_by_work.get(work.id)
+    if acceptance is not None:
+        return acceptance.status
+    review = context.latest_review_by_work.get(work.id)
+    if review and review.verdict == "accept-ready" and _approval_quorum_met(work, review, context):
+        return "ready-to-record"
+    if work.required_approval_count == 0 and work.risk in {"R1", "R2"}:
+        return "receipt-path"
+    return "pending"
+
+
+def _authority_state(workspace: Workspace, work: Any) -> str:
+    from .authority import authority_check
+
+    result = authority_check(workspace, work.id, "team-safe")
+    return "ok" if result["ok"] else "needs-adjustment"
 
 
 def _approval_quorum_met(work: Any, review: Any, context: _ReadContext) -> bool:

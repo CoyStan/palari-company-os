@@ -163,6 +163,37 @@ class Human:
 
 
 @dataclass(frozen=True)
+class AuthorityProfile:
+    id: str
+    label: str
+    mode: str = "custom"
+    summary: str = ""
+    require_human_for_risks: list[str] = field(default_factory=list)
+    receipt_ready_risks: list[str] = field(default_factory=list)
+    minimum_approval_count: int = 1
+    r5_approval_count: int = 2
+    required_approval_capability: str = ""
+    allow_agent_scope_expansion: bool = False
+    notes: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "AuthorityProfile":
+        return cls(
+            id=_require_id(record),
+            label=_string(record, "label"),
+            mode=_string(record, "mode", "custom"),
+            summary=_string(record, "summary"),
+            require_human_for_risks=_strings(record, "require_human_for_risks"),
+            receipt_ready_risks=_strings(record, "receipt_ready_risks"),
+            minimum_approval_count=_integer(record, "minimum_approval_count", 1),
+            r5_approval_count=_integer(record, "r5_approval_count", 2),
+            required_approval_capability=_string(record, "required_approval_capability"),
+            allow_agent_scope_expansion=_boolean(record, "allow_agent_scope_expansion"),
+            notes=_string(record, "notes"),
+        )
+
+
+@dataclass(frozen=True)
 class Workbench:
     id: str
     label: str
@@ -227,6 +258,67 @@ class Decision:
             linked_work=_string(record, "linked_work"),
             linked_palari=_string(record, "linked_palari"),
             result=_string(record, "result"),
+        )
+
+
+@dataclass(frozen=True)
+class Proposal:
+    id: str
+    title: str
+    goal: str
+    palari: str
+    proposer: str = ""
+    status: str = "proposed"
+    summary: str = ""
+    scope: str = ""
+    risk: str = "R1"
+    intensity: str = "light"
+    allowed_resources: list[str] = field(default_factory=list)
+    allowed_sources: list[str] = field(default_factory=list)
+    allowed_actions: list[str] = field(default_factory=list)
+    output_targets: list[str] = field(default_factory=list)
+    forbidden_actions: list[str] = field(default_factory=list)
+    acceptance_target: str = ""
+    verification_expectations: list[str] = field(default_factory=list)
+    recommended_playbooks: list[str] = field(default_factory=list)
+    conflict_targets: list[str] = field(default_factory=list)
+    parallel_policy: str = "independent"
+    linked_work: str = ""
+    decision_id: str = ""
+    created_at: str = ""
+    decided_by: str = ""
+    decided_at: str = ""
+    reason: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Proposal":
+        return cls(
+            id=_require_id(record),
+            title=_string(record, "title"),
+            goal=_string(record, "goal"),
+            palari=_string(record, "palari"),
+            proposer=_string(record, "proposer"),
+            status=_string(record, "status", "proposed"),
+            summary=_string(record, "summary"),
+            scope=_string(record, "scope"),
+            risk=_string(record, "risk", "R1"),
+            intensity=_string(record, "intensity", "light"),
+            allowed_resources=_strings(record, "allowed_resources"),
+            allowed_sources=_strings(record, "allowed_sources"),
+            allowed_actions=_strings(record, "allowed_actions"),
+            output_targets=_strings(record, "output_targets"),
+            forbidden_actions=_strings(record, "forbidden_actions"),
+            acceptance_target=_string(record, "acceptance_target"),
+            verification_expectations=_strings(record, "verification_expectations"),
+            recommended_playbooks=_strings(record, "recommended_playbooks"),
+            conflict_targets=_strings(record, "conflict_targets"),
+            parallel_policy=_string(record, "parallel_policy", "independent"),
+            linked_work=_string(record, "linked_work"),
+            decision_id=_string(record, "decision_id"),
+            created_at=_string(record, "created_at"),
+            decided_by=_string(record, "decided_by"),
+            decided_at=_string(record, "decided_at"),
+            reason=_string(record, "reason"),
         )
 
 
@@ -315,6 +407,39 @@ class PlaybookSource:
 
 
 @dataclass(frozen=True)
+class Capability:
+    id: str
+    label: str
+    kind: str
+    provider: str = ""
+    status: str = "enabled"
+    owner_human: str = ""
+    allowed_actions: list[str] = field(default_factory=list)
+    allowed_palaris: list[str] = field(default_factory=list)
+    source_ids: list[str] = field(default_factory=list)
+    risk_level: str = "standard"
+    policy_ref: str = ""
+    notes: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "Capability":
+        return cls(
+            id=_require_id(record),
+            label=_string(record, "label"),
+            kind=_string(record, "kind"),
+            provider=_string(record, "provider"),
+            status=_string(record, "status", "enabled"),
+            owner_human=_string(record, "owner_human"),
+            allowed_actions=_strings(record, "allowed_actions"),
+            allowed_palaris=_strings(record, "allowed_palaris"),
+            source_ids=_strings(record, "source_ids"),
+            risk_level=_string(record, "risk_level", "standard"),
+            policy_ref=_string(record, "policy_ref"),
+            notes=_string(record, "notes"),
+        )
+
+
+@dataclass(frozen=True)
 class Attempt:
     id: str
     work_item_id: str
@@ -322,9 +447,15 @@ class Attempt:
     status: str = "active"
     branch: str = ""
     workspace_path: str = ""
+    base_sha: str = ""
+    head_sha: str = ""
     model_or_worker: str = ""
     commits: list[str] = field(default_factory=list)
     changed_files: list[str] = field(default_factory=list)
+    allowed_paths: list[str] = field(default_factory=list)
+    forbidden_paths: list[str] = field(default_factory=list)
+    claim_id: str = ""
+    claim_expires_at: str = ""
     cleanliness: str = ""
     result: str = ""
     started_at: str = ""
@@ -340,9 +471,15 @@ class Attempt:
             status=_string(record, "status", "active"),
             branch=_string(record, "branch"),
             workspace_path=_string(record, "workspace_path"),
+            base_sha=_string(record, "base_sha"),
+            head_sha=_string(record, "head_sha"),
             model_or_worker=_string(record, "model_or_worker"),
             commits=_strings(record, "commits"),
             changed_files=_strings(record, "changed_files"),
+            allowed_paths=_strings(record, "allowed_paths"),
+            forbidden_paths=_strings(record, "forbidden_paths"),
+            claim_id=_string(record, "claim_id"),
+            claim_expires_at=_string(record, "claim_expires_at"),
             cleanliness=_string(record, "cleanliness"),
             result=_string(record, "result"),
             started_at=_string(record, "started_at"),
@@ -519,6 +656,10 @@ class EvidenceRun:
     base_ref: str = ""
     commands: list[str] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
+    artifact_hashes: list[Record] = field(default_factory=list)
+    manifest_hash: str = ""
+    receipt_hash: str = ""
+    previous_receipt_hash: str = ""
     summary: str = ""
     freshness: str = ""
     timestamp: str = ""
@@ -534,6 +675,10 @@ class EvidenceRun:
             base_ref=_string(record, "base_ref"),
             commands=_strings(record, "commands"),
             artifacts=_strings(record, "artifacts"),
+            artifact_hashes=_records(record, "artifact_hashes"),
+            manifest_hash=_string(record, "manifest_hash"),
+            receipt_hash=_string(record, "receipt_hash"),
+            previous_receipt_hash=_string(record, "previous_receipt_hash"),
             summary=_string(record, "summary"),
             freshness=_string(record, "freshness"),
             timestamp=_string(record, "timestamp"),
@@ -599,6 +744,41 @@ class HumanDecision:
 
 
 @dataclass(frozen=True)
+class AcceptanceRecord:
+    id: str
+    work_item_id: str
+    human_id: str
+    reviewed_head: str
+    status: str = "accepted"
+    decision_id: str = ""
+    evidence_reference: str = ""
+    review_reference: str = ""
+    receipt_hash: str = ""
+    authority_profile: str = ""
+    quorum_status: str = "met"
+    reason: str = ""
+    accepted_at: str = ""
+
+    @classmethod
+    def from_record(cls, record: Record) -> "AcceptanceRecord":
+        return cls(
+            id=_require_id(record),
+            work_item_id=_string(record, "work_item_id"),
+            human_id=_string(record, "human_id"),
+            reviewed_head=_string(record, "reviewed_head"),
+            status=_string(record, "status", "accepted"),
+            decision_id=_string(record, "decision_id"),
+            evidence_reference=_string(record, "evidence_reference"),
+            review_reference=_string(record, "review_reference"),
+            receipt_hash=_string(record, "receipt_hash"),
+            authority_profile=_string(record, "authority_profile"),
+            quorum_status=_string(record, "quorum_status", "met"),
+            reason=_string(record, "reason"),
+            accepted_at=_string(record, "accepted_at"),
+        )
+
+
+@dataclass(frozen=True)
 class Receipt:
     id: str
     work_item_id: str
@@ -614,6 +794,9 @@ class Receipt:
     external_writes: list[str] = field(default_factory=list)
     not_done: list[str] = field(default_factory=list)
     undo_refs: list[str] = field(default_factory=list)
+    receipt_hash: str = ""
+    previous_receipt_hash: str = ""
+    evidence_manifest_hash: str = ""
     timestamp: str = ""
 
     @classmethod
@@ -633,6 +816,9 @@ class Receipt:
             external_writes=_strings(record, "external_writes"),
             not_done=_strings(record, "not_done"),
             undo_refs=_strings(record, "undo_refs"),
+            receipt_hash=_string(record, "receipt_hash"),
+            previous_receipt_hash=_string(record, "previous_receipt_hash"),
+            evidence_manifest_hash=_string(record, "evidence_manifest_hash"),
             timestamp=_string(record, "timestamp"),
         )
 

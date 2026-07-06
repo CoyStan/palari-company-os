@@ -25,6 +25,45 @@ AI roles describe capability and bounds, not final authority. A Palari can ask a
 model or tool to perform bounded work, but the Palari cannot convert that work
 into an authority-bearing decision without the required human action.
 
+## Capabilities
+
+Capabilities describe usable power: repo writes, external tools, skill packs,
+MCP-style adapters, integrations, playbook sources, or policy exports. A
+capability can tell an adapter what it may read, write, or request.
+
+Capabilities do not own the acceptance gate. The exported policy explicitly
+says adapters may not accept work, expand scope, bypass evidence, or treat a
+review recommendation as human authority.
+
+Use:
+
+```bash
+palari capability list --json
+palari capability check WORK-ID --json
+palari capability export-policy WORK-ID --json
+```
+
+## Authority Profiles
+
+Authority profiles describe how much human judgment a risk tier needs. Built-in
+profiles:
+
+- `solo-founder`: lightweight founder mode; R3+ work needs human acceptance.
+- `team-safe`: default team mode; R3+ work needs human acceptance and R5 needs
+  two approvals.
+- `strict`: every risk tier needs human acceptance.
+
+Use:
+
+```bash
+palari authority profiles --json
+palari authority check WORK-ID --profile team-safe --json
+```
+
+The check is advisory until the work item declares the matching approval count,
+but the acceptance and completion gates still enforce fresh evidence, review,
+human decisions, open-decision blocking, and scope-overlap blocking.
+
 ## Memory Is Context, Not Authority
 
 Shared memory, prior decisions, outcomes, and standards can guide a Palari.
@@ -94,6 +133,17 @@ palari gate recommend WORK-ID --json
 The output includes a compact reviewer contract: reviewer role, what to inspect,
 blocker checklist, required evidence, and the accept-ready standard. A gate
 recommendation never means the work is accepted.
+
+## Acceptance Records
+
+`palari work accept` is the explicit final human acceptance command. It records
+a human decision and an acceptance record after checking fresh evidence, fresh
+accept-ready review, human capability, open decisions, scope overlap, and
+evidence manifest integrity when present.
+
+`palari work complete` keeps the terminal status gate. For non-receipt-ready
+work, it records a missing acceptance record from the latest qualified human
+decision so completion is auditable instead of being only a status change.
 
 ## Gate And Key Custody
 

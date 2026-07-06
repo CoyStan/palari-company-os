@@ -169,6 +169,21 @@ def print_result(result: CommandResult) -> None:
         print_decision_guide(result.payload, result.as_json)
         return
 
+    if result.kind in {
+        "capabilities",
+        "capability-check",
+        "capability-policy",
+        "authority-profiles",
+        "authority-check",
+        "evidence-verify",
+        "proposal-decision",
+    }:
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_governance_payload(result.payload)
+        return
+
     if result.kind == "workspace-init":
         print_workspace_init(result.payload, result.as_json)
         return
@@ -247,10 +262,15 @@ def print_validate(payload: dict[str, Any]) -> None:
         f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
         f"{counts.get('workbenches', 0)} workbenches, "
         f"{counts.get('playbook_sources', 0)} playbook sources, "
+        f"{counts.get('capabilities', 0)} capabilities, "
+        f"{counts.get('authority_profiles', 0)} authority profiles, "
         f"{counts.get('integrations', 0)} integrations, "
         f"{counts.get('integration_plans', 0)} integration plans, "
         f"{counts.get('integration_outbox', 0)} outbox items, "
-        f"{counts['work_items']} work items, {counts.get('receipts', 0)} receipts"
+        f"{counts.get('proposals', 0)} proposals, "
+        f"{counts['work_items']} work items, "
+        f"{counts.get('acceptance_records', 0)} acceptance records, "
+        f"{counts.get('receipts', 0)} receipts"
     )
 
 
@@ -269,6 +289,27 @@ def print_mutation(result: Any, as_json: bool) -> None:
         print(f"{result.action}: {result.collection}/{result.record_id}")
         if result.next_action:
             print(f"next: {result.next_action}")
+
+
+def print_governance_payload(payload: dict[str, Any]) -> None:
+    schema = payload.get("schema_version", "palari.payload.v1")
+    print(schema)
+    if "workspace" in payload:
+        print(f"Workspace: {payload['workspace']}")
+    if "ok" in payload:
+        print(f"OK: {_yes_no(bool(payload['ok']))}")
+    if "next_action" in payload:
+        print(f"Next: {payload['next_action']}")
+    if "capabilities" in payload:
+        print(f"Capabilities: {len(payload['capabilities'])}")
+    if "allowed_capabilities" in payload:
+        print(f"Allowed capabilities: {len(payload['allowed_capabilities'])}")
+    if "profiles" in payload:
+        print(f"Authority profiles: {len(payload['profiles'])}")
+    if "blockers" in payload and payload["blockers"]:
+        print("Blockers:")
+        for blocker in payload["blockers"]:
+            print(f"  - {blocker}")
 
 
 def print_migration(payload: dict[str, Any]) -> None:

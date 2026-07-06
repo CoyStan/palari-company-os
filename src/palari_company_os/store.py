@@ -196,14 +196,23 @@ def _ensure_collections(data: dict[str, Any], changes: list[str]) -> None:
         "humans",
         "palaris",
         "sources",
+        "capabilities",
+        "authority_profiles",
         "work_items",
+        "proposals",
         "attempts",
         "evidence_runs",
         "review_verdicts",
         "human_decisions",
+        "acceptance_records",
         "receipts",
         "decisions",
         "outcomes",
+        "workbenches",
+        "playbook_sources",
+        "integrations",
+        "integration_plans",
+        "integration_outbox",
     ):
         if key not in data:
             data[key] = []

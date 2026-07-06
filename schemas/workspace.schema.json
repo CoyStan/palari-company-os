@@ -29,6 +29,11 @@
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
     "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
     "workbenches": { "type": "array", "items": { "$ref": "#/$defs/workbench" } },
+    "capabilities": { "type": "array", "items": { "$ref": "#/$defs/capability" } },
+    "authority_profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authority_profile" }
+    },
     "playbook_sources": {
       "type": "array",
       "items": { "$ref": "#/$defs/playbook_source" }
@@ -43,10 +48,15 @@
       "items": { "$ref": "#/$defs/integration_outbox_item" }
     },
     "work_items": { "type": "array", "items": { "$ref": "#/$defs/work_item" } },
+    "proposals": { "type": "array", "items": { "$ref": "#/$defs/proposal" } },
     "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
     "evidence_runs": { "type": "array", "items": { "$ref": "#/$defs/evidence_run" } },
     "review_verdicts": { "type": "array", "items": { "$ref": "#/$defs/review_verdict" } },
     "human_decisions": { "type": "array", "items": { "$ref": "#/$defs/human_decision" } },
+    "acceptance_records": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/acceptance_record" }
+    },
     "receipts": { "type": "array", "items": { "$ref": "#/$defs/receipt" } },
     "decisions": { "type": "array", "items": { "$ref": "#/$defs/decision" } },
     "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }
@@ -65,15 +75,19 @@
         "palaris": { "$ref": "#/$defs/string_list" },
         "sources": { "$ref": "#/$defs/string_list" },
         "workbenches": { "$ref": "#/$defs/string_list" },
+        "capabilities": { "$ref": "#/$defs/string_list" },
+        "authority_profiles": { "$ref": "#/$defs/string_list" },
         "playbook_sources": { "$ref": "#/$defs/string_list" },
         "integrations": { "$ref": "#/$defs/string_list" },
         "integration_plans": { "$ref": "#/$defs/string_list" },
         "integration_outbox": { "$ref": "#/$defs/string_list" },
         "work_items": { "$ref": "#/$defs/string_list" },
+        "proposals": { "$ref": "#/$defs/string_list" },
         "attempts": { "$ref": "#/$defs/string_list" },
         "evidence_runs": { "$ref": "#/$defs/string_list" },
         "review_verdicts": { "$ref": "#/$defs/string_list" },
         "human_decisions": { "$ref": "#/$defs/string_list" },
+        "acceptance_records": { "$ref": "#/$defs/string_list" },
         "receipts": { "$ref": "#/$defs/string_list" },
         "decisions": { "$ref": "#/$defs/string_list" },
         "outcomes": { "$ref": "#/$defs/string_list" }
@@ -183,6 +197,63 @@
         "enabled": { "type": "boolean" },
         "included_playbooks": { "$ref": "#/$defs/string_list" },
         "install_hint": { "type": "string" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "repo",
+            "external_tool",
+            "skill_pack",
+            "mcp_adapter",
+            "integration",
+            "playbook",
+            "policy"
+          ]
+        },
+        "provider": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "review", "deprecated"]
+        },
+        "owner_human": { "type": "string" },
+        "allowed_actions": { "$ref": "#/$defs/string_list" },
+        "allowed_palaris": { "$ref": "#/$defs/string_list" },
+        "source_ids": { "$ref": "#/$defs/string_list" },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "standard", "high", "critical"]
+        },
+        "policy_ref": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "authority_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["solo-founder", "team-safe", "strict", "custom"]
+        },
+        "summary": { "type": "string" },
+        "require_human_for_risks": { "$ref": "#/$defs/string_list" },
+        "receipt_ready_risks": { "$ref": "#/$defs/string_list" },
+        "minimum_approval_count": { "type": "integer", "minimum": 0 },
+        "r5_approval_count": { "type": "integer", "minimum": 0 },
+        "required_approval_capability": { "type": "string" },
+        "allow_agent_scope_expansion": { "type": "boolean" },
+        "notes": { "type": "string" }
       }
     },
     "integration": {
@@ -388,6 +459,45 @@
         }
       }
     },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "goal", "palari"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "goal": { "type": "string" },
+        "palari": { "type": "string" },
+        "proposer": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "under-review", "adopted", "rejected", "deferred"]
+        },
+        "summary": { "type": "string" },
+        "scope": { "type": "string" },
+        "risk": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5"] },
+        "intensity": { "type": "string", "enum": ["light", "standard", "high"] },
+        "allowed_resources": { "$ref": "#/$defs/string_list" },
+        "allowed_sources": { "$ref": "#/$defs/string_list" },
+        "allowed_actions": { "$ref": "#/$defs/string_list" },
+        "output_targets": { "$ref": "#/$defs/string_list" },
+        "forbidden_actions": { "$ref": "#/$defs/string_list" },
+        "acceptance_target": { "type": "string" },
+        "verification_expectations": { "$ref": "#/$defs/string_list" },
+        "recommended_playbooks": { "$ref": "#/$defs/string_list" },
+        "conflict_targets": { "$ref": "#/$defs/string_list" },
+        "parallel_policy": {
+          "type": "string",
+          "enum": ["independent", "coordinate", "exclusive"]
+        },
+        "linked_work": { "type": "string" },
+        "decision_id": { "type": "string" },
+        "created_at": { "type": "string" },
+        "decided_by": { "type": "string" },
+        "decided_at": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
     "attempt": {
       "type": "object",
       "additionalProperties": false,
@@ -402,12 +512,18 @@
         },
         "branch": { "type": "string" },
         "workspace_path": { "type": "string" },
+        "base_sha": { "type": "string" },
+        "head_sha": { "type": "string" },
         "model_or_worker": { "type": "string" },
         "started_at": { "type": "string" },
         "updated_at": { "type": "string" },
         "output_targets": { "$ref": "#/$defs/string_list" },
         "commits": { "$ref": "#/$defs/string_list" },
         "changed_files": { "$ref": "#/$defs/string_list" },
+        "allowed_paths": { "$ref": "#/$defs/string_list" },
+        "forbidden_paths": { "$ref": "#/$defs/string_list" },
+        "claim_id": { "type": "string" },
+        "claim_expires_at": { "type": "string" },
         "cleanliness": { "type": "string" },
         "result": { "type": "string" }
       }
@@ -425,6 +541,22 @@
         "base_ref": { "type": "string" },
         "commands": { "$ref": "#/$defs/string_list" },
         "artifacts": { "$ref": "#/$defs/string_list" },
+        "artifact_hashes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string" },
+              "sha256": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        },
+        "manifest_hash": { "type": "string" },
+        "receipt_hash": { "type": "string" },
+        "previous_receipt_hash": { "type": "string" },
         "summary": { "type": "string" },
         "freshness": { "type": "string" },
         "timestamp": { "type": "string" }
@@ -487,6 +619,29 @@
         "timestamp": { "type": "string" }
       }
     },
+    "acceptance_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "human_id", "reviewed_head"],
+      "properties": {
+        "id": { "type": "string" },
+        "work_item_id": { "type": "string" },
+        "human_id": { "type": "string" },
+        "reviewed_head": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "revoked"]
+        },
+        "decision_id": { "type": "string" },
+        "evidence_reference": { "type": "string" },
+        "review_reference": { "type": "string" },
+        "receipt_hash": { "type": "string" },
+        "authority_profile": { "type": "string" },
+        "quorum_status": { "type": "string", "enum": ["", "pending", "met", "not-met"] },
+        "reason": { "type": "string" },
+        "accepted_at": { "type": "string" }
+      }
+    },
     "receipt": {
       "type": "object",
       "additionalProperties": false,
@@ -506,6 +661,9 @@
         "external_writes": { "$ref": "#/$defs/string_list" },
         "not_done": { "$ref": "#/$defs/string_list" },
         "undo_refs": { "$ref": "#/$defs/string_list" },
+        "receipt_hash": { "type": "string" },
+        "previous_receipt_hash": { "type": "string" },
+        "evidence_manifest_hash": { "type": "string" },
         "timestamp": { "type": "string" }
       }
     },
