@@ -119,14 +119,14 @@ Requirements:
 
 Done when:
 
-- [ ] All requirements above are implemented in the generated HTML/CSS.
-- [ ] Unit tests assert: theme toggle markup present, empty-state text
+- [x] All requirements above are implemented in the generated HTML/CSS.
+- [x] Unit tests assert: theme toggle markup present, empty-state text
       present for an empty workspace, no `http://` or `https://` asset
       references in output, viewport meta present.
-- [ ] The acme example dashboard and an EMPTY workspace dashboard both look
+- [x] The acme example dashboard and an EMPTY workspace dashboard both look
       intentional (empty states verified by test, visual quality by the
       Squint Test below).
-- [ ] Squint Test self-audit written into this file: open the rendered HTML,
+- [x] Squint Test self-audit written into this file: open the rendered HTML,
       and answer in writing — "What draws the eye first?" The answer must be
       the queue/blocked items, not chrome, headers, or navigation.
 
@@ -353,3 +353,32 @@ _The working agent fills this in as the final task of each loop iteration._
   output must remain authentic and already includes established CLI terms.
 - README quickstart now points both repo-local and editable-install users to
   `palari demo` immediately.
+
+### 2026-07-06 — Workstream 2: dashboard screenshot quality
+
+- Implemented dashboard tab wrappers with `role="tablist"`, `role="tab"`,
+  and `role="tabpanel"` while preserving the existing tab behavior.
+- Added a compact manual theme toggle that cycles system/light/dark, honors
+  `prefers-color-scheme` when left on system, and stores the explicit choice
+  in `localStorage`.
+- Added dark-theme tokens and contrast fixes for the dense dashboard style.
+  Visual check: the dark dashboard remains dense and readable; the queue rows
+  and top attention card stay visually dominant.
+- Improved empty dashboard states so empty panels include a helpful sentence
+  plus a real copyable command to fill the panel.
+- Unit tests now assert viewport meta, theme toggle markup, dark-mode CSS,
+  empty-workspace empty-state text, no remote asset references, and ARIA tab
+  markup.
+- Visual Squint Test:
+  - Acme 1440px light: the eye lands first on "What needs attention now,"
+    then the red top attention/work-queue items.
+  - Acme 375px light: the eye lands first on "What needs attention now" and
+    the red top attention card; the bottom nav no longer shows a horizontal
+    scrollbar.
+  - Acme 1440px dark: the eye still lands on the queue/blocked items, not
+    the chrome or navigation.
+  - Empty 1440px light: the queue empty state reads intentional and gives a
+    command to create the first work item.
+- Browser note: Chromium headless rendered the generated pages and screenshots
+  successfully. The only stderr noise observed was Snap/DBus environment
+  logging, not dashboard page-console output.

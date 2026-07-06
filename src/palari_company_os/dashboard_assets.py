@@ -29,6 +29,7 @@ DASHBOARD_CSS = """
   --neutral: #1f4e79;
   --neutral-bg: #eaf1fb;
   --neutral-line: #b6cfe8;
+  --accent: #1f4e79;
   --calm: #1f4e79;
   --rail-bg: #fbfcfe;
   --shadow: 0 1px 2px rgba(15,29,45,.06), 0 1px 1px rgba(15,29,45,.04);
@@ -79,7 +80,7 @@ strong { font-weight: 600; }
 .topbar {
   position: sticky; top: 0; z-index: 40;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 0.75rem;
   min-height: 44px;
@@ -129,6 +130,18 @@ strong { font-weight: 600; }
   font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
   white-space: nowrap;
 }
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 26px; padding: 0 0.6rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--muted);
+  font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+}
+.theme-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* ---------- App shell ---------- */
 .app { display: grid; grid-template-columns: 168px minmax(0, 1fr); align-items: start; }
@@ -136,6 +149,11 @@ strong { font-weight: 600; }
   min-width: 0;
   padding: 0.75rem clamp(0.7rem, 2vw, 1.2rem) 1rem;
   max-width: 1280px;
+}
+.tab-panel { min-width: 0; }
+.tab-panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---------- Left rail nav ---------- */
@@ -429,7 +447,13 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 .command-inline {
   display: flex; align-items: center; gap: 0.38rem; min-width: 0; flex-wrap: wrap;
 }
-.command-inline code { min-width: 0; overflow-wrap: anywhere; }
+.command-inline code,
+.command-row code {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .copy-command {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 1.45rem; padding: 0.12rem 0.42rem;
@@ -582,8 +606,16 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 
 /* ---------- Empty / provenance ---------- */
 .empty-state {
+  display: grid; gap: 0.35rem;
   padding: 0.6rem 0.8rem; color: var(--muted); font-size: 0.8rem;
   border: 1px dashed var(--line); border-radius: 7px; background: var(--panel-2);
+}
+.empty-command {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+}
+.empty-command span {
+  color: var(--muted-2); font-size: 0.68rem; font-weight: 650;
+  text-transform: uppercase; letter-spacing: 0.05em;
 }
 .provenance {
   padding: 0.6rem 0 0.8rem; color: var(--muted); font-size: 0.74rem;
@@ -608,7 +640,7 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
     background: rgba(255,255,255,.96);
     border-right: 0; border-top: 1px solid var(--line);
     box-shadow: 0 -6px 20px rgba(15,29,45,.08);
-    overflow-x: auto;
+    overflow-x: hidden;
   }
   .rail-inner { display: contents; }
   .rail a { flex: 1 1 0; min-width: 0; height: 38px; justify-content: center; gap: 0.25rem; padding: 0 0.2rem; }
@@ -628,9 +660,10 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
 }
 @media (max-width: 520px) {
   :root { font-size: 13px; }
-  .topbar { grid-template-columns: auto 1fr; min-height: 40px; padding: 0.3rem 0.6rem; }
+  .topbar { grid-template-columns: auto 1fr auto; min-height: 40px; padding: 0.3rem 0.6rem; }
   .topbar-rail { order: 3; grid-column: 1 / -1; justify-self: stretch; overflow-x: auto; padding-bottom: 0.2rem; }
   .ro-badge { display: none; }
+  .theme-toggle { font-size: 0.66rem; padding-inline: 0.45rem; }
   .brand-name { max-width: 70vw; }
   .rail-chip { flex: 0 0 auto; }
   .attention { padding: 0.6rem 0.7rem; }
@@ -681,6 +714,7 @@ dd { margin: 0; font-weight: 550; font-size: 0.82rem; overflow-wrap: anywhere; }
   --neutral: #0969da;
   --neutral-bg: #ddf4ff;
   --neutral-line: #0969da;
+  --accent: #0969da;
   --calm: #0969da;
   --rail-bg: #f6f8fa;
   --shadow: none;
@@ -732,6 +766,7 @@ code {
 
 .rail-chip,
 .ro-badge,
+.theme-toggle,
 .chip,
 .receipt-chip,
 .pill {
@@ -760,6 +795,12 @@ code {
   height: 22px;
   background: #f6f8fa;
   color: var(--muted);
+}
+.theme-toggle {
+  height: 22px;
+  min-height: 22px;
+  border-radius: 2px;
+  background: #ffffff;
 }
 
 .app {
@@ -1004,6 +1045,7 @@ code {
 .rail a:focus-visible,
 .metric:focus-visible,
 .chip:focus-visible,
+.theme-toggle:focus-visible,
 .queue-row:focus-visible,
 .ledger-row summary:focus-visible,
 .detail-card summary:focus-visible,
@@ -1055,6 +1097,166 @@ code {
     grid-template-columns: 3px minmax(0, 1fr);
   }
 }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #0f141b;
+    --ink: #f0f6fc;
+    --ink-2: #c9d1d9;
+    --muted: #8b949e;
+    --muted-2: #6e7681;
+    --line: #30363d;
+    --line-2: #21262d;
+    --line-strong: #6e7681;
+    --urgent: #ff7b72;
+    --urgent-bg: #2d1518;
+    --urgent-line: #f85149;
+    --warn: #d29922;
+    --warn-bg: #251a00;
+    --warn-line: #9e6a03;
+    --trust: #56d364;
+    --trust-bg: #0f2419;
+    --trust-line: #238636;
+    --done: #8b949e;
+    --done-bg: #161b22;
+    --neutral: #79c0ff;
+    --neutral-bg: #0c2d4f;
+    --neutral-line: #1f6feb;
+    --accent: #79c0ff;
+    --rail-bg: #0d1117;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #0f141b;
+  --ink: #f0f6fc;
+  --ink-2: #c9d1d9;
+  --muted: #8b949e;
+  --muted-2: #6e7681;
+  --line: #30363d;
+  --line-2: #21262d;
+  --line-strong: #6e7681;
+  --urgent: #ff7b72;
+  --urgent-bg: #2d1518;
+  --urgent-line: #f85149;
+  --warn: #d29922;
+  --warn-bg: #251a00;
+  --warn-line: #9e6a03;
+  --trust: #56d364;
+  --trust-bg: #0f2419;
+  --trust-line: #238636;
+  --done: #8b949e;
+  --done-bg: #161b22;
+  --neutral: #79c0ff;
+  --neutral-bg: #0c2d4f;
+  --neutral-line: #1f6feb;
+  --accent: #79c0ff;
+  --rail-bg: #0d1117;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body,
+  :root:not([data-theme="light"]) .topbar,
+  :root:not([data-theme="light"]) .rail,
+  :root:not([data-theme="light"]) .rail a:hover,
+  :root:not([data-theme="light"]) .rail a.is-active,
+  :root:not([data-theme="light"]) .rail a .nav-glyph,
+  :root:not([data-theme="light"]) .theme-toggle,
+  :root:not([data-theme="light"]) .rail-chip,
+  :root:not([data-theme="light"]) .ro-badge,
+  :root:not([data-theme="light"]) .chip,
+  :root:not([data-theme="light"]) .pill,
+  :root:not([data-theme="light"]) .receipt-chip,
+  :root:not([data-theme="light"]) .copy-command,
+  :root:not([data-theme="light"]) .attention,
+  :root:not([data-theme="light"]) .panel,
+  :root:not([data-theme="light"]) .detail-card,
+  :root:not([data-theme="light"]) .ledger,
+  :root:not([data-theme="light"]) .auth-row,
+  :root:not([data-theme="light"]) .trio-cell {
+    background: var(--panel);
+  }
+  :root:not([data-theme="light"]) body {
+    background: var(--bg);
+    color: var(--ink);
+  }
+  :root:not([data-theme="light"]) code,
+  :root:not([data-theme="light"]) .ledger-head,
+  :root:not([data-theme="light"]) .lane,
+  :root:not([data-theme="light"]) .agent-command-block,
+  :root:not([data-theme="light"]) .empty-state,
+  :root:not([data-theme="light"]) .queue-row:hover,
+  :root:not([data-theme="light"]) .queue-item[open] .queue-row,
+  :root:not([data-theme="light"]) .ledger-row[open],
+  :root:not([data-theme="light"]) .ledger-row summary:hover,
+  :root:not([data-theme="light"]) .detail-card summary:hover {
+    background: var(--panel-2);
+    color: var(--ink-2);
+  }
+  :root:not([data-theme="light"]) .brand-mark,
+  :root:not([data-theme="light"]) .receipt-mark {
+    background: var(--neutral);
+    color: #0d1117;
+  }
+  :root:not([data-theme="light"]) .queue-next {
+    color: var(--ink-2);
+  }
+}
+
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .topbar,
+:root[data-theme="dark"] .rail,
+:root[data-theme="dark"] .rail a:hover,
+:root[data-theme="dark"] .rail a.is-active,
+:root[data-theme="dark"] .rail a .nav-glyph,
+:root[data-theme="dark"] .theme-toggle,
+:root[data-theme="dark"] .rail-chip,
+:root[data-theme="dark"] .ro-badge,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .pill,
+:root[data-theme="dark"] .receipt-chip,
+:root[data-theme="dark"] .copy-command,
+:root[data-theme="dark"] .attention,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .detail-card,
+:root[data-theme="dark"] .ledger,
+:root[data-theme="dark"] .auth-row,
+:root[data-theme="dark"] .trio-cell {
+  background: var(--panel);
+}
+
+:root[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] code,
+:root[data-theme="dark"] .ledger-head,
+:root[data-theme="dark"] .lane,
+:root[data-theme="dark"] .agent-command-block,
+:root[data-theme="dark"] .empty-state,
+:root[data-theme="dark"] .queue-row:hover,
+:root[data-theme="dark"] .queue-item[open] .queue-row,
+:root[data-theme="dark"] .ledger-row[open],
+:root[data-theme="dark"] .ledger-row summary:hover,
+:root[data-theme="dark"] .detail-card summary:hover {
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+:root[data-theme="dark"] .brand-mark,
+:root[data-theme="dark"] .receipt-mark {
+  background: var(--neutral);
+  color: #0d1117;
+}
+
+:root[data-theme="dark"] .queue-next {
+  color: var(--ink-2);
+}
 """
 
 def dashboard_styles() -> str:
@@ -1064,8 +1266,42 @@ DASHBOARD_JS = """
 (function () {
   const links = Array.from(document.querySelectorAll('[data-tab-link]'));
   const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+  const themeButton = document.querySelector('[data-theme-toggle]');
+  const themeLabel = document.querySelector('[data-theme-label]');
+  const themeStorageKey = 'palari-dashboard-theme';
+  const themeModes = ['system', 'light', 'dark'];
   const validTabs = new Set(links.map((link) => link.getAttribute('data-tab-link')));
   let activeTab = 'queue';
+
+  function storedThemeMode() {
+    try {
+      const stored = window.localStorage.getItem(themeStorageKey);
+      return themeModes.includes(stored) ? stored : 'system';
+    } catch (error) {
+      return 'system';
+    }
+  }
+
+  function applyTheme(mode) {
+    if (!themeModes.includes(mode)) mode = 'system';
+    if (mode === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', mode);
+    }
+    if (themeLabel) {
+      themeLabel.textContent = 'Theme: ' + mode;
+    }
+    if (themeButton) {
+      themeButton.setAttribute('aria-pressed', mode === 'system' ? 'false' : 'true');
+      themeButton.setAttribute('aria-label', 'Switch dashboard theme. Current theme: ' + mode);
+    }
+    try {
+      window.localStorage.setItem(themeStorageKey, mode);
+    } catch (error) {
+      return;
+    }
+  }
 
   function currentHashTab() {
     const value = window.location.hash.replace(/^#/, '');
@@ -1079,6 +1315,8 @@ DASHBOARD_JS = """
       const isActive = link.getAttribute('data-tab-link') === tab;
       link.classList.toggle('is-active', isActive);
       link.setAttribute('aria-current', isActive ? 'page' : 'false');
+      link.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      link.setAttribute('tabindex', isActive ? '0' : '-1');
     }
     for (const panel of panels) {
       const isActive = panel.getAttribute('data-tab-panel') === tab;
@@ -1098,6 +1336,15 @@ DASHBOARD_JS = """
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
+  }
+
+  if (themeButton) {
+    applyTheme(storedThemeMode());
+    themeButton.addEventListener('click', () => {
+      const current = storedThemeMode();
+      const next = themeModes[(themeModes.indexOf(current) + 1) % themeModes.length];
+      applyTheme(next);
+    });
   }
 
   for (const link of links) {

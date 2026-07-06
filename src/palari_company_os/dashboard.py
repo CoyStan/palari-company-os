@@ -67,12 +67,15 @@ def _html(
             '<div class="app">',
             _nav(),
             '<main class="content" id="top">',
-            _attention_strip(workspace, queue, attention_counts),
-            _queue_section(workspace, queue, attention_counts),
-            _work_section(workspace, queue, details),
-            _trust_section(workspace),
-            _history_section(history),
-            _authority_section(workspace, open_decisions, human_blockers),
+            _tab_panel(
+                "queue",
+                _attention_strip(workspace, queue, attention_counts)
+                + _queue_section(workspace, queue, attention_counts),
+            ),
+            _tab_panel("work", _work_section(workspace, queue, details)),
+            _tab_panel("trust", _trust_section(workspace)),
+            _tab_panel("history", _history_section(history)),
+            _tab_panel("authority", _authority_section(workspace, open_decisions, human_blockers)),
             "</main>",
             _provenance(workspace),
             "</div>",
@@ -116,6 +119,9 @@ def _header(workspace: Workspace, queue: list[Any], attention_counts: dict[str, 
       <span class="rail-num">{active}</span><span class="rail-label">active</span>
     </span>
   </div>
+  <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch dashboard theme" aria-pressed="false">
+    <span data-theme-label>Theme: system</span>
+  </button>
   <span class="ro-badge">Read-only dashboard</span>
 </header>
 """
@@ -130,12 +136,24 @@ def _nav() -> str:
         ("Authority", "authority", "A"),
     ]
     links = "\n".join(
-        f'<a href="#{anchor}" data-tab-link="{anchor}" data-nav="{anchor}">'
+        f'<a href="#{anchor}" id="tab-{anchor}" role="tab" aria-selected="false" '
+        f'aria-controls="panel-{anchor}" data-tab-link="{anchor}" data-nav="{anchor}">'
         f'<span class="nav-glyph" aria-hidden="true">{glyph}</span>'
         f'<span class="nav-text">{label}</span></a>'
         for label, anchor, glyph in items
     )
-    return f'<nav class="rail" aria-label="Dashboard sections">\n<div class="rail-inner">{links}</div>\n</nav>'
+    return (
+        '<nav class="rail" aria-label="Dashboard sections">\n'
+        f'<div class="rail-inner" role="tablist" aria-label="Dashboard sections">{links}</div>\n</nav>'
+    )
+
+
+def _tab_panel(anchor: str, content: str) -> str:
+    return (
+        f'<section class="tab-panel" id="panel-{anchor}" role="tabpanel" '
+        f'aria-labelledby="tab-{anchor}" tabindex="0" data-tab-panel="{anchor}">'
+        f"{content}</section>"
+    )
 
 
 def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
@@ -178,7 +196,7 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
         if value
     ) or '<span class="strip-empty">No active attention.</span>'
     return f"""
-<section class="attention" aria-label="Current attention" data-tab-panel="queue">
+<section class="attention" aria-label="Current attention">
   <div class="attn-left">
     <h1 class="attn-title">What needs attention now</h1>
     <div class="attn-counts">{chips}</div>
@@ -197,9 +215,12 @@ def _attention_strip(workspace: Workspace, queue: list[Any], attention_counts: d
 
 
 def _queue_section(workspace: Workspace, queue: list[Any], attention_counts: dict[str, int]) -> str:
-    rows = "\n".join(_queue_card(item) for item in queue) or _empty("No work items in queue.")
+    rows = "\n".join(_queue_card(item) for item in queue) or _empty(
+        "No work items in queue.",
+        "palari work create WORK-0001 --title 'First task' --goal GOAL-0001 --palari PALARI-STEWARD",
+    )
     return f"""
-<section class="panel" data-tab-panel="queue">
+<section class="panel">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Queue</p>
@@ -268,7 +289,7 @@ def _work_section(workspace: Workspace, queue: list[Any], details: dict[str, dic
 """
         )
     return f"""
-<section class="panel" data-tab-panel="work">
+<section class="panel">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Work</p>
@@ -342,13 +363,15 @@ def _work_detail_card(payload: dict[str, Any]) -> str:
 
 def _trust_section(workspace: Workspace) -> str:
     sources = "\n".join(_source_card(source) for source in workspace.sources) or _empty(
-        "No selected sources recorded yet."
+        "No selected sources recorded yet.",
+        "palari source create SOURCE-0001 --label 'First source' --kind file --provider local_note",
     )
     receipts = "\n".join(_receipt_card(workspace, receipt) for receipt in workspace.receipts) or _empty(
-        "No receipts recorded yet."
+        "No receipts recorded yet.",
+        "palari receipt record RECEIPT-0001 --work-item-id WORK-0001 --attempt-id ATTEMPT-0001 --actor PALARI-STEWARD",
     )
     return f"""
-<section class="panel trust-panel" data-tab-panel="trust">
+<section class="panel trust-panel">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Trust</p>
@@ -458,10 +481,11 @@ def _receipt_card(workspace: Workspace, receipt: Any) -> str:
 def _history_section(history: dict[str, Any]) -> str:
     events = history.get("events") or []
     timeline = "\n".join(_history_event(event) for event in events) or _empty(
-        "No history events recorded for this workspace."
+        "No history events recorded for this workspace.",
+        "palari work create WORK-0001 --title 'First task' --goal GOAL-0001 --palari PALARI-STEWARD",
     )
     return f"""
-<section class="panel" data-tab-panel="history">
+<section class="panel">
   <header class="panel-head">
     <div>
       <p class="eyebrow">History</p>
@@ -496,10 +520,12 @@ def _authority_section(
     human_blockers: list[Any],
 ) -> str:
     humans = "\n".join(_human_card(human) for human in workspace.humans) or _empty(
-        "No humans recorded."
+        "No humans recorded.",
+        "palari human create HUMAN-FOUNDER --name 'Founder'",
     )
     palaris = "\n".join(_palari_card(palari) for palari in workspace.palaris) or _empty(
-        "No Palaris recorded."
+        "No Palaris recorded.",
+        "palari palari create PALARI-STEWARD --name Steward --role 'Workspace steward'",
     )
     decision_guides = {
         decision.id: build_decision_guide(workspace, decision.id) for decision in open_decisions
@@ -507,12 +533,13 @@ def _authority_section(
     decisions = "\n".join(
         _decision_card(decision, decision_guides.get(decision.id, {}))
         for decision in open_decisions
-    ) or _empty("No open decisions.")
+    ) or _empty("No open decisions.", "palari decision create DECISION-0001 --question 'What should we do?'")
     blockers = "\n".join(_blocker_card(item) for item in human_blockers) or _empty(
-        "No queue items are waiting on a human."
+        "No queue items are waiting on a human.",
+        "palari queue",
     )
     return f"""
-<section class="panel" data-tab-panel="authority">
+<section class="panel">
   <header class="panel-head">
     <div>
       <p class="eyebrow">Authority</p>
@@ -740,8 +767,13 @@ def _provenance(workspace: Workspace) -> str:
 """
 
 
-def _empty(message: str) -> str:
-    return f'<div class="empty-state">{_e(message)}</div>'
+def _empty(message: str, command: str = "") -> str:
+    command_html = (
+        f'<div class="empty-command"><span>Try</span>{_command_inline(command)}</div>'
+        if command
+        else ""
+    )
+    return f'<div class="empty-state"><p>{_e(message)}</p>{command_html}</div>'
 
 
 def _owner(owner: str) -> str:

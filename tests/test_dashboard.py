@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.dashboard import generate_dashboard
+from palari_company_os.workspace_init import initialize_workspace
 
 
 ACME = REPO_ROOT / "examples" / "acme-company-os"
@@ -138,8 +139,52 @@ class DashboardTests(unittest.TestCase):
         for tab in ("queue", "work", "trust", "history", "authority"):
             self.assertIn(f'data-tab-link="{tab}"', html)
             self.assertIn(f'data-tab-panel="{tab}"', html)
+            self.assertIn(f'id="tab-{tab}" role="tab"', html)
+            self.assertIn(f'id="panel-{tab}" role="tabpanel"', html)
+        self.assertIn('role="tablist"', html)
+        self.assertIn('aria-selected="false"', html)
         self.assertIn("function setActiveTab", script)
         self.assertNotIn('id="queue" class="panel"', html)
+
+    def test_dashboard_quality_contract_markup_and_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_dashboard(ACME, directory)
+            html = Path(result.index_path).read_text(encoding="utf-8")
+            css = Path(result.assets[0]).read_text(encoding="utf-8")
+            script = Path(result.assets[1]).read_text(encoding="utf-8")
+
+        self.assertIn('<meta name="viewport" content="width=device-width, initial-scale=1">', html)
+        self.assertIn('data-theme-toggle', html)
+        self.assertIn('data-theme-label', html)
+        self.assertIn('aria-pressed="false"', html)
+        self.assertIn("@media (prefers-color-scheme: dark)", css)
+        self.assertIn(":root[data-theme=\"dark\"]", css)
+        self.assertIn("palari-dashboard-theme", script)
+        self.assertIn("aria-selected", script)
+        for output in (html, css, script):
+            self.assertNotIn('href="http://', output)
+            self.assertNotIn('href="https://', output)
+            self.assertNotIn('src="http://', output)
+            self.assertNotIn('src="https://', output)
+
+    def test_dashboard_empty_workspace_has_intentional_empty_states(self) -> None:
+        with tempfile.TemporaryDirectory() as workspace_directory:
+            workspace_path = Path(workspace_directory) / "empty"
+            initialize_workspace(workspace_path, "Empty Dashboard Workspace")
+            with tempfile.TemporaryDirectory() as output_directory:
+                result = generate_dashboard(workspace_path, output_directory)
+                html = Path(result.index_path).read_text(encoding="utf-8")
+
+        self.assertIn("No work items in queue.", html)
+        self.assertIn("palari work create WORK-0001", html)
+        self.assertIn("No selected sources recorded yet.", html)
+        self.assertIn("palari source create SOURCE-0001", html)
+        self.assertIn("No receipts recorded yet.", html)
+        self.assertIn("palari receipt record RECEIPT-0001", html)
+        self.assertIn("No humans recorded.", html)
+        self.assertIn("palari human create HUMAN-FOUNDER", html)
+        self.assertIn("No Palaris recorded.", html)
+        self.assertIn("palari palari create PALARI-STEWARD", html)
 
     def test_cli_dashboard_json_reports_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
