@@ -15,6 +15,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Run the two-minute blocked-write demo in a throwaway workspace.",
+    )
+    demo_parser.add_argument(
+        "--dir",
+        dest="demo_dir",
+        help="Empty directory to use for the demo workspace. Defaults to a temp directory.",
+    )
+    demo_parser.add_argument(
+        "--no-pause",
+        action="store_true",
+        help="Do not wait between demo acts.",
+    )
+    demo_parser.add_argument("--json", action="store_true", help="Emit JSON transcript.")
+
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")
     queue_parser.add_argument(
         "--include-closed",

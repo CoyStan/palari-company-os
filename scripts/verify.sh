@@ -18,5 +18,6 @@ python3 -S -m json.tool schemas/workspace.schema.json >$verify_output_dir/palari
 ./bin/palari queue --json >$verify_output_dir/palari-company-queue.json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >$verify_output_dir/palari-company-agent-brief-ready.json
 ./bin/palari docs check --json >$verify_output_dir/palari-company-docs-check.json
+./bin/palari demo --no-pause >$verify_output_dir/palari-company-demo.txt
 
 printf 'Palari Company OS verification passed.\n'

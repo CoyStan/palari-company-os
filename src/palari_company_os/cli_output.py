@@ -33,6 +33,10 @@ INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
 
 
 def print_result(result: CommandResult) -> None:
+    if result.kind == "demo":
+        print_demo(result.payload, result.as_json)
+        return
+
     if result.kind == "queue":
         workspace = result.payload["workspace"]
         items = result.payload["items"]
@@ -275,6 +279,46 @@ def print_workspace_init(payload: dict[str, Any], as_json: bool) -> None:
     print(f"File: {payload['workspace_file']}")
     print("Next commands:")
     for command in payload["next_commands"]:
+        print(f"  {command}")
+
+
+def print_demo(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print("Palari demo: blocked file change in under two minutes")
+    print(f"Demo workspace: {payload['workspace_dir']}")
+    print()
+    for index, step in enumerate(payload["steps"], start=1):
+        print(f"== {index}. {step['title']} ==")
+        if step.get("narration"):
+            print(step["narration"])
+        print(f"$ {step['command']}")
+        stdout = step.get("stdout", "").rstrip()
+        if stdout:
+            print(stdout)
+        stderr = step.get("stderr", "").rstrip()
+        if stderr:
+            print(stderr)
+        if step.get("block_marker"):
+            print()
+            print(step["block_marker"])
+            print(f"Offending path: {step['offending_path']}")
+            print(f"Allowed write paths: {', '.join(step['allowed_write_paths'])}")
+        if step.get("pass_marker"):
+            print()
+            print(step["pass_marker"])
+        if not payload["no_pause"] and index != len(payload["steps"]):
+            try:
+                input("\nPress Enter for the next act...")
+            except EOFError:
+                pass
+        print()
+    print("What just happened:")
+    for sentence in payload["plain_summary"]:
+        print(f"- {sentence}")
+    print("Try next:")
+    for command in payload["try_next_commands"]:
         print(f"  {command}")
 
 

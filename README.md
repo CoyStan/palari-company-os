@@ -80,15 +80,19 @@ cd palari-company-os
 Use the repo-local CLI wrapper:
 
 ```bash
-./bin/palari --help
+./bin/palari demo
 ```
 
 Or install it in editable mode:
 
 ```bash
 python3 -m pip install -e .
-palari --help
+palari demo
 ```
+
+The demo copies a throwaway workspace into a temp directory, shows Sofia's file
+boundary, blocks an attempted change to `deploy/production.yml`, then shows the
+receipt and human handoff path.
 
 Run the local verification:
 

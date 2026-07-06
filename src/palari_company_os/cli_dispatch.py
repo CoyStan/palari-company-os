@@ -17,6 +17,15 @@ class CommandResult:
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
+    if args.command == "demo":
+        from .demo import run_demo
+
+        return CommandResult(
+            "demo",
+            run_demo(args.demo_dir, no_pause=args.no_pause or args.json),
+            args.json,
+        )
+
     if args.command == "queue":
         from .read_models import queue_items
 

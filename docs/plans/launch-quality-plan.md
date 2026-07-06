@@ -78,16 +78,16 @@ Behavior:
 
 Done when:
 
-- [ ] `palari demo --no-pause` exits 0 and prints the blocked-write moment,
+- [x] `palari demo --no-pause` exits 0 and prints the blocked-write moment,
       verified by a unit test asserting the block marker and offending path
       appear in output.
-- [ ] The demo writes nothing outside its target directory (test asserts).
-- [ ] A fresh reader following only README instructions reaches the demo in
+- [x] The demo writes nothing outside its target directory (test asserts).
+- [x] A fresh reader following only README instructions reaches the demo in
       two commands: `pip install -e .` (or clone+`./bin/palari`) then
       `palari demo`.
-- [ ] The demo script text contains no invented vocabulary before the moment
+- [x] The demo script text contains no invented vocabulary before the moment
       it is demonstrated (see Workstream 4 rules).
-- [ ] `scripts/verify.sh` runs `palari demo --no-pause` as part of the gate.
+- [x] `scripts/verify.sh` runs `palari demo --no-pause` as part of the gate.
 
 ## Workstream 2: Dashboard at screenshot quality
 
@@ -261,3 +261,20 @@ Self-Audit and propose the closest achievable alternative.
 ## Self-Audit (append; do not delete previous entries)
 
 _The working agent fills this in as the final task of each loop iteration._
+
+### 2026-07-06 — Workstream 1: `palari demo`
+
+- Implemented `palari demo` with `--dir`, `--no-pause`, and `--json`.
+- The demo copies the packaged Acme workspace into a temp or explicitly empty
+  target directory, starts Sofia on `WORK-0003`, shows a real
+  `agent check --changed deploy/production.yml` failure, contrasts it with an
+  allowed `docs/product/company-os.md` change, records a receipt and evidence,
+  and shows review/human-approval handoff output.
+- Unit tests cover the blocked marker/offending path, JSON transcript, and the
+  "writes only inside target directory" guarantee.
+- Ambiguity decision: the plan says "demo script text" contains no invented
+  vocabulary before the moment; I interpreted that as the new narration owned
+  by `palari demo`, not the existing real command output, because the command
+  output must remain authentic and already includes established CLI terms.
+- README quickstart now points both repo-local and editable-install users to
+  `palari demo` immediately.
