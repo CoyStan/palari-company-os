@@ -3,7 +3,7 @@
 AI agents can change files faster than people can review them. Palari gives
 them a visible boundary and stops them when they cross it.
 
-![Palari blocks an out-of-bound file change](docs/assets/palari-dashboard-light-desktop.png)
+![Palari terminal showing a blocked write outside the approved boundary](docs/assets/palari-blocked-terminal.png)
 
 Maya asks Sofia to clean up launch notes.
 
@@ -53,7 +53,7 @@ Then open the live local supervision desk:
 `serve` is local only by default. It lets you click through work that needs
 human attention while the files remain the source of truth.
 
-Live demo target: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
+GitHub Pages target after the repo owner enables Pages: `https://coystan.github.io/palari-company-os/`.
 
 ## What Palari Is
 

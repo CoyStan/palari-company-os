@@ -30,14 +30,16 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
     try:
         _copy_demo_workspace(workspace_dir)
         steps: list[dict[str, Any]] = []
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "See today's work",
-                "Sofia has one small writing task and clear file limits.",
-                ["queue"],
-            )
+        queue_step = _run_step(
+            workspace_dir,
+            "See today's work",
+            "Sofia has one small writing task and clear file limits.",
+            ["queue"],
         )
+        queue_step["display_stdout"] = _queue_display_summary(
+            _run_json(workspace_dir, ["queue"])
+        )
+        steps.append(queue_step)
         steps.append(
             _run_step(
                 workspace_dir,
@@ -47,27 +49,75 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             )
         )
         blocked_step = _run_step(
-                workspace_dir,
-                "The unsafe change is blocked",
-                "Now the named file change is checked against Sofia's file limit.",
-            ["agent", "check", WORK_ID, "--as", PALARI_ID, "--mode", "execute", "--changed", BLOCKED_PATH],
+            workspace_dir,
+            "The unsafe change is blocked",
+            "Now the named file change is checked against Sofia's file limit.",
+            [
+                "agent",
+                "check",
+                WORK_ID,
+                "--as",
+                PALARI_ID,
+                "--mode",
+                "execute",
+                "--changed",
+                BLOCKED_PATH,
+            ],
         )
         blocked_payload = _run_json(
             workspace_dir,
-            ["agent", "check", WORK_ID, "--as", PALARI_ID, "--mode", "execute", "--changed", BLOCKED_PATH],
+            [
+                "agent",
+                "check",
+                WORK_ID,
+                "--as",
+                PALARI_ID,
+                "--mode",
+                "execute",
+                "--changed",
+                BLOCKED_PATH,
+            ],
+        )
+        blocked_step["display_stdout"] = _agent_check_display_summary(
+            blocked_payload,
+            focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         blocked_step.update(_blocked_highlight(blocked_payload))
         steps.append(blocked_step)
 
         allowed_step = _run_step(
             workspace_dir,
-            "The safe file passes the file boundary",
-            "The same check allows the file Sofia was assigned to edit.",
-            ["agent", "check", WORK_ID, "--as", PALARI_ID, "--mode", "execute", "--changed", ALLOWED_PATH],
+            "The file boundary passes; proof is still needed",
+            "The safe file is inside Sofia's boundary; receipt and evidence still gate completion.",
+            [
+                "agent",
+                "check",
+                WORK_ID,
+                "--as",
+                PALARI_ID,
+                "--mode",
+                "execute",
+                "--changed",
+                ALLOWED_PATH,
+            ],
         )
         allowed_payload = _run_json(
             workspace_dir,
-            ["agent", "check", WORK_ID, "--as", PALARI_ID, "--mode", "execute", "--changed", ALLOWED_PATH],
+            [
+                "agent",
+                "check",
+                WORK_ID,
+                "--as",
+                PALARI_ID,
+                "--mode",
+                "execute",
+                "--changed",
+                ALLOWED_PATH,
+            ],
+        )
+        allowed_step["display_stdout"] = _agent_check_display_summary(
+            allowed_payload,
+            focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         allowed_step.update(_allowed_highlight(allowed_payload))
         steps.append(allowed_step)
@@ -242,6 +292,119 @@ def _run_cli(workspace_dir: Path, args: list[str]) -> subprocess.CompletedProces
 
 def _display_command(workspace_dir: Path, args: list[str]) -> str:
     return " ".join(["palari", "--workspace", str(workspace_dir), *args])
+
+
+def _queue_display_summary(payload: dict[str, Any]) -> str:
+    items = _dict_items(payload.get("queue"))
+    selected: list[dict[str, Any]] = []
+
+    target = _first_item(items, "id", WORK_ID)
+    if target:
+        selected.append(target)
+
+    for item in items:
+        if item.get("id") != WORK_ID and item.get("waiting_on_human"):
+            selected.append(item)
+            break
+
+    if not selected:
+        selected = items[:2]
+
+    lines = [
+        f"Palari Company OS Queue: {payload.get('workspace', 'workspace')}",
+        f"Showing {len(selected)} of {len(items)} items for this demo.",
+    ]
+    for item in selected:
+        risk = item.get("risk", "")
+        intensity = item.get("intensity", "")
+        label = f"{item.get('id', 'WORK')} [{intensity} / {risk}]".strip()
+        lines.extend(
+            [
+                "",
+                f"{label} {item.get('title', '')}".rstrip(),
+                f"  attention: {item.get('attention', 'unknown')}",
+                f"  why: {item.get('why', 'No queue reason recorded.')}",
+                f"  next: {item.get('next_action', 'Open the work detail.')}",
+            ]
+        )
+        active_attempts = _dict_items(item.get("active_attempts"))
+        if active_attempts:
+            attempt_ids = ", ".join(
+                str(attempt.get("attempt_id", ""))
+                for attempt in active_attempts
+            )
+            lines.append(f"  active attempts: {attempt_ids}")
+
+    lines.extend(["", "Full queue: palari queue --json"])
+    return "\n".join(lines)
+
+
+def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) -> str:
+    checks = _dict_items(payload.get("checks"))
+    passed = [check for check in checks if check.get("status") == "pass"]
+    failed = [check for check in checks if check.get("status") != "pass"]
+    focus = _first_item(checks, "code", focus_code)
+    other_failures = [
+        check
+        for check in failed
+        if check.get("code") != focus_code
+    ]
+
+    lines = [
+        f"Agent check: {payload.get('check_id', 'check')}",
+        f"OK: {'yes' if payload.get('ok') else 'no'}",
+        f"Step: {payload.get('next_step_type', 'unknown')}",
+        f"Checks: {len(passed)} passed.",
+    ]
+    if focus:
+        status = str(focus.get("status", "unknown"))
+        required = "required" if focus.get("required") else "optional"
+        lines.append(
+            f"  - {focus.get('code')} [{status}, {required}]: "
+            f"{focus.get('message', '')}"
+        )
+
+    if other_failures:
+        codes = ", ".join(
+            str(check.get("code", "UNKNOWN")) for check in other_failures
+        )
+        lines.append(f"Other blockers still pending before completion: {codes}.")
+
+    next_commands = [
+        str(command)
+        for command in payload.get("next_allowed_commands", [])
+        if isinstance(command, str)
+        and (
+            command.startswith("palari receipt")
+            or command.startswith("palari evidence")
+        )
+    ]
+    if next_commands:
+        lines.append("Next proof commands:")
+        for command in next_commands[:2]:
+            lines.append(f"  {command}")
+    return "\n".join(lines)
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for item in value:
+        if isinstance(item, dict):
+            items.append({str(key): item_value for key, item_value in item.items()})
+    return items
+
+
+def _first_item(
+    items: list[dict[str, Any]],
+    field: str,
+    expected: str,
+) -> dict[str, Any] | None:
+    for item in items:
+        if item.get(field) == expected:
+            return item
+    return None
 
 
 def _blocked_highlight(payload: dict[str, Any]) -> dict[str, Any]:

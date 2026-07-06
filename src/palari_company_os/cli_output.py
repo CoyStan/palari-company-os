@@ -342,7 +342,8 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
         if step.get("narration"):
             print(step["narration"])
         print(f"$ {step['command']}")
-        stdout = step.get("stdout", "").rstrip()
+        stdout = step.get("display_stdout") or step.get("stdout", "")
+        stdout = stdout.rstrip()
         if stdout:
             print(stdout)
         stderr = step.get("stderr", "").rstrip()

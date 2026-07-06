@@ -35,7 +35,7 @@ AI agents can move faster than review.
 What the screen should show:
 
 - Palari headline.
-- Dashboard image.
+- Blocked-write terminal image.
 - The blocked-write scenario text.
 
 ### 0:08-0:18 — Run The Demo
@@ -101,13 +101,14 @@ Let the demo continue to the in-bound check.
 Caption:
 
 ```text
-The same check passes inside the boundary.
+The file boundary passes; proof is still needed.
 ```
 
 What the screen should show:
 
 - `agent check --changed docs/product/company-os.md`.
-- Passing checks.
+- `FILE_CHANGES_WITHIN_WRITE_BOUNDARY [pass, required]`.
+- Receipt and evidence still pending before completion.
 
 ### 1:04-1:17 — Receipt
 

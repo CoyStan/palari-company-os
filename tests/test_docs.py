@@ -25,13 +25,19 @@ class DocumentationTests(unittest.TestCase):
         quickstart_index = readme.index("## Quickstart")
         first_screen = readme[:quickstart_index]
 
-        self.assertIn("![Palari blocks an out-of-bound file change]", first_screen)
-        self.assertIn("(docs/assets/palari-dashboard-light-desktop.png)", first_screen)
+        self.assertIn(
+            "![Palari terminal showing a blocked write outside the approved boundary]",
+            first_screen,
+        )
+        self.assertIn("(docs/assets/palari-blocked-terminal.png)", first_screen)
         self.assertTrue((REPO_ROOT / "scripts/make_demo_assets.sh").exists())
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
         self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
-        self.assertIn("https://coystan.github.io/palari-company-os/", readme)
+        self.assertIn(
+            "GitHub Pages target after the repo owner enables Pages",
+            readme,
+        )
         for late_noun in (
             "workbench",
             "work item",
@@ -44,6 +50,7 @@ class DocumentationTests(unittest.TestCase):
 
     def test_demo_assets_are_committed_and_regeneratable(self) -> None:
         for asset in (
+            "palari-blocked-terminal.png",
             "palari-dashboard-light-desktop.png",
             "palari-dashboard-dark-desktop.png",
             "palari-dashboard-light-mobile.png",
@@ -64,6 +71,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("*** BLOCKED: file change is outside Sofia's write boundary ***", script)
         self.assertIn("deploy/production.yml", script)
         self.assertIn("docs/product/company-os.md", script)
+        self.assertIn("The file boundary passes; proof is still needed", script)
         self.assertIn("0:00-0:08", script)
         self.assertIn("1:17-1:30", script)
         self.assertIn("Human Finish Step", script)

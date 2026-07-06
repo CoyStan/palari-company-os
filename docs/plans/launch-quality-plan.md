@@ -337,6 +337,26 @@ Self-Audit and propose the closest achievable alternative.
 
 _The working agent fills this in as the final task of each loop iteration._
 
+### 2026-07-06 — Review follow-up: CI and stagecraft fixes
+
+- Cherry-picked `37ae6d9`, removing the unused `capability_ids` and
+  `proposal_ids` sets that broke the Ruff CI step after the governance-layer
+  commit.
+- Re-ran `./scripts/verify.sh`: 294 tests passed and style passed.
+- Compact demo rendering now keeps raw command output in the JSON transcript
+  while the human-facing `palari demo` output shows two queue items, collapsed
+  passing checks, the boundary failure in full, and concise pending-proof
+  blockers.
+- Act 4 now says the file boundary passes while receipt and evidence still
+  gate completion, instead of implying the whole check is green.
+- README now uses `docs/assets/palari-blocked-terminal.png`, a generated PNG
+  that shows the blocked terminal banner and offending path directly.
+- `scripts/make_demo_assets.sh` regenerates the blocked-terminal README image
+  along with the dashboard screenshots.
+- Verified on 2026-07-06 that `https://coystan.github.io/palari-company-os/`
+  still returns HTTP 404. The README now labels it as a GitHub Pages target
+  after the repo owner enables Pages, not as a live demo.
+
 ### 2026-07-06 — Workstream 1: `palari demo`
 
 - Implemented `palari demo` with `--dir`, `--no-pause`, and `--json`.
