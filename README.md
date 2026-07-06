@@ -66,6 +66,9 @@ It is not another chatbot. It is the operating contract around AI work: goals,
 workbenches, named AI partners, bounded work items, receipts, evidence, review,
 human decisions, and outcomes.
 
+New to those words? Start with the plain-language
+[Glossary](docs/product/glossary.md).
+
 ## What Works Today
 
 This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
@@ -278,6 +281,7 @@ Start here:
 
 - [AI Work Vignettes](docs/showcase/ai-work-vignettes.md) for friendly examples
 - [Quickstart](docs/product/quickstart.md) for the shortest command path
+- [Glossary](docs/product/glossary.md) for plain-language definitions
 - [Product Model](docs/product/company-os.md) for the larger concept
 - [Agent Contract](docs/product/agent-contract.md) for AI-agent packet behavior
 - [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -38,6 +39,28 @@ class DocumentationTests(unittest.TestCase):
             "gate profile",
         ):
             self.assertNotIn(late_noun, first_screen.lower())
+
+    def test_glossary_covers_core_object_headings(self) -> None:
+        core = (REPO_ROOT / "docs/product/core-objects.md").read_text(encoding="utf-8")
+        glossary = (REPO_ROOT / "docs/product/glossary.md").read_text(encoding="utf-8")
+        headings = re.findall(r"^## (.+)$", core, flags=re.MULTILINE)
+
+        self.assertGreater(len(headings), 0)
+        for heading in headings:
+            with self.subTest(heading=heading):
+                marker = f"## {heading}"
+                self.assertIn(marker, glossary)
+                section = glossary.split(marker, 1)[1].split("\n## ", 1)[0]
+                self.assertIn("You see it when", section)
+
+    def test_newcomer_docs_link_to_glossary(self) -> None:
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        quickstart = (REPO_ROOT / "docs/product/quickstart.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("[Glossary](docs/product/glossary.md)", readme)
+        self.assertIn("[Glossary](glossary.md)", quickstart)
 
     def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
         smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(

@@ -178,10 +178,10 @@ keep full vocabulary):
 
 Done when:
 
-- [ ] Glossary exists, is linked from README and quickstart, and covers every
+- [x] Glossary exists, is linked from README and quickstart, and covers every
       noun in `docs/product/core-objects.md`.
-- [ ] The newcomer path noun-count is ≤ 3 and documented in the Self-Audit.
-- [ ] A docs test asserts the glossary covers all core object names.
+- [x] The newcomer path noun-count is ≤ 3 and documented in the Self-Audit.
+- [x] A docs test asserts the glossary covers all core object names.
 
 ## Workstream 5: Live demo + release rails
 
@@ -407,3 +407,20 @@ _The working agent fills this in as the final task of each loop iteration._
   near the top even though Workstream 5 still has to enable the workflow. The
   quickstart labels it "Live demo target" to avoid claiming the deployment is
   already complete.
+
+### 2026-07-06 — Workstream 4: vocabulary tax
+
+- Added `docs/product/glossary.md` with every heading from
+  `docs/product/core-objects.md`, each with one plain definition and one
+  "You see it when..." example.
+- Linked the glossary from README and `docs/product/quickstart.md`.
+- Rewrote the quickstart to lead with `palari demo`, one allowed boundary
+  check, one blocked boundary check, and a dashboard export, before sending
+  readers to deeper docs.
+- Added docs tests proving glossary coverage and glossary links.
+- Newcomer path noun-count decision: the README first screen plus quickstart
+  intentionally introduces only three recurring product-facing terms:
+  `Palari`, `agent`, and `boundary`. `dashboard` appears as a generic UI word,
+  not a Palari object. Heavy model nouns (`workbench`, `work item`, `receipt`,
+  `evidence`, `human decision`, `source`) are deferred until after the
+  quickstart/glossary path.
