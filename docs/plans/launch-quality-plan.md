@@ -205,10 +205,10 @@ PyPI:
 
 Done when:
 
-- [ ] Pages workflow YAML exists, is syntactically valid, and the exact same
+- [x] Pages workflow YAML exists, is syntactically valid, and the exact same
       generation commands succeed locally.
-- [ ] Release workflow YAML exists; local build + twine check pass.
-- [ ] Both human follow-up actions are documented step-by-step in the
+- [x] Release workflow YAML exists; local build + twine check pass.
+- [x] Both human follow-up actions are documented step-by-step in the
       Self-Audit.
 
 ## Workstream 6: Demo assets
@@ -424,3 +424,51 @@ _The working agent fills this in as the final task of each loop iteration._
   not a Palari object. Heavy model nouns (`workbench`, `work item`, `receipt`,
   `evidence`, `human decision`, `source`) are deferred until after the
   quickstart/glossary path.
+
+### 2026-07-06 — Workstream 5: live demo + release rails
+
+- Added `.github/workflows/pages.yml`. It runs on pushes to `main`, installs
+  the package, generates the Acme dashboard at `/`, generates the desktop
+  prototype at `/desktop/`, uploads the `public/` artifact, and deploys with
+  GitHub Pages actions.
+- Verified the exact Pages generation commands locally:
+  `palari --workspace examples/acme-company-os dashboard --out public`
+  and `palari desktop-prototype --out public/desktop`, using
+  `/tmp/palari-pages-preview` as the output root.
+- Added `.github/workflows/release.yml`. It runs on `v*` tags, builds the
+  sdist and wheel, runs `twine check`, extracts the matching CHANGELOG section,
+  publishes with PyPI Trusted Publishing, and creates a GitHub Release with the
+  built artifacts and changelog notes.
+- Bumped the launch version to `0.1.2` in `pyproject.toml`,
+  `src/palari_company_os/__init__.py`, and `docs/product/release-and-operations.md`.
+  Added a `CHANGELOG.md` section for `0.1.2`.
+- Updated packaging license metadata to the SPDX-style `license = "MIT"` plus
+  `license-files = ["LICENSE"]`, so the local launch build is warning-free
+  with current setuptools.
+- Verified workflow YAML syntax locally with PyYAML. Note: PyYAML reports the
+  GitHub Actions `on` key as `True` because of its YAML 1.1 boolean rules; the
+  parse still proves YAML syntax is valid, and GitHub Actions treats `on` as
+  the workflow trigger key.
+- Verified release artifacts locally with:
+  `/tmp/palari-release-tools/bin/python -m build --outdir /tmp/palari-release-dist`
+  and `/tmp/palari-release-tools/bin/twine check /tmp/palari-release-dist/*`.
+- Human follow-up: enable GitHub Pages if it is not already enabled.
+  1. Open the GitHub repo settings.
+  2. Go to Pages.
+  3. Set Source to GitHub Actions.
+  4. Run or re-run the Pages workflow.
+  5. Confirm the public URL serves the dashboard at
+     `https://coystan.github.io/palari-company-os/` and the prototype at
+     `https://coystan.github.io/palari-company-os/desktop/`.
+- Human follow-up: configure the PyPI release path before tagging.
+  1. Ensure the PyPI project name `palari-company-os` exists or is available.
+  2. Configure PyPI Trusted Publishing for GitHub repository
+     `CoyStan/palari-company-os`, workflow `.github/workflows/release.yml`.
+  3. Push tag `v0.1.2` only after Trusted Publishing is configured.
+  4. Confirm the workflow publishes the package and creates the GitHub Release.
+- Ambiguity decision: the release workflow extracts changelog notes before
+  publishing to PyPI, so a missing `CHANGELOG.md` section fails before a
+  publish-side effect. The workflow does not define a GitHub environment for
+  PyPI because the plan did not require one; if PyPI Trusted Publishing is
+  configured with an environment later, the workflow should be updated in the
+  same release-rails area.

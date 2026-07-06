@@ -7,6 +7,28 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-06
+
+### Added
+
+- Added `palari demo`, a two-minute offline blocked-write scenario for the
+  first-run product moment.
+- Added dashboard theme controls, dark-mode styling, ARIA tab markup, and
+  command-rich empty states.
+- Added a scenario-first README opening, launch visual asset, and plain-language
+  glossary.
+- Added GitHub Pages workflow rails for publishing the generated dashboard and
+  desktop prototype.
+- Added release workflow rails for building, checking, publishing with PyPI
+  Trusted Publishing, and creating GitHub Releases from changelog notes.
+
+### Changed
+
+- Reworked the quickstart to start with the demo and one boundary check before
+  introducing deeper model vocabulary.
+- Extended docs tests to protect the README first-screen story and glossary
+  coverage.
+
 ## [0.1.1] - 2026-06-21
 
 ### Fixed

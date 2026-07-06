@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Check distributions
+        run: twine check dist/*
+
+      - name: Extract changelog notes
+        run: |
+          python - <<'PY' > /tmp/release-notes.md
+          from pathlib import Path
+          import os
+          import re
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \\[{re.escape(tag)}\\].*?$\\n(?P<body>.*?)(?=^## \\[|\\Z)"
+          match = re.search(pattern, text, flags=re.MULTILINE | re.DOTALL)
+          if not match:
+              raise SystemExit(f"CHANGELOG.md has no section for {tag}")
+          print(match.group("body").strip())
+          PY
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/release-notes.md

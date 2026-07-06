@@ -3,7 +3,7 @@
 Current version:
 
 ```text
-0.1.0
+0.1.2
 ```
 
 Supported Python:
@@ -24,6 +24,8 @@ Release checklist:
 python3 -m pip install -e .
 ./scripts/verify.sh
 ./scripts/install_smoke.sh
+python -m build
+twine check dist/*
 git status --short
 ```
 
