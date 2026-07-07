@@ -1,20 +1,33 @@
 from __future__ import annotations
 
-import json
 import os
 import re
-import urllib.error
-import urllib.request
 import uuid
 from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any
 
 from .agent_runtime import start_agent
 from .errors import WorkspaceError
 from .history import append_history_event
 from .integrations import _human_can_decide_plan, check_integration_outbox
+from .linear_blocks import (
+    PalariBlock,
+    block_payload as _block_payload,
+    default_goal as _default_goal,
+    linear_block_template,
+    linear_inspect_block,
+    parse_palari_block,
+)
+from .linear_core import (
+    LINEAR_INTEGRATION_ID,
+    LINEAR_SECRET_REF,
+    LinearAdapterError,
+    LinearClient,
+    LinearIssueClient,
+    _short_error,
+    normalize_issue,
+)
 from .models import Human, Integration, Proposal, WorkItem, to_plain
 from .proposals import adopt_proposal
 from .read_models import detail, queue_items
@@ -22,9 +35,6 @@ from .store import load_store, validate_data, write_store
 from .workspace import Workspace
 
 
-LINEAR_ENDPOINT = "https://api.linear.app/graphql"
-LINEAR_SECRET_REF = "env:LINEAR_API_KEY"
-LINEAR_INTEGRATION_ID = "INT-LINEAR"
 SUPPORTED_RUNNERS = {"codex", "claude-code", "cursor", "generic"}
 LIVE_PROVIDER_COMMANDS = ["issue", "import", "start", "inspect-block", "send"]
 LOCAL_ONLY_COMMANDS = [
@@ -37,289 +47,24 @@ LOCAL_ONLY_COMMANDS = [
     "webhook verify",
     "webhook events",
 ]
-RISKS = {"R1", "R2", "R3", "R4", "R5"}
-INTENSITIES = {"light", "standard", "high"}
-PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
-RECOMMENDED_BLOCK_FIELDS = {
-    "goal",
-    "palari",
-    "risk",
-    "intensity",
-    "scope",
-    "acceptance_target",
-    "verification_expectations",
-}
-
-LINEAR_ISSUE_QUERY = """
-query PalariLinearIssue($id: String!) {
-  issue(id: $id) {
-    id
-    identifier
-    title
-    description
-    url
-    updatedAt
-    state { id name type }
-    team { id key name }
-    labels { nodes { id name } }
-    assignee { id name email }
-  }
-}
-"""
-
-LINEAR_COMMENT_MUTATION = """
-mutation PalariLinearComment($issueId: String!, $body: String!) {
-  commentCreate(input: { issueId: $issueId, body: $body }) {
-    success
-    comment { id url body createdAt }
-  }
-}
-"""
-
-STRING_GOVERNANCE_FIELDS = {
-    "goal",
-    "palari",
-    "risk",
-    "intensity",
-    "scope",
-    "acceptance_target",
-    "parallel_policy",
-}
-STRING_LIST_GOVERNANCE_FIELDS = {
-    "allowed_resources",
-    "allowed_sources",
-    "allowed_actions",
-    "output_targets",
-    "forbidden_actions",
-    "verification_expectations",
-    "recommended_playbooks",
-    "conflict_targets",
-}
-GOVERNANCE_FIELDS = STRING_GOVERNANCE_FIELDS | STRING_LIST_GOVERNANCE_FIELDS
-
-
-class LinearIssueClient(Protocol):
-    def issue(self, identifier: str) -> dict[str, Any]:
-        ...
-
-    def create_comment(self, issue_id: str, body: str) -> dict[str, Any]:
-        ...
-
-
-@dataclass(frozen=True)
-class PalariBlock:
-    present: bool
-    valid: bool
-    fields: dict[str, Any]
-    errors: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    unknown_fields: list[str] = field(default_factory=list)
-    missing_recommended_fields: list[str] = field(default_factory=list)
-
-    @property
-    def error(self) -> str:
-        return "; ".join(self.errors)
-
-
-class LinearAdapterError(WorkspaceError):
-    def __init__(self, message: str, *, code: str, next_action: str = "") -> None:
-        super().__init__(message)
-        self.code = code
-        self.next_action = next_action
-
-
-class LinearClient:
-    def __init__(self, api_key: str, *, endpoint: str = LINEAR_ENDPOINT, timeout: int = 20) -> None:
-        if not api_key:
-            raise LinearAdapterError(
-                "LINEAR_API_KEY is required for Linear provider calls",
-                code="LINEAR_API_KEY_MISSING",
-                next_action="Set LINEAR_API_KEY or run a local-only command such as `palari linear doctor --json`.",
-            )
-        self.api_key = api_key
-        self.endpoint = endpoint
-        self.timeout = timeout
-
-    @classmethod
-    def from_env(cls) -> "LinearClient":
-        return cls(os.environ.get("LINEAR_API_KEY", ""))
-
-    def issue(self, identifier: str) -> dict[str, Any]:
-        payload = self.request(LINEAR_ISSUE_QUERY, {"id": identifier})
-        issue = payload.get("issue")
-        if not isinstance(issue, dict):
-            raise LinearAdapterError(
-                f"Linear issue not found: {identifier}",
-                code="LINEAR_ISSUE_NOT_FOUND",
-                next_action="Check the Linear issue key/id and that the API key can read the workspace.",
-            )
-        return normalize_issue(issue, fallback_identifier=identifier)
-
-    def create_comment(self, issue_id: str, body: str) -> dict[str, Any]:
-        payload = self.request(
-            LINEAR_COMMENT_MUTATION,
-            {"issueId": issue_id, "body": body},
-        )
-        result = payload.get("commentCreate")
-        if not isinstance(result, dict) or not result.get("success"):
-            raise LinearAdapterError(
-                "Linear commentCreate did not return success",
-                code="LINEAR_COMMENT_CREATE_FAILED",
-                next_action="Inspect the queued outbox item and retry after confirming Linear access.",
-            )
-        comment = result.get("comment")
-        if not isinstance(comment, dict):
-            raise LinearAdapterError(
-                "Linear commentCreate did not return a comment",
-                code="LINEAR_UNSUPPORTED_RESPONSE",
-                next_action="Do not retry blindly; inspect the provider response shape against Linear's API.",
-            )
-        return dict(comment)
-
-    def request(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
-        body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
-        request = urllib.request.Request(
-            self.endpoint,
-            data=body,
-            headers={
-                "Authorization": self.api_key,
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                raw = response.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            code = "LINEAR_AUTH_FAILED" if exc.code in {401, 403} else "LINEAR_HTTP_ERROR"
-            raise LinearAdapterError(
-                f"Linear GraphQL HTTP {exc.code}",
-                code=code,
-                next_action="Check LINEAR_API_KEY permissions and retry after provider access is healthy.",
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise LinearAdapterError(
-                f"Linear GraphQL request failed: {_short_error(str(exc.reason))}",
-                code="LINEAR_NETWORK_ERROR",
-                next_action="Check network access to https://api.linear.app/graphql and retry.",
-            ) from exc
-
-        try:
-            decoded = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise LinearAdapterError(
-                "Linear GraphQL response was not valid JSON",
-                code="LINEAR_INVALID_JSON",
-                next_action="Retry later or inspect Linear API availability; Palari did not store the raw response.",
-            ) from exc
-        if not isinstance(decoded, dict):
-            raise LinearAdapterError(
-                "Linear GraphQL response was not an object",
-                code="LINEAR_UNSUPPORTED_RESPONSE",
-                next_action="Inspect Linear API compatibility before retrying.",
-            )
-        errors = decoded.get("errors")
-        if isinstance(errors, list) and errors:
-            messages = [
-                _short_error(str(error.get("message", "GraphQL error")))
-                for error in errors
-                if isinstance(error, dict)
-            ]
-            raise LinearAdapterError(
-                "Linear GraphQL error: " + "; ".join(messages),
-                code="LINEAR_GRAPHQL_ERROR",
-                next_action="Resolve the Linear GraphQL error before retrying this command.",
-            )
-        data = decoded.get("data")
-        if not isinstance(data, dict):
-            raise LinearAdapterError(
-                "Linear GraphQL response did not include data",
-                code="LINEAR_UNSUPPORTED_RESPONSE",
-                next_action="Inspect Linear API compatibility before retrying.",
-            )
-        return data
-
-
-def normalize_issue(issue: dict[str, Any], *, fallback_identifier: str = "") -> dict[str, Any]:
-    labels = issue.get("labels")
-    label_nodes = labels.get("nodes", []) if isinstance(labels, dict) else []
-    assignee = issue.get("assignee")
-    state = issue.get("state")
-    team = issue.get("team")
-    identifier = _string(issue.get("identifier")) or fallback_identifier
-    return {
-        "id": _string(issue.get("id")),
-        "identifier": identifier,
-        "key": identifier,
-        "title": _string(issue.get("title")) or identifier,
-        "description": _string(issue.get("description")),
-        "url": _string(issue.get("url")),
-        "updated_at": _string(issue.get("updatedAt")),
-        "state": _plain_mapping(state, ["id", "name", "type"]),
-        "team": _plain_mapping(team, ["id", "key", "name"]),
-        "labels": [
-            _plain_mapping(label, ["id", "name"])
-            for label in label_nodes
-            if isinstance(label, dict)
-        ],
-        "assignee": _plain_mapping(assignee, ["id", "name", "email"]),
-    }
-
-
-def parse_palari_block(description: str) -> PalariBlock:
-    match = re.search(r"```palari\s*\n(?P<body>.*?)\n```", description or "", re.DOTALL)
-    if match is None:
-        return PalariBlock(
-            present=False,
-            valid=False,
-            fields={},
-            errors=["missing palari block"],
-            missing_recommended_fields=sorted(RECOMMENDED_BLOCK_FIELDS),
-        )
-    raw = match.group("body").strip()
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        return PalariBlock(
-            present=True,
-            valid=False,
-            fields={},
-            errors=[f"invalid palari JSON block: {exc.msg}"],
-        )
-    if not isinstance(parsed, dict):
-        return PalariBlock(
-            present=True,
-            valid=False,
-            fields={},
-            errors=["palari block must contain a JSON object"],
-        )
-    unknown = sorted(set(parsed) - GOVERNANCE_FIELDS)
-    errors: list[str] = []
-    if unknown:
-        errors.append(f"unknown palari governance fields: {', '.join(unknown)}")
-    fields = {key: value for key, value in parsed.items() if key in GOVERNANCE_FIELDS}
-    for field_name in STRING_GOVERNANCE_FIELDS:
-        if field_name in fields and not isinstance(fields[field_name], str):
-            errors.append(f"palari.{field_name} must be a string")
-    for field_name in STRING_LIST_GOVERNANCE_FIELDS:
-        value = fields.get(field_name)
-        if value is not None and (
-            not isinstance(value, list) or not all(isinstance(item, str) for item in value)
-        ):
-            errors.append(f"palari.{field_name} must be a list of strings")
-    missing = sorted(field_name for field_name in RECOMMENDED_BLOCK_FIELDS if field_name not in fields)
-    warnings = [
-        f"recommended palari fields are missing: {', '.join(missing)}"
-    ] if missing else []
-    return PalariBlock(
-        present=True,
-        valid=not errors,
-        fields=dict(fields) if not errors else {},
-        errors=errors,
-        warnings=warnings,
-        unknown_fields=unknown,
-        missing_recommended_fields=missing,
-    )
+__all__ = [
+    "LinearAdapterError",
+    "LinearClient",
+    "LinearIssueClient",
+    "PalariBlock",
+    "linear_block_template",
+    "linear_doctor",
+    "linear_import",
+    "linear_inspect_block",
+    "linear_issue",
+    "linear_linked",
+    "linear_post_gate",
+    "linear_send",
+    "linear_start",
+    "linear_status",
+    "normalize_issue",
+    "parse_palari_block",
+]
 
 
 def linear_issue(issue_key: str, *, client: LinearIssueClient | None = None) -> dict[str, Any]:
@@ -508,99 +253,6 @@ def linear_import(
         "governance": _block_payload(block),
         "history_event": history_event,
         "next_action": _import_next_action(block, str(proposal["id"]), work_id),
-    }
-
-
-def linear_block_template(
-    workspace_path: str,
-    palari_id: str,
-    goal_id: str,
-    *,
-    risk: str,
-    intensity: str,
-    scope: str,
-    acceptance_target: str,
-    parallel_policy: str = "independent",
-    allowed_resources: list[str] | None = None,
-    allowed_sources: list[str] | None = None,
-    allowed_actions: list[str] | None = None,
-    output_targets: list[str] | None = None,
-    forbidden_actions: list[str] | None = None,
-    verification_expectations: list[str] | None = None,
-    recommended_playbooks: list[str] | None = None,
-    conflict_targets: list[str] | None = None,
-) -> dict[str, Any]:
-    workspace = Workspace.load(workspace_path)
-    fields = _clean_block_fields(
-        {
-            "goal": goal_id,
-            "palari": palari_id,
-            "risk": risk,
-            "intensity": intensity,
-            "scope": scope,
-            "acceptance_target": acceptance_target,
-            "parallel_policy": parallel_policy,
-            "allowed_resources": allowed_resources or [],
-            "allowed_sources": allowed_sources or [],
-            "allowed_actions": allowed_actions or [],
-            "output_targets": output_targets or [],
-            "forbidden_actions": forbidden_actions or [],
-            "verification_expectations": verification_expectations or [],
-            "recommended_playbooks": recommended_playbooks or [],
-            "conflict_targets": conflict_targets or [],
-        }
-    )
-    block = PalariBlock(present=True, valid=True, fields=fields)
-    validation = _validate_block_against_workspace(workspace, block, palari_id=palari_id)
-    if validation["errors"]:
-        raise LinearAdapterError(
-            "; ".join(validation["errors"]),
-            code="LINEAR_BLOCK_TEMPLATE_INVALID",
-            next_action="Fix the local Palari block inputs and rerun block-template.",
-        )
-    fenced = _fenced_palari_json(fields)
-    parsed = parse_palari_block(fenced)
-    return {
-        "schema_version": "palari.linear_block_template.v1",
-        "provider": "linear",
-        "valid": parsed.valid,
-        "fenced_block": fenced,
-        "governance": _block_payload(parsed),
-        "warnings": validation["warnings"] + parsed.warnings,
-        "next_action": "Paste fenced_block into the Linear issue description before importing.",
-    }
-
-
-def linear_inspect_block(
-    workspace_path: str,
-    issue_key: str,
-    palari_id: str,
-    *,
-    client: LinearIssueClient | None = None,
-) -> dict[str, Any]:
-    client = client or LinearClient.from_env()
-    issue = client.issue(issue_key)
-    workspace = Workspace.load(workspace_path)
-    block = parse_palari_block(issue["description"])
-    validation = _validate_block_against_workspace(workspace, block, palari_id=palari_id)
-    errors = block.errors + validation["errors"]
-    warnings = block.warnings + validation["warnings"]
-    eligible = block.present and block.valid and not errors
-    return {
-        "schema_version": "palari.linear_inspect_block.v1",
-        "provider": "linear",
-        "issue": issue,
-        "valid": eligible,
-        "eligible_for_adopt_start": eligible,
-        "governance": _block_payload(block),
-        "errors": errors,
-        "warnings": warnings,
-        "next_action": (
-            f"Run `palari linear start {issue['key']} --as {palari_id} "
-            "--adopt-by HUMAN-ID --json`."
-            if eligible
-            else "Fix the palari block in Linear before adopting or starting this issue."
-        ),
     }
 
 
@@ -1017,31 +669,6 @@ def _external_fields(issue: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _block_payload(block: PalariBlock) -> dict[str, Any]:
-    return {
-        "present": block.present,
-        "valid": block.valid,
-        "error": block.error,
-        "errors": list(block.errors),
-        "warnings": list(block.warnings),
-        "unknown_fields": list(block.unknown_fields),
-        "missing_recommended_fields": list(block.missing_recommended_fields),
-        "fields": deepcopy(block.fields),
-    }
-
-
-def _default_goal(workspace: Workspace, palari_id: str) -> str:
-    palari = workspace.palari(palari_id)
-    if palari is None:
-        raise WorkspaceError(f"palari not found: {palari_id}")
-    if len(palari.linked_goals) == 1:
-        return palari.linked_goals[0]
-    active_goals = [goal.id for goal in workspace.goals if goal.status == "active"]
-    if len(active_goals) == 1:
-        return active_goals[0]
-    raise WorkspaceError("linear import needs --goal or a palari block goal")
-
-
 def _needs_adoption_payload(
     workspace: Workspace,
     issue: dict[str, Any],
@@ -1075,77 +702,6 @@ def _needs_adoption_payload(
         ),
         "next_action": "A human with authority must adopt the Linear proposal into Palari work.",
     }
-
-
-def _clean_block_fields(fields: dict[str, Any]) -> dict[str, Any]:
-    cleaned: dict[str, Any] = {}
-    for key, value in fields.items():
-        if key in STRING_LIST_GOVERNANCE_FIELDS:
-            if value:
-                cleaned[key] = list(value)
-            continue
-        if isinstance(value, str) and value:
-            cleaned[key] = value
-    return cleaned
-
-
-def _validate_block_against_workspace(
-    workspace: Workspace,
-    block: PalariBlock,
-    *,
-    palari_id: str,
-) -> dict[str, list[str]]:
-    errors: list[str] = []
-    warnings: list[str] = []
-    fields = block.fields
-    if not block.present:
-        return {"errors": ["missing palari block"], "warnings": []}
-    if not block.valid:
-        return {"errors": list(block.errors), "warnings": list(block.warnings)}
-
-    palari = fields.get("palari") or palari_id
-    if fields.get("palari") and fields["palari"] != palari_id:
-        errors.append(f"palari block targets {fields['palari']}, not command actor {palari_id}")
-    if not palari:
-        errors.append("palari is required")
-    elif workspace.palari(str(palari)) is None:
-        errors.append(f"palari not found: {palari}")
-
-    goal = fields.get("goal")
-    if not goal:
-        try:
-            goal = _default_goal(workspace, palari_id)
-            warnings.append(f"palari.goal omitted; would default to {goal}")
-        except WorkspaceError:
-            errors.append("goal is required when no unique default goal is available")
-    elif workspace.goal(str(goal)) is None:
-        errors.append(f"goal not found: {goal}")
-
-    risk = fields.get("risk")
-    if risk and risk not in RISKS:
-        errors.append(f"risk must be one of: {', '.join(sorted(RISKS))}")
-    intensity = fields.get("intensity")
-    if intensity and intensity not in INTENSITIES:
-        errors.append(f"intensity must be one of: {', '.join(sorted(INTENSITIES))}")
-    parallel_policy = fields.get("parallel_policy")
-    if parallel_policy and parallel_policy not in PARALLEL_POLICIES:
-        errors.append(
-            f"parallel_policy must be one of: {', '.join(sorted(PARALLEL_POLICIES))}"
-        )
-
-    for source_id in fields.get("allowed_sources", []):
-        if workspace.source(source_id) is None:
-            errors.append(f"allowed source not found: {source_id}")
-    for target in fields.get("conflict_targets", []):
-        if workspace.work_item(target) is None:
-            errors.append(f"conflict target work item not found: {target}")
-
-    warnings.extend(block.warnings)
-    return {"errors": errors, "warnings": warnings}
-
-
-def _fenced_palari_json(fields: dict[str, Any]) -> str:
-    return "```palari\n" + json.dumps(fields, indent=2, sort_keys=False) + "\n```"
 
 
 def _empty_linked_group(key: str) -> dict[str, Any]:
@@ -1620,12 +1176,6 @@ def _comment_response(response: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _plain_mapping(value: object, keys: list[str]) -> dict[str, str]:
-    if not isinstance(value, dict):
-        return {}
-    return {key: _string(value.get(key)) for key in keys if _string(value.get(key))}
-
-
 def _records(data: dict[str, Any], collection: str) -> list[dict[str, Any]]:
     records = data.setdefault(collection, [])
     if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
@@ -1660,8 +1210,3 @@ def _timestamp() -> str:
 
 def _string(value: object) -> str:
     return value if isinstance(value, str) else ""
-
-
-def _short_error(value: str) -> str:
-    cleaned = " ".join(str(value).split())
-    return cleaned[:300]

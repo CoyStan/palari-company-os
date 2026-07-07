@@ -463,6 +463,9 @@ execution.
 
 ## Linear Adapter
 
+For the short end-to-end operating path, see
+[Linear Operating Loop](linear-operating-loop.md).
+
 ```bash
 ./bin/palari linear doctor --json
 ./bin/palari linear linked --json

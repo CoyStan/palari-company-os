@@ -104,6 +104,43 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("## Mission Control", command_reference)
         self.assertIn("palari demo --serve", command_reference)
 
+    def test_linear_operating_loop_is_linked_and_stays_minimal(self) -> None:
+        loop_path = REPO_ROOT / "docs/product/linear-operating-loop.md"
+        loop = loop_path.read_text(encoding="utf-8")
+        quickstart = (REPO_ROOT / "docs/product/quickstart.md").read_text(
+            encoding="utf-8"
+        )
+        command_reference = (REPO_ROOT / "docs/product/command-reference.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertTrue(loop_path.exists())
+        self.assertIn("[Linear Operating Loop](linear-operating-loop.md)", quickstart)
+        self.assertIn("[Linear Operating Loop](linear-operating-loop.md)", command_reference)
+        for snippet in (
+            "./bin/palari linear doctor --json",
+            "./bin/palari linear block-template",
+            "./bin/palari linear inspect-block ENG-123 --as PALARI-SOFIA --json",
+            "./bin/palari linear import ENG-123 --as PALARI-SOFIA --json",
+            "./bin/palari linear start ENG-123",
+            "./bin/palari linear post-gate ENG-123",
+            "./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json",
+            "./bin/palari linear webhook serve --host 127.0.0.1 --port 0 --json",
+            "./bin/palari linear webhook verify",
+            "./bin/palari linear webhook events --limit 20 --json",
+            "./bin/palari linear status ENG-123 --json",
+            "./bin/palari linear linked --json",
+        ):
+            self.assertIn(snippet, loop)
+        for non_goal in (
+            "OAuth",
+            "Linear status writes",
+            "Linear label writes",
+            "Linear Agent Sessions",
+            "background runners",
+        ):
+            self.assertIn(non_goal, loop)
+
     def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
         smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(
             encoding="utf-8"
