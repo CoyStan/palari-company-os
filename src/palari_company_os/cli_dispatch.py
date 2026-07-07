@@ -331,6 +331,11 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             linear_start,
             linear_status,
         )
+        from .linear_webhook import (
+            linear_webhook_events,
+            linear_webhook_verify_file,
+            serve_linear_webhook,
+        )
 
         if args.linear_command == "doctor":
             return CommandResult("linear", linear_doctor(args.workspace), args.json)
@@ -395,6 +400,34 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 linear_inspect_block(args.workspace, args.issue_key, args.palari_id),
                 args.json,
             )
+        if args.linear_command == "webhook":
+            if args.webhook_command == "serve":
+                return CommandResult(
+                    "linear",
+                    serve_linear_webhook(
+                        args.workspace,
+                        host=args.host,
+                        port=args.port,
+                        as_json=args.json,
+                    ),
+                    False,
+                )
+            if args.webhook_command == "verify":
+                return CommandResult(
+                    "linear",
+                    linear_webhook_verify_file(
+                        args.payload_file,
+                        signature=args.signature,
+                        timestamp=args.timestamp,
+                    ),
+                    args.json,
+                )
+            if args.webhook_command == "events":
+                return CommandResult(
+                    "linear",
+                    linear_webhook_events(args.workspace, limit=args.limit),
+                    args.json,
+                )
         if args.linear_command == "post-gate":
             return CommandResult(
                 "linear",

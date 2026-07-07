@@ -27,7 +27,16 @@ LINEAR_SECRET_REF = "env:LINEAR_API_KEY"
 LINEAR_INTEGRATION_ID = "INT-LINEAR"
 SUPPORTED_RUNNERS = {"codex", "claude-code", "cursor", "generic"}
 LIVE_PROVIDER_COMMANDS = ["issue", "import", "start", "inspect-block", "send"]
-LOCAL_ONLY_COMMANDS = ["status", "linked", "doctor", "block-template", "post-gate"]
+LOCAL_ONLY_COMMANDS = [
+    "status",
+    "linked",
+    "doctor",
+    "block-template",
+    "post-gate",
+    "webhook serve",
+    "webhook verify",
+    "webhook events",
+]
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}
 PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
@@ -325,6 +334,8 @@ def linear_issue(issue_key: str, *, client: LinearIssueClient | None = None) -> 
 
 
 def linear_doctor(workspace_path: str) -> dict[str, Any]:
+    from .linear_webhook import LINEAR_WEBHOOK_SECRET_REF, linear_webhook_event_log_summary
+
     workspace = Workspace.load(workspace_path)
     linear_integrations = [
         integration for integration in workspace.integrations if integration.provider == "linear"
@@ -340,7 +351,9 @@ def linear_doctor(workspace_path: str) -> dict[str, Any]:
         "workspace": workspace.name,
         "env": {
             "linear_api_key_present": bool(os.environ.get("LINEAR_API_KEY")),
+            "linear_webhook_secret_present": bool(os.environ.get("LINEAR_WEBHOOK_SECRET")),
             "secret_ref": LINEAR_SECRET_REF,
+            "webhook_secret_ref": LINEAR_WEBHOOK_SECRET_REF,
             "secret_value_stored": False,
         },
         "counts": {
@@ -360,6 +373,10 @@ def linear_doctor(workspace_path: str) -> dict[str, Any]:
             else None
         ),
         "supported_runners": sorted(SUPPORTED_RUNNERS),
+        "webhook": {
+            "event_log": linear_webhook_event_log_summary(workspace_path),
+            "serve_command": "palari linear webhook serve --host 127.0.0.1 --port 0 --json",
+        },
         "live_provider_commands": LIVE_PROVIDER_COMMANDS,
         "local_only_commands": LOCAL_ONLY_COMMANDS,
         "next_action": (
@@ -371,8 +388,11 @@ def linear_doctor(workspace_path: str) -> dict[str, Any]:
 
 
 def linear_linked(workspace_path: str) -> dict[str, Any]:
+    from .linear_webhook import latest_linear_webhook_events_by_key
+
     workspace = Workspace.load(workspace_path)
     queue_by_id = {item.id: item for item in queue_items(workspace)}
+    webhook_events = latest_linear_webhook_events_by_key(workspace_path)
     groups: dict[str, dict[str, Any]] = {}
 
     for proposal in workspace.proposals:
@@ -388,6 +408,7 @@ def linear_linked(workspace_path: str) -> dict[str, Any]:
         group["pending_actions"] = _proposal_pending_actions(key, proposal)
         group["next_commands"] = _proposal_next_commands(key, proposal)
         group["link_state"] = "proposal_only"
+        group["latest_webhook_event"] = webhook_events.get(key)
 
     for work in workspace.work_items:
         if work.external_provider != "linear":
@@ -405,6 +426,7 @@ def linear_linked(workspace_path: str) -> dict[str, Any]:
         group["integration"] = _integration_link_summary(work_detail)
         group["next_commands"] = _linear_next_commands(work.external_key or key, work, item)
         group["link_state"] = _link_state(_linear_status_from_detail(work, item, work_detail), True)
+        group["latest_webhook_event"] = webhook_events.get(key)
 
     items = sorted(groups.values(), key=lambda item: item["linear_ref"].get("key", ""))
     return {
@@ -665,7 +687,10 @@ def linear_start(
 
 
 def linear_status(workspace_path: str, issue_key: str) -> dict[str, Any]:
+    from .linear_webhook import latest_linear_webhook_events_by_key
+
     workspace = Workspace.load(workspace_path)
+    latest_webhook_event = latest_linear_webhook_events_by_key(workspace_path).get(issue_key)
     issue_stub = {"id": "", "key": issue_key, "identifier": issue_key}
     work = _workspace_linear_work(workspace, issue_stub)
     proposal = _workspace_linear_proposal(workspace, issue_stub)
@@ -690,6 +715,7 @@ def linear_status(workspace_path: str, issue_key: str) -> dict[str, Any]:
             },
             "pending_actions": _proposal_pending_actions(issue_key, proposal),
             "next_commands": _proposal_next_commands(issue_key, proposal),
+            "latest_webhook_event": latest_webhook_event,
             "proposal": to_plain(proposal) if proposal is not None else None,
             "work_item": None,
             "next_action": (
@@ -713,6 +739,7 @@ def linear_status(workspace_path: str, issue_key: str) -> dict[str, Any]:
         "gate_summary": _gate_summary_from_detail(work_detail, item),
         "pending_actions": _pending_actions(work_detail),
         "next_commands": _linear_next_commands(issue_key, work, item),
+        "latest_webhook_event": latest_webhook_event,
         "work_item": to_plain(work),
         "proposal": to_plain(proposal) if proposal is not None else None,
         "queue_item": to_plain(item) if item is not None else None,
@@ -1136,6 +1163,7 @@ def _empty_linked_group(key: str) -> dict[str, Any]:
             "queued_outbox": [],
             "sent_outbox": [],
         },
+        "latest_webhook_event": None,
         "pending_actions": [],
         "next_commands": [],
     }

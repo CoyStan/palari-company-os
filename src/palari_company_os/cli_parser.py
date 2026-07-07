@@ -531,6 +531,35 @@ def _add_linear_parser(subparsers: Any) -> None:
     inspect_block.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     inspect_block.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    webhook = nested.add_parser(
+        "webhook",
+        help="Receive, verify, and inspect Linear webhook events.",
+    )
+    webhook_nested = webhook.add_subparsers(dest="webhook_command", required=True)
+    webhook_serve = webhook_nested.add_parser(
+        "serve",
+        help="Run a local Linear webhook receiver for private dogfooding.",
+    )
+    webhook_serve.add_argument("--host", default="127.0.0.1", help="Host to bind.")
+    webhook_serve.add_argument("--port", type=int, default=0, help="Port to bind.")
+    webhook_serve.add_argument("--json", action="store_true", help="Emit startup JSON.")
+
+    webhook_verify = webhook_nested.add_parser(
+        "verify",
+        help="Verify a captured Linear webhook payload without mutating the workspace.",
+    )
+    webhook_verify.add_argument("--payload-file", required=True, help="Raw payload file.")
+    webhook_verify.add_argument("--signature", required=True, help="Linear-Signature header.")
+    webhook_verify.add_argument("--timestamp", required=True, help="Linear-Timestamp header.")
+    webhook_verify.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    webhook_events = webhook_nested.add_parser(
+        "events",
+        help="List locally recorded Linear webhook events.",
+    )
+    webhook_events.add_argument("--limit", type=int, default=20, help="Number of events to show.")
+    webhook_events.add_argument("--json", action="store_true", help="Emit JSON.")
+
     post_gate = nested.add_parser(
         "post-gate",
         help="Preview or record a Linear status comment plan.",

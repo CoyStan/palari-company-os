@@ -473,6 +473,9 @@ execution.
 ./bin/palari linear status ENG-123 --json
 ./bin/palari linear block-template --as PALARI-SOFIA --goal GOAL-0001 --risk R1 --intensity light --scope "Tighten copy" --acceptance-target "Copy is clearer" --verification ./scripts/verify.sh --json
 ./bin/palari linear inspect-block ENG-123 --as PALARI-SOFIA --json
+./bin/palari linear webhook serve --host 127.0.0.1 --port 0 --json
+./bin/palari linear webhook verify --payload-file payload.json --signature HEX --timestamp MS --json
+./bin/palari linear webhook events --limit 20 --json
 ./bin/palari linear post-gate ENG-123 --record --event review_requested --actor PALARI-SOFIA --json
 ./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
 ```
@@ -480,10 +483,14 @@ execution.
 Linear can be the human-facing issue surface while Palari remains the
 governance and runtime layer. The adapter uses Linear's stable GraphQL API with
 `LINEAR_API_KEY`; Palari stores only `env:LINEAR_API_KEY`, never the token
-value. `linear doctor`, `linear linked`, `linear status`, `linear
-block-template`, and `linear post-gate` are local/read-model or plan-only
-commands. `linear issue`, `linear import`, `linear start`, `linear
-inspect-block`, and `linear send` need live Linear access.
+value. Inbound webhooks use `LINEAR_WEBHOOK_SECRET`; Palari stores only
+`env:LINEAR_WEBHOOK_SECRET`, never the secret value. `linear doctor`, `linear
+linked`, `linear status`, `linear block-template`, `linear webhook verify`,
+`linear webhook events`, and `linear post-gate` are local/read-model or
+plan-only commands. `linear issue`, `linear import`, `linear start`, `linear
+inspect-block`, and `linear send` need live Linear GraphQL access. `linear
+webhook serve` does not call GraphQL, but it accepts verified inbound Linear
+webhooks.
 
 `linear issue` fetches and normalizes an issue without mutating the workspace.
 `linear import` creates or updates a Palari proposal linked to the issue. If the
@@ -491,13 +498,15 @@ issue description contains a valid fenced `palari` JSON block, the supported
 governance fields are copied into the proposal. Missing or invalid governance
 never auto-starts work; it leaves a proposal requiring human adoption.
 
-`linear doctor` reports whether the local environment has `LINEAR_API_KEY`
-present as a boolean only, plus linked record counts, supported runners, and
-which commands call Linear. `linear linked` groups all Linear-linked proposals
-and work items by issue key with Palari refs, gate summary, pending actions,
-outbox state, and next commands. `linear status` preserves the top-level
-`READY`, `BLOCKED`, `NEEDS_EVIDENCE`, `NEEDS_HUMAN`, or `ACCEPTED` enum and adds
-`link_state`, compact refs, pending actions, and next commands.
+`linear doctor` reports whether the local environment has `LINEAR_API_KEY` and
+`LINEAR_WEBHOOK_SECRET` present as booleans only, plus linked record counts,
+supported runners, webhook event-log status, and which commands call Linear.
+`linear linked` groups all Linear-linked proposals and work items by issue key
+with Palari refs, gate summary, pending actions, outbox state, latest webhook
+event, and next commands. `linear status` preserves the top-level `READY`,
+`BLOCKED`, `NEEDS_EVIDENCE`, `NEEDS_HUMAN`, or `ACCEPTED` enum and adds
+`link_state`, compact refs, pending actions, latest webhook event, and next
+commands.
 
 `linear block-template` emits ready-to-paste fenced `palari` JSON after
 validating local Palari, goal, risk, intensity, source, conflict, and parallel
@@ -505,6 +514,15 @@ policy references. `linear inspect-block` fetches the issue, validates the
 fenced block, and reports errors, warnings, unknown fields, missing recommended
 fields, and whether adopt-start would be eligible. Unknown governance fields
 fail closed instead of being guessed.
+
+`linear webhook serve` runs a local private dogfood receiver with `GET /health`
+and `POST /linear/webhook`. It verifies the raw payload HMAC signature,
+timestamp, and `Linear-Delivery` id before recording accepted Issue events to
+`.palari/linear-events.jsonl`. Duplicate deliveries are ignored without
+workspace mutation. Unlinked issues are recorded with an import next command.
+Linked proposals receive external refs, and non-adopted proposal title/summary
+may sync from Linear. Linked work receives external refs only. Remove/archive
+events never delete or rewrite Palari records.
 
 `linear start` starts only adopted Palari work. Without adopted work it returns
 `needs_adoption` and prints the exact adoption command. With `--adopt-by`, the

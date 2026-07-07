@@ -164,6 +164,8 @@ def _agent_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
 
 def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
     message = _clean_error_message(exc)
+    linear_command = str(getattr(args, "linear_command", "") or "")
+    webhook_command = str(getattr(args, "webhook_command", "") or "")
     issue_key = str(getattr(args, "issue_key", "") or "")
     outbox_id = str(getattr(args, "outbox_id", "") or "")
     palari_id = str(getattr(args, "palari_id", "") or "")
@@ -171,7 +173,8 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
         item
         for item in [
             "linear",
-            str(getattr(args, "linear_command", "") or ""),
+            linear_command,
+            webhook_command if linear_command == "webhook" else "",
             issue_key or outbox_id,
         ]
         if item
@@ -179,7 +182,7 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
     next_action = str(getattr(exc, "next_action", "") or "")
     if not next_action:
         next_action = _linear_error_next_action(
-            str(getattr(args, "linear_command", "") or ""),
+            linear_command,
             issue_key,
             palari_id,
         )
