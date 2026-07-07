@@ -60,9 +60,9 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue((REPO_ROOT / "scripts" / "make_demo_assets.sh").exists())
 
     def test_demo_recording_script_is_literal_enough_for_human(self) -> None:
-        script = (REPO_ROOT / "docs" / "plans" / "demo-recording-script.md").read_text(
-            encoding="utf-8"
-        )
+        script = (
+            REPO_ROOT / "docs" / "archive" / "plans" / "demo-recording-script.md"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("./bin/palari demo", script)
         self.assertIn("*** BLOCKED: file change is outside Sofia's write boundary ***", script)
@@ -103,6 +103,54 @@ class DocumentationTests(unittest.TestCase):
         )
         self.assertIn("## Mission Control", command_reference)
         self.assertIn("palari demo --serve", command_reference)
+
+    def test_minimality_contract_is_linked_and_enforced(self) -> None:
+        contract_path = REPO_ROOT / "docs/product/minimality-contract.md"
+        contract = contract_path.read_text(encoding="utf-8")
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        quickstart = (REPO_ROOT / "docs/product/quickstart.md").read_text(
+            encoding="utf-8"
+        )
+        invariants = (
+            REPO_ROOT / "docs/agent/contracts-and-invariants.md"
+        ).read_text(encoding="utf-8")
+        pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+        self.assertTrue(contract_path.exists())
+        self.assertIn("[Minimality Contract](docs/product/minimality-contract.md)", readme)
+        self.assertIn("[Minimality Contract](minimality-contract.md)", quickstart)
+        self.assertIn("[Minimality Contract](../product/minimality-contract.md)", invariants)
+        self.assertRegex(pyproject, r"(?m)^dependencies = \[\]$")
+        for forbidden_growth in (
+            "runtime dependency",
+            "background service by default",
+            "live provider write without approval",
+            "OAuth by default",
+            "schema growth without governance behavior",
+        ):
+            self.assertIn(forbidden_growth, contract)
+
+    def test_heavy_plans_and_research_are_archived(self) -> None:
+        archived = [
+            REPO_ROOT / "docs/archive/plans/demo-recording-script.md",
+            REPO_ROOT / "docs/archive/plans/launch-quality-plan.md",
+            REPO_ROOT
+            / "docs/archive/research/gpt-5-5-pro-agent-packet-critique-2026-06-21.md",
+            REPO_ROOT / "docs/archive/research/ai-ops-memory-roadmap-review.md",
+        ]
+        for path in archived:
+            with self.subTest(path=path):
+                self.assertTrue(path.exists())
+        self.assertFalse((REPO_ROOT / "docs/plans").exists())
+        self.assertFalse((REPO_ROOT / "docs/research").exists())
+        self.assertFalse((REPO_ROOT / "docs/product/ai-ops-memory-roadmap-review.md").exists())
+
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        start_here = readme.split("Start here:", 1)[1].split("Then go deeper:", 1)[0]
+        self.assertNotIn("docs/archive/", start_here)
+        self.assertNotIn("docs/showcase/ai-work-vignettes.md", start_here)
+        self.assertIn("docs/archive/", readme)
+        self.assertIn("## Golden Paths", readme)
 
     def test_linear_operating_loop_is_linked_and_stays_minimal(self) -> None:
         loop_path = REPO_ROOT / "docs/product/linear-operating-loop.md"

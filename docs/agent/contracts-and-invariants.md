@@ -52,3 +52,6 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - `AGENTS.md` should stay compact and point to deeper canonical docs.
 - Update docs when commands, schema, agent behavior, integrations, gates, or
   examples change in ways future agents need to know.
+- Preserve the [Minimality Contract](../product/minimality-contract.md): no
+  runtime dependency, background service by default, live provider write without
+  approval, OAuth by default, or schema growth without governance behavior.

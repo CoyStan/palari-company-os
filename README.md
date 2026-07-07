@@ -291,28 +291,37 @@ examples/acme-company-os/          Small example workspace
 workspaces/palari-company-os/      Repo dogfood workspace
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and invariants
-docs/showcase/                     Public-facing examples and vignettes
+docs/showcase/                     Optional public examples and vignettes
+docs/archive/                      Historical plans and speculative research
 scripts/verify.sh                  Full local verification
 scripts/install_smoke.sh           Isolated package install smoke
 tests/                             Unit and fixture tests
 ```
 
+## Golden Paths
+
+- **Demo:** run `./bin/palari demo`, then open `./bin/palari serve --as HUMAN-FOUNDER`.
+- **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
+- **Linear dogfood:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
+- **Evidence and acceptance:** read [Authority And Gates](docs/product/authority-and-gates.md).
+
 ## Documentation
 
 Start here:
 
-- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md) for friendly examples
 - [Quickstart](docs/product/quickstart.md) for the shortest command path
 - [Glossary](docs/product/glossary.md) for plain-language definitions
 - [Product Model](docs/product/company-os.md) for the larger concept
 - [Agent Contract](docs/product/agent-contract.md) for AI-agent packet behavior
 - [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough
 - [Command Reference](docs/product/command-reference.md) for CLI details
+- [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small
 - [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation
 - [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for boundaries agents must preserve
 
 Then go deeper:
 
+- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md)
 - [Core Objects](docs/product/core-objects.md)
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)

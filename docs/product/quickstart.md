@@ -97,4 +97,5 @@ Use `palari serve` when you want clickable local supervision.
 - [Command Reference](command-reference.md) for CLI details.
 - [Agent Contract](agent-contract.md) for the packet/check loop used by agents.
 - [Core Objects](core-objects.md) for the full data model.
+- [Minimality Contract](minimality-contract.md) for the rules that keep Palari small.
 - [Linear Operating Loop](linear-operating-loop.md) for optional Linear dogfooding.
