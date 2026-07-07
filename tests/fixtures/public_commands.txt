@@ -1,0 +1,135 @@
+palari demo
+palari queue
+palari state
+palari data
+palari data map
+palari docs
+palari docs check
+palari docs init
+palari docs map
+palari validate
+palari detail
+palari scope
+palari integrations
+palari integration
+palari integration check
+palari integration plan
+palari integration approve
+palari integration reject
+palari integration cancel
+palari integration enqueue
+palari integration outbox-check
+palari integration outbox-cancel
+palari linear
+palari linear doctor
+palari linear linked
+palari linear issue
+palari linear import
+palari linear start
+palari linear status
+palari linear block-template
+palari linear inspect-block
+palari linear webhook
+palari linear webhook serve
+palari linear webhook verify
+palari linear webhook events
+palari linear post-gate
+palari linear send
+palari agent
+palari agent next
+palari agent brief
+palari agent start
+palari agent release
+palari agent check
+palari agent finish
+palari agent handoff
+palari agent loop
+palari agent doctor
+palari workspace
+palari workspace init
+palari mcp
+palari mcp serve
+palari migrate
+palari history
+palari dashboard
+palari desktop-prototype
+palari desktop-serve
+palari serve
+palari goal
+palari goal create
+palari goal update
+palari human
+palari human create
+palari human update
+palari palari
+palari palari create
+palari palari update
+palari source
+palari source create
+palari source update
+palari playbook-source
+palari playbook-source create
+palari playbook-source update
+palari capability
+palari capability create
+palari capability update
+palari capability list
+palari capability check
+palari capability export-policy
+palari authority-profile
+palari authority-profile create
+palari authority-profile update
+palari authority
+palari authority profiles
+palari authority check
+palari decision
+palari decision create
+palari decision update
+palari decision guide
+palari proposal
+palari proposal create
+palari proposal update
+palari proposal adopt
+palari proposal reject
+palari proposal defer
+palari work
+palari work create
+palari work update
+palari work complete
+palari work accept
+palari work expand-scope
+palari attempt
+palari attempt record
+palari attempt update
+palari attempt closeout
+palari evidence
+palari evidence record
+palari evidence update
+palari evidence verify
+palari review
+palari review guide
+palari review record
+palari review update
+palari human-decision
+palari human-decision record
+palari human-decision update
+palari receipt
+palari receipt record
+palari receipt update
+palari outcome
+palari outcome record
+palari outcome update
+palari lifecycle
+palari lifecycle evidence
+palari lifecycle review
+palari lifecycle decide
+palari lifecycle complete
+palari lifecycle outcome
+palari maintainer
+palari maintainer status
+palari playbooks
+palari playbooks sources
+palari playbooks recommend
+palari gate
+palari gate profiles
+palari gate recommend

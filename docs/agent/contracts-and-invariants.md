@@ -55,3 +55,5 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Preserve the [Minimality Contract](../product/minimality-contract.md): no
   runtime dependency, background service by default, live provider write without
   approval, OAuth by default, or schema growth without governance behavior.
+- Check the [Public Surface](../product/public-surface.md) before changing CLI,
+  provider, visual, example, or archive surfaces.

@@ -3,6 +3,9 @@
 Palari should stay small enough that a human can inspect it, run it locally, and
 understand where authority lives. New work must protect that shape.
 
+Use the [Public Surface](public-surface.md) map to check whether a change
+strengthens the core kernel or adds optional surface area.
+
 ## Hard Rules
 
 - No runtime dependency unless it is required for a concrete safety property

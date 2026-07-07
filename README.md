@@ -304,6 +304,7 @@ tests/                             Unit and fixture tests
 - **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
 - **Linear dogfood:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
 - **Evidence and acceptance:** read [Authority And Gates](docs/product/authority-and-gates.md).
+- **Surface audit:** read [Public Surface](docs/product/public-surface.md).
 
 ## Documentation
 
@@ -316,6 +317,7 @@ Start here:
 - [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough
 - [Command Reference](docs/product/command-reference.md) for CLI details
 - [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small
+- [Public Surface](docs/product/public-surface.md) for what is core, optional, or future
 - [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation
 - [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for boundaries agents must preserve
 
