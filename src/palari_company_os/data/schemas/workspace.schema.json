@@ -262,7 +262,7 @@
       "required": ["id", "provider", "label"],
       "properties": {
         "id": { "type": "string" },
-        "provider": { "type": "string", "enum": ["slack", "github", "jira", "email"] },
+        "provider": { "type": "string", "enum": ["slack", "github", "jira", "email", "linear"] },
         "label": { "type": "string" },
         "mode": {
           "type": "string",
@@ -372,7 +372,7 @@
         "enqueued_by": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["queued", "canceled"]
+          "enum": ["queued", "canceled", "sent", "failed"]
         },
         "payload_preview": {
           "type": "object",
@@ -390,6 +390,14 @@
         "canceled_by": { "type": "string" },
         "canceled_at": { "type": "string" },
         "cancel_reason": { "type": "string" },
+        "sent_by": { "type": "string" },
+        "sent_at": { "type": "string" },
+        "provider_response": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "failed_at": { "type": "string" },
+        "failure_reason": { "type": "string" },
         "notes": { "type": "string" }
       }
     },
@@ -456,7 +464,12 @@
         "parallel_policy": {
           "type": "string",
           "enum": ["independent", "coordinate", "exclusive"]
-        }
+        },
+        "external_provider": { "type": "string" },
+        "external_id": { "type": "string" },
+        "external_key": { "type": "string" },
+        "external_url": { "type": "string" },
+        "external_updated_at": { "type": "string" }
       }
     },
     "proposal": {
@@ -495,7 +508,12 @@
         "created_at": { "type": "string" },
         "decided_by": { "type": "string" },
         "decided_at": { "type": "string" },
-        "reason": { "type": "string" }
+        "reason": { "type": "string" },
+        "external_provider": { "type": "string" },
+        "external_id": { "type": "string" },
+        "external_key": { "type": "string" },
+        "external_url": { "type": "string" },
+        "external_updated_at": { "type": "string" }
       }
     },
     "attempt": {

@@ -420,8 +420,8 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 Integrations declare possible external providers and boundaries before Palari
 can ever use them. The v0 implementation is dry-run only: it validates provider,
 owner, event, action, source, risk, and secret-reference metadata, then produces
-a payload preview without reading secrets or calling Slack, GitHub, Jira, email,
-or any other provider.
+a payload preview without reading secrets or calling Slack, GitHub, Jira,
+Linear, email, or any other provider.
 
 `secret_ref` values must be references such as `env:PALARI_SLACK_WEBHOOK_URL`.
 Raw tokens or keys fail validation. Planning also fails closed when an
@@ -458,8 +458,44 @@ outbox item. It confirms that the item is still queued, the plan is approved,
 the integration remains enabled, the event/action are allowed, and the payload
 and source boundary still match what the human approved. It also reports
 `execution_enabled: false` and `would_call_provider: false`; this command is
-preparation for future executor wiring, not live Slack/GitHub/Jira/email
+preparation for future executor wiring, not live Slack/GitHub/Jira/Linear/email
 execution.
+
+## Linear Adapter
+
+```bash
+./bin/palari linear issue ENG-123 --json
+./bin/palari linear import ENG-123 --as PALARI-SOFIA --json
+./bin/palari linear start ENG-123 --runner codex --as PALARI-SOFIA --json
+./bin/palari linear start ENG-123 --runner codex --as PALARI-SOFIA --adopt-by HUMAN-FOUNDER --json
+./bin/palari linear status ENG-123 --json
+./bin/palari linear post-gate ENG-123 --record --event review_requested --actor PALARI-SOFIA --json
+./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
+```
+
+Linear can be the human-facing issue surface while Palari remains the
+governance and runtime layer. The adapter uses Linear's stable GraphQL API with
+`LINEAR_API_KEY`; Palari stores only `env:LINEAR_API_KEY`, never the token
+value.
+
+`linear issue` fetches and normalizes an issue without mutating the workspace.
+`linear import` creates or updates a Palari proposal linked to the issue. If the
+issue description contains a valid fenced `palari` JSON block, the supported
+governance fields are copied into the proposal. Missing or invalid governance
+never auto-starts work; it leaves a proposal requiring human adoption.
+
+`linear start` starts only adopted Palari work. Without adopted work it returns
+`needs_adoption` and prints the exact adoption command. With `--adopt-by`, the
+named id must be a human with authority; Palari ids cannot self-adopt. `--runner`
+only labels the emitted governed packet for Codex, Claude Code, Cursor, or a
+generic harness. It does not launch those tools.
+
+`linear post-gate` records a pending Linear comment plan and still performs no
+provider call. A qualified human must approve and enqueue that integration plan
+before `linear send` can call Linear `commentCreate`. `linear send` requires a
+queued outbox item, matching approved payload, valid human authority,
+`--confirm`, and `LINEAR_API_KEY`; successful sends record the provider comment
+id and URL.
 
 ## Receipt-Ready Low-Risk Work
 

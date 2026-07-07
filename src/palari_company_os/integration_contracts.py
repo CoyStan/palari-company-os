@@ -6,6 +6,7 @@ PROVIDER_ACTIONS = {
     "github": {"notify", "comment", "create_issue"},
     "jira": {"notify", "comment", "create_issue", "update_issue"},
     "email": {"notify"},
+    "linear": {"notify", "comment", "create_issue", "update_issue"},
 }
 
 MODE_ACTIONS = {

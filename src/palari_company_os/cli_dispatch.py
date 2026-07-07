@@ -318,6 +318,70 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "linear":
+        from .linear_adapter import (
+            linear_import,
+            linear_issue,
+            linear_post_gate,
+            linear_send,
+            linear_start,
+            linear_status,
+        )
+
+        if args.linear_command == "issue":
+            return CommandResult("linear", linear_issue(args.issue_key), args.json)
+        if args.linear_command == "import":
+            return CommandResult(
+                "linear",
+                linear_import(
+                    args.workspace,
+                    args.issue_key,
+                    args.palari_id,
+                    goal_id=args.goal_id,
+                ),
+                args.json,
+            )
+        if args.linear_command == "start":
+            return CommandResult(
+                "linear",
+                linear_start(
+                    args.workspace,
+                    args.issue_key,
+                    args.palari_id,
+                    runner=args.runner,
+                    mode=args.mode,
+                    adopt_by=args.adopt_by,
+                    goal_id=args.goal_id,
+                    lease_minutes=args.lease_minutes,
+                ),
+                args.json,
+            )
+        if args.linear_command == "status":
+            return CommandResult("linear", linear_status(args.workspace, args.issue_key), args.json)
+        if args.linear_command == "post-gate":
+            return CommandResult(
+                "linear",
+                linear_post_gate(
+                    args.workspace,
+                    args.issue_key,
+                    event=args.event,
+                    actor=args.actor,
+                    record=args.record,
+                ),
+                args.json,
+            )
+        if args.linear_command == "send":
+            return CommandResult(
+                "linear",
+                linear_send(
+                    args.workspace,
+                    args.outbox_id,
+                    human_id=args.human_id,
+                    confirm=args.confirm,
+                ),
+                args.json,
+            )
+
     if args.command == "migrate":
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 

@@ -42,6 +42,9 @@ class QueueItem:
     palari: str
     palari_name: str
     owner: str
+    external_provider: str
+    external_key: str
+    external_url: str
     ai_safe_to_proceed: bool
     waiting_on_human: bool
     evidence_state: str
@@ -318,6 +321,9 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         palari=work.palari,
         palari_name=palari.name if palari else work.palari,
         owner=owner,
+        external_provider=work.external_provider,
+        external_key=work.external_key,
+        external_url=work.external_url,
         ai_safe_to_proceed=ai_safe_to_proceed,
         waiting_on_human=waiting_on_human,
         evidence_state=evidence_state,

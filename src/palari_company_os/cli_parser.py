@@ -91,6 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     integrations_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     _add_integration_parser(subparsers)
+    _add_linear_parser(subparsers)
     _add_agent_parser(subparsers)
     _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
@@ -382,6 +383,78 @@ def _add_integration_parser(subparsers: Any) -> None:
     outbox_cancel.add_argument("--by", dest="human_id", required=True, help="Canceling human id.")
     outbox_cancel.add_argument("--reason", required=True, help="Reason for cancellation.")
     outbox_cancel.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_linear_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("linear", help="Use Linear as a governed work surface.")
+    nested = parser.add_subparsers(dest="linear_command", required=True)
+
+    issue = nested.add_parser("issue", help="Fetch and normalize one Linear issue.")
+    issue.add_argument("issue_key")
+    issue.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    import_parser = nested.add_parser(
+        "import",
+        help="Create or update a Palari proposal linked to a Linear issue.",
+    )
+    import_parser.add_argument("issue_key")
+    import_parser.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    import_parser.add_argument("--goal", dest="goal_id", default="", help="Fallback goal id.")
+    import_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    start = nested.add_parser(
+        "start",
+        help="Start governed Palari work linked to a Linear issue.",
+    )
+    start.add_argument("issue_key")
+    start.add_argument(
+        "--runner",
+        choices=["codex", "claude-code", "cursor", "generic"],
+        default="generic",
+        help="Harness label for output packets. Palari does not launch the runner.",
+    )
+    start.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    start.add_argument("--mode", default="execute", help="Packet mode.")
+    start.add_argument("--adopt-by", dest="adopt_by", default="", help="Adopting human id.")
+    start.add_argument("--goal", dest="goal_id", default="", help="Fallback goal id.")
+    start.add_argument(
+        "--lease-minutes",
+        type=int,
+        default=30,
+        help="Claim lease length when work starts.",
+    )
+    start.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    status = nested.add_parser(
+        "status",
+        help="Map Palari gate state to a Linear-facing status payload.",
+    )
+    status.add_argument("issue_key")
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    post_gate = nested.add_parser(
+        "post-gate",
+        help="Preview or record a Linear status comment plan.",
+    )
+    post_gate.add_argument("issue_key")
+    post_gate.add_argument("--record", action="store_true", help="Record the approval plan.")
+    post_gate.add_argument(
+        "--event",
+        required=True,
+        choices=["work_blocked", "review_requested", "work_completed"],
+        help="Palari event to post back to Linear.",
+    )
+    post_gate.add_argument("--actor", required=True, help="Acting Palari or human id.")
+    post_gate.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    send = nested.add_parser(
+        "send",
+        help="Send an approved queued Linear comment outbox item.",
+    )
+    send.add_argument("outbox_id")
+    send.add_argument("--by", dest="human_id", required=True, help="Sending human id.")
+    send.add_argument("--confirm", action="store_true", help="Confirm the live Linear write.")
+    send.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:

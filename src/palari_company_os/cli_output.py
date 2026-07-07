@@ -177,6 +177,7 @@ def print_result(result: CommandResult) -> None:
         "authority-check",
         "evidence-verify",
         "proposal-decision",
+        "linear",
     }:
         if result.as_json:
             print_json(result.payload)
@@ -684,6 +685,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         print(f"  palari: {item.palari_name}")
         if item.owner:
             print(f"  owner: {item.owner}")
+        if item.external_provider and item.external_key:
+            print(f"  external: {item.external_provider}:{item.external_key}")
         print(f"  why: {item.why}")
         print(
             f"  safety: ai_safe={_yes_no(item.ai_safe_to_proceed)} "

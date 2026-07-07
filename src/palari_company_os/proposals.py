@@ -197,6 +197,11 @@ def _work_from_proposal(proposal: dict[str, Any], work_id: str) -> dict[str, Any
         "recommended_playbooks",
         "conflict_targets",
         "parallel_policy",
+        "external_provider",
+        "external_id",
+        "external_key",
+        "external_url",
+        "external_updated_at",
     ]
     work = {"id": work_id, "status": "proposed"}
     for field in fields:

@@ -289,6 +289,11 @@ class Proposal:
     decided_by: str = ""
     decided_at: str = ""
     reason: str = ""
+    external_provider: str = ""
+    external_id: str = ""
+    external_key: str = ""
+    external_url: str = ""
+    external_updated_at: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "Proposal":
@@ -319,6 +324,11 @@ class Proposal:
             decided_by=_string(record, "decided_by"),
             decided_at=_string(record, "decided_at"),
             reason=_string(record, "reason"),
+            external_provider=_string(record, "external_provider"),
+            external_id=_string(record, "external_id"),
+            external_key=_string(record, "external_key"),
+            external_url=_string(record, "external_url"),
+            external_updated_at=_string(record, "external_updated_at"),
         )
 
 
@@ -348,6 +358,11 @@ class WorkItem:
     recommended_playbooks: list[str] = field(default_factory=list)
     conflict_targets: list[str] = field(default_factory=list)
     parallel_policy: str = "independent"
+    external_provider: str = ""
+    external_id: str = ""
+    external_key: str = ""
+    external_url: str = ""
+    external_updated_at: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
@@ -376,6 +391,11 @@ class WorkItem:
             recommended_playbooks=_strings(record, "recommended_playbooks"),
             conflict_targets=_strings(record, "conflict_targets"),
             parallel_policy=_string(record, "parallel_policy", "independent"),
+            external_provider=_string(record, "external_provider"),
+            external_id=_string(record, "external_id"),
+            external_key=_string(record, "external_key"),
+            external_url=_string(record, "external_url"),
+            external_updated_at=_string(record, "external_updated_at"),
         )
 
 
@@ -622,6 +642,11 @@ class IntegrationOutboxItem:
     canceled_by: str = ""
     canceled_at: str = ""
     cancel_reason: str = ""
+    sent_by: str = ""
+    sent_at: str = ""
+    provider_response: Record = field(default_factory=dict)
+    failed_at: str = ""
+    failure_reason: str = ""
     notes: str = ""
 
     @classmethod
@@ -642,6 +667,11 @@ class IntegrationOutboxItem:
             canceled_by=_string(record, "canceled_by"),
             canceled_at=_string(record, "canceled_at"),
             cancel_reason=_string(record, "cancel_reason"),
+            sent_by=_string(record, "sent_by"),
+            sent_at=_string(record, "sent_at"),
+            provider_response=_mapping(record, "provider_response"),
+            failed_at=_string(record, "failed_at"),
+            failure_reason=_string(record, "failure_reason"),
             notes=_string(record, "notes"),
         )
 

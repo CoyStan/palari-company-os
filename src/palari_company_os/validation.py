@@ -157,6 +157,11 @@ ALLOWED_RECORD_FIELDS = {
         "recommended_playbooks",
         "conflict_targets",
         "parallel_policy",
+        "external_provider",
+        "external_id",
+        "external_key",
+        "external_url",
+        "external_updated_at",
     },
     "playbook_sources": {
         "id",
@@ -244,6 +249,11 @@ ALLOWED_RECORD_FIELDS = {
         "canceled_by",
         "canceled_at",
         "cancel_reason",
+        "sent_by",
+        "sent_at",
+        "provider_response",
+        "failed_at",
+        "failure_reason",
         "notes",
     },
     "attempts": {
@@ -388,6 +398,11 @@ ALLOWED_RECORD_FIELDS = {
         "decided_by",
         "decided_at",
         "reason",
+        "external_provider",
+        "external_id",
+        "external_key",
+        "external_url",
+        "external_updated_at",
     },
     "outcomes": {
         "id",
@@ -455,13 +470,13 @@ HUMAN_DECISION_VALUES = {
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
 ACCEPTANCE_RECORD_STATUSES = {"accepted", "rejected", "revoked"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
-INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email"}
+INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email", "linear"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
 SOURCE_DATA_CLASSES = {"", "public", "internal", "confidential", "restricted"}
 SOURCE_AUTHORITIES = {"", "user_owned", "company_owned", "external_public", "external_private"}
 INTEGRATION_PLAN_STATUSES = {"planned", "pending-approval", "approved", "rejected", "canceled"}
-INTEGRATION_OUTBOX_STATUSES = {"queued", "canceled"}
+INTEGRATION_OUTBOX_STATUSES = {"queued", "canceled", "sent", "failed"}
 INTEGRATION_EVENTS = {
     "approval_requested",
     "incident_opened",
@@ -1031,6 +1046,35 @@ def _validate_integration_outbox_item(
             raise WorkspaceError(
                 f"integration_outbox.{item.id}.canceled_by {canceling_human.id} lacks "
                 "authority to cancel this integration outbox item"
+            )
+    if item.status == "sent":
+        if not item.sent_by:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.sent_by is required when status is sent"
+            )
+        if not item.sent_at:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.sent_at is required when status is sent"
+            )
+        if not item.provider_response:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.provider_response is required when status is sent"
+            )
+    if item.status == "failed":
+        if not item.failed_at:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.failed_at is required when status is failed"
+            )
+        if not item.failure_reason:
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.failure_reason is required when status is failed"
+            )
+    if item.sent_by:
+        sending_human = humans_by_id[item.sent_by]
+        if not _human_can_decide_integration_plan(sending_human, work, integration):
+            raise WorkspaceError(
+                f"integration_outbox.{item.id}.sent_by {sending_human.id} lacks "
+                "authority to send this integration outbox item"
             )
     if not isinstance(item.payload_preview, dict):
         raise WorkspaceError(f"integration_outbox.{item.id}.payload_preview must be an object")

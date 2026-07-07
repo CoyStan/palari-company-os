@@ -649,6 +649,21 @@ def _payload_preview(
                 "body": summary,
             },
         }
+    if integration.provider == "linear":
+        if action == "comment" and not work.external_id:
+            raise WorkspaceError(f"work item {work.id} is not linked to a Linear issue id")
+        return {
+            "provider": "linear",
+            "operation": "commentCreate",
+            "secret_ref": integration.secret_ref,
+            "issue_id": work.external_id,
+            "issue_key": work.external_key,
+            "issue_url": work.external_url,
+            "json": {
+                "issueId": work.external_id,
+                "body": summary,
+            },
+        }
     raise WorkspaceError(f"unsupported integration provider: {integration.provider}")
 
 
