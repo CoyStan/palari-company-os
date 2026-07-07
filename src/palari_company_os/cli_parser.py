@@ -389,6 +389,18 @@ def _add_linear_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("linear", help="Use Linear as a governed work surface.")
     nested = parser.add_subparsers(dest="linear_command", required=True)
 
+    doctor = nested.add_parser(
+        "doctor",
+        help="Check local Linear adapter readiness without calling Linear.",
+    )
+    doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    linked = nested.add_parser(
+        "linked",
+        help="List all Palari proposals and work items linked to Linear.",
+    )
+    linked.add_argument("--json", action="store_true", help="Emit JSON.")
+
     issue = nested.add_parser("issue", help="Fetch and normalize one Linear issue.")
     issue.add_argument("issue_key")
     issue.add_argument("--json", action="store_true", help="Emit JSON.")
@@ -431,6 +443,93 @@ def _add_linear_parser(subparsers: Any) -> None:
     )
     status.add_argument("issue_key")
     status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    block_template = nested.add_parser(
+        "block-template",
+        help="Generate and validate a fenced palari governance block for Linear.",
+    )
+    block_template.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    block_template.add_argument("--goal", dest="goal_id", required=True, help="Goal id.")
+    block_template.add_argument("--risk", required=True, help="Risk level, such as R1.")
+    block_template.add_argument("--intensity", required=True, help="Operating intensity.")
+    block_template.add_argument("--scope", required=True, help="Governed scope text.")
+    block_template.add_argument(
+        "--acceptance-target",
+        dest="acceptance_target",
+        required=True,
+        help="Acceptance target text.",
+    )
+    block_template.add_argument(
+        "--parallel-policy",
+        default="independent",
+        choices=["independent", "coordinate", "exclusive"],
+        help="Parallel work policy.",
+    )
+    block_template.add_argument(
+        "--allowed-resource",
+        dest="allowed_resources",
+        action="append",
+        default=[],
+        help="Allowed file/resource path. Repeatable.",
+    )
+    block_template.add_argument(
+        "--allowed-source",
+        dest="allowed_sources",
+        action="append",
+        default=[],
+        help="Allowed source id. Repeatable.",
+    )
+    block_template.add_argument(
+        "--allowed-action",
+        dest="allowed_actions",
+        action="append",
+        default=[],
+        help="Allowed action. Repeatable.",
+    )
+    block_template.add_argument(
+        "--output-target",
+        dest="output_targets",
+        action="append",
+        default=[],
+        help="Output target path. Repeatable.",
+    )
+    block_template.add_argument(
+        "--forbidden-action",
+        dest="forbidden_actions",
+        action="append",
+        default=[],
+        help="Forbidden action. Repeatable.",
+    )
+    block_template.add_argument(
+        "--verification",
+        dest="verification_expectations",
+        action="append",
+        default=[],
+        help="Expected verification command. Repeatable.",
+    )
+    block_template.add_argument(
+        "--playbook",
+        dest="recommended_playbooks",
+        action="append",
+        default=[],
+        help="Recommended playbook id. Repeatable.",
+    )
+    block_template.add_argument(
+        "--conflict-target",
+        dest="conflict_targets",
+        action="append",
+        default=[],
+        help="Conflicting work item id. Repeatable.",
+    )
+    block_template.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    inspect_block = nested.add_parser(
+        "inspect-block",
+        help="Fetch a Linear issue and validate its fenced palari block.",
+    )
+    inspect_block.add_argument("issue_key")
+    inspect_block.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    inspect_block.add_argument("--json", action="store_true", help="Emit JSON.")
 
     post_gate = nested.add_parser(
         "post-gate",

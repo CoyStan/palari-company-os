@@ -45,6 +45,7 @@ class QueueItem:
     external_provider: str
     external_key: str
     external_url: str
+    external_updated_at: str
     ai_safe_to_proceed: bool
     waiting_on_human: bool
     evidence_state: str
@@ -158,6 +159,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
     return {
         "work_item": to_plain(work),
+        "external": _external_ref(work),
         "goal": to_plain(goal) if goal else None,
         "palari": to_plain(palari) if palari else None,
         "workbench": to_plain(workbench) if workbench else None,
@@ -204,6 +206,18 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         },
         "playbooks": playbooks,
         "agent_commands": agent_commands(work, queue_item.next_step_type),
+    }
+
+
+def _external_ref(work: Any) -> dict[str, str] | None:
+    if not work.external_provider:
+        return None
+    return {
+        "provider": work.external_provider,
+        "id": work.external_id,
+        "key": work.external_key,
+        "url": work.external_url,
+        "updated_at": work.external_updated_at,
     }
 
 
@@ -324,6 +338,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         external_provider=work.external_provider,
         external_key=work.external_key,
         external_url=work.external_url,
+        external_updated_at=work.external_updated_at,
         ai_safe_to_proceed=ai_safe_to_proceed,
         waiting_on_human=waiting_on_human,
         evidence_state=evidence_state,

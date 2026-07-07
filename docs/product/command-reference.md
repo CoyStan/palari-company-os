@@ -464,11 +464,15 @@ execution.
 ## Linear Adapter
 
 ```bash
+./bin/palari linear doctor --json
+./bin/palari linear linked --json
 ./bin/palari linear issue ENG-123 --json
 ./bin/palari linear import ENG-123 --as PALARI-SOFIA --json
 ./bin/palari linear start ENG-123 --runner codex --as PALARI-SOFIA --json
 ./bin/palari linear start ENG-123 --runner codex --as PALARI-SOFIA --adopt-by HUMAN-FOUNDER --json
 ./bin/palari linear status ENG-123 --json
+./bin/palari linear block-template --as PALARI-SOFIA --goal GOAL-0001 --risk R1 --intensity light --scope "Tighten copy" --acceptance-target "Copy is clearer" --verification ./scripts/verify.sh --json
+./bin/palari linear inspect-block ENG-123 --as PALARI-SOFIA --json
 ./bin/palari linear post-gate ENG-123 --record --event review_requested --actor PALARI-SOFIA --json
 ./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
 ```
@@ -476,13 +480,31 @@ execution.
 Linear can be the human-facing issue surface while Palari remains the
 governance and runtime layer. The adapter uses Linear's stable GraphQL API with
 `LINEAR_API_KEY`; Palari stores only `env:LINEAR_API_KEY`, never the token
-value.
+value. `linear doctor`, `linear linked`, `linear status`, `linear
+block-template`, and `linear post-gate` are local/read-model or plan-only
+commands. `linear issue`, `linear import`, `linear start`, `linear
+inspect-block`, and `linear send` need live Linear access.
 
 `linear issue` fetches and normalizes an issue without mutating the workspace.
 `linear import` creates or updates a Palari proposal linked to the issue. If the
 issue description contains a valid fenced `palari` JSON block, the supported
 governance fields are copied into the proposal. Missing or invalid governance
 never auto-starts work; it leaves a proposal requiring human adoption.
+
+`linear doctor` reports whether the local environment has `LINEAR_API_KEY`
+present as a boolean only, plus linked record counts, supported runners, and
+which commands call Linear. `linear linked` groups all Linear-linked proposals
+and work items by issue key with Palari refs, gate summary, pending actions,
+outbox state, and next commands. `linear status` preserves the top-level
+`READY`, `BLOCKED`, `NEEDS_EVIDENCE`, `NEEDS_HUMAN`, or `ACCEPTED` enum and adds
+`link_state`, compact refs, pending actions, and next commands.
+
+`linear block-template` emits ready-to-paste fenced `palari` JSON after
+validating local Palari, goal, risk, intensity, source, conflict, and parallel
+policy references. `linear inspect-block` fetches the issue, validates the
+fenced block, and reports errors, warnings, unknown fields, missing recommended
+fields, and whether adopt-start would be eligible. Unknown governance fields
+fail closed instead of being guessed.
 
 `linear start` starts only adopted Palari work. Without adopted work it returns
 `needs_adoption` and prints the exact adoption command. With `--adopt-by`, the
@@ -495,7 +517,8 @@ provider call. A qualified human must approve and enqueue that integration plan
 before `linear send` can call Linear `commentCreate`. `linear send` requires a
 queued outbox item, matching approved payload, valid human authority,
 `--confirm`, and `LINEAR_API_KEY`; successful sends record the provider comment
-id and URL.
+id and URL. Drift in provider, operation, issue id, body payload, or linked work
+target fails closed and records failed outbox metadata without storing secrets.
 
 ## Receipt-Ready Low-Risk Work
 

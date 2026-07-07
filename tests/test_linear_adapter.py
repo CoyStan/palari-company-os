@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,8 +18,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.integrations import decide_integration_plan, enqueue_integration_plan
 from palari_company_os.linear_adapter import (
     LinearClient,
+    linear_block_template,
+    linear_doctor,
     linear_import,
+    linear_inspect_block,
     linear_issue,
+    linear_linked,
     linear_post_gate,
     linear_send,
     linear_start,
@@ -71,6 +77,19 @@ class LinearAdapterTests(unittest.TestCase):
         self.assertEqual(payload["issue"]["key"], "ENG-123")
         self.assertEqual(payload["issue"]["labels"][0]["name"], "docs")
 
+    def test_linear_doctor_reports_readiness_without_secrets_or_provider_access(self) -> None:
+        with temp_workspace() as workspace_path:
+            with patch.dict(os.environ, {}, clear=True):
+                missing = linear_doctor(workspace_path)
+            with patch.dict(os.environ, {"LINEAR_API_KEY": "super-secret-token"}, clear=True):
+                present = linear_doctor(workspace_path)
+
+        self.assertFalse(missing["env"]["linear_api_key_present"])
+        self.assertTrue(present["env"]["linear_api_key_present"])
+        self.assertFalse(present["env"]["secret_value_stored"])
+        self.assertIn("issue", present["live_provider_commands"])
+        self.assertNotIn("super-secret-token", json.dumps(present))
+
     def test_import_creates_idempotent_proposal_with_external_refs(self) -> None:
         with temp_workspace() as workspace_path:
             client = FakeLinearClient(valid_issue())
@@ -122,6 +141,9 @@ class LinearAdapterTests(unittest.TestCase):
         self.assertEqual(payload["agent_start"]["start"]["status"], "claimed")
         self.assertEqual(queue["WORK-LINEAR-ENG-123"].external_key, "ENG-123")
         self.assertEqual(work_detail["work_item"]["external_provider"], "linear")
+        self.assertEqual(queue["WORK-LINEAR-ENG-123"].external_updated_at, "2026-07-07T00:00:00.000Z")
+        self.assertEqual(work_detail["external"]["key"], "ENG-123")
+        self.assertEqual(work_detail["external"]["updated_at"], "2026-07-07T00:00:00.000Z")
 
     def test_missing_or_invalid_palari_block_never_auto_starts(self) -> None:
         missing = valid_issue(description="Plain Linear text without a governance block.")
@@ -219,9 +241,74 @@ class LinearAdapterTests(unittest.TestCase):
         self.assertEqual(outbox_item.provider_response["id"], "comment-123")
         self.assertEqual(client.created_comments[0]["issue_id"], "linear-issue-id")
 
+    def test_send_rejects_drift_and_records_failed_metadata(self) -> None:
+        with temp_workspace() as workspace_path:
+            client = FakeLinearClient(valid_issue())
+            linear_start(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                runner="codex",
+                adopt_by="HUMAN-FOUNDER",
+                client=client,
+            )
+            planned = linear_post_gate(
+                workspace_path,
+                "ENG-123",
+                event="review_requested",
+                actor="PALARI-SOFIA",
+                record=True,
+            )
+            plan_id = planned["integration_plan"]["id"]
+            decide_integration_plan(
+                workspace_path,
+                plan_id,
+                "HUMAN-FOUNDER",
+                "approve",
+                reason="send Linear visibility update",
+            )
+            enqueued = enqueue_integration_plan(workspace_path, plan_id, "HUMAN-FOUNDER")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+
+            workspace_file = Path(workspace_path)
+            data = json.loads(workspace_file.read_text(encoding="utf-8"))
+            for collection in ("integration_plans", "integration_outbox"):
+                preview = data[collection][0]["payload_preview"]
+                preview["issue_id"] = "linear-issue-drifted"
+                preview["json"]["issueId"] = "linear-issue-drifted"
+            workspace_file.write_text(json.dumps(data), encoding="utf-8")
+
+            with self.assertRaisesRegex(WorkspaceError, "issueId drifted"):
+                linear_send(
+                    workspace_path,
+                    outbox_id,
+                    human_id="HUMAN-FOUNDER",
+                    confirm=True,
+                    client=client,
+                )
+            workspace = Workspace.load(workspace_path)
+            outbox_item = workspace.integration_outbox_item(outbox_id)
+
+        self.assertEqual(outbox_item.status, "failed")
+        self.assertIn("issueId drifted", outbox_item.failure_reason)
+        self.assertEqual(outbox_item.payload_preview["json"]["issueId"], "linear-issue-drifted")
+        self.assertEqual(client.created_comments, [])
+
     def test_status_maps_palari_queue_state_to_linear_facing_status(self) -> None:
         with temp_workspace() as workspace_path:
             before = linear_status(workspace_path, "ENG-123")
+            linear_import(
+                workspace_path,
+                "ENG-124",
+                "PALARI-SOFIA",
+                client=FakeLinearClient(
+                    valid_issue(
+                        description="Plain Linear text without a governance block.",
+                        issue_id="linear-issue-id-124",
+                    )
+                ),
+            )
+            proposal_only = linear_status(workspace_path, "ENG-124")
             linear_start(
                 workspace_path,
                 "ENG-123",
@@ -231,18 +318,29 @@ class LinearAdapterTests(unittest.TestCase):
                 client=FakeLinearClient(valid_issue()),
             )
             after = linear_status(workspace_path, "ENG-123")
+            linked = linear_linked(workspace_path)
 
         self.assertEqual(before["status"], "NEEDS_HUMAN")
+        self.assertEqual(before["link_state"], "not_imported")
+        self.assertEqual(proposal_only["link_state"], "proposal_only")
         self.assertEqual(after["status"], "READY")
+        self.assertEqual(after["link_state"], "work_linked")
+        self.assertEqual(after["linear_ref"]["key"], "ENG-123")
+        self.assertIn("gate_summary", after)
+        self.assertIn("next_commands", after)
         self.assertEqual(after["work_item"]["external_key"], "ENG-123")
+        linked_by_key = {item["linear_ref"]["key"]: item for item in linked["items"]}
+        self.assertEqual(linked_by_key["ENG-124"]["link_state"], "proposal_only")
+        self.assertEqual(linked_by_key["ENG-123"]["work_item"]["id"], "WORK-LINEAR-ENG-123")
 
     def test_graphql_errors_array_fails_even_with_http_200(self) -> None:
         client = LinearClient("test-token")
         response = FakeResponse({"errors": [{"message": "issue missing"}], "data": {}})
 
         with patch("urllib.request.urlopen", return_value=response):
-            with self.assertRaisesRegex(WorkspaceError, "Linear GraphQL error: issue missing"):
+            with self.assertRaisesRegex(WorkspaceError, "Linear GraphQL error: issue missing") as caught:
                 client.request("query { viewer { id } }", {})
+        self.assertEqual(getattr(caught.exception, "code", ""), "LINEAR_GRAPHQL_ERROR")
 
     def test_structured_block_parser_rejects_unknown_fields(self) -> None:
         block = parse_palari_block('```palari\n{"goal": "GOAL-0001", "x": 1}\n```')
@@ -250,6 +348,150 @@ class LinearAdapterTests(unittest.TestCase):
         self.assertTrue(block.present)
         self.assertFalse(block.valid)
         self.assertIn("unknown palari governance fields", block.error)
+        self.assertEqual(block.unknown_fields, ["x"])
+
+    def test_block_template_emits_valid_fenced_json_and_rejects_bad_refs(self) -> None:
+        with temp_workspace() as workspace_path:
+            payload = linear_block_template(
+                workspace_path,
+                "PALARI-SOFIA",
+                "GOAL-0001",
+                risk="R1",
+                intensity="light",
+                scope="Tighten onboarding copy without product behavior changes.",
+                acceptance_target="Copy is clearer and tests still pass.",
+                allowed_resources=["docs/product/company-os.md"],
+                output_targets=["docs/product/company-os.md"],
+                verification_expectations=["./scripts/verify.sh"],
+            )
+            with self.assertRaisesRegex(WorkspaceError, "goal not found"):
+                linear_block_template(
+                    workspace_path,
+                    "PALARI-SOFIA",
+                    "GOAL-MISSING",
+                    risk="R1",
+                    intensity="light",
+                    scope="Scope",
+                    acceptance_target="Acceptance",
+                )
+
+        self.assertTrue(payload["valid"])
+        self.assertTrue(payload["fenced_block"].startswith("```palari\n"))
+        self.assertTrue(payload["governance"]["valid"])
+        self.assertEqual(payload["governance"]["fields"]["goal"], "GOAL-0001")
+
+    def test_inspect_block_reports_validation_warnings_and_errors(self) -> None:
+        unknown = valid_issue(description='```palari\n{"goal": "GOAL-0001", "x": 1}\n```')
+        mismatch = valid_issue(
+            description=valid_description().replace("PALARI-SOFIA", "PALARI-MISSING")
+        )
+        missing = valid_issue(description="No structured governance block.")
+        bad_source = valid_issue(
+            description=valid_description().replace(
+                '"output_targets": ["docs/product/company-os.md"],',
+                '"allowed_sources": ["SOURCE-MISSING"],\n'
+                '  "output_targets": ["docs/product/company-os.md"],',
+            )
+        )
+
+        with temp_workspace() as workspace_path:
+            unknown_payload = linear_inspect_block(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                client=FakeLinearClient(unknown),
+            )
+            mismatch_payload = linear_inspect_block(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                client=FakeLinearClient(mismatch),
+            )
+            missing_payload = linear_inspect_block(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                client=FakeLinearClient(missing),
+            )
+            source_payload = linear_inspect_block(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                client=FakeLinearClient(bad_source),
+            )
+
+        self.assertFalse(unknown_payload["valid"])
+        self.assertIn("x", unknown_payload["governance"]["unknown_fields"])
+        self.assertFalse(mismatch_payload["eligible_for_adopt_start"])
+        self.assertIn("not command actor", json.dumps(mismatch_payload["errors"]))
+        self.assertFalse(missing_payload["governance"]["present"])
+        self.assertIn("missing palari block", missing_payload["errors"])
+        self.assertIn("allowed source not found", json.dumps(source_payload["errors"]))
+
+    def test_linear_cli_json_errors_are_structured_and_redacted(self) -> None:
+        with temp_workspace() as workspace_path:
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(REPO_ROOT / "src")
+            env.pop("LINEAR_API_KEY", None)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-S",
+                    "-m",
+                    "palari_company_os",
+                    "--workspace",
+                    workspace_path,
+                    "linear",
+                    "issue",
+                    "ENG-123",
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=30,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "LINEAR_API_KEY_MISSING")
+        self.assertEqual(payload["error"]["command"], "linear issue ENG-123")
+        self.assertIn("palari linear doctor --json", payload["next_allowed_commands"])
+        self.assertNotIn("LINEAR_API_KEY=", result.stdout)
+        self.assertEqual(result.stderr, "")
+
+    def test_linear_cli_local_smoke_commands_return_json(self) -> None:
+        with temp_workspace() as workspace_path:
+            doctor = run_cli_json(workspace_path, "linear", "doctor", "--json")
+            linked = run_cli_json(workspace_path, "linear", "linked", "--json")
+            block = run_cli_json(
+                workspace_path,
+                "linear",
+                "block-template",
+                "--as",
+                "PALARI-SOFIA",
+                "--goal",
+                "GOAL-0001",
+                "--risk",
+                "R1",
+                "--intensity",
+                "light",
+                "--scope",
+                "Tighten onboarding copy without product behavior changes.",
+                "--acceptance-target",
+                "Copy is clearer and tests still pass.",
+                "--verification",
+                "./scripts/verify.sh",
+                "--json",
+            )
+
+        self.assertTrue(doctor["ok"])
+        self.assertEqual(linked["count"], 0)
+        self.assertTrue(block["valid"])
 
     def test_unsupported_runner_fails_validation(self) -> None:
         with temp_workspace() as workspace_path:
@@ -263,9 +505,9 @@ class LinearAdapterTests(unittest.TestCase):
                 )
 
 
-def valid_issue(description: str | None = None) -> dict[str, Any]:
+def valid_issue(description: str | None = None, *, issue_id: str = "linear-issue-id") -> dict[str, Any]:
     return {
-        "id": "linear-issue-id",
+        "id": issue_id,
         "key": "ENG-123",
         "identifier": "ENG-123",
         "title": "Tighten onboarding copy",
@@ -302,6 +544,33 @@ Tighten the onboarding copy while keeping behavior unchanged.
 
 def temp_workspace() -> Any:
     return TempWorkspace()
+
+
+def run_cli_json(workspace_path: str, *args: str) -> dict[str, Any]:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(REPO_ROOT / "src")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            "-m",
+            "palari_company_os",
+            "--workspace",
+            workspace_path,
+            *args,
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+    )
+    payload = json.loads(result.stdout)
+    if not isinstance(payload, dict):
+        raise AssertionError(f"expected JSON object, got {payload!r}")
+    return payload
 
 
 class TempWorkspace:

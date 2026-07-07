@@ -320,14 +320,22 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "linear":
         from .linear_adapter import (
+            linear_block_template,
+            linear_doctor,
             linear_import,
+            linear_inspect_block,
             linear_issue,
+            linear_linked,
             linear_post_gate,
             linear_send,
             linear_start,
             linear_status,
         )
 
+        if args.linear_command == "doctor":
+            return CommandResult("linear", linear_doctor(args.workspace), args.json)
+        if args.linear_command == "linked":
+            return CommandResult("linear", linear_linked(args.workspace), args.json)
         if args.linear_command == "issue":
             return CommandResult("linear", linear_issue(args.issue_key), args.json)
         if args.linear_command == "import":
@@ -358,6 +366,35 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.linear_command == "status":
             return CommandResult("linear", linear_status(args.workspace, args.issue_key), args.json)
+        if args.linear_command == "block-template":
+            return CommandResult(
+                "linear",
+                linear_block_template(
+                    args.workspace,
+                    args.palari_id,
+                    args.goal_id,
+                    risk=args.risk,
+                    intensity=args.intensity,
+                    scope=args.scope,
+                    acceptance_target=args.acceptance_target,
+                    parallel_policy=args.parallel_policy,
+                    allowed_resources=args.allowed_resources,
+                    allowed_sources=args.allowed_sources,
+                    allowed_actions=args.allowed_actions,
+                    output_targets=args.output_targets,
+                    forbidden_actions=args.forbidden_actions,
+                    verification_expectations=args.verification_expectations,
+                    recommended_playbooks=args.recommended_playbooks,
+                    conflict_targets=args.conflict_targets,
+                ),
+                args.json,
+            )
+        if args.linear_command == "inspect-block":
+            return CommandResult(
+                "linear",
+                linear_inspect_block(args.workspace, args.issue_key, args.palari_id),
+                args.json,
+            )
         if args.linear_command == "post-gate":
             return CommandResult(
                 "linear",
