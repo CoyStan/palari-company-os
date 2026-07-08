@@ -8,6 +8,7 @@ from typing import Any
 from .history import append_history_event
 from .read_models import detail, queue_items
 from .store import WorkspaceStore, load_store, validate_data, write_store
+from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
 
 
@@ -99,6 +100,26 @@ LIST_FIELDS = {
     "follow_up_needed",
     "model_worker_notes",
 }
+TRANSITION_UPDATE_FIELDS = {
+    "evidence": {
+        "work_item_id",
+        "attempt_id",
+        "head_sha",
+        "status",
+        "commands",
+        "artifacts",
+        "artifact_hashes",
+        "manifest_hash",
+        "receipt_hash",
+        "previous_receipt_hash",
+    },
+    "review": {
+        "work_item_id",
+        "reviewed_head",
+        "reviewer",
+        "verdict",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -124,6 +145,7 @@ def create_record(
     records = _records(store, collection)
     if _find(records, record_id) is not None:
         raise WorkspaceError(f"{kind} already exists: {record_id}")
+    _assert_record_transition_allowed(store, kind, record)
     record = _prepare_record_for_create(store, kind, record)
     records.append(record)
     workspace = write_store(store)
@@ -158,6 +180,10 @@ def update_record(
     if record is None:
         raise WorkspaceError(f"{kind} not found: {record_id}")
     before = deepcopy(record)
+    merged = dict(record)
+    merged.update(updates)
+    if _record_update_needs_transition(kind, updates):
+        _assert_record_transition_allowed(store, kind, merged, allow_existing=True)
     record.update(updates)
     _prepare_record_for_update(store, kind, record)
     workspace = write_store(store)
@@ -202,6 +228,16 @@ def update_human_decision(
             str(merged.get("human_id") or ""),
             str(merged.get("reviewed_head") or ""),
         )
+        assert_transition_allowed(
+            workspace,
+            "human_decision_accept",
+            str(merged.get("id") or record_id),
+            actor=str(merged.get("human_id") or ""),
+            context={
+                "work_item_id": str(merged.get("work_item_id") or ""),
+                "reviewed_head": str(merged.get("reviewed_head") or ""),
+            },
+        )
     before = deepcopy(record)
     record.update(updates)
     workspace = write_store(store)
@@ -240,6 +276,12 @@ def complete_work(
     integrity_blocker = _completion_integrity_blocker(workspace, work_id)
     if integrity_blocker:
         raise WorkspaceError(f"work {work_id} cannot be completed: {integrity_blocker}")
+    assert_transition_allowed(
+        workspace,
+        "work_complete",
+        work_id,
+        actor=actor,
+    )
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
@@ -332,6 +374,16 @@ def create_human_decision(
     reviewed_head = str(record.get("reviewed_head") or "")
     if decision in {"accepted", "approved"}:
         _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
+        assert_transition_allowed(
+            workspace,
+            "human_decision_accept",
+            str(record.get("id") or ""),
+            actor=human_id,
+            context={
+                "work_item_id": work_id,
+                "reviewed_head": reviewed_head,
+            },
+        )
     result = create_record(
         workspace_path,
         "human-decision",
@@ -365,6 +417,13 @@ def accept_work(
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
     _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
+    assert_transition_allowed(
+        workspace,
+        "work_accept",
+        work_id,
+        actor=human_id,
+        context={"reviewed_head": reviewed_head},
+    )
     work = workspace.work_item(work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
@@ -454,6 +513,18 @@ def closeout_attempt(
         raise WorkspaceError(f"attempt not found: {attempt_id}")
     if cleanliness.lower() not in {"clean", "pristine"}:
         raise WorkspaceError(f"attempt {attempt_id} cannot close out with cleanliness {cleanliness}")
+    workspace = validate_data(store.data_path, store.data)
+    assert_transition_allowed(
+        workspace,
+        "attempt_closeout",
+        attempt_id,
+        actor=str(attempt.get("actor") or actor),
+        context={
+            "head_sha": head_sha,
+            "cleanliness": cleanliness,
+            "allow_missing_evidence": allow_missing_evidence,
+        },
+    )
     before = deepcopy(attempt)
     attempt["status"] = status
     attempt["head_sha"] = head_sha
@@ -601,6 +672,48 @@ def _prepare_record_for_update(store: WorkspaceStore, kind: str, record: dict[st
             item for item in _records(store, "receipts") if item.get("id") != record.get("id")
         ]
         record.update(stamp_receipt_record(record, other_receipts))
+
+
+def _assert_record_transition_allowed(
+    store: WorkspaceStore,
+    kind: str,
+    record: dict[str, Any],
+    *,
+    allow_existing: bool = False,
+) -> None:
+    if kind not in {"evidence", "review"}:
+        return
+    workspace = validate_data(store.data_path, store.data)
+    if kind == "evidence":
+        assert_transition_allowed(
+            workspace,
+            "evidence_record",
+            str(record.get("id") or ""),
+            actor=str(record.get("actor") or ""),
+            context={
+                "work_item_id": str(record.get("work_item_id") or ""),
+                "attempt_id": str(record.get("attempt_id") or ""),
+                "head_sha": str(record.get("head_sha") or ""),
+                "allow_existing": allow_existing,
+            },
+        )
+        return
+    assert_transition_allowed(
+        workspace,
+        "review_record",
+        str(record.get("id") or ""),
+        actor=str(record.get("reviewer") or ""),
+        context={
+            "work_item_id": str(record.get("work_item_id") or ""),
+            "reviewed_head": str(record.get("reviewed_head") or ""),
+            "verdict": str(record.get("verdict") or ""),
+            "allow_existing": allow_existing,
+        },
+    )
+
+
+def _record_update_needs_transition(kind: str, updates: dict[str, Any]) -> bool:
+    return bool(set(updates) & TRANSITION_UPDATE_FIELDS.get(kind, set()))
 
 
 def _ensure_acceptance_record_for_completion(

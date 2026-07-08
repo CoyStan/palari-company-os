@@ -17,6 +17,7 @@ boundaries. Everything else should serve that kernel.
 | Surface | Class | Notes |
 | --- | --- | --- |
 | Workspace schema and validation | core | Local, inspectable source of truth. |
+| Transition checks | core | Hard stops for trust-changing mutations. |
 | Agent packet/check/start/release flow | core | Bounded AI work contract. |
 | Receipts, evidence, reviews, decisions, acceptance | core | Trust and completion records. |
 | Integration plans and outbox | core | Human-approved external-write boundary. |

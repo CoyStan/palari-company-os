@@ -10,6 +10,7 @@ from .history import append_history_event
 from .integration_contracts import PROVIDER_ACTIONS
 from .models import Human, Integration, IntegrationPlan, WorkItem, to_plain
 from .store import load_store, validate_data, write_store
+from .transition_checks import assert_transition_allowed
 from .workspace import Workspace
 
 
@@ -242,6 +243,12 @@ def enqueue_integration_plan(
     if work is None:
         raise WorkspaceError(f"work item not found: {plan.work_item_id}")
     _assert_human_can_decide_plan(human, work, integration, plan)
+    assert_transition_allowed(
+        workspace,
+        "integration_enqueue",
+        plan_id,
+        actor=human_id,
+    )
 
     records = store.data.setdefault("integration_outbox", [])
     if not isinstance(records, list):

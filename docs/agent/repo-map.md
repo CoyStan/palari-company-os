@@ -9,6 +9,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
 - `src/palari_company_os/workspace.py`: workspace loading and split collection files.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
+- `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
+  state transitions.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
 
 ## CLI

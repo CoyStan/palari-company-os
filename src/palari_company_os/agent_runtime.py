@@ -9,6 +9,7 @@ from typing import Any
 
 from .agent_packets import build_agent_brief
 from .store import workspace_file_path
+from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, WorkspaceError
 
 
@@ -34,6 +35,13 @@ def start_agent(
             "claim_path": "",
         }
         return packet
+    assert_transition_allowed(
+        workspace,
+        "agent_start",
+        work_id,
+        actor=palari_id,
+        context={"packet": packet, "mode": mode or "execute"},
+    )
 
     data_path = workspace_file_path(workspace_path)
     now = _timestamp()

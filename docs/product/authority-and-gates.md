@@ -96,6 +96,22 @@ Future broker integration should require:
 - human approval for high-risk or external side effects
 - no raw secret exposure to models
 
+## Transition Checks
+
+Hard gates live at trust-changing transitions, not around ordinary reading,
+planning, or local analysis.
+
+Transition checks are internal, deterministic predicates used by existing
+mutation commands. They block proposal adoption, agent start, attempt closeout,
+evidence and accept-ready review records, human acceptance decisions, work
+acceptance/completion, integration enqueue, and live provider sends when the
+required records are missing or stale.
+
+This keeps Palari small: no policy DSL, background service, or new public
+command is needed. The rule is simply that AI or adapters can prepare work, but
+they cannot move trusted state forward unless Palari can verify the required
+workspace records.
+
 ## Review Gate Profiles
 
 Gate profiles are lightweight review contracts. They recover the useful part of

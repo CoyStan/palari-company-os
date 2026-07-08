@@ -6,6 +6,7 @@ from typing import Any
 
 from .history import append_history_event
 from .store import load_store, validate_data, write_store
+from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError
 
 
@@ -31,6 +32,13 @@ def adopt_proposal(
         raise WorkspaceError(f"proposal {proposal_id} is {proposal.get('status')}")
     if _find(_records(store.data, "work_items"), work_id) is not None:
         raise WorkspaceError(f"work already exists: {work_id}")
+    assert_transition_allowed(
+        workspace,
+        "proposal_adopt",
+        proposal_id,
+        actor=human_id,
+        context={"work_id": work_id},
+    )
 
     before = deepcopy(proposal)
     work = _work_from_proposal(proposal, work_id)

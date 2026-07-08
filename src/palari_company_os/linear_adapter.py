@@ -32,6 +32,7 @@ from .models import Human, Integration, Proposal, WorkItem, to_plain
 from .proposals import adopt_proposal
 from .read_models import detail, queue_items
 from .store import load_store, validate_data, write_store
+from .transition_checks import assert_transition_allowed
 from .workspace import Workspace
 
 
@@ -542,6 +543,13 @@ def linear_send(
         raise WorkspaceError(f"integration outbox record not found: {outbox_id}")
     before = deepcopy(record)
     try:
+        assert_transition_allowed(
+            workspace,
+            "integration_send",
+            outbox_id,
+            actor=human.id,
+            context={"provider": "linear", "action": "comment"},
+        )
         preflight = check_integration_outbox(workspace, outbox_id)
         if preflight["status"] != "queued-preflight-ready":
             raise WorkspaceError(f"linear send preflight failed for {outbox_id}")
