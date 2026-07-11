@@ -983,6 +983,55 @@
       "acceptance_target": "Default queue output omits closed items; --include-closed restores the full queue; docs and tests cover both paths.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0017"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_claude_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        ".claude/settings.json",
+        "AGENTS.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "forbidden_actions": [
+        "enforce read paths",
+        "give the Bash heuristic deny authority",
+        "let hook errors block unrelated sessions",
+        "add dependencies"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_claude_hooks",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests"
+      ],
+      "id": "WORK-REPO-0018",
+      "title": "Enforce packet write boundaries inside Claude Code",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Turn the cooperative agent check contract into structural enforcement for Claude Code sessions using PreToolUse, Stop, and SessionStart hooks driven by persisted claims and packets.",
+      "acceptance_target": "Out-of-boundary Write/Edit/NotebookEdit calls are denied before the write; suspected Bash writes escalate to a human ask; stops are blocked while the tree escapes the boundary; install is idempotent and preserves foreign hooks.",
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0018"
     }
   ],
   "attempts": [
@@ -1385,6 +1434,41 @@
       "started_at": "2026-06-22T06:05:04Z",
       "cleanliness": "clean",
       "result": "Changed queue CLI output to omit closed work by default and added --include-closed for audit views."
+    },
+    {
+      "commits": [
+        "3070069"
+      ],
+      "changed_files": [
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_claude_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        ".claude/settings.json",
+        "AGENTS.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "id": "ATTEMPT-REPO-0018",
+      "work_item_id": "WORK-REPO-0018",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "claude/repo-evaluation-8tjyqa",
+      "workspace_path": "repo:.",
+      "model_or_worker": "claude-code",
+      "started_at": "2026-07-11T03:30:52Z",
+      "cleanliness": "clean",
+      "result": "Added palari claude install/status/hook so Claude Code hooks deny out-of-boundary writes, block dirty stops, and inject the packet contract at session start."
     }
   ],
   "evidence_runs": [
@@ -1744,6 +1828,29 @@
       "status": "passed",
       "summary": "Queue focus change passed focused queue CLI tests, queue smoke checks, full verification, unit discovery, and install smoke.",
       "timestamp": "2026-06-22T06:05:04Z"
+    },
+    {
+      "commands": [
+        "python3 -m unittest tests.test_claude_hooks",
+        "python3 -m unittest discover -s tests",
+        "./scripts/verify.sh",
+        "ruff check .",
+        "mypy"
+      ],
+      "artifacts": [
+        "36 focused claude hook test results",
+        "full unit discovery output",
+        "full verifier output",
+        "lint output",
+        "type check output"
+      ],
+      "id": "EVIDENCE-REPO-0018",
+      "work_item_id": "WORK-REPO-0018",
+      "attempt_id": "ATTEMPT-REPO-0018",
+      "head_sha": "3070069",
+      "status": "passed",
+      "summary": "Claude Code enforcement passed focused hook tests, full unit discovery, repository verification, lint, and type checks.",
+      "timestamp": "2026-07-11T03:30:52Z"
     }
   ],
   "review_verdicts": [
@@ -2352,6 +2459,69 @@
       "attempt_id": "ATTEMPT-REPO-0017",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-06-22T06:05:04Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "denied out-of-boundary file writes via PreToolUse hooks",
+        "escalated suspected Bash boundary writes to a human ask",
+        "blocked stops while git status escapes the boundary",
+        "injected the packet contract at session start",
+        "installed idempotent hooks for the dogfood workspace"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_claude_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        ".claude/settings.json",
+        "AGENTS.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "not_done": [
+        "No read path enforcement",
+        "No deny authority for the Bash heuristic",
+        "No workspace mutation from hook handlers",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_claude_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        ".claude/settings.json",
+        "AGENTS.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "id": "RECEIPT-REPO-0018",
+      "work_item_id": "WORK-REPO-0018",
+      "attempt_id": "ATTEMPT-REPO-0018",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-11T03:30:52Z"
     }
   ],
   "decisions": [
