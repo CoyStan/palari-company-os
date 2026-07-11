@@ -1,4 +1,5 @@
 palari demo
+palari init
 palari queue
 palari state
 palari data
@@ -99,6 +100,7 @@ palari proposal defer
 palari work
 palari work create
 palari work update
+palari work add
 palari work complete
 palari work accept
 palari work expand-scope

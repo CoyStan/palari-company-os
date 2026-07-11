@@ -186,6 +186,14 @@ def print_result(result: CommandResult) -> None:
             print_governance_payload(result.payload)
         return
 
+    if result.kind == "init":
+        print_init(result.payload, result.as_json)
+        return
+
+    if result.kind == "work-add":
+        print_work_add(result.payload, result.as_json)
+        return
+
     if result.kind == "claude-hook":
         print(json.dumps(result.payload))
         return
@@ -642,6 +650,42 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
+
+
+def print_init(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Workspace created: {payload['workspace']}")
+    print(f"File: {payload['workspace_file']}")
+    print(
+        f"Starter records: {payload['human']['id']} ({payload['human']['name']}), "
+        f"{payload['palari']['id']} ({payload['palari']['name']}), "
+        f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
+    )
+    print("Next commands:")
+    for command in payload["next_commands"]:
+        print(f"  {command}")
+
+
+def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    print(f"Work item created: {work['id']} {work['title']}")
+    print(f"Palari: {work['palari']} | risk {work['risk']} | intensity {work['intensity']}")
+    print("Write boundary:")
+    for path in work["output_targets"]:
+        print(f"  - {path}")
+    reads = [path for path in work["allowed_resources"] if path not in work["output_targets"]]
+    if reads:
+        print("Extra read paths:")
+        for path in reads:
+            print(f"  - {path}")
+    print("Next commands:")
+    for command in payload["next_commands"]:
+        print(f"  {command}")
 
 
 def print_claude_install(payload: dict[str, Any], as_json: bool) -> None:

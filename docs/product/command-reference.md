@@ -5,6 +5,29 @@ commands intentionally write to `workspace.json` after validation. No command
 merges, pushes, deploys, activates policy, executes broker side effects, uses
 secrets, or bypasses human authority.
 
+## Two-Minute Onramp
+
+```bash
+palari init
+palari work add "Clean up launch notes" --write docs/notes.md
+palari claude install
+```
+
+`init` creates a starter workspace in an existing project: one human (named
+from `git config user.name` when available), one Palari (Claude by default,
+`--palari` to rename), one goal, one workbench, and one repo source. It
+refuses to overwrite an existing `workspace.json`. When the current directory
+contains a `workspace.json`, every command uses it as the default workspace,
+so no `--workspace` flag is needed after `init`.
+
+`work add` creates one agent-startable work item from a title and its write
+paths. `--write` paths become the enforced write boundary (and are declared on
+the workbench so the boundary stays consistent); `--read` paths stay
+read-only. Defaults: the workspace's only Palari, goal, and workbench, risk
+R1, intensity light, and the next `WORK-NNNN` id. Pass `--as`, `--goal`,
+`--workbench`, `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`,
+`--id`, or `--approvals` to override.
+
 ## Workspace Init
 
 ```bash

@@ -12,6 +12,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
+- `src/palari_company_os/onramp.py`: `init` starter workspace and `work add`
+  quick-create for existing repos.
 
 ## CLI
 

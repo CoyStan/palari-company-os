@@ -9,6 +9,13 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
+- Added a two-minute onramp for existing repos: `palari init` creates a
+  starter workspace (one human, one Palari, one goal, one workbench, one repo
+  source) and `palari work add TITLE --write PATH` creates an agent-startable
+  work item from a title and its write paths. When the current directory has a
+  `workspace.json`, commands use it as the default workspace, so
+  `init` -> `work add` -> `claude install` works without `--workspace` flags.
+
 - Added `palari claude install|status|hook`, a Claude Code enforcement adapter
   that turns the packet write boundary into structural enforcement: PreToolUse
   hooks deny out-of-boundary `Write`/`Edit`/`NotebookEdit` calls before the
