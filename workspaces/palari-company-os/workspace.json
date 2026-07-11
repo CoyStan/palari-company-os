@@ -244,6 +244,28 @@
       "risk_level": "standard",
       "source_ids": [],
       "notes": "Dry-run repo notification and issue/comment payload previews only."
+    },
+    {
+      "id": "INT-LINEAR",
+      "provider": "linear",
+      "label": "Linear issue comments",
+      "mode": "dry_run",
+      "owner_human": "HUMAN-FOUNDER",
+      "enabled": true,
+      "allowed_events": [
+        "work_blocked",
+        "review_requested",
+        "work_completed",
+        "work_started"
+      ],
+      "allowed_actions": [
+        "comment",
+        "update_issue"
+      ],
+      "secret_ref": "env:LINEAR_API_KEY",
+      "risk_level": "standard",
+      "source_ids": [],
+      "notes": "Created by palari linear post-gate for approved comment outbox sends."
     }
   ],
   "sources": [
@@ -314,7 +336,25 @@
         "docs/product/claude-code-integration.md",
         "CHANGELOG.md",
         "workspaces/palari-company-os/workspace.json",
-        "workspaces/palari-company-os/.palari/history.jsonl"
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/linear_webhook.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "tests/test_docs.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "docs/product/schema-and-validation.md",
+        "src/palari_company_os/data/schemas/workspace.schema.json"
       ],
       "status": "active"
     },
@@ -1141,6 +1181,100 @@
       ],
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0020"
+    },
+    {
+      "id": "WORK-REPO-0021",
+      "title": "Finish the Linear integration slice",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Complete the governed Linear loop: linear connect verifies credentials and prepares the integration record, linear issues lists team issues for discovery, linear sync pull-refreshes linked issues without webhooks, and status write-back flows through the same plan-approve-outbox-send gates as comments. Live-credential steps are recorded as a human decision blocker.",
+      "allowed_resources": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/linear_webhook.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "tests/test_docs.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "docs/product/schema-and-validation.md",
+        "src/palari_company_os/data/schemas/workspace.schema.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/linear_webhook.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "tests/test_docs.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "docs/product/schema-and-validation.md",
+        "src/palari_company_os/data/schemas/workspace.schema.json"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/linear_webhook.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "tests/test_docs.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "All new commands work offline against fakes with tests; live calls only in connect/issues/sync/send paths; status updates require an approved plan; docs and public surface stay honest.",
+      "verification_expectations": [
+        "python3 -m unittest tests.test_linear_adapter",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0021"
     }
   ],
   "attempts": [
@@ -1634,6 +1768,40 @@
       "model_or_worker": "claude-code",
       "cleanliness": "clean",
       "result": "Fixed the crashing release workflow regex, added a tag/version guard, surfaced Linear on the README with honest live-write nuance, added a Linear smoke to verify.sh, and documented the PyPI trusted-publishing setup."
+    },
+    {
+      "commits": [
+        "239b816"
+      ],
+      "changed_files": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "ATTEMPT-REPO-0021",
+      "work_item_id": "WORK-REPO-0021",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "claude/repo-evaluation-8tjyqa",
+      "workspace_path": "repo:.",
+      "model_or_worker": "claude-code",
+      "cleanliness": "clean",
+      "result": "Completed the governed Linear loop: connect, issues, sync, and approval-gated status write-back, all tested offline against fakes."
     }
   ],
   "evidence_runs": [
@@ -2806,6 +2974,72 @@
       "attempt_id": "ATTEMPT-REPO-0020",
       "actor": "PALARI-STEWARD",
       "receipt_hash": "sha256:17449af15234f7bf145b223bbf40e04d1296e6590694b0357ecd37bec4dcedec"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "added linear connect credential verification and record preparation",
+        "added linear issues team discovery with link state",
+        "added linear sync pull refresh without webhooks",
+        "added approval-gated status write-back through post-gate and send",
+        "added work_started integration event to schema and validation",
+        "recorded the live-credential step as DECISION-REPO-0002"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "not_done": [
+        "No live Linear call was made (DECISION-REPO-0002 gates the credential)",
+        "No OAuth",
+        "No label writes",
+        "No Agent Sessions",
+        "No background runners",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "RECEIPT-REPO-0021",
+      "work_item_id": "WORK-REPO-0021",
+      "attempt_id": "ATTEMPT-REPO-0021",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:e8e4f2025806fb9691a1fd019d3fbe1b77a460d666c937384c7951b6e519d2db"
     }
   ],
   "decisions": [
@@ -2832,6 +3066,17 @@
       "linked_goal": "GOAL-REPO-0002",
       "linked_work": "WORK-REPO-0005",
       "linked_palari": "PALARI-ARCHITECT"
+    },
+    {
+      "id": "DECISION-REPO-0002",
+      "question": "Authorize the live Linear connection: create a personal API key, export LINEAR_API_KEY, run linear connect, and optionally set LINEAR_WEBHOOK_SECRET for inbound sync.",
+      "status": "open",
+      "context": "The Linear integration slice (WORK-REPO-0021) is code-complete and fully tested against fakes. Live verification needs a real credential, which only a human may create. Palari stores only env:LINEAR_API_KEY, never the token value. This decision gates live verification only; the implementation work item is complete without it.",
+      "recommendation": "Create a key at https://linear.app/settings/api scoped to your workspace, export LINEAR_API_KEY, then run: palari linear connect --json && palari linear issues --json",
+      "safe_default": "Stay offline: every linear command except connect/issue/issues/import/start/inspect-block/sync/send works without a key.",
+      "required_human": "HUMAN-FOUNDER",
+      "linked_goal": "GOAL-REPO-0001",
+      "linked_work": ""
     }
   ],
   "outcomes": [
