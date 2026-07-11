@@ -306,7 +306,16 @@
       "source_ids": [
         "SOURCE-REPO-FOUNDATION"
       ],
-      "output_target_ids": [],
+      "output_target_ids": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
       "status": "active"
     },
     {
@@ -1077,6 +1086,61 @@
       "acceptance_target": "init produces a valid starter workspace and refuses overwrites; work add yields a ready execute packet whose write boundary matches --write paths; the onramp works without --workspace flags.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0019"
+    },
+    {
+      "id": "WORK-REPO-0020",
+      "title": "Fix release workflow and surface Linear truthfully",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Fix the crashing changelog regex in the tag-triggered release workflow, add Linear to the README front page with honest live-write nuance, add a Linear smoke to verify.sh, and document the human PyPI trusted-publishing step.",
+      "allowed_resources": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Declared outputs exist and verification passes.",
+      "verification_expectations": [
+        "python3 - regex simulation of release notes extraction",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0020"
     }
   ],
   "attempts": [
@@ -1546,6 +1610,30 @@
       "started_at": "2026-07-11T03:50:09Z",
       "cleanliness": "clean",
       "result": "Added palari init and palari work add so an existing repo reaches an enforced write boundary in three commands, with local workspace.json as the default workspace."
+    },
+    {
+      "commits": [
+        "0f9cff6"
+      ],
+      "changed_files": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "ATTEMPT-REPO-0020",
+      "work_item_id": "WORK-REPO-0020",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "claude/repo-evaluation-8tjyqa",
+      "workspace_path": "repo:.",
+      "model_or_worker": "claude-code",
+      "cleanliness": "clean",
+      "result": "Fixed the crashing release workflow regex, added a tag/version guard, surfaced Linear on the README with honest live-write nuance, added a Linear smoke to verify.sh, and documented the PyPI trusted-publishing setup."
     }
   ],
   "evidence_runs": [
@@ -2677,6 +2765,47 @@
       "attempt_id": "ATTEMPT-REPO-0019",
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-07-11T03:50:09Z"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "fixed the release workflow changelog regex",
+        "added a tag-version guard before build",
+        "listed the Linear adapter as implemented in the README",
+        "nuanced the live external writes line",
+        "added linear doctor smoke to verify.sh",
+        "documented PyPI trusted publishing setup"
+      ],
+      "outputs_created": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "not_done": [
+        "No PyPI trusted publisher configured (human step)",
+        "No tag pushed (human step)",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        ".github/workflows/release.yml",
+        "README.md",
+        "scripts/verify.sh",
+        "docs/product/release-and-operations.md",
+        "docs/product/claude-code-integration.md",
+        "CHANGELOG.md"
+      ],
+      "id": "RECEIPT-REPO-0020",
+      "work_item_id": "WORK-REPO-0020",
+      "attempt_id": "ATTEMPT-REPO-0020",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:17449af15234f7bf145b223bbf40e04d1296e6590694b0357ecd37bec4dcedec"
     }
   ],
   "decisions": [
