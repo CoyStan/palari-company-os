@@ -12,6 +12,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
+- `src/palari_company_os/onramp.py`: `init` starter workspace and `work add`
+  quick-create for existing repos.
 
 ## CLI
 
@@ -36,6 +38,8 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_loop.py`: compact loop summary.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
+- `src/palari_company_os/claude_hooks.py`: Claude Code hook enforcement of the
+  packet write boundary (PreToolUse deny, Stop backstop, SessionStart context).
 
 ## Trust Objects
 

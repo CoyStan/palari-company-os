@@ -218,6 +218,35 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "claude":
+        from .claude_hooks import hooks_status, install_hooks, run_hook
+
+        if args.claude_command == "hook":
+            return CommandResult(
+                "claude-hook",
+                run_hook(args.event, args.workspace, strict=args.strict),
+                True,
+            )
+        if args.claude_command == "install":
+            return CommandResult(
+                "claude-install",
+                install_hooks(
+                    args.project_dir or Path.cwd(),
+                    args.workspace,
+                    settings_file=args.settings_file,
+                    local=args.local,
+                    strict=args.strict,
+                    remove=args.remove,
+                ),
+                args.json,
+            )
+        if args.claude_command == "status":
+            return CommandResult(
+                "claude-status",
+                hooks_status(args.project_dir or Path.cwd(), args.workspace),
+                args.json,
+            )
+
     if args.command == "workspace":
         from .workspace_init import initialize_workspace
 
@@ -590,6 +619,39 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.human_id,
                 args.object_command,
                 reason=args.reason,
+            ),
+            args.json,
+        )
+
+    if args.command == "init":
+        from .onramp import initialize_starter_workspace
+
+        return CommandResult(
+            "init",
+            initialize_starter_workspace(args.path, name=args.name, palari_name=args.palari),
+            args.json,
+        )
+
+    if args.command == "work" and args.object_command == "add":
+        from .onramp import quick_add_work
+
+        return CommandResult(
+            "work-add",
+            quick_add_work(
+                args.workspace,
+                args.title,
+                write=args.write,
+                read=args.read,
+                palari_id=args.palari_id,
+                goal_id=args.goal,
+                workbench_id=args.workbench,
+                risk=args.risk,
+                intensity=args.intensity,
+                scope=args.scope,
+                acceptance_target=args.acceptance,
+                verify=args.verify,
+                work_id=args.work_id,
+                approvals=args.approvals,
             ),
             args.json,
         )

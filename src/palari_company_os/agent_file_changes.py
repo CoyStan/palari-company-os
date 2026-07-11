@@ -101,6 +101,11 @@ def _git_status(root: Path) -> list[dict[str, str]]:
     return changes
 
 
+def git_repo_root(cwd: Path) -> Path | None:
+    """Return the enclosing git repository root, or None outside a repo."""
+    return _git_root(cwd)
+
+
 def _git_root(cwd: Path) -> Path | None:
     result = subprocess.run(
         ["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],

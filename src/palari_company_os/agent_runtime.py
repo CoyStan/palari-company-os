@@ -185,6 +185,15 @@ def read_claim(workspace_path: Path | str, work_id: str) -> dict[str, Any] | Non
     return value
 
 
+def claim_is_active(claim: dict[str, Any]) -> bool:
+    """Return True while the claim lease has not expired."""
+    return _claim_active(claim)
+
+
+def claims_dir(workspace_path: Path | str) -> Path:
+    return workspace_file_path(workspace_path).parent / ".palari" / "claims"
+
+
 def _claim_active(claim: dict[str, Any]) -> bool:
     expires = _parse_timestamp(str(claim.get("lease_expires_at") or ""))
     return expires is not None and expires > datetime.now(timezone.utc)

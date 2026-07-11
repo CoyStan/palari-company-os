@@ -38,6 +38,28 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.add_argument("--port", type=int, default=0, help="Port to bind with --serve.")
     demo_parser.add_argument("--json", action="store_true", help="Emit JSON transcript.")
 
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Create a starter workspace in an existing project.",
+    )
+    init_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Directory for workspace.json. Defaults to the current directory.",
+    )
+    init_parser.add_argument(
+        "--name",
+        default="",
+        help="Workspace name. Defaults to the directory name.",
+    )
+    init_parser.add_argument(
+        "--palari",
+        default="Claude",
+        help="Name for the starter AI partner. Defaults to Claude.",
+    )
+    init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")
     queue_parser.add_argument(
         "--include-closed",
@@ -93,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_integration_parser(subparsers)
     _add_linear_parser(subparsers)
     _add_agent_parser(subparsers)
+    _add_claude_parser(subparsers)
     _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
@@ -271,6 +294,71 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_claude_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "claude",
+        help="Enforce packet write boundaries inside Claude Code sessions.",
+    )
+    nested = parser.add_subparsers(dest="claude_command", required=True)
+
+    install = nested.add_parser(
+        "install",
+        help="Write Palari-managed hooks into Claude Code settings.",
+    )
+    install.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .claude/. Defaults to the current directory.",
+    )
+    install.add_argument(
+        "--settings-file",
+        default="",
+        help="Explicit settings file to write instead of .claude/settings.json.",
+    )
+    install.add_argument(
+        "--local",
+        action="store_true",
+        help="Write .claude/settings.local.json instead of the shared settings.json.",
+    )
+    install.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also ask a human before writes that no active claim covers.",
+    )
+    install.add_argument(
+        "--remove",
+        action="store_true",
+        help="Remove Palari-managed hooks instead of installing them.",
+    )
+    install.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    status = nested.add_parser(
+        "status",
+        help="Show installed Palari hooks and active claims for Claude Code.",
+    )
+    status.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .claude/. Defaults to the current directory.",
+    )
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    hook = nested.add_parser(
+        "hook",
+        help="Run one Claude Code hook event; reads the hook payload from stdin.",
+    )
+    hook.add_argument(
+        "event",
+        choices=["pre-tool-use", "stop", "session-start"],
+        help="Hook event to evaluate.",
+    )
+    hook.add_argument(
+        "--strict",
+        action="store_true",
+        help="Ask a human before writes that no active claim covers.",
+    )
 
 
 def _add_docs_parser(subparsers: Any) -> None:
@@ -872,6 +960,53 @@ def _add_work_parser(subparsers: Any) -> None:
         default=None,
         help="Required approval count.",
     )
+    add = nested.add_parser(
+        "add",
+        help="Create one agent-startable work item from a title and write paths.",
+    )
+    add.add_argument("title")
+    add.add_argument(
+        "--write",
+        action="append",
+        default=[],
+        help="Allowed write path (repeatable). Becomes the enforced write boundary.",
+    )
+    add.add_argument(
+        "--read",
+        action="append",
+        default=[],
+        help="Additional read path (repeatable).",
+    )
+    add.add_argument(
+        "--as",
+        dest="palari_id",
+        default="",
+        help="Acting Palari id. Defaults to the workspace's only Palari.",
+    )
+    add.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
+    add.add_argument(
+        "--workbench",
+        default="",
+        help="Workbench id. Defaults to the only workbench.",
+    )
+    add.add_argument("--risk", default="R1", help="Risk level.")
+    add.add_argument("--intensity", default="light", help="Operating intensity.")
+    add.add_argument("--scope", default="", help="One-sentence work scope.")
+    add.add_argument("--acceptance", default="", help="Acceptance target.")
+    add.add_argument(
+        "--verify",
+        action="append",
+        default=[],
+        help="Verification expectation (repeatable).",
+    )
+    add.add_argument(
+        "--id",
+        dest="work_id",
+        default="",
+        help="Explicit work id. Defaults to the next WORK-NNNN.",
+    )
+    add.add_argument("--approvals", type=int, default=0, help="Required approval count.")
+    add.add_argument("--json", action="store_true", help="Emit JSON.")
     complete = nested.add_parser("complete", help="Complete a ready work item.")
     complete.add_argument("work_id")
     complete.add_argument("--status", default="completed", help="Terminal status to write.")

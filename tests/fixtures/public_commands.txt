@@ -1,4 +1,5 @@
 palari demo
+palari init
 palari queue
 palari state
 palari data
@@ -45,6 +46,10 @@ palari agent finish
 palari agent handoff
 palari agent loop
 palari agent doctor
+palari claude
+palari claude install
+palari claude status
+palari claude hook
 palari workspace
 palari workspace init
 palari mcp
@@ -95,6 +100,7 @@ palari proposal defer
 palari work
 palari work create
 palari work update
+palari work add
 palari work complete
 palari work accept
 palari work expand-scope

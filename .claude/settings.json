@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/bin/palari\" --workspace \"$CLAUDE_PROJECT_DIR/workspaces/palari-company-os\" claude hook pre-tool-use",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/bin/palari\" --workspace \"$CLAUDE_PROJECT_DIR/workspaces/palari-company-os\" claude hook stop",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/bin/palari\" --workspace \"$CLAUDE_PROJECT_DIR/workspaces/palari-company-os\" claude hook session-start",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

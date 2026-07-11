@@ -42,6 +42,31 @@ human attention, the allowed boundary, recent activity, and the receipt for the
 selected work. It binds to `127.0.0.1` by default and writes through the same
 local files as the CLI.
 
+## Adopt It In Your Own Repo
+
+Three commands take an existing project from nothing to an enforced write
+boundary for Claude Code:
+
+```bash
+cd your-project
+palari init
+palari work add "Clean up launch notes" --write docs/notes.md
+palari claude install
+```
+
+`init` creates a starter workspace (you, one AI partner, one goal, one work
+area, the repo as a source). `work add` turns a title and its write paths into
+a bounded work item. `claude install` wires Claude Code hooks so writes
+outside that boundary are denied before they happen — see
+[Claude Code Integration](claude-code-integration.md).
+
+The agent then claims and works the item:
+
+```bash
+palari agent start WORK-0001 --as PALARI-CLAUDE --mode execute --json
+palari agent check WORK-0001 --as PALARI-CLAUDE --mode execute --git-diff --json
+```
+
 ## Verify The Repo
 
 ```bash

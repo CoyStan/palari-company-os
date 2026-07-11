@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from .cli_output_agent import (
@@ -183,6 +184,26 @@ def print_result(result: CommandResult) -> None:
             print_json(result.payload)
         else:
             print_governance_payload(result.payload)
+        return
+
+    if result.kind == "init":
+        print_init(result.payload, result.as_json)
+        return
+
+    if result.kind == "work-add":
+        print_work_add(result.payload, result.as_json)
+        return
+
+    if result.kind == "claude-hook":
+        print(json.dumps(result.payload))
+        return
+
+    if result.kind == "claude-install":
+        print_claude_install(result.payload, result.as_json)
+        return
+
+    if result.kind == "claude-status":
+        print_claude_status(result.payload, result.as_json)
         return
 
     if result.kind == "workspace-init":
@@ -629,6 +650,85 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
+
+
+def print_init(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Workspace created: {payload['workspace']}")
+    print(f"File: {payload['workspace_file']}")
+    print(
+        f"Starter records: {payload['human']['id']} ({payload['human']['name']}), "
+        f"{payload['palari']['id']} ({payload['palari']['name']}), "
+        f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
+    )
+    print("Next commands:")
+    for command in payload["next_commands"]:
+        print(f"  {command}")
+
+
+def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload["work_item"]
+    print(f"Work item created: {work['id']} {work['title']}")
+    print(f"Palari: {work['palari']} | risk {work['risk']} | intensity {work['intensity']}")
+    print("Write boundary:")
+    for path in work["output_targets"]:
+        print(f"  - {path}")
+    reads = [path for path in work["allowed_resources"] if path not in work["output_targets"]]
+    if reads:
+        print("Extra read paths:")
+        for path in reads:
+            print(f"  - {path}")
+    print("Next commands:")
+    for command in payload["next_commands"]:
+        print(f"  {command}")
+
+
+def print_claude_install(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Claude Code hooks: {payload['status']}")
+    print(f"Settings file: {payload['settings_file']}")
+    if payload.get("workspace"):
+        print(f"Workspace: {payload['workspace']}")
+    if payload.get("hooks"):
+        print("Hooks:")
+        for event, command in payload["hooks"].items():
+            print(f"  {event}: {command}")
+    if not payload.get("palari_on_path", True):
+        print("Warning: palari is not on PATH; hooks will fail until it is installed.")
+    print(payload["message"])
+
+
+def print_claude_status(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Claude Code enforcement installed: {_yes_no(payload['installed'])}")
+    for item in payload["settings_files"]:
+        events = ", ".join(item["palari_hook_events"]) or "none"
+        strict = " (strict)" if item["strict"] else ""
+        print(f"  {item['path']}: {events}{strict}")
+    if not payload.get("palari_on_path", True):
+        print("Warning: palari is not on PATH; hooks will fail until it is installed.")
+    claims = payload["active_claims"]
+    if claims:
+        print("Active claims:")
+        for claim in claims:
+            writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
+            print(
+                f"  {claim['work_item']} by {claim['claimed_by']} "
+                f"(mode {claim['mode']}, lease {claim['lease_expires_at']})"
+            )
+            print(f"    allowed writes: {writes}")
+    else:
+        print("Active claims: none")
+    print(payload["message"])
 
 
 def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:

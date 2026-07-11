@@ -55,6 +55,17 @@ human attention while the files remain the source of truth.
 
 Live demo: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
 
+To adopt it in your own repo, three commands give Claude Code an enforced
+write boundary:
+
+```bash
+palari init
+palari work add "Clean up launch notes" --write docs/notes.md
+palari claude install
+```
+
+See the [Quickstart](docs/product/quickstart.md) for the full path.
+
 ## What Palari Is
 
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
@@ -94,6 +105,8 @@ Implemented now:
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - file-change boundary checks for `agent check --changed` and `--git-diff`
+- structural boundary enforcement inside Claude Code via `palari claude install`
+  (out-of-boundary writes are denied by hooks, not just reported)
 - source and receipt trust records
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records

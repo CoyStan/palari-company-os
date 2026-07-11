@@ -723,6 +723,9 @@ class Workspace:
 
 
 def default_workspace_path() -> Path:
+    local = Path.cwd() / "workspace.json"
+    if local.is_file():
+        return Path.cwd()
     repo_root = Path(__file__).resolve().parents[2]
     repo_fixture = repo_root / "examples" / "acme-company-os"
     if repo_fixture.exists():

@@ -81,6 +81,11 @@ The canonical contract is in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
+In Claude Code sessions this contract is also structurally enforced: `palari
+claude install` wires hooks that deny out-of-boundary file writes and block
+turn completion while the working tree escapes the packet boundary. See
+`docs/product/claude-code-integration.md`.
+
 ## Agent-Ready Repo Docs
 
 Use these committed docs before rereading large parts of the repo:
