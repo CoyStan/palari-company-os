@@ -20,6 +20,11 @@ repository milestones, not a production Company OS release.
   type per event), and the existing human approval, enqueue, and `linear
   send` gates execute it through `issueUpdate`. Added the `work_started`
   integration event.
+- Added `palari linear push WORK-ID`, governed issue creation for local work
+  items: the plan embeds the work item's palari block in the issue
+  description, and after approval `linear send` creates the issue and links
+  the returned key/id/url back to the work item, so Palari-born tickets are
+  trackable in Linear like any other issue.
 
 ## [0.2.0] - 2026-07-11
 

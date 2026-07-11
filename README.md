@@ -111,8 +111,8 @@ Implemented now:
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and
-  imports, pull sync, human-approved comment and status-update sends, and
-  verified Issue webhooks
+  imports, pull sync, human-approved comment, status-update, and
+  issue-creation sends, and verified Issue webhooks
   ([Linear Operating Loop](docs/product/linear-operating-loop.md))
 - external playbook recommendations as lightweight guidance
 - example and dogfood workspaces
@@ -127,9 +127,9 @@ Not implemented yet:
 - real policy acceptance
 - secret manager or signed key custody
 - autonomous acceptance, merge, push, or deploy
-- live external writes outside the approved Linear path (Linear comment sends
-  and issue status updates are the only live writes, and each requires an
-  approved plan first)
+- live external writes outside the approved Linear path (Linear comment sends,
+  issue status updates, and issue creation are the only live writes, and each
+  requires an approved plan first)
 
 ## Try More Locally
 

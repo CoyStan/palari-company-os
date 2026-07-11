@@ -229,7 +229,7 @@ class TransitionCheckTests(unittest.TestCase):
 
         walk(build_parser())
 
-        self.assertEqual(len(commands), 144)
+        self.assertEqual(len(commands), 145)
 
     def temp_workspace(self) -> object:
         return _TempWorkspace()

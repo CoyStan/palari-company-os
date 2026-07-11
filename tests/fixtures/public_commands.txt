@@ -26,6 +26,7 @@ palari linear doctor
 palari linear connect
 palari linear issues
 palari linear sync
+palari linear push
 palari linear linked
 palari linear issue
 palari linear import

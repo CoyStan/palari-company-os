@@ -510,6 +510,16 @@ def _add_linear_parser(subparsers: Any) -> None:
     sync.add_argument("issue_key")
     sync.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    push = nested.add_parser(
+        "push",
+        help="Plan a governed Linear issue creation for a local work item.",
+    )
+    push.add_argument("work_id")
+    push.add_argument("--as", dest="actor", required=True, help="Acting Palari or human id.")
+    push.add_argument("--team", default="", help="Linear team key. Defaults to the only visible team at send time.")
+    push.add_argument("--record", action="store_true", help="Record the approval plan.")
+    push.add_argument("--json", action="store_true", help="Emit JSON.")
+
     linked = nested.add_parser(
         "linked",
         help="List all Palari proposals and work items linked to Linear.",

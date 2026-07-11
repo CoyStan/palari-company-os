@@ -77,6 +77,23 @@ query PalariLinearTeamStates($teamKey: String!) {
 }
 """
 
+LINEAR_ISSUE_CREATE_MUTATION = """
+mutation PalariLinearIssueCreate($teamId: String!, $title: String!, $description: String!) {
+  issueCreate(input: { teamId: $teamId, title: $title, description: $description }) {
+    success
+    issue {
+      id
+      identifier
+      title
+      url
+      updatedAt
+      state { id name type }
+      team { id key name }
+    }
+  }
+}
+"""
+
 LINEAR_ISSUE_STATE_MUTATION = """
 mutation PalariLinearIssueState($issueId: String!, $stateId: String!) {
   issueUpdate(id: $issueId, input: { stateId: $stateId }) {
@@ -104,6 +121,9 @@ class LinearIssueClient(Protocol):
         ...
 
     def update_issue_state(self, issue_id: str, state_id: str) -> dict[str, Any]:
+        ...
+
+    def create_issue(self, team_id: str, title: str, description: str) -> dict[str, Any]:
         ...
 
 
@@ -184,6 +204,27 @@ class LinearClient:
             if state.get("id"):
                 results.append(state)
         return results
+
+    def create_issue(self, team_id: str, title: str, description: str) -> dict[str, Any]:
+        payload = self.request(
+            LINEAR_ISSUE_CREATE_MUTATION,
+            {"teamId": team_id, "title": title, "description": description},
+        )
+        result = payload.get("issueCreate")
+        if not isinstance(result, dict) or not result.get("success"):
+            raise LinearAdapterError(
+                "Linear issueCreate did not return success",
+                code="LINEAR_ISSUE_CREATE_FAILED",
+                next_action="Inspect the queued outbox item and retry after confirming Linear access.",
+            )
+        issue = result.get("issue")
+        if not isinstance(issue, dict):
+            raise LinearAdapterError(
+                "Linear issueCreate did not return the issue",
+                code="LINEAR_UNSUPPORTED_RESPONSE",
+                next_action="Do not retry blindly; inspect the provider response shape against Linear's API.",
+            )
+        return normalize_issue(issue)
 
     def update_issue_state(self, issue_id: str, state_id: str) -> dict[str, Any]:
         payload = self.request(

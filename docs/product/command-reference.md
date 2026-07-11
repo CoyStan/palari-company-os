@@ -528,8 +528,17 @@ For the short end-to-end operating path, see
 ./bin/palari linear webhook events --limit 20 --json
 ./bin/palari linear post-gate ENG-123 --record --event review_requested --actor PALARI-SOFIA --json
 ./bin/palari linear post-gate ENG-123 --record --event work_completed --action update-issue --actor PALARI-SOFIA --json
+./bin/palari linear push WORK-0002 --as PALARI-SOFIA --team ENG --record --json
 ./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
 ```
+
+`linear push` plans a governed Linear issue creation for a local work item, so
+Palari-born tickets become visible in Linear. The plan embeds the work item's
+palari block in the issue description; after approval and enqueue, `linear
+send` creates the issue via `issueCreate` and stores the returned issue key,
+id, and url as the work item's external refs in the same write. Already-linked
+work items are rejected. The Linear team id is resolved live at send time from
+`--team` (or the only visible team).
 
 `linear connect` verifies `LINEAR_API_KEY` against Linear (viewer,
 organization, and visible teams) and prepares the governed integration record.

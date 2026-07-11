@@ -358,6 +358,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             linear_issues,
             linear_linked,
             linear_post_gate,
+            linear_push,
             linear_send,
             linear_start,
             linear_status,
@@ -387,6 +388,18 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "linear",
                 linear_sync(args.workspace, args.issue_key),
+                args.json,
+            )
+        if args.linear_command == "push":
+            return CommandResult(
+                "linear",
+                linear_push(
+                    args.workspace,
+                    args.work_id,
+                    actor=args.actor,
+                    team_key=args.team,
+                    record=args.record,
+                ),
                 args.json,
             )
         if args.linear_command == "linked":

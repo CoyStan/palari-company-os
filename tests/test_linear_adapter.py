@@ -27,6 +27,7 @@ from palari_company_os.linear_adapter import (
     linear_issues,
     linear_linked,
     linear_post_gate,
+    linear_push,
     linear_send,
     linear_start,
     linear_status,
@@ -547,6 +548,27 @@ class FakeLinearWorkspaceClient(FakeLinearClient):
             "state": dict(state),
         }
 
+    def create_issue(self, team_id: str, title: str, description: str) -> dict[str, Any]:
+        self.created_issues = getattr(self, "created_issues", [])
+        self.created_issues.append(
+            {"team_id": team_id, "title": title, "description": description}
+        )
+        number = len(self.created_issues)
+        key = f"ENG-90{number}"
+        return {
+            "id": f"created-issue-{number}",
+            "identifier": key,
+            "key": key,
+            "title": title,
+            "description": description,
+            "url": f"https://linear.app/acme/issue/{key}",
+            "updated_at": "2026-07-11T00:00:00.000Z",
+            "state": {"id": "state-1", "name": "Todo", "type": "unstarted"},
+            "team": {"id": team_id, "key": "ENG", "name": "Engineering"},
+            "labels": [],
+            "assignee": {},
+        }
+
 
 class LinearWorkspaceLoopTests(unittest.TestCase):
     def test_connect_without_key_prepares_record_and_reports_blocker(self) -> None:
@@ -817,6 +839,170 @@ class LinearWorkspaceLoopTests(unittest.TestCase):
         self.assertEqual(plan["action"], "comment")
         self.assertEqual(sent["provider_response"]["id"], "comment-123")
         self.assertEqual(client.state_updates, [])
+
+
+class LinearPushTests(unittest.TestCase):
+    def _local_work_id(self, workspace_path: str) -> str:
+        workspace = Workspace.load(workspace_path)
+        work = next(
+            item for item in workspace.work_items if item.external_provider != "linear"
+        )
+        return work.id
+
+    def test_push_preview_does_not_mutate(self) -> None:
+        with temp_workspace() as workspace_path:
+            work_id = self._local_work_id(workspace_path)
+            before = Path(workspace_path).read_text(encoding="utf-8")
+            result = linear_push(
+                workspace_path, work_id, actor="PALARI-SOFIA", record=False
+            )
+            after = Path(workspace_path).read_text(encoding="utf-8")
+
+        self.assertFalse(result["recorded"])
+        self.assertEqual(result["payload_preview"]["operation"], "issueCreate")
+        self.assertIn("```palari", result["payload_preview"]["description"])
+        self.assertEqual(before, after)
+
+    def test_push_send_creates_issue_and_links_work_item(self) -> None:
+        with temp_workspace() as workspace_path:
+            client = FakeLinearWorkspaceClient(valid_issue())
+            work_id = self._local_work_id(workspace_path)
+            planned = linear_push(
+                workspace_path, work_id, actor="PALARI-SOFIA", record=True
+            )
+            plan = planned["integration_plan"]
+            decide_integration_plan(
+                workspace_path, plan["id"], "HUMAN-FOUNDER", "approve", reason="track it"
+            )
+            enqueued = enqueue_integration_plan(workspace_path, plan["id"], "HUMAN-FOUNDER")
+            sent = linear_send(
+                workspace_path,
+                enqueued["integration_outbox_item"]["id"],
+                human_id="HUMAN-FOUNDER",
+                confirm=True,
+                client=client,
+            )
+            workspace = Workspace.load(workspace_path)
+            work = workspace.work_item(work_id)
+
+        self.assertEqual(plan["action"], "create_issue")
+        self.assertEqual(plan["event"], "work_started")
+        self.assertEqual(sent["provider_response"]["key"], "ENG-901")
+        self.assertEqual(sent["linked_work_item"]["work_item_id"], work_id)
+        self.assertEqual(work.external_provider, "linear")
+        self.assertEqual(work.external_key, "ENG-901")
+        self.assertIn("ENG-901", sent["next_action"])
+        created = client.created_issues[0]
+        self.assertEqual(created["team_id"], "team-1")
+        self.assertIn("```palari", created["description"])
+        self.assertIn(work_id, created["description"])
+
+    def test_pushed_issue_supports_status_write_back(self) -> None:
+        with temp_workspace() as workspace_path:
+            client = FakeLinearWorkspaceClient(valid_issue())
+            work_id = self._local_work_id(workspace_path)
+            planned = linear_push(
+                workspace_path, work_id, actor="PALARI-SOFIA", record=True
+            )
+            plan_id = planned["integration_plan"]["id"]
+            decide_integration_plan(
+                workspace_path, plan_id, "HUMAN-FOUNDER", "approve", reason="track"
+            )
+            enqueued = enqueue_integration_plan(workspace_path, plan_id, "HUMAN-FOUNDER")
+            linear_send(
+                workspace_path,
+                enqueued["integration_outbox_item"]["id"],
+                human_id="HUMAN-FOUNDER",
+                confirm=True,
+                client=client,
+            )
+            update = linear_post_gate(
+                workspace_path,
+                "ENG-901",
+                event="work_started",
+                actor="PALARI-SOFIA",
+                record=True,
+                action="update_issue",
+            )
+            update_plan = update["integration_plan"]
+            decide_integration_plan(
+                workspace_path, update_plan["id"], "HUMAN-FOUNDER", "approve", reason="go"
+            )
+            enqueued_update = enqueue_integration_plan(
+                workspace_path, update_plan["id"], "HUMAN-FOUNDER"
+            )
+            sent_update = linear_send(
+                workspace_path,
+                enqueued_update["integration_outbox_item"]["id"],
+                human_id="HUMAN-FOUNDER",
+                confirm=True,
+                client=client,
+            )
+
+        self.assertEqual(sent_update["provider_response"]["state_name"], "In Progress")
+        self.assertEqual(
+            client.state_updates,
+            [{"issue_id": "created-issue-1", "state_id": "state-2"}],
+        )
+
+    def test_push_rejects_already_linked_work(self) -> None:
+        with temp_workspace() as workspace_path:
+            client = FakeLinearWorkspaceClient(valid_issue())
+            linear_start(
+                workspace_path,
+                "ENG-123",
+                "PALARI-SOFIA",
+                runner="codex",
+                adopt_by="HUMAN-FOUNDER",
+                client=client,
+            )
+            workspace = Workspace.load(workspace_path)
+            linked = next(
+                item for item in workspace.work_items if item.external_provider == "linear"
+            )
+            with self.assertRaisesRegex(WorkspaceError, "already linked"):
+                linear_push(
+                    workspace_path, linked.id, actor="PALARI-SOFIA", record=True
+                )
+
+    def test_push_rejects_unknown_work_item(self) -> None:
+        with temp_workspace() as workspace_path:
+            with self.assertRaisesRegex(WorkspaceError, "not found"):
+                linear_push(
+                    workspace_path, "WORK-9999", actor="PALARI-SOFIA", record=True
+                )
+
+    def test_send_fails_closed_on_unknown_team(self) -> None:
+        with temp_workspace() as workspace_path:
+            client = FakeLinearWorkspaceClient(valid_issue())
+            work_id = self._local_work_id(workspace_path)
+            planned = linear_push(
+                workspace_path,
+                work_id,
+                actor="PALARI-SOFIA",
+                team_key="NOPE",
+                record=True,
+            )
+            plan_id = planned["integration_plan"]["id"]
+            decide_integration_plan(
+                workspace_path, plan_id, "HUMAN-FOUNDER", "approve", reason="track"
+            )
+            enqueued = enqueue_integration_plan(workspace_path, plan_id, "HUMAN-FOUNDER")
+            outbox_id = enqueued["integration_outbox_item"]["id"]
+            with self.assertRaisesRegex(WorkspaceError, "NOPE"):
+                linear_send(
+                    workspace_path,
+                    outbox_id,
+                    human_id="HUMAN-FOUNDER",
+                    confirm=True,
+                    client=client,
+                )
+            workspace = Workspace.load(workspace_path)
+            outbox_item = workspace.integration_outbox_item(outbox_id)
+            work = workspace.work_item(work_id)
+
+        self.assertEqual(outbox_item.status, "failed")
+        self.assertNotEqual(work.external_provider, "linear")
 
 
 def valid_issue(description: str | None = None, *, issue_id: str = "linear-issue-id") -> dict[str, Any]:

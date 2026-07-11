@@ -110,6 +110,24 @@ requires an explicit `--to-state`. After human approval and enqueue, the same
 `linear send` command executes the state change through `issueUpdate` and
 records the provider response on the outbox item.
 
+## Publish Local Work To Linear
+
+Work items born inside Palari (for example from `palari work add` during an
+agent session) can be published to Linear so every ticket is visible on the
+board and on your phone, wherever it was born. `push` plans a governed
+`issueCreate`; the description embeds the work item's `palari` block so the
+round trip through `inspect-block` and `import` stays valid:
+
+```bash
+./bin/palari linear push WORK-0002 --as PALARI-SOFIA --team ENG --record --json
+```
+
+After the usual `integration approve` and `integration enqueue`, the same
+`linear send` command creates the issue and links it back to the work item
+(external refs are stored in the same write). From then on the pushed issue
+behaves exactly like a Linear-born one: status write-back moves it and
+`linear sync` refreshes it.
+
 ## Pull Sync Without Webhooks
 
 Refresh linked records from Linear on demand — the same non-destructive

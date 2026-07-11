@@ -53,6 +53,7 @@ LOCAL_ONLY_COMMANDS = [
     "doctor",
     "block-template",
     "post-gate",
+    "push",
     "webhook serve",
     "webhook verify",
     "webhook events",
@@ -71,6 +72,7 @@ __all__ = [
     "linear_issues",
     "linear_linked",
     "linear_post_gate",
+    "linear_push",
     "linear_send",
     "linear_start",
     "linear_status",
@@ -85,7 +87,7 @@ LINEAR_STATUS_EVENT_STATE_TYPES = {
     "work_completed": "completed",
     "work_blocked": "",
 }
-LINEAR_INTEGRATION_ACTIONS = ["comment", "update_issue"]
+LINEAR_INTEGRATION_ACTIONS = ["comment", "update_issue", "create_issue"]
 LINEAR_INTEGRATION_EVENTS = [
     "work_started",
     "work_blocked",
@@ -321,6 +323,165 @@ def linear_sync(
             f"palari linear status {issue.get('key', issue_key)} --json"
             if sync_result.get("proposal_ids") or sync_result.get("work_item_ids")
             else "Issue is not linked locally; import it with `palari linear import`."
+        ),
+    }
+
+
+def linear_push(
+    workspace_path: str,
+    work_id: str,
+    *,
+    actor: str,
+    team_key: str = "",
+    record: bool,
+) -> dict[str, Any]:
+    """Plan a governed Linear issue creation for a local work item.
+
+    The plan is an offline preview like every other Linear write: a human
+    approves and enqueues it, and `linear send` performs the issueCreate and
+    links the created issue back to the work item. The issue description
+    embeds the work item's palari block so the round trip through
+    `linear inspect-block` and `linear import` stays valid.
+    """
+    from .linear_blocks import _fenced_palari_json
+
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work item not found: {work_id}")
+    if work.external_provider == "linear" and (work.external_id or work.external_key):
+        raise WorkspaceError(
+            f"work item {work_id} is already linked to Linear issue "
+            f"{work.external_key or work.external_id}; use linear post-gate or linear sync"
+        )
+    integration_record, integration_before = _ensure_linear_integration_record(
+        store.data,
+        workspace,
+        actor,
+    )
+    _upgrade_linear_integration_record(integration_record)
+    workspace = validate_data(store.data_path, store.data)
+    integration = workspace.integration(str(integration_record["id"]))
+    if integration is None:
+        raise WorkspaceError("linear integration could not be prepared")
+    _assert_linear_action_allowed(integration, "work_started", "create_issue")
+
+    block_fields: dict[str, Any] = {
+        "goal": work.goal,
+        "palari": work.palari,
+        "risk": work.risk,
+        "intensity": work.intensity,
+        "scope": work.scope,
+        "acceptance_target": work.acceptance_target,
+        "parallel_policy": work.parallel_policy,
+    }
+    for key, values in (
+        ("allowed_resources", work.allowed_resources),
+        ("allowed_sources", work.allowed_sources),
+        ("output_targets", work.output_targets),
+        ("forbidden_actions", work.forbidden_actions),
+        ("verification_expectations", work.verification_expectations),
+        ("conflict_targets", work.conflict_targets),
+    ):
+        if values:
+            block_fields[key] = list(values)
+    description = "\n\n".join(
+        part
+        for part in (
+            work.scope or work.title,
+            f"Acceptance: {work.acceptance_target}" if work.acceptance_target else "",
+            f"Palari work item: {work.id}",
+            _fenced_palari_json(block_fields),
+        )
+        if part
+    )
+    payload_preview = {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": work.id,
+        "team_key": team_key.strip(),
+        "title": work.title,
+        "description": description,
+        "note": (
+            "Team id is resolved live at send time; an empty team_key uses the "
+            "only visible team."
+        ),
+    }
+    source_boundary = _source_boundary(workspace, integration, work)
+
+    if not record:
+        return {
+            "schema_version": "palari.linear_push.v1",
+            "provider": "linear",
+            "recorded": False,
+            "would_call_provider": False,
+            "work_item_id": work.id,
+            "actor": actor,
+            "payload_preview": payload_preview,
+            "source_boundary": source_boundary,
+            "next_action": "Review the preview, then rerun with --record to create an approval plan.",
+        }
+
+    plans = _records(store.data, "integration_plans")
+    timestamp = _timestamp()
+    plan = {
+        "id": _linear_plan_id(work.id, "create_issue", timestamp),
+        "integration_id": integration.id,
+        "work_item_id": work.id,
+        "event": "work_started",
+        "action": "create_issue",
+        "actor": actor,
+        "status": "pending-approval",
+        "payload_preview": payload_preview,
+        "source_boundary": source_boundary,
+        "risk": integration.risk_level,
+        "approval_required": True,
+        "timestamp": timestamp,
+        "notes": "Linear issue creation preview only. No provider call was made.",
+    }
+    plans.append(plan)
+    workspace = write_store(store)
+    if integration_before is None:
+        append_history_event(
+            store.data_path,
+            schema_version=workspace.schema_version,
+            command="linear push",
+            action="created",
+            object_type="integration",
+            object_collection="integrations",
+            object_id=integration.id,
+            actor=actor,
+            before=None,
+            after=deepcopy(integration_record),
+        )
+    history_event = append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command="linear push",
+        action="planned",
+        object_type="integration-plan",
+        object_collection="integration_plans",
+        object_id=str(plan["id"]),
+        actor=actor,
+        before=None,
+        after=plan,
+    )
+    return {
+        "schema_version": "palari.linear_push.v1",
+        "provider": "linear",
+        "recorded": True,
+        "would_call_provider": False,
+        "work_item_id": work.id,
+        "actor": actor,
+        "integration_plan": plan,
+        "payload_preview": payload_preview,
+        "source_boundary": source_boundary,
+        "history_event": history_event,
+        "next_action": (
+            f"Approve with `palari integration approve {plan['id']} --by HUMAN-ID "
+            "--reason REASON --json`, then enqueue before sending."
         ),
     }
 
@@ -797,9 +958,9 @@ def linear_send(
         raise WorkspaceError(f"human not found: {human_id}")
     if integration.provider != "linear":
         raise WorkspaceError(f"integration outbox item {outbox_id} is not for Linear")
-    if item.action not in {"comment", "update_issue"}:
+    if item.action not in {"comment", "update_issue", "create_issue"}:
         raise WorkspaceError(
-            "linear send only supports comment and update_issue outbox items"
+            "linear send only supports comment, update_issue, and create_issue outbox items"
         )
     if not _human_can_decide_plan(human, work, integration):
         raise WorkspaceError(f"human {human.id} lacks authority to send {outbox_id}")
@@ -823,6 +984,8 @@ def linear_send(
         client = client or LinearClient.from_env()
         if item.action == "update_issue":
             provider_response = _execute_status_update(client, item.payload_preview, work=work)
+        elif item.action == "create_issue":
+            provider_response = _execute_issue_create(client, item.payload_preview)
         else:
             issue_id, body = _comment_payload_inputs(item.payload_preview, work=work)
             provider_response = client.create_comment(issue_id, body)
@@ -851,12 +1014,21 @@ def linear_send(
             "sent_at": _timestamp(),
             "provider_response": _provider_response_summary(item.action, provider_response),
             "notes": (
-                "Sent to Linear through issueUpdate after approved Palari outbox."
-                if item.action == "update_issue"
-                else "Sent to Linear through commentCreate after approved Palari outbox."
+                {
+                    "update_issue": "Sent to Linear through issueUpdate after approved Palari outbox.",
+                    "create_issue": "Sent to Linear through issueCreate after approved Palari outbox.",
+                }.get(
+                    item.action,
+                    "Sent to Linear through commentCreate after approved Palari outbox.",
+                )
             ),
         }
     )
+    linked_work_event = None
+    if item.action == "create_issue":
+        linked_work_event = _link_work_to_created_issue(
+            store.data, work.id, provider_response
+        )
     workspace = write_store(store)
     after_item = workspace.integration_outbox_item(outbox_id)
     after = to_plain(after_item) if after_item is not None else deepcopy(record)
@@ -880,9 +1052,72 @@ def linear_send(
         "would_call_provider": True,
         "integration_outbox_item": after,
         "provider_response": _provider_response_summary(item.action, provider_response),
+        "linked_work_item": linked_work_event,
         "history_event": history_event,
-        "next_action": "Linear comment sent and provider metadata recorded.",
+        "next_action": _send_next_action(item.action, provider_response),
     }
+
+
+def _send_next_action(action: str, provider_response: dict[str, Any]) -> str:
+    if action == "create_issue":
+        key = _string(provider_response.get("key")) or _string(
+            provider_response.get("identifier")
+        )
+        return (
+            f"Linear issue {key} created and linked; track it with "
+            f"`palari linear status {key} --json`."
+        )
+    if action == "update_issue":
+        return "Linear issue state updated and provider metadata recorded."
+    return "Linear comment sent and provider metadata recorded."
+
+
+def _link_work_to_created_issue(
+    data: dict[str, Any],
+    work_id: str,
+    issue: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Store the created issue's refs on the work item inside the same write."""
+    work_records = _records(data, "work_items")
+    record = _record_by_id(work_records, work_id, required=False)
+    if record is None:
+        return None
+    record.update(_external_fields(issue))
+    return {
+        "work_item_id": work_id,
+        "external_key": record.get("external_key", ""),
+        "external_url": record.get("external_url", ""),
+    }
+
+
+def _execute_issue_create(client: LinearIssueClient, payload_preview: Any) -> dict[str, Any]:
+    """Resolve the team live and create the Linear issue."""
+    preview = payload_preview if isinstance(payload_preview, dict) else {}
+    title = _string(preview.get("title"))
+    description = _string(preview.get("description"))
+    team_key = _string(preview.get("team_key"))
+    if not title:
+        raise WorkspaceError("issue creation payload is missing a title")
+    overview = client.viewer()
+    teams = overview.get("teams", []) if isinstance(overview, dict) else []
+    if team_key:
+        matches = [team for team in teams if _string(team.get("key")) == team_key]
+        if not matches:
+            keys = ", ".join(_string(team.get("key")) for team in teams) or "none visible"
+            raise WorkspaceError(
+                f"Linear team {team_key!r} is not visible to this key (visible: {keys})"
+            )
+        team_id = _string(matches[0].get("id"))
+    elif len(teams) == 1:
+        team_id = _string(teams[0].get("id"))
+    else:
+        keys = ", ".join(_string(team.get("key")) for team in teams) or "none visible"
+        raise WorkspaceError(
+            f"pass --team when planning the push (visible teams: {keys})"
+        )
+    if not team_id:
+        raise WorkspaceError("Linear team id could not be resolved")
+    return client.create_issue(team_id, title, description)
 
 
 def _proposal_fields_from_issue(
@@ -1434,6 +1669,15 @@ def _resolve_workflow_state(states: list, target_name: str, target_type: str) ->
 
 
 def _provider_response_summary(action: str, response: dict) -> dict:
+    if action == "create_issue":
+        raw_state = response.get("state")
+        state = raw_state if isinstance(raw_state, dict) else {}
+        return {
+            "id": _string(response.get("id")),
+            "key": _string(response.get("key")) or _string(response.get("identifier")),
+            "url": _string(response.get("url")),
+            "state_name": _string(state.get("name")),
+        }
     if action == "update_issue":
         raw_state = response.get("state")
         state = raw_state if isinstance(raw_state, dict) else {}
