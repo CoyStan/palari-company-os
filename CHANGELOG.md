@@ -7,6 +7,20 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+### Added
+
+- Completed the governed Linear loop: `palari linear connect` verifies
+  credentials and prepares the integration record (reporting a missing
+  `LINEAR_API_KEY` as a structured blocker instead of an error), `palari
+  linear issues` lists team issues annotated with palari-block presence and
+  local link state, and `palari linear sync` pull-refreshes linked records
+  without webhooks.
+- Added governed Linear status write-back: `linear post-gate --action
+  update-issue` plans an issue state change (by state name or default state
+  type per event), and the existing human approval, enqueue, and `linear
+  send` gates execute it through `issueUpdate`. Added the `work_started`
+  integration event.
+
 ## [0.2.0] - 2026-07-11
 
 ### Fixed

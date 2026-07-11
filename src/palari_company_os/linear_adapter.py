@@ -37,7 +37,16 @@ from .workspace import Workspace
 
 
 SUPPORTED_RUNNERS = {"codex", "claude-code", "cursor", "generic"}
-LIVE_PROVIDER_COMMANDS = ["issue", "import", "start", "inspect-block", "send"]
+LIVE_PROVIDER_COMMANDS = [
+    "connect",
+    "issue",
+    "issues",
+    "import",
+    "start",
+    "inspect-block",
+    "sync",
+    "send",
+]
 LOCAL_ONLY_COMMANDS = [
     "status",
     "linked",
@@ -54,17 +63,34 @@ __all__ = [
     "LinearIssueClient",
     "PalariBlock",
     "linear_block_template",
+    "linear_connect",
     "linear_doctor",
     "linear_import",
     "linear_inspect_block",
     "linear_issue",
+    "linear_issues",
     "linear_linked",
     "linear_post_gate",
     "linear_send",
     "linear_start",
     "linear_status",
+    "linear_sync",
     "normalize_issue",
     "parse_palari_block",
+]
+
+LINEAR_STATUS_EVENT_STATE_TYPES = {
+    "work_started": "started",
+    "review_requested": "started",
+    "work_completed": "completed",
+    "work_blocked": "",
+}
+LINEAR_INTEGRATION_ACTIONS = ["comment", "update_issue"]
+LINEAR_INTEGRATION_EVENTS = [
+    "work_started",
+    "work_blocked",
+    "review_requested",
+    "work_completed",
 ]
 
 
@@ -131,6 +157,232 @@ def linear_doctor(workspace_path: str) -> dict[str, Any]:
             else "Linear environment is present; use issue/import/start or local status commands."
         ),
     }
+
+
+def linear_connect(
+    workspace_path: str,
+    *,
+    actor: str,
+    client: LinearIssueClient | None = None,
+) -> dict[str, Any]:
+    """Verify Linear credentials and prepare the governed integration record.
+
+    Without a working LINEAR_API_KEY this still prepares the local record and
+    returns a structured blocker instead of an error, so setup can finish
+    locally and the missing credential stays a visible human step.
+    """
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    actor = actor.strip() or _owner_human_for_actor(workspace, "")
+    integration_record, integration_before = _ensure_linear_integration_record(
+        store.data,
+        workspace,
+        actor,
+    )
+    upgraded = _upgrade_linear_integration_record(integration_record)
+    workspace = validate_data(store.data_path, store.data)
+    if integration_before is None or upgraded:
+        workspace = write_store(store)
+        append_history_event(
+            store.data_path,
+            schema_version=workspace.schema_version,
+            command="linear connect",
+            action="created" if integration_before is None else "updated",
+            object_type="integration",
+            object_collection="integrations",
+            object_id=str(integration_record["id"]),
+            actor=actor,
+            before=integration_before if upgraded else None,
+            after=deepcopy(integration_record),
+        )
+
+    connection: dict[str, Any] = {"verified": False}
+    blocker: dict[str, str] | None = None
+    try:
+        live = client or LinearClient.from_env()
+        connection = dict(live.viewer())
+        connection["verified"] = True
+    except LinearAdapterError as exc:
+        blocker = {
+            "code": exc.code,
+            "message": str(exc),
+            "next_action": exc.next_action
+            or "Create a personal API key at https://linear.app/settings/api and export LINEAR_API_KEY.",
+        }
+
+    doctor = linear_doctor(workspace_path)
+    return {
+        "schema_version": "palari.linear_connect.v1",
+        "ok": blocker is None,
+        "provider": "linear",
+        "workspace": workspace.name,
+        "connection": connection,
+        "blocker": blocker,
+        "integration": {
+            "id": integration_record["id"],
+            "enabled": integration_record.get("enabled", False),
+            "allowed_events": integration_record.get("allowed_events", []),
+            "allowed_actions": integration_record.get("allowed_actions", []),
+            "secret_ref": integration_record.get("secret_ref", ""),
+        },
+        "env": doctor["env"],
+        "next_commands": _connect_next_commands(connection, blocker),
+    }
+
+
+def linear_issues(
+    workspace_path: str,
+    *,
+    team_key: str = "",
+    limit: int = 25,
+    client: LinearIssueClient | None = None,
+) -> dict[str, Any]:
+    """List open Linear issues for one team, annotated with local link state."""
+    live = client or LinearClient.from_env()
+    resolved_team = team_key.strip()
+    if not resolved_team:
+        overview = live.viewer()
+        teams = overview.get("teams", [])
+        if len(teams) == 1:
+            resolved_team = str(teams[0].get("key", ""))
+        else:
+            keys = ", ".join(str(team.get("key", "")) for team in teams) or "none visible"
+            raise WorkspaceError(
+                f"pass --team to pick a Linear team (visible teams: {keys})"
+            )
+    issues = live.team_issues(resolved_team, first=limit)
+    workspace = Workspace.load(workspace_path)
+    annotated = []
+    for issue in issues:
+        block = parse_palari_block(issue.get("description", ""))
+        work = _workspace_linear_work(workspace, issue)
+        proposal = _workspace_linear_proposal(workspace, issue)
+        annotated.append(
+            {
+                "key": issue.get("key", ""),
+                "title": issue.get("title", ""),
+                "state": issue.get("state", {}),
+                "url": issue.get("url", ""),
+                "updated_at": issue.get("updated_at", ""),
+                "has_palari_block": block.present,
+                "linked_work_item": work.id if work else "",
+                "linked_proposal": proposal.id if proposal else "",
+                "next_command": _issue_list_next_command(issue, block.present, work, proposal),
+            }
+        )
+    return {
+        "schema_version": "palari.linear_issues.v1",
+        "ok": True,
+        "provider": "linear",
+        "team": resolved_team,
+        "count": len(annotated),
+        "issues": annotated,
+        "next_action": (
+            "Import an issue with a palari block, or add one with "
+            "`palari linear block-template`."
+        ),
+    }
+
+
+def linear_sync(
+    workspace_path: str,
+    issue_key: str,
+    *,
+    client: LinearIssueClient | None = None,
+) -> dict[str, Any]:
+    """Pull one Linear issue and refresh linked local records without webhooks.
+
+    Applies the same non-destructive updates as a verified webhook event:
+    external refs always, title/summary only for pre-adoption proposals.
+    """
+    from .linear_webhook import _sync_issue_event
+
+    live = client or LinearClient.from_env()
+    issue = live.issue(issue_key)
+    flat_issue = {
+        "id": issue.get("id", ""),
+        "key": issue.get("key", ""),
+        "identifier": issue.get("identifier", ""),
+        "title": issue.get("title", ""),
+        "description": issue.get("description", ""),
+        "url": issue.get("url", ""),
+        "updated_at": issue.get("updated_at", ""),
+        "archived_at": "",
+    }
+    sync_result = _sync_issue_event(workspace_path, flat_issue, "update")
+    return {
+        "schema_version": "palari.linear_sync.v1",
+        "ok": True,
+        "provider": "linear",
+        "issue_key": issue.get("key", issue_key),
+        "issue_state": issue.get("state", {}),
+        "sync": sync_result,
+        "next_action": (
+            f"palari linear status {issue.get('key', issue_key)} --json"
+            if sync_result.get("proposal_ids") or sync_result.get("work_item_ids")
+            else "Issue is not linked locally; import it with `palari linear import`."
+        ),
+    }
+
+
+def _connect_next_commands(
+    connection: dict[str, Any],
+    blocker: dict[str, str] | None,
+) -> list[str]:
+    if blocker is not None:
+        return [
+            "export LINEAR_API_KEY=...  # create at https://linear.app/settings/api",
+            "palari linear connect --json",
+        ]
+    commands = []
+    teams = connection.get("teams", [])
+    team_hint = f" --team {teams[0]['key']}" if len(teams) == 1 and teams[0].get("key") else ""
+    commands.append(f"palari linear issues{team_hint} --json")
+    commands.append("palari linear import ISSUE-KEY --as PALARI-ID --json")
+    commands.append("export LINEAR_WEBHOOK_SECRET=...  # optional inbound sync")
+    return commands
+
+
+def _issue_list_next_command(
+    issue: dict[str, Any],
+    has_block: bool,
+    work: WorkItem | None,
+    proposal: Proposal | None,
+) -> str:
+    key = issue.get("key", "")
+    if work is not None:
+        return f"palari linear status {key} --json"
+    if proposal is not None:
+        return f"palari linear start {key} --runner claude-code --as PALARI-ID --adopt-by HUMAN-ID --json"
+    if has_block:
+        return f"palari linear import {key} --as PALARI-ID --json"
+    return "palari linear block-template --json  # paste the block into the issue first"
+
+
+def _upgrade_linear_integration_record(record: dict[str, Any]) -> bool:
+    """Bring an existing Linear integration record up to the full action set."""
+    changed = False
+    actions = record.get("allowed_actions")
+    if not isinstance(actions, list):
+        actions = []
+    for action in LINEAR_INTEGRATION_ACTIONS:
+        if action not in actions:
+            actions.append(action)
+            changed = True
+    if changed or record.get("allowed_actions") != actions:
+        record["allowed_actions"] = actions
+    events = record.get("allowed_events")
+    if not isinstance(events, list):
+        events = []
+    events_changed = False
+    for event in LINEAR_INTEGRATION_EVENTS:
+        if event not in events:
+            events.append(event)
+            events_changed = True
+    if events_changed:
+        record["allowed_events"] = events
+        changed = True
+    return changed
 
 
 def linear_linked(workspace_path: str) -> dict[str, Any]:
@@ -408,7 +660,11 @@ def linear_post_gate(
     event: str,
     actor: str,
     record: bool,
+    action: str = "comment",
+    target_state: str = "",
 ) -> dict[str, Any]:
+    if action not in {"comment", "update_issue"}:
+        raise WorkspaceError(f"linear post-gate action must be comment or update_issue, not {action}")
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
     issue_stub = {"id": "", "key": issue_key, "identifier": issue_key}
@@ -420,14 +676,19 @@ def linear_post_gate(
         workspace,
         actor,
     )
+    if action == "update_issue":
+        _upgrade_linear_integration_record(integration_record)
     workspace = validate_data(store.data_path, store.data)
     integration = workspace.integration(str(integration_record["id"]))
     if integration is None:
         raise WorkspaceError("linear integration could not be prepared")
-    _assert_linear_comment_allowed(integration, event)
+    _assert_linear_action_allowed(integration, event, action)
     status_payload = linear_status(workspace_path, issue_key)
-    body = _linear_comment_body(event, status_payload, work)
-    payload_preview = _linear_comment_payload(work, body)
+    if action == "update_issue":
+        payload_preview = _linear_status_update_payload(work, event, target_state)
+    else:
+        body = _linear_comment_body(event, status_payload, work)
+        payload_preview = _linear_comment_payload(work, body)
     source_boundary = _source_boundary(workspace, integration, work)
 
     if not record:
@@ -451,7 +712,7 @@ def linear_post_gate(
         "integration_id": integration.id,
         "work_item_id": work.id,
         "event": event,
-        "action": "comment",
+        "action": action,
         "actor": actor,
         "status": "pending-approval",
         "payload_preview": payload_preview,
@@ -459,7 +720,11 @@ def linear_post_gate(
         "risk": integration.risk_level,
         "approval_required": True,
         "timestamp": timestamp,
-        "notes": "Linear comment preview only. No provider call was made.",
+        "notes": (
+            "Linear status update preview only. No provider call was made."
+            if action == "update_issue"
+            else "Linear comment preview only. No provider call was made."
+        ),
     }
     plans.append(plan)
     workspace = write_store(store)
@@ -532,8 +797,10 @@ def linear_send(
         raise WorkspaceError(f"human not found: {human_id}")
     if integration.provider != "linear":
         raise WorkspaceError(f"integration outbox item {outbox_id} is not for Linear")
-    if item.action != "comment":
-        raise WorkspaceError("linear send only supports comment outbox items")
+    if item.action not in {"comment", "update_issue"}:
+        raise WorkspaceError(
+            "linear send only supports comment and update_issue outbox items"
+        )
     if not _human_can_decide_plan(human, work, integration):
         raise WorkspaceError(f"human {human.id} lacks authority to send {outbox_id}")
 
@@ -548,14 +815,17 @@ def linear_send(
             "integration_send",
             outbox_id,
             actor=human.id,
-            context={"provider": "linear", "action": "comment"},
+            context={"provider": "linear", "action": item.action},
         )
         preflight = check_integration_outbox(workspace, outbox_id)
         if preflight["status"] != "queued-preflight-ready":
             raise WorkspaceError(f"linear send preflight failed for {outbox_id}")
-        issue_id, body = _comment_payload_inputs(item.payload_preview, work=work)
         client = client or LinearClient.from_env()
-        provider_response = client.create_comment(issue_id, body)
+        if item.action == "update_issue":
+            provider_response = _execute_status_update(client, item.payload_preview, work=work)
+        else:
+            issue_id, body = _comment_payload_inputs(item.payload_preview, work=work)
+            provider_response = client.create_comment(issue_id, body)
     except WorkspaceError as exc:
         if record.get("status") == "queued":
             _mark_outbox_failed(record, human, exc)
@@ -579,8 +849,12 @@ def linear_send(
             "status": "sent",
             "sent_by": human.id,
             "sent_at": _timestamp(),
-            "provider_response": _comment_response(provider_response),
-            "notes": "Sent to Linear through commentCreate after approved Palari outbox.",
+            "provider_response": _provider_response_summary(item.action, provider_response),
+            "notes": (
+                "Sent to Linear through issueUpdate after approved Palari outbox."
+                if item.action == "update_issue"
+                else "Sent to Linear through commentCreate after approved Palari outbox."
+            ),
         }
     )
     workspace = write_store(store)
@@ -605,7 +879,7 @@ def linear_send(
         "status": "sent",
         "would_call_provider": True,
         "integration_outbox_item": after,
-        "provider_response": _comment_response(provider_response),
+        "provider_response": _provider_response_summary(item.action, provider_response),
         "history_event": history_event,
         "next_action": "Linear comment sent and provider metadata recorded.",
     }
@@ -1077,15 +1351,99 @@ def _owner_human_for_actor(workspace: Workspace, actor: str) -> str:
     return admin or (workspace.humans[0].id if workspace.humans else "")
 
 
-def _assert_linear_comment_allowed(integration: Integration, event: str) -> None:
+def _assert_linear_action_allowed(integration: Integration, event: str, action: str) -> None:
     if integration.provider != "linear":
         raise WorkspaceError(f"integration {integration.id} is not a Linear integration")
     if not integration.enabled:
         raise WorkspaceError(f"integration {integration.id} is disabled")
     if event not in integration.allowed_events:
         raise WorkspaceError(f"integration {integration.id} does not allow event {event}")
-    if "comment" not in integration.allowed_actions:
-        raise WorkspaceError(f"integration {integration.id} does not allow Linear comments")
+    if action not in integration.allowed_actions:
+        raise WorkspaceError(f"integration {integration.id} does not allow Linear action {action}")
+
+
+def _linear_status_update_payload(work, event: str, target_state: str) -> dict:
+    """Build the offline status-update preview stored on the plan.
+
+    The target is stored by name and state type; the concrete Linear state id
+    is resolved live at send time so plans stay offline and reviewable.
+    """
+    default_type = LINEAR_STATUS_EVENT_STATE_TYPES.get(event, "")
+    if not target_state.strip() and not default_type:
+        raise WorkspaceError(
+            f"event {event} has no default Linear state; pass --to-state STATE-NAME"
+        )
+    issue_key = work.external_key or work.external_id
+    team_key = issue_key.split("-", 1)[0] if "-" in issue_key else ""
+    if not work.external_id:
+        raise WorkspaceError(
+            f"work item {work.id} has no Linear issue id; run `palari linear sync {issue_key} --json` first"
+        )
+    if not team_key:
+        raise WorkspaceError(
+            f"work item {work.id} has no team-qualified Linear key; run `palari linear sync` first"
+        )
+    return {
+        "provider": "linear",
+        "operation": "issueUpdate",
+        "action": "update_issue",
+        "issue_id": work.external_id,
+        "issue_key": issue_key,
+        "issue_url": work.external_url,
+        "team_key": team_key,
+        "target_state_name": target_state.strip(),
+        "target_state_type": default_type,
+        "note": "State id is resolved live at send time from the team workflow states.",
+    }
+
+
+def _execute_status_update(client, payload_preview: dict, *, work) -> dict:
+    """Resolve the target workflow state live and apply the issueUpdate."""
+    preview = payload_preview if isinstance(payload_preview, dict) else {}
+    issue_id = _string(preview.get("issue_id")) or work.external_id
+    team_key = _string(preview.get("team_key"))
+    target_name = _string(preview.get("target_state_name"))
+    target_type = _string(preview.get("target_state_type"))
+    if not issue_id or not team_key:
+        raise WorkspaceError("status update payload is missing issue_id or team_key")
+    states = client.team_states(team_key)
+    state = _resolve_workflow_state(states, target_name, target_type)
+    return client.update_issue_state(issue_id, state["id"])
+
+
+def _resolve_workflow_state(states: list, target_name: str, target_type: str) -> dict:
+    named = [
+        state
+        for state in states
+        if target_name and _string(state.get("name")).lower() == target_name.lower()
+    ]
+    if named:
+        return named[0]
+    if target_name:
+        available = ", ".join(_string(state.get("name")) for state in states) or "none"
+        raise WorkspaceError(
+            f"Linear team has no workflow state named {target_name!r} (available: {available})"
+        )
+    typed = [state for state in states if _string(state.get("type")) == target_type]
+    if typed:
+        return typed[0]
+    raise WorkspaceError(
+        f"Linear team has no workflow state of type {target_type!r}; "
+        "pass --to-state STATE-NAME when planning the update"
+    )
+
+
+def _provider_response_summary(action: str, response: dict) -> dict:
+    if action == "update_issue":
+        raw_state = response.get("state")
+        state = raw_state if isinstance(raw_state, dict) else {}
+        return {
+            "id": _string(response.get("id")),
+            "url": _string(response.get("url")),
+            "state_name": _string(state.get("name")),
+            "state_type": _string(state.get("type")),
+        }
+    return _comment_response(response)
 
 
 def _linear_comment_body(event: str, status_payload: dict[str, Any], work: WorkItem) -> str:

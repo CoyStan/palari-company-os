@@ -34,7 +34,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **141**.
+Current CLI command count from parser inspection: **144**.
 
 The command surface is intentionally broad because Palari exposes primitive
 record operations directly. New commands should be rare. Prefer docs, examples,
@@ -48,6 +48,7 @@ produce reviewable payload previews and approved outbox records, but this CLI
 does not execute live provider calls for them.
 
 Linear is the only current live provider path. It is limited to governed issue
-reads/imports, approved comment sends, and verified Issue webhooks. Palari
-remains the source of truth for authority, scope, evidence, receipts, and
-acceptance.
+reads/imports, approved comment sends, approved issue status updates, and
+verified Issue webhooks. Every live write requires a recorded plan, a human
+approval, and a queued outbox item first. Palari remains the source of truth
+for authority, scope, evidence, receipts, and acceptance.

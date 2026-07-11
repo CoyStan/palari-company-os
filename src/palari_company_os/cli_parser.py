@@ -483,6 +483,33 @@ def _add_linear_parser(subparsers: Any) -> None:
     )
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
 
+    connect = nested.add_parser(
+        "connect",
+        help="Verify Linear credentials and prepare the governed integration record.",
+    )
+    connect.add_argument(
+        "--as",
+        dest="actor",
+        default="",
+        help="Acting human or Palari id. Defaults to the workspace admin.",
+    )
+    connect.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    issues = nested.add_parser(
+        "issues",
+        help="List open Linear issues for one team with local link state.",
+    )
+    issues.add_argument("--team", default="", help="Linear team key, e.g. ENG.")
+    issues.add_argument("--limit", type=int, default=25, help="Maximum issues to list.")
+    issues.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    sync = nested.add_parser(
+        "sync",
+        help="Pull one Linear issue and refresh linked local records.",
+    )
+    sync.add_argument("issue_key")
+    sync.add_argument("--json", action="store_true", help="Emit JSON.")
+
     linked = nested.add_parser(
         "linked",
         help="List all Palari proposals and work items linked to Linear.",
@@ -661,6 +688,18 @@ def _add_linear_parser(subparsers: Any) -> None:
         help="Palari event to post back to Linear.",
     )
     post_gate.add_argument("--actor", required=True, help="Acting Palari or human id.")
+    post_gate.add_argument(
+        "--action",
+        default="comment",
+        choices=["comment", "update-issue"],
+        help="Provider action to plan: comment (default) or update-issue.",
+    )
+    post_gate.add_argument(
+        "--to-state",
+        dest="to_state",
+        default="",
+        help="Explicit Linear workflow state name for update-issue plans.",
+    )
     post_gate.add_argument("--json", action="store_true", help="Emit JSON.")
 
     send = nested.add_parser(

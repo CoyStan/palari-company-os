@@ -512,6 +512,9 @@ For the short end-to-end operating path, see
 
 ```bash
 ./bin/palari linear doctor --json
+./bin/palari linear connect --json
+./bin/palari linear issues --team ENG --json
+./bin/palari linear sync ENG-123 --json
 ./bin/palari linear linked --json
 ./bin/palari linear issue ENG-123 --json
 ./bin/palari linear import ENG-123 --as PALARI-SOFIA --json
@@ -524,8 +527,24 @@ For the short end-to-end operating path, see
 ./bin/palari linear webhook verify --payload-file payload.json --signature HEX --timestamp MS --json
 ./bin/palari linear webhook events --limit 20 --json
 ./bin/palari linear post-gate ENG-123 --record --event review_requested --actor PALARI-SOFIA --json
+./bin/palari linear post-gate ENG-123 --record --event work_completed --action update-issue --actor PALARI-SOFIA --json
 ./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
 ```
+
+`linear connect` verifies `LINEAR_API_KEY` against Linear (viewer,
+organization, and visible teams) and prepares the governed integration record.
+Without a key it still prepares the record and reports the missing credential
+as a structured blocker with next steps. `linear issues` lists open issues for
+one team, annotated with palari-block presence and local link state. `linear
+sync` pull-refreshes one linked issue with the same non-destructive updates as
+a verified webhook event — no tunnel required.
+
+`linear post-gate --action update-issue` plans a governed issue status update
+instead of a comment. The plan stores the target workflow state by name or by
+default state type (`work_started`/`review_requested` -> started,
+`work_completed` -> completed; `work_blocked` requires `--to-state`); the
+concrete Linear state id is resolved live at send time. The same human
+approval, enqueue, and `linear send` gates apply as for comments.
 
 Linear can be the human-facing issue surface while Palari remains the
 governance and runtime layer. The adapter uses Linear's stable GraphQL API with
@@ -534,8 +553,9 @@ value. Inbound webhooks use `LINEAR_WEBHOOK_SECRET`; Palari stores only
 `env:LINEAR_WEBHOOK_SECRET`, never the secret value. `linear doctor`, `linear
 linked`, `linear status`, `linear block-template`, `linear webhook verify`,
 `linear webhook events`, and `linear post-gate` are local/read-model or
-plan-only commands. `linear issue`, `linear import`, `linear start`, `linear
-inspect-block`, and `linear send` need live Linear GraphQL access. `linear
+plan-only commands. `linear connect`, `linear issue`, `linear issues`, `linear
+import`, `linear start`, `linear inspect-block`, `linear sync`, and `linear
+send` need live Linear GraphQL access. `linear
 webhook serve` does not call GraphQL, but it accepts verified inbound Linear
 webhooks.
 

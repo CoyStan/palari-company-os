@@ -39,12 +39,71 @@ mutation PalariLinearComment($issueId: String!, $body: String!) {
 }
 """
 
+LINEAR_VIEWER_QUERY = """
+query PalariLinearViewer {
+  viewer { id name email }
+  organization { id name urlKey }
+  teams(first: 25) { nodes { id key name } }
+}
+"""
+
+LINEAR_TEAM_ISSUES_QUERY = """
+query PalariLinearTeamIssues($teamKey: String!, $first: Int!) {
+  issues(
+    first: $first
+    filter: { team: { key: { eq: $teamKey } }, state: { type: { neq: "completed" } } }
+    orderBy: updatedAt
+  ) {
+    nodes {
+      id
+      identifier
+      title
+      description
+      url
+      updatedAt
+      state { id name type }
+      team { id key name }
+      assignee { id name email }
+    }
+  }
+}
+"""
+
+LINEAR_TEAM_STATES_QUERY = """
+query PalariLinearTeamStates($teamKey: String!) {
+  workflowStates(first: 50, filter: { team: { key: { eq: $teamKey } } }) {
+    nodes { id name type position }
+  }
+}
+"""
+
+LINEAR_ISSUE_STATE_MUTATION = """
+mutation PalariLinearIssueState($issueId: String!, $stateId: String!) {
+  issueUpdate(id: $issueId, input: { stateId: $stateId }) {
+    success
+    issue { id identifier url state { id name type } }
+  }
+}
+"""
+
 
 class LinearIssueClient(Protocol):
     def issue(self, identifier: str) -> dict[str, Any]:
         ...
 
     def create_comment(self, issue_id: str, body: str) -> dict[str, Any]:
+        ...
+
+    def viewer(self) -> dict[str, Any]:
+        ...
+
+    def team_issues(self, team_key: str, *, first: int = 25) -> list[dict[str, Any]]:
+        ...
+
+    def team_states(self, team_key: str) -> list[dict[str, Any]]:
+        ...
+
+    def update_issue_state(self, issue_id: str, state_id: str) -> dict[str, Any]:
         ...
 
 
@@ -81,6 +140,76 @@ class LinearClient:
                 next_action="Check the Linear issue key/id and that the API key can read the workspace.",
             )
         return normalize_issue(issue, fallback_identifier=identifier)
+
+    def viewer(self) -> dict[str, Any]:
+        payload = self.request(LINEAR_VIEWER_QUERY, {})
+        viewer = payload.get("viewer")
+        if not isinstance(viewer, dict):
+            raise LinearAdapterError(
+                "Linear viewer query did not return the authenticated user",
+                code="LINEAR_UNSUPPORTED_RESPONSE",
+                next_action="Check LINEAR_API_KEY validity with `palari linear connect --json`.",
+            )
+        organization = payload.get("organization")
+        teams = payload.get("teams")
+        team_nodes = teams.get("nodes", []) if isinstance(teams, dict) else []
+        return {
+            "viewer": _plain_mapping(viewer, ["id", "name", "email"]),
+            "organization": _plain_mapping(organization, ["id", "name", "urlKey"]),
+            "teams": [
+                _plain_mapping(team, ["id", "key", "name"])
+                for team in team_nodes
+                if isinstance(team, dict)
+            ],
+        }
+
+    def team_issues(self, team_key: str, *, first: int = 25) -> list[dict[str, Any]]:
+        payload = self.request(
+            LINEAR_TEAM_ISSUES_QUERY,
+            {"teamKey": team_key, "first": max(1, min(first, 100))},
+        )
+        issues = payload.get("issues")
+        nodes = issues.get("nodes", []) if isinstance(issues, dict) else []
+        return [normalize_issue(node) for node in nodes if isinstance(node, dict)]
+
+    def team_states(self, team_key: str) -> list[dict[str, Any]]:
+        payload = self.request(LINEAR_TEAM_STATES_QUERY, {"teamKey": team_key})
+        states = payload.get("workflowStates")
+        nodes = states.get("nodes", []) if isinstance(states, dict) else []
+        results = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            state = _plain_mapping(node, ["id", "name", "type"])
+            if state.get("id"):
+                results.append(state)
+        return results
+
+    def update_issue_state(self, issue_id: str, state_id: str) -> dict[str, Any]:
+        payload = self.request(
+            LINEAR_ISSUE_STATE_MUTATION,
+            {"issueId": issue_id, "stateId": state_id},
+        )
+        result = payload.get("issueUpdate")
+        if not isinstance(result, dict) or not result.get("success"):
+            raise LinearAdapterError(
+                "Linear issueUpdate did not return success",
+                code="LINEAR_ISSUE_UPDATE_FAILED",
+                next_action="Inspect the queued outbox item and retry after confirming Linear access.",
+            )
+        issue = result.get("issue")
+        if not isinstance(issue, dict):
+            raise LinearAdapterError(
+                "Linear issueUpdate did not return the issue",
+                code="LINEAR_UNSUPPORTED_RESPONSE",
+                next_action="Do not retry blindly; inspect the provider response shape against Linear's API.",
+            )
+        return {
+            "id": _string(issue.get("id")),
+            "identifier": _string(issue.get("identifier")),
+            "url": _string(issue.get("url")),
+            "state": _plain_mapping(issue.get("state"), ["id", "name", "type"]),
+        }
 
     def create_comment(self, issue_id: str, body: str) -> dict[str, Any]:
         payload = self.request(

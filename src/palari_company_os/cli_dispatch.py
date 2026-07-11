@@ -350,15 +350,18 @@ def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "linear":
         from .linear_adapter import (
             linear_block_template,
+            linear_connect,
             linear_doctor,
             linear_import,
             linear_inspect_block,
             linear_issue,
+            linear_issues,
             linear_linked,
             linear_post_gate,
             linear_send,
             linear_start,
             linear_status,
+            linear_sync,
         )
         from .linear_webhook import (
             linear_webhook_events,
@@ -368,6 +371,24 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
         if args.linear_command == "doctor":
             return CommandResult("linear", linear_doctor(args.workspace), args.json)
+        if args.linear_command == "connect":
+            return CommandResult(
+                "linear",
+                linear_connect(args.workspace, actor=args.actor),
+                args.json,
+            )
+        if args.linear_command == "issues":
+            return CommandResult(
+                "linear",
+                linear_issues(args.workspace, team_key=args.team, limit=args.limit),
+                args.json,
+            )
+        if args.linear_command == "sync":
+            return CommandResult(
+                "linear",
+                linear_sync(args.workspace, args.issue_key),
+                args.json,
+            )
         if args.linear_command == "linked":
             return CommandResult("linear", linear_linked(args.workspace), args.json)
         if args.linear_command == "issue":
@@ -466,6 +487,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     event=args.event,
                     actor=args.actor,
                     record=args.record,
+                    action=args.action.replace("-", "_"),
+                    target_state=args.to_state,
                 ),
                 args.json,
             )

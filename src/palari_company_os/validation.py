@@ -481,6 +481,7 @@ INTEGRATION_EVENTS = {
     "approval_requested",
     "incident_opened",
     "review_requested",
+    "work_started",
     "work_completed",
     "work_blocked",
 }

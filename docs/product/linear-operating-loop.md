@@ -4,6 +4,25 @@ Linear can be the human-facing work surface while Palari remains the local
 governance and runtime layer. This loop is optional; the first-run Palari demo
 does not require Linear, API keys, OAuth, or a hosted service.
 
+## Connect Once
+
+Create a personal API key at <https://linear.app/settings/api>, export it, and
+verify the connection. `connect` also prepares the local integration record
+(allowed events and actions), so it is safe to run before the key exists — it
+reports the missing credential as a structured blocker instead of failing.
+
+```bash
+export LINEAR_API_KEY=...
+./bin/palari linear connect --json
+```
+
+Discover work directly from Linear. Each issue is annotated with whether it
+carries a `palari` block and which local proposal or work item it links to:
+
+```bash
+./bin/palari linear issues --team ENG --json
+```
+
 ## Minimal Issue Loop
 
 Check local readiness:
@@ -69,6 +88,38 @@ approved comment:
 ./bin/palari linear send OUTBOX-ID --by HUMAN-FOUNDER --confirm --json
 ```
 
+## Governed Status Write-Back
+
+The same plan/approve/enqueue/send gates can move the Linear issue itself.
+Plan a status update instead of a comment (plans are offline previews; the
+concrete Linear state id is resolved live at send time):
+
+```bash
+./bin/palari linear post-gate ENG-123 \
+  --record \
+  --event work_completed \
+  --action update-issue \
+  --actor PALARI-SOFIA \
+  --json
+```
+
+Events map to workflow state types by default (`work_started` and
+`review_requested` -> started, `work_completed` -> completed). Pass
+`--to-state "In Review"` to target an exact state name; `work_blocked` always
+requires an explicit `--to-state`. After human approval and enqueue, the same
+`linear send` command executes the state change through `issueUpdate` and
+records the provider response on the outbox item.
+
+## Pull Sync Without Webhooks
+
+Refresh linked records from Linear on demand — the same non-destructive
+updates as a verified webhook event (external refs always; title/summary only
+for pre-adoption proposals):
+
+```bash
+./bin/palari linear sync ENG-123 --json
+```
+
 ## Webhook Dogfood Loop
 
 Inbound webhooks are for private local dogfooding. Set the webhook secret in the
@@ -108,7 +159,9 @@ rewrite scope, risk, evidence, review, receipts, or acceptance.
 
 ## Intentional Non-Goals
 
-This slice does not add OAuth, Linear status writes, Linear label writes,
-Linear Agent Sessions, background runners, hosted sync, or provider writes
-beyond already-approved Linear comments. Palari remains the source of truth for
-authority, scope, evidence, receipts, and acceptance.
+Linear status writes exist only through the approved plan/outbox path above —
+there is no autonomous or unattended write. Beyond that, this slice does not
+add OAuth, Linear label writes, Linear Agent Sessions, background runners,
+hosted sync, or provider writes beyond already-approved Linear comments and
+status updates. Palari remains the source of truth for authority, scope,
+evidence, receipts, and acceptance.

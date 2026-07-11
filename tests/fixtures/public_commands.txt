@@ -23,6 +23,9 @@ palari integration outbox-check
 palari integration outbox-cancel
 palari linear
 palari linear doctor
+palari linear connect
+palari linear issues
+palari linear sync
 palari linear linked
 palari linear issue
 palari linear import
