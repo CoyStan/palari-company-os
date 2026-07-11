@@ -9,6 +9,23 @@ repository milestones, not a production Company OS release.
 
 ## [0.2.0] - 2026-07-11
 
+### Fixed
+
+- Fixed the Release workflow's changelog-notes extraction, whose regex crashed
+  at compile time and would have failed every tagged release before
+  publishing. The workflow now also verifies the tag matches the package
+  version before building.
+
+### Changed
+
+- The README now lists the governed Linear adapter as implemented and states
+  the live-write boundary precisely: approval-gated Linear comment sends are
+  the one live external write path.
+- `./scripts/verify.sh` now smokes `linear doctor --json` against the dogfood
+  workspace.
+- Documented the tag-to-PyPI release flow and the one-time trusted-publishing
+  setup in release-and-operations.
+
 ### Added
 
 - Added a two-minute onramp for existing repos: `palari init` creates a

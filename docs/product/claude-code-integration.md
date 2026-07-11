@@ -96,6 +96,10 @@ their execute-mode write paths. Pin one Claude session to one claim with the
 - The Stop hook inspects `git status`, so uncommitted out-of-boundary changes
   that predate the session will also block a stop. The block message says how
   to proceed; start agent sessions from a clean tree to avoid it.
+- The PreToolUse matcher includes `Bash`, so every shell command in a hooked
+  session invokes `palari` once. The handler reads only claim and packet
+  files (no workspace load), so this is fast in practice — but if a hooked
+  session ever feels sluggish, this is the first place to look.
 - This is enforcement for Claude Code specifically. Other harnesses keep the
   cooperative contract from [agent-contract.md](agent-contract.md) until they
   grow their own adapters.

@@ -110,6 +110,9 @@ Implemented now:
 - source and receipt trust records
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
+- a governed Linear adapter: issue reads and imports, human-approved comment
+  sends, and verified Issue webhooks
+  ([Linear Operating Loop](docs/product/linear-operating-loop.md))
 - external playbook recommendations as lightweight guidance
 - example and dogfood workspaces
 - CI, local verification, and install smoke tests
@@ -122,7 +125,9 @@ Not implemented yet:
 - real broker execution
 - real policy acceptance
 - secret manager or signed key custody
-- autonomous acceptance, merge, push, deploy, or live external writes
+- autonomous acceptance, merge, push, or deploy
+- live external writes outside the approved Linear path (Linear comment sends
+  are the one live write, and each requires an approved plan first)
 
 ## Try More Locally
 
