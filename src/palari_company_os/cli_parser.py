@@ -116,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_linear_parser(subparsers)
     _add_agent_parser(subparsers)
     _add_claude_parser(subparsers)
+    _add_git_parser(subparsers)
     _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
@@ -294,6 +295,32 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+    done = nested.add_parser(
+        "done",
+        help="Auto-record proof and complete an R1/light work item in one step.",
+    )
+    done.add_argument("work_id")
+    done.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    done.add_argument(
+        "--changed",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Changed path to record. Repeat for multiple paths.",
+    )
+    done.add_argument(
+        "--head-sha",
+        dest="head_sha",
+        default="",
+        help="Head SHA for attempt closeout. Defaults to empty.",
+    )
+    done.add_argument(
+        "--model-or-worker",
+        dest="model_or_worker",
+        default="",
+        help="Model or worker label for the attempt record.",
+    )
+    done.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_claude_parser(subparsers: Any) -> None:
@@ -359,6 +386,47 @@ def _add_claude_parser(subparsers: Any) -> None:
         action="store_true",
         help="Ask a human before writes that no active claim covers.",
     )
+
+
+def _add_git_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "git",
+        help="Enforce packet write boundaries at git commit time (IDE-agnostic).",
+    )
+    nested = parser.add_subparsers(dest="git_command", required=True)
+
+    install = nested.add_parser(
+        "install",
+        help="Install or remove the Palari pre-commit hook in .git/hooks/.",
+    )
+    install.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root. Defaults to the current directory.",
+    )
+    install.add_argument(
+        "--remove",
+        action="store_true",
+        help="Remove the Palari-managed pre-commit hook instead of installing it.",
+    )
+    install.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    pre_commit_cmd = nested.add_parser(
+        "pre-commit",
+        help="Check staged files against active claim boundaries (run by the hook).",
+    )
+    pre_commit_cmd.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    status = nested.add_parser(
+        "status",
+        help="Show installed Palari git hooks and active claims.",
+    )
+    status.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root. Defaults to the current directory.",
+    )
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_docs_parser(subparsers: Any) -> None:

@@ -260,7 +260,8 @@
       ],
       "allowed_actions": [
         "comment",
-        "update_issue"
+        "update_issue",
+        "create_issue"
       ],
       "secret_ref": "env:LINEAR_API_KEY",
       "risk_level": "standard",
@@ -354,7 +355,18 @@
         "src/palari_company_os/validation.py",
         "schemas/workspace.schema.json",
         "docs/product/schema-and-validation.md",
-        "src/palari_company_os/data/schemas/workspace.schema.json"
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md",
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md",
+        "AGENTS.md",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "src/palari_company_os/git_hooks.py",
+        "tests/test_git_hooks.py"
       ],
       "status": "active"
     },
@@ -1351,6 +1363,423 @@
       ],
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0022"
+    },
+    {
+      "id": "WORK-0001",
+      "title": "Create SWE-1.7 instructions for Devin usage",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Draft a Devin workflow with SWE-1.7 instructions for using the Palari Company OS repo.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/agent-contract.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/product/command-reference.md",
+        "docs/product/company-os.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/public-surface.md",
+        "docs/product/testing-guide.md",
+        "README.md",
+        "pyproject.toml",
+        "scripts/verify.sh",
+        "bin/palari",
+        ".devin/workflows/palari-swe.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md"
+      ],
+      "conflict_targets": [
+        ".devin/workflows/palari-swe.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A .devin/workflows/palari-swe.md file is created with SWE-1.7 instructions and ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0001"
+    },
+    {
+      "id": "WORK-0002",
+      "title": "Create GLM-5.2 instructions for Devin usage",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Draft a Devin workflow with GLM-5.2-specific instructions for using the Palari Company OS repo.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".devin/workflows/palari-swe.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/agent-contract.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/product/command-reference.md",
+        "docs/product/company-os.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "pyproject.toml",
+        "scripts/verify.sh",
+        "bin/palari",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "conflict_targets": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A .devin/workflows/palari-glm.md file is created with GLM-5.2 instructions and ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0002"
+    },
+    {
+      "id": "WORK-0003",
+      "title": "Improve SWE-1.7 and GLM-5.2 workflow instructions with full proof record steps and pre-completion checklist",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Update both workflow files to include full proof record steps, stale claim recovery as a normal step, and a pre-completion checklist gate.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/agent-contract.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/product/command-reference.md",
+        "README.md",
+        "scripts/verify.sh",
+        "bin/palari",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "conflict_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Both .devin/workflows/palari-swe.md and .devin/workflows/palari-glm.md are updated with complete proof record steps and pre-completion checklists. ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0003"
+    },
+    {
+      "id": "WORK-0004",
+      "title": "Document RECEIPT_READY_REVIEW gate in both workflow files",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Add a note to both workflow files explaining the RECEIPT_READY_REVIEW gate: after closing out an attempt, the agent start may be blocked pending human review. lifecycle complete can still finalize the work item, but the full agent check/finish loop requires an active non-terminal claim.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "docs/product/agent-contract.md",
+        "docs/product/agent-loop-smoke.md",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "conflict_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Both workflow files document the RECEIPT_READY_REVIEW gate and ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0004"
+    },
+    {
+      "id": "WORK-0005",
+      "title": "Add verification failure recovery note to both workflow files",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Add a one-line verification failure recovery note to the pre-completion checklist in both workflow files.",
+      "allowed_resources": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "conflict_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Both workflow files include verification failure recovery guidance and ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0005"
+    },
+    {
+      "id": "WORK-0006",
+      "title": "Move workflow instructions to docs/agent and add pointers",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Move SWE-1.7 and GLM-5.2 instructions from .devin/workflows/ to docs/agent/, replace .devin/workflows/ files with thin pointers, and add a pointer from AGENTS.md.",
+      "allowed_resources": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md",
+        "AGENTS.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md",
+        "AGENTS.md"
+      ],
+      "conflict_targets": [
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md",
+        "AGENTS.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Instructions live in docs/agent/palari-swe.md and docs/agent/palari-glm.md, .devin/workflows/ files point to them, AGENTS.md references them, and ./scripts/verify.sh passes.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-0006"
+    },
+    {
+      "id": "WORK-0007",
+      "title": "Add agent done shortcut for R1 work items",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/product/command-reference.md",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.",
+      "verification_expectations": [
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./bin/palari validate --json"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0099",
+      "external_provider": "linear",
+      "external_id": "7e16ea81-3675-449a-a78f-60ec9c79337f",
+      "external_key": "PAL-5",
+      "external_url": "https://linear.app/palari-lab/issue/PAL-5/add-agent-done-shortcut-for-r1-work-items",
+      "external_updated_at": "2026-07-11T18:36:02.099Z"
+    },
+    {
+      "id": "WORK-0008",
+      "title": "Add git pre-commit hook for IDE-agnostic boundary enforcement",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "Add palari git install/pre-commit/status commands. A pre-commit hook checks staged files against active claim write boundaries and rejects commits with out-of-boundary staged files. IDE-agnostic enforcement that works in any environment. Reuses path_allowed and active_claim_contexts from claude_hooks. Includes tests and docs.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/verification.md",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/path_policy.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_git_hooks.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_git_hooks.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_git_hooks.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "git pre-commit hook blocks commits with out-of-boundary staged files. palari git install installs the hook. palari git status shows hook state. All existing tests pass.",
+      "verification_expectations": [],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0100",
+      "external_provider": "linear",
+      "external_id": "21d1168f-dcd4-4e46-b93a-14da9ec4da27",
+      "external_key": "PAL-6",
+      "external_url": "https://linear.app/palari-lab/issue/PAL-6/add-git-pre-commit-hook-for-ide-agnostic-boundary-enforcement",
+      "external_updated_at": "2026-07-11T18:56:21.995Z"
     }
   ],
   "attempts": [
@@ -1909,6 +2338,153 @@
       "model_or_worker": "claude-code",
       "cleanliness": "clean",
       "result": "Added linear push so Palari-born work items become governed, trackable Linear issues; send links external refs back in the same write."
+    },
+    {
+      "changed_files": [
+        ".devin/workflows/palari-swe.md"
+      ],
+      "id": "ATTEMPT-0001",
+      "work_item_id": "WORK-0001",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "swe-1.7",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T17:29:39Z",
+      "output_targets": [
+        ".devin/workflows/palari-swe.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-0002",
+      "work_item_id": "WORK-0002",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "glm-5.2",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T17:36:51Z",
+      "changed_files": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-glm.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-0003",
+      "work_item_id": "WORK-0003",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "glm-5.2",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T17:40:29Z",
+      "changed_files": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-0004",
+      "work_item_id": "WORK-0004",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "glm-5.2",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T17:42:59Z",
+      "changed_files": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-0005",
+      "work_item_id": "WORK-0005",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "glm-5.2",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T17:54:45Z",
+      "changed_files": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ],
+      "output_targets": [
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-0006",
+      "work_item_id": "WORK-0006",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "model_or_worker": "glm-5.2",
+      "cleanliness": "clean",
+      "head_sha": "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a",
+      "commits": [
+        "8d0f298ca0fc75c4ae6951e3feb5b2312d886d8a"
+      ],
+      "updated_at": "2026-07-11T18:03:00Z",
+      "changed_files": [
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md",
+        ".devin/workflows/palari-swe.md",
+        ".devin/workflows/palari-glm.md",
+        "AGENTS.md"
+      ],
+      "output_targets": [
+        "docs/agent/palari-swe.md",
+        "docs/agent/palari-glm.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-REPO-0099",
+      "work_item_id": "WORK-0007",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "model_or_worker": "GLM-5.2",
+      "cleanliness": "clean",
+      "head_sha": "",
+      "commits": [],
+      "updated_at": "2026-07-11T18:25:21Z"
+    },
+    {
+      "id": "ATTEMPT-REPO-0100",
+      "work_item_id": "WORK-0008",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "model_or_worker": "GLM-5.2",
+      "cleanliness": "clean",
+      "head_sha": "",
+      "commits": [],
+      "updated_at": "2026-07-11T18:55:07Z"
     }
   ],
   "evidence_runs": [
@@ -3204,6 +3780,200 @@
       "attempt_id": "ATTEMPT-REPO-0022",
       "actor": "PALARI-STEWARD",
       "receipt_hash": "sha256:6d58bc52238b13185f2144eb718f364e62d7daf64afb32316b44ef179786592e"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        ".devin/workflows/palari-swe.md"
+      ],
+      "actions_taken": [
+        "ran palari validate"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        ".devin/workflows/palari-swe.md"
+      ],
+      "id": "RECEIPT-0001",
+      "work_item_id": "WORK-0001",
+      "attempt_id": "ATTEMPT-0001",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:9f87aaa78320822d4d799cfbbcbd274b4eb9a7211ab40b1dd8cb9e7ef3fceabb"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "actions_taken": [
+        "ran palari validate"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "id": "RECEIPT-0002",
+      "work_item_id": "WORK-0002",
+      "attempt_id": "ATTEMPT-0002",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:0bc8f07347b03229824b794f49de1e69fa4c50d955ad891cd956267692ebd3c9"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "actions_taken": [
+        "updated GLM-5.2 workflow with restructured loop and pre-completion checklist"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "id": "RECEIPT-0003",
+      "work_item_id": "WORK-0003",
+      "attempt_id": "ATTEMPT-0003",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:2fb3b93d7a2708b665803bc151ff9b8ec76f6b5e21cded4d2c73ac8a61b882cf"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "actions_taken": [
+        "added preferred order to avoid the gate"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "id": "RECEIPT-0004",
+      "work_item_id": "WORK-0004",
+      "attempt_id": "ATTEMPT-0004",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:97d3d4ec673aca9a408406ebc1c52666369239430c7af891caf5eb922a7dbfe5"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "actions_taken": [
+        "added verification failure recovery note to both workflow files"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        ".devin/workflows/palari-glm.md"
+      ],
+      "id": "RECEIPT-0005",
+      "work_item_id": "WORK-0005",
+      "attempt_id": "ATTEMPT-0005",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:cf96bed871f456b3ac64985c66ef0162142bf78220cfbf0a1583722a0fcac774"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "outputs_created": [
+        "AGENTS.md"
+      ],
+      "actions_taken": [
+        "added model-specific instruction pointers to AGENTS.md"
+      ],
+      "not_done": [
+        "No secrets read"
+      ],
+      "undo_refs": [
+        "AGENTS.md"
+      ],
+      "id": "RECEIPT-0006",
+      "work_item_id": "WORK-0006",
+      "attempt_id": "ATTEMPT-0006",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:9ae9711b27b8334fd2b230e9a5c63c6f011edf38428a22abae667bb6e16dae60"
+    },
+    {
+      "actions_taken": [
+        "Implemented agent done shortcut",
+        "Added CLI parser/dispatch/output",
+        "Added tests",
+        "Updated docs"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "not_done": [
+        "No external writes",
+        "No live integrations",
+        "No secrets read"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/agent_done.py",
+        "tests/test_agent_done.py"
+      ],
+      "id": "RECEIPT-REPO-0099",
+      "work_item_id": "WORK-0007",
+      "attempt_id": "ATTEMPT-REPO-0099",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:910ab4a8833aa1e0827d2a1d4a5560e32cf9597aba8b324dafcc457898907340"
+    },
+    {
+      "actions_taken": [
+        "Implemented git pre-commit hook",
+        "Added CLI parser/dispatch/output",
+        "Added tests",
+        "Updated docs"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "tests/test_git_hooks.py",
+        "docs/product/command-reference.md",
+        "docs/product/agent-contract.md"
+      ],
+      "not_done": [
+        "No external writes",
+        "No live integrations",
+        "No secrets read"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/git_hooks.py",
+        "tests/test_git_hooks.py"
+      ],
+      "id": "RECEIPT-REPO-0100",
+      "work_item_id": "WORK-0008",
+      "attempt_id": "ATTEMPT-REPO-0100",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:0cbd6830dae1a7f7fc27938ec5b66182a38cf302c8e237c3773258c6332bda79"
     }
   ],
   "decisions": [
@@ -3268,6 +4038,187 @@
       "what_happened": "The recent validation, history, and hygiene work was merged to main and then represented inside the dogfood workspace.",
       "what_changed": "Palari Company OS now has a real internal workspace that can track its own next repo maturity work.",
       "timestamp": "2026-06-19T03:40:00Z"
+    }
+  ],
+  "integration_plans": [
+    {
+      "id": "PLAN-LINEAR-WORK-0007-CREATE-ISSUE-20260711T183510Z-40ADA7EA",
+      "integration_id": "INT-LINEAR",
+      "work_item_id": "WORK-0007",
+      "event": "work_started",
+      "action": "create_issue",
+      "actor": "PALARI-STEWARD",
+      "status": "approved",
+      "payload_preview": {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": "WORK-0007",
+        "team_key": "PAL",
+        "title": "Add agent done shortcut for R1 work items",
+        "description": "Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\n\nAcceptance: R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\n\nPalari work item: WORK-0007\n\n```palari\n{\n  \"goal\": \"GOAL-REPO-0001\",\n  \"palari\": \"PALARI-STEWARD\",\n  \"risk\": \"R2\",\n  \"intensity\": \"standard\",\n  \"scope\": \"Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\",\n  \"acceptance_target\": \"R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\",\n  \"parallel_policy\": \"independent\",\n  \"allowed_resources\": [\n    \"AGENTS.md\",\n    \"docs/agent/repo-map.md\",\n    \"docs/agent/common-workflows.md\",\n    \"docs/agent/contracts-and-invariants.md\",\n    \"docs/agent/verification.md\",\n    \"docs/product/agent-contract.md\",\n    \"docs/product/agent-loop-smoke.md\",\n    \"docs/product/command-reference.md\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_checks.py\",\n    \"src/palari_company_os/agent_finish.py\",\n    \"src/palari_company_os/models.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\"\n  ],\n  \"allowed_sources\": [\n    \"SOURCE-REPO-FOUNDATION\"\n  ],\n  \"output_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"forbidden_actions\": [\n    \"write outside the declared write paths\"\n  ],\n  \"verification_expectations\": [\n    \"./scripts/verify.sh\",\n    \"python3 -m unittest discover -s tests\",\n    \"./bin/palari validate --json\"\n  ],\n  \"conflict_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ]\n}\n```",
+        "note": "Team id is resolved live at send time; an empty team_key uses the only visible team."
+      },
+      "source_boundary": {
+        "integration_sources": [],
+        "work_allowed_sources": [
+          "SOURCE-REPO-FOUNDATION"
+        ],
+        "shared_sources": [],
+        "shared_source_labels": []
+      },
+      "risk": "standard",
+      "approval_required": true,
+      "timestamp": "2026-07-11T18:35:10Z",
+      "notes": "Linear issue creation preview only. No provider call was made.",
+      "reviewed_by": "HUMAN-FOUNDER",
+      "reviewed_at": "2026-07-11T18:35:43Z",
+      "decision_reason": "Testing Linear integration"
+    },
+    {
+      "id": "PLAN-LINEAR-WORK-0007-CREATE-ISSUE-20260711T183517Z-44CCD03E",
+      "integration_id": "INT-LINEAR",
+      "work_item_id": "WORK-0007",
+      "event": "work_started",
+      "action": "create_issue",
+      "actor": "PALARI-STEWARD",
+      "status": "pending-approval",
+      "payload_preview": {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": "WORK-0007",
+        "team_key": "PAL",
+        "title": "Add agent done shortcut for R1 work items",
+        "description": "Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\n\nAcceptance: R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\n\nPalari work item: WORK-0007\n\n```palari\n{\n  \"goal\": \"GOAL-REPO-0001\",\n  \"palari\": \"PALARI-STEWARD\",\n  \"risk\": \"R2\",\n  \"intensity\": \"standard\",\n  \"scope\": \"Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\",\n  \"acceptance_target\": \"R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\",\n  \"parallel_policy\": \"independent\",\n  \"allowed_resources\": [\n    \"AGENTS.md\",\n    \"docs/agent/repo-map.md\",\n    \"docs/agent/common-workflows.md\",\n    \"docs/agent/contracts-and-invariants.md\",\n    \"docs/agent/verification.md\",\n    \"docs/product/agent-contract.md\",\n    \"docs/product/agent-loop-smoke.md\",\n    \"docs/product/command-reference.md\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_checks.py\",\n    \"src/palari_company_os/agent_finish.py\",\n    \"src/palari_company_os/models.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\"\n  ],\n  \"allowed_sources\": [\n    \"SOURCE-REPO-FOUNDATION\"\n  ],\n  \"output_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"forbidden_actions\": [\n    \"write outside the declared write paths\"\n  ],\n  \"verification_expectations\": [\n    \"./scripts/verify.sh\",\n    \"python3 -m unittest discover -s tests\",\n    \"./bin/palari validate --json\"\n  ],\n  \"conflict_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ]\n}\n```",
+        "note": "Team id is resolved live at send time; an empty team_key uses the only visible team."
+      },
+      "source_boundary": {
+        "integration_sources": [],
+        "work_allowed_sources": [
+          "SOURCE-REPO-FOUNDATION"
+        ],
+        "shared_sources": [],
+        "shared_source_labels": []
+      },
+      "risk": "standard",
+      "approval_required": true,
+      "timestamp": "2026-07-11T18:35:17Z",
+      "notes": "Linear issue creation preview only. No provider call was made."
+    },
+    {
+      "id": "PLAN-LINEAR-WORK-0008-CREATE-ISSUE-20260711T185529Z-0FA350B4",
+      "integration_id": "INT-LINEAR",
+      "work_item_id": "WORK-0008",
+      "event": "work_started",
+      "action": "create_issue",
+      "actor": "PALARI-STEWARD",
+      "status": "approved",
+      "payload_preview": {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": "WORK-0008",
+        "team_key": "PAL",
+        "title": "Add git pre-commit hook for IDE-agnostic boundary enforcement",
+        "description": "Add palari git install/pre-commit/status commands. A pre-commit hook checks staged files against active claim write boundaries and rejects commits with out-of-boundary staged files. IDE-agnostic enforcement that works in any environment. Reuses path_allowed and active_claim_contexts from claude_hooks. Includes tests and docs.\n\nAcceptance: git pre-commit hook blocks commits with out-of-boundary staged files. palari git install installs the hook. palari git status shows hook state. All existing tests pass.\n\nPalari work item: WORK-0008\n\n```palari\n{\n  \"goal\": \"GOAL-REPO-0001\",\n  \"palari\": \"PALARI-STEWARD\",\n  \"risk\": \"R2\",\n  \"intensity\": \"standard\",\n  \"scope\": \"Add palari git install/pre-commit/status commands. A pre-commit hook checks staged files against active claim write boundaries and rejects commits with out-of-boundary staged files. IDE-agnostic enforcement that works in any environment. Reuses path_allowed and active_claim_contexts from claude_hooks. Includes tests and docs.\",\n  \"acceptance_target\": \"git pre-commit hook blocks commits with out-of-boundary staged files. palari git install installs the hook. palari git status shows hook state. All existing tests pass.\",\n  \"parallel_policy\": \"independent\",\n  \"allowed_resources\": [\n    \"AGENTS.md\",\n    \"docs/agent/repo-map.md\",\n    \"docs/agent/common-workflows.md\",\n    \"docs/agent/contracts-and-invariants.md\",\n    \"docs/agent/verification.md\",\n    \"src/palari_company_os/claude_hooks.py\",\n    \"src/palari_company_os/agent_runtime.py\",\n    \"src/palari_company_os/path_policy.py\",\n    \"src/palari_company_os/agent_file_changes.py\",\n    \"src/palari_company_os/store.py\",\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"allowed_sources\": [\n    \"SOURCE-REPO-FOUNDATION\"\n  ],\n  \"output_targets\": [\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"forbidden_actions\": [\n    \"write outside the declared write paths\"\n  ],\n  \"conflict_targets\": [\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ]\n}\n```",
+        "note": "Team id is resolved live at send time; an empty team_key uses the only visible team."
+      },
+      "source_boundary": {
+        "integration_sources": [],
+        "work_allowed_sources": [
+          "SOURCE-REPO-FOUNDATION"
+        ],
+        "shared_sources": [],
+        "shared_source_labels": []
+      },
+      "risk": "standard",
+      "approval_required": true,
+      "timestamp": "2026-07-11T18:55:29Z",
+      "notes": "Linear issue creation preview only. No provider call was made.",
+      "reviewed_by": "HUMAN-FOUNDER",
+      "reviewed_at": "2026-07-11T18:55:50Z",
+      "decision_reason": "Testing git hooks integration push"
+    }
+  ],
+  "integration_outbox": [
+    {
+      "id": "OUTBOX-PLAN-LINEAR-WORK-0007-CREATE-ISSUE-20260711T183510Z-40ADA7EA-20260711T183548Z-7A5444",
+      "plan_id": "PLAN-LINEAR-WORK-0007-CREATE-ISSUE-20260711T183510Z-40ADA7EA",
+      "integration_id": "INT-LINEAR",
+      "work_item_id": "WORK-0007",
+      "event": "work_started",
+      "action": "create_issue",
+      "enqueued_by": "HUMAN-FOUNDER",
+      "status": "sent",
+      "payload_preview": {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": "WORK-0007",
+        "team_key": "PAL",
+        "title": "Add agent done shortcut for R1 work items",
+        "description": "Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\n\nAcceptance: R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\n\nPalari work item: WORK-0007\n\n```palari\n{\n  \"goal\": \"GOAL-REPO-0001\",\n  \"palari\": \"PALARI-STEWARD\",\n  \"risk\": \"R2\",\n  \"intensity\": \"standard\",\n  \"scope\": \"Add a 'palari agent done WORK-ID --as PALARI-ID --json' command that auto-records a minimal attempt, receipt, closes out, and completes R1/light/0-approval work items in one step. For R2+ work, reject with a message directing to the full proof lifecycle. Update CLI parser, dispatch, output, tests, and docs.\",\n  \"acceptance_target\": \"R1 work items can be completed with a single 'agent done' command. R2+ work is rejected with guidance. All existing tests pass and new tests cover the shortcut path.\",\n  \"parallel_policy\": \"independent\",\n  \"allowed_resources\": [\n    \"AGENTS.md\",\n    \"docs/agent/repo-map.md\",\n    \"docs/agent/common-workflows.md\",\n    \"docs/agent/contracts-and-invariants.md\",\n    \"docs/agent/verification.md\",\n    \"docs/product/agent-contract.md\",\n    \"docs/product/agent-loop-smoke.md\",\n    \"docs/product/command-reference.md\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_checks.py\",\n    \"src/palari_company_os/agent_finish.py\",\n    \"src/palari_company_os/models.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\"\n  ],\n  \"allowed_sources\": [\n    \"SOURCE-REPO-FOUNDATION\"\n  ],\n  \"output_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"forbidden_actions\": [\n    \"write outside the declared write paths\"\n  ],\n  \"verification_expectations\": [\n    \"./scripts/verify.sh\",\n    \"python3 -m unittest discover -s tests\",\n    \"./bin/palari validate --json\"\n  ],\n  \"conflict_targets\": [\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"src/palari_company_os/agent_done.py\",\n    \"tests/test_agent_done.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ]\n}\n```",
+        "note": "Team id is resolved live at send time; an empty team_key uses the only visible team."
+      },
+      "source_boundary": {
+        "integration_sources": [],
+        "work_allowed_sources": [
+          "SOURCE-REPO-FOUNDATION"
+        ],
+        "shared_sources": [],
+        "shared_source_labels": []
+      },
+      "risk": "standard",
+      "timestamp": "2026-07-11T18:35:48Z",
+      "notes": "Sent to Linear through issueCreate after approved Palari outbox.",
+      "sent_by": "HUMAN-FOUNDER",
+      "sent_at": "2026-07-11T18:36:02Z",
+      "provider_response": {
+        "id": "7e16ea81-3675-449a-a78f-60ec9c79337f",
+        "key": "PAL-5",
+        "url": "https://linear.app/palari-lab/issue/PAL-5/add-agent-done-shortcut-for-r1-work-items",
+        "state_name": "Backlog"
+      }
+    },
+    {
+      "id": "OUTBOX-PLAN-LINEAR-WORK-0008-CREATE-ISSUE-20260711T185529Z-0FA350B4-20260711T185602Z-95B53A",
+      "plan_id": "PLAN-LINEAR-WORK-0008-CREATE-ISSUE-20260711T185529Z-0FA350B4",
+      "integration_id": "INT-LINEAR",
+      "work_item_id": "WORK-0008",
+      "event": "work_started",
+      "action": "create_issue",
+      "enqueued_by": "HUMAN-FOUNDER",
+      "status": "sent",
+      "payload_preview": {
+        "provider": "linear",
+        "operation": "issueCreate",
+        "action": "create_issue",
+        "work_item_id": "WORK-0008",
+        "team_key": "PAL",
+        "title": "Add git pre-commit hook for IDE-agnostic boundary enforcement",
+        "description": "Add palari git install/pre-commit/status commands. A pre-commit hook checks staged files against active claim write boundaries and rejects commits with out-of-boundary staged files. IDE-agnostic enforcement that works in any environment. Reuses path_allowed and active_claim_contexts from claude_hooks. Includes tests and docs.\n\nAcceptance: git pre-commit hook blocks commits with out-of-boundary staged files. palari git install installs the hook. palari git status shows hook state. All existing tests pass.\n\nPalari work item: WORK-0008\n\n```palari\n{\n  \"goal\": \"GOAL-REPO-0001\",\n  \"palari\": \"PALARI-STEWARD\",\n  \"risk\": \"R2\",\n  \"intensity\": \"standard\",\n  \"scope\": \"Add palari git install/pre-commit/status commands. A pre-commit hook checks staged files against active claim write boundaries and rejects commits with out-of-boundary staged files. IDE-agnostic enforcement that works in any environment. Reuses path_allowed and active_claim_contexts from claude_hooks. Includes tests and docs.\",\n  \"acceptance_target\": \"git pre-commit hook blocks commits with out-of-boundary staged files. palari git install installs the hook. palari git status shows hook state. All existing tests pass.\",\n  \"parallel_policy\": \"independent\",\n  \"allowed_resources\": [\n    \"AGENTS.md\",\n    \"docs/agent/repo-map.md\",\n    \"docs/agent/common-workflows.md\",\n    \"docs/agent/contracts-and-invariants.md\",\n    \"docs/agent/verification.md\",\n    \"src/palari_company_os/claude_hooks.py\",\n    \"src/palari_company_os/agent_runtime.py\",\n    \"src/palari_company_os/path_policy.py\",\n    \"src/palari_company_os/agent_file_changes.py\",\n    \"src/palari_company_os/store.py\",\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"allowed_sources\": [\n    \"SOURCE-REPO-FOUNDATION\"\n  ],\n  \"output_targets\": [\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ],\n  \"forbidden_actions\": [\n    \"write outside the declared write paths\"\n  ],\n  \"conflict_targets\": [\n    \"src/palari_company_os/git_hooks.py\",\n    \"src/palari_company_os/cli_parser.py\",\n    \"src/palari_company_os/cli_dispatch.py\",\n    \"src/palari_company_os/cli_output.py\",\n    \"tests/test_git_hooks.py\",\n    \"docs/product/command-reference.md\",\n    \"docs/product/agent-contract.md\"\n  ]\n}\n```",
+        "note": "Team id is resolved live at send time; an empty team_key uses the only visible team."
+      },
+      "source_boundary": {
+        "integration_sources": [],
+        "work_allowed_sources": [
+          "SOURCE-REPO-FOUNDATION"
+        ],
+        "shared_sources": [],
+        "shared_source_labels": []
+      },
+      "risk": "standard",
+      "timestamp": "2026-07-11T18:56:02Z",
+      "notes": "Sent to Linear through issueCreate after approved Palari outbox.",
+      "sent_by": "HUMAN-FOUNDER",
+      "sent_at": "2026-07-11T18:56:22Z",
+      "provider_response": {
+        "id": "21d1168f-dcd4-4e46-b93a-14da9ec4da27",
+        "key": "PAL-6",
+        "url": "https://linear.app/palari-lab/issue/PAL-6/add-git-pre-commit-hook-for-ide-agnostic-boundary-enforcement",
+        "state_name": "Backlog"
+      }
     }
   ]
 }

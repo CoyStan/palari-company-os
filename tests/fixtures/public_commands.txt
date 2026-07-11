@@ -50,10 +50,15 @@ palari agent finish
 palari agent handoff
 palari agent loop
 palari agent doctor
+palari agent done
 palari claude
 palari claude install
 palari claude status
 palari claude hook
+palari git
+palari git install
+palari git pre-commit
+palari git status
 palari workspace
 palari workspace init
 palari mcp

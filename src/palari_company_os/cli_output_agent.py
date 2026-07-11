@@ -402,3 +402,18 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  {command}")
 
 
+def print_agent_done(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Agent done: {payload['work_item']}")
+    print(f"Status: {payload['status']}")
+    print(f"Can done: {_yes_no(payload.get('can_done', False))}")
+    if payload.get("message"):
+        print(payload["message"])
+    for step in payload.get("steps", []):
+        label = step.get("step", "")
+        status = step.get("status", "")
+        step_id = step.get("id", "")
+        detail_str = f" {step_id}" if step_id else ""
+        print(f"  {label}{detail_str}: {status}")

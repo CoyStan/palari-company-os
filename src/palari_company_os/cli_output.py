@@ -7,6 +7,7 @@ from .cli_output_agent import (
     print_agent_brief,
     print_agent_check,
     print_agent_doctor,
+    print_agent_done,
     print_agent_finish,
     print_agent_handoff,
     print_agent_loop,
@@ -162,6 +163,10 @@ def print_result(result: CommandResult) -> None:
         print_agent_doctor(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-done":
+        print_agent_done(result.payload, result.as_json)
+        return
+
     if result.kind == "review-guide":
         print_review_guide(result.payload, result.as_json)
         return
@@ -204,6 +209,27 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "claude-status":
         print_claude_status(result.payload, result.as_json)
+        return
+
+    if result.kind == "git-install":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_git_install(result.payload)
+        return
+
+    if result.kind == "git-pre-commit":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_git_pre_commit(result.payload)
+        return
+
+    if result.kind == "git-status":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_git_status(result.payload)
         return
 
     if result.kind == "workspace-init":
@@ -1023,3 +1049,44 @@ def _present_label(record: dict[str, Any]) -> str:
         return "missing"
     identifier = record.get("id", "present")
     return str(identifier)
+
+
+def print_git_install(payload: dict[str, Any]) -> None:
+    print(f"Palari git hook: {payload['status']}")
+    print(f"Hook path: {payload.get('hook_path', '')}")
+    print(payload.get("message", ""))
+
+
+def print_git_pre_commit(payload: dict[str, Any]) -> None:
+    status = payload.get("status", "")
+    print(f"Palari pre-commit: {status}")
+    print(payload.get("message", ""))
+    if payload.get("outside"):
+        print("Outside boundary:")
+        for path in payload["outside"]:
+            print(f"  - {path}")
+    if payload.get("allowed"):
+        print("Allowed:")
+        for path in payload["allowed"]:
+            print(f"  - {path}")
+
+
+def print_git_status(payload: dict[str, Any]) -> None:
+    print(f"Palari git hook installed: {_yes_no(payload.get('installed', False))}")
+    if payload.get("hook_path"):
+        print(f"Hook path: {payload['hook_path']}")
+    if payload.get("git_root"):
+        print(f"Git root: {payload['git_root']}")
+    claims = payload.get("active_claims", [])
+    if claims:
+        print("Active claims:")
+        for claim in claims:
+            writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
+            print(
+                f"  {claim['work_item']} by {claim['claimed_by']} "
+                f"(mode {claim['mode']}, lease {claim['lease_expires_at']})"
+            )
+            print(f"    allowed writes: {writes}")
+    else:
+        print("Active claims: none")
+    print(payload.get("message", ""))

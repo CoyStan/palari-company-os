@@ -43,10 +43,14 @@ The v1 loop is:
     plain-language diagnosis of the current safety state.
 14. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-15. Run `palari validate --json`.
-16. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
+15. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
+    PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
+    completes the work item in one step. For R2+ work, use the full lifecycle
+    above.
+16. Run `palari validate --json`.
+17. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
     handing off the local claim before completion.
-17. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
+18. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -172,7 +176,11 @@ Implemented:
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
+- `palari agent done WORK-ID --as PALARI-ID --json` (R1/light/0-approval only)
 - `palari agent loop WORK-ID --as PALARI-ID --json`
+- `palari git install` (IDE-agnostic pre-commit boundary enforcement)
+- `palari git status`
+- `palari git pre-commit`
 - compact Palari-specific work candidate discovery
 - compact ready/blocked packets
 - machine-readable packet compliance checks
@@ -275,3 +283,21 @@ receiving the whole workspace.
 answers whether the work is agent-safe, missing proof, blocked, or waiting for a
 human handoff, and lists the next recommended commands without adding authority
 or mutating workspace state.
+
+## Git Pre-Commit Enforcement
+
+`palari git install` writes a pre-commit hook into `.git/hooks/pre-commit` that
+checks staged files against active claim write boundaries. If any staged file is
+outside the boundary, the commit is rejected with a message listing the
+offending files and allowed paths. This provides IDE-agnostic boundary
+enforcement that works in any environment — Windsurf, Cursor, Devin, terminal —
+not just Claude Code.
+
+Unlike Claude Code hooks (which intercept writes before they happen), the git
+hook is reactive: it blocks the commit, not the edit. This means an agent can
+write outside the boundary during a session, but the commit cannot land until
+the out-of-boundary changes are reverted or the boundary is expanded by a human.
+
+`palari git status` shows whether the hook is installed and lists active claims
+with their allowed write paths. `palari git pre-commit` is the check command the
+hook calls; it can also be run manually before committing.

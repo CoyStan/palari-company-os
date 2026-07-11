@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -217,6 +218,22 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 build_agent_doctor(workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
+        if args.agent_command == "done":
+            from .agent_done import agent_done
+
+            return CommandResult(
+                "agent-done",
+                agent_done(
+                    workspace,
+                    args.workspace,
+                    args.work_id,
+                    args.palari_id,
+                    changed=args.changed,
+                    head_sha=args.head_sha,
+                    model_or_worker=args.model_or_worker,
+                ),
+                args.json,
+            )
 
     if args.command == "claude":
         from .claude_hooks import hooks_status, install_hooks, run_hook
@@ -244,6 +261,31 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "claude-status",
                 hooks_status(args.project_dir or Path.cwd(), args.workspace),
+                args.json,
+            )
+
+    if args.command == "git":
+        from .git_hooks import git_hook_status, install_git_hook, pre_commit
+
+        if args.git_command == "install":
+            return CommandResult(
+                "git-install",
+                install_git_hook(
+                    args.project_dir or Path.cwd(),
+                    args.workspace,
+                    remove=args.remove,
+                ),
+                args.json,
+            )
+        if args.git_command == "pre-commit":
+            result = pre_commit(args.workspace, cwd=Path.cwd())
+            if not result["ok"] and not args.json:
+                sys.exit(1)
+            return CommandResult("git-pre-commit", result, args.json)
+        if args.git_command == "status":
+            return CommandResult(
+                "git-status",
+                git_hook_status(args.project_dir or Path.cwd(), args.workspace),
                 args.json,
             )
 

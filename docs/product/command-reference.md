@@ -390,6 +390,22 @@ work item. It includes stage status and exact commands for `brief`, `check`,
 full stage payloads; run the listed command when you need the detailed packet,
 check, finish, or handoff output.
 
+`agent done` is a shortcut for R1/light/0-approval work items only. It
+auto-records a minimal attempt, receipt, and work update; releases and
+re-claims the work item; runs the full check/finish loop; closes out the
+attempt; and completes the work item — all in one command. For R2+ or
+non-light work, it rejects with guidance to use the full proof lifecycle.
+Pass `--changed PATH` for each changed file, `--head-sha` for attempt
+closeout, and `--model-or-worker` to label the attempt.
+
+`git install` writes a Palari-managed pre-commit hook into `.git/hooks/pre-commit`
+that checks staged files against active claim write boundaries. If any staged
+file is outside the boundary, the commit is rejected. This provides IDE-agnostic
+enforcement that works in any environment (Windsurf, Cursor, Devin, terminal).
+Use `--remove` to uninstall. `git status` shows whether the hook is installed
+and lists active claims. `git pre-commit` is the check command the hook calls;
+it can also be run manually.
+
 Queue and detail read models keep `next_commands` oriented toward the human or
 operator step, such as `review guide` or `decision guide`. When a work item is
 waiting on review or a human decision, they also expose `agent_handoff_command`
