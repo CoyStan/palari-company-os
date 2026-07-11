@@ -1275,6 +1275,82 @@
       ],
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-REPO-0021"
+    },
+    {
+      "id": "WORK-REPO-0022",
+      "title": "Publish local work to Linear with governed issue creation",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "completed",
+      "scope": "linear push WORK-ID plans a governed create_issue with the palari block embedded in the description; the existing approve/enqueue/send gates execute it and link the created issue back to the work item, so locally-defined tickets become phone-visible in Linear.",
+      "allowed_resources": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "push plans offline; send creates the issue via the client, stores external refs on the work item, and subsequent status write-back works on the pushed issue; already-linked work is rejected.",
+      "verification_expectations": [
+        "python3 -m unittest tests.test_linear_adapter",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-REPO-0022"
     }
   ],
   "attempts": [
@@ -1802,6 +1878,37 @@
       "model_or_worker": "claude-code",
       "cleanliness": "clean",
       "result": "Completed the governed Linear loop: connect, issues, sync, and approval-gated status write-back, all tested offline against fakes."
+    },
+    {
+      "commits": [
+        "3e4fbb1"
+      ],
+      "changed_files": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "ATTEMPT-REPO-0022",
+      "work_item_id": "WORK-REPO-0022",
+      "actor": "PALARI-STEWARD",
+      "status": "complete",
+      "branch": "claude/repo-evaluation-8tjyqa",
+      "workspace_path": "repo:.",
+      "model_or_worker": "claude-code",
+      "cleanliness": "clean",
+      "result": "Added linear push so Palari-born work items become governed, trackable Linear issues; send links external refs back in the same write."
     }
   ],
   "evidence_runs": [
@@ -3040,6 +3147,63 @@
       "attempt_id": "ATTEMPT-REPO-0021",
       "actor": "PALARI-STEWARD",
       "receipt_hash": "sha256:e8e4f2025806fb9691a1fd019d3fbe1b77a460d666c937384c7951b6e519d2db"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "planned governed issueCreate through existing gates",
+        "embedded palari blocks in pushed issue descriptions",
+        "linked created issues back to work items at send time",
+        "rejected already-linked work",
+        "failed closed on unknown teams"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "not_done": [
+        "No live Linear call (DECISION-REPO-0002 still gates the credential)",
+        "No label writes",
+        "No auto-approval",
+        "No dependencies added"
+      ],
+      "undo_refs": [
+        "src/palari_company_os/linear_core.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_linear_adapter.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "docs/product/linear-operating-loop.md",
+        "docs/product/command-reference.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "CHANGELOG.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "RECEIPT-REPO-0022",
+      "work_item_id": "WORK-REPO-0022",
+      "attempt_id": "ATTEMPT-REPO-0022",
+      "actor": "PALARI-STEWARD",
+      "receipt_hash": "sha256:6d58bc52238b13185f2144eb718f364e62d7daf64afb32316b44ef179786592e"
     }
   ],
   "decisions": [
