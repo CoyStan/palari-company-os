@@ -98,3 +98,29 @@ Use these committed docs before rereading large parts of the repo:
 
 Run `palari docs check --json` after changing public commands, schema,
 agent behavior, gates, integrations, examples, or documentation structure.
+
+## Cursor Cloud specific instructions
+
+Palari Company OS is a pure-Python 3.10+ CLI with zero runtime dependencies
+(stdlib only). The dev environment install is `pip install -e ".[dev]"` (adds
+`ruff` and `mypy`); the startup update script already runs it. No databases,
+services, API keys, or build step are required for development or tests.
+
+Non-obvious caveats for running here:
+
+- Run the CLI with the `./bin/palari ...` wrapper (sets `PYTHONPATH=src`); it
+  needs no install. The installed `palari`/`ruff`/`mypy` console scripts land in
+  `~/.local/bin`, which is NOT on `PATH` — invoke lint/type tools as
+  `python3 -m ruff check .` and `python3 -m mypy` instead.
+- Any interactive command that pauses (notably `palari demo`) calls
+  `input("Press Enter...")` between acts and will hang/abort with no TTY. Pass
+  `--no-pause` (or `--json`) in non-interactive shells, e.g.
+  `./bin/palari demo --no-pause`.
+- `palari serve --as HUMAN-FOUNDER` and `palari desktop-serve` start blocking,
+  local-only HTTP servers (pass `--port` to pin a port). Run them in the
+  background (e.g. tmux) if you need the shell back.
+- Standard checks live in the README "Verification" section and `.github/
+  workflows/ci.yml`: `python3 -S -m unittest discover -s tests`,
+  `python3 -m ruff check .`, `python3 -m mypy`, and `./scripts/verify.sh`
+  (tests + style + CLI smoke). `./scripts/install_smoke.sh` builds/installs a
+  wheel in a throwaway venv.
