@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from .cli_output_agent import (
@@ -183,6 +184,18 @@ def print_result(result: CommandResult) -> None:
             print_json(result.payload)
         else:
             print_governance_payload(result.payload)
+        return
+
+    if result.kind == "claude-hook":
+        print(json.dumps(result.payload))
+        return
+
+    if result.kind == "claude-install":
+        print_claude_install(result.payload, result.as_json)
+        return
+
+    if result.kind == "claude-status":
+        print_claude_status(result.payload, result.as_json)
         return
 
     if result.kind == "workspace-init":
@@ -629,6 +642,49 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
+
+
+def print_claude_install(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Claude Code hooks: {payload['status']}")
+    print(f"Settings file: {payload['settings_file']}")
+    if payload.get("workspace"):
+        print(f"Workspace: {payload['workspace']}")
+    if payload.get("hooks"):
+        print("Hooks:")
+        for event, command in payload["hooks"].items():
+            print(f"  {event}: {command}")
+    if not payload.get("palari_on_path", True):
+        print("Warning: palari is not on PATH; hooks will fail until it is installed.")
+    print(payload["message"])
+
+
+def print_claude_status(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Claude Code enforcement installed: {_yes_no(payload['installed'])}")
+    for item in payload["settings_files"]:
+        events = ", ".join(item["palari_hook_events"]) or "none"
+        strict = " (strict)" if item["strict"] else ""
+        print(f"  {item['path']}: {events}{strict}")
+    if not payload.get("palari_on_path", True):
+        print("Warning: palari is not on PATH; hooks will fail until it is installed.")
+    claims = payload["active_claims"]
+    if claims:
+        print("Active claims:")
+        for claim in claims:
+            writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
+            print(
+                f"  {claim['work_item']} by {claim['claimed_by']} "
+                f"(mode {claim['mode']}, lease {claim['lease_expires_at']})"
+            )
+            print(f"    allowed writes: {writes}")
+    else:
+        print("Active claims: none")
+    print(payload["message"])
 
 
 def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:

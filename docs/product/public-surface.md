@@ -24,6 +24,7 @@ boundaries. Everything else should serve that kernel.
 | Queue, detail, state, history | operator | Derived read models for humans and agents. |
 | Authoring and lifecycle commands | operator | Explicit local mutations of workspace records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
+| Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
 | Slack/GitHub/Jira/email providers | future | Dry-run planning only; no live provider execution. |
 | Dashboard and local serve | visual | Visual supervision surface, not core kernel. |
 | Desktop prototype and desktop serve | visual | Product prototype surface, not core kernel. |
@@ -33,7 +34,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **135**.
+Current CLI command count from parser inspection: **139**.
 
 The command surface is intentionally broad because Palari exposes primitive
 record operations directly. New commands should be rare. Prefer docs, examples,

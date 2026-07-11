@@ -45,6 +45,10 @@ palari agent finish
 palari agent handoff
 palari agent loop
 palari agent doctor
+palari claude
+palari claude install
+palari claude status
+palari claude hook
 palari workspace
 palari workspace init
 palari mcp

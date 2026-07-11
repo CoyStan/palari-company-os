@@ -376,6 +376,27 @@ agent orientation helper for the selected work item.
 Detail and dashboard agent command blocks add review-mode packet/check commands
 when the selected work item is in a review handoff state.
 
+## Claude Code Enforcement
+
+```bash
+./bin/palari --workspace workspaces/palari-company-os claude install
+./bin/palari --workspace workspaces/palari-company-os claude install --local --strict
+./bin/palari --workspace workspaces/palari-company-os claude install --remove
+./bin/palari --workspace workspaces/palari-company-os claude status
+./bin/palari --workspace workspaces/palari-company-os claude status --json
+echo '{"tool_name":"Write","tool_input":{"file_path":"deploy/production.yml"}}' \
+  | ./bin/palari --workspace workspaces/palari-company-os claude hook pre-tool-use
+```
+
+`claude install` writes Palari-managed PreToolUse, Stop, and SessionStart hooks
+into Claude Code settings so the packet write boundary is enforced by the
+harness instead of agent goodwill. `claude hook` is the handler those hooks
+invoke: it reads one hook payload from stdin, checks it against the active
+claims under `.palari/`, and prints a JSON decision. It never mutates workspace
+records and fails open on errors. `claude status` reports installed hooks and
+active claims. See
+[Claude Code Integration](claude-code-integration.md) for the full flow.
+
 ## Playbooks
 
 ```bash

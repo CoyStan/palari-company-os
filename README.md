@@ -94,6 +94,8 @@ Implemented now:
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - file-change boundary checks for `agent check --changed` and `--git-diff`
+- structural boundary enforcement inside Claude Code via `palari claude install`
+  (out-of-boundary writes are denied by hooks, not just reported)
 - source and receipt trust records
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records

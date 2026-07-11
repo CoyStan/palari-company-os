@@ -7,6 +7,16 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+### Added
+
+- Added `palari claude install|status|hook`, a Claude Code enforcement adapter
+  that turns the packet write boundary into structural enforcement: PreToolUse
+  hooks deny out-of-boundary `Write`/`Edit`/`NotebookEdit` calls before the
+  write happens, suspected out-of-boundary Bash writes escalate to a human ask,
+  a Stop hook blocks turn completion while `git status` shows changes outside
+  the boundary, and a SessionStart hook injects the active packet contract.
+  Documented in `docs/product/claude-code-integration.md`.
+
 ## [0.1.2] - 2026-07-06
 
 ### Added

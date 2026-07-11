@@ -218,6 +218,35 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "claude":
+        from .claude_hooks import hooks_status, install_hooks, run_hook
+
+        if args.claude_command == "hook":
+            return CommandResult(
+                "claude-hook",
+                run_hook(args.event, args.workspace, strict=args.strict),
+                True,
+            )
+        if args.claude_command == "install":
+            return CommandResult(
+                "claude-install",
+                install_hooks(
+                    args.project_dir or Path.cwd(),
+                    args.workspace,
+                    settings_file=args.settings_file,
+                    local=args.local,
+                    strict=args.strict,
+                    remove=args.remove,
+                ),
+                args.json,
+            )
+        if args.claude_command == "status":
+            return CommandResult(
+                "claude-status",
+                hooks_status(args.project_dir or Path.cwd(), args.workspace),
+                args.json,
+            )
+
     if args.command == "workspace":
         from .workspace_init import initialize_workspace
 

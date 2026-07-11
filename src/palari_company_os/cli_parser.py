@@ -93,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_integration_parser(subparsers)
     _add_linear_parser(subparsers)
     _add_agent_parser(subparsers)
+    _add_claude_parser(subparsers)
     _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
@@ -271,6 +272,71 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_claude_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "claude",
+        help="Enforce packet write boundaries inside Claude Code sessions.",
+    )
+    nested = parser.add_subparsers(dest="claude_command", required=True)
+
+    install = nested.add_parser(
+        "install",
+        help="Write Palari-managed hooks into Claude Code settings.",
+    )
+    install.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .claude/. Defaults to the current directory.",
+    )
+    install.add_argument(
+        "--settings-file",
+        default="",
+        help="Explicit settings file to write instead of .claude/settings.json.",
+    )
+    install.add_argument(
+        "--local",
+        action="store_true",
+        help="Write .claude/settings.local.json instead of the shared settings.json.",
+    )
+    install.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also ask a human before writes that no active claim covers.",
+    )
+    install.add_argument(
+        "--remove",
+        action="store_true",
+        help="Remove Palari-managed hooks instead of installing them.",
+    )
+    install.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    status = nested.add_parser(
+        "status",
+        help="Show installed Palari hooks and active claims for Claude Code.",
+    )
+    status.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .claude/. Defaults to the current directory.",
+    )
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    hook = nested.add_parser(
+        "hook",
+        help="Run one Claude Code hook event; reads the hook payload from stdin.",
+    )
+    hook.add_argument(
+        "event",
+        choices=["pre-tool-use", "stop", "session-start"],
+        help="Hook event to evaluate.",
+    )
+    hook.add_argument(
+        "--strict",
+        action="store_true",
+        help="Ask a human before writes that no active claim covers.",
+    )
 
 
 def _add_docs_parser(subparsers: Any) -> None:
