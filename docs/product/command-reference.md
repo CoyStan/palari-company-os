@@ -436,6 +436,28 @@ records and fails open on errors. `claude status` reports installed hooks and
 active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
 
+## Cursor Enforcement
+
+```bash
+./bin/palari --workspace workspaces/palari-company-os cursor install
+./bin/palari --workspace workspaces/palari-company-os cursor install --no-git-hook
+./bin/palari --workspace workspaces/palari-company-os cursor install --remove
+./bin/palari --workspace workspaces/palari-company-os cursor status
+./bin/palari --workspace workspaces/palari-company-os cursor status --json
+```
+
+Cursor does not expose a pre-write "deny this edit" hook the way Claude Code
+does, so `cursor install` pairs two layers. It writes an always-applied Cursor
+project rule to `.cursor/rules/palari-boundary.mdc` that tells any Cursor agent
+how to discover and respect its packet boundary, and — unless `--no-git-hook`
+is passed — it also installs the IDE-agnostic git pre-commit hook so the
+boundary is structurally enforced at commit time regardless of editor or model.
+The rule file is static and durable: it points agents at `palari agent`
+commands and `cursor status` rather than embedding per-work-item paths that
+would go stale. `cursor status` reports the installed rule, the git hook, and
+the active claims with their allowed write paths. `--remove` removes the
+Palari-managed rule and hook.
+
 ## Playbooks
 
 ```bash
