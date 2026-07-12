@@ -59,6 +59,9 @@ palari git
 palari git install
 palari git pre-commit
 palari git status
+palari cursor
+palari cursor install
+palari cursor status
 palari workspace
 palari workspace init
 palari mcp

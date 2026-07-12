@@ -232,6 +232,20 @@ def print_result(result: CommandResult) -> None:
             print_git_status(result.payload)
         return
 
+    if result.kind == "cursor-install":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_cursor_install(result.payload)
+        return
+
+    if result.kind == "cursor-status":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_cursor_status(result.payload)
+        return
+
     if result.kind == "workspace-init":
         print_workspace_init(result.payload, result.as_json)
         return
@@ -1077,6 +1091,37 @@ def print_git_status(payload: dict[str, Any]) -> None:
         print(f"Hook path: {payload['hook_path']}")
     if payload.get("git_root"):
         print(f"Git root: {payload['git_root']}")
+    claims = payload.get("active_claims", [])
+    if claims:
+        print("Active claims:")
+        for claim in claims:
+            writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
+            print(
+                f"  {claim['work_item']} by {claim['claimed_by']} "
+                f"(mode {claim['mode']}, lease {claim['lease_expires_at']})"
+            )
+            print(f"    allowed writes: {writes}")
+    else:
+        print("Active claims: none")
+    print(payload.get("message", ""))
+
+
+def print_cursor_install(payload: dict[str, Any]) -> None:
+    print(f"Palari Cursor rule: {payload['status']}")
+    print(f"Rule path: {payload.get('rule_path', '')}")
+    git_hook = payload.get("git_hook")
+    if git_hook is None:
+        print("Git pre-commit hook: skipped (--no-git-hook)")
+    else:
+        print(f"Git pre-commit hook: {git_hook.get('status', '')}")
+    print(payload.get("message", ""))
+
+
+def print_cursor_status(payload: dict[str, Any]) -> None:
+    print(f"Palari Cursor rule installed: {_yes_no(payload.get('installed', False))}")
+    if payload.get("rule_path"):
+        print(f"Rule path: {payload['rule_path']}")
+    print(f"Git pre-commit hook installed: {_yes_no(payload.get('git_hook_installed', False))}")
     claims = payload.get("active_claims", [])
     if claims:
         print("Active claims:")
