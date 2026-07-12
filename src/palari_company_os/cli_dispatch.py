@@ -289,6 +289,27 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
+    if args.command == "cursor":
+        from .cursor_rules import cursor_rules_status, install_cursor_rules
+
+        if args.cursor_command == "install":
+            return CommandResult(
+                "cursor-install",
+                install_cursor_rules(
+                    args.project_dir or Path.cwd(),
+                    args.workspace,
+                    git_hook=not args.no_git_hook,
+                    remove=args.remove,
+                ),
+                args.json,
+            )
+        if args.cursor_command == "status":
+            return CommandResult(
+                "cursor-status",
+                cursor_rules_status(args.project_dir or Path.cwd(), args.workspace),
+                args.json,
+            )
+
     if args.command == "workspace":
         from .workspace_init import initialize_workspace
 

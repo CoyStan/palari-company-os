@@ -40,6 +40,10 @@ When adding a command, update parser, dispatch, output, tests, and
   agent-facing Palari tools.
 - `src/palari_company_os/claude_hooks.py`: Claude Code hook enforcement of the
   packet write boundary (PreToolUse deny, Stop backstop, SessionStart context).
+- `src/palari_company_os/git_hooks.py`: IDE-agnostic git pre-commit enforcement
+  of the packet write boundary (blocks commits staging out-of-boundary files).
+- `src/palari_company_os/cursor_rules.py`: Cursor integration that writes an
+  always-applied `.cursor/rules` boundary rule and wires the git pre-commit hook.
 
 ## Trust Objects
 

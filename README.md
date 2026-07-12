@@ -64,6 +64,11 @@ palari work add "Clean up launch notes" --write docs/notes.md
 palari claude install
 ```
 
+Working in Cursor (or another editor)? `palari cursor install` writes an
+always-applied `.cursor/rules` boundary rule and wires the IDE-agnostic git
+pre-commit hook, so the same boundary is enforced at commit time regardless of
+model.
+
 See the [Quickstart](docs/product/quickstart.md) for the full path.
 
 ## What Palari Is

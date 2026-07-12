@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +8,7 @@ from .agent_finish import build_agent_finish
 from .agent_runtime import read_claim, release_agent, start_agent
 from .authoring import closeout_attempt, complete_work, create_record, update_record
 from .read_models import detail
-from .workspace import Workspace, WorkspaceError
+from .workspace import Workspace
 
 
 def agent_done(
@@ -22,6 +21,7 @@ def agent_done(
     head_sha: str = "",
     model_or_worker: str = "",
 ) -> dict[str, Any]:
+    workspace_path = str(workspace_path)
     work_detail = detail(workspace, work_id)
     work = work_detail["work_item"]
     risk = work.get("risk", "")

@@ -117,6 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_agent_parser(subparsers)
     _add_claude_parser(subparsers)
     _add_git_parser(subparsers)
+    _add_cursor_parser(subparsers)
     _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
@@ -425,6 +426,46 @@ def _add_git_parser(subparsers: Any) -> None:
         "--project-dir",
         default="",
         help="Project root. Defaults to the current directory.",
+    )
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_cursor_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "cursor",
+        help="Enforce packet write boundaries in Cursor (rule + git hook).",
+    )
+    nested = parser.add_subparsers(dest="cursor_command", required=True)
+
+    install = nested.add_parser(
+        "install",
+        help="Write the Palari boundary rule into .cursor/rules/ and wire the git hook.",
+    )
+    install.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .cursor/. Defaults to the current directory.",
+    )
+    install.add_argument(
+        "--no-git-hook",
+        action="store_true",
+        help="Do not install the IDE-agnostic git pre-commit hook alongside the rule.",
+    )
+    install.add_argument(
+        "--remove",
+        action="store_true",
+        help="Remove the Palari-managed Cursor rule (and git hook) instead of installing.",
+    )
+    install.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    status = nested.add_parser(
+        "status",
+        help="Show the installed Palari Cursor rule, git hook, and active claims.",
+    )
+    status.add_argument(
+        "--project-dir",
+        default="",
+        help="Project root that contains .cursor/. Defaults to the current directory.",
     )
     status.add_argument("--json", action="store_true", help="Emit JSON.")
 

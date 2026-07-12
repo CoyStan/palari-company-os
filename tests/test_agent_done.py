@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 import shutil
 import sys
 import tempfile
@@ -12,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_done import agent_done
-from palari_company_os.agent_runtime import release_agent, start_agent
+from palari_company_os.agent_runtime import start_agent
 from palari_company_os.workspace import Workspace as Ws
 
 

@@ -11,10 +11,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.git_hooks import (
-    git_hook_status,
-    install_git_hook,
-    pre_commit,
+from palari_company_os.cursor_rules import (
+    RULE_RELATIVE_PATH,
+    cursor_rules_status,
+    install_cursor_rules,
 )
 from palari_company_os.workspace import Workspace as Ws
 
@@ -22,7 +22,7 @@ from palari_company_os.workspace import Workspace as Ws
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
 
 
-class GitHooksTests(unittest.TestCase):
+class CursorRulesTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.mkdtemp()
         self.workspace_path = Path(self._tmp) / "ws"
@@ -31,7 +31,6 @@ class GitHooksTests(unittest.TestCase):
         palari_dir = self.workspace_path / ".palari"
         if palari_dir.exists():
             shutil.rmtree(palari_dir)
-
         self._git_init()
 
     def tearDown(self) -> None:
@@ -47,7 +46,11 @@ class GitHooksTests(unittest.TestCase):
         }
         subprocess.run(["git", "init"], cwd=self._tmp, check=True, env=env, capture_output=True)
         subprocess.run(
-            ["git", "config", "user.name", "Test"], cwd=self._tmp, check=True, env=env, capture_output=True
+            ["git", "config", "user.name", "Test"],
+            cwd=self._tmp,
+            check=True,
+            env=env,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
@@ -70,8 +73,8 @@ class GitHooksTests(unittest.TestCase):
             str(self.workspace_path),
             "work",
             {
-                "id": "WORK-TEST-GIT",
-                "title": "Test git hooks",
+                "id": "WORK-TEST-CURSOR",
+                "title": "Test cursor rules",
                 "palari": "PALARI-STEWARD",
                 "goal": "GOAL-REPO-0001",
                 "workbench_id": "WORKBENCH-REPO-FOUNDATION",
@@ -90,93 +93,97 @@ class GitHooksTests(unittest.TestCase):
             command="test",
         )
         ws = Ws.load(self.workspace_path)
-        result = start_agent(ws, self.workspace_path, "WORK-TEST-GIT", "PALARI-STEWARD", "execute")
+        result = start_agent(ws, self.workspace_path, "WORK-TEST-CURSOR", "PALARI-STEWARD", "execute")
         assert result.get("start", {}).get("status") == "claimed", f"Claim failed: {result.get('start', {})}"
-        claims_dir = self.workspace_path / ".palari" / "claims"
-        assert claims_dir.exists() and any(claims_dir.glob("*.json")), "No claim file created"
 
-    def test_install_creates_pre_commit_hook(self) -> None:
-        result = install_git_hook(self._tmp, self.workspace_path)
+    def _rule_path(self) -> Path:
+        return Path(self._tmp) / RULE_RELATIVE_PATH
+
+    def test_install_creates_rule_and_git_hook(self) -> None:
+        result = install_cursor_rules(self._tmp, self.workspace_path)
         self.assertEqual(result["status"], "installed")
         self.assertTrue(result["changed"])
+        self.assertEqual(result["schema_version"], "palari.cursor_install.v1")
+
+        rule_path = self._rule_path()
+        self.assertTrue(rule_path.exists())
+        content = rule_path.read_text(encoding="utf-8")
+        self.assertIn("palari cursor rule", content)
+        self.assertIn("alwaysApply: true", content)
+
+        self.assertIsNotNone(result["git_hook"])
+        self.assertEqual(result["git_hook"]["status"], "installed")
         hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
         self.assertTrue(hook_path.exists())
-        content = hook_path.read_text()
-        self.assertIn("palari git hook", content)
-        self.assertIn("git pre-commit", content)
         self.assertTrue(os.access(hook_path, os.X_OK))
 
     def test_install_is_idempotent(self) -> None:
-        install_git_hook(self._tmp, self.workspace_path)
-        result = install_git_hook(self._tmp, self.workspace_path)
+        install_cursor_rules(self._tmp, self.workspace_path)
+        result = install_cursor_rules(self._tmp, self.workspace_path)
         self.assertEqual(result["status"], "unchanged")
         self.assertFalse(result["changed"])
 
+    def test_install_no_git_hook(self) -> None:
+        result = install_cursor_rules(self._tmp, self.workspace_path, git_hook=False)
+        self.assertEqual(result["status"], "installed")
+        self.assertIsNone(result["git_hook"])
+        self.assertTrue(self._rule_path().exists())
+        hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
+        self.assertFalse(hook_path.exists())
+
     def test_install_then_remove(self) -> None:
-        install_git_hook(self._tmp, self.workspace_path)
-        result = install_git_hook(self._tmp, self.workspace_path, remove=True)
+        install_cursor_rules(self._tmp, self.workspace_path)
+        result = install_cursor_rules(self._tmp, self.workspace_path, remove=True)
         self.assertEqual(result["status"], "removed")
         self.assertTrue(result["changed"])
+        self.assertFalse(self._rule_path().exists())
         hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
         self.assertFalse(hook_path.exists())
 
     def test_remove_when_not_installed(self) -> None:
-        result = install_git_hook(self._tmp, self.workspace_path, remove=True)
+        result = install_cursor_rules(self._tmp, self.workspace_path, remove=True)
         self.assertEqual(result["status"], "unchanged")
         self.assertFalse(result["changed"])
 
-    def test_install_refuses_to_overwrite_unmanaged_hook(self) -> None:
-        hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
-        hook_path.parent.mkdir(parents=True, exist_ok=True)
-        hook_path.write_text("# custom hook\nexit 0\n", encoding="utf-8")
-        result = install_git_hook(self._tmp, self.workspace_path)
+    def test_install_refuses_to_overwrite_unmanaged_rule(self) -> None:
+        rule_path = self._rule_path()
+        rule_path.parent.mkdir(parents=True, exist_ok=True)
+        rule_path.write_text("# hand-written cursor rule\n", encoding="utf-8")
+        result = install_cursor_rules(self._tmp, self.workspace_path)
         self.assertEqual(result["status"], "error")
         self.assertFalse(result["changed"])
+        self.assertIn("hand-written", rule_path.read_text(encoding="utf-8"))
 
-    def test_status_shows_installed(self) -> None:
-        install_git_hook(self._tmp, self.workspace_path)
-        result = git_hook_status(self._tmp, self.workspace_path)
-        self.assertTrue(result["installed"])
-        self.assertEqual(result["schema_version"], "palari.git_status.v1")
-
-    def test_status_shows_not_installed(self) -> None:
-        result = git_hook_status(self._tmp, self.workspace_path)
-        self.assertFalse(result["installed"])
-
-    def test_pre_commit_passes_no_active_claim(self) -> None:
-        result = pre_commit(self.workspace_path, cwd=self._tmp)
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["status"], "no-active-claim")
-
-    def test_pre_commit_blocks_out_of_boundary_files(self) -> None:
-        self._start_claim()
-        outside_file = Path(self._tmp) / "random_file.txt"
-        outside_file.write_text("test\n", encoding="utf-8")
-        subprocess.run(["git", "add", "random_file.txt"], cwd=self._tmp, check=True, capture_output=True)
-        result = pre_commit(self.workspace_path, cwd=self._tmp)
-        self.assertFalse(result["ok"])
-        self.assertEqual(result["status"], "blocked")
-        self.assertIn("random_file.txt", result["outside"])
-
-    def test_pre_commit_passes_in_boundary_files(self) -> None:
-        self._start_claim()
-        in_boundary = Path(self._tmp) / "README.md"
-        in_boundary.write_text("updated\n", encoding="utf-8")
-        subprocess.run(["git", "add", "README.md"], cwd=self._tmp, check=True, capture_output=True)
-        result = pre_commit(self.workspace_path, cwd=self._tmp)
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["status"], "pass")
-        self.assertIn("README.md", result["staged"])
-        self.assertEqual(result["outside"], [])
-
-    def test_pre_commit_no_git_repo(self) -> None:
+    def test_install_without_git_repo_still_writes_rule(self) -> None:
         no_git = tempfile.mkdtemp()
         try:
-            result = pre_commit(self.workspace_path, cwd=no_git)
-            self.assertTrue(result["ok"])
-            self.assertEqual(result["status"], "no-git-repo")
+            result = install_cursor_rules(no_git, self.workspace_path)
+            self.assertEqual(result["status"], "installed")
+            self.assertTrue((Path(no_git) / RULE_RELATIVE_PATH).exists())
+            self.assertEqual(result["git_hook"]["status"], "error")
         finally:
             shutil.rmtree(no_git, ignore_errors=True)
+
+    def test_status_shows_installed(self) -> None:
+        install_cursor_rules(self._tmp, self.workspace_path)
+        result = cursor_rules_status(self._tmp, self.workspace_path)
+        self.assertTrue(result["installed"])
+        self.assertTrue(result["git_hook_installed"])
+        self.assertEqual(result["schema_version"], "palari.cursor_status.v1")
+
+    def test_status_shows_not_installed(self) -> None:
+        result = cursor_rules_status(self._tmp, self.workspace_path)
+        self.assertFalse(result["installed"])
+        self.assertFalse(result["git_hook_installed"])
+
+    def test_status_reports_active_claim_write_paths(self) -> None:
+        install_cursor_rules(self._tmp, self.workspace_path)
+        self._start_claim()
+        result = cursor_rules_status(self._tmp, self.workspace_path)
+        claims = result["active_claims"]
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(claims[0]["work_item"], "WORK-TEST-CURSOR")
+        self.assertIn("README.md", claims[0]["allowed_write_paths"])
 
 
 if __name__ == "__main__":

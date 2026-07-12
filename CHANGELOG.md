@@ -9,6 +9,13 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
+- Added a Cursor integration for cross-platform boundary enforcement: `palari
+  cursor install` writes an always-applied `.cursor/rules/palari-boundary.mdc`
+  project rule and (unless `--no-git-hook`) wires the IDE-agnostic git
+  pre-commit hook, so the packet write boundary is instructed in-editor and
+  structurally enforced at commit time regardless of model. `palari cursor
+  status` reports the rule, the hook, and active claims with allowed write
+  paths.
 - Completed the governed Linear loop: `palari linear connect` verifies
   credentials and prepares the integration record (reporting a missing
   `LINEAR_API_KEY` as a structured blocker instead of an error), `palari
