@@ -379,6 +379,48 @@ class PreToolUseTests(unittest.TestCase):
             result["hookSpecificOutput"]["permissionDecisionReason"],
         )
 
+    def test_dynamic_human_acceptance_requires_review_without_active_claim(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "P=./bin/palari; $P --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+
+    def test_allowed_write_cannot_mask_later_authority_or_witness_command(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            (
+                "touch docs/notes.md ; P=./bin/palari ; $P --workspace workspace.json "
+                "work accept WORK-1 --by HUMAN-FOUNDER --reviewed-head abc123 --json"
+            ),
+            (
+                f"touch docs/notes.md ; git -C {self.repo} update-ref "
+                "refs/palari/claims/test abc123"
+            ),
+            (
+                f"touch docs/notes.md ; git -C {self.repo} reflog expire "
+                "--expire=now --all"
+            ),
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
     def test_packet_authority_update_is_denied_to_agent_shell(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -409,7 +451,6 @@ class PreToolUseTests(unittest.TestCase):
                 f"git --work-tree {self.repo} --git-dir {self.repo / '.git'} "
                 "update-ref -d refs/palari/claims/test"
             ),
-            f"MODE=test git -C {self.repo} update-ref refs/palari/claims/test abc123",
             f"git status\ngit -C {self.repo} reflog expire --expire=now --all",
         )
 
@@ -426,6 +467,28 @@ class PreToolUseTests(unittest.TestCase):
                     "Git metadata mutation",
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
+
+    def test_git_config_and_environment_cannot_launch_safe_subcommand_helpers(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            (
+                "git -c diff.external=./docs/rewrite-runtime-state diff "
+                "-- docs/notes.md"
+            ),
+            "GIT_EXTERNAL_DIFF=./docs/rewrite-runtime-state git diff -- docs/notes.md",
+            "git diff --ext-diff -- docs/notes.md",
+            "rg --pre ./docs/rewrite-runtime-state pattern docs",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
 
     def test_coordinated_witness_rewrite_sequence_never_auto_authorizes(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -467,6 +530,46 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(relaxed, {})
         self.assertEqual(_decision(strict), "ask")
         self.assertIn("palari agent start", strict["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_workspace_truth_is_protected_even_without_active_claim(self) -> None:
+        exact = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.workspace / "workspace.json")},
+            self.repo,
+        )
+        shell = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "cp docs/new-workspace.json ws/workspace.json"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(exact), "deny")
+        self.assertEqual(_decision(shell), "ask")
+        self.assertIn(
+            "workspace source of truth",
+            exact["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
+        workspace_file = self.workspace / "workspace.json"
+        data = json.loads(workspace_file.read_text(encoding="utf-8"))
+        data["collection_files"] = {"goals": ["records/goals.json"]}
+        workspace_file.write_text(json.dumps(data), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.workspace / "records" / "goals.json")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "workspace source of truth",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_expired_lease_counts_as_no_claim(self) -> None:
         _write_claim_and_packet(

@@ -453,7 +453,12 @@ workspace, and prints a JSON decision. It denies human-attributed Palari
 mutations and generic packet-authority changes from agent Bash, and asks a
 human before opaque interpreters, unreviewed executables, dynamic shell
 indirection, or Git witness mutations, including `git -C` and explicit
-Git-directory/worktree forms. It
+Git-directory/worktree forms. Classification covers every shell segment even
+when another segment has an in-scope target; command environment assignments,
+`git -c`, external diff/text-conversion options, and `rg --pre` also require a
+human ask. Opaque or indirect commands ask even without an active claim, and
+direct writes to workspace root/split files, `.palari/`, or Git metadata remain
+protected after claim release. It
 never mutates workspace records and fails open on handler errors. `claude
 status` reports installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.

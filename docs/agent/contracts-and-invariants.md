@@ -54,7 +54,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Supported agent hooks deny human-attributed and packet-authority Palari
   mutations and require a human decision for opaque interpreters, unreviewed
   executables, dynamic shell indirection, or Git witness mutations, including
-  Git global-option forms.
+  Git global-option forms. Every shell segment is classified even when another
+  segment has a visible write target; command environment and helper-launching
+  options cannot inherit read-only status. Workspace truth, split collection
+  files, `.palari/`, and Git metadata cannot be directly rewritten around those
+  gates, including after claim release.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

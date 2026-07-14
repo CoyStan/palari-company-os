@@ -246,6 +246,14 @@ therefore cross a release and authorized handoff into a new claim epoch.
 Opaque interpreters, unreviewed executables, dynamic shell expansion or
 indirection, and Git witness mutations (including Git commands with global
 `-C`, `--git-dir`, or `--work-tree` options) require a human hook decision.
+That review applies to every shell segment even when an earlier segment has an
+in-scope write target, and execution-capable command environments, `git -c`,
+external diff/text-conversion options, and `rg --pre` cannot inherit a read-only
+classification. Opaque or indirect commands still ask when no claim is active,
+so releasing a claim cannot turn indirection into an authority bypass.
+Direct writes to the workspace root, declared split collection files,
+`.palari/`, or Git metadata are denied or escalated even without an active
+claim; those surfaces must change through governed Palari/Git commands.
 Human-attributed review,
 decision, integration approval, terminal lifecycle, work-accept, and generic
 packet-authority mutation commands are denied from the supported agent shell.

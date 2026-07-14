@@ -88,7 +88,9 @@ The test suite covers:
 - in-place split-workspace migration with stale-proof invalidation
 - coordinated claim/packet/baseline rehash rejection and Git witness history
 - agent-shell denial for human-only and packet-authority commands, dynamic
-  shell/Git-global-option approval, and active-claim scope-change rejection
+  shell/Git-global-option approval, composed-command masking, helper-launching
+  config/environment options, post-release workspace-truth protection, and
+  active-claim scope-change rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

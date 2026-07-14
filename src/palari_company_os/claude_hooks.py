@@ -31,7 +31,7 @@ from typing import Any
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_runtime import load_active_claim_contexts
-from .path_policy import canonical_path_allowed
+from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 
 HOOK_EVENTS = ("pre-tool-use", "stop", "session-start")
@@ -105,6 +105,7 @@ SAFE_GIT_READ_SUBCOMMANDS = {
     "show-ref",
     "status",
 }
+SAFE_GIT_OBSERVABLE_WRITE_SUBCOMMANDS = {"mv", "rm"}
 SAFE_TARGET_FREE_COMMANDS = {
     "basename",
     "cat",
@@ -114,7 +115,6 @@ SAFE_TARGET_FREE_COMMANDS = {
     "dirname",
     "du",
     "echo",
-    "file",
     "grep",
     "head",
     "ls",
@@ -128,6 +128,19 @@ SAFE_TARGET_FREE_COMMANDS = {
     "true",
     "wc",
     "which",
+}
+GIT_EXECUTION_GLOBAL_OPTIONS = {
+    "-c",
+    "--config-env",
+    "--exec-path",
+    "--paginate",
+    "-p",
+}
+GIT_EXECUTION_OPTIONS = {
+    "--ext-diff",
+    "--open-files-in-pager",
+    "--show-signature",
+    "--textconv",
 }
 GIT_GLOBAL_OPTIONS_WITH_VALUE = {
     "-C",
@@ -348,7 +361,7 @@ def bash_requires_human_review(command: str) -> str:
         if not expect_command:
             continue
         if _is_shell_assignment(token):
-            continue
+            return "command environment assignment"
         expect_command = False
         if any(marker in token for marker in ("*", "?", "[", "{", "(")):
             return "dynamic shell command name"
@@ -357,15 +370,24 @@ def bash_requires_human_review(command: str) -> str:
             return "opaque interpreter ."
         if name in OPAQUE_INTERPRETERS:
             return f"opaque interpreter {name}"
+        if name in BASH_WRITE_COMMANDS:
+            continue
         if name == "git":
+            option_reason = _git_execution_option_reason(tokens, index)
+            if option_reason:
+                return option_reason
             subcommand = _git_subcommand(tokens, index)
             if subcommand in GIT_WITNESS_MUTATIONS:
                 return f"Git metadata mutation git {subcommand}"
+            if subcommand in SAFE_GIT_OBSERVABLE_WRITE_SUBCOMMANDS:
+                continue
             if subcommand not in SAFE_GIT_READ_SUBCOMMANDS:
                 return f"unreviewed Git subcommand git {subcommand or '(missing)'}"
             continue
         if name == "palari":
             continue
+        if name == "rg" and _command_has_option(tokens, index, {"--pre"}):
+            return "execution-capable rg --pre"
         if name not in SAFE_TARGET_FREE_COMMANDS:
             return f"unreviewed executable {name or token}"
     if ".palari" in command:
@@ -420,6 +442,46 @@ def _git_subcommand(tokens: list[str], git_index: int) -> str:
             continue
         return token
     return tokens[index] if index < len(tokens) else ""
+
+
+def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
+    """Reject Git options that can launch helpers or write output indirectly."""
+
+    for token in _command_arguments(tokens, git_index):
+        if token in GIT_EXECUTION_GLOBAL_OPTIONS:
+            return f"execution-capable Git option {token}"
+        if any(
+            token.startswith(f"{option}=")
+            for option in GIT_EXECUTION_GLOBAL_OPTIONS
+            if option.startswith("--")
+        ):
+            return f"execution-capable Git option {token.split('=', 1)[0]}"
+        if token.startswith("-c") and token != "-C":
+            return "execution-capable Git option -c"
+        if any(
+            token == option or token.startswith(f"{option}=")
+            for option in GIT_EXECUTION_OPTIONS
+        ):
+            return f"execution-capable Git option {token.split('=', 1)[0]}"
+        if token == "--output" or token.startswith("--output="):
+            return "Git output-file mutation"
+    return ""
+
+
+def _command_has_option(tokens: list[str], command_index: int, options: set[str]) -> bool:
+    return any(
+        token in options or any(token.startswith(f"{option}=") for option in options)
+        for token in _command_arguments(tokens, command_index)
+    )
+
+
+def _command_arguments(tokens: list[str], command_index: int) -> list[str]:
+    arguments: list[str] = []
+    for token in tokens[command_index + 1 :]:
+        if token in {"&&", "||", ";", "|", "&", "&|"}:
+            break
+        arguments.append(token)
+    return arguments
 
 
 def install_hooks(
@@ -578,14 +640,14 @@ def _pre_tool_use(
                 f"Palari command `{authority_command}` is human-only and cannot run "
                 "from an agent shell. Use the human handoff packet instead.",
             )
-        raw_targets = bash_write_targets(command)
         opaque_reason = bash_requires_human_review(command)
-        if not raw_targets and opaque_reason and (contexts or context_errors):
+        if opaque_reason:
             return _decision(
                 "ask",
                 f"{opaque_reason} can bypass Palari's observable write boundary. "
                 "A human must approve this shell command or use a directly inspected tool.",
             )
+        raw_targets = bash_write_targets(command)
     else:
         return {}
     raw_targets = [target for target in raw_targets if target]
@@ -598,24 +660,6 @@ def _pre_tool_use(
             "Palari cannot verify the active claim context: " + "; ".join(context_errors),
         )
 
-    execute = _execute_contexts(contexts)
-    if not contexts:
-        if strict:
-            return _decision(
-                "ask",
-                "No active Palari claim covers this session. "
-                "Run: palari agent next --json, then palari agent start WORK-ID "
-                "--as PALARI-ID --mode execute --json before changing files.",
-            )
-        return {}
-    if not execute:
-        reason = (
-            "Active Palari claims are review-mode (read-only); file changes are "
-            "outside the packet contract. Start execute-mode work first: "
-            "palari agent start WORK-ID --as PALARI-ID --mode execute --json"
-        )
-        return _decision("deny" if exact else "ask", reason)
-
     cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
     root = _resolution_root(payload)
     unresolved: list[str] = []
@@ -626,13 +670,47 @@ def _pre_tool_use(
             unresolved.append(target)
         else:
             relative_targets.append(relative)
-    if unresolved:
+    if contexts and unresolved:
         return _decision(
             "deny" if exact else "ask",
             "This file change touches paths outside the repository "
             f"({', '.join(sorted(unresolved))}), which the Palari packet cannot vouch for.",
         )
-    if root is None or not _workspace_belongs_to_repo(workspace_path, root):
+    workspace_bound = root is not None and _workspace_belongs_to_repo(workspace_path, root)
+    if workspace_bound:
+        protected = [
+            (target, _protected_governance_target(target, root, workspace_path))
+            for target in relative_targets
+        ]
+        protected = [(target, reason) for target, reason in protected if reason]
+        if protected:
+            details = ", ".join(f"{target} ({reason})" for target, reason in protected)
+            return _decision(
+                "deny" if exact else "ask",
+                "Governance source-of-truth and runtime metadata must change through "
+                f"governed Palari commands, not direct file writes: {details}.",
+            )
+
+    if not contexts:
+        if strict:
+            return _decision(
+                "ask",
+                "No active Palari claim covers this session. "
+                "Run: palari agent next --json, then palari agent start WORK-ID "
+                "--as PALARI-ID --mode execute --json before changing files.",
+            )
+        return {}
+
+    execute = _execute_contexts(contexts)
+    if not execute:
+        reason = (
+            "Active Palari claims are review-mode (read-only); file changes are "
+            "outside the packet contract. Start execute-mode work first: "
+            "palari agent start WORK-ID --as PALARI-ID --mode execute --json"
+        )
+        return _decision("deny" if exact else "ask", reason)
+
+    if not workspace_bound:
         return _decision(
             "deny" if exact else "ask",
             "The active Palari workspace cannot be bound to this Git repository.",
@@ -1035,3 +1113,41 @@ def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
     except (OSError, ValueError):
         return False
     return True
+
+
+def _protected_governance_target(
+    relative_target: str,
+    root: Path,
+    workspace_path: Path | str,
+) -> str:
+    """Name governance state that must not be edited around the CLI gates."""
+
+    target = (root / relative_target).resolve()
+    data_path = workspace_file_path(workspace_path).resolve()
+    protected_files = {data_path}
+    try:
+        raw = json.loads(data_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raw = {}
+    collection_files = raw.get("collection_files") if isinstance(raw, dict) else None
+    if isinstance(collection_files, dict):
+        for paths in collection_files.values():
+            if not isinstance(paths, list):
+                continue
+            for relative in paths:
+                if not isinstance(relative, str):
+                    continue
+                try:
+                    canonical = validate_workspace_path(relative)
+                    protected_files.add(resolve_workspace_path(data_path.parent, canonical))
+                except ValueError:
+                    continue
+    if target in protected_files:
+        return "workspace source of truth"
+    runtime = (data_path.parent / ".palari").resolve()
+    if target == runtime or runtime in target.parents:
+        return "Palari runtime state"
+    git_metadata = (root / ".git").resolve()
+    if target == git_metadata or git_metadata in target.parents:
+        return "Git metadata"
+    return ""

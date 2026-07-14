@@ -28,7 +28,9 @@ truth before execute authority is granted:
   heuristic should not have deny authority. Opaque interpreters, unreviewed
   executables, dynamic shell expansion or indirection, and Git witness
   mutations also require a human ask; Git global options cannot hide a witness
-  subcommand. Human-attributed review,
+  subcommand, and an earlier allowed write cannot mask a later unsafe shell
+  segment. Command environment assignments, execution-capable `git -c` or diff
+  options, and `rg --pre` also ask. Human-attributed review,
   decision, integration approval, terminal lifecycle, work-accept, and generic
   packet-authority mutations are denied from agent Bash.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
@@ -64,8 +66,11 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   shared settings file.
 - `--strict` also escalates writes that **no** active claim covers, and writes
   that target paths outside the repository, to a human ask. Without it,
-  sessions with no claimed work item are left to Claude Code's normal
-  permission flow.
+  transparent file writes in sessions with no claimed work item are left to
+  Claude Code's normal permission flow. Opaque, indirect, or unreviewed shell
+  execution still asks even without a claim so hidden authority commands cannot
+  bypass the hook by releasing a claim first. Direct writes to workspace truth,
+  split collection files, `.palari/`, and Git metadata also remain protected.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

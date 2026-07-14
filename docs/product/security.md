@@ -42,7 +42,11 @@ Authority rules:
   executables, dynamic shell indirection, and Git witness mutations even when
   Git global options precede the subcommand. Generic work updates are blocked
   while a claim is active, and active claims cannot be renewed against changed
-  packet authority.
+  packet authority. Shell review is segment-independent: an observed allowed
+  write cannot mask a later unsafe segment, and command environment assignments,
+  execution-capable Git config/diff options, and `rg --pre` require review.
+  Workspace root/split files, `.palari/`, and Git metadata remain protected from
+  direct file writes after claim release as well as during a claim.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 
