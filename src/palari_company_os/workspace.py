@@ -132,7 +132,7 @@ class Workspace:
                 "workspace schema_version is missing; run `palari migrate --write` "
                 f"or add schema_version: {CURRENT_SCHEMA_VERSION}"
             )
-        if not isinstance(schema_version, int):
+        if type(schema_version) is not int:
             raise WorkspaceError("workspace schema_version must be an integer")
         if schema_version < CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(

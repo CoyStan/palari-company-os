@@ -823,19 +823,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
 def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
     from .history import append_history_event
-    from .store import load_store, migrate_data, write_store
+    from .store import load_store, migrate_store
 
     store = load_store(workspace_path)
     before = deepcopy(store.data)
-    migrated, changes = migrate_data(store.data)
+    migrated, changes, workspace = migrate_store(store, write=write)
     payload = {
         "workspace_file": str(store.data_path),
         "write": write,
         "changes": changes,
     }
     if write:
-        store = store.with_data(migrated)
-        workspace = write_store(store)
+        if workspace is None:
+            raise WorkspaceError("migration write did not produce a workspace")
+        after = load_store(store.data_path).data
         append_history_event(
             store.data_path,
             schema_version=workspace.schema_version,
@@ -845,7 +846,7 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
             object_collection="workspace",
             object_id=workspace.name,
             before=before,
-            after=migrated,
+            after=after,
         )
     return payload
 

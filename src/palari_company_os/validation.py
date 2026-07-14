@@ -1743,13 +1743,16 @@ def _is_acceptance(decision: HumanDecision) -> bool:
 
 
 def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:
-    seen: dict[tuple[str, str, str, str], str] = {}
+    seen: dict[tuple[str, str, str, datetime], str] = {}
     for decision in decisions:
+        timestamp = datetime.fromisoformat(
+            decision.timestamp.replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
         key = (
             decision.work_item_id,
             decision.human_id,
             decision.reviewed_head,
-            decision.timestamp,
+            timestamp,
         )
         previous = seen.get(key)
         if previous is not None:

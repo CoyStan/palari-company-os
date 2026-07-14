@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_done import agent_done
-from palari_company_os.agent_runtime import release_agent, start_agent
+from palari_company_os.agent_runtime import _git_baseline_hash, release_agent, start_agent
 from palari_company_os.workspace import Workspace as Ws
 
 
@@ -307,6 +307,72 @@ class AgentDoneTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertIn("outside.txt", result["message"])
 
+    def test_tampered_claim_baseline_head_is_rejected_before_attribution(self) -> None:
+        work_id = "WORK-TEST-TAMPERED-BASELINE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("outside.txt", "outside boundary\n", "outside change")
+        outside_head = self._git_head()
+        claim_path = self.workspace_path / ".palari" / "claims" / f"{work_id}.json"
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        claim["git_baseline"]["head_sha"] = outside_head
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("git_baseline_hash", result["message"])
+        self.assertNotIn(
+            f"ATTEMPT-DONE-{work_id}",
+            {item.id for item in Ws.load(self.workspace_path).attempts},
+        )
+
+    def test_rehashed_claim_cannot_override_persisted_baseline(self) -> None:
+        work_id = "WORK-TEST-REHASHED-BASELINE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("outside.txt", "outside boundary\n", "outside change")
+        claim_path = self.workspace_path / ".palari" / "claims" / f"{work_id}.json"
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        claim["git_baseline"]["head_sha"] = self._git_head()
+        claim["git_baseline_hash"] = _git_baseline_hash(claim["git_baseline"])
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("persisted baseline", result["message"])
+        self.assertNotIn(
+            f"ATTEMPT-DONE-{work_id}",
+            {item.id for item in Ws.load(self.workspace_path).attempts},
+        )
+
     def _create_light_work(self, work_id: str) -> None:
         from palari_company_os.authoring import create_record
 
@@ -371,6 +437,14 @@ class AgentDoneTests(unittest.TestCase):
         subprocess.run(
             ["git", "-C", str(self.workspace_path), "commit", "-qm", message], check=True
         )
+
+    def _git_head(self) -> str:
+        return subprocess.run(
+            ["git", "-C", str(self.workspace_path), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
 
 
 if __name__ == "__main__":

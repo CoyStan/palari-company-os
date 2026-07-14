@@ -21,6 +21,7 @@ from palari_company_os.claude_hooks import (
     install_hooks,
     run_hook,
 )
+from palari_company_os.agent_file_changes import capture_git_baseline
 
 
 def _write_claim_and_packet(
@@ -47,6 +48,8 @@ def _write_claim_and_packet(
     }
     context_hash = _packet_hash(packet)
     packet["context_hash"] = context_hash
+    git_baseline = capture_git_baseline(workspace_dir)
+    git_baseline_hash = _object_hash(git_baseline)
     claim = {
         "schema_version": "palari.agent_claim.v1",
         "work_item": work_id,
@@ -56,12 +59,27 @@ def _write_claim_and_packet(
         "packet_id": packet_id,
         "context_hash": context_hash,
         "packet_path": f".palari/packets/{packet_id}.json",
+        "git_baseline": git_baseline,
+        "git_baseline_hash": git_baseline_hash,
+        "git_baseline_path": f".palari/claims/{work_id}.baseline",
     }
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
     claims.mkdir(parents=True, exist_ok=True)
     packets.mkdir(parents=True, exist_ok=True)
+    baseline = {
+        "schema_version": "palari.persisted_git_baseline.v1",
+        "work_item": work_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+            "+00:00", "Z"
+        ),
+        "git_baseline": git_baseline,
+        "git_baseline_hash": git_baseline_hash,
+    }
     (claims / f"{work_id}.json").write_text(json.dumps(claim), encoding="utf-8")
+    (claims / f"{work_id}.baseline").write_text(
+        json.dumps(baseline), encoding="utf-8"
+    )
     (packets / f"{packet_id}.json").write_text(json.dumps(packet), encoding="utf-8")
 
 
@@ -70,6 +88,11 @@ def _packet_hash(packet: dict[str, Any]) -> str:
         key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
     }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _object_hash(value: dict[str, Any]) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 

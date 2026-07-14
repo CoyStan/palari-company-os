@@ -87,7 +87,7 @@
       "receipt_reference": "RECEIPT-1",
       "receipt_hash": "sha256:3c447f492a538b44ac2a5e032efd6649d6ddbcc35043df0408e4fbfc573af8fc",
       "work_contract_hash": "sha256:437640f5c4d427193c013aad4afb30341c9f6e954e20798b1543af7e4fdc67cc",
-      "proof_hash": "sha256:c31f9f7f23fe4e7bd224976613d494f2371f67374a433e4078687f3b7422be9d"
+      "proof_hash": "sha256:c2d8b819ebbf421d95695f9cd6a53316407fd8de3322ae76294753aceae2c3ea"
     }
   ],
   "human_decisions": [

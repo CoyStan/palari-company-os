@@ -46,7 +46,11 @@ for the collection named in the manifest.
 Read-only commands such as `validate`, `queue`, `detail`, `state`, and
 `dashboard` can read split workspaces. Authoring and lifecycle write commands
 currently refuse split workspaces with a clear error instead of silently
-collapsing or corrupting collection files.
+collapsing or corrupting collection files. Schema migration is the narrow
+exception: it validates the consolidated records, preserves each record's root
+or included-file placement, writes included files first, and advances the root
+schema version last so an interrupted migration remains fail closed and
+retryable.
 
 The CLI validation path uses the Python models and strict workspace checks:
 
@@ -158,9 +162,10 @@ Migration fails safe: legacy unbound `accept-ready` reviews become `blocked`,
 accepting decisions tied to them become blocked, matching acceptance records
 are revoked, and governed terminal work is reopened for a fresh exact-bound
 review. Missing or ambiguous human-decision timestamps are assigned stable,
-timezone-bearing values. A preview lists every migration action before
-`--write` persists it. Workspaces with a newer schema version fail closed until
-this code supports them.
+UTC-normalized values. Split workspaces retain their collection-file layout;
+concurrent changes to the root or any included file block the write. A preview
+lists every migration action before `--write` persists it. Workspaces with a
+newer schema version fail closed until this code supports them.
 
 Schema v2 deliberately makes the exact review binding non-optional for
 `accept-ready`. Historical unbound non-accepting verdicts remain inspectable,

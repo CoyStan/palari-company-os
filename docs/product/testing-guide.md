@@ -85,5 +85,6 @@ The test suite covers:
 - migration from legacy unversioned workspaces
 - read-only split workspace collection files
 - write refusal for split workspaces
+- in-place split-workspace migration with stale-proof invalidation
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

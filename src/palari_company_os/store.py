@@ -11,6 +11,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from .path_policy import resolve_workspace_path, validate_workspace_path
+from .validation import COLLECTION_FILE_KEYS, validate_raw_contract
 from .workspace import CURRENT_SCHEMA_VERSION, Workspace, WorkspaceError
 
 
@@ -30,6 +32,15 @@ class WorkspaceStore:
             data=data,
             loaded_hash=self.loaded_hash,
         )
+
+
+@dataclass(frozen=True)
+class _CollectionFileSnapshot:
+    collection: str
+    relative_path: str
+    path: Path
+    records: list[dict[str, Any]]
+    loaded_hash: str
 
 
 def workspace_file_path(path: Path | str) -> Path:
@@ -86,6 +97,31 @@ def write_store(store: WorkspaceStore) -> Workspace:
 def has_collection_files(data: dict[str, Any]) -> bool:
     value = data.get("collection_files")
     return isinstance(value, dict) and any(value.values())
+
+
+def migrate_store(
+    store: WorkspaceStore,
+    *,
+    write: bool = False,
+) -> tuple[dict[str, Any], list[str], Workspace | None]:
+    """Migrate a loaded single-file or split workspace without losing placement.
+
+    Ordinary authoring remains single-file only. Migration is the deliberately
+    narrow exception: all split records are validated together, transformed,
+    and written back to their original files before the root schema version is
+    advanced. A partial write therefore leaves the v1 root in a retryable,
+    fail-closed state.
+    """
+
+    source, snapshots = _migration_source(store)
+    migrated, changes = migrate_data(source)
+    if not write:
+        return migrated, changes, None
+    if not snapshots:
+        workspace = write_store(store.with_data(migrated))
+        return migrated, changes, workspace
+    workspace = _write_split_migration(store, migrated, snapshots)
+    return migrated, changes, workspace
 
 
 def _acquire_workspace_lock(data_path: Path) -> Path:
@@ -172,11 +208,195 @@ def _hash_text(text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
 
+def _migration_source(
+    store: WorkspaceStore,
+) -> tuple[dict[str, Any], list[_CollectionFileSnapshot]]:
+    if not has_collection_files(store.data):
+        return deepcopy(store.data), []
+
+    validate_raw_contract(store.data)
+    collection_files = store.data.get("collection_files")
+    if not isinstance(collection_files, dict):
+        raise WorkspaceError("workspace.collection_files must be an object")
+
+    source = deepcopy(store.data)
+    snapshots: list[_CollectionFileSnapshot] = []
+    seen_paths: set[Path] = set()
+    for collection, relative_paths in collection_files.items():
+        if collection not in COLLECTION_FILE_KEYS:
+            raise WorkspaceError(
+                f"workspace.collection_files has unknown collection: {collection}"
+            )
+        if not isinstance(relative_paths, list) or not all(
+            isinstance(item, str) for item in relative_paths
+        ):
+            raise WorkspaceError(
+                f"workspace.collection_files.{collection} must be a list of paths"
+            )
+        records = source.setdefault(collection, [])
+        if not isinstance(records, list):
+            raise WorkspaceError(f"{collection} must be a list of objects")
+        for relative_path in relative_paths:
+            try:
+                normalized = validate_workspace_path(relative_path)
+                include_path = resolve_workspace_path(
+                    store.data_path.parent,
+                    normalized,
+                    require_exists=True,
+                )
+            except ValueError as exc:
+                raise WorkspaceError(
+                    f"workspace.collection_files.{collection} path is unsafe: "
+                    f"{relative_path}: {exc}"
+                ) from exc
+            if include_path in seen_paths:
+                raise WorkspaceError(
+                    f"workspace.collection_files includes the same file more than once: "
+                    f"{relative_path}"
+                )
+            seen_paths.add(include_path)
+            try:
+                text = include_path.read_text(encoding="utf-8")
+                included = json.loads(text)
+            except OSError as exc:
+                raise WorkspaceError(
+                    f"cannot read workspace.collection_files.{collection} "
+                    f"{relative_path}: {exc}"
+                ) from exc
+            except json.JSONDecodeError as exc:
+                raise WorkspaceError(
+                    f"invalid JSON in workspace.collection_files.{collection} "
+                    f"{relative_path}: {exc}"
+                ) from exc
+            if not isinstance(included, list) or not all(
+                isinstance(item, dict) for item in included
+            ):
+                raise WorkspaceError(
+                    f"workspace.collection_files.{collection} {relative_path} "
+                    "must contain a list of objects"
+                )
+            copied = deepcopy(included)
+            records.extend(copied)
+            snapshots.append(
+                _CollectionFileSnapshot(
+                    collection=collection,
+                    relative_path=normalized,
+                    path=include_path,
+                    records=copied,
+                    loaded_hash=_hash_text(text),
+                )
+            )
+    return source, snapshots
+
+
+def _write_split_migration(
+    store: WorkspaceStore,
+    migrated: dict[str, Any],
+    snapshots: list[_CollectionFileSnapshot],
+) -> Workspace:
+    consolidated = deepcopy(migrated)
+    consolidated["collection_files"] = {}
+    validate_data(store.data_path, consolidated)
+
+    migrated_by_collection: dict[str, dict[str, dict[str, Any]]] = {}
+    included_ids: dict[str, set[str]] = {}
+    for collection in COLLECTION_FILE_KEYS:
+        records = migrated.get(collection, [])
+        if not isinstance(records, list):
+            raise WorkspaceError(f"{collection} must be a list of objects")
+        migrated_by_collection[collection] = {
+            str(record.get("id") or ""): record
+            for record in records
+            if isinstance(record, dict)
+        }
+        included_ids[collection] = set()
+
+    file_payloads: list[tuple[_CollectionFileSnapshot, list[dict[str, Any]]]] = []
+    for snapshot in snapshots:
+        by_id = migrated_by_collection[snapshot.collection]
+        output: list[dict[str, Any]] = []
+        for record in snapshot.records:
+            record_id = str(record.get("id") or "")
+            migrated_record = by_id.get(record_id)
+            if migrated_record is None:
+                raise WorkspaceError(
+                    f"migration lost {snapshot.collection} record {record_id or '(missing id)'}"
+                )
+            output.append(deepcopy(migrated_record))
+            included_ids[snapshot.collection].add(record_id)
+        file_payloads.append((snapshot, output))
+
+    root_payload = deepcopy(migrated)
+    root_payload["collection_files"] = deepcopy(store.data["collection_files"])
+    for collection in COLLECTION_FILE_KEYS:
+        root_payload[collection] = [
+            deepcopy(record)
+            for record in migrated.get(collection, [])
+            if str(record.get("id") or "") not in included_ids[collection]
+        ]
+
+    lock_path = _acquire_workspace_lock(store.data_path)
+    temp_paths: list[Path] = []
+    try:
+        _assert_workspace_file_unchanged(store)
+        for snapshot, _ in file_payloads:
+            try:
+                current_path = resolve_workspace_path(
+                    store.data_path.parent,
+                    snapshot.relative_path,
+                    require_exists=True,
+                )
+                if current_path != snapshot.path:
+                    raise ValueError("resolved target changed")
+                current_text = current_path.read_text(encoding="utf-8")
+            except (OSError, ValueError) as exc:
+                raise WorkspaceError(
+                    f"collection file changed since it was loaded: "
+                    f"{snapshot.relative_path}; retry command"
+                ) from exc
+            if _hash_text(current_text) != snapshot.loaded_hash:
+                raise WorkspaceError(
+                    f"collection file changed since it was loaded: "
+                    f"{snapshot.relative_path}; retry command"
+                )
+
+        pending: list[tuple[Path, Path]] = []
+        for snapshot, records in file_payloads:
+            temp_path = _write_json_temp(snapshot.path, records)
+            temp_paths.append(temp_path)
+            pending.append((temp_path, snapshot.path))
+        root_temp = _write_json_temp(store.data_path, root_payload)
+        temp_paths.append(root_temp)
+        for temp_path, target in pending:
+            os.replace(temp_path, target)
+            temp_paths.remove(temp_path)
+        os.replace(root_temp, store.data_path)
+        temp_paths.remove(root_temp)
+    finally:
+        for temp_path in temp_paths:
+            temp_path.unlink(missing_ok=True)
+        lock_path.unlink(missing_ok=True)
+    return Workspace.load(store.data_path)
+
+
+def _write_json_temp(target: Path, payload: object) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=target.parent,
+        delete=False,
+    ) as handle:
+        json.dump(payload, handle, indent=2, sort_keys=False)
+        handle.write("\n")
+        return Path(handle.name)
+
+
 def migrate_data(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     migrated = deepcopy(data)
     changes: list[str] = []
     source_version = migrated.get("schema_version")
-    if source_version is not None and not isinstance(source_version, int):
+    if source_version is not None and type(source_version) is not int:
         raise WorkspaceError(
             f"cannot migrate schema_version {source_version!r}; "
             f"supported target is {CURRENT_SCHEMA_VERSION}"
@@ -256,7 +476,8 @@ def _migrate_v1_to_v2(data: dict[str, Any], changes: list[str]) -> None:
         if timestamp != decision.get("timestamp"):
             decision["timestamp"] = timestamp
             changes.append(
-                f"Added deterministic timestamp to human decision {decision.get('id', index)}."
+                f"Normalized deterministic timestamp for human decision "
+                f"{decision.get('id', index)}."
             )
         accepts = decision.get("decision") in {"accepted", "approved"} or decision.get(
             "status"
@@ -388,9 +609,13 @@ def _unique_migration_timestamp(value: str, index: int, used: set[str]) -> str:
             parsed = None
         if parsed is not None and parsed.utcoffset() is None:
             parsed = None
-    candidate = value if parsed is not None else f"1970-01-01T00:00:00.{index + 1:06d}Z"
     if parsed is None:
-        parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(
+            f"1970-01-01T00:00:00.{index + 1:06d}+00:00"
+        )
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    candidate = parsed.isoformat(timespec="microseconds").replace("+00:00", "Z")
     while candidate in used:
         parsed += timedelta(microseconds=1)
         candidate = parsed.isoformat(timespec="microseconds").replace("+00:00", "Z")

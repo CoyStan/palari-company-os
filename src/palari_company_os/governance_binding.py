@@ -202,6 +202,7 @@ def review_proof_hash(review: Any) -> str:
                 "work_contract_hash",
             )
         },
+        "id": _record_value(review, "id"),
         "work_item_id": _record_value(review, "work_item_id"),
         "reviewed_head": _record_value(review, "reviewed_head"),
         "reviewer": _record_value(review, "reviewer"),

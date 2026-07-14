@@ -8,8 +8,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
-- Split collection files are read-time only for now; authoring writes refuse
-  split workspaces rather than silently collapsing records.
+- Split collection files are read-time only for ordinary authoring; authoring
+  writes refuse split workspaces rather than silently collapsing records.
+  Schema migration preserves record placement, detects concurrent changes to
+  every participating file, and advances the root version last.
 - Collection file paths must be workspace-relative and must not contain `..`.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
 

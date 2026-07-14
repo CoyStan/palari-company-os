@@ -157,7 +157,7 @@ def claim_check(
             "claim": None,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }
-    claim_error = _validate_active_claim(claim)
+    claim_error = claim_integrity_error(workspace_path, work_id, claim)
     if claim_error:
         return {
             "status": "fail",
@@ -193,6 +193,14 @@ def claim_check(
             "claim": claim,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }
+    packet_error = _persisted_packet_error(workspace_file_path(workspace_path), claim)
+    if packet_error:
+        return {
+            "status": "fail",
+            "message": f"Active claim packet is invalid: {packet_error}. Restart the claim.",
+            "claim": claim,
+            "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
+        }
     return {
         "status": "pass",
         "message": "Active claim belongs to this Palari and matches the current packet.",
@@ -221,6 +229,36 @@ def read_claim(workspace_path: Path | str, work_id: str) -> dict[str, Any] | Non
 def claim_is_active(claim: dict[str, Any]) -> bool:
     """Return True while the claim lease has not expired."""
     return _claim_active(claim)
+
+
+def claim_integrity_error(
+    workspace_path: Path | str,
+    work_id: str,
+    claim: dict[str, Any],
+) -> str:
+    """Validate claim structure and its immutable persisted Git baseline."""
+
+    error = _validate_active_claim(claim)
+    if error:
+        return error
+    if claim.get("work_item") != work_id:
+        return f"work_item is {claim.get('work_item', '') or '(missing)'}, not {work_id}"
+    data_path = workspace_file_path(workspace_path)
+    baseline_path = _baseline_path(data_path, work_id)
+    expected_relative = _runtime_relative(data_path, baseline_path)
+    if claim.get("git_baseline_path") != expected_relative:
+        return "git_baseline_path does not identify the persisted baseline"
+    try:
+        persisted = _read_persisted_baseline(baseline_path, work_id)
+    except WorkspaceError as exc:
+        return str(exc)
+    if persisted is None:
+        return "persisted Git baseline is missing"
+    if claim.get("git_baseline_hash") != persisted.get("git_baseline_hash"):
+        return "claim Git baseline hash differs from the persisted baseline"
+    if claim.get("git_baseline") != persisted.get("git_baseline"):
+        return "claim Git baseline differs from the persisted baseline"
+    return ""
 
 
 def claims_dir(workspace_path: Path | str) -> Path:
@@ -266,7 +304,8 @@ def load_active_claim_contexts(
             continue
         if pin_work and claim.get("work_item") != pin_work:
             continue
-        error = _validate_active_claim(claim)
+        work_id = str(claim.get("work_item") or "")
+        error = claim_integrity_error(workspace_path, work_id, claim)
         if error:
             errors.append(f"invalid active claim {path.name}: {error}")
             continue
@@ -431,6 +470,20 @@ def _validate_claim_packet(claim: dict[str, Any], packet: dict[str, Any]) -> str
         except ValueError as exc:
             return f"packet allowed_paths.{mode} contains an unsafe path: {exc}"
     return ""
+
+
+def _persisted_packet_error(data_path: Path, claim: dict[str, Any]) -> str:
+    try:
+        packet_relative = validate_workspace_path(str(claim.get("packet_path") or ""))
+        if not packet_relative.startswith(".palari/packets/"):
+            return "packet_path must be under .palari/packets"
+        packet_path = resolve_workspace_path(
+            data_path.parent, packet_relative, require_exists=True
+        )
+        packet = _read_json_object(packet_path, "packet")
+    except (ValueError, WorkspaceError) as exc:
+        return str(exc)
+    return _validate_claim_packet(claim, packet)
 
 
 def _packet_context_hash(packet: dict[str, Any]) -> str:

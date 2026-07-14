@@ -9,11 +9,12 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.store import load_store, migrate_data, write_store
+from palari_company_os.store import load_store, migrate_data, migrate_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -385,6 +386,15 @@ class WorkspaceValidationTests(unittest.TestCase):
             "workspace schema_version 99 is newer than supported version 2",
         )
 
+    def test_boolean_schema_version_is_not_an_integer(self) -> None:
+        raw = json.loads((FIXTURES / "valid-workspace.json").read_text(encoding="utf-8"))
+        raw["schema_version"] = True
+
+        with self.assertRaisesRegex(WorkspaceError, "schema_version must be an integer"):
+            Workspace.from_raw(raw, FIXTURES)
+        with self.assertRaisesRegex(WorkspaceError, "cannot migrate schema_version True"):
+            migrate_data(raw)
+
     def test_broken_reference_fails_closed(self) -> None:
         self.assert_fixture_error(
             "broken-reference.json",
@@ -525,6 +535,26 @@ class WorkspaceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "decision order would be ambiguous"):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_same_human_decision_instant_with_different_offset_fails_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-2",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "decision": "changes-requested",
+                "status": "changes-requested",
+                "quorum_status": "not-met",
+                "timestamp": "2026-06-18T23:03:00-05:00",
+            }
+        )
+
+        with self.assertRaisesRegex(WorkspaceError, "decision order would be ambiguous"):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_human_decision_update_stamps_new_ordering_time(self) -> None:
         from palari_company_os.authoring import update_human_decision
 
@@ -589,6 +619,16 @@ class WorkspaceValidationTests(unittest.TestCase):
             "review REVIEW-0001 proof hash is missing or malformed",
         ):
             Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
+
+    def test_exact_bound_review_identity_is_part_of_proof_hash(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        review = next(item for item in raw["review_verdicts"] if item["id"] == "REVIEW-0001")
+        original_hash = review_proof_hash(review)
+        review["id"] = "REVIEW-RENAMED"
+
+        self.assertNotEqual(review_proof_hash(review), original_hash)
 
     def test_exact_bound_terminal_work_requires_acceptance_record(self) -> None:
         raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
@@ -749,6 +789,136 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].status, "completed")
         self.assertEqual(workspace.acceptance_records[0].status, "accepted")
         self.assertIn("Upgraded aggregate proof hash for bound review REVIEW-1.", changes)
+
+    def test_schema_v1_split_workspace_migrates_in_place(self) -> None:
+        from palari_company_os.cli_dispatch import migrate_workspace
+
+        with self.modified_split_workspace(
+            lambda data: data.update({"schema_version": 1})
+        ) as workspace_path:
+            payload = migrate_workspace(str(workspace_path), write=True)
+            workspace = Workspace.load(workspace_path)
+
+            self.assertEqual(workspace.schema_version, 2)
+            self.assertEqual([item.id for item in workspace.work_items], ["WORK-SPLIT"])
+            root = load_store(workspace_path).data
+            included = json.loads(
+                (workspace_path / "records" / "work-items.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(root["schema_version"], 2)
+            self.assertEqual(root["work_items"], [])
+            self.assertEqual(included[0]["id"], "WORK-SPLIT")
+            self.assertIn(
+                "Upgraded schema_version from 1 to 2.", payload["changes"]
+            )
+
+    def test_schema_v1_split_migration_invalidates_included_unbound_review(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_path = Path(directory) / "split-accepted"
+            workspace_path.mkdir()
+            records_path = workspace_path / "records"
+            records_path.mkdir()
+            legacy = json.loads(
+                (FIXTURES / "valid-accepted-completed-work.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            legacy["schema_version"] = 1
+            review = legacy["review_verdicts"].pop()
+            review.pop("binding_version")
+            legacy["collection_files"] = {
+                "review_verdicts": ["records/reviews.json"]
+            }
+            (workspace_path / "workspace.json").write_text(
+                json.dumps(legacy), encoding="utf-8"
+            )
+            (records_path / "reviews.json").write_text(
+                json.dumps([review]), encoding="utf-8"
+            )
+
+            _, changes, workspace = migrate_store(load_store(workspace_path), write=True)
+
+            self.assertIsNotNone(workspace)
+            assert workspace is not None
+            self.assertEqual(workspace.review_verdicts[0].verdict, "blocked")
+            self.assertEqual(workspace.human_decisions[0].decision, "blocked")
+            self.assertEqual(workspace.acceptance_records[0].status, "revoked")
+            self.assertEqual(workspace.work_items[0].status, "in-review")
+            included = json.loads(
+                (records_path / "reviews.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(included[0]["verdict"], "blocked")
+            self.assertIn(
+                "Blocked 1 legacy accept-ready review(s) without exact binding.",
+                changes,
+            )
+
+    def test_split_migration_blocks_concurrent_included_file_change(self) -> None:
+        from palari_company_os import store as store_module
+
+        with self.modified_split_workspace(
+            lambda data: data.update({"schema_version": 1})
+        ) as workspace_path:
+            store = load_store(workspace_path)
+            included_path = workspace_path / "records" / "work-items.json"
+            original_assert = store_module._assert_workspace_file_unchanged
+
+            def mutate_after_snapshot(loaded_store: object) -> None:
+                original_assert(loaded_store)
+                included_path.write_text(
+                    included_path.read_text(encoding="utf-8") + "\n",
+                    encoding="utf-8",
+                )
+
+            with mock.patch.object(
+                store_module,
+                "_assert_workspace_file_unchanged",
+                side_effect=mutate_after_snapshot,
+            ):
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "collection file changed since it was loaded",
+                ):
+                    migrate_store(store, write=True)
+
+            self.assertEqual(load_store(workspace_path).data["schema_version"], 1)
+
+    def test_split_migration_blocks_collection_symlink_retarget(self) -> None:
+        from palari_company_os import store as store_module
+
+        with self.modified_split_workspace(
+            lambda data: data.update({"schema_version": 1})
+        ) as workspace_path:
+            manifest_path = workspace_path / "records" / "work-items.json"
+            content = manifest_path.read_text(encoding="utf-8")
+            first_target = manifest_path.with_name("work-items-a.json")
+            second_target = manifest_path.with_name("work-items-b.json")
+            first_target.write_text(content, encoding="utf-8")
+            second_target.write_text(content, encoding="utf-8")
+            manifest_path.unlink()
+            manifest_path.symlink_to(first_target.name)
+            store = load_store(workspace_path)
+            original_assert = store_module._assert_workspace_file_unchanged
+
+            def retarget_after_snapshot(loaded_store: object) -> None:
+                original_assert(loaded_store)
+                manifest_path.unlink()
+                manifest_path.symlink_to(second_target.name)
+
+            with mock.patch.object(
+                store_module,
+                "_assert_workspace_file_unchanged",
+                side_effect=retarget_after_snapshot,
+            ):
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "collection file changed since it was loaded",
+                ):
+                    migrate_store(store, write=True)
+
+            self.assertEqual(load_store(workspace_path).data["schema_version"], 1)
 
     def test_schema_v2_migration_is_idempotent(self) -> None:
         current = json.loads(

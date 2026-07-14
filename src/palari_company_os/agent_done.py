@@ -9,7 +9,7 @@ from .agent_checks import build_agent_check
 from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_finish import build_agent_finish
 from .agent_packets import build_agent_brief
-from .agent_runtime import claim_is_active, read_claim, release_agent, start_agent
+from .agent_runtime import claim_check, read_claim, release_agent, start_agent
 from .authoring import closeout_attempt, complete_work, create_record, update_record
 from .read_models import detail
 from .workspace import Workspace, WorkspaceError
@@ -279,12 +279,17 @@ def _preflight(
     claim = read_claim(workspace_path, work_id)
     if not claim:
         return _blocked_preflight("agent done requires an active execute claim")
-    if claim.get("claimed_by") != palari_id:
-        return _blocked_preflight(
-            f"work is claimed by {claim.get('claimed_by', 'unknown')}, not {palari_id}"
-        )
-    if claim.get("mode") != "execute" or not claim_is_active(claim):
-        return _blocked_preflight("agent done requires a current execute-mode claim")
+    packet = build_agent_brief(workspace, work_id, palari_id, "execute")
+    claim_result = claim_check(
+        workspace_path,
+        work_id,
+        palari_id,
+        "execute",
+        str(packet.get("context_hash") or ""),
+    )
+    if claim_result.get("status") != "pass":
+        return _blocked_preflight(str(claim_result.get("message") or "active claim is invalid"))
+    claim = claim_result["claim"]
 
     root = git_repo_root(workspace.path) or git_repo_root(Path.cwd())
     if root is None:
@@ -337,7 +342,6 @@ def _preflight(
     if not changed_files:
         return _blocked_preflight("no committed changes exist since the claim started")
 
-    packet = build_agent_brief(workspace, work_id, palari_id, "execute")
     inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
     if inspection is None:
         return _blocked_preflight("file change inspection was unavailable")

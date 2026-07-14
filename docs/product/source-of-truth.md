@@ -55,7 +55,8 @@ inspectable source formats. The rule should stay the same:
 - queue/detail commands do not secretly mutate authority state
 
 Current authoring commands intentionally refuse split workspaces so they do not
-silently collapse or corrupt external collection files.
+silently collapse or corrupt external collection files. The versioned migration
+command is the narrow write exception and preserves the declared file layout.
 
 ## What Must Not Become Implicit
 

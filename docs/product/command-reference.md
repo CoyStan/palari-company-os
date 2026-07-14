@@ -764,7 +764,10 @@ mutate the workspace model.
 Upgrades unversioned, v0, and v1 workspaces to schema v2 and ensures required
 collections exist. Legacy unbound accept-ready proof is blocked, its dependent
 acceptance is revoked, and affected governed terminal work is reopened for a
-fresh exact review. Without `--write`, the command previews all changes.
+fresh exact review. Split workspaces are migrated in place without collapsing
+included collections: included files are written before the root version is
+advanced, and any concurrent root or included-file change blocks the write.
+Without `--write`, the command previews all changes.
 
 ## Authoring Commands
 
