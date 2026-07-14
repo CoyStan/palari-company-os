@@ -252,12 +252,32 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "EVIDENCE-MANIFEST",
                 "--json",
             )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "update",
+                "EVIDENCE-MANIFEST",
+                "--list",
+                "artifacts=",
+                "--json",
+            )
+            cleared = self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "verify",
+                "EVIDENCE-MANIFEST",
+                "--json",
+            )
 
         self.assertTrue(ok["ok"])
         self.assertFalse(receipt_tampered["ok"])
         self.assertFalse(receipt_tampered["receipt_checks"][0]["ok"])
         self.assertFalse(tampered["ok"])
         self.assertFalse(tampered["artifact_hashes_ok"])
+        self.assertTrue(cleared["ok"])
+        self.assertEqual(cleared["declared_artifact_hashes"], [])
 
     def test_work_accept_records_human_decision_and_acceptance_record(self) -> None:
         with self.temp_workspace() as workspace_file:

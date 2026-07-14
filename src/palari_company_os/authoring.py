@@ -769,6 +769,8 @@ def _prepare_record_for_update(
     if kind == "evidence":
         from .evidence_manifest import stamp_evidence_record
 
+        if "artifacts" in updates and "artifact_hashes" not in updates:
+            record.pop("artifact_hashes", None)
         record.update(stamp_evidence_record(record, store.data_path.parent))
     if kind == "receipt":
         from .evidence_manifest import stamp_receipt_record
