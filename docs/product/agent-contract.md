@@ -260,13 +260,16 @@ options that can launch helpers are not read-only Git operations. Compact or
 newline-separated shell segments are tokenized identically, and ordinary
 existing-directory destinations resolve the effective destination basename.
 Repository overrides and ripgrep preprocessor/hostname helpers require review.
-The CLI does not accept abbreviated global long options, and the hook still
-scans protected Palari command pairs defensively. Destructive removal or move
+The CLI does not accept abbreviated long options at any parser nesting level,
+and the hook still scans protected Palari command pairs defensively. Unquoted
+pathname expansion, tree-shaped or backup-producing writes, path-qualified
+trusted-command names, hook self-modification, and unclassified Palari commands
+require review. Destructive removal or move
 targets include ancestors of workspace, runtime, and Git truth, so deleting a
 parent directory cannot bypass the exact-file checks.
-Human-attributed review,
-decision, integration approval, terminal lifecycle, work-accept, and generic
-packet-authority mutation commands are denied from the supported agent shell.
+Human-attributed review, decision, integration approval/cancel/enqueue/send,
+Linear adoption, terminal lifecycle, work-accept, and generic packet-authority
+mutation commands are denied from the supported agent shell.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

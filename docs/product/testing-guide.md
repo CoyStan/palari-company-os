@@ -93,7 +93,10 @@ The test suite covers:
   option-encoded/linked-worktree metadata paths, pager/filter helpers, and
   compact/newline separators, ordinary directory destinations, repository or
   ripgrep helper overrides, global-option abbreviation rejection, destructive
-  ancestor targets, and active-claim scope-change rejection
+  ancestor targets, unquoted pathname expansion, tree-shaped copy and hidden
+  backup outputs, path-qualified trusted-command spoofing, hook self-removal,
+  fail-closed unclassified Palari commands, external/human integration
+  mutations, and active-claim scope-change rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

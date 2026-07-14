@@ -202,7 +202,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_playbooks_parser(subparsers)
     _add_gate_parser(subparsers)
 
+    _disable_argument_abbreviations(parser)
     return parser
+
+
+def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
+    """Apply the root's fail-closed option grammar to every nested parser."""
+
+    parser.allow_abbrev = False
+    for action in parser._actions:
+        choices = getattr(action, "choices", None)
+        if not isinstance(choices, dict):
+            continue
+        for child in set(choices.values()):
+            if isinstance(child, argparse.ArgumentParser):
+                _disable_argument_abbreviations(child)
 
 
 def _add_agent_parser(subparsers: Any) -> None:

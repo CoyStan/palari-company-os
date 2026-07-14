@@ -38,9 +38,11 @@ Authority rules:
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari
-  commands, and require human approval for opaque interpreters, unreviewed
-  executables, dynamic shell indirection, and Git witness mutations even when
-  Git global options precede the subcommand. Generic work updates are blocked
+  commands, and require human approval for opaque interpreters, unreviewed or
+  path-qualified executables, unquoted pathname expansion, tree-shaped writes,
+  hidden backup outputs, hook self-modification, unclassified Palari commands,
+  dynamic shell indirection, and Git witness mutations even when Git global
+  options precede the subcommand. Generic work updates are blocked
   while a claim is active, and active claims cannot be renewed against changed
   packet authority. Shell review is segment-independent: an observed allowed
   write cannot mask a later unsafe segment, and command environment assignments,
@@ -53,6 +55,8 @@ Authority rules:
   overrides, pager/filter helpers, and ripgrep preprocessor/hostname helpers
   require review. Global CLI long-option abbreviations are disabled, and
   destructive targets cannot remove or move an ancestor of protected truth.
+  Human integration enqueue/cancel/send, Linear adoption, and external
+  playbook-source authority changes are denied from agent shell commands.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 

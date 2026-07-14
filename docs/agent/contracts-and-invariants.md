@@ -53,13 +53,17 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   claim cannot renew against different current packet authority.
 - Supported agent hooks deny human-attributed and packet-authority Palari
   mutations and require a human decision for opaque interpreters, unreviewed
-  executables, dynamic shell indirection, or Git witness mutations, including
-  Git global-option forms. Every shell segment is classified even when another
-  segment has a visible write target; command environment and helper-launching
-  options cannot inherit read-only status. Workspace truth, split collection
-  files, `.palari/`, and Git metadata cannot be directly rewritten around those
-  gates, including after claim release. Option-encoded destinations and linked
-  worktree/common Git directories are part of the same protected boundary;
+  or path-qualified executables, unquoted pathname expansion, recursive/tree
+  writes, hidden backup outputs, hook self-modification, unclassified Palari
+  commands, dynamic shell indirection, or Git witness mutations, including Git
+  global-option forms. Human integration enqueue/cancel/send and Linear
+  adoption are agent-inaccessible. Every shell segment is classified even when
+  another segment has a visible write target; command environment and
+  helper-launching options cannot inherit read-only status. Workspace truth,
+  split collection files, `.palari/`, and Git metadata cannot be directly
+  rewritten around those gates, including after claim release. Option-encoded
+  destinations and linked worktree/common Git directories are part of the same
+  protected boundary;
   compact/newline shell segments and ordinary directory destinations must
   preserve the effective path. Repository overrides and pager/filter/ripgrep
   helpers are execution-capable, not read-only. Global option abbreviations do

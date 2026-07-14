@@ -457,6 +457,155 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(_decision(result), "deny")
         self.assertIn("work update", result["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_external_and_human_authority_commands_are_denied_to_agent_shell(self) -> None:
+        commands = (
+            "palari integration cancel PLAN-1 --by HUMAN-HOOK --reason no",
+            "palari integration enqueue PLAN-1 --by HUMAN-HOOK",
+            (
+                "palari integration outbox-cancel OUTBOX-1 --by HUMAN-HOOK "
+                "--reason no"
+            ),
+            "palari linear send OUTBOX-1 --by HUMAN-HOOK --confirm",
+            (
+                "palari linear start ENG-1 --as PALARI-SOFIA "
+                "--adopt-by HUMAN-HOOK"
+            ),
+            (
+                "palari linear start ENG-1 --as PALARI-SOFIA "
+                "--adopt-b=HUMAN-HOOK"
+            ),
+            "palari playbook-source update SOURCE-1 --set uri=https://example.invalid",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "deny")
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(
+                [
+                    "linear",
+                    "start",
+                    "ENG-1",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--adopt-b=HUMAN-HOOK",
+                ]
+            )
+
+    def test_hook_and_git_hook_installation_require_human_review(self) -> None:
+        for command in (
+            "palari claude install --remove",
+            "palari git install --remove",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "self-protection mutation",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_unclassified_palari_commands_fail_closed_but_agent_checks_remain_safe(self) -> None:
+        unsafe = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari dashboard --out /tmp/palari-dashboard.html"},
+            self.repo,
+        )
+        safe = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(unsafe), "ask")
+        self.assertIn(
+            "unreviewed Palari command",
+            unsafe["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+        self.assertEqual(safe, {})
+
+    def test_path_qualified_trusted_basenames_require_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        for command in (
+            "./docs/git status",
+            "./docs/rg needle docs",
+            "./docs/echo safe-looking-output",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "path-qualified executable",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_unquoted_expansion_and_tree_copy_require_human_review(self) -> None:
+        commands = (
+            "rm -rf ws/work*",
+            "echo x > ws/work*",
+            "cp -rT malicious ws",
+            "cp -a malicious/. ws",
+            "cp --no-target-directory malicious ws",
+            "cp --parents malicious/ws/workspace.json .",
+            "ln -sfT malicious ws",
+            "git \\\nstatus",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+        quoted_pattern = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "rg 'foo.*' docs"},
+            self.repo,
+        )
+        self.assertEqual(quoted_pattern, {})
+
+    def test_hidden_backup_output_options_require_human_review(self) -> None:
+        for command in (
+            "cp --backup source docs/notes.md",
+            "mv -b source docs/notes.md",
+            "install --backup source docs/notes.md",
+            "ln -b source docs/notes.md",
+            "sed -i.bak s/a/b/ docs/notes.md",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
     def test_git_global_options_do_not_hide_witness_mutations(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
         commands = (

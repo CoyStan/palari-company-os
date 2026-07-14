@@ -172,11 +172,15 @@ HUMAN_ONLY_PALARI_COMMANDS = {
     ("human-decision", "record"),
     ("human-decision", "update"),
     ("integration", "approve"),
+    ("integration", "cancel"),
+    ("integration", "enqueue"),
+    ("integration", "outbox-cancel"),
     ("integration", "reject"),
     ("lifecycle", "complete"),
     ("lifecycle", "decide"),
     ("lifecycle", "outcome"),
     ("lifecycle", "review"),
+    ("linear", "send"),
     ("outcome", "record"),
     ("outcome", "update"),
     ("proposal", "adopt"),
@@ -195,12 +199,94 @@ PACKET_AUTHORITY_PALARI_COMMANDS = {
         "goal",
         "human",
         "palari",
+        "playbook-source",
         "source",
         "work",
         "workbench",
     )
     for action in ("create", "update")
 } | {("work", "add")}
+
+# These commands are either read-only or perform the bounded agent/runtime
+# transitions that the packet contract explicitly asks an agent to run. New
+# commands do not inherit this list: an unclassified Palari command asks a
+# human instead of silently acquiring a shell-hook bypass.
+SAFE_AGENT_PALARI_COMMANDS = {
+    ("agent", action)
+    for action in (
+        "brief",
+        "check",
+        "doctor",
+        "done",
+        "finish",
+        "handoff",
+        "loop",
+        "next",
+        "release",
+        "start",
+    )
+} | {
+    ("attempt", action) for action in ("closeout", "record", "update")
+} | {
+    ("authority", action) for action in ("check", "profiles")
+} | {
+    ("capability", action) for action in ("check", "export-policy", "list")
+} | {
+    ("data", "map"),
+    ("decision", "guide"),
+    ("docs", "check"),
+    ("docs", "map"),
+    ("evidence", "record"),
+    ("evidence", "update"),
+    ("evidence", "verify"),
+    ("gate", "profiles"),
+    ("gate", "recommend"),
+    ("git", "pre-commit"),
+    ("git", "status"),
+    ("integration", "check"),
+    ("integration", "outbox-check"),
+    ("integration", "plan"),
+    ("lifecycle", "evidence"),
+    ("linear", "block-template"),
+    ("linear", "doctor"),
+    ("linear", "import"),
+    ("linear", "inspect-block"),
+    ("linear", "issue"),
+    ("linear", "issues"),
+    ("linear", "linked"),
+    ("linear", "post-gate"),
+    ("linear", "push"),
+    ("linear", "start"),
+    ("linear", "status"),
+    ("linear", "sync"),
+    ("linear", "webhook-events"),
+    ("linear", "webhook-verify"),
+    ("maintainer", "status"),
+    ("playbooks", "recommend"),
+    ("playbooks", "sources"),
+    ("proposal", "create"),
+    ("proposal", "update"),
+    ("receipt", "record"),
+    ("receipt", "update"),
+    ("review", "guide"),
+    ("work", "expand-scope"),
+} | {
+    (command, "")
+    for command in (
+        "detail",
+        "history",
+        "integrations",
+        "queue",
+        "scope",
+        "state",
+        "validate",
+    )
+}
+
+PALARI_SELF_PROTECTION_COMMANDS = {
+    ("claude", "install"),
+    ("git", "install"),
+}
 
 
 def run_hook(
@@ -447,14 +533,30 @@ def bash_human_authority_command(command: str) -> str:
             command_key = (args[argument_index], args[argument_index + 1])
             if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
                 return " ".join(command_key)
+        if (
+            any(
+                (args[argument_index], args[argument_index + 1]) == ("linear", "start")
+                for argument_index in range(len(args) - 1)
+            )
+            and any(
+                argument.startswith("--adopt")
+                for argument in args
+            )
+        ):
+            return "linear start --adopt-by"
     return ""
 
 
 def bash_requires_human_review(command: str) -> str:
     """Return why a target-free shell command is too opaque to auto-authorize."""
 
+    if "\\\n" in command or "\\\r\n" in command:
+        return "shell line continuation"
     if "$" in command or "`" in command or "<(" in command or ">(" in command:
         return "dynamic shell expansion"
+    expansion_reason = _unquoted_shell_expansion_reason(command)
+    if expansion_reason:
+        return expansion_reason
     tokens = _shell_tokens(command)
     expect_command = True
     for index, token in enumerate(tokens):
@@ -466,13 +568,16 @@ def bash_requires_human_review(command: str) -> str:
         if _is_shell_assignment(token):
             return "command environment assignment"
         expect_command = False
-        if any(marker in token for marker in ("*", "?", "[", "{", "(")):
-            return "dynamic shell command name"
         name = Path(token).name
         if token == ".":
             return "opaque interpreter ."
+        if token != name:
+            return f"unreviewed executable (path-qualified executable {token})"
         if name in OPAQUE_INTERPRETERS:
             return f"opaque interpreter {name}"
+        write_reason = _write_command_semantics_reason(tokens, index, name)
+        if write_reason:
+            return write_reason
         if name in BASH_WRITE_COMMANDS:
             continue
         if name == "git":
@@ -488,6 +593,9 @@ def bash_requires_human_review(command: str) -> str:
                 return f"unreviewed Git subcommand git {subcommand or '(missing)'}"
             continue
         if name == "palari":
+            palari_reason = _palari_shell_review_reason(tokens, index)
+            if palari_reason:
+                return palari_reason
             continue
         if name == "rg":
             for option in RG_EXECUTION_OPTIONS:
@@ -498,6 +606,143 @@ def bash_requires_human_review(command: str) -> str:
     if ".palari" in command:
         return "Palari runtime path mutation"
     return ""
+
+
+def _unquoted_shell_expansion_reason(command: str) -> str:
+    """Identify syntax whose runtime path cannot be known from lexical tokens."""
+
+    single_quoted = False
+    double_quoted = False
+    escaped = False
+    word_start = True
+    for character in command:
+        if escaped:
+            escaped = False
+            word_start = False
+            continue
+        if character == "\\" and not single_quoted:
+            escaped = True
+            continue
+        if single_quoted:
+            if character == "'":
+                single_quoted = False
+            continue
+        if double_quoted:
+            if character == '"':
+                double_quoted = False
+            continue
+        if character == "'":
+            single_quoted = True
+            word_start = False
+            continue
+        if character == '"':
+            double_quoted = True
+            word_start = False
+            continue
+        if character in "*?[{(":
+            return "unquoted shell pathname expansion"
+        if character == "~" and word_start:
+            return "unquoted shell home expansion"
+        word_start = character.isspace() or character in ";|&<>"
+    return ""
+
+
+def _write_command_semantics_reason(
+    tokens: list[str], command_index: int, command_name: str
+) -> str:
+    """Reject write options that create paths absent from the command text."""
+
+    arguments = _command_arguments(tokens, command_index)
+    option_arguments: list[str] = []
+    for argument in arguments:
+        if argument == "--":
+            break
+        option_arguments.append(argument)
+    if command_name == "cp":
+        for argument in option_arguments:
+            if argument in {
+                "--archive",
+                "--no-target-directory",
+                "--parents",
+                "--recursive",
+            }:
+                return f"tree-writing cp option {argument}"
+            if argument.startswith("-") and not argument.startswith("--"):
+                flags = argument[1:]
+                if any(flag in flags for flag in "RraT"):
+                    return f"tree-writing cp option {argument}"
+    if command_name in {"cp", "install", "ln", "mv"}:
+        for argument in option_arguments:
+            if argument == "--no-target-directory":
+                return f"exact-destination {command_name} option {argument}"
+            if argument.startswith("-") and not argument.startswith("--"):
+                if "T" in argument[1:]:
+                    return f"exact-destination {command_name} option {argument}"
+            if argument in {"--backup", "-b"} or argument.startswith("--backup="):
+                return f"backup-producing {command_name} option {argument}"
+            if (
+                argument.startswith("-")
+                and not argument.startswith("--")
+                and "b" in argument[1:]
+            ):
+                return f"backup-producing {command_name} option {argument}"
+    if command_name == "sed":
+        for argument in option_arguments:
+            if (
+                argument.startswith("--in-place=")
+                or (argument.startswith("-i") and argument != "-i")
+            ):
+                return f"backup-producing sed option {argument}"
+    return ""
+
+
+def _palari_shell_review_reason(tokens: list[str], command_index: int) -> str:
+    """Fail closed for Palari CLI commands not classified for agent shells."""
+
+    command_key = _palari_command_key(tokens, command_index)
+    if command_key in PALARI_SELF_PROTECTION_COMMANDS:
+        return f"Palari self-protection mutation {' '.join(command_key)}"
+    if command_key in SAFE_AGENT_PALARI_COMMANDS:
+        return ""
+    label = " ".join(part for part in command_key if part) or "(missing)"
+    return f"unreviewed Palari command {label}"
+
+
+def _palari_command_key(tokens: list[str], command_index: int) -> tuple[str, str]:
+    arguments = _command_arguments(tokens, command_index)
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--workspace":
+            index += 2
+            continue
+        if argument.startswith("--workspace="):
+            index += 1
+            continue
+        if argument.startswith("-"):
+            return ("", "")
+        break
+    if index >= len(arguments):
+        return ("", "")
+    command = arguments[index]
+    if command in {
+        "detail",
+        "history",
+        "integrations",
+        "queue",
+        "scope",
+        "state",
+        "validate",
+    }:
+        return (command, "")
+    if index + 1 >= len(arguments) or arguments[index + 1].startswith("-"):
+        return (command, "")
+    nested = arguments[index + 1]
+    if command == "linear" and nested == "webhook":
+        if index + 2 >= len(arguments) or arguments[index + 2].startswith("-"):
+            return ("linear", "webhook")
+        return ("linear", f"webhook-{arguments[index + 2]}")
+    return (command, nested)
 
 
 def _shell_tokens(command: str) -> list[str]:

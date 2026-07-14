@@ -30,9 +30,13 @@ truth before execute authority is granted:
   mutations also require a human ask; Git global options cannot hide a witness
   subcommand, and an earlier allowed write cannot mask a later unsafe shell
   segment. Command environment assignments, execution-capable `git -c` or diff
-  options, and `rg --pre` also ask. Human-attributed review,
-  decision, integration approval, terminal lifecycle, work-accept, and generic
-  packet-authority mutations are denied from agent Bash.
+  options, and `rg --pre` also ask. Unquoted pathname expansion, recursive or
+  tree-shaped copy semantics, backup-producing write options, path-qualified
+  executable names, hook installation/removal, and Palari commands not on the
+  explicit agent-safe command list also ask. Human-attributed review, decision,
+  integration approval/cancel/enqueue/send, Linear adoption, terminal
+  lifecycle, work-accept, and generic packet-authority mutations are denied
+  from agent Bash.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -77,7 +81,8 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   their effective paths. Git repository overrides and ripgrep helper-launching
   options ask rather than inheriting a read-only classification. Abbreviated
   global CLI options are rejected, protected command pairs are scanned
-  defensively, and destructive parent-directory targets remain protected.
+  defensively, destructive parent-directory targets remain protected, and new
+  or unclassified Palari commands fail closed to a human ask.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

@@ -450,10 +450,13 @@ harness instead of agent goodwill. `claude hook` is the handler those hooks
 invoke: it reads one hook payload from stdin, checks it against the active
 claims under `.palari/`, recompiles execute authority from the current
 workspace, and prints a JSON decision. It denies human-attributed Palari
-mutations and generic packet-authority changes from agent Bash, and asks a
-human before opaque interpreters, unreviewed executables, dynamic shell
-indirection, or Git witness mutations, including `git -C` and explicit
-Git-directory/worktree forms. Classification covers every shell segment even
+mutations, integration enqueue/cancel/send, Linear adoption, and generic
+packet-authority changes from agent Bash. It asks a human before opaque
+interpreters, unreviewed or path-qualified executables, unquoted pathname
+expansion, tree-shaped or backup-producing writes, hook self-modification,
+unclassified Palari commands, or Git witness mutations, including `git -C` and
+explicit Git-directory/worktree forms. Classification covers every shell
+segment even
 when another segment has an in-scope target; command environment assignments,
 `git -c`, external diff/text-conversion options, and `rg --pre` also require a
 human ask. Opaque or indirect commands ask even without an active claim, and
@@ -461,8 +464,8 @@ direct writes to workspace root/split files, `.palari/`, or Git metadata remain
 protected after claim release. Protection includes option-encoded destinations,
 ordinary directory/basename semantics, compact/newline shell segments,
 linked-worktree/common Git directories, Git repository overrides, and
-Git/ripgrep helper-launching options. Global long-option abbreviations are
-rejected; destructive ancestor directories are protected too. It
+Git/ripgrep helper-launching options. Long-option abbreviations are rejected at
+every CLI nesting level; destructive ancestor directories are protected too. It
 never mutates workspace records and fails open on handler errors. `claude
 status` reports installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
