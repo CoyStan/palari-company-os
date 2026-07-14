@@ -20,7 +20,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
 ## Required Outcomes
 
-- [ ] Exact-artifact review binding
+- [x] Exact-artifact review binding
   - Required outcome: an accept-ready review identifies the current attempt,
     evidence manifest, receipt, reviewed head, and bounded work contract;
     subsequent substantive drift makes it stale.
@@ -28,10 +28,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     prove review, acceptance, and completion fail closed.
   - Verification: focused governance/transition/validation tests plus the
     complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: implementation candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; binding implementation in
+    `src/palari_company_os/governance_binding.py`; negative binding and
+    completion coverage in `tests/test_validation.py`,
+    `tests/test_review_guides.py`, and `tests/test_governance_completion.py`;
+    review ledger `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Independent-review enforcement
+- [x] Independent-review enforcement
   - Required outcome: a required accept-ready review comes from a declared
     human reviewer who is distinct from the attempt and receipt actor, and its
     context is assembled from bounded records rather than builder narration.
@@ -39,10 +44,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     and mismatched-proof reviews are rejected by mutation and validation paths.
   - Verification: focused review-guide, transition, validation, and lifecycle
     tests plus the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; reviewer/actor separation and
+    bounded review guides in `src/palari_company_os/validation.py`,
+    `src/palari_company_os/review_guides.py`, and
+    `src/palari_company_os/transition_checks.py`; exact review history at
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Human authority remains explicit and current
+- [x] Human authority remains explicit and current
   - Required outcome: decisions and acceptance records reference current exact
     evidence and review; negative, revoked, stale, or mismatched decisions do
     not count toward quorum; agents cannot surface or execute premature human
@@ -51,10 +61,16 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     stale-proof, insufficient-quorum, and premature-handoff tests fail closed.
   - Verification: focused authority, read-model, handoff, validation, and
     transition tests plus the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; current decision/quorum and
+    `accepted_at` revocation enforcement in `validation.py`, `read_models.py`,
+    `agent_handoff.py`, and `claude_hooks.py`; hostile authority tests in
+    `test_validation.py`, `test_governance_completion.py`, and
+    `test_claude_hooks.py`; review 15 ACCEPT recorded at
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Evidence completeness and freshness
+- [x] Evidence completeness and freshness
   - Required outcome: trust-changing gates require a valid manifest, current
     receipt binding, meaningful verification, and present contained artifacts;
     missing, unsafe, malformed, stale, or contradictory proof is ineligible.
@@ -63,10 +79,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     with actionable diagnostics.
   - Verification: focused evidence/validation/lifecycle tests plus schema and
     fixture validation and the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; manifest, artifact, receipt,
+    timestamp, and active-acceptance verification in `evidence_manifest.py`,
+    `record_order.py`, and `validation.py`; negative evidence tests in
+    `test_validation.py` and `test_governance_completion.py`; adversarial
+    review confirmation at `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Canonical scope and source boundaries
+- [x] Canonical scope and source boundaries
   - Required outcome: filesystem-backed checks contain canonical paths within
     the declared root; traversal, sibling-prefix, symlink escape, unsafe
     declarations, invalid observations, wrong-repository inspection, and
@@ -76,10 +97,16 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     attempt.
   - Verification: focused path, workspace, packet, hook, and validation tests
     plus security/boundary smokes and the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; canonical containment in
+    `path_policy.py`, `agent_file_changes.py`, `git_hooks.py`, and
+    `claude_hooks.py`; temporary-copy negative coverage in
+    `test_filesystem_security.py`, `test_path_policy.py`, `test_git_hooks.py`,
+    `test_claude_hooks.py`, and `test_agent_done.py`; reviews 3-10 in commit
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Lifecycle consistency and safe repetition
+- [x] Lifecycle consistency and safe repetition
   - Required outcome: work, attempt, receipt, evidence, review, decision, and
     completion transitions cannot bypass prerequisites; interrupted or repeated
     shortcut commands are preflighted, resumable, and do not fabricate proof.
@@ -88,10 +115,16 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     clean current attempt.
   - Verification: focused workflow, agent-done, history, transition, and
     lifecycle tests plus the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; guarded authoring and completion
+    transitions in `authoring.py`, `transition_checks.py`, `agent_done.py`, and
+    `validation.py`; partial/repeated command coverage in
+    `test_transition_checks.py`, `test_history.py`, `test_agent_done.py`, and
+    `test_governance_completion.py`; review ledger
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Multi-agent, worktree, and handoff clarity
+- [x] Multi-agent, worktree, and handoff clarity
   - Required outcome: enforcement uses one validated claim/packet identity at a
     time, detects ambiguous ownership and mixed-claim changes, handles linked
     worktrees and deletions, and hands off exact branch/head/scope/proof/blocker
@@ -101,10 +134,16 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     closed with the next safe action.
   - Verification: focused runtime, Git hook, Claude hook, agent packet, and
     handoff tests plus CLI smokes and the complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; current packet recomputation,
+    immutable claim-start baseline, reflog-backed Git witness, claim conflict,
+    linked-worktree handling, and exact handoff fields in `agent_runtime.py`,
+    `agent_checks.py`, `agent_file_changes.py`, `agent_handoff.py`, and hooks;
+    negative runtime/worktree tests and reviews 2-4 recorded at
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Faster verification without a weaker final gate
+- [x] Faster verification without a weaker final gate
   - Required outcome: maintainers have mechanical focused, affected-area, and
     authoritative complete profiles; the default complete gate remains
     deterministic and the documented release/acceptance gate is not weakened.
@@ -113,10 +152,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     smokes.
   - Verification: verification-profile tests, the authoritative complete gate,
     and isolated wheel install smoke.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: profiles and self-tests at candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; baseline complete gate 419 tests
+    in 64.08 seconds and duplicated documented sequence 136.15 seconds;
+    accepted-candidate complete gate 555 tests in 81.84 seconds locally and
+    78.28 seconds independently; install smoke 12.41 seconds locally; review
+    evidence committed at `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Concise actionable operator diagnostics
+- [x] Concise actionable operator diagnostics
   - Required outcome: queue, detail, doctor, check, finish, handoff, and hook
     output distinguish blocked, stale, rejected, review-required, and
     human-decision states and name the exact missing proof and next safe action.
@@ -124,10 +168,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     blocker codes, no premature authority commands, and actionable guidance.
   - Verification: focused CLI/operator tests plus command smoke tests and the
     complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; actionable state and command
+    routing in `agent_checks.py`, `agent_doctor.py` consumers, `agent_finish.py`,
+    `agent_handoff.py`, `agent_loop.py`, `agent_next.py`, and `read_models.py`;
+    JSON/text assertions across agent packet, completion, hook, and read-model
+    tests; review ledger `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Compatibility, migration, minimality, and documentation
+- [x] Compatibility, migration, minimality, and documentation
   - Required outcome: public CLI compatibility is preserved; any stricter
     durable schema contract has an explicit versioned migration; no runtime
     dependency, provider call, secret access, autonomous acceptance, push,
@@ -138,8 +187,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification: migration/schema/public-surface/docs tests,
     `./bin/palari docs check --json`, authoritative complete verification, and
     `./scripts/install_smoke.sh`.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed.
+  - Exact committed evidence: candidate
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903`; schema-v2 exact-binding
+    migration, split-workspace atomicity, fixtures, synchronized packaged
+    schemas/examples, and standard-library-only implementation; 12/12 docs
+    checks, 555-test complete gate, and isolated install pass; compatibility
+    review history at `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
 - [ ] Exact-head independent review and founder packet
   - Required outcome: a fresh independent reviewer inspects the exact clean
