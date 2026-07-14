@@ -138,6 +138,7 @@ GIT_EXECUTION_GLOBAL_OPTIONS = {
 }
 GIT_EXECUTION_OPTIONS = {
     "--ext-diff",
+    "--filters",
     "--open-files-in-pager",
     "--show-signature",
     "--textconv",
@@ -271,14 +272,20 @@ def bash_write_targets(command: str) -> list[str]:
     targets: list[str] = []
     expect_command = True
     expect_target = False
+    expect_write_option_target = False
     active_write_command = ""
+    active_write_sources: list[str] = []
+    write_target_directory = ""
     sed_in_place = False
     sed_script_consumed = False
     for token in tokens:
         if token in {"&&", "||", ";", "|"}:
             expect_command = True
             expect_target = False
+            expect_write_option_target = False
             active_write_command = ""
+            active_write_sources = []
+            write_target_directory = ""
             sed_in_place = False
             sed_script_consumed = False
             continue
@@ -294,6 +301,14 @@ def bash_write_targets(command: str) -> list[str]:
         if expect_target:
             targets.append(token)
             expect_target = False
+            continue
+        if expect_write_option_target:
+            targets.append(token)
+            write_target_directory = token
+            targets.extend(
+                str(Path(token) / Path(source).name) for source in active_write_sources
+            )
+            expect_write_option_target = False
             continue
         if expect_command:
             expect_command = False
@@ -322,8 +337,38 @@ def bash_write_targets(command: str) -> list[str]:
             if sed_in_place and _looks_like_path(token):
                 targets.append(token)
             continue
+        if active_write_command == "dd":
+            if token.startswith("of=") and token[3:]:
+                targets.append(token[3:])
+            continue
+        if active_write_command in {"cp", "install", "ln", "mv"}:
+            if token in {"-t", "--target-directory"}:
+                expect_write_option_target = True
+                continue
+            if token.startswith("--target-directory="):
+                target = token.split("=", 1)[1]
+                if target:
+                    targets.append(target)
+                    write_target_directory = target
+                    targets.extend(
+                        str(Path(target) / Path(source).name)
+                        for source in active_write_sources
+                    )
+                continue
+            if token.startswith("-t") and token != "-t":
+                target = token[2:]
+                targets.append(target)
+                write_target_directory = target
+                targets.extend(
+                    str(Path(target) / Path(source).name)
+                    for source in active_write_sources
+                )
+                continue
         if active_write_command and not token.startswith("-"):
             targets.append(token)
+            active_write_sources.append(token)
+            if write_target_directory:
+                targets.append(str(Path(write_target_directory) / Path(token).name))
     return targets
 
 
@@ -465,6 +510,8 @@ def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
             return f"execution-capable Git option {token.split('=', 1)[0]}"
         if token == "--output" or token.startswith("--output="):
             return "Git output-file mutation"
+        if token == "-O" or token.startswith("-O"):
+            return "execution-capable Git pager option -O"
     return ""
 
 
@@ -679,8 +726,8 @@ def _pre_tool_use(
     workspace_bound = root is not None and _workspace_belongs_to_repo(workspace_path, root)
     if workspace_bound:
         protected = [
-            (target, _protected_governance_target(target, root, workspace_path))
-            for target in relative_targets
+            (target, _protected_governance_target(target, cwd, root, workspace_path))
+            for target in raw_targets
         ]
         protected = [(target, reason) for target, reason in protected if reason]
         if protected:
@@ -1116,13 +1163,17 @@ def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
 
 
 def _protected_governance_target(
-    relative_target: str,
+    raw_target: str,
+    cwd: Path,
     root: Path,
     workspace_path: Path | str,
 ) -> str:
     """Name governance state that must not be edited around the CLI gates."""
 
-    target = (root / relative_target).resolve()
+    target = Path(raw_target.strip().replace("\\", "/"))
+    if not target.is_absolute():
+        target = cwd / target
+    target = target.resolve()
     data_path = workspace_file_path(workspace_path).resolve()
     protected_files = {data_path}
     try:
@@ -1147,7 +1198,35 @@ def _protected_governance_target(
     runtime = (data_path.parent / ".palari").resolve()
     if target == runtime or runtime in target.parents:
         return "Palari runtime state"
-    git_metadata = (root / ".git").resolve()
-    if target == git_metadata or git_metadata in target.parents:
-        return "Git metadata"
+    for git_metadata in _git_metadata_roots(root):
+        if target == git_metadata or git_metadata in target.parents:
+            return "Git metadata"
     return ""
+
+
+def _git_metadata_roots(root: Path) -> set[Path]:
+    marker = root / ".git"
+    roots = {marker.resolve()}
+    if not marker.is_file():
+        return roots
+    try:
+        declaration = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return roots
+    if not declaration.lower().startswith("gitdir:"):
+        return roots
+    git_dir = Path(declaration.split(":", 1)[1].strip())
+    if not git_dir.is_absolute():
+        git_dir = root / git_dir
+    git_dir = git_dir.resolve()
+    roots.add(git_dir)
+    common_marker = git_dir / "commondir"
+    if common_marker.is_file():
+        try:
+            common_dir = Path(common_marker.read_text(encoding="utf-8").strip())
+            if not common_dir.is_absolute():
+                common_dir = git_dir / common_dir
+            roots.add(common_dir.resolve())
+        except OSError:
+            pass
+    return roots

@@ -58,7 +58,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   segment has a visible write target; command environment and helper-launching
   options cannot inherit read-only status. Workspace truth, split collection
   files, `.palari/`, and Git metadata cannot be directly rewritten around those
-  gates, including after claim release.
+  gates, including after claim release. Option-encoded destinations and linked
+  worktree/common Git directories are part of the same protected boundary;
+  pager/filter helper options are execution-capable, not read-only.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

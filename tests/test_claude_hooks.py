@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.claude_hooks import (
+    _git_metadata_roots,
     bash_write_targets,
     handle_hook_event,
     hooks_status,
@@ -477,6 +478,8 @@ class PreToolUseTests(unittest.TestCase):
             ),
             "GIT_EXTERNAL_DIFF=./docs/rewrite-runtime-state git diff -- docs/notes.md",
             "git diff --ext-diff -- docs/notes.md",
+            "git grep -O./docs/rewrite-runtime-state needle docs",
+            "git cat-file --filters HEAD:docs/notes.md",
             "rg --pre ./docs/rewrite-runtime-state pattern docs",
         )
 
@@ -551,6 +554,24 @@ class PreToolUseTests(unittest.TestCase):
             "workspace source of truth",
             exact["hookSpecificOutput"]["permissionDecisionReason"],
         )
+
+    def test_option_encoded_governance_destinations_are_protected_without_claim(self) -> None:
+        commands = (
+            "dd if=/dev/null of=ws/workspace.json",
+            "dd if=/dev/null of=.git/config",
+            "cp --target-directory=.git docs/new-config",
+            "cp -tws malicious/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
 
     def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
         workspace_file = self.workspace / "workspace.json"
@@ -723,6 +744,24 @@ class BashWriteTargetTests(unittest.TestCase):
         self.assertEqual(bash_write_targets("git rm docs/old.md"), ["docs/old.md"])
         self.assertEqual(bash_write_targets("sed -i s/a/b/ docs/x.md"), ["docs/x.md"])
 
+    def test_option_encoded_write_destinations(self) -> None:
+        self.assertEqual(
+            bash_write_targets("dd if=/dev/null of=ws/workspace.json"),
+            ["ws/workspace.json"],
+        )
+        self.assertIn(
+            ".git",
+            bash_write_targets("cp --target-directory=.git docs/new-config"),
+        )
+        self.assertIn(
+            ".git",
+            bash_write_targets("mv -t .git docs/new-config"),
+        )
+        self.assertIn(
+            "ws/workspace.json",
+            bash_write_targets("install -tws malicious/workspace.json"),
+        )
+
     def test_read_only_commands_have_no_targets(self) -> None:
         self.assertEqual(bash_write_targets("git status"), [])
         self.assertEqual(bash_write_targets("grep -r foo docs"), [])
@@ -733,6 +772,25 @@ class BashWriteTargetTests(unittest.TestCase):
             bash_write_targets("git status && rm out.txt"),
             ["out.txt"],
         )
+
+    def test_linked_worktree_metadata_roots_include_common_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            common = base / "main" / ".git"
+            worktree_git = common / "worktrees" / "linked"
+            linked = base / "linked"
+            worktree_git.mkdir(parents=True)
+            linked.mkdir()
+            (linked / ".git").write_text(
+                f"gitdir: {worktree_git}\n",
+                encoding="utf-8",
+            )
+            (worktree_git / "commondir").write_text("../..\n", encoding="utf-8")
+
+            roots = _git_metadata_roots(linked)
+
+            self.assertIn(worktree_git.resolve(), roots)
+            self.assertIn(common.resolve(), roots)
 
 
 class StopHookTests(unittest.TestCase):

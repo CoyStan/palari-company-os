@@ -90,6 +90,7 @@ The test suite covers:
 - agent-shell denial for human-only and packet-authority commands, dynamic
   shell/Git-global-option approval, composed-command masking, helper-launching
   config/environment options, post-release workspace-truth protection, and
+  option-encoded/linked-worktree metadata paths, pager/filter helpers, and
   active-claim scope-change rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status

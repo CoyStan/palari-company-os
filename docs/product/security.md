@@ -46,7 +46,9 @@ Authority rules:
   write cannot mask a later unsafe segment, and command environment assignments,
   execution-capable Git config/diff options, and `rg --pre` require review.
   Workspace root/split files, `.palari/`, and Git metadata remain protected from
-  direct file writes after claim release as well as during a claim.
+  direct file writes after claim release as well as during a claim. Protection
+  resolves linked-worktree common Git directories and option-encoded write
+  destinations. Git pager/filter helper options require review.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 

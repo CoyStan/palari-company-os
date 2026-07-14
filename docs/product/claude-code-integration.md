@@ -70,7 +70,9 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   Claude Code's normal permission flow. Opaque, indirect, or unreviewed shell
   execution still asks even without a claim so hidden authority commands cannot
   bypass the hook by releasing a claim first. Direct writes to workspace truth,
-  split collection files, `.palari/`, and Git metadata also remain protected.
+  split collection files, `.palari/`, and standard or linked-worktree Git
+  metadata also remain protected, including `dd of=`, `-t`, and
+  `--target-directory` destinations.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

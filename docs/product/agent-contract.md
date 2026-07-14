@@ -253,7 +253,10 @@ classification. Opaque or indirect commands still ask when no claim is active,
 so releasing a claim cannot turn indirection into an authority bypass.
 Direct writes to the workspace root, declared split collection files,
 `.palari/`, or Git metadata are denied or escalated even without an active
-claim; those surfaces must change through governed Palari/Git commands.
+claim; option-encoded destinations such as `dd of=` and `--target-directory`
+are inspected, and linked worktree Git/common directories are included. Those
+surfaces must change through governed Palari/Git commands. Pager and filter
+options that can launch helpers are not read-only Git operations.
 Human-attributed review,
 decision, integration approval, terminal lifecycle, work-accept, and generic
 packet-authority mutation commands are denied from the supported agent shell.

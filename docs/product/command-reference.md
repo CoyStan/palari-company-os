@@ -458,7 +458,8 @@ when another segment has an in-scope target; command environment assignments,
 `git -c`, external diff/text-conversion options, and `rg --pre` also require a
 human ask. Opaque or indirect commands ask even without an active claim, and
 direct writes to workspace root/split files, `.palari/`, or Git metadata remain
-protected after claim release. It
+protected after claim release. Protection includes option-encoded destinations,
+linked-worktree/common Git directories, and Git pager/filter helper options. It
 never mutates workspace records and fails open on handler errors. `claude
 status` reports installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
