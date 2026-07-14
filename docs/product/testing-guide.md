@@ -106,5 +106,9 @@ The test suite covers:
   revocation; malformed, missing-while-competing, timezone-free, and
   equivalent-instant ordering claims fail closed
 - nonterminal acceptance evidence/receipt tamper rejection
+- strict PCAW canonicalization, deterministic export, offline artifact checks,
+  17 provider-neutral conformance vectors, and verifier TCB accounting
+- journal replay, corruption/truncation/fork detection, every crash boundary,
+  idempotent recovery, legacy checkpointing, and centralized store integration
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

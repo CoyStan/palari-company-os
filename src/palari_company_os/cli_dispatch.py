@@ -16,6 +16,7 @@ class CommandResult:
     kind: str
     payload: Any
     as_json: bool
+    exit_code: int = 0
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
@@ -85,6 +86,30 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.docs_command == "map":
             return CommandResult("docs-map", build_docs_map(args.repo), args.json)
+
+    if args.command == "proof":
+        if args.proof_command == "export":
+            from .pcaw_export import export_pcaw_statement
+
+            return CommandResult(
+                "proof",
+                export_pcaw_statement(args.workspace, args.work_id, args.output),
+                args.json,
+            )
+        if args.proof_command == "verify":
+            from .pcaw_protocol import verify_pcaw_file
+
+            payload = verify_pcaw_file(
+                args.proof_file,
+                subject_root=args.subject_root,
+                statement_only=args.statement_only,
+            )
+            return CommandResult(
+                "proof",
+                payload,
+                args.json,
+                0 if payload.get("verified") else 1,
+            )
 
     if args.command == "validate":
         workspace = Workspace.load(args.workspace)
@@ -574,6 +599,36 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 
     if args.command == "history":
+        if args.verify or args.checkpoint or args.recover:
+            from .governance_journal import (
+                checkpoint_workspace_journal,
+                recover_workspace_journal,
+                verify_workspace_journal,
+            )
+            from .store import workspace_write_lock
+
+            if args.checkpoint:
+                with workspace_write_lock(args.workspace):
+                    payload = checkpoint_workspace_journal(
+                        args.workspace,
+                        actor=args.actor or "local-operator",
+                        acknowledge_break=args.acknowledge_break,
+                    )
+            elif args.recover:
+                with workspace_write_lock(args.workspace):
+                    payload = recover_workspace_journal(args.workspace, actor=args.actor)
+            else:
+                payload = verify_workspace_journal(args.workspace)
+            return CommandResult(
+                "history-journal",
+                payload,
+                args.json,
+                0 if payload.get("ok") else 2,
+            )
+
+        if args.acknowledge_break or args.actor:
+            raise WorkspaceError("--actor and --acknowledge-break require a journal mode")
+
         from .history import read_history
 
         return CommandResult("history", read_history(args.workspace, args.limit), args.json)

@@ -802,6 +802,26 @@ def validate_workspace_contract(workspace: Any) -> None:
         if work.status in TERMINAL_WORK_STATUSES:
             _validate_completed_work(workspace, work, attempts_by_id)
 
+    # Exercise the same pure evaluator used by transitions and PCAW verification.
+    # Existing workspace acceptance semantics remain authoritative for compatibility;
+    # PCAW property failures are reported by proof/status surfaces, not converted here.
+    from .governance_kernel import PROPERTY_NAMES
+    from .pcaw_workspace import evaluate_workspace_governance
+
+    governed_work_ids = {
+        acceptance.work_item_id for acceptance in workspace.acceptance_records
+    }
+    for work in workspace.work_items:
+        if work.status not in TERMINAL_WORK_STATUSES and work.id not in governed_work_ids:
+            continue
+        evaluation = evaluate_workspace_governance(
+            workspace, work.id, inspect_external=False
+        )
+        if tuple(item.name for item in evaluation.properties) != PROPERTY_NAMES:
+            raise WorkspaceError(
+                f"governance kernel returned an incomplete property set for {work.id}"
+            )
+
 
 def _reject_unknown_fields(label: str, record: dict[str, object], allowed: set[str]) -> None:
     unknown = sorted(set(record) - allowed)

@@ -387,6 +387,26 @@ class WorkspaceValidationTests(unittest.TestCase):
 
             self.assertTrue(lock_path.exists())
 
+    def test_write_store_does_not_reclaim_old_lock_owned_by_live_process(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            shutil.copy(EXAMPLE_WORKSPACE / "workspace.json", workspace_file)
+            store = load_store(workspace_file)
+            store.data["name"] = "Blocked by old live lock"
+            lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
+            lock_path.parent.mkdir(parents=True)
+            lock_path.write_text(f"pid={os.getpid()}\n", encoding="utf-8")
+            old_time = time.time() - 120
+            os.utime(lock_path, (old_time, old_time))
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "workspace write is already in progress; retry shortly",
+            ):
+                write_store(store)
+
+            self.assertTrue(lock_path.exists())
+
     def test_write_store_removes_workspace_lock_after_successful_write(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace_file = Path(directory) / "workspace.json"

@@ -4,12 +4,14 @@ import json
 import os
 import tempfile
 import time
+import uuid
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from .path_policy import resolve_workspace_path, validate_workspace_path
 from .validation import COLLECTION_FILE_KEYS, validate_raw_contract
@@ -43,11 +45,27 @@ class _CollectionFileSnapshot:
     loaded_hash: str
 
 
+@dataclass(frozen=True)
+class _WorkspaceLock:
+    path: Path
+    token: str
+
+
 def workspace_file_path(path: Path | str) -> Path:
     workspace_path = Path(path).expanduser().resolve()
     if workspace_path.is_dir():
         return workspace_path / "workspace.json"
     return workspace_path
+
+
+@contextmanager
+def workspace_write_lock(path: Path | str) -> Iterator[Path]:
+    data_path = workspace_file_path(path)
+    lock = _acquire_workspace_lock(data_path)
+    try:
+        yield data_path
+    finally:
+        _release_workspace_lock(lock)
 
 
 def load_store(path: Path | str) -> WorkspaceStore:
@@ -68,30 +86,66 @@ def validate_data(data_path: Path, data: dict[str, Any]) -> Workspace:
     return Workspace.from_raw(data, data_path.parent)
 
 
-def write_store(store: WorkspaceStore) -> Workspace:
+def write_store(store: WorkspaceStore, *, metadata: Any | None = None) -> Workspace:
     if has_collection_files(store.data):
         raise WorkspaceError(
             "authoring writes are not supported for split workspaces yet; "
             "edit collection files directly or use a single-file workspace"
         )
-    lock_path = _acquire_workspace_lock(store.data_path)
+    lock = _acquire_workspace_lock(store.data_path)
     try:
         _assert_workspace_file_unchanged(store)
         workspace = validate_data(store.data_path, store.data)
         text = json.dumps(store.data, indent=2, sort_keys=False) + "\n"
-        store.data_path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=store.data_path.parent,
-            delete=False,
-        ) as handle:
-            handle.write(text)
-            temp_name = handle.name
-        os.replace(temp_name, store.data_path)
+        from .governance_journal import (
+            JournalError,
+            MutationMetadata,
+            journal_file_path,
+            transact,
+            utc_timestamp,
+        )
+
+        if metadata is None:
+            from .mutation_context import current_mutation_identity
+
+            command, actor, action = current_mutation_identity()
+            metadata = MutationMetadata(
+                command=command,
+                actor=actor,
+                action=action,
+                timestamp=utc_timestamp(),
+            )
+        journal_path = journal_file_path(store.data_path)
+        try:
+            if store.loaded_hash is None:
+                transact(
+                    store.data_path,
+                    before_data=None,
+                    after_data=store.data,
+                    metadata=metadata,
+                    apply=lambda: _atomic_replace_text(store.data_path, text),
+                    event_kind="checkpoint",
+                    coverage="complete",
+                )
+            elif journal_path.exists():
+                before_data = _load_current_raw(store.data_path)
+                transact(
+                    store.data_path,
+                    before_data=before_data,
+                    after_data=store.data,
+                    metadata=metadata,
+                    apply=lambda: _atomic_replace_text(store.data_path, text),
+                )
+            else:
+                _atomic_replace_text(store.data_path, text)
+        except JournalError as exc:
+            next_action = f"; next: {exc.next_action}" if exc.next_action else ""
+            raise WorkspaceError(
+                f"governance journal blocked workspace write [{exc.code}]: {exc.message}{next_action}"
+            ) from exc
         return workspace
     finally:
-        lock_path.unlink(missing_ok=True)
+        _release_workspace_lock(lock)
 
 
 def has_collection_files(data: dict[str, Any]) -> bool:
@@ -124,9 +178,9 @@ def migrate_store(
     return migrated, changes, workspace
 
 
-def _acquire_workspace_lock(data_path: Path) -> Path:
-    lock_path = data_path.parent / ".palari" / "locks" / f"{data_path.name}.lock"
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+def _acquire_workspace_lock(data_path: Path) -> _WorkspaceLock:
+    lock_path = _safe_workspace_lock_path(data_path)
+    token = uuid.uuid4().hex
     try:
         descriptor = _create_workspace_lock(lock_path)
     except FileExistsError as exc:
@@ -138,8 +192,10 @@ def _acquire_workspace_lock(data_path: Path) -> Path:
         except FileExistsError as retry_exc:
             raise WorkspaceError(WORKSPACE_LOCK_ERROR) from retry_exc
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(f"pid={os.getpid()}\n")
-    return lock_path
+        handle.write(f"pid={os.getpid()}\ntoken={token}\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return _WorkspaceLock(path=lock_path, token=token)
 
 
 def _create_workspace_lock(lock_path: Path) -> int:
@@ -162,9 +218,87 @@ def _workspace_lock_is_stale(lock_path: Path) -> bool:
         return True
 
     pid = _workspace_lock_pid(lock_path)
-    if pid is not None and not _pid_is_alive(pid):
-        return True
+    if pid is not None:
+        return not _pid_is_alive(pid)
     return (time.time() - lock_stat.st_mtime) > STALE_WORKSPACE_LOCK_SECONDS
+
+
+def _release_workspace_lock(lock: _WorkspaceLock) -> None:
+    try:
+        text = lock.path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+    token = next(
+        (line.removeprefix("token=").strip() for line in text.splitlines() if line.startswith("token=")),
+        "",
+    )
+    if token != lock.token:
+        raise WorkspaceError("workspace lock ownership changed during write; inspect before retry")
+    _remove_workspace_lock(lock.path)
+
+
+def _safe_workspace_lock_path(data_path: Path) -> Path:
+    root = data_path.parent.resolve()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+    current = root
+    for component in (".palari", "locks"):
+        current = current / component
+        try:
+            if current.is_symlink():
+                raise WorkspaceError(
+                    f"workspace control path must not contain symlinks: {current.relative_to(root)}"
+                )
+            current.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+        if current.is_symlink() or not current.is_dir():
+            raise WorkspaceError(
+                f"workspace control path must be a real directory: {current.relative_to(root)}"
+            )
+    return current / f"{data_path.name}.lock"
+
+
+def _load_current_raw(data_path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(data_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise WorkspaceError(f"workspace cannot be journaled safely: {exc}") from exc
+    if not isinstance(value, dict):
+        raise WorkspaceError("workspace cannot be journaled safely: root is not an object")
+    return value
+
+
+def _atomic_replace_text(data_path: Path, text: str) -> None:
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=data_path.parent,
+            delete=False,
+        ) as handle:
+            temp_name = handle.name
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, data_path)
+        temp_name = ""
+        directory = os.open(data_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temp_name:
+            Path(temp_name).unlink(missing_ok=True)
 
 
 def _workspace_lock_pid(lock_path: Path) -> int | None:
@@ -335,7 +469,7 @@ def _write_split_migration(
             if str(record.get("id") or "") not in included_ids[collection]
         ]
 
-    lock_path = _acquire_workspace_lock(store.data_path)
+    lock = _acquire_workspace_lock(store.data_path)
     temp_paths: list[Path] = []
     try:
         _assert_workspace_file_unchanged(store)
@@ -375,7 +509,7 @@ def _write_split_migration(
     finally:
         for temp_path in temp_paths:
             temp_path.unlink(missing_ok=True)
-        lock_path.unlink(missing_ok=True)
+        _release_workspace_lock(lock)
     return Workspace.load(store.data_path)
 
 

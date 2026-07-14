@@ -16,13 +16,17 @@ fi
 verify_output_dir="$(mktemp -d)"
 trap 'rm -rf "$verify_output_dir"' EXIT
 
-bash -n scripts/install_smoke.sh scripts/verify.sh scripts/make_demo_assets.sh
-python3 -S -m unittest discover -s tests
+bash -n scripts/install_smoke.sh scripts/verify.sh scripts/make_demo_assets.sh scripts/pcaw_demo.sh
+python3 -S scripts/parallel_unittest.py
 python3 -S scripts/check_style.py
 python3 -S -m compileall -q src
 python3 -S -m json.tool examples/acme-company-os/workspace.json >$verify_output_dir/palari-company-workspace-json-check.json
 python3 -S -m json.tool workspaces/palari-company-os/workspace.json >$verify_output_dir/palari-company-dogfood-workspace-json-check.json
 python3 -S -m json.tool schemas/workspace.schema.json >$verify_output_dir/palari-company-schema-json-check.json
+python3 -S -m json.tool spec/pcaw/v1/statement.schema.json >$verify_output_dir/pcaw-statement-schema.json
+python3 -S -m json.tool spec/pcaw/v1/verification-result.schema.json >$verify_output_dir/pcaw-report-schema.json
+python3 -S scripts/update_pcaw_tcb.py --check
+python3 -S spec/pcaw/v1/conformance.py -- ./bin/palari proof verify
 
 ./bin/palari validate --json >$verify_output_dir/palari-company-validate.json
 ./bin/palari state --json >$verify_output_dir/palari-company-state.json
@@ -45,5 +49,6 @@ python3 -S -m json.tool schemas/workspace.schema.json >$verify_output_dir/palari
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate --json >$verify_output_dir/palari-company-split-validate.json
 ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >$verify_output_dir/palari-company-split-detail.json
 ./bin/palari demo --no-pause >$verify_output_dir/palari-company-demo.txt
+./scripts/pcaw_demo.sh >$verify_output_dir/pcaw-demo.txt
 
 printf 'Palari Company OS verification passed.\n'

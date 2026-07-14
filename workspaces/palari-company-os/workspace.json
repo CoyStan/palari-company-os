@@ -1853,12 +1853,95 @@
       "palari": "PALARI-STEWARD",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Mechanically bind review, evidence, human authority, scope, source, lifecycle, handoff, and verification state to exact current artifacts while preserving local-first minimality and compatibility through explicit migration where required.",
       "acceptance_target": "Every checkbox in docs/product/governance-hardening-contract.md has objective committed evidence; unsafe, stale, incomplete, contradictory, out-of-scope, non-independent, and mismatched states fail closed; focused and complete verification pass; an independent exact-head review recommends ACCEPT; founder authority remains pending.",
       "required_approval_capability": "architecture",
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-REPO-0023"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "parallel_policy": "coordinate",
+      "dependency_ids": [
+        "WORK-REPO-0023"
+      ],
+      "allowed_actions": [
+        "local_read",
+        "local_write",
+        "local_test",
+        "local_commit"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "push",
+        "merge",
+        "external_write",
+        "provider_call",
+        "secret_access",
+        "founder_acceptance"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "spec/pcaw/v1",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "spec/pcaw/v1",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_pcaw tests.test_governance_kernel tests.test_governance_journal",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json"
+      ],
+      "id": "WORK-REPO-0024",
+      "title": "Proof-Carrying AI Work Protocol v1",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Build a deterministic provider-neutral offline proof protocol, shared governance kernel, conformance corpus, and staged replayable journal without expanding external authority.",
+      "acceptance_target": "PCAW v1 exports byte-identical bounded-work statements; offline verification fails closed on stale, contradictory, unsafe, or altered proof; journal continuity is replayable; complete verification and fresh exact-head review ACCEPT; founder authority remains human-only.",
+      "required_approval_capability": "architecture",
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-REPO-0024"
     }
   ],
   "attempts": [
@@ -2567,7 +2650,7 @@
     },
     {
       "base_sha": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
-      "head_sha": "1d295af2e0747522e919db95e2c4930ddc27966a",
+      "head_sha": "5727fa4cc99396229db3c392f0227db225989cc2",
       "commits": [
         "d3cc68566dc164aedd5c665bc5734c1a1d03c82c",
         "21670a447ab039d5000a19b2df7350f005a9170a",
@@ -2585,7 +2668,9 @@
         "3e3ea6bde7f645d34055aeaf10e6e56335cdcae0",
         "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903",
         "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
-        "1d295af2e0747522e919db95e2c4930ddc27966a"
+        "1d295af2e0747522e919db95e2c4930ddc27966a",
+        "d82a911f96ba89d88f880d4641642ae3de63366a",
+        "5727fa4cc99396229db3c392f0227db225989cc2"
       ],
       "allowed_paths": [
         "src/palari_company_os",
@@ -2621,7 +2706,7 @@
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-07-14T15:13:08Z",
       "cleanliness": "clean",
-      "updated_at": "2026-07-14T19:41:52.589374Z",
+      "updated_at": "2026-07-14T22:32:11.319843Z",
       "changed_files": [
         "CHANGELOG.md",
         "README.md",
@@ -2711,6 +2796,41 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/workspace.json"
       ]
+    },
+    {
+      "base_sha": "5727fa4cc99396229db3c392f0227db225989cc2",
+      "allowed_paths": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "spec/pcaw/v1",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "output_targets": [
+        "docs/product/proof-carrying-governance-contract.md",
+        "spec/pcaw/v1"
+      ],
+      "id": "ATTEMPT-REPO-0024",
+      "work_item_id": "WORK-REPO-0024",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/proof-carrying-ai-work-kernel",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-07-14T22:44:35.659890Z"
     }
   ],
   "evidence_runs": [
@@ -3138,6 +3258,48 @@
       "receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d",
       "manifest_hash": "sha256:d6e7fc5c15edd17c888bdde966187e7012e18e99b43464abd9cd90a8985cf14c",
       "artifact_hashes": []
+    },
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json",
+        "./bin/palari --workspace workspaces/palari-company-os validate --json"
+      ],
+      "id": "EVIDENCE-REPO-0023-D82A911",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "head_sha": "d82a911f96ba89d88f880d4641642ae3de63366a",
+      "status": "passed",
+      "base_ref": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
+      "summary": "Complete verification passed: 555 tests in 74.127 seconds; install smoke, docs, and workspace validation passed.",
+      "freshness": "current",
+      "timestamp": "2026-07-14T22:22:19.399011Z",
+      "receipt_hash": "sha256:00b74e674e6a90789dd40fcb444c2f6941a24795bc7f592fcd1c0b431340fd6c",
+      "artifact_hashes": [],
+      "manifest_hash": "sha256:b37a6cc170c97ec60deec22e0c93d7dc389967fc9801a780d250a0f243e5458f"
+    },
+    {
+      "commands": [
+        "git rev-parse HEAD",
+        "python3 -m unittest tests.test_agent_packets tests.test_review_guides",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json",
+        "./bin/palari --workspace workspaces/palari-company-os validate --json"
+      ],
+      "id": "EVIDENCE-REPO-0023-5727FA4-CORRECTED",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "head_sha": "5727fa4cc99396229db3c392f0227db225989cc2",
+      "status": "passed",
+      "base_ref": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
+      "summary": "Exact Git head verified; 555 tests and style passed in 77.934 seconds; isolated install, documentation, and dogfood validation passed.",
+      "freshness": "current",
+      "timestamp": "2026-07-14T22:32:47.076371Z",
+      "receipt_hash": "sha256:e6e142ba781becb813551e4a56d718e4cabc7bbfee0f3190f53b7837639eb3e5",
+      "artifact_hashes": [],
+      "manifest_hash": "sha256:aed84edbf7118069274004b48939c3bc823c2eaf1950e6919c0f6be2b7423ead"
     }
   ],
   "review_verdicts": [
@@ -3177,6 +3339,44 @@
       "reviewer": "HUMAN-FOUNDER",
       "verdict": "changes-requested",
       "timestamp": "2026-07-14T22:13:04.430604Z"
+    },
+    {
+      "checks_inspected": [
+        "git-rev-parse",
+        "evidence-head"
+      ],
+      "residual_risks": [
+        "evidence-head-does-not-resolve-to-git-commit"
+      ],
+      "id": "REVIEW-REPO-0023-CORRECT-D82A911",
+      "work_item_id": "WORK-REPO-0023",
+      "reviewed_head": "d82a911f96ba89d88f880d4641642ae3de63366a",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-14T22:27:30.532010Z"
+    },
+    {
+      "checks_inspected": [
+        "exact-head",
+        "complete-gate",
+        "evidence-manifest",
+        "workspace-validation"
+      ],
+      "id": "REVIEW-REPO-0023-5727FA4-FINAL",
+      "work_item_id": "WORK-REPO-0023",
+      "reviewed_head": "5727fa4cc99396229db3c392f0227db225989cc2",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-14T22:38:42.443865Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "attempt_hash": "sha256:2b07e6ce354f0704884af58b6c99650f1da0a5020d0a0a34af4c3c5a3ec933fc",
+      "evidence_reference": "EVIDENCE-REPO-0023-5727FA4-CORRECTED",
+      "evidence_manifest_hash": "sha256:aed84edbf7118069274004b48939c3bc823c2eaf1950e6919c0f6be2b7423ead",
+      "receipt_reference": "RECEIPT-REPO-0023-5727FA4-CORRECTED",
+      "receipt_hash": "sha256:e6e142ba781becb813551e4a56d718e4cabc7bbfee0f3190f53b7837639eb3e5",
+      "work_contract_hash": "sha256:ff08d1abd089e1ea6e985128cd3d784d299d0b5128f6703f30c40ef8fdd5247b",
+      "proof_hash": "sha256:98b6d166ba86dec6d3ddbc27c4ff1c02947b17a19b9236e39b00c0f4a8842de3"
     }
   ],
   "human_decisions": [
@@ -3192,6 +3392,19 @@
       "evidence_reference": "EVIDENCE-REPO-0001",
       "review_reference": "REVIEW-REPO-0001",
       "timestamp": "2026-06-19T03:39:00Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-REPO-0023-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-REPO-0023",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "5727fa4cc99396229db3c392f0227db225989cc2",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-REPO-0023-5727FA4-CORRECTED",
+      "review_reference": "REVIEW-REPO-0023-5727FA4-FINAL",
+      "timestamp": "2026-07-14T22:40:01.435639Z"
     }
   ],
   "receipts": [
@@ -4274,6 +4487,70 @@
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-07-14T19:39:12.577422Z",
       "receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d"
+    },
+    {
+      "context_packet": ".palari/packets/PACKET-WORK-REPO-0023-PALARI-STEWARD-EXECUTE-V1.json",
+      "context_hash": "sha256:3d022d0282420b1831d1448e759600517024bfd8b02139e1d0f17927494212cc",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "refreshed_exact_head_proof",
+        "repaired_state_dependent_tests",
+        "reran_complete_verification"
+      ],
+      "outputs_created": [
+        "tests/test_agent_packets.py",
+        "tests/test_review_guides.py",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "not_done": [
+        "founder_acceptance",
+        "push",
+        "pull_request",
+        "merge",
+        "deployment",
+        "external_write"
+      ],
+      "id": "RECEIPT-REPO-0023-D82A911",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-14T22:22:08.596228Z",
+      "previous_receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d",
+      "receipt_hash": "sha256:00b74e674e6a90789dd40fcb444c2f6941a24795bc7f592fcd1c0b431340fd6c"
+    },
+    {
+      "context_packet": ".palari/packets/PACKET-WORK-REPO-0023-PALARI-STEWARD-EXECUTE-V1.json",
+      "context_hash": "sha256:ffda1c6c85ddfe5c4ea888b8150376927decb098bc2fd5c262dc566b372e3a8d",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "corrected_nonexistent_head_binding",
+        "repaired_empty_agent_rollup_edge_case",
+        "reran_complete_verification"
+      ],
+      "outputs_created": [
+        "tests/test_agent_packets.py",
+        "tests/test_review_guides.py",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "not_done": [
+        "founder_acceptance",
+        "push",
+        "pull_request",
+        "merge",
+        "deployment",
+        "external_write"
+      ],
+      "id": "RECEIPT-REPO-0023-5727FA4-CORRECTED",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-14T22:32:38.046540Z",
+      "previous_receipt_hash": "sha256:00b74e674e6a90789dd40fcb444c2f6941a24795bc7f592fcd1c0b431340fd6c",
+      "receipt_hash": "sha256:e6e142ba781becb813551e4a56d718e4cabc7bbfee0f3190f53b7837639eb3e5"
     }
   ],
   "decisions": [
@@ -4524,5 +4801,21 @@
   "capabilities": [],
   "authority_profiles": [],
   "proposals": [],
-  "acceptance_records": []
+  "acceptance_records": [
+    {
+      "id": "ACCEPTANCE-WORK-REPO-0023-HUMAN-FOUNDER",
+      "work_item_id": "WORK-REPO-0023",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "5727fa4cc99396229db3c392f0227db225989cc2",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-REPO-0023-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-REPO-0023-5727FA4-CORRECTED",
+      "review_reference": "REVIEW-REPO-0023-5727FA4-FINAL",
+      "receipt_hash": "sha256:e6e142ba781becb813551e4a56d718e4cabc7bbfee0f3190f53b7837639eb3e5",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "completion gate",
+      "accepted_at": "2026-07-14T22:40:56.379080Z"
+    }
+  ]
 }

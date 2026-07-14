@@ -33,13 +33,25 @@ Mutating commands also append audit events to:
 ```
 
 The history file is append-only local audit evidence for successful mutations.
-It is not yet the source for rebuilding `workspace.json`; event-sourced
-projection is intentionally future work.
+It remains compatible and is not used to rebuild `workspace.json`.
 
-Writes to `workspace.json` use a local lock plus optimistic change detection.
-Atomic replace prevents partial files; the loaded-file hash prevents stale
-read-modify-write commands from overwriting newer workspace changes. When a
-second writer wins first, the stale command fails closed and should be retried
+New workspaces, and legacy workspaces after an explicit checkpoint, also use:
+
+```text
+.palari/governance-journal.v1.jsonl
+```
+
+This separate hash-chained journal is replayable. Its prepared record is
+fsynced before the atomic workspace replacement and its commit marker is
+fsynced afterward. It detects pending transactions, corruption, truncation,
+reordering, forks, and workspace divergence. A manual-repair checkpoint keeps
+the continuity break visible instead of rewriting history.
+
+Writes to `workspace.json` use an ownership-bound local lock plus optimistic
+change detection. Fsynced atomic replace prevents partial files; the loaded-file
+hash prevents stale read-modify-write commands from overwriting newer workspace
+changes. When a second writer wins first, the stale command fails closed and
+should be retried
 after reloading the workspace.
 
 ## Design Direction

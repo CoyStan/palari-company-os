@@ -687,12 +687,37 @@ receipt cannot imply a canceled write is still waiting to execute.
 ```bash
 ./bin/palari history
 ./bin/palari history --limit 10 --json
+./bin/palari history --verify --json
+./bin/palari history --checkpoint --actor HUMAN-ID --json
+./bin/palari history --recover --json
 ```
 
 Shows recent append-only audit events from `.palari/history.jsonl` beside the
 workspace file. Mutating authoring and lifecycle commands append events only
 after the workspace write validates and succeeds. Failed mutations do not append
-success events.
+success events. The versioned governance journal is separate from legacy
+`.palari/history.jsonl`. New workspaces start it automatically; legacy
+workspaces opt in with an explicit checkpoint. `--verify` checks its hash chain
+and workspace projection. `--checkpoint --acknowledge-break` records, rather
+than hides, a legitimate continuity break after a manual edit. `--recover`
+idempotently resolves a prepared transaction when the on-disk projection makes
+the safe result unambiguous.
+
+## Proof-Carrying AI Work
+
+```bash
+./bin/palari --workspace WORKSPACE proof export WORK-ID --output proof.json --json
+./bin/palari proof verify proof.json --subject-root WORKSPACE --json
+./bin/palari proof verify proof.json --statement-only --json
+```
+
+`proof export` writes byte-deterministic PCAW v1 canonical JSON for accepted,
+blocked, or incomplete work. `proof verify` loads no workspace and performs no
+network or provider calls. Full verification checks every named artifact as a
+safe regular file beneath the subject root. Statement-only verification checks
+the work-state binding and governance consistency but never reports full or
+acceptance verification. A rejected proof exits 1 and returns stable structured
+diagnostics; usage or operational errors exit 2.
 
 ## Receipts
 

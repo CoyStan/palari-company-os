@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER = REPO_ROOT / "scripts" / "verification_profiles.py"
+PARALLEL_RUNNER = REPO_ROOT / "scripts" / "parallel_unittest.py"
 SPEC = importlib.util.spec_from_file_location("verification_profiles", HELPER)
 assert SPEC is not None and SPEC.loader is not None
 verification_profiles = importlib.util.module_from_spec(SPEC)
@@ -105,7 +106,7 @@ class VerificationProfileTests(unittest.TestCase):
         script = (REPO_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
 
         self.assertIn('profile="${1:-complete}"', script)
-        self.assertIn("python3 -S -m unittest discover -s tests", script)
+        self.assertIn("python3 -S scripts/parallel_unittest.py", script)
         for command in (
             "palari state --json",
             "palari detail WORK-0001 --json",
@@ -115,6 +116,21 @@ class VerificationProfileTests(unittest.TestCase):
             "split-workspace detail WORK-SPLIT --json",
         ):
             self.assertIn(command, script)
+
+    def test_parallel_runner_lists_every_test_module_deterministically(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-S", str(PARALLEL_RUNNER), "--list"],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        expected = [
+            f"tests.{path.stem}" for path in sorted((REPO_ROOT / "tests").glob("test_*.py"))
+        ]
+        self.assertEqual(result.stdout.splitlines(), expected)
 
 
 if __name__ == "__main__":

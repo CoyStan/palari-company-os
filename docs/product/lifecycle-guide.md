@@ -82,6 +82,13 @@ exact terminal attempt, receipt, evidence manifest, reviewed head, and work
 contract. Any later substantive change requires refreshed proof and a new
 review.
 
+`palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
+An offline verifier derives `blocked`, `review-required`,
+`human-decision-required`, `accept-ready`, `accepted`, or `completed` from the
+included records rather than trusting the claimed state. Legacy lifecycle
+records remain loadable, but absent artifact digests or stage timestamps are
+reported honestly and cannot become PCAW acceptance verification.
+
 ## Complete Work And Record Outcome
 
 ```bash

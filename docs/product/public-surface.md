@@ -21,7 +21,8 @@ boundaries. Everything else should serve that kernel.
 | Agent packet/check/start/release flow | core | Bounded AI work contract. |
 | Receipts, evidence, reviews, decisions, acceptance | core | Trust and completion records. |
 | Integration plans and outbox | core | Human-approved external-write boundary. |
-| Queue, detail, state, history | operator | Derived read models for humans and agents. |
+| Queue, detail, state, history | operator | Derived read models and replayable journal checks for humans and agents. |
+| PCAW proof export and verification | core | Deterministic, offline proof statements and artifact integrity checks. |
 | Authoring and lifecycle commands | operator | Explicit local mutations of workspace records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
 | Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
@@ -34,7 +35,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **150**.
+Current CLI command count from parser inspection: **153**.
 
 The command surface is intentionally broad because Palari exposes primitive
 record operations directly. New commands should be rare. Prefer docs, examples,

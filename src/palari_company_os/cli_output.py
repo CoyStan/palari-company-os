@@ -74,6 +74,10 @@ def print_result(result: CommandResult) -> None:
         print_docs_map(result.payload, result.as_json)
         return
 
+    if result.kind == "proof":
+        print_proof(result.payload, result.as_json)
+        return
+
     if result.kind == "validate":
         if result.as_json:
             print_json(result.payload)
@@ -251,6 +255,14 @@ def print_result(result: CommandResult) -> None:
             print_json(result.payload)
         else:
             print_history(result.payload)
+        return
+
+
+    if result.kind == "history-journal":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_history_journal(result.payload)
         return
 
     if result.kind == "dashboard":
@@ -435,6 +447,59 @@ def print_history(payload: dict[str, Any]) -> None:
         changed_fields = event.get("changed_fields") or {}
         if changed_fields:
             print(f"  changed: {', '.join(sorted(changed_fields))}")
+
+
+def print_history_journal(payload: dict[str, Any]) -> None:
+    print(f"Governance journal: {payload.get('status', 'unknown')}")
+    print(f"Enabled: {_yes_no(bool(payload.get('enabled')))}")
+    print(f"Verified: {_yes_no(bool(payload.get('ok')))}")
+    if payload.get("journal_file"):
+        print(f"Journal file: {payload['journal_file']}")
+    for item in payload.get("errors", []):
+        print(f"  error {item.get('code', '')}: {item.get('message', '')}")
+        if item.get("next_action"):
+            print(f"    next: {item['next_action']}")
+    for item in payload.get("warnings", []):
+        print(f"  warning {item.get('code', '')}: {item.get('message', '')}")
+
+
+def print_proof(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    action = payload.get("action", "verify")
+    status = payload.get("status")
+    if status is None and "verified" in payload:
+        status = "verified" if payload["verified"] else "rejected"
+    print(f"PCAW proof {action}: {status or 'unknown'}")
+    if payload.get("proof_file"):
+        print(f"Proof: {payload['proof_file']}")
+    digest = payload.get("statement_digest")
+    if isinstance(digest, dict):
+        print(f"Statement: {digest.get('algorithm', '')}:{digest.get('value', '')}")
+    elif digest:
+        print(f"Statement: {digest}")
+    if payload.get("claimed_state"):
+        print(f"Claimed state: {payload['claimed_state']}")
+    if payload.get("derived_lifecycle_state"):
+        print(f"Derived state: {payload['derived_lifecycle_state']}")
+    properties = payload.get("verified_properties", {})
+    if properties:
+        print("Verified properties:")
+        if isinstance(properties, dict):
+            for name, status in properties.items():
+                print(f"  - {name}: {status}")
+        else:
+            for item in properties:
+                print(f"  - {item.get('name', '')}: {item.get('status', '')}")
+    for item in payload.get("errors", []):
+        print(f"  error {item.get('code', '')}: {item.get('message', '')}")
+        if item.get("next_action"):
+            print(f"    next: {item['next_action']}")
+    for item in payload.get("warnings", []):
+        print(f"  warning {item.get('code', '')}: {item.get('message', '')}")
+    for item in payload.get("security_limitations", []):
+        print(f"  limitation: {item}")
 
 
 def print_data_map(payload: dict[str, Any]) -> None:

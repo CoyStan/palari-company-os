@@ -9,6 +9,13 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
 - `src/palari_company_os/workspace.py`: workspace loading and split collection files.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
+- `src/palari_company_os/governance_journal.py`: replayable prepare/commit
+  journal, checkpoints, verification, and crash recovery.
+- `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
+  provider-neutral governance normalization contract and evaluator.
+- `src/palari_company_os/pcaw_protocol.py`: offline PCAW statement verifier.
+- `src/palari_company_os/pcaw_workspace.py` and `pcaw_export.py`: workspace
+  normalization and deterministic proof export (outside the verifier TCB).
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
@@ -58,6 +65,7 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/decision_guides.py`: read-only decision guides.
 - `src/palari_company_os/scope.py`: declared scope checks.
 - `src/palari_company_os/history.py`: append-only workspace history.
+- `spec/pcaw/v1/`: normative PCAW v1 schemas, vectors, and black-box runner.
 
 ## Docs And Agent Orientation
 

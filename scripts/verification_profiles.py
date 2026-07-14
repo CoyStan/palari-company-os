@@ -45,6 +45,27 @@ SOURCE_TESTS = {
         "tests.test_validation",
         "tests.test_workspace_read_models",
     ),
+    "governance_case.py": (
+        "tests.test_governance_kernel",
+        "tests.test_governance_explorer",
+    ),
+    "governance_kernel.py": (
+        "tests.test_governance_kernel",
+        "tests.test_governance_explorer",
+    ),
+    "governance_journal.py": (
+        "tests.test_governance_journal",
+        "tests.test_governance_journal_crash",
+    ),
+    "pcaw_canonical.py": ("tests.test_canonical_json",),
+    "pcaw_export.py": ("tests.test_pcaw_protocol",),
+    "pcaw_protocol.py": ("tests.test_pcaw_protocol",),
+    "pcaw_subjects.py": ("tests.test_pcaw_protocol", "tests.test_filesystem_security"),
+    "pcaw_workspace.py": (
+        "tests.test_pcaw_protocol",
+        "tests.test_validation",
+        "tests.test_transition_checks",
+    ),
     "integrations.py": ("tests.test_integrations",),
     "models.py": ("tests.test_validation", "tests.test_workspace_read_models"),
     "mcp_server.py": ("tests.test_mcp_server", "tests.test_agent_packets"),
@@ -52,6 +73,12 @@ SOURCE_TESTS = {
     "read_models.py": ("tests.test_workspace_read_models", "tests.test_agent_packets"),
     "review_guides.py": ("tests.test_review_guides", "tests.test_agent_packets"),
     "scope.py": ("tests.test_path_policy", "tests.test_workspace_read_models"),
+    "store.py": (
+        "tests.test_store_journal_integration",
+        "tests.test_validation",
+        "tests.test_workspace_init",
+    ),
+    "mutation_context.py": ("tests.test_store_journal_integration",),
     "transition_checks.py": (
         "tests.test_transition_checks",
         "tests.test_governance_completion",

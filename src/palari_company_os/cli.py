@@ -11,6 +11,7 @@ from typing import Any
 from .cli_dispatch import run_command
 from .cli_output import print_result
 from .cli_parser import build_parser
+from .mutation_context import mutation_context
 from .workspace import WorkspaceError
 
 
@@ -40,9 +41,10 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
 
     try:
-        result = run_command(args)
+        with mutation_context(_command_name(args), _declared_actor(args)):
+            result = run_command(args)
         print_result(result)
-        return 0
+        return result.exit_code
     except (WorkspaceError, KeyError, TypeError, ValueError) as exc:
         if _agent_json_requested(args, raw_argv):
             print(json.dumps(_agent_error_payload(args, exc), indent=2, sort_keys=True))
@@ -54,6 +56,24 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.exit(2, "palari: unknown command\n")
     return 2
+
+
+def _command_name(args: Any) -> str:
+    parts = ["palari"]
+    names = ["command", *sorted(key for key in vars(args) if key.endswith("_command"))]
+    for name in names:
+        value = getattr(args, name, "")
+        if isinstance(value, str) and value and value not in parts:
+            parts.append(value)
+    return " ".join(parts)
+
+
+def _declared_actor(args: Any) -> str:
+    for name in ("as_id", "actor", "human_id", "reviewer", "palari", "owner"):
+        value = getattr(args, name, "")
+        if isinstance(value, str) and value:
+            return value
+    return "local-operator"
 
 
 def _agent_json_requested(args: Any, raw_argv: list[str]) -> bool:

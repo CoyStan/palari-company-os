@@ -1,6 +1,6 @@
 # Security Notes
 
-Palari Company OS is safe by default in this v0.1 local foundation.
+Palari Company OS is safe by default in this v0.2 local foundation.
 
 It does not:
 
@@ -79,6 +79,14 @@ they are not an OS sandbox: an unrestricted process running as the operator
 can ultimately rewrite local files and Git metadata. Human attribution needs a
 future protected harness or credential boundary before hostile same-principal
 execution can be treated as cryptographically authenticated.
+
+PCAW v1 adds deterministic, offline tamper and policy-consistency checks for a
+canonical governance statement and its named artifact bytes. It is deliberately
+unsigned. Actor, reviewer, and human identities are declarations, not
+cryptographically authenticated identities; PCAW does not prevent a hostile
+process running as the same OS user from rewriting local governance files and
+exporting a new statement. Signing, key custody, revocation, and protected
+identity are deferred to a versioned future protocol.
 
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.

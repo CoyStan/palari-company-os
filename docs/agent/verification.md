@@ -8,6 +8,8 @@ claiming the work is done.
 ```bash
 ./scripts/verify.sh
 ./scripts/install_smoke.sh
+python3 spec/pcaw/v1/conformance.py -- ./bin/palari proof verify
+./scripts/pcaw_demo.sh
 ```
 
 `verify.sh` defaults to the authoritative `complete` profile. It always runs
@@ -37,6 +39,8 @@ proof and never replace the complete profile.
 ./bin/palari queue --json
 ./bin/palari docs check --json
 ./bin/palari --workspace examples/acme-company-os agent next --json
+./bin/palari proof verify spec/pcaw/v1/vectors/valid/accepted/statement.json \
+  --subject-root spec/pcaw/v1/vectors/valid/accepted --json
 ```
 
 ## Reporting

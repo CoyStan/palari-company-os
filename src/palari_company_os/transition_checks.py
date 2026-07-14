@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .errors import WorkspaceError
@@ -471,9 +471,52 @@ def _check_work_complete(
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
+    from .governance_kernel import evaluate_governance_case
+    from .pcaw_workspace import governance_case_from_workspace
+
+    governance_case, _ = governance_case_from_workspace(workspace, work_id)
+    low_risk_receipt_path = work.risk in {"R1", "R2"} and work.required_approval_count == 0
+    if low_risk_receipt_path:
+        governance_case = replace(
+            governance_case,
+            claimed_state="completed",
+            contract=replace(governance_case.contract, status="completed"),
+        )
+    governance = evaluate_governance_case(governance_case)
+    # Legacy v2 workspaces may omit PCAW-only artifact coverage and stage
+    # timestamps. Existing gates below remain authoritative for those records;
+    # their exported proof is honestly not acceptance-verified until refreshed.
+    compatibility_only = {
+        "PCAW_EVIDENCE_OUTPUT_UNHASHED",
+        "PCAW_REVIEW_PREREQUISITE_INVALID",
+        "PCAW_ACCEPTANCE_PREREQUISITE_INVALID",
+        "PCAW_LIFECYCLE_ORDER_INVALID",
+        "PCAW_EVIDENCE_RECEIPT_INVALID",
+    }
+    kernel_errors = [
+        item for item in governance.errors if item.code not in compatibility_only
+    ]
+    if low_risk_receipt_path:
+        kernel_errors = []
+    if governance.derived_state not in {"accepted", "completed"} and kernel_errors:
+        first_error = kernel_errors[0]
+        blockers.append(
+            TransitionBlocker(
+                "GOVERNANCE_PROOF_INCOMPLETE",
+                (
+                    first_error.message
+                    if first_error is not None
+                    else f"governance kernel derives {governance.derived_state}"
+                ),
+                (
+                    first_error.next_action
+                    if first_error is not None
+                    else f"palari agent doctor {work_id} --json"
+                ),
+            )
+        )
     work_detail = detail(workspace, work_id)
     attempt = current_attempt_for_work(work, workspace.attempts)
-    low_risk_receipt_path = work.risk in {"R1", "R2"} and work.required_approval_count == 0
     if not low_risk_receipt_path:
         if attempt is None or attempt.status not in {"complete", "completed"}:
             blockers.append(

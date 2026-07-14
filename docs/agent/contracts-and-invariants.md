@@ -8,6 +8,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
+- New workspaces begin a replayable governance journal. Legacy workspaces keep
+  working until an operator explicitly checkpoints them. Prepared and committed
+  journal records bracket the atomic, fsynced workspace replacement; divergence,
+  corruption, pending transactions, and continuity breaks remain visible.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   Schema migration preserves record placement, detects concurrent changes to
@@ -80,6 +84,21 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   agent attribution.
 - JSON agent command failures must remain machine-readable when `--json` is
   requested.
+
+## Proof-Carrying Work
+
+- PCAW statements are strict canonical JSON: duplicate keys, floats, unsafe
+  integers, invalid Unicode, unknown fields, unsupported algorithms, and
+  ambiguous timestamps fail closed.
+- Full verification reads only normalized relative regular-file subjects beneath
+  the selected root. Traversal, sibling-prefix confusion, symlinks, missing
+  files, changed-during-read files, and digest mismatches fail closed.
+- Statement-only verification never claims artifact or acceptance verification.
+- The pure governance kernel derives scope, subject, evidence, receipt, review,
+  quorum, acceptance, and journal properties. Export adapters may normalize
+  workspace data but are not part of the offline verifier trusted-code base.
+- PCAW v1 attribution is declared, not cryptographically authenticated. It
+  grants no acceptance, merge, push, deployment, or external-write authority.
 
 ## Sources, Receipts, And External Actions
 

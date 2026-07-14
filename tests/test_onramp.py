@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
 from palari_company_os.workspace import Workspace, WorkspaceError, default_workspace_path
 
@@ -133,6 +134,14 @@ class WorkAddTests(unittest.TestCase):
         with self.assertRaises(WorkspaceError) as caught:
             quick_add_work(self.project, "Pick one", write=["docs/a.md"])
         self.assertIn("--as", str(caught.exception))
+
+        checkpoint = checkpoint_workspace_journal(
+            self.project,
+            "HUMAN-FOUNDER",
+            acknowledge_break=True,
+            reason="Test fixture added a second Palari by manual edit.",
+        )
+        self.assertEqual(checkpoint["status"], "valid-with-continuity-break")
 
         result = quick_add_work(
             self.project, "Pick one", write=["docs/a.md"], palari_id="PALARI-OTHER"

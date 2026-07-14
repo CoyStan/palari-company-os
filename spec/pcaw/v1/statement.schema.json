@@ -1,0 +1,581 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palari.dev/pcaw/v1/statement.schema.json",
+  "title": "Proof-Carrying AI Work Protocol v1 Statement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["_type", "subject", "predicateType", "predicate"],
+  "properties": {
+    "_type": { "const": "https://in-toto.io/Statement/v1" },
+    "subject": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/subject" }
+    },
+    "predicateType": { "const": "https://palari.dev/pcaw/v1" },
+    "predicate": { "$ref": "#/$defs/predicate" }
+  },
+  "$defs": {
+    "string": { "type": "string" },
+    "nonempty_string": { "type": "string", "minLength": 1 },
+    "strings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "safe_integer": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bound_digest": {
+      "type": "string",
+      "pattern": "^$|^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^$|^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?Z$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonempty_string" },
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256"],
+          "properties": {
+            "sha256": { "$ref": "#/$defs/sha256_hex" }
+          }
+        }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "claimed_state",
+        "governance_case",
+        "subject_roles",
+        "security_limitations"
+      ],
+      "properties": {
+        "schema_version": { "const": "pcaw.v1" },
+        "claimed_state": { "type": "string" },
+        "governance_case": { "$ref": "#/$defs/governance_case" },
+        "subject_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/subject_role" }
+        },
+        "security_limitations": { "$ref": "#/$defs/security_limitations" }
+      }
+    },
+    "subject_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonempty_string" },
+        "role": { "enum": ["work-state", "output-artifact"] }
+      }
+    },
+    "security_limitations": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "actor-attribution-declared-not-authenticated" },
+        { "const": "no-signatures-or-key-custody" },
+        { "const": "same-user-tampering-not-prevented" }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "governance_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "claimed_state",
+        "contract",
+        "dependencies",
+        "open_decisions",
+        "sources",
+        "attempt",
+        "receipt",
+        "evidence",
+        "review",
+        "humans",
+        "human_decisions",
+        "acceptance_records",
+        "outcome",
+        "observations"
+      ],
+      "properties": {
+        "schema_version": { "const": "pcaw.governance_case.v1" },
+        "claimed_state": { "type": "string" },
+        "contract": { "$ref": "#/$defs/work_contract" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependency_state" }
+        },
+        "open_decisions": { "$ref": "#/$defs/strings" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/source_boundary" }
+        },
+        "attempt": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/attempt_snapshot" }
+          ]
+        },
+        "receipt": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/receipt_snapshot" }
+          ]
+        },
+        "evidence": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/evidence_snapshot" }
+          ]
+        },
+        "review": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/review_snapshot" }
+          ]
+        },
+        "humans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/human_authority" }
+        },
+        "human_decisions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/human_decision_snapshot" }
+        },
+        "acceptance_records": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/acceptance_snapshot" }
+        },
+        "outcome": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/outcome_snapshot" }
+          ]
+        },
+        "observations": { "$ref": "#/$defs/integrity_observations" }
+      }
+    },
+    "work_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "goal",
+        "palari",
+        "workbench_id",
+        "parent_work_item_id",
+        "risk",
+        "intensity",
+        "status",
+        "scope",
+        "allowed_resources",
+        "allowed_sources",
+        "allowed_actions",
+        "output_targets",
+        "forbidden_actions",
+        "acceptance_target",
+        "verification_expectations",
+        "current_attempt_id",
+        "required_approval_count",
+        "required_approval_capability",
+        "conflict_targets",
+        "parallel_policy"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "title": { "$ref": "#/$defs/string" },
+        "goal": { "$ref": "#/$defs/string" },
+        "palari": { "$ref": "#/$defs/string" },
+        "workbench_id": { "$ref": "#/$defs/string" },
+        "parent_work_item_id": { "$ref": "#/$defs/string" },
+        "risk": { "$ref": "#/$defs/string" },
+        "intensity": { "$ref": "#/$defs/string" },
+        "status": { "$ref": "#/$defs/string" },
+        "scope": { "$ref": "#/$defs/string" },
+        "allowed_resources": { "$ref": "#/$defs/strings" },
+        "allowed_sources": { "$ref": "#/$defs/strings" },
+        "allowed_actions": { "$ref": "#/$defs/strings" },
+        "output_targets": { "$ref": "#/$defs/strings" },
+        "forbidden_actions": { "$ref": "#/$defs/strings" },
+        "acceptance_target": { "$ref": "#/$defs/string" },
+        "verification_expectations": { "$ref": "#/$defs/strings" },
+        "current_attempt_id": { "$ref": "#/$defs/string" },
+        "required_approval_count": { "$ref": "#/$defs/safe_integer" },
+        "required_approval_capability": { "$ref": "#/$defs/string" },
+        "conflict_targets": { "$ref": "#/$defs/strings" },
+        "parallel_policy": { "$ref": "#/$defs/string" }
+      }
+    },
+    "dependency_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "status": { "$ref": "#/$defs/string" }
+      }
+    },
+    "source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "selected",
+        "allowed_palaris",
+        "data_class",
+        "authority",
+        "steward_human",
+        "freshness",
+        "redaction_required"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "selected": { "type": "boolean" },
+        "allowed_palaris": { "$ref": "#/$defs/strings" },
+        "data_class": { "$ref": "#/$defs/string" },
+        "authority": { "$ref": "#/$defs/string" },
+        "steward_human": { "$ref": "#/$defs/string" },
+        "freshness": { "$ref": "#/$defs/string" },
+        "redaction_required": { "type": "boolean" }
+      }
+    },
+    "attempt_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "actor",
+        "status",
+        "base_sha",
+        "head_sha",
+        "commits",
+        "changed_files",
+        "allowed_paths",
+        "forbidden_paths",
+        "cleanliness",
+        "result",
+        "output_targets",
+        "started_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "actor": { "$ref": "#/$defs/nonempty_string" },
+        "status": { "$ref": "#/$defs/string" },
+        "base_sha": { "$ref": "#/$defs/string" },
+        "head_sha": { "$ref": "#/$defs/string" },
+        "commits": { "$ref": "#/$defs/strings" },
+        "changed_files": { "$ref": "#/$defs/strings" },
+        "allowed_paths": { "$ref": "#/$defs/strings" },
+        "forbidden_paths": { "$ref": "#/$defs/strings" },
+        "cleanliness": { "$ref": "#/$defs/string" },
+        "result": { "$ref": "#/$defs/string" },
+        "output_targets": { "$ref": "#/$defs/strings" },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "updated_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "receipt_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "attempt_id",
+        "actor",
+        "context_hash",
+        "sources_used",
+        "actions_taken",
+        "outputs_created",
+        "planned_external_writes",
+        "queued_external_writes",
+        "external_writes",
+        "not_done",
+        "undo_refs",
+        "receipt_hash",
+        "previous_receipt_hash",
+        "evidence_manifest_hash",
+        "timestamp"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "attempt_id": { "$ref": "#/$defs/nonempty_string" },
+        "actor": { "$ref": "#/$defs/nonempty_string" },
+        "context_hash": { "$ref": "#/$defs/string" },
+        "sources_used": { "$ref": "#/$defs/strings" },
+        "actions_taken": { "$ref": "#/$defs/strings" },
+        "outputs_created": { "$ref": "#/$defs/strings" },
+        "planned_external_writes": { "$ref": "#/$defs/strings" },
+        "queued_external_writes": { "$ref": "#/$defs/strings" },
+        "external_writes": { "$ref": "#/$defs/strings" },
+        "not_done": { "$ref": "#/$defs/strings" },
+        "undo_refs": { "$ref": "#/$defs/strings" },
+        "receipt_hash": { "$ref": "#/$defs/string" },
+        "previous_receipt_hash": { "$ref": "#/$defs/string" },
+        "evidence_manifest_hash": { "$ref": "#/$defs/string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "artifact_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "status"],
+      "properties": {
+        "path": { "$ref": "#/$defs/nonempty_string" },
+        "sha256": { "$ref": "#/$defs/sha256_hex" },
+        "status": { "$ref": "#/$defs/string" }
+      }
+    },
+    "evidence_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "attempt_id",
+        "head_sha",
+        "status",
+        "base_ref",
+        "commands",
+        "artifacts",
+        "artifact_hashes",
+        "manifest_hash",
+        "receipt_id",
+        "receipt_digest",
+        "receipt_hash",
+        "previous_receipt_hash",
+        "summary",
+        "freshness",
+        "timestamp"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "attempt_id": { "$ref": "#/$defs/nonempty_string" },
+        "head_sha": { "$ref": "#/$defs/string" },
+        "status": { "$ref": "#/$defs/string" },
+        "base_ref": { "$ref": "#/$defs/string" },
+        "commands": { "$ref": "#/$defs/strings" },
+        "artifacts": { "$ref": "#/$defs/strings" },
+        "artifact_hashes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact_digest" }
+        },
+        "manifest_hash": { "$ref": "#/$defs/string" },
+        "receipt_id": { "$ref": "#/$defs/string" },
+        "receipt_digest": { "$ref": "#/$defs/bound_digest" },
+        "receipt_hash": { "$ref": "#/$defs/string" },
+        "previous_receipt_hash": { "$ref": "#/$defs/string" },
+        "summary": { "$ref": "#/$defs/string" },
+        "freshness": { "$ref": "#/$defs/string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "summary", "details"],
+      "properties": {
+        "severity": { "$ref": "#/$defs/string" },
+        "summary": { "$ref": "#/$defs/string" },
+        "details": { "$ref": "#/$defs/string" }
+      }
+    },
+    "legacy_proof_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_version",
+        "attempt_hash",
+        "evidence_manifest_hash",
+        "receipt_hash",
+        "work_contract_hash",
+        "proof_hash"
+      ],
+      "properties": {
+        "binding_version": { "$ref": "#/$defs/string" },
+        "attempt_hash": { "$ref": "#/$defs/string" },
+        "evidence_manifest_hash": { "$ref": "#/$defs/string" },
+        "receipt_hash": { "$ref": "#/$defs/string" },
+        "work_contract_hash": { "$ref": "#/$defs/string" },
+        "proof_hash": { "$ref": "#/$defs/string" }
+      }
+    },
+    "review_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "reviewed_head",
+        "reviewer",
+        "verdict",
+        "attempt_id",
+        "evidence_id",
+        "receipt_id",
+        "contract_digest",
+        "attempt_digest",
+        "evidence_digest",
+        "receipt_digest",
+        "findings",
+        "checks_inspected",
+        "residual_risks",
+        "timestamp",
+        "legacy_binding"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "reviewed_head": { "$ref": "#/$defs/string" },
+        "reviewer": { "$ref": "#/$defs/nonempty_string" },
+        "verdict": { "$ref": "#/$defs/string" },
+        "attempt_id": { "$ref": "#/$defs/string" },
+        "evidence_id": { "$ref": "#/$defs/string" },
+        "receipt_id": { "$ref": "#/$defs/string" },
+        "contract_digest": { "$ref": "#/$defs/bound_digest" },
+        "attempt_digest": { "$ref": "#/$defs/bound_digest" },
+        "evidence_digest": { "$ref": "#/$defs/bound_digest" },
+        "receipt_digest": { "$ref": "#/$defs/bound_digest" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "checks_inspected": { "$ref": "#/$defs/strings" },
+        "residual_risks": { "$ref": "#/$defs/strings" },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "legacy_binding": { "$ref": "#/$defs/legacy_proof_binding" }
+      }
+    },
+    "human_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "approval_capabilities"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "approval_capabilities": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "human_decision_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "human_id",
+        "reviewed_head",
+        "decision",
+        "status",
+        "acceptance_mode",
+        "quorum_status",
+        "evidence_id",
+        "review_id",
+        "evidence_digest",
+        "review_digest",
+        "timestamp"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "human_id": { "$ref": "#/$defs/nonempty_string" },
+        "reviewed_head": { "$ref": "#/$defs/string" },
+        "decision": { "$ref": "#/$defs/string" },
+        "status": { "$ref": "#/$defs/string" },
+        "acceptance_mode": { "$ref": "#/$defs/string" },
+        "quorum_status": { "$ref": "#/$defs/string" },
+        "evidence_id": { "$ref": "#/$defs/string" },
+        "review_id": { "$ref": "#/$defs/string" },
+        "evidence_digest": { "$ref": "#/$defs/bound_digest" },
+        "review_digest": { "$ref": "#/$defs/bound_digest" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "acceptance_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_item_id",
+        "human_id",
+        "reviewed_head",
+        "status",
+        "decision_id",
+        "evidence_id",
+        "review_id",
+        "receipt_digest",
+        "evidence_digest",
+        "review_digest",
+        "quorum_status",
+        "accepted_at"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "human_id": { "$ref": "#/$defs/nonempty_string" },
+        "reviewed_head": { "$ref": "#/$defs/string" },
+        "status": { "$ref": "#/$defs/string" },
+        "decision_id": { "$ref": "#/$defs/string" },
+        "evidence_id": { "$ref": "#/$defs/string" },
+        "review_id": { "$ref": "#/$defs/string" },
+        "receipt_digest": { "$ref": "#/$defs/bound_digest" },
+        "evidence_digest": { "$ref": "#/$defs/bound_digest" },
+        "review_digest": { "$ref": "#/$defs/bound_digest" },
+        "quorum_status": { "$ref": "#/$defs/string" },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "outcome_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "work_item_id", "status", "timestamp"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "work_item_id": { "$ref": "#/$defs/nonempty_string" },
+        "status": { "$ref": "#/$defs/string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "integrity_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "details"],
+      "properties": {
+        "status": { "enum": ["verified", "failed", "not-checked", "not-required"] },
+        "details": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "integrity_observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_integrity", "evidence_integrity", "journal_continuity"],
+      "properties": {
+        "subject_integrity": { "$ref": "#/$defs/integrity_observation" },
+        "evidence_integrity": { "$ref": "#/$defs/integrity_observation" },
+        "journal_continuity": { "$ref": "#/$defs/integrity_observation" }
+      }
+    }
+  }
+}

@@ -8,6 +8,9 @@ palari docs
 palari docs check
 palari docs init
 palari docs map
+palari proof
+palari proof export
+palari proof verify
 palari validate
 palari detail
 palari scope

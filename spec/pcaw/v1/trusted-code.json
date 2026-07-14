@@ -1,0 +1,90 @@
+{
+  "entrypoints": [
+    "src/palari_company_os/pcaw_protocol.py"
+  ],
+  "file_count": 5,
+  "files": [
+    {
+      "direct_external_dependencies": [],
+      "direct_local_dependencies": [
+        "src/palari_company_os/pcaw_canonical.py"
+      ],
+      "direct_stdlib_dependencies": [
+        "__future__",
+        "dataclasses",
+        "typing"
+      ],
+      "path": "src/palari_company_os/governance_case.py",
+      "sha256": "0c9765f921900eabbcae5b0ecb5c02e16cd43067929010869781a8d3a8762677",
+      "source_lines": 471
+    },
+    {
+      "direct_external_dependencies": [],
+      "direct_local_dependencies": [
+        "src/palari_company_os/governance_case.py"
+      ],
+      "direct_stdlib_dependencies": [
+        "__future__",
+        "dataclasses",
+        "datetime",
+        "pathlib",
+        "typing"
+      ],
+      "path": "src/palari_company_os/governance_kernel.py",
+      "sha256": "81a6ceb53d749a707ad5c5309819a9b09847caf54444dfd40739bdc3a7f884d3",
+      "source_lines": 919
+    },
+    {
+      "direct_external_dependencies": [],
+      "direct_local_dependencies": [],
+      "direct_stdlib_dependencies": [
+        "__future__",
+        "collections",
+        "hashlib",
+        "json",
+        "typing"
+      ],
+      "path": "src/palari_company_os/pcaw_canonical.py",
+      "sha256": "0c3dd4c9de959d25de97db56b0347c6d4e5c3bd6e3ebf9ed11602a7e0f9906f5",
+      "source_lines": 149
+    },
+    {
+      "direct_external_dependencies": [],
+      "direct_local_dependencies": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/pcaw_canonical.py",
+        "src/palari_company_os/pcaw_subjects.py"
+      ],
+      "direct_stdlib_dependencies": [
+        "__future__",
+        "datetime",
+        "hashlib",
+        "pathlib",
+        "re",
+        "typing"
+      ],
+      "path": "src/palari_company_os/pcaw_protocol.py",
+      "sha256": "8aff2d7b0fb8e9024dec13a52ecb1a34ce681ecb4eed878d635022131cca5f09",
+      "source_lines": 533
+    },
+    {
+      "direct_external_dependencies": [],
+      "direct_local_dependencies": [],
+      "direct_stdlib_dependencies": [
+        "__future__",
+        "hashlib",
+        "os",
+        "pathlib",
+        "stat",
+        "typing"
+      ],
+      "path": "src/palari_company_os/pcaw_subjects.py",
+      "sha256": "f8f0aba4bd91227c86864ba79eddb739fb8f271c0a57eaa4c903b7fd15b28633",
+      "source_lines": 126
+    }
+  ],
+  "runtime_dependencies": [],
+  "schema_version": "pcaw.trusted_code.v1",
+  "total_source_lines": 2198
+}

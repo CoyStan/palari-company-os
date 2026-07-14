@@ -1,40 +1,37 @@
 # Roadmap And Known Gaps
 
-Implemented in the v0.1 local foundation:
+## North Star: Proof-Carrying AI Work
 
-- workspace schema v2, including fail-safe migration of legacy v1 trust records
-- queue/detail/state/validate/scope/maintainer commands
-- authoring commands for all core objects
-- lifecycle commands for evidence, review, human decision, completion, and
-  outcome
-- integration registry, dry-run payload planner, auditable integration plan
-  records, and human approve/reject/cancel decisions for Slack/GitHub/Jira/email
-  style notifications without live provider calls
-- integration outbox records for approved external-action plans waiting at the
-  future execution boundary, including human cancellation before live execution
-- fail-closed gates for scope, stale evidence, stale review, human authority,
-  quorum, integration references, integration allowed events/actions, and raw
-  secret values
-- agent-ready repo documentation with `docs check`, `docs map`, `docs init`,
-  compact packet doc hints, and canonical `docs/agent/` orientation docs
-- append-only workspace history for successful mutating commands
-- CI and install-smoke verification
-- repo-local dogfood workspace for real Palari Company OS maturity work
+Palari's direction is a small, open, provider-neutral governance kernel: given
+one PCAW statement and its named outputs, an independent implementation can
+determine offline whether the work stayed bounded, evidence is current, review
+is independent, human quorum is current, and acceptance still applies.
 
-Intentionally omitted from v0.1:
+Implemented in the v0.2 local foundation:
 
-- web app
-- live Slack/GitHub/Jira/email connector calls
-- real broker execution
-- real policy acceptance
-- advanced GitHub automation
-- enterprise administration
-- signed gate/key custody
+- strict workspace schema, canonical path boundaries, agent packets, claims,
+  receipts, evidence, exact review binding, human decisions, and acceptance;
+- a pure deterministic governance evaluator shared by workspace validation,
+  completion gating, proof export, and proof verification;
+- PCAW v1 canonical statements, schemas, stable diagnostics, valid and invalid
+  vectors, and a dependency-free black-box conformance runner;
+- safe artifact verification with traversal, sibling-prefix, symlink, missing,
+  changed-during-read, and digest-mismatch rejection;
+- a staged hash-chained governance journal with explicit checkpoints, replay,
+  continuity breaks, prepared/committed transactions, fsync, and crash recovery;
+- focused, affected, complete, install, documentation, conformance, and
+  network-free demonstration checks.
 
-Likely next steps:
+Deferred honestly:
 
-- design live execution for approved and queued integration outbox items
-- add richer migration tests as schema versions evolve
-- add import/export tooling
-- add API or web read-model layer
-- add optional JSON Schema validation dependency if it becomes useful
+- DSSE signatures, key custody, revocation, and cryptographically protected
+  human identity;
+- a second verifier implementation (portability is currently tested through
+  the normative corpus);
+- hosted multi-user service, background agent runner, and broker execution;
+- live Slack, GitHub, Jira, email, Drive, or document connector execution;
+- autonomous acceptance, merge, push, deployment, or external-write authority.
+
+The next protocol work should be earned by conformance evidence: stabilize v1
+through independent implementations, measure the verifier trusted-code base,
+and design signatures only together with identity, revocation, and custody.

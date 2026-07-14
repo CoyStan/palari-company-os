@@ -42,5 +42,19 @@ PY
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >"$log_dir/explicit-validate.json"
 "$tmp_dir/venv/bin/palari" desktop-prototype --out "$tmp_dir/desktop" --json >"$log_dir/desktop.json"
 
+cp -R "$repo_dir/spec/pcaw/v1/vectors/valid/accepted" "$tmp_dir/proof-bundle"
+mkdir "$tmp_dir/offline-python"
+printf '%s\n' \
+  'import socket' \
+  'def _offline(*args, **kwargs):' \
+  '    raise RuntimeError("network disabled during PCAW install smoke")' \
+  'socket.socket = _offline' >"$tmp_dir/offline-python/sitecustomize.py"
+(
+  cd "$tmp_dir"
+  PYTHONPATH="$tmp_dir/offline-python" "$tmp_dir/venv/bin/palari" proof verify \
+    proof-bundle/statement.json --subject-root proof-bundle --json \
+    >"$log_dir/pcaw-offline-verify.json"
+)
+
 test -f "$tmp_dir/desktop/index.html"
 printf 'Palari Company OS wheel install smoke passed.\n'

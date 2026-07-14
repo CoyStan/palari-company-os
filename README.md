@@ -71,7 +71,7 @@ See the [Quickstart](docs/product/quickstart.md) for the full path.
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
+[![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
 
 Palari Company OS is a local, file-backed control plane for AI-assisted work.
 It helps humans and AI agents agree on:
@@ -86,12 +86,18 @@ It is not another chatbot. It is the operating contract around AI work: goals,
 workbenches, named AI partners, bounded work items, receipts, evidence, review,
 human decisions, and outcomes.
 
+Its protocol north star is **Proof-Carrying AI Work (PCAW)**: an independent
+party can take one canonical statement plus its named artifacts and verify the
+governance claim offline, without the original workspace, provider, network,
+credentials, or source contents. See the normative [PCAW v1
+specification](spec/pcaw/v1/README.md).
+
 New to those words? Start with the plain-language
 [Glossary](docs/product/glossary.md).
 
 ## What Works Today
 
-This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
+This is a **v0.2 alpha local CLI**. It runs from local files, has no runtime
 package dependencies beyond the Python standard library, and does not require
 API keys, cloud accounts, databases, Slack, GitHub apps, Google Drive, or a
 background service.
@@ -112,6 +118,10 @@ Implemented now:
 - source and receipt trust records
 - exact attempt/receipt/evidence/work-contract review binding, immutable bound
   reviews, and latest-decision quorum revocation
+- deterministic PCAW v1 proof export and offline verification with strict
+  canonical JSON, exact artifact digests, and a provider-neutral conformance corpus
+- staged, hash-chained governance journaling for new or explicitly checkpointed
+  workspaces, with replay, corruption detection, and crash recovery
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and
@@ -136,6 +146,15 @@ Not implemented yet:
   requires an approved plan first)
 
 ## Try More Locally
+
+Run the two-minute, network-free proof demonstration:
+
+```bash
+./scripts/pcaw_demo.sh
+```
+
+It verifies an accepted artifact, changes one governed byte, and shows the
+stable digest-mismatch rejection.
 
 Run the local verification:
 

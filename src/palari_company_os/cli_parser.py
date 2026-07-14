@@ -84,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_map_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     _add_docs_parser(subparsers)
+    _add_proof_parser(subparsers)
 
     validate_parser = subparsers.add_parser("validate", help="Validate the workspace.")
     validate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
@@ -130,12 +131,40 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_parser.add_argument("--write", action="store_true", help="Write migration result.")
     migrate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
-    history_parser = subparsers.add_parser("history", help="Show recent workspace history events.")
+    history_parser = subparsers.add_parser(
+        "history", help="Show history or inspect the replayable governance journal."
+    )
     history_parser.add_argument(
         "--limit",
         type=int,
         default=20,
         help="Number of recent events to show. Use 0 for none.",
+    )
+    history_mode = history_parser.add_mutually_exclusive_group()
+    history_mode.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify the governance journal chain and workspace projection.",
+    )
+    history_mode.add_argument(
+        "--checkpoint",
+        action="store_true",
+        help="Start or extend the governance journal with an explicit checkpoint.",
+    )
+    history_mode.add_argument(
+        "--recover",
+        action="store_true",
+        help="Idempotently resolve a prepared journal transaction when safe.",
+    )
+    history_parser.add_argument(
+        "--acknowledge-break",
+        action="store_true",
+        help="With --checkpoint, preserve a visible continuity break after manual edits.",
+    )
+    history_parser.add_argument(
+        "--actor",
+        default="",
+        help="Declared local actor for a checkpoint or recovery record.",
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -476,6 +505,39 @@ def _add_docs_parser(subparsers: Any) -> None:
     docs_map = nested.add_parser("map", help="Show the agent-ready documentation map.")
     docs_map.add_argument("--repo", default=".", help="Repository path to inspect.")
     docs_map.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_proof_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "proof",
+        help="Export or independently verify Proof-Carrying AI Work statements.",
+    )
+    nested = parser.add_subparsers(dest="proof_command", required=True)
+
+    export = nested.add_parser(
+        "export",
+        help="Export a deterministic PCAW v1 statement for one work item.",
+    )
+    export.add_argument("work_id", help="Work item id.")
+    export.add_argument("--output", required=True, help="Proof statement output file.")
+    export.add_argument("--json", action="store_true", help="Emit a structured export report.")
+
+    verify = nested.add_parser(
+        "verify",
+        help="Verify a PCAW v1 statement without loading a Palari workspace.",
+    )
+    verify.add_argument("proof_file", help="PCAW statement JSON file.")
+    verify.add_argument(
+        "--subject-root",
+        default="",
+        help="Root for artifact subjects. Defaults to the proof file directory.",
+    )
+    verify.add_argument(
+        "--statement-only",
+        action="store_true",
+        help="Verify governance consistency without reading artifact subjects.",
+    )
+    verify.add_argument("--json", action="store_true", help="Emit structured diagnostics.")
 
 
 def _add_workspace_parser(subparsers: Any) -> None:
