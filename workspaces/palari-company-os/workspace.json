@@ -2567,7 +2567,7 @@
     },
     {
       "base_sha": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
-      "head_sha": "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903",
+      "head_sha": "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
       "commits": [
         "d3cc68566dc164aedd5c665bc5734c1a1d03c82c",
         "21670a447ab039d5000a19b2df7350f005a9170a",
@@ -2583,7 +2583,8 @@
         "90efb810fb972edc6a5f0acb86c1f390cc4a0f6f",
         "33dda5921936208bbd6f35ac6851b5e522e7383d",
         "3e3ea6bde7f645d34055aeaf10e6e56335cdcae0",
-        "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903"
+        "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903",
+        "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc"
       ],
       "allowed_paths": [
         "src/palari_company_os",
@@ -2613,11 +2614,102 @@
       "id": "ATTEMPT-REPO-0023",
       "work_item_id": "WORK-REPO-0023",
       "actor": "PALARI-STEWARD",
-      "status": "active",
+      "status": "complete",
       "branch": "codex/model-independent-governance-hardening",
       "workspace_path": "/home/quetza/palari-company-os",
       "model_or_worker": "gpt-5-codex",
-      "started_at": "2026-07-14T15:13:08Z"
+      "started_at": "2026-07-14T15:13:08Z",
+      "cleanliness": "clean",
+      "updated_at": "2026-07-14T19:39:00.308808Z",
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/governance-hardening-contract.md",
+        "docs/product/governance-hardening-review.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/release-and-operations.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/testing-guide.md",
+        "docs/product/troubleshooting.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "scripts/install_smoke.sh",
+        "scripts/verification_profiles.py",
+        "scripts/verify.sh",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/integrations.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/mcp_server.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/path_policy.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/record_order.py",
+        "src/palari_company_os/review_guides.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "tests/fixtures/workspaces/broken-reference.json",
+        "tests/fixtures/workspaces/invalid-completed-work.json",
+        "tests/fixtures/workspaces/invalid-human-approval-capability.json",
+        "tests/fixtures/workspaces/invalid-lifecycle-state.json",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/invalid-source-missing-palari.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json",
+        "tests/fixtures/workspaces/stale-evidence.json",
+        "tests/fixtures/workspaces/stale-review.json",
+        "tests/fixtures/workspaces/unknown-field.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_done.py",
+        "tests/test_agent_packets.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_data_map.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_git_hooks.py",
+        "tests/test_governance_completion.py",
+        "tests/test_history.py",
+        "tests/test_mission_control.py",
+        "tests/test_path_policy.py",
+        "tests/test_review_guides.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_verification_profiles.py",
+        "tests/test_workspace_read_models.py",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ]
     }
   ],
   "evidence_runs": [
@@ -3023,6 +3115,54 @@
       "status": "passed",
       "summary": "Onramp commands passed focused tests, full unit discovery, lint, type checks, and docs freshness.",
       "timestamp": "2026-07-11T03:50:09Z"
+    },
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json",
+        "./bin/palari --workspace workspaces/palari-company-os validate --json",
+        "independent review 15 exact-head ACCEPT"
+      ],
+      "artifacts": [
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/record_order.py",
+        "scripts/verification_profiles.py",
+        "docs/product/governance-hardening-review.md"
+      ],
+      "id": "EVIDENCE-REPO-0023",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "head_sha": "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
+      "status": "passed",
+      "base_ref": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
+      "summary": "Authoritative verification and exact-head independent review passed; founder acceptance remains pending.",
+      "freshness": "current",
+      "timestamp": "2026-07-14T19:39:12.779914Z",
+      "receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/governance-hardening-review.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "scripts/verification_profiles.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/governance_binding.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/record_order.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        }
+      ],
+      "manifest_hash": "sha256:9581b9a515c563456cf8929ecc4fb2811695b79d24188ffe0567378f9ae19f0f"
     }
   ],
   "review_verdicts": [
@@ -4108,6 +4248,42 @@
       "attempt_id": "ATTEMPT-REPO-0100",
       "actor": "PALARI-STEWARD",
       "receipt_hash": "sha256:0cbd6830dae1a7f7fc27938ec5b66182a38cf302c8e237c3773258c6332bda79"
+    },
+    {
+      "context_packet": ".palari/packets/PACKET-WORK-REPO-0023-PALARI-STEWARD-EXECUTE-V1.json",
+      "context_hash": "sha256:3719f52e12b9ab2ce0b04d561f3c44fe15b380b856c8630ddb5679207cabe019",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "audited_governance_invariants",
+        "implemented_fail_closed_gates",
+        "ran_independent_review_loop",
+        "measured_complete_verification"
+      ],
+      "outputs_created": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "docs/product/governance-hardening-contract.md",
+        "docs/product/governance-hardening-review.md",
+        "scripts/verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "not_done": [
+        "founder_acceptance",
+        "push",
+        "pull_request",
+        "merge",
+        "deployment",
+        "external_write"
+      ],
+      "id": "RECEIPT-REPO-0023",
+      "work_item_id": "WORK-REPO-0023",
+      "attempt_id": "ATTEMPT-REPO-0023",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-14T19:39:12.577422Z",
+      "receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d"
     }
   ],
   "decisions": [
