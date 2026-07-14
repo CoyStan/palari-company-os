@@ -16,7 +16,11 @@ repository milestones, not a production Company OS release.
 - Hardened filesystem enforcement against traversal, sibling-prefix and
   symlink escape, malformed Git observations, ambiguous claims, and review-mode
   writes. Agent claims now distinguish unchanged pre-existing dirt with a
-  hashed metadata-only baseline.
+  hashed metadata-only baseline plus an independent local Git ref/reflog
+  witness; hooks reconcile execute scope with current workspace truth.
+- Revalidate evidence manifests, artifacts, and receipt hashes for active
+  acceptance records, and stop supported agent shells from invoking
+  human-attributed Palari mutations or silently running opaque interpreters.
 
 ### Changed
 

@@ -328,7 +328,9 @@ release` removes this Palari's local claim when work is abandoned or handed off.
 For Git worktrees, the claim also stores a hashed, metadata-only baseline of
 already-dirty paths. It does not read their contents. The ignored baseline
 companion persists when a claim is released and reused when that work item is
-started again, preventing release/restart from laundering later dirt.
+started again, preventing release/restart from laundering later dirt. When the
+baseline has a commit head, a dedicated local Git ref and its original reflog
+entry witness that head independently of the ignored JSON files.
 
 The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -443,9 +445,11 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"deploy/production.yml"}}' 
 into Claude Code settings so the packet write boundary is enforced by the
 harness instead of agent goodwill. `claude hook` is the handler those hooks
 invoke: it reads one hook payload from stdin, checks it against the active
-claims under `.palari/`, and prints a JSON decision. It never mutates workspace
-records and fails open on errors. `claude status` reports installed hooks and
-active claims. See
+claims under `.palari/`, recompiles execute authority from the current
+workspace, and prints a JSON decision. It denies human-attributed Palari
+mutations from agent Bash and asks a human before opaque interpreter or Git
+witness mutations. It never mutates workspace records and fails open on
+handler errors. `claude status` reports installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
 
 ## Playbooks

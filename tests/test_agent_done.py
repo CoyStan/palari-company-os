@@ -373,6 +373,89 @@ class AgentDoneTests(unittest.TestCase):
             {item.id for item in Ws.load(self.workspace_path).attempts},
         )
 
+    def test_coordinated_claim_and_baseline_rehash_cannot_override_git_witness(self) -> None:
+        work_id = "WORK-TEST-COORDINATED-BASELINE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("outside.txt", "outside boundary\n", "outside change")
+        outside_head = self._git_head()
+        claim_path = self.workspace_path / ".palari" / "claims" / f"{work_id}.json"
+        baseline_path = claim_path.with_suffix(".baseline")
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+        for record in (claim, persisted):
+            record["git_baseline"]["head_sha"] = outside_head
+            record["git_baseline_hash"] = _git_baseline_hash(record["git_baseline"])
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        baseline_path.write_text(json.dumps(persisted), encoding="utf-8")
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("Git witness", result["message"])
+        self.assertNotIn(
+            f"ATTEMPT-DONE-{work_id}",
+            {item.id for item in Ws.load(self.workspace_path).attempts},
+        )
+
+    def test_git_witness_rewrite_keeps_original_head_in_reflog(self) -> None:
+        work_id = "WORK-TEST-REWRITTEN-WITNESS"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("outside.txt", "outside boundary\n", "outside change")
+        outside_head = self._git_head()
+        claim_path = self.workspace_path / ".palari" / "claims" / f"{work_id}.json"
+        baseline_path = claim_path.with_suffix(".baseline")
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+        for record in (claim, persisted):
+            record["git_baseline"]["head_sha"] = outside_head
+            record["git_baseline_hash"] = _git_baseline_hash(record["git_baseline"])
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        baseline_path.write_text(json.dumps(persisted), encoding="utf-8")
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.workspace_path),
+                "update-ref",
+                claim["git_witness_ref"],
+                outside_head,
+            ],
+            check=True,
+        )
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("Git witness history", result["message"])
+
     def _create_light_work(self, work_id: str) -> None:
         from palari_company_os.authoring import create_record
 

@@ -137,7 +137,8 @@ Validation checks:
   capability
 - acceptance records reference fresh passing evidence, fresh accept-ready
   exact-bound review, qualified human authority, matching receipt hash, and a
-  matching human-decision record
+  matching human-decision record; active acceptance also recomputes evidence,
+  artifact, and receipt integrity before terminal completion
 - completed work has fresh passing evidence, fresh accept-ready review, no open
   linked decision, current exact proof, a terminal clean attempt, and enough
   qualified human approvals; each human's latest decision for that exact

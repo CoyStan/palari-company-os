@@ -10,9 +10,11 @@ for Claude Code sessions instead of a voluntary contract:
   changes outside the boundary, so shell writes cannot slip through silently.
 - ``SessionStart`` injects the active packet contract into Claude's context.
 
-Hook handlers read only the persisted claim and packet files under
-``.palari/`` that ``palari agent start`` wrote, so they enforce the exact
-contract the agent started under and never load or mutate the workspace.
+Hook handlers reconcile persisted claim and packet files under ``.palari/``
+against the current workspace packet before granting execute-mode writes.
+They also stop agent shells from invoking human-attributed Palari mutations
+and require approval for opaque interpreters or Git witness mutations.
+They never mutate the workspace.
 Handlers must never crash the Claude Code tool flow: every entry point
 catches errors and degrades to "no decision".
 """
@@ -50,6 +52,28 @@ BASH_WRITE_COMMANDS = {
     "tee",
     "touch",
     "truncate",
+}
+OPAQUE_INTERPRETERS = {
+    "bash",
+    "deno",
+    "fish",
+    "node",
+    "perl",
+    "php",
+    "python",
+    "python3",
+    "ruby",
+    "sh",
+    "zsh",
+}
+GIT_WITNESS_MUTATIONS = {
+    "checkout",
+    "gc",
+    "reflog",
+    "replace",
+    "reset",
+    "switch",
+    "update-ref",
 }
 
 
@@ -181,6 +205,75 @@ def bash_write_targets(command: str) -> list[str]:
         if active_write_command and not token.startswith("-"):
             targets.append(token)
     return targets
+
+
+def bash_human_authority_command(command: str) -> str:
+    """Name a human-attributed Palari mutation embedded in a shell command."""
+
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name != "palari":
+            continue
+        args = tokens[index + 1 :]
+        while args and args[0].startswith("-"):
+            option = args.pop(0)
+            if option in {"--workspace"} and args:
+                args.pop(0)
+        if len(args) < 2:
+            continue
+        command_key = (args[0], args[1])
+        if command_key in {
+            ("decision", "create"),
+            ("decision", "update"),
+            ("human-decision", "record"),
+            ("human-decision", "update"),
+            ("integration", "approve"),
+            ("integration", "reject"),
+            ("lifecycle", "decide"),
+            ("lifecycle", "review"),
+            ("review", "record"),
+            ("review", "update"),
+            ("work", "accept"),
+        }:
+            return " ".join(command_key)
+    return ""
+
+
+def bash_requires_human_review(command: str) -> str:
+    """Return why a target-free shell command is too opaque to auto-authorize."""
+
+    tokens = _shell_tokens(command)
+    expect_command = True
+    for index, token in enumerate(tokens):
+        if token in {"&&", "||", ";", "|"}:
+            expect_command = True
+            continue
+        if not expect_command:
+            continue
+        expect_command = False
+        name = Path(token).name
+        if name in OPAQUE_INTERPRETERS:
+            following = tokens[index + 1 : index + 3]
+            if name in {"python", "python3"} and following[:2] in (
+                ["-m", "unittest"],
+                ["-m", "json.tool"],
+            ):
+                continue
+            return f"opaque interpreter {name}"
+        if name == "git" and index + 1 < len(tokens):
+            subcommand = tokens[index + 1]
+            if subcommand in GIT_WITNESS_MUTATIONS:
+                return f"Git metadata mutation git {subcommand}"
+    if ".palari" in command:
+        return "Palari runtime path mutation"
+    return ""
+
+
+def _shell_tokens(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.split()
 
 
 def install_hooks(
@@ -331,7 +424,22 @@ def _pre_tool_use(
     if exact:
         raw_targets = [str(tool_input.get(FILE_WRITE_TOOLS[tool_name], ""))]
     elif tool_name == "Bash":
-        raw_targets = bash_write_targets(str(tool_input.get("command", "")))
+        command = str(tool_input.get("command", ""))
+        authority_command = bash_human_authority_command(command)
+        if authority_command:
+            return _decision(
+                "deny",
+                f"Palari command `{authority_command}` is human-only and cannot run "
+                "from an agent shell. Use the human handoff packet instead.",
+            )
+        raw_targets = bash_write_targets(command)
+        opaque_reason = bash_requires_human_review(command)
+        if not raw_targets and opaque_reason and contexts:
+            return _decision(
+                "ask",
+                f"{opaque_reason} can bypass Palari's observable write boundary. "
+                "A human must approve this shell command or use a directly inspected tool.",
+            )
     else:
         return {}
     raw_targets = [target for target in raw_targets if target]

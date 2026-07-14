@@ -726,6 +726,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for acceptance in workspace.acceptance_records:
         _validate_acceptance_record(
+            workspace,
             acceptance,
             work_by_id,
             humans_by_id,
@@ -1352,6 +1353,7 @@ def _validate_accepted_human_decision(
 
 
 def _validate_acceptance_record(
+    workspace: Any,
     acceptance: AcceptanceRecord,
     work_by_id: dict[str, WorkItem],
     humans_by_id: dict[str, Any],
@@ -1433,6 +1435,14 @@ def _validate_acceptance_record(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
+    from .evidence_manifest import verify_evidence
+
+    verification = verify_evidence(workspace, evidence.id)
+    if not verification["ok"]:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
+            "evidence or receipt integrity"
+        )
     if acceptance.evidence_reference != review.evidence_reference:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference does not match "

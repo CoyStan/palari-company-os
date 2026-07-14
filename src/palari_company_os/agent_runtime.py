@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ from .workspace import Workspace, WorkspaceError
 
 
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
+GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
 
 
 def start_agent(
@@ -63,16 +65,20 @@ def start_agent(
         persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
         if persisted_baseline is None:
             git_baseline = capture_git_baseline(workspace.path)
+            git_witness_ref = _create_git_witness(work_id, git_baseline)
             baseline_record = {
                 "schema_version": "palari.persisted_git_baseline.v1",
                 "work_item": work_id,
                 "captured_at": now,
                 "git_baseline": git_baseline,
                 "git_baseline_hash": _git_baseline_hash(git_baseline),
+                "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+                "git_witness_ref": git_witness_ref,
             }
             _write_json(baseline_path, baseline_record)
         else:
             git_baseline = persisted_baseline["git_baseline"]
+            git_witness_ref = str(persisted_baseline.get("git_witness_ref") or "")
 
         claim = {
             "schema_version": CLAIM_SCHEMA_VERSION,
@@ -87,6 +93,8 @@ def start_agent(
             "git_baseline": git_baseline,
             "git_baseline_hash": _git_baseline_hash(git_baseline),
             "git_baseline_path": _runtime_relative(data_path, baseline_path),
+            "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+            "git_witness_ref": git_witness_ref,
         }
 
         _write_json(packet_path, packet)
@@ -258,6 +266,13 @@ def claim_integrity_error(
         return "claim Git baseline hash differs from the persisted baseline"
     if claim.get("git_baseline") != persisted.get("git_baseline"):
         return "claim Git baseline differs from the persisted baseline"
+    if claim.get("git_witness_version") != persisted.get("git_witness_version"):
+        return "claim Git witness version differs from the persisted baseline"
+    if claim.get("git_witness_ref") != persisted.get("git_witness_ref"):
+        return "claim Git witness ref differs from the persisted baseline"
+    witness_error = _git_witness_error(work_id, persisted)
+    if witness_error:
+        return witness_error
     return ""
 
 
@@ -289,6 +304,13 @@ def load_active_claim_contexts(
         return {"contexts": [], "errors": [str(exc)]}
     if not directory.is_dir():
         return {"contexts": [], "errors": []}
+
+    workspace: Workspace | None = None
+    workspace_error = ""
+    try:
+        workspace = Workspace.load(workspace_path)
+    except WorkspaceError as exc:
+        workspace_error = str(exc)
 
     for path in sorted(directory.glob("*.json")):
         try:
@@ -326,6 +348,25 @@ def load_active_claim_contexts(
         if packet_error:
             errors.append(f"invalid active claim {path.name}: {packet_error}")
             continue
+        if claim.get("mode") == "execute":
+            if workspace is None:
+                errors.append(
+                    f"invalid active claim {path.name}: current workspace cannot be loaded: "
+                    f"{workspace_error}"
+                )
+                continue
+            current_packet = build_agent_brief(
+                workspace,
+                str(claim.get("work_item") or ""),
+                str(claim.get("claimed_by") or ""),
+                "execute",
+            )
+            if current_packet.get("context_hash") != claim.get("context_hash"):
+                errors.append(
+                    f"invalid active claim {path.name}: persisted packet authority "
+                    "differs from the current workspace packet"
+                )
+                continue
         contexts.append({"claim": claim, "packet": packet})
     return {"contexts": contexts, "errors": errors}
 
@@ -416,6 +457,15 @@ def _read_persisted_baseline(path: Path, work_id: str) -> dict[str, Any] | None:
         raise WorkspaceError(f"persisted Git baseline for {work_id} is malformed")
     if record.get("git_baseline_hash") != _git_baseline_hash(baseline):
         raise WorkspaceError(f"persisted Git baseline for {work_id} does not match its hash")
+    if baseline.get("head_sha"):
+        if record.get("git_witness_version") != GIT_WITNESS_VERSION:
+            raise WorkspaceError(
+                f"persisted Git baseline for {work_id} has no supported Git witness"
+            )
+        if record.get("git_witness_ref") != _git_witness_ref(work_id):
+            raise WorkspaceError(
+                f"persisted Git baseline for {work_id} has an invalid Git witness ref"
+            )
     return record
 
 
@@ -497,6 +547,100 @@ def _packet_context_hash(packet: dict[str, Any]) -> str:
 def _git_baseline_hash(baseline: dict[str, Any]) -> str:
     encoded = json.dumps(baseline, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _git_witness_ref(work_id: str) -> str:
+    safe = _safe_file_id(work_id).strip("-") or "work"
+    digest = hashlib.sha256(work_id.encode("utf-8")).hexdigest()[:12]
+    return f"refs/palari/claims/{safe}-{digest}"
+
+
+def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:
+    root = str(baseline.get("git_root") or "")
+    head = str(baseline.get("head_sha") or "")
+    if not root or not head:
+        return ""
+    witness_ref = _git_witness_ref(work_id)
+    existing = _git_output(root, ["rev-parse", "--verify", witness_ref])
+    if existing:
+        if existing != head:
+            raise WorkspaceError(
+                f"Git witness for {work_id} identifies {existing}, not claim head {head}"
+            )
+        error = _git_witness_history_error(root, witness_ref, head)
+        if error:
+            raise WorkspaceError(error)
+        return witness_ref
+    result = subprocess.run(
+        ["git", "-C", root, "update-ref", "--create-reflog", witness_ref, head],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise WorkspaceError(
+            f"cannot create Git witness for {work_id}: "
+            f"{result.stderr.strip() or 'git update-ref failed'}"
+        )
+    error = _git_witness_history_error(root, witness_ref, head)
+    if error:
+        raise WorkspaceError(error)
+    return witness_ref
+
+
+def _git_witness_error(work_id: str, persisted: dict[str, Any]) -> str:
+    baseline = persisted.get("git_baseline")
+    if not isinstance(baseline, dict):
+        return "persisted Git baseline is malformed"
+    root = str(baseline.get("git_root") or "")
+    head = str(baseline.get("head_sha") or "")
+    if not head:
+        return ""
+    witness_ref = str(persisted.get("git_witness_ref") or "")
+    if witness_ref != _git_witness_ref(work_id):
+        return "persisted Git witness ref is invalid"
+    current = _git_output(root, ["rev-parse", "--verify", witness_ref])
+    if current != head:
+        return "Git witness does not match the persisted claim-start head"
+    return _git_witness_history_error(root, witness_ref, head)
+
+
+def _git_witness_history_error(root: str, witness_ref: str, head: str) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            root,
+            "reflog",
+            "show",
+            "--format=%H",
+            witness_ref,
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    entries = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if result.returncode != 0 or not entries:
+        return "Git witness history is missing or unreadable"
+    if entries[-1] != head:
+        return "Git witness history does not start at the persisted claim-start head"
+    return ""
+
+
+def _git_output(root: str, args: list[str]) -> str:
+    if not root:
+        return ""
+    result = subprocess.run(
+        ["git", "-C", root, *args],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def _safe_file_id(value: str) -> str:

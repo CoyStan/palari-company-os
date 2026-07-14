@@ -11,8 +11,9 @@ New to the packet and claim vocabulary? Start with the
 
 ## What It Enforces
 
-Three hooks, all derived from the persisted claim and packet files that
-`palari agent start` writes under `.palari/`:
+Three hooks, derived from the persisted claim and packet files that `palari
+agent start` writes under `.palari/` and reconciled with current workspace
+truth before execute authority is granted:
 
 - **PreToolUse** — before Claude writes a file with `Write`, `Edit`, or
   `NotebookEdit`, the target path is checked against the active claim's write
@@ -24,7 +25,9 @@ Three hooks, all derived from the persisted claim and packet files that
   conservative heuristic (redirections and common mutating commands such as
   `rm`, `mv`, `cp`, `tee`, `sed -i`, `git rm`). A suspected out-of-boundary
   write escalates to a human **ask**, never a silent deny or allow, because a
-  heuristic should not have deny authority.
+  heuristic should not have deny authority. Opaque interpreter and Git witness
+  mutations also require a human ask. Human-attributed review, decision,
+  integration approval, and work-accept commands are denied from agent Bash.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -34,9 +37,12 @@ Three hooks, all derived from the persisted claim and packet files that
   paths, check command) is injected into Claude's context at session start.
   Unclaimed sessions are pointed at `palari agent next`.
 
-Hook handlers read only `.palari/claims/` and `.palari/packets/`. They never
-load, validate, or mutate the workspace, and they fail open: a Palari error
-degrades to "no decision" instead of locking up an unrelated Claude session.
+Hook handlers read `.palari/claims/`, `.palari/packets/`, and the current
+workspace to ensure a self-rehashed runtime packet cannot expand current scope.
+They never mutate the workspace, and unexpected handler errors fail open: a
+Palari error degrades to "no decision" instead of locking up an unrelated
+Claude session. A structurally invalid active claim is an ordinary checked
+state and blocks or escalates writes rather than taking that error path.
 
 ## Install
 

@@ -158,7 +158,8 @@ Agents must never:
 ## V1 Scope
 
 Agent Packet Contract v1 keeps provider actions read-only, but the local agent
-runtime now writes two audit files for ready started work:
+runtime writes packet/claim audit state and, when Git has a committed head, a
+local Git witness for ready started work:
 
 - `.palari/packets/PACKET-...json` stores the exact bounded packet.
 - `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
@@ -166,6 +167,9 @@ runtime now writes two audit files for ready started work:
   local claim. The baseline records path/status/stat metadata, never contents.
   Its `.baseline` companion survives claim release/restart for the same work
   item so an agent cannot reclassify its own later changes as pre-existing.
+  For a committed claim-start head, `refs/palari/claims/...` and its oldest
+  local reflog entry provide a separate Git-backed witness. All four views must
+  agree before claim authority or `agent done` attribution is accepted.
 
 Implemented:
 
@@ -233,6 +237,11 @@ listed separately and not attributed to the agent; a changed fingerprint is
 attributed normally. This is intentionally content-blind: Palari compares Git
 status and file metadata, rejects traversal/symlink escape and incomplete
 observations, and never treats the baseline as cryptographic provenance.
+Execute-mode hooks additionally rebuild the current packet from workspace truth
+before granting writes, so coordinated edits to a packet and claim cannot
+expand scope. Opaque interpreter commands and Git witness mutations require a
+human hook decision. Human-attributed review, decision, integration approval,
+and work-accept commands are denied from the supported agent shell.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

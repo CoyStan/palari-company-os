@@ -86,5 +86,8 @@ The test suite covers:
 - read-only split workspace collection files
 - write refusal for split workspaces
 - in-place split-workspace migration with stale-proof invalidation
+- coordinated claim/packet/baseline rehash rejection and Git witness history
+- agent-shell denial for human-only commands and opaque interpreter approval
+- nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

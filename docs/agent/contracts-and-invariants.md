@@ -36,15 +36,21 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - `palari agent brief` is read-only.
 - `palari agent start` persists the exact packet and writes a local claim for
   ready execution work, including a hashed metadata-only Git dirty baseline
-  when Git is available. Releasing and restarting the same work item must reuse
-  that baseline rather than laundering later changes.
+  and a dedicated local Git ref/reflog witness when Git is available. Releasing
+  and restarting the same work item must reuse that baseline rather than
+  laundering later changes.
 - Blocked packets must not be claimed.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
   against the packet boundary.
 - `agent done` attributes every committed path from the persisted claim-start
-  head to current `HEAD`, not merely the tip commit.
+  head to current `HEAD`, not merely the tip commit. The claim, companion
+  baseline, Git witness ref, and original witness reflog entry must agree.
+- Execute hooks rebuild the current workspace packet before granting writes;
+  coordinated claim/packet self-rehashing cannot expand current scope.
+- Supported agent hooks deny human-attributed Palari mutations and require a
+  human decision for opaque interpreters or Git witness mutations.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

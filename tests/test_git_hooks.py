@@ -78,6 +78,20 @@ class GitHooksTests(unittest.TestCase):
         allowed_resources: list[str] | None = None,
     ) -> None:
         from palari_company_os.agent_runtime import start_agent
+
+        if Ws.load(self.workspace_path).work_item(work_id) is None:
+            self._create_work(work_id, allowed_resources)
+        ws = Ws.load(self.workspace_path)
+        result = start_agent(ws, self.workspace_path, work_id, "PALARI-STEWARD", "execute")
+        assert result.get("start", {}).get("status") == "claimed", f"Claim failed: {result.get('start', {})}"
+        claims_dir = self.workspace_path / ".palari" / "claims"
+        assert claims_dir.exists() and any(claims_dir.glob("*.json")), "No claim file created"
+
+    def _create_work(
+        self,
+        work_id: str,
+        allowed_resources: list[str] | None = None,
+    ) -> None:
         from palari_company_os.authoring import create_record
 
         create_record(
@@ -103,11 +117,6 @@ class GitHooksTests(unittest.TestCase):
             },
             command="test",
         )
-        ws = Ws.load(self.workspace_path)
-        result = start_agent(ws, self.workspace_path, work_id, "PALARI-STEWARD", "execute")
-        assert result.get("start", {}).get("status") == "claimed", f"Claim failed: {result.get('start', {})}"
-        claims_dir = self.workspace_path / ".palari" / "claims"
-        assert claims_dir.exists() and any(claims_dir.glob("*.json")), "No claim file created"
 
     def test_install_creates_pre_commit_hook(self) -> None:
         result = install_git_hook(self._tmp, self.workspace_path)
@@ -275,6 +284,8 @@ class GitHooksTests(unittest.TestCase):
         self.assertEqual(result["status"], "read-only-claim")
 
     def test_pre_commit_does_not_union_overlapping_claim_authority(self) -> None:
+        self._create_work("WORK-TEST-GIT-A")
+        self._create_work("WORK-TEST-GIT-B")
         self._start_claim("WORK-TEST-GIT-A")
         self._start_claim("WORK-TEST-GIT-B")
         (Path(self._tmp) / "README.md").write_text("overlap\n", encoding="utf-8")

@@ -35,6 +35,32 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].status, "completed")
         self.assertEqual(workspace.human_decisions[0].status, "accepted")
 
+    def test_nonterminal_acceptance_rejects_tampered_evidence_manifest(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["status"] = "in-review"
+        raw["evidence_runs"][0]["commands"].append("unverified command")
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "fails exact evidence or receipt integrity",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_nonterminal_acceptance_rejects_tampered_receipt_body(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["status"] = "in-review"
+        raw["receipts"][0]["actions_taken"].append("unhashed action")
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "fails exact evidence or receipt integrity",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_valid_source_receipt_loop_fixture_loads(self) -> None:
         workspace = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")
 

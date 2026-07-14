@@ -22,6 +22,83 @@ from palari_company_os.claude_hooks import (
     run_hook,
 )
 from palari_company_os.agent_file_changes import capture_git_baseline
+from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.agent_runtime import GIT_WITNESS_VERSION, _create_git_witness
+from palari_company_os.workspace import Workspace
+
+
+def _write_hook_workspace(workspace_dir: Path) -> None:
+    work_ids = ("WORK-0001", "WORK-A", "WORK-B")
+    data = {
+        "schema_version": 2,
+        "name": "Hook Test Workspace",
+        "goals": [
+            {
+                "id": "GOAL-HOOK",
+                "title": "Exercise hooks",
+                "status": "active",
+                "linked_work": list(work_ids),
+            }
+        ],
+        "humans": [{"id": "HUMAN-HOOK", "name": "Hook Human"}],
+        "palaris": [
+            {
+                "id": "PALARI-SOFIA",
+                "name": "Sofia",
+                "role": "Hook worker",
+                "owner_human": "HUMAN-HOOK",
+                "linked_goals": ["GOAL-HOOK"],
+                "active_work": list(work_ids),
+            }
+        ],
+        "sources": [
+            {
+                "id": "SOURCE-HOOK",
+                "label": "Repository",
+                "kind": "repo_files",
+                "uri": ".",
+                "allowed_palaris": ["PALARI-SOFIA"],
+                "data_class": "internal",
+                "authority": "company_owned",
+                "access_mode": "read",
+                "selected": True,
+            }
+        ],
+        "work_items": [],
+        "attempts": [],
+        "evidence_runs": [],
+        "review_verdicts": [],
+        "human_decisions": [],
+        "receipts": [],
+        "decisions": [],
+        "outcomes": [],
+    }
+    default_paths = {
+        "WORK-0001": ["docs/notes.md"],
+        "WORK-A": ["docs"],
+        "WORK-B": ["docs"],
+    }
+    for work_id in work_ids:
+        data["work_items"].append(
+            {
+                "id": work_id,
+                "title": work_id,
+                "goal": "GOAL-HOOK",
+                "palari": "PALARI-SOFIA",
+                "risk": "R1",
+                "intensity": "light",
+                "status": "active",
+                "scope": "Exercise hook enforcement.",
+                "acceptance_target": "Unsafe writes are blocked.",
+                "allowed_resources": default_paths[work_id],
+                "allowed_sources": ["SOURCE-HOOK"],
+                "forbidden_actions": ["deploy"],
+                "required_approval_count": 0,
+            }
+        )
+    (workspace_dir / "workspace.json").write_text(
+        json.dumps(data, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _write_claim_and_packet(
@@ -33,23 +110,25 @@ def _write_claim_and_packet(
     allowed_write: list[str] | None = None,
     lease_minutes: int = 30,
 ) -> None:
-    packet_id = f"PACKET-{work_id}-{palari_id}-{mode.upper()}-V1"
+    workspace_file = workspace_dir / "workspace.json"
+    data = json.loads(workspace_file.read_text(encoding="utf-8"))
+    work = next(item for item in data["work_items"] if item["id"] == work_id)
+    expected_paths = list(allowed_write or [])
+    if work["allowed_resources"] != expected_paths:
+        work["allowed_resources"] = expected_paths
+        workspace_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    packet = build_agent_brief(
+        Workspace.load(workspace_dir), work_id, palari_id, "execute"
+    )
+    packet_id = str(packet["packet_id"])
     expires = datetime.now(timezone.utc) + timedelta(minutes=lease_minutes)
-    packet = {
-        "packet_id": packet_id,
-        "mode": mode,
-        "status": "ready",
-        "work_item": {"id": work_id},
-        "agent": {"id": palari_id},
-        "allowed_paths": {
-            "read": list(allowed_write or []),
-            "write": list(allowed_write or []),
-        },
-    }
+    if mode != "execute":
+        packet["mode"] = mode
     context_hash = _packet_hash(packet)
     packet["context_hash"] = context_hash
     git_baseline = capture_git_baseline(workspace_dir)
     git_baseline_hash = _object_hash(git_baseline)
+    git_witness_ref = _create_git_witness(work_id, git_baseline)
     claim = {
         "schema_version": "palari.agent_claim.v1",
         "work_item": work_id,
@@ -62,6 +141,8 @@ def _write_claim_and_packet(
         "git_baseline": git_baseline,
         "git_baseline_hash": git_baseline_hash,
         "git_baseline_path": f".palari/claims/{work_id}.baseline",
+        "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+        "git_witness_ref": git_witness_ref,
     }
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
@@ -75,6 +156,8 @@ def _write_claim_and_packet(
         ),
         "git_baseline": git_baseline,
         "git_baseline_hash": git_baseline_hash,
+        "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+        "git_witness_ref": git_witness_ref,
     }
     (claims / f"{work_id}.json").write_text(json.dumps(claim), encoding="utf-8")
     (claims / f"{work_id}.baseline").write_text(
@@ -129,7 +212,7 @@ class PreToolUseTests(unittest.TestCase):
         _git_repo(self.repo)
         self.workspace = self.repo / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
 
     def test_denies_exact_write_outside_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -207,6 +290,37 @@ class PreToolUseTests(unittest.TestCase):
         )
 
         self.assertEqual(result, {})
+
+    def test_opaque_interpreter_bash_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "python3 -c 'open(\".palari/claims/x\", \"w\").write(\"x\")'"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn("opaque interpreter", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_human_acceptance_command_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "./bin/palari --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_read_tools_get_no_decision(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -313,6 +427,31 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(_decision(result), "deny")
         self.assertIn("context_hash", result["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_coordinated_packet_and_claim_rehash_cannot_expand_scope(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        claim_path = self.workspace / ".palari" / "claims" / "WORK-0001.json"
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["allowed_paths"] = {"read": ["deploy"], "write": ["deploy"]}
+        packet["context_hash"] = _packet_hash(packet)
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        claim["context_hash"] = packet["context_hash"]
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "deploy" / "production.yml")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "current workspace packet",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
     def test_overlapping_claims_do_not_union_authority(self) -> None:
         _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs"])
         _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs"])
@@ -378,7 +517,7 @@ class StopHookTests(unittest.TestCase):
         _git_repo(self.repo)
         self.workspace = self.repo / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
         (self.repo / "docs").mkdir()
         (self.repo / "docs" / "notes.md").write_text("notes\n", encoding="utf-8")
         subprocess.run(["git", "-C", str(self.repo), "add", "-A"], check=True)
@@ -450,7 +589,7 @@ class SessionStartTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.workspace = Path(self._tmp.name) / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
 
     def _context(self) -> str:
         result = handle_hook_event("session-start", {"source": "startup"}, self.workspace)
@@ -494,7 +633,7 @@ class InstallTests(unittest.TestCase):
         self.project = Path(self._tmp.name) / "project"
         self.workspace = self.project / "ws"
         self.workspace.mkdir(parents=True)
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
         self.settings = self.project / ".claude" / "settings.json"
 
     def _settings_data(self) -> dict[str, Any]:
