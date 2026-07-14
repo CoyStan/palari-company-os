@@ -136,9 +136,9 @@ Validation checks:
   instants, not lexical timestamp spellings; malformed or timezone-free values
   and instants outside the UTC-normalizable datetime range fail closed, and two
   records for the same work item cannot claim the same instant because their
-  latest-state order would be ambiguous. For schema-v2
-  compatibility, one leading undated historical record remains a minimum
-  sentinel; an undated append or multiple undated records fail closed
+  latest-state order would be ambiguous. For schema-v2 compatibility, one
+  undated record remains loadable only when no ordering choice exists; once a
+  work item has multiple records of that kind, every record must be dated
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
 - accepted human decisions are made by a human with the required approval

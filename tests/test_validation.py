@@ -551,6 +551,23 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_prefixed_undated_failed_evidence_cannot_claim_legacy_order(self) -> None:
+        from palari_company_os.evidence_manifest import evidence_manifest_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        failed = dict(raw["evidence_runs"][0])
+        failed.update({"id": "A-EVIDENCE-FAILED", "status": "failed", "timestamp": ""})
+        failed["manifest_hash"] = evidence_manifest_hash(failed)
+        raw["evidence_runs"].insert(0, failed)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence_runs.A-EVIDENCE-FAILED.timestamp is required.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_equal_instant_review_verdicts_are_ambiguous_across_offsets(self) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
@@ -569,6 +586,28 @@ class WorkspaceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             WorkspaceError,
             "review_verdicts.A-REVIEW-CHANGES.timestamp duplicates REVIEW-1.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_prefixed_undated_adverse_review_cannot_claim_legacy_order(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["review_verdicts"].insert(
+            0,
+            {
+                "id": "A-REVIEW-CHANGES",
+                "work_item_id": "WORK-1",
+                "reviewed_head": "head-1",
+                "reviewer": "HUMAN-PRODUCT",
+                "verdict": "changes-requested",
+                "timestamp": "",
+            },
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "review_verdicts.A-REVIEW-CHANGES.timestamp is required.*ambiguous",
         ):
             Workspace.from_raw(raw, FIXTURES)
 

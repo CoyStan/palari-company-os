@@ -1525,7 +1525,7 @@ def _validate_ordered_trust_records(
 
     for work_id, work_records in grouped.items():
         seen: dict[datetime, str] = {}
-        for index, record in enumerate(work_records):
+        for record in work_records:
             record_id = str(getattr(record, "id", ""))
             values: list[tuple[str, str]] = []
             for field in timestamp_fields:
@@ -1537,15 +1537,6 @@ def _validate_ordered_trust_records(
 
             if not values:
                 if len(work_records) > 1:
-                    # Schema v2 allowed one undated record. Preserve a leading
-                    # historical record as the minimum sentinel, while rejecting
-                    # an undated append or multiple undated competitors.
-                    later_records_are_dated = all(
-                        any(str(getattr(item, field, "") or "") for field in timestamp_fields)
-                        for item in work_records[1:]
-                    )
-                    if index == 0 and later_records_are_dated:
-                        continue
                     fields = " or ".join(timestamp_fields)
                     raise WorkspaceError(
                         f"{collection}.{record_id}.{fields} is required because "

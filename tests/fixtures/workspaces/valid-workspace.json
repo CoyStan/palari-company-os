@@ -64,7 +64,8 @@
       "work_item_id": "WORK-1",
       "attempt_id": "ATTEMPT-1",
       "head_sha": "head-1",
-      "status": "passed"
+      "status": "passed",
+      "timestamp": "2026-06-18T16:00:00Z"
     }
   ],
   "review_verdicts": [
@@ -73,7 +74,8 @@
       "work_item_id": "WORK-1",
       "reviewed_head": "head-1",
       "reviewer": "HUMAN-PRODUCT",
-      "verdict": "blocked"
+      "verdict": "blocked",
+      "timestamp": "2026-06-18T16:01:00Z"
     }
   ],
   "human_decisions": [],
