@@ -488,6 +488,187 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_equal_instant_failed_evidence_is_ambiguous_across_offsets(self) -> None:
+        from palari_company_os.evidence_manifest import evidence_manifest_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        failed = dict(raw["evidence_runs"][0])
+        failed.update(
+            {
+                "id": "A-EVIDENCE-FAILED",
+                "status": "failed",
+                "timestamp": "2026-06-18T23:01:00-05:00",
+            }
+        )
+        failed["manifest_hash"] = evidence_manifest_hash(failed)
+        raw["evidence_runs"].append(failed)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence_runs.A-EVIDENCE-FAILED.timestamp duplicates EVIDENCE-1.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_malformed_evidence_timestamp_fails_closed(self) -> None:
+        from palari_company_os.evidence_manifest import evidence_manifest_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        failed = dict(raw["evidence_runs"][0])
+        failed.update(
+            {
+                "id": "A-EVIDENCE-FAILED",
+                "status": "failed",
+                "timestamp": "not-a-time",
+            }
+        )
+        failed["manifest_hash"] = evidence_manifest_hash(failed)
+        raw["evidence_runs"].append(failed)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence_runs.A-EVIDENCE-FAILED.timestamp must be ISO-8601",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_competing_evidence_without_timestamp_fails_closed(self) -> None:
+        from palari_company_os.evidence_manifest import evidence_manifest_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        failed = dict(raw["evidence_runs"][0])
+        failed.update({"id": "A-EVIDENCE-FAILED", "status": "failed", "timestamp": ""})
+        failed["manifest_hash"] = evidence_manifest_hash(failed)
+        raw["evidence_runs"].append(failed)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence_runs.A-EVIDENCE-FAILED.timestamp is required.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_equal_instant_review_verdicts_are_ambiguous_across_offsets(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["review_verdicts"].append(
+            {
+                "id": "A-REVIEW-CHANGES",
+                "work_item_id": "WORK-1",
+                "reviewed_head": "head-1",
+                "reviewer": "HUMAN-PRODUCT",
+                "verdict": "changes-requested",
+                "timestamp": "2026-06-18T23:02:00-05:00",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "review_verdicts.A-REVIEW-CHANGES.timestamp duplicates REVIEW-1.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_timezone_free_review_timestamp_fails_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["review_verdicts"].append(
+            {
+                "id": "A-REVIEW-CHANGES",
+                "work_item_id": "WORK-1",
+                "reviewed_head": "head-1",
+                "reviewer": "HUMAN-PRODUCT",
+                "verdict": "changes-requested",
+                "timestamp": "2030-01-01T00:00:00",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "review_verdicts.A-REVIEW-CHANGES.timestamp must include a timezone",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_equal_instant_receipts_are_ambiguous_across_offsets(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        duplicate = dict(raw["receipts"][0])
+        duplicate.update(
+            {
+                "id": "A-RECEIPT",
+                "timestamp": "2026-06-18T23:00:00-05:00",
+            }
+        )
+        raw["receipts"].append(duplicate)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "receipts.A-RECEIPT.timestamp duplicates RECEIPT-1.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_equal_instant_attempts_are_ambiguous(self) -> None:
+        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        original = next(
+            attempt for attempt in raw["attempts"] if attempt["work_item_id"] == "WORK-0001"
+        )
+        duplicate = dict(original)
+        duplicate["id"] = "ATTEMPT-EQUAL-INSTANT"
+        raw["attempts"].append(duplicate)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "attempts.ATTEMPT-EQUAL-INSTANT.updated_at duplicates ATTEMPT-0001.*ambiguous",
+        ):
+            Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
+
+    def test_later_revoked_acceptance_blocks_terminal_work_across_offsets(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["acceptance_records"].append(
+            {
+                "id": "A-REVOKED",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "status": "revoked",
+                "accepted_at": "2030-01-01T00:00:00-05:00",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "latest acceptance record A-REVOKED is revoked",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_equal_instant_acceptance_records_are_ambiguous_across_offsets(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["acceptance_records"].append(
+            {
+                "id": "A-REVOKED",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "status": "revoked",
+                "accepted_at": "2026-06-18T23:03:00-05:00",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "acceptance_records.A-REVOKED.accepted_at duplicates ACCEPTANCE-1.*ambiguous",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_accepted_decision_with_mismatched_review_head_fails_closed(self) -> None:
         from palari_company_os.governance_binding import review_proof_hash
 

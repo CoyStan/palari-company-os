@@ -22,7 +22,7 @@ from .models import (
     WorkItem,
 )
 from .path_policy import path_allowed, validate_workspace_path
-from .record_order import record_time_key
+from .record_order import record_time_key, timestamp_order
 
 
 T = TypeVar("T")
@@ -724,6 +724,47 @@ def validate_workspace_contract(workspace: Any) -> None:
                 reviews_by_id,
             )
     _validate_human_decision_order(workspace.human_decisions)
+
+    _validate_ordered_trust_records(
+        "attempts",
+        workspace.attempts,
+        ("updated_at", "started_at"),
+    )
+    _validate_ordered_trust_records(
+        "evidence_runs",
+        workspace.evidence_runs,
+        ("timestamp",),
+    )
+    _validate_ordered_trust_records(
+        "review_verdicts",
+        workspace.review_verdicts,
+        ("timestamp",),
+    )
+    _validate_ordered_trust_records(
+        "acceptance_records",
+        workspace.acceptance_records,
+        ("accepted_at",),
+    )
+    _validate_ordered_trust_records(
+        "receipts",
+        workspace.receipts,
+        ("timestamp",),
+    )
+    _validate_ordered_trust_records(
+        "outcomes",
+        workspace.outcomes,
+        ("timestamp",),
+    )
+    _validate_ordered_trust_records(
+        "integration_plans",
+        workspace.integration_plans,
+        ("timestamp",),
+    )
+    _validate_ordered_trust_records(
+        "integration_outbox",
+        workspace.integration_outbox,
+        ("timestamp",),
+    )
 
     for acceptance in workspace.acceptance_records:
         _validate_acceptance_record(
@@ -1460,6 +1501,81 @@ def _validate_acceptance_record(
         )
 
 
+def _validate_ordered_trust_records(
+    collection: str,
+    records: Iterable[Any],
+    timestamp_fields: tuple[str, ...],
+) -> None:
+    """Reject malformed or ambiguous timestamps used for latest-record selection.
+
+    Schema v2 historically allowed one undated record. Keep that representation
+    loadable when no ordering choice exists, but require an unambiguous instant as
+    soon as two records compete for the same work item.
+    """
+
+    grouped: dict[str, list[Any]] = {}
+    for record in records:
+        grouped.setdefault(str(getattr(record, "work_item_id", "")), []).append(record)
+
+    for work_id, work_records in grouped.items():
+        seen: dict[datetime, str] = {}
+        for index, record in enumerate(work_records):
+            record_id = str(getattr(record, "id", ""))
+            values: list[tuple[str, str]] = []
+            for field in timestamp_fields:
+                value = str(getattr(record, field, "") or "")
+                if not value:
+                    continue
+                _require_timezone_timestamp(collection, record_id, field, value)
+                values.append((field, value))
+
+            if not values:
+                if len(work_records) > 1:
+                    # Schema v2 allowed one undated record. Preserve a leading
+                    # historical record as the minimum sentinel, while rejecting
+                    # an undated append or multiple undated competitors.
+                    later_records_are_dated = all(
+                        any(str(getattr(item, field, "") or "") for field in timestamp_fields)
+                        for item in work_records[1:]
+                    )
+                    if index == 0 and later_records_are_dated:
+                        continue
+                    fields = " or ".join(timestamp_fields)
+                    raise WorkspaceError(
+                        f"{collection}.{record_id}.{fields} is required because "
+                        f"{work_id} has multiple {collection} records; latest record "
+                        "would be ambiguous"
+                    )
+                continue
+
+            effective = timestamp_order(values[0][1])
+            previous = seen.get(effective)
+            if previous is not None:
+                raise WorkspaceError(
+                    f"{collection}.{record_id}.{values[0][0]} duplicates {previous} "
+                    f"for {work_id}; latest record would be ambiguous"
+                )
+            seen[effective] = record_id
+
+
+def _require_timezone_timestamp(
+    collection: str,
+    record_id: str,
+    field: str,
+    value: str,
+) -> None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} must be ISO-8601"
+        ) from exc
+    if parsed.utcoffset() is None:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} must include a timezone"
+        )
+
+
 def _validate_completed_work(
     workspace: Any,
     work: WorkItem,
@@ -1510,22 +1626,25 @@ def _validate_completed_work(
                 f"work_items.{work.id}.status is terminal but exact review proof is stale: "
                 f"{binding_errors[0]}"
             )
-        matching_acceptance = next(
-            (
-                acceptance
-                for acceptance in workspace.acceptance_records
-                if acceptance.work_item_id == work.id
-                and acceptance.status == "accepted"
-                and acceptance.review_reference == review.id
-                and acceptance.evidence_reference == evidence.id
-                and acceptance.reviewed_head == review.reviewed_head
-                and acceptance.receipt_hash == review.receipt_hash
-            ),
-            None,
-        )
+        matching_acceptance = _latest_for_work(workspace.acceptance_records, work.id)
         if matching_acceptance is None:
             raise WorkspaceError(
                 f"work_items.{work.id}.status is terminal but exact acceptance record is missing"
+            )
+        if matching_acceptance.status != "accepted":
+            raise WorkspaceError(
+                f"work_items.{work.id}.status is terminal but latest acceptance record "
+                f"{matching_acceptance.id} is {matching_acceptance.status}"
+            )
+        if (
+            matching_acceptance.review_reference != review.id
+            or matching_acceptance.evidence_reference != evidence.id
+            or matching_acceptance.reviewed_head != review.reviewed_head
+            or matching_acceptance.receipt_hash != review.receipt_hash
+        ):
+            raise WorkspaceError(
+                f"work_items.{work.id}.status is terminal but latest acceptance record "
+                "does not match current exact proof"
             )
     count = _qualified_approval_count(workspace, work, review)
     if count < work.required_approval_count:

@@ -137,7 +137,9 @@ and evidence references it names.
 
 Audit record for the final human acceptance gate. It links work, human,
 reviewed head, evidence, review, receipt hash, authority profile, quorum state,
-and reason so acceptance is visible beyond a status toggle.
+and reason so acceptance is visible beyond a status toggle. Its timezone-aware
+`accepted_at` orders later acceptance or revocation records; the latest status
+must still match the current exact proof before work can remain terminal.
 
 ## Receipt
 

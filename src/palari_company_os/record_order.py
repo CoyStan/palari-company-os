@@ -8,11 +8,12 @@ from typing import Any
 _MIN_TIMESTAMP = datetime.min.replace(tzinfo=timezone.utc)
 
 
-def record_time_key(record: object) -> tuple[datetime, datetime, datetime, str]:
+def record_time_key(record: object) -> tuple[datetime, datetime, datetime, datetime, str]:
     """Return a timezone-normalized deterministic ordering key for a record."""
 
     return (
         timestamp_order(_field(record, "timestamp")),
+        timestamp_order(_field(record, "accepted_at")),
         timestamp_order(_field(record, "updated_at")),
         timestamp_order(_field(record, "started_at")),
         str(_field(record, "id")),

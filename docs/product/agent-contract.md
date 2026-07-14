@@ -276,10 +276,13 @@ Human-attributed review, decision, integration approval/cancel/enqueue/send,
 Linear adoption, terminal lifecycle, work-accept, and generic packet-authority
 mutation commands are denied from the supported agent shell.
 
-Latest evidence, review, receipt, attempt, outcome, and integration records are
-ordered by timezone-normalized UTC instants with stable id tie-breaking. ISO
-offset spelling cannot make an older pass or acceptance outrank a semantically
-later failure or rejection.
+Latest evidence, review, receipt, attempt, acceptance, outcome, and integration
+records are ordered by timezone-normalized UTC instants. ISO offset spelling
+cannot make an older pass or acceptance outrank a semantically later failure,
+rejection, or revocation. Malformed, timezone-free, missing-while-competing, and
+equivalent-instant ordering claims fail closed; record ids never decide trust
+authority. A single leading undated schema-v2 legacy record may remain as an
+explicit minimum sentinel, but an undated append cannot outrank dated truth.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

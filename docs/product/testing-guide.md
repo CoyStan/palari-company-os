@@ -102,7 +102,9 @@ The test suite covers:
   rejection; quoted Git pathspec magic/globs, dash-prefixed post-`--` operands,
   and cross-workspace agent-safe Palari mutations also fail closed
 - timezone-normalized latest-record ordering across differing ISO offsets,
-  including later failed evidence and changes-requested review
+  including later failed evidence, changes-requested review, and acceptance
+  revocation; malformed, missing-while-competing, timezone-free, and
+  equivalent-instant ordering claims fail closed
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

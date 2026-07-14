@@ -702,6 +702,11 @@ def _prepare_record_for_create(
     kind: str,
     record: dict[str, Any],
 ) -> dict[str, Any]:
+    if kind == "attempt":
+        stamped = dict(record)
+        if not stamped.get("started_at"):
+            stamped["started_at"] = _timestamp()
+        return stamped
     if kind == "evidence":
         from .evidence_manifest import stamp_evidence_record
 
@@ -740,6 +745,11 @@ def _prepare_record_for_create(
             stamped["proof_hash"] = review_proof_hash(stamped)
         return stamped
     if kind == "human-decision":
+        stamped = dict(record)
+        if not stamped.get("timestamp"):
+            stamped["timestamp"] = _timestamp()
+        return stamped
+    if kind == "outcome":
         stamped = dict(record)
         if not stamped.get("timestamp"):
             stamped["timestamp"] = _timestamp()
@@ -1049,4 +1059,4 @@ def _event_actor(record: dict[str, Any], actor: str) -> str:
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")

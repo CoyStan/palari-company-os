@@ -66,7 +66,9 @@ Authority rules:
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
-  instants, so offset spelling cannot make older evidence or review look newer.
+  instants, including acceptance `accepted_at`. Malformed or timezone-free
+  values and equivalent-instant competitors fail closed, so offset spelling or
+  caller-chosen ids cannot hide later adverse evidence, review, or revocation.
 
 The local JSON and claim hashes detect mismatch and accidental tampering; they
 are not signatures and do not authenticate a human identity against an

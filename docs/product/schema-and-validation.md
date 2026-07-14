@@ -131,10 +131,13 @@ Validation checks:
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
-- latest attempt, evidence, review, receipt, outcome, and integration ordering
-  compares timezone-bearing timestamps as normalized UTC instants, not lexical
-  timestamp spellings; a later failure or rejection in another offset cannot be
-  hidden behind an older passing record
+- latest attempt, evidence, review, acceptance, receipt, outcome, and
+  integration ordering compares timezone-bearing timestamps as normalized UTC
+  instants, not lexical timestamp spellings; malformed or timezone-free values
+  fail closed, and two records for the same work item cannot claim the same
+  instant because their latest-state order would be ambiguous. For schema-v2
+  compatibility, one leading undated historical record remains a minimum
+  sentinel; an undated append or multiple undated records fail closed
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
 - accepted human decisions are made by a human with the required approval
@@ -142,7 +145,8 @@ Validation checks:
 - acceptance records reference fresh passing evidence, fresh accept-ready
   exact-bound review, qualified human authority, matching receipt hash, and a
   matching human-decision record; active acceptance also recomputes evidence,
-  artifact, and receipt integrity before terminal completion
+  artifact, and receipt integrity before terminal completion; `accepted_at`
+  orders acceptance and revocation records, and the latest status controls
 - completed work has fresh passing evidence, fresh accept-ready review, no open
   linked decision, current exact proof, a terminal clean attempt, and enough
   qualified human approvals; each human's latest decision for that exact

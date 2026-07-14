@@ -512,6 +512,28 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(item.integration_state, "not-ready")
         self.assertIn("work_contract_hash is stale", item.why)
 
+    def test_detail_uses_accepted_at_for_later_revocation(self) -> None:
+        def revoke_later(data: dict[str, object]) -> None:
+            data["work_items"][0]["status"] = "in-review"
+            data["acceptance_records"].append(
+                {
+                    "id": "A-REVOKED",
+                    "work_item_id": "WORK-1",
+                    "human_id": "HUMAN-PRODUCT",
+                    "reviewed_head": "head-1",
+                    "status": "revoked",
+                    "accepted_at": "2030-01-01T00:00:00-05:00",
+                }
+            )
+
+        workspace = self.modified_fixture_workspace(
+            "valid-accepted-completed-work.json",
+            revoke_later,
+        )
+        payload = detail(workspace, "WORK-1")
+
+        self.assertEqual(payload["safety"]["acceptance_state"], "revoked")
+
     def test_scope_check_allows_declared_path_and_blocks_violations(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         allowed = check_scope(
