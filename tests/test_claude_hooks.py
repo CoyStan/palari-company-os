@@ -477,10 +477,13 @@ class PreToolUseTests(unittest.TestCase):
                 "-- docs/notes.md"
             ),
             "GIT_EXTERNAL_DIFF=./docs/rewrite-runtime-state git diff -- docs/notes.md",
+            "git -C docs/nested-repo status",
+            "git --git-dir=docs/nested-repo/.git status",
             "git diff --ext-diff -- docs/notes.md",
             "git grep -O./docs/rewrite-runtime-state needle docs",
             "git cat-file --filters HEAD:docs/notes.md",
             "rg --pre ./docs/rewrite-runtime-state pattern docs",
+            "rg --hostname-bin=./docs/rewrite-runtime-state --hyperlink-format=default needle",
         )
 
         for command in commands:
@@ -561,6 +564,42 @@ class PreToolUseTests(unittest.TestCase):
             "dd if=/dev/null of=.git/config",
             "cp --target-directory=.git docs/new-config",
             "cp -tws malicious/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_compact_separators_cannot_hide_governance_destinations(self) -> None:
+        commands = (
+            "echo ok;cp /tmp/payload .git/config",
+            "true;dd if=/dev/null of=.git/config",
+            "printf ok\ninstall /tmp/payload ws/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_ordinary_directory_destinations_are_protected_without_claim(self) -> None:
+        commands = (
+            "cp malicious/workspace.json ws",
+            "mv malicious/workspace.json ws",
+            "install malicious/workspace.json ws",
+            "ln -sf malicious/workspace.json ws",
+            "git mv malicious/workspace.json ws",
         )
 
         for command in commands:
@@ -772,6 +811,32 @@ class BashWriteTargetTests(unittest.TestCase):
             bash_write_targets("git status && rm out.txt"),
             ["out.txt"],
         )
+        self.assertIn(
+            ".git/config",
+            bash_write_targets("echo ok;cp /tmp/payload .git/config"),
+        )
+        self.assertIn(
+            ".git/config",
+            bash_write_targets("true\ndd if=/dev/null of=.git/config"),
+        )
+
+    def test_existing_directory_destination_adds_effective_basename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cwd = Path(directory)
+            (cwd / "ws").mkdir()
+
+            for command in (
+                "cp malicious/workspace.json ws",
+                "mv malicious/workspace.json ws",
+                "install malicious/workspace.json ws",
+                "ln -sf malicious/workspace.json ws",
+                "git mv malicious/workspace.json ws",
+            ):
+                with self.subTest(command=command):
+                    self.assertIn(
+                        "ws/workspace.json",
+                        bash_write_targets(command, cwd=cwd),
+                    )
 
     def test_linked_worktree_metadata_roots_include_common_repository(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

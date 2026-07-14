@@ -91,7 +91,8 @@ The test suite covers:
   shell/Git-global-option approval, composed-command masking, helper-launching
   config/environment options, post-release workspace-truth protection, and
   option-encoded/linked-worktree metadata paths, pager/filter helpers, and
-  active-claim scope-change rejection
+  compact/newline separators, ordinary directory destinations, repository or
+  ripgrep helper overrides, and active-claim scope-change rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

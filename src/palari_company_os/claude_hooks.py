@@ -40,6 +40,7 @@ PRE_TOOL_USE_MATCHER = "Write|Edit|NotebookEdit|Bash"
 HOOK_COMMAND_MARKER = "claude hook"
 HOOK_TIMEOUT_SECONDS = 20
 _REDIRECT_NO_TARGET = "\x00"
+_REDIRECT_FD_OR_TARGET = "\x01"
 BASH_WRITE_COMMANDS = {
     "cp",
     "dd",
@@ -130,11 +131,14 @@ SAFE_TARGET_FREE_COMMANDS = {
     "which",
 }
 GIT_EXECUTION_GLOBAL_OPTIONS = {
+    "-C",
     "-c",
     "--config-env",
     "--exec-path",
+    "--git-dir",
     "--paginate",
     "-p",
+    "--work-tree",
 }
 GIT_EXECUTION_OPTIONS = {
     "--ext-diff",
@@ -143,6 +147,7 @@ GIT_EXECUTION_OPTIONS = {
     "--show-signature",
     "--textconv",
 }
+RG_EXECUTION_OPTIONS = {"--hostname-bin", "--pre"}
 GIT_GLOBAL_OPTIONS_WITH_VALUE = {
     "-C",
     "-c",
@@ -258,30 +263,52 @@ def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
     )["contexts"]
 
 
-def bash_write_targets(command: str) -> list[str]:
+def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
     """Return path-like write targets a Bash command appears to touch.
 
     This is a conservative heuristic: it only inspects redirections and a
     short list of mutating commands, and its findings only ever produce an
     ``ask`` decision, never a silent ``deny`` or ``allow``.
     """
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
+    tokens = _shell_tokens(command)
+    command_cwd = (cwd or Path.cwd()).resolve()
     targets: list[str] = []
     expect_command = True
     expect_target = False
+    expect_fd_or_target = False
     expect_write_option_target = False
     active_write_command = ""
     active_write_sources: list[str] = []
     write_target_directory = ""
     sed_in_place = False
     sed_script_consumed = False
+
+    def add_ordinary_directory_destinations() -> None:
+        if (
+            active_write_command not in {"cp", "git-mv", "install", "ln", "mv"}
+            or write_target_directory
+            or len(active_write_sources) < 2
+        ):
+            return
+        destination = Path(active_write_sources[-1])
+        resolved_destination = (
+            destination
+            if destination.is_absolute()
+            else command_cwd / destination
+        ).resolve()
+        if not resolved_destination.is_dir():
+            return
+        targets.extend(
+            str(destination / Path(source).name)
+            for source in active_write_sources[:-1]
+        )
+
     for token in tokens:
-        if token in {"&&", "||", ";", "|"}:
+        if token in {"&&", "||", ";", "|", "&", "&|"}:
+            add_ordinary_directory_destinations()
             expect_command = True
             expect_target = False
+            expect_fd_or_target = False
             expect_write_option_target = False
             active_write_command = ""
             active_write_sources = []
@@ -293,14 +320,19 @@ def bash_write_targets(command: str) -> list[str]:
         if redirect is not None:
             if redirect == _REDIRECT_NO_TARGET:
                 pass
+            elif redirect == _REDIRECT_FD_OR_TARGET:
+                expect_target = True
+                expect_fd_or_target = True
             elif redirect:
                 targets.append(redirect)
             else:
                 expect_target = True
             continue
         if expect_target:
-            targets.append(token)
+            if not (expect_fd_or_target and (token.isdigit() or token == "-")):
+                targets.append(token)
             expect_target = False
+            expect_fd_or_target = False
             continue
         if expect_write_option_target:
             targets.append(token)
@@ -323,7 +355,7 @@ def bash_write_targets(command: str) -> list[str]:
                 active_write_command = "git"
             continue
         if active_write_command == "git":
-            active_write_command = "git-sub" if token in {"rm", "mv"} else ""
+            active_write_command = f"git-{token}" if token in {"rm", "mv"} else ""
             continue
         if active_write_command == "sed":
             if token in {"-i", "--in-place"} or token.startswith("-i"):
@@ -369,6 +401,7 @@ def bash_write_targets(command: str) -> list[str]:
             active_write_sources.append(token)
             if write_target_directory:
                 targets.append(str(Path(write_target_directory) / Path(token).name))
+    add_ordinary_directory_destinations()
     return targets
 
 
@@ -418,12 +451,12 @@ def bash_requires_human_review(command: str) -> str:
         if name in BASH_WRITE_COMMANDS:
             continue
         if name == "git":
-            option_reason = _git_execution_option_reason(tokens, index)
-            if option_reason:
-                return option_reason
             subcommand = _git_subcommand(tokens, index)
             if subcommand in GIT_WITNESS_MUTATIONS:
                 return f"Git metadata mutation git {subcommand}"
+            option_reason = _git_execution_option_reason(tokens, index)
+            if option_reason:
+                return option_reason
             if subcommand in SAFE_GIT_OBSERVABLE_WRITE_SUBCOMMANDS:
                 continue
             if subcommand not in SAFE_GIT_READ_SUBCOMMANDS:
@@ -431,8 +464,10 @@ def bash_requires_human_review(command: str) -> str:
             continue
         if name == "palari":
             continue
-        if name == "rg" and _command_has_option(tokens, index, {"--pre"}):
-            return "execution-capable rg --pre"
+        if name == "rg":
+            for option in RG_EXECUTION_OPTIONS:
+                if _command_has_option(tokens, index, {option}):
+                    return f"execution-capable rg {option}"
         if name not in SAFE_TARGET_FREE_COMMANDS:
             return f"unreviewed executable {name or token}"
     if ".palari" in command:
@@ -503,6 +538,8 @@ def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
             return f"execution-capable Git option {token.split('=', 1)[0]}"
         if token.startswith("-c") and token != "-C":
             return "execution-capable Git option -c"
+        if token.startswith("-C") and token != "-C":
+            return "repository-overriding Git option -C"
         if any(
             token == option or token.startswith(f"{option}=")
             for option in GIT_EXECUTION_OPTIONS
@@ -674,6 +711,7 @@ def _pre_tool_use(
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
         tool_input = {}
+    cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
 
     exact = tool_name in FILE_WRITE_TOOLS
     if exact:
@@ -694,7 +732,7 @@ def _pre_tool_use(
                 f"{opaque_reason} can bypass Palari's observable write boundary. "
                 "A human must approve this shell command or use a directly inspected tool.",
             )
-        raw_targets = bash_write_targets(command)
+        raw_targets = bash_write_targets(command, cwd=cwd)
     else:
         return {}
     raw_targets = [target for target in raw_targets if target]
@@ -707,7 +745,6 @@ def _pre_tool_use(
             "Palari cannot verify the active claim context: " + "; ".join(context_errors),
         )
 
-    cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
     root = _resolution_root(payload)
     unresolved: list[str] = []
     relative_targets: list[str] = []
@@ -1060,6 +1097,8 @@ def _redirect_target(token: str) -> str | None:
     stripped = token.lstrip("012&")
     if not stripped.startswith(">"):
         return None
+    if stripped == ">&":
+        return _REDIRECT_FD_OR_TARGET
     remainder = stripped.lstrip(">").lstrip("|")
     if remainder.startswith("&"):
         return _REDIRECT_NO_TARGET

@@ -48,7 +48,10 @@ Authority rules:
   Workspace root/split files, `.palari/`, and Git metadata remain protected from
   direct file writes after claim release as well as during a claim. Protection
   resolves linked-worktree common Git directories and option-encoded write
-  destinations. Git pager/filter helper options require review.
+  destinations, including ordinary existing-directory basename semantics.
+  Compact/newline command separators cannot hide later targets. Git repository
+  overrides, pager/filter helpers, and ripgrep preprocessor/hostname helpers
+  require review.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 

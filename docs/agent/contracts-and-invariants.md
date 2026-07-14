@@ -60,7 +60,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   files, `.palari/`, and Git metadata cannot be directly rewritten around those
   gates, including after claim release. Option-encoded destinations and linked
   worktree/common Git directories are part of the same protected boundary;
-  pager/filter helper options are execution-capable, not read-only.
+  compact/newline shell segments and ordinary directory destinations must
+  preserve the effective path. Repository overrides and pager/filter/ripgrep
+  helpers are execution-capable, not read-only.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

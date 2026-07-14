@@ -256,7 +256,10 @@ Direct writes to the workspace root, declared split collection files,
 claim; option-encoded destinations such as `dd of=` and `--target-directory`
 are inspected, and linked worktree Git/common directories are included. Those
 surfaces must change through governed Palari/Git commands. Pager and filter
-options that can launch helpers are not read-only Git operations.
+options that can launch helpers are not read-only Git operations. Compact or
+newline-separated shell segments are tokenized identically, and ordinary
+existing-directory destinations resolve the effective destination basename.
+Repository overrides and ripgrep preprocessor/hostname helpers require review.
 Human-attributed review,
 decision, integration approval, terminal lifecycle, work-accept, and generic
 packet-authority mutation commands are denied from the supported agent shell.

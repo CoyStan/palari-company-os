@@ -72,7 +72,10 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   bypass the hook by releasing a claim first. Direct writes to workspace truth,
   split collection files, `.palari/`, and standard or linked-worktree Git
   metadata also remain protected, including `dd of=`, `-t`, and
-  `--target-directory` destinations.
+  `--target-directory` destinations. Compact/newline shell separators and
+  ordinary existing-directory copy/move/link/install destinations resolve to
+  their effective paths. Git repository overrides and ripgrep helper-launching
+  options ask rather than inheriting a read-only classification.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays
