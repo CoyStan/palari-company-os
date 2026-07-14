@@ -85,30 +85,7 @@ class AgentDoneTests(unittest.TestCase):
             work_record,
             command="test",
         )
-        (self.workspace_path / "README.md").write_text("before\n", encoding="utf-8")
-        subprocess.run(["git", "init", "-q", str(self.workspace_path)], check=True)
-        subprocess.run(
-            ["git", "-C", str(self.workspace_path), "config", "user.email", "test@example.com"],
-            check=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(self.workspace_path), "config", "user.name", "Test"],
-            check=True,
-        )
-        subprocess.run(["git", "-C", str(self.workspace_path), "add", "-A"], check=True)
-        subprocess.run(
-            ["git", "-C", str(self.workspace_path), "commit", "-qm", "governed work"],
-            check=True,
-        )
-        (self.workspace_path / "README.md").write_text("after\n", encoding="utf-8")
-        subprocess.run(
-            ["git", "-C", str(self.workspace_path), "add", "README.md"], check=True
-        )
-        subprocess.run(
-            ["git", "-C", str(self.workspace_path), "commit", "-qm", "bounded output"],
-            check=True,
-        )
-
+        self._initialize_repo()
         workspace = Ws.load(self.workspace_path)
         start_agent(
             workspace,
@@ -117,6 +94,7 @@ class AgentDoneTests(unittest.TestCase):
             "PALARI-STEWARD",
             "execute",
         )
+        self._commit_readme_change()
 
         workspace = Ws.load(self.workspace_path)
         result = agent_done(
@@ -168,7 +146,7 @@ class AgentDoneTests(unittest.TestCase):
     def test_declared_head_must_match_verified_git_head(self) -> None:
         work_id = "WORK-TEST-HEAD"
         self._create_light_work(work_id)
-        self._commit_bounded_output()
+        self._initialize_repo()
         start_agent(
             Ws.load(self.workspace_path),
             self.workspace_path,
@@ -176,6 +154,7 @@ class AgentDoneTests(unittest.TestCase):
             "PALARI-STEWARD",
             "execute",
         )
+        self._commit_readme_change()
 
         result = agent_done(
             Ws.load(self.workspace_path),
@@ -217,9 +196,10 @@ class AgentDoneTests(unittest.TestCase):
             {"current_attempt": attempt_id},
             command="test partial",
         )
-        self._commit_bounded_output()
+        self._initialize_repo()
         workspace = Ws.load(self.workspace_path)
         start_agent(workspace, self.workspace_path, work_id, "PALARI-STEWARD", "execute")
+        self._commit_readme_change()
 
         result = agent_done(
             Ws.load(self.workspace_path),
@@ -234,6 +214,98 @@ class AgentDoneTests(unittest.TestCase):
             {"step": "attempt-record", "id": attempt_id, "status": "resumed"},
             result["steps"],
         )
+
+    def test_commit_created_before_claim_is_not_attributed_to_agent(self) -> None:
+        work_id = "WORK-TEST-PRECLAIM"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        self._commit_readme_change()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("since the claim started", result["message"])
+
+    def test_release_restart_cannot_hide_out_of_scope_commit(self) -> None:
+        work_id = "WORK-TEST-RANGE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("docs/.palari/note.txt", "outside boundary\n", "outside change")
+        release_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("docs/.palari/note.txt", result["message"])
+
+    def test_reverted_out_of_scope_commit_remains_in_claim_range(self) -> None:
+        work_id = "WORK-TEST-REVERTED-RANGE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_path("outside.txt", "temporary outside change\n", "outside change")
+        (self.workspace_path / "outside.txt").unlink()
+        subprocess.run(
+            ["git", "-C", str(self.workspace_path), "add", "--", "outside.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.workspace_path), "commit", "-qm", "revert outside change"],
+            check=True,
+        )
+        self._commit_readme_change()
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("outside.txt", result["message"])
 
     def _create_light_work(self, work_id: str) -> None:
         from palari_company_os.authoring import create_record
@@ -262,7 +334,7 @@ class AgentDoneTests(unittest.TestCase):
             command="test",
         )
 
-    def _commit_bounded_output(self) -> None:
+    def _initialize_repo(self) -> None:
         (self.workspace_path / "README.md").write_text("before\n", encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(self.workspace_path)], check=True)
         subprocess.run(
@@ -278,6 +350,8 @@ class AgentDoneTests(unittest.TestCase):
             ["git", "-C", str(self.workspace_path), "commit", "-qm", "governed work"],
             check=True,
         )
+
+    def _commit_readme_change(self) -> None:
         (self.workspace_path / "README.md").write_text("after\n", encoding="utf-8")
         subprocess.run(
             ["git", "-C", str(self.workspace_path), "add", "README.md"], check=True
@@ -285,6 +359,17 @@ class AgentDoneTests(unittest.TestCase):
         subprocess.run(
             ["git", "-C", str(self.workspace_path), "commit", "-qm", "bounded output"],
             check=True,
+        )
+
+    def _commit_path(self, path: str, content: str, message: str) -> None:
+        target = self.workspace_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.workspace_path), "add", "--", path], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.workspace_path), "commit", "-qm", message], check=True
         )
 
 

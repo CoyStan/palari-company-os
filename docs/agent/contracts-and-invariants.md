@@ -20,9 +20,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   records with separate meanings.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
-- Historical unbound reviews may load, but they cannot authorize new
-  acceptance or governed completion.
-- Each human's latest decision for one reviewed head controls quorum.
+- Schema v2 loads historical unbound non-accepting reviews for inspection, but
+  rejects unbound `accept-ready`; v1 migration blocks those legacy verdicts and
+  revokes their dependent acceptance.
+- Each human's latest timezone-ordered decision for the exact review and
+  evidence controls quorum; contradictory or ambiguous ordering fails closed.
 - Gates recommend what to inspect; they do not grant acceptance authority.
 - Playbooks are process guidance; the work item scope and Palari authority
   remain the source of truth.
@@ -32,12 +34,15 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - `palari agent brief` is read-only.
 - `palari agent start` persists the exact packet and writes a local claim for
   ready execution work, including a hashed metadata-only Git dirty baseline
-  when Git is available.
+  when Git is available. Releasing and restarting the same work item must reuse
+  that baseline rather than laundering later changes.
 - Blocked packets must not be claimed.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
   against the packet boundary.
+- `agent done` attributes every committed path from the persisted claim-start
+  head to current `HEAD`, not merely the tip commit.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

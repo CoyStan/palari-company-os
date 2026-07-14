@@ -59,7 +59,6 @@ def current_review_binding(workspace: Any, work_id: str) -> tuple[dict[str, str]
         "receipt_hash": receipt.receipt_hash,
         "work_contract_hash": work_contract_hash(work),
     }
-    binding["proof_hash"] = proof_binding_hash(binding)
     return binding, errors
 
 
@@ -103,8 +102,7 @@ def review_binding_integrity_errors(workspace: Any, review: Any) -> list[str]:
         if receipt.receipt_hash != review.receipt_hash:
             errors.append(f"review {review.id} receipt changed after review")
 
-    stored = _review_binding_dict(review)
-    if not review.proof_hash or review.proof_hash != proof_binding_hash(stored):
+    if not review.proof_hash or review.proof_hash != review_proof_hash(review):
         errors.append(f"review {review.id} proof hash is missing or malformed")
     return errors
 
@@ -169,6 +167,8 @@ def attempt_state_hash(attempt: Any) -> str:
 
 
 def proof_binding_hash(binding: dict[str, str]) -> str:
+    """Return the hash of proof inputs only (kept for compatibility helpers)."""
+
     payload = {
         key: binding.get(key, "")
         for key in (
@@ -181,6 +181,35 @@ def proof_binding_hash(binding: dict[str, str]) -> str:
             "receipt_hash",
             "work_contract_hash",
         )
+    }
+    return _stable_hash(payload)
+
+
+def review_proof_hash(review: Any) -> str:
+    """Bind exact proof inputs and the reviewer-authored verdict context."""
+
+    payload = {
+        **{
+            key: _record_value(review, key)
+            for key in (
+                "binding_version",
+                "attempt_id",
+                "attempt_hash",
+                "evidence_reference",
+                "evidence_manifest_hash",
+                "receipt_reference",
+                "receipt_hash",
+                "work_contract_hash",
+            )
+        },
+        "work_item_id": _record_value(review, "work_item_id"),
+        "reviewed_head": _record_value(review, "reviewed_head"),
+        "reviewer": _record_value(review, "reviewer"),
+        "verdict": _record_value(review, "verdict"),
+        "findings": _record_value(review, "findings", []),
+        "checks_inspected": _record_value(review, "checks_inspected", []),
+        "residual_risks": _record_value(review, "residual_risks", []),
+        "timestamp": _record_value(review, "timestamp"),
     }
     return _stable_hash(payload)
 
@@ -281,6 +310,12 @@ def _attempt_head(attempt: Any) -> str:
 def _stable_hash(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"{HASH_PREFIX}{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _record_value(record: Any, field: str, default: Any = "") -> Any:
+    if isinstance(record, dict):
+        return record.get(field, default)
+    return getattr(record, field, default)
 
 
 def _unique(values: list[str]) -> list[str]:

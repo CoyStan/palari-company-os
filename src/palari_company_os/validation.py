@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import Any, Iterable, TypeVar
 
 from .errors import WorkspaceError
@@ -652,6 +653,10 @@ def validate_workspace_contract(workspace: Any) -> None:
             binding_errors = review_binding_integrity_errors(workspace, review)
             if binding_errors:
                 raise WorkspaceError(f"review_verdicts.{review.id}: {binding_errors[0]}")
+        elif review.verdict == "accept-ready":
+            raise WorkspaceError(
+                f"review_verdicts.{review.id}.verdict accept-ready requires exact proof binding"
+            )
         for field, value in (
             ("attempt_hash", review.attempt_hash),
             ("evidence_manifest_hash", review.evidence_manifest_hash),
@@ -686,6 +691,28 @@ def validate_workspace_contract(workspace: Any) -> None:
             human_decision.quorum_status,
             QUORUM_STATUSES,
         )
+        if not human_decision.timestamp:
+            raise WorkspaceError(
+                f"human_decisions.{human_decision.id}.timestamp is required"
+            )
+        try:
+            parsed_timestamp = datetime.fromisoformat(
+                human_decision.timestamp.replace("Z", "+00:00")
+            )
+        except ValueError as exc:
+            raise WorkspaceError(
+                f"human_decisions.{human_decision.id}.timestamp must be ISO-8601"
+            ) from exc
+        if parsed_timestamp.utcoffset() is None:
+            raise WorkspaceError(
+                f"human_decisions.{human_decision.id}.timestamp must include a timezone"
+            )
+        status_accepts = human_decision.status in {"accepted", "approved"}
+        value_accepts = human_decision.decision in {"accepted", "approved"}
+        if status_accepts != value_accepts:
+            raise WorkspaceError(
+                f"human_decisions.{human_decision.id} has contradictory decision and status"
+            )
         if _is_acceptance(human_decision):
             _validate_accepted_human_decision(
                 human_decision,
@@ -695,6 +722,7 @@ def validate_workspace_contract(workspace: Any) -> None:
                 evidence_by_id,
                 reviews_by_id,
             )
+    _validate_human_decision_order(workspace.human_decisions)
 
     for acceptance in workspace.acceptance_records:
         _validate_acceptance_record(
@@ -1300,17 +1328,22 @@ def _validate_accepted_human_decision(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
-    if review.binding_version:
-        if decision.evidence_reference != review.evidence_reference:
-            raise WorkspaceError(
-                f"human_decisions.{decision.id}.evidence_reference does not match "
-                f"bound review evidence {review.evidence_reference}"
-            )
-        if review.attempt_id != evidence.attempt_id:
-            raise WorkspaceError(
-                f"human_decisions.{decision.id}.review_reference is bound to a "
-                "different attempt"
-            )
+    if decision.evidence_reference != review.evidence_reference:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.evidence_reference does not match "
+            f"bound review evidence {review.evidence_reference}"
+        )
+    if review.attempt_id != evidence.attempt_id:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.review_reference is bound to a "
+            "different attempt"
+        )
+    from .governance_binding import work_contract_hash
+
+    if review.work_contract_hash != work_contract_hash(work):
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.review_reference is stale for the work contract"
+        )
     if decision.reviewed_head != review.reviewed_head:
         raise WorkspaceError(
             f"human_decisions.{decision.id}.reviewed_head does not match "
@@ -1400,16 +1433,15 @@ def _validate_acceptance_record(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
-    if review.binding_version:
-        if acceptance.evidence_reference != review.evidence_reference:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.evidence_reference does not match "
-                f"bound review evidence {review.evidence_reference}"
-            )
-        if not acceptance.receipt_hash or acceptance.receipt_hash != review.receipt_hash:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.receipt_hash does not match bound review"
-            )
+    if acceptance.evidence_reference != review.evidence_reference:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference does not match "
+            f"bound review evidence {review.evidence_reference}"
+        )
+    if not acceptance.receipt_hash or acceptance.receipt_hash != review.receipt_hash:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.receipt_hash does not match bound review"
+        )
     if acceptance.reviewed_head != review.reviewed_head:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.reviewed_head does not match "
@@ -1466,6 +1498,23 @@ def _validate_completed_work(
             raise WorkspaceError(
                 f"work_items.{work.id}.status is terminal but exact review proof is stale: "
                 f"{binding_errors[0]}"
+            )
+        matching_acceptance = next(
+            (
+                acceptance
+                for acceptance in workspace.acceptance_records
+                if acceptance.work_item_id == work.id
+                and acceptance.status == "accepted"
+                and acceptance.review_reference == review.id
+                and acceptance.evidence_reference == evidence.id
+                and acceptance.reviewed_head == review.reviewed_head
+                and acceptance.receipt_hash == review.receipt_hash
+            ),
+            None,
+        )
+        if matching_acceptance is None:
+            raise WorkspaceError(
+                f"work_items.{work.id}.status is terminal but exact acceptance record is missing"
             )
     count = _qualified_approval_count(workspace, work, review)
     if count < work.required_approval_count:
@@ -1664,6 +1713,11 @@ def _qualified_approval_count(
     for decision in latest_by_human.values():
         if not _is_acceptance(decision):
             continue
+        if (
+            decision.review_reference != review.id
+            or decision.evidence_reference != review.evidence_reference
+        ):
+            continue
         human = humans_by_id.get(decision.human_id)
         if work.required_approval_capability and (
             human is None or work.required_approval_capability not in human.approval_capabilities
@@ -1673,15 +1727,37 @@ def _qualified_approval_count(
     return len(seen_humans)
 
 
-def _decision_order_key(decision: HumanDecision) -> tuple[str, str]:
-    return (decision.timestamp, decision.id)
+def _decision_order_key(decision: HumanDecision) -> tuple[datetime, str]:
+    try:
+        timestamp = datetime.fromisoformat(decision.timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        timestamp = datetime.min.replace(tzinfo=timezone.utc)
+    return (timestamp, decision.id)
 
 
 def _is_acceptance(decision: HumanDecision) -> bool:
-    return decision.status in {"accepted", "approved"} or decision.decision in {
+    return decision.status in {"accepted", "approved"} and decision.decision in {
         "accepted",
         "approved",
     }
+
+
+def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:
+    seen: dict[tuple[str, str, str, str], str] = {}
+    for decision in decisions:
+        key = (
+            decision.work_item_id,
+            decision.human_id,
+            decision.reviewed_head,
+            decision.timestamp,
+        )
+        previous = seen.get(key)
+        if previous is not None:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.timestamp duplicates {previous}; "
+                "decision order would be ambiguous"
+            )
+        seen[key] = decision.id
 
 
 def _attempt_head(attempt: Attempt) -> str:

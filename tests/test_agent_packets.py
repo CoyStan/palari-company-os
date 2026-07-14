@@ -105,7 +105,9 @@ class AgentPacketTests(unittest.TestCase):
             by_id["WORK-0007"]["handoff_guidance"][0]["message"],
         )
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0007"]["start_blocker_codes"])
-        self.assertNotIn("WORK-0004", by_id)
+        self.assertIn("WORK-0004", by_id)
+        self.assertFalse(by_id["WORK-0004"]["can_start"])
+        self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0004"]["blocker_codes"])
 
     def test_agent_next_does_not_restart_work_waiting_for_review(self) -> None:
         def add_evidence_without_review(data: dict[str, object]) -> None:
@@ -228,25 +230,18 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
         self.assertEqual(result["status"], "no-ready-work")
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
-        self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-ARCHITECT")
-        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0005")
+        self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-STEWARD")
+        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0001")
         self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
         self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "human-decision")
-        self.assertEqual(
-            result["top_candidate"]["candidate"]["handoff_guidance"][0]["code"],
-            "DECISION_HANDOFF",
-        )
-        self.assertIn(
-            "suggested decision update commands",
-            result["top_candidate"]["candidate"]["handoff_guidance"][0]["message"],
-        )
+        self.assertEqual(result["top_candidate"]["candidate"]["handoff_guidance"], [])
         self.assertEqual(
             result["next_allowed_commands"][0],
-            "palari agent handoff WORK-REPO-0005 --as PALARI-ARCHITECT --json",
+            "palari review guide WORK-REPO-0001 --json",
         )
         self.assertEqual(
             result["next_allowed_commands"][1],
-            "palari decision guide DECISION-REPO-0001 --json",
+            "palari detail WORK-REPO-0001 --json",
         )
 
     def test_agent_next_all_exposes_top_ready_candidate(self) -> None:
@@ -1032,6 +1027,76 @@ class AgentPacketTests(unittest.TestCase):
             self.assertEqual(payload["error"]["work_item"], "WORK-0003")
             self.assertIn("retry shortly", payload["error"]["message"])
             self.assertTrue(lock_path.exists())
+
+    def test_release_and_restart_cannot_launder_changed_preexisting_dirt(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            root = workspace_file.parent
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.name", "Test"],
+                check=True,
+            )
+            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "workspace"], check=True
+            )
+            note = root / "user-note.txt"
+            note.write_text("pre-existing\n", encoding="utf-8")
+
+            first = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            first_baseline = first["start"]["claim"]["git_baseline"]
+            self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "release",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+            )
+            note.write_text("changed after the original claim with a new size\n", encoding="utf-8")
+
+            second = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(second["start"]["claim"]["git_baseline"], first_baseline)
+            check = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "check",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--git-diff",
+                    "--json",
+                ).stdout
+            )
+
+            self.assertIn("user-note.txt", check["file_changes"]["changed_files"])
+            self.assertIn("user-note.txt", check["file_changes"]["outside_write_boundary"])
 
     def test_cli_agent_brief_review_mode_emits_review_context(self) -> None:
         result = json.loads(

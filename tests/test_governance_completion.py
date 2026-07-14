@@ -177,7 +177,7 @@ class GovernanceCompletionTests(unittest.TestCase):
             artifact = workspace_dir / "reports" / "evidence" / "WORK-0001" / "summary.json"
             artifact.parent.mkdir(parents=True)
             artifact.write_text('{"ok": true}\n', encoding="utf-8")
-            self.run_json(
+            stale = self.run_cli(
                 "--workspace",
                 str(workspace_file),
                 "receipt",
@@ -354,7 +354,7 @@ class GovernanceCompletionTests(unittest.TestCase):
             review = next(
                 item for item in raw["review_verdicts"] if item["id"] == "REVIEW-ACCEPT"
             )
-            self.run_json(
+            stale = self.run_cli(
                 "--workspace",
                 str(workspace_file),
                 "work",
@@ -362,22 +362,6 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "WORK-0001",
                 "--set",
                 "scope=Substantively changed after review.",
-                "--json",
-            )
-            stale = self.run_cli(
-                "--workspace",
-                str(workspace_file),
-                "work",
-                "accept",
-                "WORK-0001",
-                "--by",
-                "HUMAN-FOUNDER",
-                "--reviewed-head",
-                "abc1234",
-                "--id",
-                "HUMAN-DECISION-STALE",
-                "--acceptance-id",
-                "ACCEPTANCE-STALE",
                 "--json",
                 check=False,
             )
@@ -390,7 +374,7 @@ class GovernanceCompletionTests(unittest.TestCase):
         self.assertEqual(review["evidence_reference"], "EVIDENCE-ACCEPT")
         self.assertEqual(review["receipt_reference"], "RECEIPT-WORK-ACCEPT")
         self.assertNotEqual(stale.returncode, 0)
-        self.assertIn("work_contract_hash is stale", stale.stderr)
+        self.assertIn("review_reference is stale for the work contract", stale.stderr)
 
     def test_accept_ready_review_rejects_missing_artifact(self) -> None:
         with self.temp_workspace() as workspace_file:

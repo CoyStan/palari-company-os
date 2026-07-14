@@ -19,15 +19,20 @@ Authority rules:
 - Governed acceptance requires a terminal clean attempt, mandatory
   evidence/receipt integrity, and an exact-bound independent review matching
   the current attempt, head, and work contract.
-- Each human's latest decision for the reviewed head controls quorum; a later
-  negative decision revokes an earlier approval.
+- Each human's latest timezone-ordered decision for the exact review and
+  evidence controls quorum; a later negative decision revokes an earlier
+  approval, while contradictory or ambiguous records fail closed.
 - Bound reviews are immutable, and generic update commands cannot rewrite
-  terminal work or attempt trust fields.
+  terminal work or attempt trust fields. Their aggregate hash covers reviewer
+  identity, verdict, findings, inspected checks, residual risks, and timestamp.
 - Scope checks use canonical repository paths and fail closed for traversal,
   sibling-prefix confusion, symlink escape, malformed Git output, unknown
   paths, and forbidden actions.
 - Active claims hash their metadata-only dirty baseline. Unchanged pre-existing
   dirt is not attributed to the agent, while changes after claim are blocked.
+- The baseline also records the claim-start commit. `agent done` checks the
+  entire descendant commit range, so claim restart cannot hide an earlier
+  out-of-boundary commit or claim work already committed before ownership.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only.
 

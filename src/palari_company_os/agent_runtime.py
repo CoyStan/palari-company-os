@@ -49,23 +49,9 @@ def start_agent(
     data_path = workspace_file_path(workspace_path)
     now = _timestamp()
     expires = _timestamp_after(minutes=max(1, lease_minutes))
-    git_baseline = capture_git_baseline(workspace.path)
-    claim = {
-        "schema_version": CLAIM_SCHEMA_VERSION,
-        "work_item": work_id,
-        "claimed_by": palari_id,
-        "mode": mode or "execute",
-        "claimed_at": now,
-        "lease_expires_at": expires,
-        "packet_id": packet["packet_id"],
-        "context_hash": packet["context_hash"],
-        "packet_path": _runtime_relative(data_path, _packet_path(data_path, packet["packet_id"])),
-        "git_baseline": git_baseline,
-        "git_baseline_hash": _git_baseline_hash(git_baseline),
-    }
-
     packet_path = _packet_path(data_path, packet["packet_id"])
     claim_path = _claim_path(data_path, work_id)
+    baseline_path = _baseline_path(data_path, work_id)
     lock_path = _acquire_claim_lock(data_path, work_id)
     try:
         existing = read_claim(workspace_path, work_id)
@@ -73,6 +59,35 @@ def start_agent(
             raise WorkspaceError(
                 f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
             )
+
+        persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
+        if persisted_baseline is None:
+            git_baseline = capture_git_baseline(workspace.path)
+            baseline_record = {
+                "schema_version": "palari.persisted_git_baseline.v1",
+                "work_item": work_id,
+                "captured_at": now,
+                "git_baseline": git_baseline,
+                "git_baseline_hash": _git_baseline_hash(git_baseline),
+            }
+            _write_json(baseline_path, baseline_record)
+        else:
+            git_baseline = persisted_baseline["git_baseline"]
+
+        claim = {
+            "schema_version": CLAIM_SCHEMA_VERSION,
+            "work_item": work_id,
+            "claimed_by": palari_id,
+            "mode": mode or "execute",
+            "claimed_at": now,
+            "lease_expires_at": expires,
+            "packet_id": packet["packet_id"],
+            "context_hash": packet["context_hash"],
+            "packet_path": _runtime_relative(data_path, packet_path),
+            "git_baseline": git_baseline,
+            "git_baseline_hash": _git_baseline_hash(git_baseline),
+            "git_baseline_path": _runtime_relative(data_path, baseline_path),
+        }
 
         _write_json(packet_path, packet)
         _write_json(claim_path, claim)
@@ -293,6 +308,10 @@ def _claim_lock_path(data_path: Path, work_id: str) -> Path:
     return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.lock")
 
 
+def _baseline_path(data_path: Path, work_id: str) -> Path:
+    return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.baseline")
+
+
 def _acquire_claim_lock(data_path: Path, work_id: str) -> Path:
     path = _claim_lock_path(data_path, work_id)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,6 +362,22 @@ def _read_json_object(path: Path, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise WorkspaceError(f"{label} file {path} must contain a JSON object")
     return value
+
+
+def _read_persisted_baseline(path: Path, work_id: str) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    record = _read_json_object(path, "persisted Git baseline")
+    if record.get("schema_version") != "palari.persisted_git_baseline.v1":
+        raise WorkspaceError(f"persisted Git baseline for {work_id} has unsupported schema")
+    if record.get("work_item") != work_id:
+        raise WorkspaceError(f"persisted Git baseline for {work_id} identifies different work")
+    baseline = record.get("git_baseline")
+    if not isinstance(baseline, dict):
+        raise WorkspaceError(f"persisted Git baseline for {work_id} is malformed")
+    if record.get("git_baseline_hash") != _git_baseline_hash(baseline):
+        raise WorkspaceError(f"persisted Git baseline for {work_id} does not match its hash")
+    return record
 
 
 def _validate_active_claim(claim: dict[str, Any]) -> str:

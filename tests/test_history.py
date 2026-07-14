@@ -214,7 +214,7 @@ class HistoryTests(unittest.TestCase):
 
     def empty_workspace(self) -> "_WorkspaceCopy":
         data = {
-            "schema_version": 1,
+            "schema_version": 2,
             "name": "History Test Workspace",
             "goals": [],
             "humans": [],

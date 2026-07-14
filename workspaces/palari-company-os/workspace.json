@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Palari Company OS Dogfood Workspace",
   "goals": [
     {
@@ -423,7 +423,7 @@
       "palari": "PALARI-STEWARD",
       "risk": "R2",
       "intensity": "standard",
-      "status": "completed",
+      "status": "in-review",
       "scope": "Represent the recent strict validation fixtures, append-only workspace history, professional metadata, CI, install smoke, and maturity documentation as one completed repo foundation milestone.",
       "allowed_sources": [
         "SOURCE-REPO-FOUNDATION"
@@ -2983,13 +2983,14 @@
       "residual_risks": [
         "The workspace is still a single JSON file",
         "Dogfood records are manually curated by CLI commands",
-        "No concurrent merge model exists yet"
+        "No concurrent merge model exists yet",
+        "Migrated from schema v1: fresh exact-bound review required."
       ],
       "id": "REVIEW-REPO-0001",
       "work_item_id": "WORK-REPO-0001",
       "reviewed_head": "4bcb912",
       "reviewer": "HUMAN-MAINTAINER",
-      "verdict": "accept-ready",
+      "verdict": "blocked",
       "timestamp": "2026-06-19T03:38:00Z"
     }
   ],
@@ -2999,10 +3000,10 @@
       "work_item_id": "WORK-REPO-0001",
       "human_id": "HUMAN-FOUNDER",
       "reviewed_head": "4bcb912",
-      "decision": "accepted",
-      "status": "accepted",
+      "decision": "blocked",
+      "status": "blocked",
       "acceptance_mode": "human",
-      "quorum_status": "met",
+      "quorum_status": "not-met",
       "evidence_reference": "EVIDENCE-REPO-0001",
       "review_reference": "REVIEW-REPO-0001",
       "timestamp": "2026-06-19T03:39:00Z"
@@ -4298,5 +4299,9 @@
         "state_name": "Backlog"
       }
     }
-  ]
+  ],
+  "capabilities": [],
+  "authority_profiles": [],
+  "proposals": [],
+  "acceptance_records": []
 }

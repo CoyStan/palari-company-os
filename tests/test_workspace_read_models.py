@@ -164,7 +164,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
             by_id["WORK-0007"].next_commands[0],
             "palari review guide WORK-0007 --json",
         )
-        self.assertEqual(by_id["WORK-0004"].attention, "closed")
+        self.assertEqual(by_id["WORK-0004"].attention, "needs-human-decision")
 
     def test_detail_assembles_related_records(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -467,6 +467,39 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(item.approval_progress, "0/1")
         self.assertEqual(item.integration_state, "not-ready")
 
+    def test_approval_for_previous_review_does_not_count_for_refreshed_proof(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        def refresh_review(data: dict[str, object]) -> None:
+            reviews = data["review_verdicts"]
+            original = next(item for item in reviews if item["id"] == "REVIEW-0001")
+            data["human_decisions"].append(
+                {
+                    "id": "HUMAN-DECISION-OLD-PROOF",
+                    "work_item_id": "WORK-0001",
+                    "human_id": "HUMAN-FOUNDER",
+                    "reviewed_head": "abc1234",
+                    "decision": "accepted",
+                    "status": "accepted",
+                    "acceptance_mode": "human",
+                    "quorum_status": "met",
+                    "evidence_reference": "EVIDENCE-0001",
+                    "review_reference": "REVIEW-0001",
+                    "timestamp": "2026-06-18T18:00:00Z",
+                }
+            )
+            refreshed = dict(original)
+            refreshed["id"] = "REVIEW-REFRESHED"
+            refreshed["timestamp"] = "2026-06-18T18:01:00Z"
+            refreshed["proof_hash"] = review_proof_hash(refreshed)
+            reviews.append(refreshed)
+
+        workspace = self.modified_workspace(refresh_review)
+        item = {item.id: item for item in queue_items(workspace)}["WORK-0001"]
+
+        self.assertEqual(item.attention, "needs-human-decision")
+        self.assertEqual(item.approval_progress, "0/1")
+
     def test_work_contract_change_stales_exact_bound_review(self) -> None:
         def change_contract(data: dict[str, object]) -> None:
             data["work_items"][0]["scope"] = "Changed after the exact review."
@@ -576,7 +609,9 @@ class CliTests(unittest.TestCase):
         )
 
     def test_cli_queue_include_closed_json(self) -> None:
-        result = self.run_cli("queue", "--include-closed", "--json")
+        result = self.run_cli_in_workspace(
+            DOGFOOD_WORKSPACE, "queue", "--include-closed", "--json"
+        )
         payload = json.loads(result.stdout)
 
         self.assertIn("closed", {item["attention"] for item in payload["queue"]})
@@ -585,8 +620,8 @@ class CliTests(unittest.TestCase):
         result = self.run_cli("detail", "WORK-0004", "--json")
         payload = json.loads(result.stdout)
         self.assertEqual(payload["work_item"]["id"], "WORK-0004")
-        self.assertEqual(payload["next_step_type"], "closed")
-        self.assertEqual(payload["human_decision"]["status"], "accepted")
+        self.assertEqual(payload["next_step_type"], "human-decision")
+        self.assertEqual(payload["human_decision"]["status"], "blocked")
         self.assertEqual(payload["outcome"]["status"], "captured")
 
     def test_cli_validate_state_and_scope(self) -> None:
@@ -603,7 +638,7 @@ class CliTests(unittest.TestCase):
         )
 
         self.assertTrue(validate["valid"])
-        self.assertEqual(state["attention"]["needs-human-decision"], 2)
+        self.assertEqual(state["attention"]["needs-human-decision"], 3)
         self.assertEqual(state["attention"]["receipt-ready"], 1)
         self.assertEqual(state["top_attention"]["id"], "WORK-0001")
         self.assertEqual(state["top_attention"]["next_step_type"], "human-decision")

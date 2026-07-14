@@ -62,7 +62,7 @@ class DataMapTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["workspace"]["schema_version"], 1)
+        self.assertEqual(payload["workspace"]["schema_version"], 2)
         self.assertEqual(payload["memory"]["memory_provider_adapters"], "not implemented")
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:

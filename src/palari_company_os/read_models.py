@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Iterable, TypeVar
 
 from .governance_binding import current_review_binding_errors
@@ -769,12 +770,18 @@ def _latest_decisions_by_human(
     return latest
 
 
-def _decision_order_key(decision: Any) -> tuple[str, str]:
-    return (str(getattr(decision, "timestamp", "")), str(getattr(decision, "id", "")))
+def _decision_order_key(decision: Any) -> tuple[datetime, str]:
+    try:
+        timestamp = datetime.fromisoformat(
+            str(getattr(decision, "timestamp", "")).replace("Z", "+00:00")
+        )
+    except ValueError:
+        timestamp = datetime.min.replace(tzinfo=timezone.utc)
+    return (timestamp, str(getattr(decision, "id", "")))
 
 
 def _is_approval(decision: Any) -> bool:
-    return decision.status in {"accepted", "approved"} or decision.decision in {
+    return decision.status in {"accepted", "approved"} and decision.decision in {
         "accepted",
         "approved",
     }

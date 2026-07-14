@@ -382,7 +382,7 @@ class WorkspaceValidationTests(unittest.TestCase):
     def test_unsupported_schema_version_fails_closed(self) -> None:
         self.assert_fixture_error(
             "unsupported-schema-version.json",
-            "workspace schema_version 99 is newer than supported version 1",
+            "workspace schema_version 99 is newer than supported version 2",
         )
 
     def test_broken_reference_fails_closed(self) -> None:
@@ -397,23 +397,39 @@ class WorkspaceValidationTests(unittest.TestCase):
             "work_items.WORK-1.status has unsupported value 'probably-done'",
         )
 
-    def test_accepted_decision_with_stale_evidence_fails_closed(self) -> None:
-        self.assert_fixture_error(
-            "stale-evidence.json",
-            "work_items.WORK-1 evidence EVIDENCE-1 is stale",
+    def test_accepted_decision_with_failed_evidence_fails_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
+        raw["evidence_runs"][0]["status"] = "failed"
 
-    def test_accepted_decision_with_stale_review_fails_closed(self) -> None:
-        self.assert_fixture_error(
-            "stale-review.json",
-            "work_items.WORK-1 review REVIEW-1 is stale",
+        with self.assertRaisesRegex(WorkspaceError, "evidence EVIDENCE-1 is failed"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_accepted_decision_with_mismatched_review_head_fails_closed(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
+        review = raw["review_verdicts"][0]
+        review["reviewed_head"] = "different-head"
+        review["proof_hash"] = review_proof_hash(review)
+
+        with self.assertRaisesRegex(WorkspaceError, "evidence head does not match reviewed head"):
+            Workspace.from_raw(raw, FIXTURES)
 
     def test_accepted_decision_with_unqualified_human_fails_closed(self) -> None:
-        self.assert_fixture_error(
-            "invalid-human-approval-capability.json",
-            "human_decisions.HUMAN-DECISION-1.human_id lacks required approval capability product",
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
+        raw["humans"][0]["approval_capabilities"] = []
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "human_decisions.HUMAN-DECISION-1.human_id lacks required approval capability product",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
 
     def test_review_builder_must_be_independent_human(self) -> None:
         raw = json.loads(
@@ -471,6 +487,71 @@ class WorkspaceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "approval quorum is 0/1"):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_contradictory_acceptance_decision_fails_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"][0]["status"] = "rejected"
+
+        with self.assertRaisesRegex(WorkspaceError, "contradictory decision and status"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_human_decision_requires_timestamp(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"][0].pop("timestamp")
+
+        with self.assertRaisesRegex(WorkspaceError, "timestamp is required"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_duplicate_human_decision_timestamp_fails_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-2",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "decision": "changes-requested",
+                "status": "changes-requested",
+                "quorum_status": "not-met",
+                "timestamp": "2026-06-19T04:03:00Z",
+            }
+        )
+
+        with self.assertRaisesRegex(WorkspaceError, "decision order would be ambiguous"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_human_decision_update_stamps_new_ordering_time(self) -> None:
+        from palari_company_os.authoring import update_human_decision
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = Path(directory) / "workspace.json"
+            raw = json.loads(
+                (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+            )
+            raw["work_items"][0]["status"] = "in-review"
+            raw["acceptance_records"] = []
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            original = raw["human_decisions"][0]["timestamp"]
+
+            update_human_decision(
+                str(workspace_file),
+                "HUMAN-DECISION-1",
+                {
+                    "decision": "changes-requested",
+                    "status": "changes-requested",
+                    "quorum_status": "not-met",
+                },
+            )
+
+            decision = Workspace.load(workspace_file).human_decisions[0]
+            self.assertNotEqual(decision.timestamp, original)
+            self.assertEqual(decision.status, "changes-requested")
+
     def test_completed_work_rejects_stale_exact_work_contract(self) -> None:
         raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         work = next(item for item in raw["work_items"] if item["id"] == "WORK-0001")
@@ -494,7 +575,44 @@ class WorkspaceValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             WorkspaceError,
-            "status is terminal but exact review proof is stale: .*work_contract_hash is stale",
+            "review_reference is stale for the work contract",
+        ):
+            Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
+
+    def test_exact_bound_review_content_cannot_change_without_invalidating_proof(self) -> None:
+        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        review = next(item for item in raw["review_verdicts"] if item["id"] == "REVIEW-0001")
+        review["findings"] = [{"severity": "high", "message": "added after review"}]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "review REVIEW-0001 proof hash is missing or malformed",
+        ):
+            Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
+
+    def test_exact_bound_terminal_work_requires_acceptance_record(self) -> None:
+        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        work = next(item for item in raw["work_items"] if item["id"] == "WORK-0001")
+        work["status"] = "completed"
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-EXACT",
+                "work_item_id": "WORK-0001",
+                "human_id": "HUMAN-FOUNDER",
+                "reviewed_head": "abc1234",
+                "decision": "accepted",
+                "status": "accepted",
+                "acceptance_mode": "human",
+                "quorum_status": "met",
+                "evidence_reference": "EVIDENCE-0001",
+                "review_reference": "REVIEW-0001",
+                "timestamp": "2026-06-18T18:00:00Z",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "status is terminal but exact acceptance record is missing",
         ):
             Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
 
@@ -502,16 +620,15 @@ class WorkspaceValidationTests(unittest.TestCase):
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
-        raw["work_items"][0]["risk"] = "R3"
         raw["attempts"][0]["status"] = "active"
 
-        with self.assertRaisesRegex(WorkspaceError, "current attempt ATTEMPT-1 is active"):
+        with self.assertRaisesRegex(WorkspaceError, "attempt state changed after review"):
             Workspace.from_raw(raw, FIXTURES)
 
-    def test_completed_work_without_quorum_fails_closed(self) -> None:
+    def test_schema_v2_rejects_unbound_accept_ready_review(self) -> None:
         self.assert_fixture_error(
             "invalid-completed-work.json",
-            "work_items.WORK-1.status is terminal but approval quorum is 0/1",
+            "review_verdicts.REVIEW-1.verdict accept-ready requires exact proof binding",
         )
 
     def test_receipt_with_unallowed_source_fails_closed(self) -> None:
@@ -585,8 +702,9 @@ class WorkspaceValidationTests(unittest.TestCase):
         legacy.pop("schema_version")
         migrated, changes = migrate_data(legacy)
 
-        self.assertEqual(migrated["schema_version"], 1)
-        self.assertIn("Added schema_version: 1.", changes)
+        self.assertEqual(migrated["schema_version"], 2)
+        self.assertIn("Added legacy schema_version: 1 before migration.", changes)
+        self.assertIn("Upgraded schema_version from 1 to 2.", changes)
 
     def test_schema_version_zero_requires_migration(self) -> None:
         legacy = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
@@ -594,12 +712,55 @@ class WorkspaceValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             WorkspaceError,
-            "workspace schema_version 0 is older than supported version 1",
+            "workspace schema_version 0 is older than supported version 2",
         ):
             Workspace.from_raw(legacy, EXAMPLE_WORKSPACE)
         migrated, changes = migrate_data(legacy)
-        self.assertEqual(migrated["schema_version"], 1)
-        self.assertIn("Upgraded schema_version from 0 to 1.", changes)
+        self.assertEqual(migrated["schema_version"], 2)
+        self.assertIn("Upgraded schema_version from 0 to 1 before migration.", changes)
+
+    def test_schema_v1_migration_invalidates_unbound_acceptance(self) -> None:
+        legacy = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        legacy["schema_version"] = 1
+        legacy["review_verdicts"][0].pop("binding_version")
+
+        migrated, changes = migrate_data(legacy)
+        workspace = Workspace.from_raw(migrated, FIXTURES)
+
+        self.assertEqual(workspace.schema_version, 2)
+        self.assertEqual(workspace.review_verdicts[0].verdict, "blocked")
+        self.assertEqual(workspace.human_decisions[0].decision, "blocked")
+        self.assertEqual(workspace.acceptance_records[0].status, "revoked")
+        self.assertEqual(workspace.work_items[0].status, "in-review")
+        self.assertIn("Blocked 1 legacy accept-ready review(s) without exact binding.", changes)
+
+    def test_schema_v1_migration_preserves_valid_exact_acceptance(self) -> None:
+        legacy = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        legacy["schema_version"] = 1
+        legacy["review_verdicts"][0]["proof_hash"] = "sha256:legacy-binding-only"
+
+        migrated, changes = migrate_data(legacy)
+        workspace = Workspace.from_raw(migrated, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].status, "completed")
+        self.assertEqual(workspace.acceptance_records[0].status, "accepted")
+        self.assertIn("Upgraded aggregate proof hash for bound review REVIEW-1.", changes)
+
+    def test_schema_v2_migration_is_idempotent(self) -> None:
+        current = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+
+        migrated, changes = migrate_data(current)
+
+        self.assertEqual(migrated["schema_version"], current["schema_version"])
+        self.assertEqual(migrated["work_items"], current["work_items"])
+        self.assertEqual(migrated["review_verdicts"], current["review_verdicts"])
+        self.assertIn("Workspace already uses schema_version: 2.", changes)
 
     def assert_fixture_error(self, fixture: str, expected: str) -> None:
         with self.assertRaises(WorkspaceError) as context:

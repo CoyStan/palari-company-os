@@ -38,7 +38,7 @@ from .validation import (
 )
 
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 T = TypeVar("T")
 
@@ -130,7 +130,7 @@ class Workspace:
         if schema_version is None:
             raise WorkspaceError(
                 "workspace schema_version is missing; run `palari migrate --write` "
-                "or add schema_version: 1"
+                f"or add schema_version: {CURRENT_SCHEMA_VERSION}"
             )
         if not isinstance(schema_version, int):
             raise WorkspaceError("workspace schema_version must be an integer")

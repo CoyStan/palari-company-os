@@ -45,8 +45,10 @@ The v1 loop is:
     compact summary of the current brief/check/finish/handoff state.
 15. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
-    completes the work item in one step. For R2+ work, use the full lifecycle
-    above.
+    completes the work item in one step. It requires a clean worktree and
+    attributes the complete committed range from the persisted claim-start
+    head through current `HEAD`; a commit made before the claim does not count.
+    For R2+ work, use the full lifecycle above.
 16. Run `palari validate --json`.
 17. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
     handing off the local claim before completion.
@@ -162,6 +164,8 @@ runtime now writes two audit files for ready started work:
 - `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
   context hash, and a hashed metadata-only Git dirty baseline for the active
   local claim. The baseline records path/status/stat metadata, never contents.
+  Its `.baseline` companion survives claim release/restart for the same work
+  item so an agent cannot reclassify its own later changes as pre-existing.
 
 Implemented:
 
@@ -188,6 +192,8 @@ Implemented:
 - local packet persistence and local claim leases
 - optional changed-file boundary checks
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
+- claim-start commit-range proof for `agent done`, preserved across release and
+  restart so earlier out-of-boundary commits remain visible
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets

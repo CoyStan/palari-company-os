@@ -14,8 +14,8 @@ Python 3.10+
 
 Compatibility:
 
-- workspace schema v1 is the current supported schema
-- unversioned legacy workspaces can be migrated to v1 with `palari migrate`
+- workspace schema v2 is the current supported schema
+- unversioned, v0, and v1 workspaces can be migrated to v2 with `palari migrate`
 - newer schema versions fail closed until the code supports them
 
 Release checklist:

@@ -2,7 +2,7 @@
 
 Implemented in the v0.1 local foundation:
 
-- workspace schema v1
+- workspace schema v2, including fail-safe migration of legacy v1 trust records
 - queue/detail/state/validate/scope/maintainer commands
 - authoring commands for all core objects
 - lifecycle commands for evidence, review, human decision, completion, and

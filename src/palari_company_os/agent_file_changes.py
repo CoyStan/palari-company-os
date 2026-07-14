@@ -119,11 +119,13 @@ def capture_git_baseline(cwd: Path | str) -> dict[str, Any]:
         return {
             "schema_version": "palari.git_baseline.v1",
             "git_root": "",
+            "head_sha": "",
             "observation_complete": False,
             "observation_errors": [root_error or "Git root is unavailable"],
             "entries": [],
         }
     changes, status_error = _git_status_result(root)
+    head_sha, head_error = _git_head_result(root)
     errors = [status_error] if status_error else []
     entries: list[dict[str, Any]] = []
     for item in changes:
@@ -134,6 +136,8 @@ def capture_git_baseline(cwd: Path | str) -> dict[str, Any]:
     return {
         "schema_version": "palari.git_baseline.v1",
         "git_root": str(root),
+        "head_sha": head_sha,
+        "head_observation_error": head_error,
         "observation_complete": not errors,
         "observation_errors": errors,
         "entries": entries,
@@ -344,6 +348,27 @@ def _git_root_result(cwd: Path) -> tuple[Path | None, str]:
     return Path(value).resolve(), ""
 
 
+def _git_head_result(root: Path) -> tuple[str, str]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--verify", "HEAD"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return "", f"could not inspect Git HEAD: {exc}"
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"git exited {result.returncode}"
+        return "", f"could not inspect Git HEAD: {detail}"
+    value = result.stdout.strip()
+    if not value:
+        return "", "could not inspect Git HEAD: git returned an empty revision"
+    return value, ""
+
+
 def _path_allowed(path: str, allowed_paths: list[str], *, root: Path | None) -> bool:
     if root is not None:
         return canonical_path_allowed(path, allowed_paths, root=root)
@@ -353,14 +378,14 @@ def _path_allowed(path: str, allowed_paths: list[str], *, root: Path | None) -> 
 def _normalize_path(path: str) -> str:
     from .path_policy import validate_workspace_path
 
-    return validate_workspace_path(path)
+    normalized = validate_workspace_path(path)
+    if normalized != path:
+        raise ValueError("path is not in canonical repository form")
+    return normalized
 
 
 def _normalize_git_path(path: str) -> str:
-    normalized = _normalize_path(path)
-    if normalized != path:
-        raise ValueError("path is not in canonical Git form")
-    return normalized
+    return _normalize_path(path)
 
 
 def _observation_error_marker(message: str) -> str:

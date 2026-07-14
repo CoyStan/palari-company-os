@@ -54,6 +54,11 @@ without reading contents. `agent check --git-diff` lists unchanged entries as
 `preexisting_unchanged_files`; any path or metadata change after start is
 attributed to the claim and checked against its write boundary.
 
+The baseline persists across `agent release` and a later `agent start` for the
+same work item. If a work item is deliberately moved to a different repository
+root, a human operator must inspect the old dirt before removing the local
+`.baseline` companion and starting a new claim.
+
 Traversal, non-canonical paths, symlink escape, malformed Git output, or an
 incomplete observation always fail closed.
 

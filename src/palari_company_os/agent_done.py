@@ -115,6 +115,7 @@ def agent_done(
         "work_item_id": work_id,
         "actor": palari_id,
         "status": "active",
+        "base_sha": preflight["base_sha"],
     }
     if model_or_worker:
         attempt_record["model_or_worker"] = model_or_worker
@@ -299,7 +300,7 @@ def _preflight(
     dirty = [
         path
         for path in status_inspection.get("changed_files", [])
-        if ".palari/" not in path
+        if not _is_agent_runtime_path(path, root, workspace.path)
     ]
     if dirty:
         return _blocked_preflight(
@@ -309,9 +310,21 @@ def _preflight(
     head_sha = _git_value(root, ["rev-parse", "HEAD"])
     if not head_sha:
         return _blocked_preflight("Git HEAD is unavailable; agent done cannot bind the attempt")
+    baseline = claim.get("git_baseline")
+    if not isinstance(baseline, dict):
+        return _blocked_preflight("claim has no Git baseline; restart the claim")
+    base_sha = str(baseline.get("head_sha") or "")
+    if not base_sha:
+        return _blocked_preflight("claim baseline has no exact Git HEAD; restart the claim")
+    if baseline.get("git_root") != str(root):
+        return _blocked_preflight("claim baseline belongs to a different Git repository")
+    if not _git_ok(root, ["merge-base", "--is-ancestor", base_sha, head_sha]):
+        return _blocked_preflight(
+            "current Git HEAD does not descend from the claim-start commit"
+        )
     committed = _git_lines(
         root,
-        ["diff-tree", "--root", "--no-commit-id", "--name-only", "-z", "-r", head_sha],
+        ["log", "--format=", "--name-only", "-z", "--no-renames", f"{base_sha}..{head_sha}"],
     )
     if committed is None:
         return _blocked_preflight("Git commit inspection failed; agent done cannot prove changes")
@@ -322,7 +335,7 @@ def _preflight(
             "declared --changed paths do not exactly match the committed HEAD artifact"
         )
     if not changed_files:
-        return _blocked_preflight("committed HEAD contains no changed files")
+        return _blocked_preflight("no committed changes exist since the claim started")
 
     packet = build_agent_brief(workspace, work_id, palari_id, "execute")
     inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
@@ -331,15 +344,19 @@ def _preflight(
     outside = inspection.get("outside_write_boundary", [])
     if outside:
         return _blocked_preflight(
-            "committed HEAD contains paths outside the write boundary: " + ", ".join(outside)
+            "claim commit range contains paths outside the write boundary: "
+            + ", ".join(outside)
         )
     missing = inspection.get("missing_required_outputs", [])
     if missing:
         return _blocked_preflight("required outputs are missing: " + ", ".join(missing))
     return {
         "ok": True,
-        "message": "Active claim, clean worktree, exact HEAD, and write boundary verified.",
+        "message": (
+            "Active claim, clean worktree, exact claim-start range, and write boundary verified."
+        ),
         "git_root": str(root),
+        "base_sha": base_sha,
         "head_sha": head_sha,
         "changed_files": changed_files,
     }
@@ -375,9 +392,22 @@ def _blocked_preflight(message: str) -> dict[str, Any]:
         "ok": False,
         "message": message,
         "git_root": "",
+        "base_sha": "",
         "head_sha": "",
         "changed_files": [],
     }
+
+
+def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> bool:
+    try:
+        relative_workspace = workspace_root.resolve().relative_to(git_root.resolve()).as_posix()
+    except ValueError:
+        return False
+    base = f"{relative_workspace}/" if relative_workspace != "." else ""
+    return any(
+        path.startswith(f"{base}.palari/{name}/")
+        for name in ("claims", "packets", "locks")
+    )
 
 
 def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
@@ -400,3 +430,14 @@ def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
 def _git_value(root: Path, arguments: list[str]) -> str:
     lines = _git_lines(root, arguments)
     return lines[0] if lines else ""
+
+
+def _git_ok(root: Path, arguments: list[str]) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+    )
+    return result.returncode == 0

@@ -21,7 +21,7 @@
     "outcomes"
   ],
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": "integer", "const": 2 },
     "name": { "type": "string", "minLength": 1 },
     "collection_files": { "$ref": "#/$defs/collection_files" },
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
@@ -585,6 +585,27 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "work_item_id", "reviewed_head", "reviewer", "verdict"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "verdict": { "const": "accept-ready" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "required": [
+              "binding_version",
+              "attempt_id",
+              "attempt_hash",
+              "evidence_reference",
+              "evidence_manifest_hash",
+              "receipt_reference",
+              "receipt_hash",
+              "work_contract_hash",
+              "proof_hash"
+            ]
+          }
+        }
+      ],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -612,7 +633,7 @@
     "human_decision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "human_id", "reviewed_head", "decision"],
+      "required": ["id", "work_item_id", "human_id", "reviewed_head", "decision", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },

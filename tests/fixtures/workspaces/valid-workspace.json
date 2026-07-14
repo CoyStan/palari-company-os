@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Valid Workspace Fixture",
   "goals": [
     {
@@ -73,7 +73,7 @@
       "work_item_id": "WORK-1",
       "reviewed_head": "head-1",
       "reviewer": "HUMAN-PRODUCT",
-      "verdict": "accept-ready"
+      "verdict": "blocked"
     }
   ],
   "human_decisions": [],

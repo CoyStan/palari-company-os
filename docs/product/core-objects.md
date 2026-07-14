@@ -120,14 +120,18 @@ Independent inspection. Verdicts are intentionally small:
 
 New `accept-ready` verdicts are bound to the exact attempt state, evidence
 manifest, receipt, reviewed head, and work contract. The binding has its own
-proof hash. Bound verdicts are immutable; a reviewer records a new verdict
-after any substantive change. Legacy unbound v1 verdicts remain readable for
-compatibility but cannot authorize a new acceptance or governed completion.
+proof hash, which also covers the reviewer, verdict, findings, inspected
+checks, residual risks, and timestamp. Bound verdicts are immutable; a reviewer
+records a new verdict after any substantive change. Schema v2 rejects an
+unbound `accept-ready` verdict. Migration keeps legacy unbound non-accepting
+verdicts inspectable and blocks any legacy accept-ready authority.
 
 ## Human Decision
 
 Authority-bearing human action tied to reviewed evidence. This is separate from
-the review verdict.
+the review verdict. Its timezone-bearing timestamp establishes ordering, while
+its decision and status must agree. Approval counts only for the exact review
+and evidence references it names.
 
 ## Acceptance Record
 

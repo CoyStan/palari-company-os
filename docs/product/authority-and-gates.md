@@ -158,8 +158,12 @@ accept-ready review, human capability, open decisions, scope overlap, and
 mandatory evidence/receipt manifest integrity. The review must carry the
 current `palari.review_binding.v1` binding for the exact attempt, evidence,
 receipt, reviewed head, and work contract. A later contract, attempt, evidence,
-or receipt change makes it stale. A later negative decision by the same human
-revokes that human's earlier approval from quorum.
+or receipt change makes it stale. A later timezone-ordered negative decision by
+the same human revokes that human's earlier approval from quorum. Approval is
+counted only for the exact review and evidence references; contradictory or
+ambiguously ordered decisions fail closed. The review proof hash also
+covers reviewer-authored verdict context, and exact-bound terminal work
+requires its matching acceptance record.
 
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
 work, it records a missing acceptance record from the latest qualified human

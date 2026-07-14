@@ -118,6 +118,16 @@ class FileChangeObservationTests(unittest.TestCase):
         self.assertIn("../secret.txt", result["outside_write_boundary"])
         self.assertFalse(result["observation_complete"])
 
+    def test_noncanonical_explicit_changed_path_is_retained_and_fails_closed(self) -> None:
+        packet = {"allowed_paths": {"write": ["docs.txt"]}, "required_output": {}}
+
+        result = inspect_file_changes(packet, changed_paths=[" docs.txt"])
+
+        assert result is not None
+        self.assertEqual(result["invalid_changed_paths"], [" docs.txt"])
+        self.assertIn(" docs.txt", result["outside_write_boundary"])
+        self.assertFalse(result["observation_complete"])
+
     def test_git_observation_error_is_retained_and_fails_closed(self) -> None:
         packet = {"allowed_paths": {"write": ["docs"]}, "required_output": {}}
         with patch(
@@ -182,7 +192,7 @@ class FileChangeObservationTests(unittest.TestCase):
 
             assert result is not None
             self.assertFalse(result["observation_complete"])
-            self.assertIn("canonical Git form", result["observation_errors"][0])
+            self.assertIn("canonical repository form", result["observation_errors"][0])
 
     def test_unchanged_preexisting_dirty_file_is_not_attributed_to_claim(self) -> None:
         with tempfile.TemporaryDirectory() as root_name:

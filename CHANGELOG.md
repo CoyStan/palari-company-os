@@ -20,6 +20,10 @@ repository milestones, not a production Company OS release.
 
 ### Changed
 
+- Advanced the workspace contract to schema v2. `palari migrate` now blocks
+  legacy unbound accept-ready reviews, revokes dependent acceptance, reopens
+  affected governed terminal work, and normalizes human-decision ordering
+  metadata instead of grandfathering unverifiable authority.
 - Added focused and affected verification profiles while keeping `complete` as
   the authoritative acceptance gate; isolated install smokes now use unique
   temporary directories safely under concurrent execution.

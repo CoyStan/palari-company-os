@@ -326,7 +326,9 @@ packet under `.palari/packets/`, records a local lease claim under
 packet is blocked, `agent start` reports blockers and writes nothing. `agent
 release` removes this Palari's local claim when work is abandoned or handed off.
 For Git worktrees, the claim also stores a hashed, metadata-only baseline of
-already-dirty paths. It does not read their contents.
+already-dirty paths. It does not read their contents. The ignored baseline
+companion persists when a claim is released and reused when that work item is
+started again, preventing release/restart from laundering later dirt.
 
 The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -759,8 +761,10 @@ mutate the workspace model.
 ./bin/palari migrate --write
 ```
 
-Adds `schema_version: 1` to legacy unversioned workspaces and ensures required
-collections exist. Without `--write`, it previews changes.
+Upgrades unversioned, v0, and v1 workspaces to schema v2 and ensures required
+collections exist. Legacy unbound accept-ready proof is blocked, its dependent
+acceptance is revoked, and affected governed terminal work is reopened for a
+fresh exact review. Without `--write`, the command previews all changes.
 
 ## Authoring Commands
 

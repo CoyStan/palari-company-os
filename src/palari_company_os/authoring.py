@@ -211,6 +211,9 @@ def update_human_decision(
     command: str = "",
     actor: str = "",
 ) -> MutationResult:
+    updates = dict(updates)
+    if set(updates) & {"decision", "status"} and "timestamp" not in updates:
+        updates["timestamp"] = _timestamp()
     store = load_store(workspace_path)
     records = _records(store, "human_decisions")
     record = _find(records, record_id)
@@ -379,6 +382,9 @@ def create_human_decision(
     command: str = "",
     actor: str = "",
 ) -> MutationResult:
+    record = dict(record)
+    if not record.get("timestamp"):
+        record["timestamp"] = _timestamp()
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
     work_id = str(record.get("work_item_id") or "")
@@ -696,7 +702,7 @@ def _prepare_record_for_create(
             stamped["timestamp"] = _timestamp()
         if stamped.get("verdict") == "accept-ready":
             workspace = validate_data(store.data_path, store.data)
-            from .governance_binding import current_review_binding
+            from .governance_binding import current_review_binding, review_proof_hash
 
             binding, errors = current_review_binding(
                 workspace, str(stamped.get("work_item_id") or "")
@@ -704,6 +710,12 @@ def _prepare_record_for_create(
             if errors:
                 raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
             stamped.update(binding)
+            stamped["proof_hash"] = review_proof_hash(stamped)
+        return stamped
+    if kind == "human-decision":
+        stamped = dict(record)
+        if not stamped.get("timestamp"):
+            stamped["timestamp"] = _timestamp()
         return stamped
     return record
 
@@ -714,6 +726,9 @@ def _prepare_record_for_update(
     record: dict[str, Any],
     updates: dict[str, Any],
 ) -> None:
+    if kind == "human-decision" and set(updates) & {"decision", "status"}:
+        if "timestamp" not in updates:
+            record["timestamp"] = _timestamp()
     if kind == "evidence":
         from .evidence_manifest import stamp_evidence_record
 
@@ -731,12 +746,13 @@ def _prepare_record_for_update(
         and set(updates) & TRANSITION_UPDATE_FIELDS["review"]
     ):
         workspace = validate_data(store.data_path, store.data)
-        from .governance_binding import current_review_binding
+        from .governance_binding import current_review_binding, review_proof_hash
 
         binding, errors = current_review_binding(workspace, str(record.get("work_item_id") or ""))
         if errors:
             raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
         record.update(binding)
+        record["proof_hash"] = review_proof_hash(record)
 
 
 def _assert_record_transition_allowed(
@@ -794,15 +810,21 @@ def _ensure_acceptance_record_for_completion(
         return
     review = latest_for_work(workspace.review_verdicts, work_id)
     evidence = latest_for_work(workspace.evidence_runs, work_id)
-    decision = latest_for_work(workspace.human_decisions, work_id)
     receipt = latest_for_work(workspace.receipts, work_id)
-    if review is None or evidence is None or decision is None:
+    if review is None or evidence is None:
         return
-    if decision.status not in {"accepted", "approved"} and decision.decision not in {
-        "accepted",
-        "approved",
-    }:
+    matching_decisions = [
+        decision
+        for decision in workspace.human_decisions
+        if decision.work_item_id == work_id
+        and decision.reviewed_head == review.reviewed_head
+        and decision.review_reference == review.id
+        and decision.evidence_reference == evidence.id
+        and _is_approval(decision)
+    ]
+    if not matching_decisions:
         return
+    decision = max(matching_decisions, key=_decision_order_key)
     acceptance_id = f"ACCEPTANCE-{work_id}-{decision.human_id}"
     if _find(_records(store, "acceptance_records"), acceptance_id) is not None:
         return
@@ -835,7 +857,22 @@ def _qualified_approval_count_after(
     if work is None:
         return 0
     humans_by_id = {human.id: human for human in workspace.humans}
-    seen = {human_id}
+    review = latest_for_work(workspace.review_verdicts, work_id)
+    evidence = latest_for_work(workspace.evidence_runs, work_id)
+    if (
+        review is None
+        or evidence is None
+        or review.reviewed_head != reviewed_head
+        or review.evidence_reference != evidence.id
+    ):
+        return 0
+    incoming_human = humans_by_id.get(human_id)
+    seen: set[str] = set()
+    if not work.required_approval_capability or (
+        incoming_human is not None
+        and work.required_approval_capability in incoming_human.approval_capabilities
+    ):
+        seen.add(human_id)
     latest_by_human: dict[str, Any] = {}
     for decision in workspace.human_decisions:
         if decision.work_item_id != work_id or decision.reviewed_head != reviewed_head:
@@ -844,10 +881,12 @@ def _qualified_approval_count_after(
         if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
             latest_by_human[decision.human_id] = decision
     for decision in latest_by_human.values():
-        if decision.status not in {"accepted", "approved"} and decision.decision not in {
-            "accepted",
-            "approved",
-        }:
+        if not _is_approval(decision):
+            continue
+        if (
+            decision.review_reference != review.id
+            or decision.evidence_reference != evidence.id
+        ):
             continue
         human = humans_by_id.get(decision.human_id)
         if work.required_approval_capability and (
@@ -858,8 +897,21 @@ def _qualified_approval_count_after(
     return len(seen)
 
 
-def _decision_order_key(decision: Any) -> tuple[str, str]:
-    return (str(getattr(decision, "timestamp", "")), str(getattr(decision, "id", "")))
+def _decision_order_key(decision: Any) -> tuple[datetime, str]:
+    try:
+        timestamp = datetime.fromisoformat(
+            str(getattr(decision, "timestamp", "")).replace("Z", "+00:00")
+        )
+    except ValueError:
+        timestamp = datetime.min.replace(tzinfo=timezone.utc)
+    return (timestamp, str(getattr(decision, "id", "")))
+
+
+def _is_approval(decision: Any) -> bool:
+    return decision.status in {"accepted", "approved"} and decision.decision in {
+        "accepted",
+        "approved",
+    }
 
 
 def _latest_raw_for_attempt(
