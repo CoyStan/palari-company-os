@@ -130,12 +130,9 @@ class ReviewGuideTests(unittest.TestCase):
     def test_cli_agent_next_rollup_text_prints_top_candidate(self) -> None:
         result = self.run_cli("agent", "next")
 
-        self.assertIn("Top: WORK-REPO-0023 [ready] via PALARI-STEWARD", result.stdout)
-        self.assertIn("step: check-active-proof", result.stdout)
-        self.assertIn(
-            "palari agent check WORK-REPO-0023 --as PALARI-STEWARD --mode execute --json",
-            result.stdout,
-        )
+        self.assertIn("Top: WORK-REPO-0001 [waiting] via PALARI-STEWARD", result.stdout)
+        self.assertIn("step: human-decision", result.stdout)
+        self.assertIn("palari review guide WORK-REPO-0001 --json", result.stdout)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

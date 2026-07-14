@@ -228,23 +228,20 @@ class AgentPacketTests(unittest.TestCase):
         agent_ids = {agent["agent"]["id"] for agent in result["agents"]}
 
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
-        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["status"], "no-ready-work")
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
         self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-STEWARD")
-        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0023")
-        self.assertEqual(result["top_candidate"]["candidate"]["can_start"], True)
-        self.assertEqual(
-            result["top_candidate"]["candidate"]["next_step_type"],
-            "check-active-proof",
-        )
+        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0001")
+        self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
+        self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "human-decision")
         self.assertEqual(result["top_candidate"]["candidate"]["handoff_guidance"], [])
         self.assertEqual(
             result["next_allowed_commands"][0],
-            "palari agent check WORK-REPO-0023 --as PALARI-STEWARD --mode execute --json",
+            "palari review guide WORK-REPO-0001 --json",
         )
         self.assertEqual(
             result["next_allowed_commands"][1],
-            "palari agent finish WORK-REPO-0023 --as PALARI-STEWARD --json",
+            "palari detail WORK-REPO-0001 --json",
         )
 
     def test_agent_next_all_exposes_top_ready_candidate(self) -> None:

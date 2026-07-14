@@ -2567,7 +2567,7 @@
     },
     {
       "base_sha": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
-      "head_sha": "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
+      "head_sha": "1d295af2e0747522e919db95e2c4930ddc27966a",
       "commits": [
         "d3cc68566dc164aedd5c665bc5734c1a1d03c82c",
         "21670a447ab039d5000a19b2df7350f005a9170a",
@@ -2584,7 +2584,8 @@
         "33dda5921936208bbd6f35ac6851b5e522e7383d",
         "3e3ea6bde7f645d34055aeaf10e6e56335cdcae0",
         "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903",
-        "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc"
+        "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
+        "1d295af2e0747522e919db95e2c4930ddc27966a"
       ],
       "allowed_paths": [
         "src/palari_company_os",
@@ -2620,7 +2621,7 @@
       "model_or_worker": "gpt-5-codex",
       "started_at": "2026-07-14T15:13:08Z",
       "cleanliness": "clean",
-      "updated_at": "2026-07-14T19:39:00.308808Z",
+      "updated_at": "2026-07-14T19:41:52.589374Z",
       "changed_files": [
         "CHANGELOG.md",
         "README.md",
@@ -3124,45 +3125,19 @@
         "./bin/palari --workspace workspaces/palari-company-os validate --json",
         "independent review 15 exact-head ACCEPT"
       ],
-      "artifacts": [
-        "src/palari_company_os/governance_binding.py",
-        "src/palari_company_os/record_order.py",
-        "scripts/verification_profiles.py",
-        "docs/product/governance-hardening-review.md"
-      ],
+      "artifacts": [],
       "id": "EVIDENCE-REPO-0023",
       "work_item_id": "WORK-REPO-0023",
       "attempt_id": "ATTEMPT-REPO-0023",
-      "head_sha": "a6996b4c0db18ab65abdafa1ba5b78f3178f3efc",
+      "head_sha": "1d295af2e0747522e919db95e2c4930ddc27966a",
       "status": "passed",
       "base_ref": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
       "summary": "Authoritative verification and exact-head independent review passed; founder acceptance remains pending.",
       "freshness": "current",
       "timestamp": "2026-07-14T19:39:12.779914Z",
       "receipt_hash": "sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d",
-      "artifact_hashes": [
-        {
-          "path": "docs/product/governance-hardening-review.md",
-          "sha256": "sha256:missing",
-          "status": "missing"
-        },
-        {
-          "path": "scripts/verification_profiles.py",
-          "sha256": "sha256:missing",
-          "status": "missing"
-        },
-        {
-          "path": "src/palari_company_os/governance_binding.py",
-          "sha256": "sha256:missing",
-          "status": "missing"
-        },
-        {
-          "path": "src/palari_company_os/record_order.py",
-          "sha256": "sha256:missing",
-          "status": "missing"
-        }
-      ],
-      "manifest_hash": "sha256:9581b9a515c563456cf8929ecc4fb2811695b79d24188ffe0567378f9ae19f0f"
+      "manifest_hash": "sha256:d6e7fc5c15edd17c888bdde966187e7012e18e99b43464abd9cd90a8985cf14c",
+      "artifact_hashes": []
     }
   ],
   "review_verdicts": [
