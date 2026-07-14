@@ -239,9 +239,16 @@ status and file metadata, rejects traversal/symlink escape and incomplete
 observations, and never treats the baseline as cryptographic provenance.
 Execute-mode hooks additionally rebuild the current packet from workspace truth
 before granting writes, so coordinated edits to a packet and claim cannot
-expand scope. Opaque interpreter commands and Git witness mutations require a
-human hook decision. Human-attributed review, decision, integration approval,
-and work-accept commands are denied from the supported agent shell.
+expand scope. A generic `work update` cannot mutate a work item while any local
+claim is active, and `agent start` refuses to renew an active claim when the
+current workspace would compile different packet authority. Scope changes must
+therefore cross a release and authorized handoff into a new claim epoch.
+Opaque interpreters, unreviewed executables, dynamic shell expansion or
+indirection, and Git witness mutations (including Git commands with global
+`-C`, `--git-dir`, or `--work-tree` options) require a human hook decision.
+Human-attributed review,
+decision, integration approval, terminal lifecycle, work-accept, and generic
+packet-authority mutation commands are denied from the supported agent shell.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

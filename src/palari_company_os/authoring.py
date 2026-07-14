@@ -179,6 +179,7 @@ def update_record(
     record = _find(records, record_id)
     if record is None:
         raise WorkspaceError(f"{kind} not found: {record_id}")
+    _reject_active_claim_work_update(store.data_path, kind, record_id, updates)
     _reject_generic_trust_transition(kind, record_id, record, updates)
     before = deepcopy(record)
     merged = dict(record)
@@ -201,6 +202,31 @@ def update_record(
         after=record,
     )
     return MutationResult("updated", collection, record_id, workspace.name)
+
+
+def _reject_active_claim_work_update(
+    workspace_path: Any,
+    kind: str,
+    record_id: str,
+    updates: dict[str, Any],
+) -> None:
+    """Keep generic authoring from changing a claimed work packet in place."""
+
+    if kind != "work" or not updates:
+        return
+    authority_updates = set(updates) - {"current_attempt"}
+    if not authority_updates:
+        return
+    from .agent_runtime import claim_is_active, read_claim
+
+    claim = read_claim(workspace_path, record_id)
+    if claim and claim_is_active(claim):
+        raise WorkspaceError(
+            f"work {record_id} has an active {claim.get('mode', 'unknown')} claim; "
+            "generic work update cannot change its packet authority in place "
+            f"({', '.join(sorted(authority_updates))}). "
+            "Release the claim and route scope changes through an authorized handoff."
+        )
 
 
 def update_human_decision(

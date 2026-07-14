@@ -304,6 +304,42 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(_decision(result), "ask")
         self.assertIn("opaque interpreter", result["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_unreviewed_executable_bash_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "./docs/rewrite-runtime-state"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn(
+            "unreviewed executable",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_invalid_active_claim_cannot_fail_open_for_unreviewed_executable(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["context_hash"] = "sha256:tampered"
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "./docs/rewrite-runtime-state"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn(
+            "unreviewed executable",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
     def test_human_acceptance_command_is_denied_to_agent_shell(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -321,6 +357,94 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(_decision(result), "deny")
         self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_dynamic_human_acceptance_command_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "P=./bin/palari; $P --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn(
+            "dynamic shell expansion",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_packet_authority_update_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "./bin/palari --workspace workspace.json work update WORK-0001 "
+                    "--list allowed_resources=docs/notes.md,deploy"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("work update", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_git_global_options_do_not_hide_witness_mutations(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            f"git -C {self.repo} update-ref refs/palari/claims/test abc123",
+            (
+                f"git --git-dir={self.repo / '.git'} reflog expire "
+                "--expire=now --all"
+            ),
+            (
+                f"git --work-tree {self.repo} --git-dir {self.repo / '.git'} "
+                "update-ref -d refs/palari/claims/test"
+            ),
+            f"MODE=test git -C {self.repo} update-ref refs/palari/claims/test abc123",
+            f"git status\ngit -C {self.repo} reflog expire --expire=now --all",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "Git metadata mutation",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_coordinated_witness_rewrite_sequence_never_auto_authorizes(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "P=python3; $P -c 'rewrite claim and baseline'",
+            f"git -C {self.repo} update-ref -d refs/palari/claims/test",
+            f"git -C {self.repo} reflog expire --expire=now --all",
+            f"git -C {self.repo} update-ref refs/palari/claims/test abc123",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
 
     def test_read_tools_get_no_decision(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])

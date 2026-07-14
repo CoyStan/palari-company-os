@@ -49,8 +49,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   baseline, Git witness ref, and original witness reflog entry must agree.
 - Execute hooks rebuild the current workspace packet before granting writes;
   coordinated claim/packet self-rehashing cannot expand current scope.
-- Supported agent hooks deny human-attributed Palari mutations and require a
-  human decision for opaque interpreters or Git witness mutations.
+- Generic work updates cannot change an actively claimed packet, and an active
+  claim cannot renew against different current packet authority.
+- Supported agent hooks deny human-attributed and packet-authority Palari
+  mutations and require a human decision for opaque interpreters, unreviewed
+  executables, dynamic shell indirection, or Git witness mutations, including
+  Git global-option forms.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.

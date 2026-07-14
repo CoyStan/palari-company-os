@@ -1028,6 +1028,129 @@ class AgentPacketTests(unittest.TestCase):
             self.assertIn("retry shortly", payload["error"]["message"])
             self.assertTrue(lock_path.exists())
 
+    def test_generic_work_update_is_blocked_during_active_claim(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--mode",
+                "execute",
+                "--json",
+            )
+
+            result = self.run_cli_in_workspace(
+                workspace_file,
+                "work",
+                "update",
+                "WORK-0003",
+                "--list",
+                "allowed_resources=docs,deploy",
+                "--json",
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("active execute claim", result.stderr)
+            self.assertIn("cannot change its packet authority", result.stderr)
+
+    def test_active_claim_cannot_restart_with_changed_packet_authority(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            first = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--mode",
+                    "execute",
+                    "--json",
+                ).stdout
+            )
+            data = json.loads(workspace_file.read_text(encoding="utf-8"))
+            work = next(item for item in data["work_items"] if item["id"] == "WORK-0003")
+            work["allowed_resources"] = ["docs", "deploy"]
+            workspace_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+            result = self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--as",
+                "PALARI-SOFIA",
+                "--mode",
+                "execute",
+                "--json",
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("packet authority differs", payload["error"]["message"])
+            claim_path = workspace_file.parent / first["start"]["claim_path"]
+            claim = json.loads(claim_path.read_text(encoding="utf-8"))
+            self.assertEqual(claim["context_hash"], first["context_hash"])
+
+    def test_active_claim_can_refresh_after_proof_state_changes(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            first = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--mode",
+                    "execute",
+                    "--json",
+                ).stdout
+            )
+            self.run_cli_in_workspace(
+                workspace_file,
+                "receipt",
+                "record",
+                "RECEIPT-CLAIM-REFRESH",
+                "--work-item-id",
+                "WORK-0003",
+                "--attempt-id",
+                "ATTEMPT-0002",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=recorded bounded proof",
+                "--list",
+                "outputs_created=docs/product/company-os.md",
+                "--json",
+            )
+
+            refreshed = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--mode",
+                    "execute",
+                    "--json",
+                ).stdout
+            )
+
+            self.assertEqual(refreshed["start"]["status"], "claimed")
+            self.assertNotEqual(refreshed["context_hash"], first["context_hash"])
+            self.assertEqual(
+                refreshed["start"]["claim"]["git_baseline"],
+                first["start"]["claim"]["git_baseline"],
+            )
+
     def test_release_and_restart_cannot_launder_changed_preexisting_dirt(self) -> None:
         with self.temp_workspace_file(WORKSPACE) as workspace_file:
             root = workspace_file.parent

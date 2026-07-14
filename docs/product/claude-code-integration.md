@@ -25,9 +25,12 @@ truth before execute authority is granted:
   conservative heuristic (redirections and common mutating commands such as
   `rm`, `mv`, `cp`, `tee`, `sed -i`, `git rm`). A suspected out-of-boundary
   write escalates to a human **ask**, never a silent deny or allow, because a
-  heuristic should not have deny authority. Opaque interpreter and Git witness
-  mutations also require a human ask. Human-attributed review, decision,
-  integration approval, and work-accept commands are denied from agent Bash.
+  heuristic should not have deny authority. Opaque interpreters, unreviewed
+  executables, dynamic shell expansion or indirection, and Git witness
+  mutations also require a human ask; Git global options cannot hide a witness
+  subcommand. Human-attributed review,
+  decision, integration approval, terminal lifecycle, work-accept, and generic
+  packet-authority mutations are denied from agent Bash.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -87,9 +90,10 @@ Claude Code session:
 Review-mode claims grant no write paths: they are read-only by contract, so
 file writes under a review-only claim escalate to a human.
 
-When several claims are active in one workspace, the boundary is the union of
-their execute-mode write paths. Pin one Claude session to one claim with the
-`PALARI_AS` and `PALARI_WORK_ID` environment variables.
+When several claims are active in one workspace, a target is allowed only when
+exactly one execute claim covers it; overlapping authority fails closed. Pin
+one Claude session to one claim with the `PALARI_AS` and `PALARI_WORK_ID`
+environment variables.
 
 ## Boundaries And Honest Limits
 
@@ -103,9 +107,9 @@ their execute-mode write paths. Pin one Claude session to one claim with the
   that predate the session will also block a stop. The block message says how
   to proceed; start agent sessions from a clean tree to avoid it.
 - The PreToolUse matcher includes `Bash`, so every shell command in a hooked
-  session invokes `palari` once. The handler reads only claim and packet
-  files (no workspace load), so this is fast in practice — but if a hooked
-  session ever feels sluggish, this is the first place to look.
+  session invokes `palari` once. The handler reads the claim and packet and
+  recompiles execute authority from workspace truth; if a hooked session ever
+  feels sluggish, this is the first place to measure.
 - This is enforcement for Claude Code specifically. Other harnesses keep the
   cooperative contract from [agent-contract.md](agent-contract.md) until they
   grow their own adapters.

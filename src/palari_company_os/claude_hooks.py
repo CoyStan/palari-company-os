@@ -54,16 +54,27 @@ BASH_WRITE_COMMANDS = {
     "truncate",
 }
 OPAQUE_INTERPRETERS = {
+    "alias",
     "bash",
+    "builtin",
+    "command",
     "deno",
+    "env",
+    "eval",
+    "exec",
+    "find",
     "fish",
     "node",
+    "nohup",
     "perl",
     "php",
     "python",
     "python3",
     "ruby",
     "sh",
+    "sudo",
+    "time",
+    "xargs",
     "zsh",
 }
 GIT_WITNESS_MUTATIONS = {
@@ -75,6 +86,102 @@ GIT_WITNESS_MUTATIONS = {
     "switch",
     "update-ref",
 }
+SAFE_GIT_READ_SUBCOMMANDS = {
+    "blame",
+    "cat-file",
+    "describe",
+    "diff",
+    "diff-tree",
+    "for-each-ref",
+    "grep",
+    "log",
+    "ls-files",
+    "ls-tree",
+    "merge-base",
+    "name-rev",
+    "rev-list",
+    "rev-parse",
+    "show",
+    "show-ref",
+    "status",
+}
+SAFE_TARGET_FREE_COMMANDS = {
+    "basename",
+    "cat",
+    "cmp",
+    "cut",
+    "diff",
+    "dirname",
+    "du",
+    "echo",
+    "file",
+    "grep",
+    "head",
+    "ls",
+    "printf",
+    "pwd",
+    "readlink",
+    "realpath",
+    "rg",
+    "stat",
+    "tail",
+    "true",
+    "wc",
+    "which",
+}
+GIT_GLOBAL_OPTIONS_WITH_VALUE = {
+    "-C",
+    "-c",
+    "--config-env",
+    "--exec-path",
+    "--git-dir",
+    "--namespace",
+    "--super-prefix",
+    "--work-tree",
+}
+GIT_GLOBAL_OPTIONS_WITH_ATTACHED_VALUE = {
+    "--config-env=",
+    "--exec-path=",
+    "--git-dir=",
+    "--namespace=",
+    "--super-prefix=",
+    "--work-tree=",
+}
+HUMAN_ONLY_PALARI_COMMANDS = {
+    ("decision", "create"),
+    ("decision", "update"),
+    ("human-decision", "record"),
+    ("human-decision", "update"),
+    ("integration", "approve"),
+    ("integration", "reject"),
+    ("lifecycle", "complete"),
+    ("lifecycle", "decide"),
+    ("lifecycle", "outcome"),
+    ("lifecycle", "review"),
+    ("outcome", "record"),
+    ("outcome", "update"),
+    ("proposal", "adopt"),
+    ("proposal", "defer"),
+    ("proposal", "reject"),
+    ("review", "record"),
+    ("review", "update"),
+    ("work", "accept"),
+    ("work", "complete"),
+}
+PACKET_AUTHORITY_PALARI_COMMANDS = {
+    (kind, action)
+    for kind in (
+        "authority-profile",
+        "capability",
+        "goal",
+        "human",
+        "palari",
+        "source",
+        "work",
+        "workbench",
+    )
+    for action in ("create", "update")
+} | {("work", "add")}
 
 
 def run_hook(
@@ -208,7 +315,7 @@ def bash_write_targets(command: str) -> list[str]:
 
 
 def bash_human_authority_command(command: str) -> str:
-    """Name a human-attributed Palari mutation embedded in a shell command."""
+    """Name a human-only or packet-authority Palari shell mutation."""
 
     tokens = _shell_tokens(command)
     for index, token in enumerate(tokens):
@@ -222,19 +329,7 @@ def bash_human_authority_command(command: str) -> str:
         if len(args) < 2:
             continue
         command_key = (args[0], args[1])
-        if command_key in {
-            ("decision", "create"),
-            ("decision", "update"),
-            ("human-decision", "record"),
-            ("human-decision", "update"),
-            ("integration", "approve"),
-            ("integration", "reject"),
-            ("lifecycle", "decide"),
-            ("lifecycle", "review"),
-            ("review", "record"),
-            ("review", "update"),
-            ("work", "accept"),
-        }:
+        if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
             return " ".join(command_key)
     return ""
 
@@ -242,28 +337,37 @@ def bash_human_authority_command(command: str) -> str:
 def bash_requires_human_review(command: str) -> str:
     """Return why a target-free shell command is too opaque to auto-authorize."""
 
+    if "$" in command or "`" in command or "<(" in command or ">(" in command:
+        return "dynamic shell expansion"
     tokens = _shell_tokens(command)
     expect_command = True
     for index, token in enumerate(tokens):
-        if token in {"&&", "||", ";", "|"}:
+        if token in {"&&", "||", ";", "|", "&", "&|"}:
             expect_command = True
             continue
         if not expect_command:
             continue
+        if _is_shell_assignment(token):
+            continue
         expect_command = False
+        if any(marker in token for marker in ("*", "?", "[", "{", "(")):
+            return "dynamic shell command name"
         name = Path(token).name
+        if token == ".":
+            return "opaque interpreter ."
         if name in OPAQUE_INTERPRETERS:
-            following = tokens[index + 1 : index + 3]
-            if name in {"python", "python3"} and following[:2] in (
-                ["-m", "unittest"],
-                ["-m", "json.tool"],
-            ):
-                continue
             return f"opaque interpreter {name}"
-        if name == "git" and index + 1 < len(tokens):
-            subcommand = tokens[index + 1]
+        if name == "git":
+            subcommand = _git_subcommand(tokens, index)
             if subcommand in GIT_WITNESS_MUTATIONS:
                 return f"Git metadata mutation git {subcommand}"
+            if subcommand not in SAFE_GIT_READ_SUBCOMMANDS:
+                return f"unreviewed Git subcommand git {subcommand or '(missing)'}"
+            continue
+        if name == "palari":
+            continue
+        if name not in SAFE_TARGET_FREE_COMMANDS:
+            return f"unreviewed executable {name or token}"
     if ".palari" in command:
         return "Palari runtime path mutation"
     return ""
@@ -271,9 +375,51 @@ def bash_requires_human_review(command: str) -> str:
 
 def _shell_tokens(command: str) -> list[str]:
     try:
-        return shlex.split(command)
+        lexer = shlex.shlex(
+            command.replace("\r\n", "\n").replace("\n", " ; "),
+            posix=True,
+            punctuation_chars=True,
+        )
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
     except ValueError:
         return command.split()
+
+
+def _is_shell_assignment(token: str) -> bool:
+    if "=" not in token:
+        return False
+    name, _separator, _value = token.partition("=")
+    return bool(name) and name.replace("_", "a").isalnum() and not name[0].isdigit()
+
+
+def _git_subcommand(tokens: list[str], git_index: int) -> str:
+    """Return a Git subcommand after recognized global options."""
+
+    index = git_index + 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            index += 1
+            break
+        if token in GIT_GLOBAL_OPTIONS_WITH_VALUE:
+            index += 2
+            continue
+        if token.startswith("-C") and token != "-C":
+            index += 1
+            continue
+        if token.startswith("-c") and token != "-c":
+            index += 1
+            continue
+        if any(token.startswith(prefix) for prefix in GIT_GLOBAL_OPTIONS_WITH_ATTACHED_VALUE):
+            index += 1
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        return token
+    return tokens[index] if index < len(tokens) else ""
 
 
 def install_hooks(
@@ -434,7 +580,7 @@ def _pre_tool_use(
             )
         raw_targets = bash_write_targets(command)
         opaque_reason = bash_requires_human_review(command)
-        if not raw_targets and opaque_reason and contexts:
+        if not raw_targets and opaque_reason and (contexts or context_errors):
             return _decision(
                 "ask",
                 f"{opaque_reason} can bypass Palari's observable write boundary. "

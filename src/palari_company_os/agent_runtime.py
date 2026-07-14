@@ -19,6 +19,19 @@ from .workspace import Workspace, WorkspaceError
 
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
 GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
+PACKET_RUNTIME_STATE_FIELDS = {
+    "blockers",
+    "completion_contract",
+    "context_hash",
+    "created_at",
+    "documentation_state",
+    "next_allowed_commands",
+    "omitted_context",
+    "one_sentence_instruction",
+    "proof_state",
+    "state",
+    "status",
+}
 
 
 def start_agent(
@@ -61,6 +74,30 @@ def start_agent(
             raise WorkspaceError(
                 f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
             )
+        if existing and _claim_active(existing):
+            requested_mode = mode or "execute"
+            if existing.get("mode") != requested_mode:
+                raise WorkspaceError(
+                    f"work {work_id} already has an active {existing.get('mode', 'unknown')} "
+                    f"claim; release it before starting {requested_mode} mode"
+                )
+            try:
+                existing_packet = _read_claim_packet(data_path, existing)
+            except (ValueError, WorkspaceError) as exc:
+                raise WorkspaceError(
+                    f"work {work_id} active claim packet is invalid: {exc}"
+                ) from exc
+            packet_error = _validate_claim_packet(existing, existing_packet)
+            if packet_error:
+                raise WorkspaceError(
+                    f"work {work_id} active claim packet is invalid: {packet_error}"
+                )
+            if _packet_authority_hash(existing_packet) != _packet_authority_hash(packet):
+                raise WorkspaceError(
+                    f"work {work_id} has an active claim whose packet authority differs "
+                    "from the current workspace; release it and route the scope change "
+                    "through an authorized handoff before starting a new claim epoch"
+                )
 
         persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
         if persisted_baseline is None:
@@ -524,16 +561,20 @@ def _validate_claim_packet(claim: dict[str, Any], packet: dict[str, Any]) -> str
 
 def _persisted_packet_error(data_path: Path, claim: dict[str, Any]) -> str:
     try:
-        packet_relative = validate_workspace_path(str(claim.get("packet_path") or ""))
-        if not packet_relative.startswith(".palari/packets/"):
-            return "packet_path must be under .palari/packets"
-        packet_path = resolve_workspace_path(
-            data_path.parent, packet_relative, require_exists=True
-        )
-        packet = _read_json_object(packet_path, "packet")
+        packet = _read_claim_packet(data_path, claim)
     except (ValueError, WorkspaceError) as exc:
         return str(exc)
     return _validate_claim_packet(claim, packet)
+
+
+def _read_claim_packet(data_path: Path, claim: dict[str, Any]) -> dict[str, Any]:
+    packet_relative = validate_workspace_path(str(claim.get("packet_path") or ""))
+    if not packet_relative.startswith(".palari/packets/"):
+        raise WorkspaceError("packet_path must be under .palari/packets")
+    packet_path = resolve_workspace_path(
+        data_path.parent, packet_relative, require_exists=True
+    )
+    return _read_json_object(packet_path, "packet")
 
 
 def _packet_context_hash(packet: dict[str, Any]) -> str:
@@ -541,6 +582,16 @@ def _packet_context_hash(packet: dict[str, Any]) -> str:
         key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
     }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _packet_authority_hash(packet: dict[str, Any]) -> str:
+    """Hash packet authority while excluding proof/read-model runtime state."""
+
+    authority = {
+        key: value for key, value in packet.items() if key not in PACKET_RUNTIME_STATE_FIELDS
+    }
+    encoded = json.dumps(authority, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 

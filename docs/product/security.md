@@ -37,8 +37,12 @@ Authority rules:
   the original head; coordinated rewrites of the claim and baseline fail.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
-  workspace packet, deny human-attributed Palari commands, and require human
-  approval for opaque interpreters and Git witness mutations.
+  workspace packet, deny human-attributed and generic packet-authority Palari
+  commands, and require human approval for opaque interpreters, unreviewed
+  executables, dynamic shell indirection, and Git witness mutations even when
+  Git global options precede the subcommand. Generic work updates are blocked
+  while a claim is active, and active claims cannot be renewed against changed
+  packet authority.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 
