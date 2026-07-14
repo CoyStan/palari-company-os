@@ -1857,7 +1857,8 @@
       "scope": "Mechanically bind review, evidence, human authority, scope, source, lifecycle, handoff, and verification state to exact current artifacts while preserving local-first minimality and compatibility through explicit migration where required.",
       "acceptance_target": "Every checkbox in docs/product/governance-hardening-contract.md has objective committed evidence; unsafe, stale, incomplete, contradictory, out-of-scope, non-independent, and mismatched states fail closed; focused and complete verification pass; an independent exact-head review recommends ACCEPT; founder authority remains pending.",
       "required_approval_capability": "architecture",
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-REPO-0023"
     }
   ],
   "attempts": [
@@ -2563,6 +2564,60 @@
       "head_sha": "",
       "commits": [],
       "updated_at": "2026-07-11T18:55:07Z"
+    },
+    {
+      "base_sha": "2eea39e9d3d70baa69d987dba50decbcb63bc51e",
+      "head_sha": "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903",
+      "commits": [
+        "d3cc68566dc164aedd5c665bc5734c1a1d03c82c",
+        "21670a447ab039d5000a19b2df7350f005a9170a",
+        "bb8518cf02b40e3a6def9707bb98b5672f8b0614",
+        "dc1eba0c05b306eddccd8121a970db060c1b3340",
+        "d27a1dca39c6b8072b5ba8573379cc85819f31be",
+        "6288ca5d1e162f24a5631815fc14d450e1efa949",
+        "d02421dcc235504a5b6c21d6a82ffee8369a9b21",
+        "ac30b3b2f0be88cac2a022db6544c2654e726180",
+        "24aa828fcf00a468fbcecc5ad99f49013ff3df8e",
+        "d444fc5e02eb876fabe296e19470017b803fba05",
+        "72c7d3ae7a776ba5dc2c3f142aec6645a0deb6b8",
+        "90efb810fb972edc6a5f0acb86c1f390cc4a0f6f",
+        "33dda5921936208bbd6f35ac6851b5e522e7383d",
+        "3e3ea6bde7f645d34055aeaf10e6e56335cdcae0",
+        "4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903"
+      ],
+      "allowed_paths": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "output_targets": [
+        "docs/product/governance-hardening-contract.md",
+        "docs/product/governance-hardening-review.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "id": "ATTEMPT-REPO-0023",
+      "work_item_id": "WORK-REPO-0023",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/model-independent-governance-hardening",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-07-14T15:13:08Z"
     }
   ],
   "evidence_runs": [
