@@ -28,11 +28,14 @@ def timestamp_order(value: object) -> datetime:
         return _MIN_TIMESTAMP
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
+    except (OverflowError, ValueError):
         return _MIN_TIMESTAMP
     if parsed.utcoffset() is None:
         return _MIN_TIMESTAMP
-    return parsed.astimezone(timezone.utc)
+    try:
+        return parsed.astimezone(timezone.utc)
+    except OverflowError:
+        return _MIN_TIMESTAMP
 
 
 def _field(record: object, name: str) -> Any:

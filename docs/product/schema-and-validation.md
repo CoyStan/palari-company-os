@@ -134,8 +134,9 @@ Validation checks:
 - latest attempt, evidence, review, acceptance, receipt, outcome, and
   integration ordering compares timezone-bearing timestamps as normalized UTC
   instants, not lexical timestamp spellings; malformed or timezone-free values
-  fail closed, and two records for the same work item cannot claim the same
-  instant because their latest-state order would be ambiguous. For schema-v2
+  and instants outside the UTC-normalizable datetime range fail closed, and two
+  records for the same work item cannot claim the same instant because their
+  latest-state order would be ambiguous. For schema-v2
   compatibility, one leading undated historical record remains a minimum
   sentinel; an undated append or multiple undated records fail closed
 - human decisions have timezone-bearing, unambiguous timestamps; decision and

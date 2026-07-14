@@ -700,7 +700,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             parsed_timestamp = datetime.fromisoformat(
                 human_decision.timestamp.replace("Z", "+00:00")
             )
-        except ValueError as exc:
+        except (OverflowError, ValueError) as exc:
             raise WorkspaceError(
                 f"human_decisions.{human_decision.id}.timestamp must be ISO-8601"
             ) from exc
@@ -708,6 +708,12 @@ def validate_workspace_contract(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions.{human_decision.id}.timestamp must include a timezone"
             )
+        try:
+            parsed_timestamp.astimezone(timezone.utc)
+        except OverflowError as exc:
+            raise WorkspaceError(
+                f"human_decisions.{human_decision.id}.timestamp must represent a valid UTC instant"
+            ) from exc
         status_accepts = human_decision.status in {"accepted", "approved"}
         value_accepts = human_decision.decision in {"accepted", "approved"}
         if status_accepts != value_accepts:
@@ -1566,7 +1572,7 @@ def _require_timezone_timestamp(
 ) -> None:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
+    except (OverflowError, ValueError) as exc:
         raise WorkspaceError(
             f"{collection}.{record_id}.{field} must be ISO-8601"
         ) from exc
@@ -1574,6 +1580,12 @@ def _require_timezone_timestamp(
         raise WorkspaceError(
             f"{collection}.{record_id}.{field} must include a timezone"
         )
+    try:
+        parsed.astimezone(timezone.utc)
+    except OverflowError as exc:
+        raise WorkspaceError(
+            f"{collection}.{record_id}.{field} must represent a valid UTC instant"
+        ) from exc
 
 
 def _validate_completed_work(

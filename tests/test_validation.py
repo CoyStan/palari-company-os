@@ -593,6 +593,46 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_boundary_review_timestamps_fail_with_validation_error(self) -> None:
+        for timestamp in (
+            "0001-01-01T00:00:00+01:00",
+            "9999-12-31T23:59:59-01:00",
+        ):
+            with self.subTest(timestamp=timestamp):
+                raw = json.loads(
+                    (FIXTURES / "valid-accepted-completed-work.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                raw["review_verdicts"].append(
+                    {
+                        "id": "A-REVIEW-CHANGES",
+                        "work_item_id": "WORK-1",
+                        "reviewed_head": "head-1",
+                        "reviewer": "HUMAN-PRODUCT",
+                        "verdict": "changes-requested",
+                        "timestamp": timestamp,
+                    }
+                )
+
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "review_verdicts.A-REVIEW-CHANGES.timestamp must represent a valid UTC instant",
+                ):
+                    Workspace.from_raw(raw, FIXTURES)
+
+    def test_boundary_human_decision_timestamp_fails_with_validation_error(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"][0]["timestamp"] = "0001-01-01T00:00:00+01:00"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "human_decisions.HUMAN-DECISION-1.timestamp must represent a valid UTC instant",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_equal_instant_receipts_are_ambiguous_across_offsets(self) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
