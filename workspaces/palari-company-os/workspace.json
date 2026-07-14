@@ -3162,6 +3162,21 @@
       "reviewer": "HUMAN-MAINTAINER",
       "verdict": "blocked",
       "timestamp": "2026-06-19T03:38:00Z"
+    },
+    {
+      "checks_inspected": [
+        "current-head",
+        "evidence-head"
+      ],
+      "residual_risks": [
+        "proof-must-be-refreshed-to-2183a059"
+      ],
+      "id": "REVIEW-REPO-0023-REFRESH-1D295AF",
+      "work_item_id": "WORK-REPO-0023",
+      "reviewed_head": "1d295af2e0747522e919db95e2c4930ddc27966a",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-14T22:13:04.430604Z"
     }
   ],
   "human_decisions": [

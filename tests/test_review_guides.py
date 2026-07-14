@@ -128,11 +128,18 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("step: review-handoff", result.stdout)
 
     def test_cli_agent_next_rollup_text_prints_top_candidate(self) -> None:
+        payload = json.loads(self.run_cli("agent", "next", "--json").stdout)
         result = self.run_cli("agent", "next")
+        top = payload["top_candidate"]
+        availability = "ready" if top["candidate"]["can_start"] else "waiting"
 
-        self.assertIn("Top: WORK-REPO-0001 [waiting] via PALARI-STEWARD", result.stdout)
-        self.assertIn("step: human-decision", result.stdout)
-        self.assertIn("palari review guide WORK-REPO-0001 --json", result.stdout)
+        self.assertIn(
+            f"Top: {top['candidate']['work_item_id']} [{availability}] "
+            f"via {top['agent']['id']}",
+            result.stdout,
+        )
+        self.assertIn(f"step: {top['candidate']['next_step_type']}", result.stdout)
+        self.assertIn(payload["next_allowed_commands"][0], result.stdout)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

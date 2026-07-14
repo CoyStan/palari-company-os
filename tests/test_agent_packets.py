@@ -226,22 +226,32 @@ class AgentPacketTests(unittest.TestCase):
 
         result = build_agent_next_all(workspace)
         agent_ids = {agent["agent"]["id"] for agent in result["agents"]}
+        candidates = [
+            {"agent": agent["agent"], "candidate": candidate}
+            for agent in result["agents"]
+            for candidate in agent["candidates"]
+        ]
+        ready_candidates = [item for item in candidates if item["candidate"]["can_start"]]
+        expected_top = min(
+            ready_candidates or candidates,
+            key=lambda item: item["candidate"]["queue_rank"],
+        )
 
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
-        self.assertEqual(result["status"], "no-ready-work")
-        self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
-        self.assertEqual(result["top_candidate"]["agent"]["id"], "PALARI-STEWARD")
-        self.assertEqual(result["top_candidate"]["candidate"]["work_item_id"], "WORK-REPO-0001")
-        self.assertEqual(result["top_candidate"]["candidate"]["can_start"], False)
-        self.assertEqual(result["top_candidate"]["candidate"]["next_step_type"], "human-decision")
-        self.assertEqual(result["top_candidate"]["candidate"]["handoff_guidance"], [])
+        self.assertEqual(result["status"], "ready" if result["ready_count"] else "no-ready-work")
         self.assertEqual(
-            result["next_allowed_commands"][0],
-            "palari review guide WORK-REPO-0001 --json",
+            result["ready_count"],
+            sum(agent["ready_count"] for agent in result["agents"]),
         )
         self.assertEqual(
-            result["next_allowed_commands"][1],
-            "palari detail WORK-REPO-0001 --json",
+            result["blocked_count"],
+            sum(agent["blocked_count"] for agent in result["agents"]),
+        )
+        self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
+        self.assertEqual(result["top_candidate"], expected_top)
+        self.assertEqual(
+            result["next_allowed_commands"],
+            expected_top["candidate"]["next_commands"],
         )
 
     def test_agent_next_all_exposes_top_ready_candidate(self) -> None:
