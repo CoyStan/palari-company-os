@@ -96,7 +96,10 @@ The test suite covers:
   ancestor targets, unquoted pathname expansion, tree-shaped copy and hidden
   backup outputs, path-qualified trusted-command spoofing, hook self-removal,
   fail-closed unclassified Palari commands, external/human integration
-  mutations, and active-claim scope-change rejection
+  mutations, Bash `|&`, assignment-position tilde expansion, abbreviated GNU
+  write and Git helper options, Git pathspec-file target imports, direct Claude
+  settings mutation, read/write redirections, and active-claim scope-change
+  rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

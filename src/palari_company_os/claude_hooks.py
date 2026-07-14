@@ -148,6 +148,7 @@ GIT_EXECUTION_OPTIONS = {
     "--textconv",
 }
 RG_EXECUTION_OPTIONS = {"--hostname-bin", "--pre"}
+GIT_INDIRECT_PATH_OPTIONS = {"--pathspec-from-file"}
 GIT_GLOBAL_OPTIONS_WITH_VALUE = {
     "-C",
     "-c",
@@ -232,6 +233,7 @@ SAFE_AGENT_PALARI_COMMANDS = {
 } | {
     ("capability", action) for action in ("check", "export-policy", "list")
 } | {
+    ("claude", "status"),
     ("data", "map"),
     ("decision", "guide"),
     ("docs", "check"),
@@ -287,6 +289,7 @@ PALARI_SELF_PROTECTION_COMMANDS = {
     ("claude", "install"),
     ("git", "install"),
 }
+SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
 
 def run_hook(
@@ -390,7 +393,7 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
         )
 
     for token in tokens:
-        if token in {"&&", "||", ";", "|", "&", "&|"}:
+        if token in SHELL_COMMAND_SEPARATORS:
             add_ordinary_directory_destinations()
             expect_command = True
             expect_target = False
@@ -498,7 +501,7 @@ def _bash_destructive_targets(command: str) -> list[str]:
     expect_command = True
     active_command = ""
     for token in _shell_tokens(command):
-        if token in {"&&", "||", ";", "|", "&", "&|"}:
+        if token in SHELL_COMMAND_SEPARATORS:
             expect_command = True
             active_command = ""
             continue
@@ -560,7 +563,7 @@ def bash_requires_human_review(command: str) -> str:
     tokens = _shell_tokens(command)
     expect_command = True
     for index, token in enumerate(tokens):
-        if token in {"&&", "||", ";", "|", "&", "&|"}:
+        if token in SHELL_COMMAND_SEPARATORS:
             expect_command = True
             continue
         if not expect_command:
@@ -643,7 +646,7 @@ def _unquoted_shell_expansion_reason(command: str) -> str:
             return "unquoted shell pathname expansion"
         if character == "~" and word_start:
             return "unquoted shell home expansion"
-        word_start = character.isspace() or character in ";|&<>"
+        word_start = character.isspace() or character in ";|&<>=:"
     return ""
 
 
@@ -673,6 +676,8 @@ def _write_command_semantics_reason(
                     return f"tree-writing cp option {argument}"
     if command_name in {"cp", "install", "ln", "mv"}:
         for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long {command_name} write option {argument}"
             if argument == "--no-target-directory":
                 return f"exact-destination {command_name} option {argument}"
             if argument.startswith("-") and not argument.startswith("--"):
@@ -683,16 +688,28 @@ def _write_command_semantics_reason(
             if (
                 argument.startswith("-")
                 and not argument.startswith("--")
-                and "b" in argument[1:]
+                and any(flag in argument[1:] for flag in "bS")
             ):
                 return f"backup-producing {command_name} option {argument}"
     if command_name == "sed":
         for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long sed write option {argument}"
             if (
                 argument.startswith("--in-place=")
                 or (argument.startswith("-i") and argument != "-i")
             ):
                 return f"backup-producing sed option {argument}"
+    if command_name in {"mkdir", "rmdir"}:
+        for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long {command_name} write option {argument}"
+            if argument.startswith("-") and "p" in argument[1:]:
+                return f"ancestor-writing {command_name} option {argument}"
+    if command_name == "install":
+        for argument in option_arguments:
+            if argument.startswith("-") and any(flag in argument[1:] for flag in "Dd"):
+                return f"ancestor-writing install option {argument}"
     return ""
 
 
@@ -798,10 +815,12 @@ def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
     """Reject Git options that can launch helpers or write output indirectly."""
 
     for token in _command_arguments(tokens, git_index):
+        if any(_long_option_matches(token, option) for option in GIT_INDIRECT_PATH_OPTIONS):
+            return f"indirect Git path option {token.split('=', 1)[0]}"
         if token in GIT_EXECUTION_GLOBAL_OPTIONS:
             return f"execution-capable Git option {token}"
         if any(
-            token.startswith(f"{option}=")
+            _long_option_matches(token, option)
             for option in GIT_EXECUTION_GLOBAL_OPTIONS
             if option.startswith("--")
         ):
@@ -811,11 +830,11 @@ def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
         if token.startswith("-C") and token != "-C":
             return "repository-overriding Git option -C"
         if any(
-            token == option or token.startswith(f"{option}=")
+            _long_option_matches(token, option)
             for option in GIT_EXECUTION_OPTIONS
         ):
             return f"execution-capable Git option {token.split('=', 1)[0]}"
-        if token == "--output" or token.startswith("--output="):
+        if _long_option_matches(token, "--output"):
             return "Git output-file mutation"
         if token == "-O" or token.startswith("-O"):
             return "execution-capable Git pager option -O"
@@ -824,15 +843,24 @@ def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
 
 def _command_has_option(tokens: list[str], command_index: int, options: set[str]) -> bool:
     return any(
-        token in options or any(token.startswith(f"{option}=") for option in options)
+        token in options or any(_long_option_matches(token, option) for option in options)
         for token in _command_arguments(tokens, command_index)
     )
+
+
+def _long_option_matches(token: str, option: str) -> bool:
+    """Match a GNU/Git long option, including accepted unique abbreviations."""
+
+    if not option.startswith("--") or not token.startswith("--"):
+        return token == option
+    name = token.split("=", 1)[0]
+    return len(name) > 2 and option.startswith(name)
 
 
 def _command_arguments(tokens: list[str], command_index: int) -> list[str]:
     arguments: list[str] = []
     for token in tokens[command_index + 1 :]:
-        if token in {"&&", "||", ";", "|", "&", "&|"}:
+        if token in SHELL_COMMAND_SEPARATORS:
             break
         arguments.append(token)
     return arguments
@@ -1382,6 +1410,8 @@ def _redirect_target(token: str) -> str | None:
     the no-target sentinel; non-redirect tokens return ``None``.
     """
     stripped = token.lstrip("012&")
+    if stripped.startswith("<>"):
+        return stripped[2:]
     if not stripped.startswith(">"):
         return None
     if stripped == ">&":
@@ -1532,6 +1562,14 @@ def _protected_governance_target(
         or (include_ancestors and target in runtime.parents)
     ):
         return "Palari runtime state"
+    hook_settings = {
+        (root / ".claude" / "settings.json").resolve(),
+        (root / ".claude" / "settings.local.json").resolve(),
+    }
+    if target in hook_settings or (
+        include_ancestors and any(target in path.parents for path in hook_settings)
+    ):
+        return "Claude hook configuration"
     for git_metadata in _git_metadata_roots(root):
         if (
             target == git_metadata

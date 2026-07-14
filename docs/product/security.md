@@ -53,8 +53,11 @@ Authority rules:
   destinations, including ordinary existing-directory basename semantics.
   Compact/newline command separators cannot hide later targets. Git repository
   overrides, pager/filter helpers, and ripgrep preprocessor/hostname helpers
-  require review. Global CLI long-option abbreviations are disabled, and
-  destructive targets cannot remove or move an ancestor of protected truth.
+  require review. Git pathspec-file imports, accepted Git helper-option
+  abbreviations, abbreviated GNU write options, assignment-position tilde
+  expansion, and Bash `|&` composition require review. Global CLI long-option
+  abbreviations are disabled, and destructive targets cannot remove or move an
+  ancestor of protected truth or the standard Claude hook settings.
   Human integration enqueue/cancel/send, Linear adoption, and external
   playbook-source authority changes are denied from agent shell commands.
 - Every active accepted record re-verifies its evidence manifest, artifact

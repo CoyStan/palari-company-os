@@ -465,9 +465,12 @@ protected after claim release. Protection includes option-encoded destinations,
 ordinary directory/basename semantics, compact/newline shell segments,
 linked-worktree/common Git directories, Git repository overrides, and
 Git/ripgrep helper-launching options. Long-option abbreviations are rejected at
-every CLI nesting level; destructive ancestor directories are protected too. It
-never mutates workspace records and fails open on handler errors. `claude
-status` reports installed hooks and active claims. See
+every Palari CLI nesting level; abbreviated GNU write/Git helper options,
+assignment-position tilde expansion, Bash `|&`, and Git pathspec-file imports
+ask rather than bypass target discovery. Destructive ancestor directories and
+the standard Claude hook settings are protected too. It never mutates workspace
+records and fails open on handler errors. `claude status` reports installed
+hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
 
 ## Playbooks

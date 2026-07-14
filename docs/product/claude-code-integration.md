@@ -36,7 +36,10 @@ truth before execute authority is granted:
   explicit agent-safe command list also ask. Human-attributed review, decision,
   integration approval/cancel/enqueue/send, Linear adoption, terminal
   lifecycle, work-accept, and generic packet-authority mutations are denied
-  from agent Bash.
+  from agent Bash. Bash `|&`, assignment-position tilde expansion, abbreviated
+  GNU write options, Git helper-option abbreviations, and Git pathspec-file
+  imports are treated as indirect rather than inheriting a safe command label;
+  read/write `<>` redirections are write targets too.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -82,7 +85,9 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   options ask rather than inheriting a read-only classification. Abbreviated
   global CLI options are rejected, protected command pairs are scanned
   defensively, destructive parent-directory targets remain protected, and new
-  or unclassified Palari commands fail closed to a human ask.
+  or unclassified Palari commands fail closed to a human ask. The standard
+  Claude settings files that hold these hooks are protected from direct edits
+  and destructive parent operations.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

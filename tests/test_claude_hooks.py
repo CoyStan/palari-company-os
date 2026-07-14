@@ -530,6 +530,12 @@ class PreToolUseTests(unittest.TestCase):
             {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
             self.repo,
         )
+        status = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari claude status --json"},
+            self.repo,
+        )
 
         self.assertEqual(_decision(unsafe), "ask")
         self.assertIn(
@@ -537,6 +543,7 @@ class PreToolUseTests(unittest.TestCase):
             unsafe["hookSpecificOutput"]["permissionDecisionReason"],
         )
         self.assertEqual(safe, {})
+        self.assertEqual(status, {})
 
     def test_path_qualified_trusted_basenames_require_human_review(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -567,6 +574,9 @@ class PreToolUseTests(unittest.TestCase):
             "cp -a malicious/. ws",
             "cp --no-target-directory malicious ws",
             "cp --parents malicious/ws/workspace.json .",
+            "cp --rec malicious/. ws",
+            "cp --target-d=ws malicious/workspace.json",
+            "dd if=/dev/zero of=~+/ws/workspace.json",
             "ln -sfT malicious ws",
             "git \\\nstatus",
         )
@@ -592,10 +602,57 @@ class PreToolUseTests(unittest.TestCase):
     def test_hidden_backup_output_options_require_human_review(self) -> None:
         for command in (
             "cp --backup source docs/notes.md",
+            "cp --suf=.evil source docs/notes.md",
+            "cp -S.evil source docs/notes.md",
             "mv -b source docs/notes.md",
             "install --backup source docs/notes.md",
+            "install -D source docs/new/notes.md",
             "ln -b source docs/notes.md",
             "sed -i.bak s/a/b/ docs/notes.md",
+            "sed --in-pla=.bak s/a/b/ docs/notes.md",
+            "mkdir -p docs/new/nested",
+            "rmdir --par docs/new/nested",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_pipe_stderr_separator_cannot_hide_later_write(self) -> None:
+        for command in (
+            "true |& cp source ws/workspace.json",
+            "true <> ws/workspace.json",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_standard_claude_hook_settings_are_self_protected(self) -> None:
+        settings_dir = self.repo / ".claude"
+        settings_dir.mkdir()
+        (settings_dir / "settings.json").write_text("{}\n", encoding="utf-8")
+        _write_claim_and_packet(self.workspace, allowed_write=[".claude"])
+
+        exact = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(settings_dir / "settings.json")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(exact), "deny")
+        for command in (
+            "rm .claude/settings.json",
+            "rm -rf .claude",
         ):
             with self.subTest(command=command):
                 result = _pre_tool_use(
@@ -648,6 +705,9 @@ class PreToolUseTests(unittest.TestCase):
             "git diff --ext-diff -- docs/notes.md",
             "git grep -O./docs/rewrite-runtime-state needle docs",
             "git cat-file --filters HEAD:docs/notes.md",
+            "git grep '--open-files-in-pag=touch pager-pwn' needle",
+            "git rm --pathspec-from-file=paths",
+            "git rm --pathspec-from-f=paths",
             "rg --pre ./docs/rewrite-runtime-state pattern docs",
             "rg --hostname-bin=./docs/rewrite-runtime-state --hyperlink-format=default needle",
         )
@@ -968,6 +1028,7 @@ class BashWriteTargetTests(unittest.TestCase):
         self.assertEqual(bash_write_targets("echo x > out.txt"), ["out.txt"])
         self.assertEqual(bash_write_targets("echo x >>logs/run.log"), ["logs/run.log"])
         self.assertEqual(bash_write_targets("cmd 2> err.log"), ["err.log"])
+        self.assertEqual(bash_write_targets("true <> state.json"), ["state.json"])
 
     def test_fd_duplication_is_not_a_target(self) -> None:
         self.assertEqual(bash_write_targets("cmd > out.txt 2>&1"), ["out.txt"])

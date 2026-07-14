@@ -264,9 +264,12 @@ The CLI does not accept abbreviated long options at any parser nesting level,
 and the hook still scans protected Palari command pairs defensively. Unquoted
 pathname expansion, tree-shaped or backup-producing writes, path-qualified
 trusted-command names, hook self-modification, and unclassified Palari commands
-require review. Destructive removal or move
-targets include ancestors of workspace, runtime, and Git truth, so deleting a
-parent directory cannot bypass the exact-file checks.
+require review. The same applies to Bash `|&`, assignment-position tilde
+expansion, abbreviated GNU write/Git helper options, and Git pathspec-file
+imports. Destructive removal or move
+targets include ancestors of workspace, runtime, Git truth, and the standard
+Claude hook settings, so deleting a parent directory cannot bypass the
+exact-file checks.
 Human-attributed review, decision, integration approval/cancel/enqueue/send,
 Linear adoption, terminal lifecycle, work-accept, and generic packet-authority
 mutation commands are denied from the supported agent shell.
