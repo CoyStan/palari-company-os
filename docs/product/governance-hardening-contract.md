@@ -195,7 +195,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     checks, 555-test complete gate, and isolated install pass; compatibility
     review history at `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`.
 
-- [ ] Exact-head independent review and founder packet
+- [x] Exact-head independent review and founder packet
   - Required outcome: a fresh independent reviewer inspects the exact clean
     committed candidate and returns `ACCEPT`; any rejection is repaired and
     re-reviewed; the final founder packet contains baseline/final commits,
@@ -206,8 +206,21 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     `loop`, and `handoff` artifacts agree on the remaining human boundary.
   - Verification: clean-tree exact-head review, authoritative complete gate,
     install smoke, docs check, dogfood validate/check/finish/handoff.
-  - Current status: in progress.
-  - Exact committed evidence: pending.
+  - Current status: completed; founder review and acceptance remain explicitly
+    pending at the human boundary below.
+  - Exact committed evidence: implementation head
+    `4a58b2cbd1ada8b12c8c3cc9022ea2ac3a165903` received fresh independent
+    review 15 `ACCEPT`, committed in ledger
+    `6ef674f7047dafabfd5d5aadf1f83db5ca30bf21`; dogfood attempt
+    `ATTEMPT-REPO-0023`, receipt `RECEIPT-REPO-0023` with hash
+    `sha256:53094aeb2a7a3cf5db613a9134b10b3f41676ec5aeaf8fd729df4baddd524c4d`,
+    and evidence `EVIDENCE-REPO-0023` are committed at
+    `0ba0954130c7feaa72e1725475a55c47865f4e76`; evidence verification and
+    workspace validation pass, scope attribution passes, and `agent check`,
+    `finish`, `doctor`, `loop`, and `handoff` consistently stop at missing
+    human review/decision with `agent_may_execute: false`. The founder packet
+    uses these exact records plus the final branch head and rollback commands
+    reported at handoff.
 
 ## Known Human Boundary
 
