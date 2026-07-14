@@ -58,10 +58,15 @@ Authority rules:
   expansion, and Bash `|&` composition require review. Global CLI long-option
   abbreviations are disabled, and destructive targets cannot remove or move an
   ancestor of protected truth or the standard Claude hook settings.
+  Git pathspec magic/globs and dash-prefixed operands after `--` cannot hide
+  destructive targets. Agent-safe Palari mutations are bound to the hook's
+  configured workspace rather than trusting an arbitrary `--workspace` path.
   Human integration enqueue/cancel/send, Linear adoption, and external
   playbook-source authority changes are denied from agent shell commands.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
+- Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
+  instants, so offset spelling cannot make older evidence or review look newer.
 
 The local JSON and claim hashes detect mismatch and accidental tampering; they
 are not signatures and do not authenticate a human identity against an

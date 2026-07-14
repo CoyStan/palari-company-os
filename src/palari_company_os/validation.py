@@ -22,6 +22,7 @@ from .models import (
     WorkItem,
 )
 from .path_policy import path_allowed, validate_workspace_path
+from .record_order import record_time_key
 
 
 T = TypeVar("T")
@@ -1786,16 +1787,11 @@ def _open_linked_decision(workspace: Any, work_id: str) -> Any | None:
 
 def _latest_for_work(records: Iterable[T], work_id: str) -> T | None:
     latest: T | None = None
-    latest_key: tuple[str, str, str, str] | None = None
+    latest_key = None
     for record in records:
         if getattr(record, "work_item_id") != work_id:
             continue
-        key = (
-            str(getattr(record, "timestamp", "")),
-            str(getattr(record, "updated_at", "")),
-            str(getattr(record, "started_at", "")),
-            str(getattr(record, "id", "")),
-        )
+        key = record_time_key(record)
         if latest_key is None or key > latest_key:
             latest = record
             latest_key = key

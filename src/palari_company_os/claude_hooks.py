@@ -289,6 +289,26 @@ PALARI_SELF_PROTECTION_COMMANDS = {
     ("claude", "install"),
     ("git", "install"),
 }
+MUTATING_AGENT_PALARI_COMMANDS = {
+    ("agent", action) for action in ("done", "release", "start")
+} | {
+    ("attempt", action) for action in ("closeout", "record", "update")
+} | {
+    ("evidence", action) for action in ("record", "update")
+} | {
+    ("integration", "plan"),
+    ("lifecycle", "evidence"),
+    ("linear", "import"),
+    ("linear", "post-gate"),
+    ("linear", "push"),
+    ("linear", "start"),
+    ("linear", "sync"),
+    ("proposal", "create"),
+    ("proposal", "update"),
+    ("receipt", "record"),
+    ("receipt", "update"),
+    ("work", "expand-scope"),
+}
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
 
@@ -369,6 +389,8 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
     active_write_command = ""
     active_write_sources: list[str] = []
     write_target_directory = ""
+    write_options_ended = False
+    git_subcommand_index = -1
     sed_in_place = False
     sed_script_consumed = False
 
@@ -392,7 +414,7 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
             for source in active_write_sources[:-1]
         )
 
-    for token in tokens:
+    for token_index, token in enumerate(tokens):
         if token in SHELL_COMMAND_SEPARATORS:
             add_ordinary_directory_destinations()
             expect_command = True
@@ -402,6 +424,8 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
             active_write_command = ""
             active_write_sources = []
             write_target_directory = ""
+            write_options_ended = False
+            git_subcommand_index = -1
             sed_in_place = False
             sed_script_consumed = False
             continue
@@ -441,16 +465,23 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
                 sed_script_consumed = False
                 active_write_command = "sed"
             elif name == "git":
-                active_write_command = "git"
+                subcommand, git_subcommand_index = _git_subcommand_details(
+                    tokens, token_index
+                )
+                active_write_command = (
+                    f"git-{subcommand}" if subcommand in {"rm", "mv"} else ""
+                )
             continue
-        if active_write_command == "git":
-            active_write_command = f"git-{token}" if token in {"rm", "mv"} else ""
+        if git_subcommand_index >= 0 and token_index <= git_subcommand_index:
             continue
         if active_write_command == "sed":
+            if token == "--":
+                write_options_ended = True
+                continue
             if token in {"-i", "--in-place"} or token.startswith("-i"):
                 sed_in_place = True
                 continue
-            if token.startswith("-"):
+            if not write_options_ended and token.startswith("-"):
                 continue
             if not sed_script_consumed:
                 sed_script_consumed = True
@@ -462,7 +493,13 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
             if token.startswith("of=") and token[3:]:
                 targets.append(token[3:])
             continue
-        if active_write_command in {"cp", "install", "ln", "mv"}:
+        if active_write_command and token == "--":
+            write_options_ended = True
+            continue
+        if (
+            active_write_command in {"cp", "install", "ln", "mv"}
+            and not write_options_ended
+        ):
             if token in {"-t", "--target-directory"}:
                 expect_write_option_target = True
                 continue
@@ -485,7 +522,7 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
                     for source in active_write_sources
                 )
                 continue
-        if active_write_command and not token.startswith("-"):
+        if active_write_command and (write_options_ended or not token.startswith("-")):
             targets.append(token)
             active_write_sources.append(token)
             if write_target_directory:
@@ -500,10 +537,15 @@ def _bash_destructive_targets(command: str) -> list[str]:
     targets: list[str] = []
     expect_command = True
     active_command = ""
-    for token in _shell_tokens(command):
+    options_ended = False
+    git_subcommand_index = -1
+    tokens = _shell_tokens(command)
+    for token_index, token in enumerate(tokens):
         if token in SHELL_COMMAND_SEPARATORS:
             expect_command = True
             active_command = ""
+            options_ended = False
+            git_subcommand_index = -1
             continue
         if expect_command:
             if _is_shell_assignment(token):
@@ -513,13 +555,20 @@ def _bash_destructive_targets(command: str) -> list[str]:
             if name in {"mv", "rm", "rmdir"}:
                 active_command = name
             elif name == "git":
-                active_command = "git"
+                subcommand, git_subcommand_index = _git_subcommand_details(
+                    tokens, token_index
+                )
+                active_command = (
+                    f"git-{subcommand}" if subcommand in {"mv", "rm"} else ""
+                )
             continue
-        if active_command == "git":
-            active_command = f"git-{token}" if token in {"mv", "rm"} else ""
+        if git_subcommand_index >= 0 and token_index <= git_subcommand_index:
+            continue
+        if active_command and token == "--":
+            options_ended = True
             continue
         if active_command in {"git-mv", "git-rm", "mv", "rm", "rmdir"}:
-            if not token.startswith("-"):
+            if options_ended or not token.startswith("-"):
                 targets.append(token)
     return targets
 
@@ -725,6 +774,45 @@ def _palari_shell_review_reason(tokens: list[str], command_index: int) -> str:
     return f"unreviewed Palari command {label}"
 
 
+def _palari_workspace_review_reason(
+    command: str, cwd: Path, workspace_path: Path | str
+) -> str:
+    """Keep agent-safe Palari mutations bound to this hook's workspace."""
+
+    current = workspace_file_path(workspace_path).resolve()
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name != "palari":
+            continue
+        command_key = _palari_command_key(tokens, index)
+        if command_key not in MUTATING_AGENT_PALARI_COMMANDS:
+            continue
+        arguments = _command_arguments(tokens, index)
+        declared = ""
+        for argument_index, argument in enumerate(arguments):
+            if argument == "--workspace":
+                if argument_index + 1 < len(arguments):
+                    declared = arguments[argument_index + 1]
+                break
+            if argument.startswith("--workspace="):
+                declared = argument.split("=", 1)[1]
+                break
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = cwd / candidate
+            if workspace_file_path(candidate).resolve() != current:
+                return f"Palari mutation {' '.join(command_key)} targets another workspace"
+            continue
+        local_default = (cwd / "workspace.json").resolve()
+        if local_default != current:
+            return (
+                f"Palari mutation {' '.join(command_key)} must name this hook's "
+                "workspace with --workspace"
+            )
+    return ""
+
+
 def _palari_command_key(tokens: list[str], command_index: int) -> tuple[str, str]:
     arguments = _command_arguments(tokens, command_index)
     index = 0
@@ -786,6 +874,12 @@ def _is_shell_assignment(token: str) -> bool:
 def _git_subcommand(tokens: list[str], git_index: int) -> str:
     """Return a Git subcommand after recognized global options."""
 
+    return _git_subcommand_details(tokens, git_index)[0]
+
+
+def _git_subcommand_details(tokens: list[str], git_index: int) -> tuple[str, int]:
+    """Return a Git subcommand and its token index after global options."""
+
     index = git_index + 1
     while index < len(tokens):
         token = tokens[index]
@@ -807,13 +901,20 @@ def _git_subcommand(tokens: list[str], git_index: int) -> str:
         if token.startswith("-"):
             index += 1
             continue
-        return token
-    return tokens[index] if index < len(tokens) else ""
+        return token, index
+    return (tokens[index], index) if index < len(tokens) else ("", -1)
 
 
 def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
     """Reject Git options that can launch helpers or write output indirectly."""
 
+    subcommand, subcommand_index = _git_subcommand_details(tokens, git_index)
+    if subcommand == "rm" and subcommand_index >= 0:
+        for token in _command_arguments(tokens, subcommand_index):
+            if token.startswith(":"):
+                return f"Git pathspec magic {token}"
+            if any(marker in token for marker in ("*", "?", "[")):
+                return f"Git pathspec expansion {token}"
     for token in _command_arguments(tokens, git_index):
         if any(_long_option_matches(token, option) for option in GIT_INDIRECT_PATH_OPTIONS):
             return f"indirect Git path option {token.split('=', 1)[0]}"
@@ -1030,6 +1131,15 @@ def _pre_tool_use(
                 "ask",
                 f"{opaque_reason} can bypass Palari's observable write boundary. "
                 "A human must approve this shell command or use a directly inspected tool.",
+            )
+        workspace_reason = _palari_workspace_review_reason(
+            command, cwd, workspace_path
+        )
+        if workspace_reason:
+            return _decision(
+                "ask",
+                f"{workspace_reason}. Agent-safe Palari mutations cannot cross "
+                "the active hook workspace boundary.",
             )
         raw_targets = bash_write_targets(command, cwd=cwd)
         destructive_targets = _bash_destructive_targets(command)

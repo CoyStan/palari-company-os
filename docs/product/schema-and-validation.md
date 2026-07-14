@@ -131,6 +131,10 @@ Validation checks:
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
+- latest attempt, evidence, review, receipt, outcome, and integration ordering
+  compares timezone-bearing timestamps as normalized UTC instants, not lexical
+  timestamp spellings; a later failure or rejection in another offset cannot be
+  hidden behind an older passing record
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
 - accepted human decisions are made by a human with the required approval

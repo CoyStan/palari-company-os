@@ -269,10 +269,17 @@ expansion, abbreviated GNU write/Git helper options, and Git pathspec-file
 imports. Destructive removal or move
 targets include ancestors of workspace, runtime, Git truth, and the standard
 Claude hook settings, so deleting a parent directory cannot bypass the
-exact-file checks.
+exact-file checks. Quoted Git pathspec magic/globs and dash-prefixed operands
+after `--` remain reviewable. Agent-safe Palari mutations cannot point
+`--workspace` at another workspace or silently use a different default.
 Human-attributed review, decision, integration approval/cancel/enqueue/send,
 Linear adoption, terminal lifecycle, work-accept, and generic packet-authority
 mutation commands are denied from the supported agent shell.
+
+Latest evidence, review, receipt, attempt, outcome, and integration records are
+ordered by timezone-normalized UTC instants with stable id tie-breaking. ISO
+offset spelling cannot make an older pass or acceptance outrank a semantically
+later failure or rejection.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

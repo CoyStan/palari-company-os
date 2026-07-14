@@ -99,7 +99,10 @@ The test suite covers:
   mutations, Bash `|&`, assignment-position tilde expansion, abbreviated GNU
   write and Git helper options, Git pathspec-file target imports, direct Claude
   settings mutation, read/write redirections, and active-claim scope-change
-  rejection
+  rejection; quoted Git pathspec magic/globs, dash-prefixed post-`--` operands,
+  and cross-workspace agent-safe Palari mutations also fail closed
+- timezone-normalized latest-record ordering across differing ISO offsets,
+  including later failed evidence and changes-requested review
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

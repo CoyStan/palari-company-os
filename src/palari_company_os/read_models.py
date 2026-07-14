@@ -7,6 +7,7 @@ from typing import Any, Iterable, TypeVar
 from .governance_binding import current_review_binding_errors
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
+from .record_order import record_time_key as _record_time_key
 from .read_model_commands import (
     agent_commands,
     agent_handoff_command,
@@ -870,7 +871,7 @@ def _learning_signal(context: _ReadContext, palari: Any | None) -> str:
     ]
     if not linked_outcomes:
         return ""
-    latest = max(linked_outcomes, key=lambda outcome: outcome.timestamp)
+    latest = max(linked_outcomes, key=_record_time_key)
     if latest.follow_up_needed:
         return f"Outcome follow-up: {latest.follow_up_needed[0]}"
     if latest.model_worker_notes:
@@ -940,7 +941,7 @@ def _queued_integration_outbox_by_work(records: Iterable[T]) -> dict[str, list[T
 
 def _latest_by_work(records: Iterable[T]) -> dict[str, T]:
     latest: dict[str, T] = {}
-    keys: dict[str, tuple[str, str, str]] = {}
+    keys: dict[str, tuple[Any, ...]] = {}
     for record in records:
         work_id = getattr(record, "work_item_id")
         key = _record_time_key(record)
@@ -948,11 +949,3 @@ def _latest_by_work(records: Iterable[T]) -> dict[str, T]:
             latest[work_id] = record
             keys[work_id] = key
     return latest
-
-
-def _record_time_key(record: object) -> tuple[str, str, str]:
-    return (
-        str(getattr(record, "timestamp", "") or getattr(record, "updated_at", "")),
-        str(getattr(record, "started_at", "")),
-        str(getattr(record, "id", "")),
-    )

@@ -545,6 +545,47 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(safe, {})
         self.assertEqual(status, {})
 
+    def test_agent_safe_mutations_cannot_cross_hook_workspace(self) -> None:
+        commands = (
+            "palari agent start WORK-0001 --as PALARI-SOFIA --mode execute",
+            (
+                "palari --workspace other-workspace agent start WORK-0001 "
+                "--as PALARI-SOFIA --mode execute"
+            ),
+            (
+                "palari --workspace other-workspace evidence record EVIDENCE-X "
+                "--work-item-id WORK-0001 --attempt-id ATTEMPT-X --head-sha abc "
+                "--status passed"
+            ),
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "hook workspace boundary",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+        matching = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws agent start WORK-0001 "
+                    "--as PALARI-SOFIA --mode execute"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(matching, {})
+
     def test_path_qualified_trusted_basenames_require_human_review(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -636,6 +677,27 @@ class PreToolUseTests(unittest.TestCase):
                 )
                 self.assertEqual(_decision(result), "ask")
 
+    def test_option_terminator_preserves_dash_prefixed_write_operands(self) -> None:
+        (self.repo / "-x").mkdir()
+        commands = (
+            "cp source -- -x/../ws/workspace.json",
+            "mv source -- -x/../ws/workspace.json",
+            "ln source -- -x/../ws/workspace.json",
+            "rm -- -x/../ws/workspace.json",
+            "git rm -- -x/../ws/workspace.json",
+            "git --literal-pathspecs rm -- -x/../ws/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
     def test_standard_claude_hook_settings_are_self_protected(self) -> None:
         settings_dir = self.repo / ".claude"
         settings_dir.mkdir()
@@ -708,6 +770,10 @@ class PreToolUseTests(unittest.TestCase):
             "git grep '--open-files-in-pag=touch pager-pwn' needle",
             "git rm --pathspec-from-file=paths",
             "git rm --pathspec-from-f=paths",
+            "git rm ':(top)ws/workspace.json'",
+            "git rm ':(exclude)docs/safe.md'",
+            "git rm ':!docs/safe.md'",
+            "git rm 'ws/work*'",
             "rg --pre ./docs/rewrite-runtime-state pattern docs",
             "rg --hostname-bin=./docs/rewrite-runtime-state --hyperlink-format=default needle",
         )
@@ -1038,6 +1104,10 @@ class BashWriteTargetTests(unittest.TestCase):
         self.assertEqual(bash_write_targets("mv src.txt dst.txt"), ["src.txt", "dst.txt"])
         self.assertEqual(bash_write_targets("git rm docs/old.md"), ["docs/old.md"])
         self.assertEqual(bash_write_targets("sed -i s/a/b/ docs/x.md"), ["docs/x.md"])
+        self.assertIn(
+            "-x/../ws/workspace.json",
+            bash_write_targets("git rm -- -x/../ws/workspace.json"),
+        )
 
     def test_option_encoded_write_destinations(self) -> None:
         self.assertEqual(

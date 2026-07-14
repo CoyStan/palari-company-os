@@ -7,6 +7,7 @@ from typing import Any
 
 from .history import append_history_event
 from .read_models import detail, queue_items
+from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
@@ -952,7 +953,7 @@ def _latest_raw_for_attempt(
         return None
     return max(
         candidates,
-        key=lambda record: (str(record.get("timestamp", "")), str(record.get("id", ""))),
+        key=record_time_key,
     )
 
 

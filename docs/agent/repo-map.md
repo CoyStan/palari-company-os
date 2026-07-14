@@ -52,6 +52,9 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/review_guides.py`: read-only review guides.
 - `src/palari_company_os/governance_binding.py`: exact attempt, receipt,
   evidence, work-contract, and review proof binding.
+- `src/palari_company_os/record_order.py`: timezone-normalized deterministic
+  ordering for evidence, review, receipt, attempt, outcome, and integration
+  records.
 - `src/palari_company_os/decision_guides.py`: read-only decision guides.
 - `src/palari_company_os/scope.py`: declared scope checks.
 - `src/palari_company_os/history.py`: append-only workspace history.

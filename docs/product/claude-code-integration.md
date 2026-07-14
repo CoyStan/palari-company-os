@@ -39,7 +39,10 @@ truth before execute authority is granted:
   from agent Bash. Bash `|&`, assignment-position tilde expansion, abbreviated
   GNU write options, Git helper-option abbreviations, and Git pathspec-file
   imports are treated as indirect rather than inheriting a safe command label;
-  read/write `<>` redirections are write targets too.
+  read/write `<>` redirections are write targets too. Git pathspec magic and
+  quoted pathspec globs require review, and an explicit `--` keeps subsequent
+  dash-prefixed operands in write/destructive target analysis. Agent-safe
+  Palari mutations must resolve to the workspace configured for the hook.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are

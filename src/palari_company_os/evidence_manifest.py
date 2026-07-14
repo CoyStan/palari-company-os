@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .path_policy import resolve_workspace_path
+from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
 
 
@@ -205,7 +206,7 @@ def _previous_receipt_hash(record: dict[str, Any], existing_receipts: list[dict[
     ]
     if not candidates:
         return ""
-    latest = max(candidates, key=lambda item: (str(item.get("timestamp", "")), str(item.get("id", ""))))
+    latest = max(candidates, key=record_time_key)
     return str(latest.get("receipt_hash", ""))
 
 

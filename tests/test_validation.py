@@ -442,6 +442,52 @@ class WorkspaceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "evidence EVIDENCE-1 is failed"):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_later_offset_failed_evidence_outranks_lexically_later_pass(self) -> None:
+        from palari_company_os.evidence_manifest import evidence_manifest_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        later = dict(raw["evidence_runs"][0])
+        later.update(
+            {
+                "id": "EVIDENCE-LATER-FAILED",
+                "status": "failed",
+                "timestamp": "2026-06-19T00:02:00-04:00",
+            }
+        )
+        later["manifest_hash"] = evidence_manifest_hash(later)
+        raw["evidence_runs"].append(later)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence EVIDENCE-LATER-FAILED is failed, not passed",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_later_offset_rejection_outranks_lexically_later_acceptance(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        later = dict(raw["review_verdicts"][0])
+        later.update(
+            {
+                "id": "REVIEW-LATER-REJECTED",
+                "verdict": "changes-requested",
+                "timestamp": "2026-06-19T00:03:00-04:00",
+            }
+        )
+        later["proof_hash"] = review_proof_hash(later)
+        raw["review_verdicts"].append(later)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "review REVIEW-LATER-REJECTED is changes-requested, not accept-ready",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_accepted_decision_with_mismatched_review_head_fails_closed(self) -> None:
         from palari_company_os.governance_binding import review_proof_hash
 

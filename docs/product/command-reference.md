@@ -469,8 +469,10 @@ every Palari CLI nesting level; abbreviated GNU write/Git helper options,
 assignment-position tilde expansion, Bash `|&`, and Git pathspec-file imports
 ask rather than bypass target discovery. Destructive ancestor directories and
 the standard Claude hook settings are protected too. It never mutates workspace
-records and fails open on handler errors. `claude status` reports installed
-hooks and active claims. See
+records and fails open on handler errors. Quoted Git pathspec magic/globs and
+dash-prefixed operands after `--` remain observable, and agent-safe Palari
+mutations must target the hook's configured workspace. `claude status` reports
+installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
 
 ## Playbooks
