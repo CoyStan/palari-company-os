@@ -7,7 +7,11 @@ from .workspace import default_workspace_path
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="palari", description="Palari Company OS CLI")
+    parser = argparse.ArgumentParser(
+        prog="palari",
+        description="Palari Company OS CLI",
+        allow_abbrev=False,
+    )
     parser.add_argument(
         "--workspace",
         default=str(default_workspace_path()),

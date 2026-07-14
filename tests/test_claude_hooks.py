@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import hashlib
 import json
@@ -25,6 +26,7 @@ from palari_company_os.claude_hooks import (
 from palari_company_os.agent_file_changes import capture_git_baseline
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.agent_runtime import GIT_WITNESS_VERSION, _create_git_witness
+from palari_company_os.cli_parser import build_parser
 from palari_company_os.workspace import Workspace
 
 
@@ -359,6 +361,24 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(_decision(result), "deny")
         self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        command = (
+            "./bin/palari --work ws work accept WORK-1 --by HUMAN-FOUNDER "
+            "--reviewed-head abc123 --json"
+        )
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(command.split()[1:])
+
     def test_dynamic_human_acceptance_command_requires_human_review(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -374,11 +394,8 @@ class PreToolUseTests(unittest.TestCase):
             self.repo,
         )
 
-        self.assertEqual(_decision(result), "ask")
-        self.assertIn(
-            "dynamic shell expansion",
-            result["hookSpecificOutput"]["permissionDecisionReason"],
-        )
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_dynamic_human_acceptance_requires_review_without_active_claim(self) -> None:
         result = _pre_tool_use(
@@ -393,26 +410,26 @@ class PreToolUseTests(unittest.TestCase):
             self.repo,
         )
 
-        self.assertEqual(_decision(result), "ask")
+        self.assertEqual(_decision(result), "deny")
 
     def test_allowed_write_cannot_mask_later_authority_or_witness_command(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
         commands = (
-            (
+            ((
                 "touch docs/notes.md ; P=./bin/palari ; $P --workspace workspace.json "
                 "work accept WORK-1 --by HUMAN-FOUNDER --reviewed-head abc123 --json"
-            ),
-            (
+            ), "deny"),
+            ((
                 f"touch docs/notes.md ; git -C {self.repo} update-ref "
                 "refs/palari/claims/test abc123"
-            ),
-            (
+            ), "ask"),
+            ((
                 f"touch docs/notes.md ; git -C {self.repo} reflog expire "
                 "--expire=now --all"
-            ),
+            ), "ask"),
         )
 
-        for command in commands:
+        for command, expected in commands:
             with self.subTest(command=command):
                 result = _pre_tool_use(
                     self.workspace,
@@ -420,7 +437,7 @@ class PreToolUseTests(unittest.TestCase):
                     {"command": command},
                     self.repo,
                 )
-                self.assertEqual(_decision(result), "ask")
+                self.assertEqual(_decision(result), expected)
 
     def test_packet_authority_update_is_denied_to_agent_shell(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -611,6 +628,35 @@ class PreToolUseTests(unittest.TestCase):
                     self.repo,
                 )
                 self.assertEqual(_decision(result), "ask")
+
+    def test_destructive_ancestor_targets_are_protected_without_claim(self) -> None:
+        commands = (
+            "rm -rf ws",
+            "rmdir ws",
+            "mv ws backup",
+            "git mv ws backup",
+            "rm -rf .",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_nondestructive_parent_directory_target_remains_transparent(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "cp malicious/notes.txt ws"},
+            self.repo,
+        )
+
+        self.assertEqual(result, {})
 
     def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
         workspace_file = self.workspace / "workspace.json"

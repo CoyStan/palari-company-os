@@ -92,7 +92,8 @@ The test suite covers:
   config/environment options, post-release workspace-truth protection, and
   option-encoded/linked-worktree metadata paths, pager/filter helpers, and
   compact/newline separators, ordinary directory destinations, repository or
-  ripgrep helper overrides, and active-claim scope-change rejection
+  ripgrep helper overrides, global-option abbreviation rejection, destructive
+  ancestor targets, and active-claim scope-change rejection
 - nonterminal acceptance evidence/receipt tamper rejection
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

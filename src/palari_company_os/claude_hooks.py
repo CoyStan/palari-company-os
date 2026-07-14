@@ -405,6 +405,36 @@ def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
     return targets
 
 
+def _bash_destructive_targets(command: str) -> list[str]:
+    """Return paths whose existing contents a shell command may remove or move."""
+
+    targets: list[str] = []
+    expect_command = True
+    active_command = ""
+    for token in _shell_tokens(command):
+        if token in {"&&", "||", ";", "|", "&", "&|"}:
+            expect_command = True
+            active_command = ""
+            continue
+        if expect_command:
+            if _is_shell_assignment(token):
+                continue
+            expect_command = False
+            name = Path(token).name
+            if name in {"mv", "rm", "rmdir"}:
+                active_command = name
+            elif name == "git":
+                active_command = "git"
+            continue
+        if active_command == "git":
+            active_command = f"git-{token}" if token in {"mv", "rm"} else ""
+            continue
+        if active_command in {"git-mv", "git-rm", "mv", "rm", "rmdir"}:
+            if not token.startswith("-"):
+                targets.append(token)
+    return targets
+
+
 def bash_human_authority_command(command: str) -> str:
     """Name a human-only or packet-authority Palari shell mutation."""
 
@@ -413,15 +443,10 @@ def bash_human_authority_command(command: str) -> str:
         if Path(token).name != "palari":
             continue
         args = tokens[index + 1 :]
-        while args and args[0].startswith("-"):
-            option = args.pop(0)
-            if option in {"--workspace"} and args:
-                args.pop(0)
-        if len(args) < 2:
-            continue
-        command_key = (args[0], args[1])
-        if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
-            return " ".join(command_key)
+        for argument_index in range(len(args) - 1):
+            command_key = (args[argument_index], args[argument_index + 1])
+            if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
+                return " ".join(command_key)
     return ""
 
 
@@ -712,6 +737,7 @@ def _pre_tool_use(
     if not isinstance(tool_input, dict):
         tool_input = {}
     cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
+    destructive_targets: list[str] = []
 
     exact = tool_name in FILE_WRITE_TOOLS
     if exact:
@@ -733,6 +759,7 @@ def _pre_tool_use(
                 "A human must approve this shell command or use a directly inspected tool.",
             )
         raw_targets = bash_write_targets(command, cwd=cwd)
+        destructive_targets = _bash_destructive_targets(command)
     else:
         return {}
     raw_targets = [target for target in raw_targets if target]
@@ -766,7 +793,22 @@ def _pre_tool_use(
             (target, _protected_governance_target(target, cwd, root, workspace_path))
             for target in raw_targets
         ]
-        protected = [(target, reason) for target, reason in protected if reason]
+        protected.extend(
+            (
+                target,
+                _protected_governance_target(
+                    target,
+                    cwd,
+                    root,
+                    workspace_path,
+                    include_ancestors=True,
+                ),
+            )
+            for target in destructive_targets
+        )
+        protected = list(
+            dict.fromkeys((target, reason) for target, reason in protected if reason)
+        )
         if protected:
             details = ", ".join(f"{target} ({reason})" for target, reason in protected)
             return _decision(
@@ -1206,6 +1248,8 @@ def _protected_governance_target(
     cwd: Path,
     root: Path,
     workspace_path: Path | str,
+    *,
+    include_ancestors: bool = False,
 ) -> str:
     """Name governance state that must not be edited around the CLI gates."""
 
@@ -1232,13 +1276,23 @@ def _protected_governance_target(
                     protected_files.add(resolve_workspace_path(data_path.parent, canonical))
                 except ValueError:
                     continue
-    if target in protected_files:
+    if target in protected_files or (
+        include_ancestors and any(target in path.parents for path in protected_files)
+    ):
         return "workspace source of truth"
     runtime = (data_path.parent / ".palari").resolve()
-    if target == runtime or runtime in target.parents:
+    if (
+        target == runtime
+        or runtime in target.parents
+        or (include_ancestors and target in runtime.parents)
+    ):
         return "Palari runtime state"
     for git_metadata in _git_metadata_roots(root):
-        if target == git_metadata or git_metadata in target.parents:
+        if (
+            target == git_metadata
+            or git_metadata in target.parents
+            or (include_ancestors and target in git_metadata.parents)
+        ):
             return "Git metadata"
     return ""
 

@@ -461,7 +461,8 @@ direct writes to workspace root/split files, `.palari/`, or Git metadata remain
 protected after claim release. Protection includes option-encoded destinations,
 ordinary directory/basename semantics, compact/newline shell segments,
 linked-worktree/common Git directories, Git repository overrides, and
-Git/ripgrep helper-launching options. It
+Git/ripgrep helper-launching options. Global long-option abbreviations are
+rejected; destructive ancestor directories are protected too. It
 never mutates workspace records and fails open on handler errors. `claude
 status` reports installed hooks and active claims. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.

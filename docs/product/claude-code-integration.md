@@ -75,7 +75,9 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   `--target-directory` destinations. Compact/newline shell separators and
   ordinary existing-directory copy/move/link/install destinations resolve to
   their effective paths. Git repository overrides and ripgrep helper-launching
-  options ask rather than inheriting a read-only classification.
+  options ask rather than inheriting a read-only classification. Abbreviated
+  global CLI options are rejected, protected command pairs are scanned
+  defensively, and destructive parent-directory targets remain protected.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

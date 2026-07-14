@@ -51,7 +51,8 @@ Authority rules:
   destinations, including ordinary existing-directory basename semantics.
   Compact/newline command separators cannot hide later targets. Git repository
   overrides, pager/filter helpers, and ripgrep preprocessor/hostname helpers
-  require review.
+  require review. Global CLI long-option abbreviations are disabled, and
+  destructive targets cannot remove or move an ancestor of protected truth.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 

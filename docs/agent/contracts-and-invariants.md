@@ -62,7 +62,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   worktree/common Git directories are part of the same protected boundary;
   compact/newline shell segments and ordinary directory destinations must
   preserve the effective path. Repository overrides and pager/filter/ripgrep
-  helpers are execution-capable, not read-only.
+  helpers are execution-capable, not read-only. Global option abbreviations do
+  not create a second CLI grammar, and destructive protected-path ancestors
+  require review.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
   observations fail closed. Only unchanged start-time dirt is excluded from
   agent attribution.
