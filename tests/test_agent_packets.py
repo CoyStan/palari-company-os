@@ -232,10 +232,6 @@ class AgentPacketTests(unittest.TestCase):
             for candidate in agent["candidates"]
         ]
         ready_candidates = [item for item in candidates if item["candidate"]["can_start"]]
-        expected_top = min(
-            ready_candidates or candidates,
-            key=lambda item: item["candidate"]["queue_rank"],
-        )
 
         self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
         self.assertEqual(result["status"], "ready" if result["ready_count"] else "no-ready-work")
@@ -248,6 +244,17 @@ class AgentPacketTests(unittest.TestCase):
             sum(agent["blocked_count"] for agent in result["agents"]),
         )
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
+        if not candidates:
+            self.assertIsNone(result["top_candidate"])
+            self.assertEqual(result["status"], "no-ready-work")
+            self.assertTrue(result["next_allowed_commands"])
+            self.assertIn("palari validate --json", result["next_allowed_commands"])
+            return
+
+        expected_top = min(
+            ready_candidates or candidates,
+            key=lambda item: item["candidate"]["queue_rank"],
+        )
         self.assertEqual(result["top_candidate"], expected_top)
         self.assertEqual(
             result["next_allowed_commands"],

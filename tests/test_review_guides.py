@@ -131,6 +131,13 @@ class ReviewGuideTests(unittest.TestCase):
         payload = json.loads(self.run_cli("agent", "next", "--json").stdout)
         result = self.run_cli("agent", "next")
         top = payload["top_candidate"]
+        if top is None:
+            self.assertIn("Status: no-ready-work", result.stdout)
+            self.assertNotIn("Top:", result.stdout)
+            self.assertIn("Next commands:", result.stdout)
+            self.assertIn(payload["next_allowed_commands"][0], result.stdout)
+            return
+
         availability = "ready" if top["candidate"]["can_start"] else "waiting"
 
         self.assertIn(
