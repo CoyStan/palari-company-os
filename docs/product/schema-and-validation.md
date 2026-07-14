@@ -109,8 +109,12 @@ Validation checks:
 - attempt, evidence, review, human decision, receipt, and outcome references
 - attempt isolation metadata such as explicit head SHA, allowed paths,
   forbidden paths, and claim lease fields
-- evidence manifest hash shape and artifact hash path safety
+- evidence manifest hash shape, exact receipt binding, artifact presence, and
+  artifact hash path safety
 - receipt hash, previous receipt hash, and evidence manifest hash shape
+- optional v1 review-binding fields for attempt, evidence, receipt, work
+  contract, and aggregate proof hashes; when present the full binding is
+  validated as a unit
 - non-negative approval quorum counts
 - receipts use only sources allowed by the work item
 - receipt actor matches the attempt actor or work Palari
@@ -126,9 +130,12 @@ Validation checks:
 - accepted human decisions are made by a human with the required approval
   capability
 - acceptance records reference fresh passing evidence, fresh accept-ready
-  review, qualified human authority, and a matching human-decision record
+  exact-bound review, qualified human authority, matching receipt hash, and a
+  matching human-decision record
 - completed work has fresh passing evidence, fresh accept-ready review, no open
-  linked decision, and enough qualified human approvals
+  linked decision, current exact proof, a terminal clean attempt, and enough
+  qualified human approvals; each human's latest decision for that reviewed
+  head controls whether their approval counts
 
 Validation is intentionally stricter than a permissive JSON reader. Extra fields
 fail closed so typos and hidden state cannot quietly enter the source of truth.
@@ -146,6 +153,11 @@ known collections exist, including optional governance collections such as
 Older v1 workspaces may still omit optional collections when read directly; if
 present, they are strictly validated. Workspaces with a newer schema version
 fail closed until this code supports them.
+
+The exact review fields are additive in schema version 1. This preserves
+loading of historical unbound verdicts, but only a newly recorded, current
+exact-bound `accept-ready` verdict can pass the acceptance and non-lightweight
+completion gates.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

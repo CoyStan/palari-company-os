@@ -34,6 +34,29 @@ evidence for the current attempt head before review or acceptance.
 The latest review does not match the latest evidence head. Record a fresh
 review before human decision or completion.
 
+If the diagnostic names `attempt_hash`, `evidence_manifest_hash`,
+`receipt_hash`, or `work_contract_hash`, the exact-bound review no longer
+matches current proof. Refresh the receipt/evidence as needed and record a new
+review; exact-bound reviews are immutable.
+
+## `evidence manifest verification failed`
+
+Run `palari evidence verify EVIDENCE-ID --json`. A missing manifest, missing or
+mismatched exact receipt, changed artifact, unsafe artifact path, or receipt
+whose contents no longer match its hash fails closed. Record a fresh receipt
+first, then fresh evidence for the current attempt head.
+
+## `Git baseline ...` or unexpected file-boundary failure
+
+Restart the claim if its hashed baseline is malformed or belongs to another
+repository. `agent start` captures already-dirty path/status/stat metadata
+without reading contents. `agent check --git-diff` lists unchanged entries as
+`preexisting_unchanged_files`; any path or metadata change after start is
+attributed to the claim and checked against its write boundary.
+
+Traversal, non-canonical paths, symlink escape, malformed Git output, or an
+incomplete observation always fail closed.
+
 ## `lacks required approval capability`
 
 The human decision is being recorded by a human profile that does not have the

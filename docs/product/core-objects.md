@@ -105,7 +105,9 @@ forbidden paths, claim lease metadata, and cleanliness.
 ## Evidence Run
 
 Proof attached to a work item and attempt. Evidence records commands, status,
-head SHA, artifacts, artifact hashes, manifest hash, summary, and timestamp.
+head SHA, artifacts, artifact hashes, manifest hash, exact receipt hash,
+summary, and timestamp. The manifest covers the receipt hash as well as the
+artifact and verification fields, so changing either side invalidates proof.
 
 ## Review Verdict
 
@@ -115,6 +117,12 @@ Independent inspection. Verdicts are intentionally small:
 - `changes-requested`
 - `needs-human-decision`
 - `blocked`
+
+New `accept-ready` verdicts are bound to the exact attempt state, evidence
+manifest, receipt, reviewed head, and work contract. The binding has its own
+proof hash. Bound verdicts are immutable; a reviewer records a new verdict
+after any substantive change. Legacy unbound v1 verdicts remain readable for
+compatibility but cannot authorize a new acceptance or governed completion.
 
 ## Human Decision
 
@@ -133,7 +141,8 @@ Human-facing trust record for an attempt. A receipt says which sources were
 used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
-the user review, undo, or continue bounded work. Planned external writes must
+the user review, undo, or continue bounded work. The receipt hash is also part
+of exact evidence/review proof for governed acceptance. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
 used as receipt-backed external-write claims. Canceled outbox items also cannot

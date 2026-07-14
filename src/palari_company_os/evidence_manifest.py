@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .path_policy import resolve_workspace_path
 from .workspace import Workspace, WorkspaceError
 
 
@@ -39,6 +40,8 @@ def evidence_manifest_hash(record: dict[str, Any]) -> str:
         "commands": _strings(record.get("commands", [])),
         "artifacts": _strings(record.get("artifacts", [])),
         "artifact_hashes": _sorted_artifact_hashes(record.get("artifact_hashes", [])),
+        "receipt_hash": record.get("receipt_hash", ""),
+        "previous_receipt_hash": record.get("previous_receipt_hash", ""),
         "summary": record.get("summary", ""),
         "freshness": record.get("freshness", ""),
         "timestamp": record.get("timestamp", ""),
@@ -71,6 +74,8 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
         "commands": evidence.commands,
         "artifacts": evidence.artifacts,
         "artifact_hashes": evidence.artifact_hashes,
+        "receipt_hash": evidence.receipt_hash,
+        "previous_receipt_hash": evidence.previous_receipt_hash,
         "summary": evidence.summary,
         "freshness": evidence.freshness,
         "timestamp": evidence.timestamp,
@@ -79,8 +84,11 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
     recomputed_record = dict(record)
     recomputed_record["artifact_hashes"] = recomputed_artifacts
     recomputed_manifest = evidence_manifest_hash(recomputed_record)
-    artifact_ok = _sorted_artifact_hashes(evidence.artifact_hashes) == recomputed_artifacts
-    manifest_ok = not evidence.manifest_hash or evidence.manifest_hash == recomputed_manifest
+    artifact_ok = (
+        _sorted_artifact_hashes(evidence.artifact_hashes) == recomputed_artifacts
+        and all(item.get("status") == "present" for item in recomputed_artifacts)
+    )
+    manifest_ok = bool(evidence.manifest_hash) and evidence.manifest_hash == recomputed_manifest
     receipt_checks = _receipt_checks(workspace, evidence)
     ok = artifact_ok and manifest_ok and all(item["ok"] for item in receipt_checks)
     return {
@@ -99,12 +107,37 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
 
 
 def _receipt_checks(workspace: Workspace, evidence: Any) -> list[dict[str, Any]]:
+    if not evidence.receipt_hash:
+        return [
+            {
+                "receipt_id": "",
+                "ok": False,
+                "declared_receipt_hash": "",
+                "computed_receipt_hash": "",
+                "message": "evidence has no exact receipt hash",
+            }
+        ]
+
+    matching = [
+        receipt
+        for receipt in workspace.receipts
+        if receipt.work_item_id == evidence.work_item_id
+        and receipt.attempt_id == evidence.attempt_id
+        and receipt.receipt_hash == evidence.receipt_hash
+    ]
+    if not matching:
+        return [
+            {
+                "receipt_id": "",
+                "ok": False,
+                "declared_receipt_hash": evidence.receipt_hash,
+                "computed_receipt_hash": "",
+                "message": "no receipt matches the evidence work, attempt, and receipt hash",
+            }
+        ]
+
     checks: list[dict[str, Any]] = []
-    for receipt in workspace.receipts:
-        if receipt.work_item_id != evidence.work_item_id:
-            continue
-        if receipt.evidence_manifest_hash and receipt.evidence_manifest_hash != evidence.manifest_hash:
-            continue
+    for receipt in matching:
         record = {
             "id": receipt.id,
             "work_item_id": receipt.work_item_id,
@@ -131,6 +164,11 @@ def _receipt_checks(workspace: Workspace, evidence: Any) -> list[dict[str, Any]]
                 "ok": not receipt.receipt_hash or receipt.receipt_hash == computed,
                 "declared_receipt_hash": receipt.receipt_hash,
                 "computed_receipt_hash": computed,
+                "message": (
+                    "receipt hash verified"
+                    if receipt.receipt_hash == computed
+                    else "receipt content does not match its declared hash"
+                ),
             }
         )
     return checks
@@ -139,15 +177,21 @@ def _receipt_checks(workspace: Workspace, evidence: Any) -> list[dict[str, Any]]
 def _artifact_hashes(workspace_path: Path, artifacts: list[str]) -> list[dict[str, str]]:
     hashes: list[dict[str, str]] = []
     for artifact in artifacts:
-        path = Path(artifact)
-        if path.is_absolute() or ".." in path.parts:
+        try:
+            artifact_path = resolve_workspace_path(workspace_path, artifact)
+        except ValueError:
             hashes.append({"path": artifact, "sha256": f"{HASH_PREFIX}unsafe", "status": "unsafe"})
             continue
-        artifact_path = workspace_path / path
         if not artifact_path.exists() or not artifact_path.is_file():
             hashes.append({"path": artifact, "sha256": f"{HASH_PREFIX}missing", "status": "missing"})
             continue
-        digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        try:
+            digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        except OSError:
+            hashes.append(
+                {"path": artifact, "sha256": f"{HASH_PREFIX}unreadable", "status": "unreadable"}
+            )
+            continue
         hashes.append({"path": artifact, "sha256": f"{HASH_PREFIX}{digest}", "status": "present"})
     return sorted(hashes, key=lambda item: item["path"])
 

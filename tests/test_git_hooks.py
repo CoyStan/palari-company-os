@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -21,6 +22,14 @@ from palari_company_os.workspace import Workspace as Ws
 
 
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
+
+
+def _packet_hash(packet: dict[str, object]) -> str:
+    stable = {
+        key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
+    }
+    encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 class GitHooksTests(unittest.TestCase):
@@ -63,7 +72,11 @@ class GitHooksTests(unittest.TestCase):
             ["git", "commit", "-m", "init"], cwd=self._tmp, check=True, env=env, capture_output=True
         )
 
-    def _start_claim(self) -> None:
+    def _start_claim(
+        self,
+        work_id: str = "WORK-TEST-GIT",
+        allowed_resources: list[str] | None = None,
+    ) -> None:
         from palari_company_os.agent_runtime import start_agent
         from palari_company_os.authoring import create_record
 
@@ -71,7 +84,7 @@ class GitHooksTests(unittest.TestCase):
             str(self.workspace_path),
             "work",
             {
-                "id": "WORK-TEST-GIT",
+                "id": work_id,
                 "title": "Test git hooks",
                 "palari": "PALARI-STEWARD",
                 "goal": "GOAL-REPO-0001",
@@ -82,16 +95,16 @@ class GitHooksTests(unittest.TestCase):
                 "scope": "Test scope",
                 "acceptance_target": "Test acceptance",
                 "status": "active",
-                "allowed_resources": ["README.md"],
+                "allowed_resources": allowed_resources or ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
-                "output_targets": ["README.md"],
+                "output_targets": allowed_resources or ["README.md"],
                 "forbidden_actions": ["deploy"],
                 "verification_expectations": ["echo ok"],
             },
             command="test",
         )
         ws = Ws.load(self.workspace_path)
-        result = start_agent(ws, self.workspace_path, "WORK-TEST-GIT", "PALARI-STEWARD", "execute")
+        result = start_agent(ws, self.workspace_path, work_id, "PALARI-STEWARD", "execute")
         assert result.get("start", {}).get("status") == "claimed", f"Claim failed: {result.get('start', {})}"
         claims_dir = self.workspace_path / ".palari" / "claims"
         assert claims_dir.exists() and any(claims_dir.glob("*.json")), "No claim file created"
@@ -120,6 +133,20 @@ class GitHooksTests(unittest.TestCase):
         self.assertTrue(result["changed"])
         hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
         self.assertFalse(hook_path.exists())
+
+    def test_install_honors_core_hooks_path(self) -> None:
+        subprocess.run(
+            ["git", "config", "core.hooksPath", ".custom-hooks"],
+            cwd=self._tmp,
+            check=True,
+            capture_output=True,
+        )
+
+        result = install_git_hook(self._tmp, self.workspace_path)
+
+        self.assertEqual(result["status"], "installed")
+        self.assertEqual(Path(result["hook_path"]), Path(self._tmp) / ".custom-hooks" / "pre-commit")
+        self.assertTrue((Path(self._tmp) / ".custom-hooks" / "pre-commit").is_file())
 
     def test_remove_when_not_installed(self) -> None:
         result = install_git_hook(self._tmp, self.workspace_path, remove=True)
@@ -169,6 +196,117 @@ class GitHooksTests(unittest.TestCase):
         self.assertEqual(result["status"], "pass")
         self.assertIn("README.md", result["staged"])
         self.assertEqual(result["outside"], [])
+
+    def test_pre_commit_includes_staged_deletions(self) -> None:
+        outside_file = Path(self._tmp) / "tracked-outside.txt"
+        outside_file.write_text("tracked\n", encoding="utf-8")
+        subprocess.run(["git", "add", "tracked-outside.txt"], cwd=self._tmp, check=True)
+        subprocess.run(["git", "commit", "-m", "track outside"], cwd=self._tmp, check=True)
+        self._start_claim()
+        outside_file.unlink()
+        subprocess.run(["git", "add", "-A"], cwd=self._tmp, check=True)
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("tracked-outside.txt", result["staged"])
+        self.assertIn("tracked-outside.txt", result["outside"])
+
+    def test_pre_commit_rejects_noncanonical_staged_filename(self) -> None:
+        self._start_claim()
+        ambiguous = Path(self._tmp) / " README.md"
+        ambiguous.write_text("ambiguous\n", encoding="utf-8")
+        subprocess.run(["git", "add", " README.md"], cwd=self._tmp, check=True)
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "git-observation-error")
+        self.assertIn("canonical Git form", result["errors"][0])
+
+    def test_pre_commit_rejects_tampered_packet_context(self) -> None:
+        self._start_claim()
+        claim_path = next((self.workspace_path / ".palari" / "claims").glob("*.json"))
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        packet_path = self.workspace_path / claim["packet_path"]
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["context_hash"] = "sha256:tampered"
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "invalid-claim")
+        self.assertIn("context_hash", result["errors"][0])
+
+    def test_pre_commit_recomputes_packet_context_hash(self) -> None:
+        self._start_claim()
+        claim_path = next((self.workspace_path / ".palari" / "claims").glob("*.json"))
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        packet_path = self.workspace_path / claim["packet_path"]
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["allowed_paths"]["write"] = ["random_file.txt"]
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "invalid-claim")
+        self.assertIn("packet content", result["errors"][0])
+
+    def test_pre_commit_rejects_changes_under_review_mode_claim(self) -> None:
+        self._start_claim()
+        claim_path = next((self.workspace_path / ".palari" / "claims").glob("*.json"))
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        packet_path = self.workspace_path / claim["packet_path"]
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        claim["mode"] = "review"
+        packet["mode"] = "review"
+        packet["context_hash"] = _packet_hash(packet)
+        claim["context_hash"] = packet["context_hash"]
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+        (Path(self._tmp) / "README.md").write_text("review edit\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=self._tmp, check=True)
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "read-only-claim")
+
+    def test_pre_commit_does_not_union_overlapping_claim_authority(self) -> None:
+        self._start_claim("WORK-TEST-GIT-A")
+        self._start_claim("WORK-TEST-GIT-B")
+        (Path(self._tmp) / "README.md").write_text("overlap\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=self._tmp, check=True)
+
+        result = pre_commit(self.workspace_path, cwd=self._tmp)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "ambiguous-claim")
+
+    def test_cli_prints_rejection_before_nonzero_exit(self) -> None:
+        self._start_claim()
+        outside_file = Path(self._tmp) / "random_file.txt"
+        outside_file.write_text("test\n", encoding="utf-8")
+        subprocess.run(["git", "add", "random_file.txt"], cwd=self._tmp, check=True)
+
+        result = subprocess.run(
+            [
+                str(REPO_ROOT / "bin" / "palari"),
+                "--workspace",
+                str(self.workspace_path),
+                "git",
+                "pre-commit",
+            ],
+            cwd=self._tmp,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("random_file.txt", result.stderr)
 
     def test_pre_commit_no_git_repo(self) -> None:
         no_git = tempfile.mkdtemp()

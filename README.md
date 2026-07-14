@@ -105,9 +105,13 @@ Implemented now:
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - file-change boundary checks for `agent check --changed` and `--git-diff`
+- canonical path/symlink enforcement and metadata-only start baselines that
+  distinguish unchanged pre-existing dirt from agent changes
 - structural boundary enforcement inside Claude Code via `palari claude install`
   (out-of-boundary writes are denied by hooks, not just reported)
 - source and receipt trust records
+- exact attempt/receipt/evidence/work-contract review binding, immutable bound
+  reviews, and latest-decision quorum revocation
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and
@@ -359,13 +363,16 @@ Then go deeper:
 Run the normal local verification stack:
 
 ```bash
-./scripts/verify.sh
-python3 -m unittest discover -s tests
+./scripts/verify.sh complete
+./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh affected --git-diff
 ./scripts/install_smoke.sh
 ```
 
-`./scripts/verify.sh` runs unit tests, Python compilation, JSON validity checks,
-the lightweight style checker, and CLI smoke checks. `install_smoke.sh` creates
+`./scripts/verify.sh` defaults to the authoritative `complete` profile and runs
+unit tests, Python compilation, JSON validity checks, the lightweight style
+checker, CLI smokes, security tests, and package checks. `focused` and
+`affected` are iteration profiles, not acceptance gates. `install_smoke.sh` creates
 a temporary virtual environment, builds and installs a wheel, imports it, checks
 the installed `palari` command, and confirms packaged default fixtures work.
 

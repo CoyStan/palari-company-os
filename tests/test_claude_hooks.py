@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import subprocess
 import sys
@@ -33,6 +34,19 @@ def _write_claim_and_packet(
 ) -> None:
     packet_id = f"PACKET-{work_id}-{palari_id}-{mode.upper()}-V1"
     expires = datetime.now(timezone.utc) + timedelta(minutes=lease_minutes)
+    packet = {
+        "packet_id": packet_id,
+        "mode": mode,
+        "status": "ready",
+        "work_item": {"id": work_id},
+        "agent": {"id": palari_id},
+        "allowed_paths": {
+            "read": list(allowed_write or []),
+            "write": list(allowed_write or []),
+        },
+    }
+    context_hash = _packet_hash(packet)
+    packet["context_hash"] = context_hash
     claim = {
         "schema_version": "palari.agent_claim.v1",
         "work_item": work_id,
@@ -40,14 +54,8 @@ def _write_claim_and_packet(
         "mode": mode,
         "lease_expires_at": expires.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "packet_id": packet_id,
+        "context_hash": context_hash,
         "packet_path": f".palari/packets/{packet_id}.json",
-    }
-    packet = {
-        "packet_id": packet_id,
-        "allowed_paths": {
-            "read": list(allowed_write or []),
-            "write": list(allowed_write or []),
-        },
     }
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
@@ -55,6 +63,14 @@ def _write_claim_and_packet(
     packets.mkdir(parents=True, exist_ok=True)
     (claims / f"{work_id}.json").write_text(json.dumps(claim), encoding="utf-8")
     (packets / f"{packet_id}.json").write_text(json.dumps(packet), encoding="utf-8")
+
+
+def _packet_hash(packet: dict[str, Any]) -> str:
+    stable = {
+        key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
+    }
+    encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _git_repo(root: Path) -> None:
@@ -215,7 +231,7 @@ class PreToolUseTests(unittest.TestCase):
             self.repo,
         )
 
-        self.assertEqual(_decision(result), "ask")
+        self.assertEqual(_decision(result), "deny")
         self.assertIn("review-mode", result["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_path_outside_repo_is_undecided_unless_strict(self) -> None:
@@ -227,8 +243,8 @@ class PreToolUseTests(unittest.TestCase):
             self.workspace, "Write", {"file_path": str(outside)}, self.repo, strict=True
         )
 
-        self.assertEqual(relaxed, {})
-        self.assertEqual(_decision(strict), "ask")
+        self.assertEqual(_decision(relaxed), "deny")
+        self.assertEqual(_decision(strict), "deny")
 
     def test_traversal_cannot_escape_the_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs"])
@@ -241,6 +257,66 @@ class PreToolUseTests(unittest.TestCase):
         )
 
         self.assertEqual(_decision(result), "deny")
+
+    def test_symlink_cannot_escape_the_boundary(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs"])
+        outside = Path(self._tmp.name) / "outside"
+        outside.mkdir()
+        (self.repo / "docs").symlink_to(outside, target_is_directory=True)
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "secret.txt")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+
+    def test_tampered_packet_context_blocks_write(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["context_hash"] = "sha256:tampered"
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("context_hash", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_overlapping_claims_do_not_union_authority(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("multiple active execute claims", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_distinct_claim_selects_single_covering_context(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs/a"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs/b"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "a" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "allow")
+        self.assertIn("WORK-A", result["hookSpecificOutput"]["permissionDecisionReason"])
 
 
 class BashWriteTargetTests(unittest.TestCase):
@@ -323,6 +399,26 @@ class StopHookTests(unittest.TestCase):
         (self.repo / "rogue.txt").write_text("oops\n", encoding="utf-8")
 
         self.assertEqual(self._stop(), {})
+
+    def test_multiple_execute_claims_block_stop_until_pinned(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs"])
+
+        result = self._stop()
+
+        self.assertEqual(result.get("decision"), "block")
+        self.assertIn("Multiple active execute claims", result["reason"])
+
+    def test_review_mode_claim_blocks_stop_after_file_change(self) -> None:
+        _write_claim_and_packet(
+            self.workspace, mode="review", allowed_write=["docs/notes.md"]
+        )
+        (self.repo / "docs" / "notes.md").write_text("review changed\n", encoding="utf-8")
+
+        result = self._stop()
+
+        self.assertEqual(result.get("decision"), "block")
+        self.assertIn("review-mode", result["reason"])
 
 
 class SessionStartTests(unittest.TestCase):

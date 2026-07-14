@@ -55,6 +55,7 @@
       "work_item_id": "WORK-1",
       "actor": "PALARI-SOFIA",
       "status": "complete",
+      "cleanliness": "clean",
       "commits": [
         "head-1"
       ]

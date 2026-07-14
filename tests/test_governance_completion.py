@@ -180,6 +180,24 @@ class GovernanceCompletionTests(unittest.TestCase):
             self.run_json(
                 "--workspace",
                 str(workspace_file),
+                "receipt",
+                "record",
+                "RECEIPT-ACCEPT",
+                "--work-item-id",
+                "WORK-0001",
+                "--attempt-id",
+                "ATTEMPT-0001",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=verified bounded output",
+                "--list",
+                "outputs_created=examples/acme-company-os/workspace.json",
+                "--json",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
                 "evidence",
                 "record",
                 "EVIDENCE-MANIFEST",
@@ -191,8 +209,12 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "abc1234",
                 "--status",
                 "passed",
+                "--summary",
+                "verification passed",
                 "--timestamp",
                 "2030-01-01T00:00:00Z",
+                "--list",
+                "commands=python3 -m unittest tests.test_governance_completion",
                 "--list",
                 "artifacts=reports/evidence/WORK-0001/summary.json",
                 "--json",
@@ -205,6 +227,22 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "EVIDENCE-MANIFEST",
                 "--json",
             )
+            raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+            receipt = next(
+                item for item in raw["receipts"] if item["id"] == "RECEIPT-ACCEPT"
+            )
+            receipt["actions_taken"].append("tampered after evidence")
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            receipt_tampered = self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "verify",
+                "EVIDENCE-MANIFEST",
+                "--json",
+            )
+            receipt["actions_taken"].pop()
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
             artifact.write_text('{"ok": false}\n', encoding="utf-8")
             tampered = self.run_json(
                 "--workspace",
@@ -216,6 +254,8 @@ class GovernanceCompletionTests(unittest.TestCase):
             )
 
         self.assertTrue(ok["ok"])
+        self.assertFalse(receipt_tampered["ok"])
+        self.assertFalse(receipt_tampered["receipt_checks"][0]["ok"])
         self.assertFalse(tampered["ok"])
         self.assertFalse(tampered["artifact_hashes_ok"])
 
@@ -225,6 +265,24 @@ class GovernanceCompletionTests(unittest.TestCase):
             artifact = workspace_dir / "reports" / "evidence" / "WORK-0001" / "summary.json"
             artifact.parent.mkdir(parents=True)
             artifact.write_text('{"ok": true}\n', encoding="utf-8")
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "receipt",
+                "record",
+                "RECEIPT-WORK-ACCEPT",
+                "--work-item-id",
+                "WORK-0001",
+                "--attempt-id",
+                "ATTEMPT-0001",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=verified bounded output",
+                "--list",
+                "outputs_created=examples/acme-company-os/workspace.json",
+                "--json",
+            )
             self.run_json(
                 "--workspace",
                 str(workspace_file),
@@ -239,8 +297,12 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "abc1234",
                 "--status",
                 "passed",
+                "--summary",
+                "verification passed",
                 "--timestamp",
                 "2030-01-01T00:00:00Z",
+                "--list",
+                "commands=python3 -m unittest tests.test_governance_completion",
                 "--list",
                 "artifacts=reports/evidence/WORK-0001/summary.json",
                 "--json",
@@ -288,10 +350,112 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "WORK-0001",
                 "--json",
             )
+            raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+            review = next(
+                item for item in raw["review_verdicts"] if item["id"] == "REVIEW-ACCEPT"
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "work",
+                "update",
+                "WORK-0001",
+                "--set",
+                "scope=Substantively changed after review.",
+                "--json",
+            )
+            stale = self.run_cli(
+                "--workspace",
+                str(workspace_file),
+                "work",
+                "accept",
+                "WORK-0001",
+                "--by",
+                "HUMAN-FOUNDER",
+                "--reviewed-head",
+                "abc1234",
+                "--id",
+                "HUMAN-DECISION-STALE",
+                "--acceptance-id",
+                "ACCEPTANCE-STALE",
+                "--json",
+                check=False,
+            )
 
         self.assertEqual(accepted["record_id"], "ACCEPTANCE-ACCEPT")
         self.assertEqual(detail["safety"]["acceptance_state"], "accepted")
         self.assertIn("HUMAN-DECISION-ACCEPT", json.dumps(detail["human_decisions"]))
+        self.assertTrue(review["proof_hash"].startswith("sha256:"))
+        self.assertEqual(review["attempt_id"], "ATTEMPT-0001")
+        self.assertEqual(review["evidence_reference"], "EVIDENCE-ACCEPT")
+        self.assertEqual(review["receipt_reference"], "RECEIPT-WORK-ACCEPT")
+        self.assertNotEqual(stale.returncode, 0)
+        self.assertIn("work_contract_hash is stale", stale.stderr)
+
+    def test_accept_ready_review_rejects_missing_artifact(self) -> None:
+        with self.temp_workspace() as workspace_file:
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "receipt",
+                "record",
+                "RECEIPT-MISSING-ARTIFACT",
+                "--work-item-id",
+                "WORK-0001",
+                "--attempt-id",
+                "ATTEMPT-0001",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=ran bounded verification",
+                "--list",
+                "outputs_created=examples/acme-company-os/workspace.json",
+                "--json",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "record",
+                "EVIDENCE-MISSING-ARTIFACT",
+                "--work-item-id",
+                "WORK-0001",
+                "--attempt-id",
+                "ATTEMPT-0001",
+                "--head-sha",
+                "abc1234",
+                "--status",
+                "passed",
+                "--summary",
+                "verification claimed",
+                "--timestamp",
+                "2030-01-02T00:00:00Z",
+                "--list",
+                "commands=python3 -m unittest tests.test_governance_completion",
+                "--list",
+                "artifacts=reports/evidence/does-not-exist.json",
+                "--json",
+            )
+            result = self.run_cli(
+                "--workspace",
+                str(workspace_file),
+                "review",
+                "record",
+                "REVIEW-MISSING-ARTIFACT",
+                "--work-item-id",
+                "WORK-0001",
+                "--reviewed-head",
+                "abc1234",
+                "--reviewer",
+                "HUMAN-OPS",
+                "--verdict",
+                "accept-ready",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("artifact is not present", result.stderr)
 
     def run_json(self, *args: str) -> dict[str, object]:
         result = self.run_cli(*args)

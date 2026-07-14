@@ -3,7 +3,7 @@
 Palari Company OS models this loop:
 
 ```text
-Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
+Goal -> Palari -> Work -> Attempt -> Receipt -> Evidence -> Review -> Human Decision -> Outcome
 ```
 
 ## Create Intent And Actors
@@ -28,7 +28,7 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
   --required-approval-capability product
 ```
 
-## Record Attempt, Evidence, Review, And Human Decision
+## Record Attempt, Receipt, Evidence, Review, And Human Decision
 
 ```bash
 ./bin/palari attempt record ATTEMPT-X \
@@ -39,12 +39,25 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
 
 ./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X
 
+./bin/palari receipt record RECEIPT-X \
+  --work-item-id WORK-X \
+  --attempt-id ATTEMPT-X \
+  --actor PALARI-X \
+  --list actions_taken="drafted the bounded note" \
+  --list outputs_created=docs/product/company-os.md
+
 ./bin/palari lifecycle evidence EVIDENCE-X \
   --work-item-id WORK-X \
   --attempt-id ATTEMPT-X \
   --head-sha head-x \
   --status passed \
+  --summary "Focused verification passed." \
   --list "commands=python3 -m unittest discover -s tests"
+
+./bin/palari attempt closeout ATTEMPT-X \
+  --head-sha head-x \
+  --cleanliness clean \
+  --changed docs/product/company-os.md
 
 ./bin/palari lifecycle review REVIEW-X \
   --work-item-id WORK-X \
@@ -64,7 +77,10 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
 
 Acceptance fails closed if the human lacks the required capability, evidence is
 missing or stale, review is missing or stale, or the decision head does not
-match the reviewed head.
+match the reviewed head. An `accept-ready` review is automatically bound to the
+exact terminal attempt, receipt, evidence manifest, reviewed head, and work
+contract. Any later substantive change requires refreshed proof and a new
+review.
 
 ## Complete Work And Record Outcome
 
@@ -77,4 +93,3 @@ match the reviewed head.
 ```
 
 Completion fails closed unless the queue says the work is ready to integrate.
-

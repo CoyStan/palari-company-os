@@ -19,6 +19,7 @@ from urllib.parse import urlencode
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.authoring import create_record
 from palari_company_os.history import read_history
 from palari_company_os.integrations import record_integration_plan
 from palari_company_os.models import to_plain
@@ -127,6 +128,7 @@ class MissionControlTests(unittest.TestCase):
 
     def test_post_honors_workspace_write_lock(self) -> None:
         with temp_workspace() as workspace_file:
+            record_bound_work_0001(workspace_file)
             lock_path = workspace_file.parent / ".palari" / "locks" / "workspace.json.lock"
             lock_path.parent.mkdir(parents=True, exist_ok=True)
             lock_path.write_text(f"pid={os.getpid()}\n", encoding="utf-8")
@@ -158,6 +160,8 @@ class MissionControlTests(unittest.TestCase):
 
     def test_ui_approve_matches_cli_human_decision_record_shape(self) -> None:
         with temp_workspace() as ui_workspace, temp_workspace() as cli_workspace:
+            record_bound_work_0001(ui_workspace)
+            record_bound_work_0001(cli_workspace)
             decision_id = "HUMAN-DECISION-SAME"
             timestamp = "2026-07-06T14:00:00Z"
             server = create_mission_control_server(
@@ -324,6 +328,55 @@ class MissionControlTests(unittest.TestCase):
 
 def temp_workspace() -> Any:
     return _TempWorkspace()
+
+
+def record_bound_work_0001(workspace_file: Path) -> None:
+    create_record(
+        workspace_file,
+        "receipt",
+        {
+            "id": "RECEIPT-MISSION-BOUND",
+            "work_item_id": "WORK-0001",
+            "attempt_id": "ATTEMPT-0001",
+            "actor": "PALARI-SOFIA",
+            "sources_used": [],
+            "actions_taken": ["prepared exact proof for the mission-control test"],
+            "outputs_created": ["examples/acme-company-os/workspace.json"],
+            "external_writes": [],
+            "not_done": ["No external writes performed"],
+            "undo_refs": [],
+        },
+    )
+    create_record(
+        workspace_file,
+        "evidence",
+        {
+            "id": "EVIDENCE-MISSION-BOUND",
+            "work_item_id": "WORK-0001",
+            "attempt_id": "ATTEMPT-0001",
+            "head_sha": "abc1234",
+            "status": "passed",
+            "base_ref": "main",
+            "commands": ["python3 -m unittest tests.test_mission_control"],
+            "artifacts": [],
+            "summary": "Mission-control acceptance fixture proof passed.",
+            "freshness": "fresh",
+        },
+    )
+    create_record(
+        workspace_file,
+        "review",
+        {
+            "id": "REVIEW-MISSION-BOUND",
+            "work_item_id": "WORK-0001",
+            "reviewed_head": "abc1234",
+            "reviewer": "HUMAN-OPS",
+            "verdict": "accept-ready",
+            "findings": [],
+            "checks_inspected": ["python3 -m unittest tests.test_mission_control"],
+            "residual_risks": [],
+        },
+    )
 
 
 class _TempWorkspace:

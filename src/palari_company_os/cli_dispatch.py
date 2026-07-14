@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -190,7 +191,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.mode,
                     changed_paths=args.changed,
                     git_diff=args.git_diff,
-                    cwd=Path.cwd(),
+                    # Bind Git observation to the checkout that contains the
+                    # selected workspace, not an arbitrary caller directory.
+                    cwd=workspace.path,
                 ),
                 args.json,
             )
@@ -279,7 +282,15 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.git_command == "pre-commit":
             result = pre_commit(args.workspace, cwd=Path.cwd())
-            if not result["ok"] and not args.json:
+            if not result["ok"]:
+                if args.json:
+                    print(json.dumps(result, indent=2, sort_keys=True))
+                else:
+                    print(result.get("message", "Palari commit check failed."), file=sys.stderr)
+                    for error in result.get("errors", []):
+                        print(f"  error: {error}", file=sys.stderr)
+                    for path in result.get("outside", []):
+                        print(f"  outside: {path}", file=sys.stderr)
                 sys.exit(1)
             return CommandResult("git-pre-commit", result, args.json)
         if args.git_command == "status":

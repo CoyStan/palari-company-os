@@ -160,7 +160,8 @@ runtime now writes two audit files for ready started work:
 
 - `.palari/packets/PACKET-...json` stores the exact bounded packet.
 - `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
-  and context hash for the active local claim.
+  context hash, and a hashed metadata-only Git dirty baseline for the active
+  local claim. The baseline records path/status/stat metadata, never contents.
 
 Implemented:
 
@@ -186,6 +187,7 @@ Implemented:
 - machine-readable packet compliance checks
 - local packet persistence and local claim leases
 - optional changed-file boundary checks
+- unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
@@ -220,9 +222,11 @@ When `--changed PATH` or `--git-diff` is supplied, `agent check` also compares
 observed file changes against the packet's writable paths and required outputs.
 It reports changed files inside and outside the write boundary, missing file
 outputs, and changed files not represented by the current attempt/receipt
-records. This is intentionally lightweight: Palari does not inspect file
-contents, but it can catch edits outside the packet boundary before an agent
-claims work is done.
+records. For claims started in Git, unchanged dirty paths captured at start are
+listed separately and not attributed to the agent; a changed fingerprint is
+attributed normally. This is intentionally content-blind: Palari compares Git
+status and file metadata, rejects traversal/symlink escape and incomplete
+observations, and never treats the baseline as cryptographic provenance.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

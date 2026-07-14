@@ -177,7 +177,8 @@ class WorkspaceValidationTests(unittest.TestCase):
 
     def test_receipt_output_outside_declared_boundary_fails_closed(self) -> None:
         def outside_output(data: dict[str, object]) -> None:
-            data["receipts"][0]["outputs_created"] = ["secrets.env"]
+            receipt = next(item for item in data["receipts"] if item["id"] == "RECEIPT-0001")
+            receipt["outputs_created"] = ["secrets.env"]
 
         with self.assertRaisesRegex(
             WorkspaceError,
@@ -187,7 +188,8 @@ class WorkspaceValidationTests(unittest.TestCase):
 
     def test_receipt_undo_ref_outside_declared_boundary_fails_closed(self) -> None:
         def outside_undo(data: dict[str, object]) -> None:
-            data["receipts"][0]["undo_refs"] = ["delete secrets.env"]
+            receipt = next(item for item in data["receipts"] if item["id"] == "RECEIPT-0001")
+            receipt["undo_refs"] = ["delete secrets.env"]
 
         with self.assertRaisesRegex(
             WorkspaceError,
@@ -412,6 +414,99 @@ class WorkspaceValidationTests(unittest.TestCase):
             "invalid-human-approval-capability.json",
             "human_decisions.HUMAN-DECISION-1.human_id lacks required approval capability product",
         )
+
+    def test_review_builder_must_be_independent_human(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["attempts"][0]["actor"] = "HUMAN-PRODUCT"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "reviewer must be independent from attempt actor HUMAN-PRODUCT",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_acceptance_record_cannot_reference_negative_decision(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"][0]["decision"] = "changes-requested"
+        raw["human_decisions"][0]["status"] = "changes-requested"
+        raw["human_decisions"][0]["quorum_status"] = "not-met"
+        raw["acceptance_records"] = [
+            {
+                "id": "ACCEPTANCE-1",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "status": "accepted",
+                "decision_id": "HUMAN-DECISION-1",
+                "evidence_reference": "EVIDENCE-1",
+                "review_reference": "REVIEW-1",
+                "quorum_status": "met",
+            }
+        ]
+
+        with self.assertRaisesRegex(WorkspaceError, "points to non-acceptance decision"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_later_negative_decision_revokes_completion_quorum(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-2",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "decision": "changes-requested",
+                "status": "changes-requested",
+                "quorum_status": "not-met",
+                "timestamp": "2030-01-01T00:00:00Z",
+            }
+        )
+
+        with self.assertRaisesRegex(WorkspaceError, "approval quorum is 0/1"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_completed_work_rejects_stale_exact_work_contract(self) -> None:
+        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        work = next(item for item in raw["work_items"] if item["id"] == "WORK-0001")
+        work["status"] = "completed"
+        work["scope"] = "Changed after exact review."
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-EXACT",
+                "work_item_id": "WORK-0001",
+                "human_id": "HUMAN-FOUNDER",
+                "reviewed_head": "abc1234",
+                "decision": "accepted",
+                "status": "accepted",
+                "acceptance_mode": "human",
+                "quorum_status": "met",
+                "evidence_reference": "EVIDENCE-0001",
+                "review_reference": "REVIEW-0001",
+                "timestamp": "2026-06-18T18:00:00Z",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "status is terminal but exact review proof is stale: .*work_contract_hash is stale",
+        ):
+            Workspace.from_raw(raw, EXAMPLE_WORKSPACE)
+
+    def test_high_risk_terminal_work_requires_terminal_attempt(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["risk"] = "R3"
+        raw["attempts"][0]["status"] = "active"
+
+        with self.assertRaisesRegex(WorkspaceError, "current attempt ATTEMPT-1 is active"):
+            Workspace.from_raw(raw, FIXTURES)
 
     def test_completed_work_without_quorum_fails_closed(self) -> None:
         self.assert_fixture_error(

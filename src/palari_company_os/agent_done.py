@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
 from .agent_checks import build_agent_check
+from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_finish import build_agent_finish
-from .agent_runtime import read_claim, release_agent, start_agent
+from .agent_packets import build_agent_brief
+from .agent_runtime import claim_is_active, read_claim, release_agent, start_agent
 from .authoring import closeout_attempt, complete_work, create_record, update_record
 from .read_models import detail
 from .workspace import Workspace, WorkspaceError
@@ -43,7 +46,25 @@ def agent_done(
             "can_done": False,
         }
 
+    attempt_id = f"ATTEMPT-DONE-{work_id}"
+    receipt_id = f"RECEIPT-DONE-{work_id}"
+    prior_attempt = next((item for item in workspace.attempts if item.id == attempt_id), None)
     if work.get("status") in {"completed", "closed", "done"}:
+        if prior_attempt is not None:
+            claim = read_claim(workspace_path, work_id)
+            if claim and claim.get("claimed_by") == palari_id:
+                release_agent(workspace, workspace_path, work_id, palari_id)
+            return {
+                "schema_version": "palari.agent_done.v1",
+                "status": "done",
+                "work_item": work_id,
+                "workspace": workspace.name,
+                "message": f"Work item {work_id} was already completed by agent done.",
+                "can_done": True,
+                "steps": [{"step": "resume", "status": "already-completed"}],
+                "attempt_id": attempt_id,
+                "receipt_id": receipt_id,
+            }
         return {
             "schema_version": "palari.agent_done.v1",
             "status": "already-completed",
@@ -53,28 +74,61 @@ def agent_done(
             "can_done": False,
         }
 
+    preflight = _preflight(workspace, workspace_path, work_id, palari_id, changed)
+    if not preflight["ok"]:
+        return {
+            "schema_version": "palari.agent_done.v1",
+            "status": "blocked",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_done": False,
+            "message": preflight["message"],
+            "preflight": preflight,
+        }
+    if head_sha and head_sha != preflight["head_sha"]:
+        return {
+            "schema_version": "palari.agent_done.v1",
+            "status": "blocked",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_done": False,
+            "message": "declared head does not match the verified Git HEAD",
+            "preflight": preflight,
+        }
+    changed_paths = preflight["changed_files"]
+    head_sha = preflight["head_sha"]
+    resume_error = _resume_error(workspace, work_id, palari_id, attempt_id, receipt_id)
+    if resume_error:
+        return {
+            "schema_version": "palari.agent_done.v1",
+            "status": "blocked",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_done": False,
+            "message": resume_error,
+        }
+
     steps: list[dict[str, str]] = []
-    attempt_id = f"ATTEMPT-DONE-{work_id}"
-    receipt_id = f"RECEIPT-DONE-{work_id}"
-    changed_paths = changed or work.get("output_targets", []) or []
 
     attempt_record = {
         "id": attempt_id,
         "work_item_id": work_id,
         "actor": palari_id,
         "status": "active",
-        "cleanliness": "clean",
     }
     if model_or_worker:
         attempt_record["model_or_worker"] = model_or_worker
-    create_record(
-        workspace_path,
-        "attempt",
-        attempt_record,
-        command="agent done",
-        actor=palari_id,
-    )
-    steps.append({"step": "attempt-record", "id": attempt_id, "status": "created"})
+    if prior_attempt is None:
+        create_record(
+            workspace_path,
+            "attempt",
+            attempt_record,
+            command="agent done",
+            actor=palari_id,
+        )
+        steps.append({"step": "attempt-record", "id": attempt_id, "status": "created"})
+    else:
+        steps.append({"step": "attempt-record", "id": attempt_id, "status": "resumed"})
 
     receipt_record = {
         "id": receipt_id,
@@ -83,27 +137,34 @@ def agent_done(
         "actor": palari_id,
         "actions_taken": ["agent done shortcut"],
         "outputs_created": changed_paths,
-        "not_done": ["No external writes", "No live integrations", "No secrets read"],
+        "not_done": ["External writes were not authorized by this work item."],
         "undo_refs": changed_paths,
     }
-    create_record(
-        workspace_path,
-        "receipt",
-        receipt_record,
-        command="agent done",
-        actor=palari_id,
-    )
-    steps.append({"step": "receipt-record", "id": receipt_id, "status": "created"})
+    prior_receipt = next((item for item in workspace.receipts if item.id == receipt_id), None)
+    if prior_receipt is None:
+        create_record(
+            workspace_path,
+            "receipt",
+            receipt_record,
+            command="agent done",
+            actor=palari_id,
+        )
+        steps.append({"step": "receipt-record", "id": receipt_id, "status": "created"})
+    else:
+        steps.append({"step": "receipt-record", "id": receipt_id, "status": "resumed"})
 
-    update_record(
-        workspace_path,
-        "work",
-        work_id,
-        {"current_attempt": attempt_id},
-        command="agent done",
-        actor=palari_id,
-    )
-    steps.append({"step": "work-update", "id": work_id, "status": "updated"})
+    if work.get("current_attempt") != attempt_id:
+        update_record(
+            workspace_path,
+            "work",
+            work_id,
+            {"current_attempt": attempt_id},
+            command="agent done",
+            actor=palari_id,
+        )
+        steps.append({"step": "work-update", "id": work_id, "status": "updated"})
+    else:
+        steps.append({"step": "work-update", "id": work_id, "status": "resumed"})
 
     claim = read_claim(workspace_path, work_id)
     if claim:
@@ -133,7 +194,7 @@ def agent_done(
         palari_id,
         "execute",
         changed_paths=changed_paths,
-        cwd=Path.cwd(),
+        cwd=Path(preflight["git_root"]),
     )
     if not check.get("ok", False):
         return {
@@ -162,19 +223,24 @@ def agent_done(
         }
     steps.append({"step": "agent-finish", "status": "can-finish"})
 
-    closeout_attempt(
-        workspace_path,
-        attempt_id,
-        status="completed",
-        head_sha=head_sha,
-        cleanliness="clean",
-        changed_files=changed_paths,
-        output_targets=work.get("output_targets", []),
-        allow_missing_evidence=True,
-        command="agent done",
-        actor=palari_id,
-    )
-    steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "closed-out"})
+    workspace = Workspace.load(workspace_path)
+    current_attempt = next(item for item in workspace.attempts if item.id == attempt_id)
+    if current_attempt.status not in {"complete", "completed"}:
+        closeout_attempt(
+            workspace_path,
+            attempt_id,
+            status="completed",
+            head_sha=head_sha,
+            cleanliness="clean",
+            changed_files=changed_paths,
+            output_targets=work.get("output_targets", []),
+            allow_missing_evidence=True,
+            command="agent done",
+            actor=palari_id,
+        )
+        steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "closed-out"})
+    else:
+        steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "resumed"})
 
     complete_work(
         workspace_path,
@@ -185,6 +251,7 @@ def agent_done(
     )
     steps.append({"step": "lifecycle-complete", "id": work_id, "status": "completed"})
 
+    workspace = Workspace.load(workspace_path)
     release_agent(workspace, workspace_path, work_id, palari_id)
     steps.append({"step": "claim-release", "status": "released"})
 
@@ -199,3 +266,137 @@ def agent_done(
         "receipt_id": receipt_id,
         "message": f"Work item {work_id} completed via agent done shortcut.",
     }
+
+
+def _preflight(
+    workspace: Workspace,
+    workspace_path: Path | str,
+    work_id: str,
+    palari_id: str,
+    declared_changed: list[str] | None,
+) -> dict[str, Any]:
+    claim = read_claim(workspace_path, work_id)
+    if not claim:
+        return _blocked_preflight("agent done requires an active execute claim")
+    if claim.get("claimed_by") != palari_id:
+        return _blocked_preflight(
+            f"work is claimed by {claim.get('claimed_by', 'unknown')}, not {palari_id}"
+        )
+    if claim.get("mode") != "execute" or not claim_is_active(claim):
+        return _blocked_preflight("agent done requires a current execute-mode claim")
+
+    root = git_repo_root(workspace.path) or git_repo_root(Path.cwd())
+    if root is None:
+        return _blocked_preflight("agent done requires a Git repository for exact change proof")
+    status_inspection = inspect_file_changes(
+        {"allowed_paths": {"write": []}},
+        git_diff=True,
+        cwd=root,
+        git_baseline=claim.get("git_baseline"),
+    )
+    if status_inspection is None or not status_inspection.get("observation_complete"):
+        return _blocked_preflight("Git status failed; agent done cannot prove repository state")
+    dirty = [
+        path
+        for path in status_inspection.get("changed_files", [])
+        if ".palari/" not in path
+    ]
+    if dirty:
+        return _blocked_preflight(
+            "agent done requires a clean committed worktree; commit the bounded output first"
+        )
+
+    head_sha = _git_value(root, ["rev-parse", "HEAD"])
+    if not head_sha:
+        return _blocked_preflight("Git HEAD is unavailable; agent done cannot bind the attempt")
+    committed = _git_lines(
+        root,
+        ["diff-tree", "--root", "--no-commit-id", "--name-only", "-z", "-r", head_sha],
+    )
+    if committed is None:
+        return _blocked_preflight("Git commit inspection failed; agent done cannot prove changes")
+    changed_files = sorted(path for path in committed if path)
+    declared = sorted(dict.fromkeys(declared_changed or []))
+    if declared and declared != changed_files:
+        return _blocked_preflight(
+            "declared --changed paths do not exactly match the committed HEAD artifact"
+        )
+    if not changed_files:
+        return _blocked_preflight("committed HEAD contains no changed files")
+
+    packet = build_agent_brief(workspace, work_id, palari_id, "execute")
+    inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
+    if inspection is None:
+        return _blocked_preflight("file change inspection was unavailable")
+    outside = inspection.get("outside_write_boundary", [])
+    if outside:
+        return _blocked_preflight(
+            "committed HEAD contains paths outside the write boundary: " + ", ".join(outside)
+        )
+    missing = inspection.get("missing_required_outputs", [])
+    if missing:
+        return _blocked_preflight("required outputs are missing: " + ", ".join(missing))
+    return {
+        "ok": True,
+        "message": "Active claim, clean worktree, exact HEAD, and write boundary verified.",
+        "git_root": str(root),
+        "head_sha": head_sha,
+        "changed_files": changed_files,
+    }
+
+
+def _resume_error(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    attempt_id: str,
+    receipt_id: str,
+) -> str:
+    attempt = next((item for item in workspace.attempts if item.id == attempt_id), None)
+    if attempt is not None and (
+        attempt.work_item_id != work_id or attempt.actor != palari_id
+    ):
+        return f"existing {attempt_id} does not match this work and Palari"
+    receipt = next((item for item in workspace.receipts if item.id == receipt_id), None)
+    if receipt is not None and (
+        receipt.work_item_id != work_id
+        or receipt.attempt_id != attempt_id
+        or receipt.actor != palari_id
+    ):
+        return f"existing {receipt_id} does not match this work, attempt, and Palari"
+    work = workspace.work_item(work_id)
+    if work is not None and work.current_attempt not in {"", attempt_id}:
+        return f"work {work_id} already points to different attempt {work.current_attempt}"
+    return ""
+
+
+def _blocked_preflight(message: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "message": message,
+        "git_root": "",
+        "head_sha": "",
+        "changed_files": [],
+    }
+
+
+def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=False,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        return None
+    separator = b"\0" if "-z" in arguments else None
+    if separator:
+        return [os.fsdecode(field) for field in result.stdout.split(separator) if field]
+    return [os.fsdecode(field).strip() for field in result.stdout.splitlines() if field.strip()]
+
+
+def _git_value(root: Path, arguments: list[str]) -> str:
+    lines = _git_lines(root, arguments)
+    return lines[0] if lines else ""

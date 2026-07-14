@@ -41,6 +41,7 @@ class TransitionCheckTests(unittest.TestCase):
 
         self.assertTrue(ready.ok)
         self.assertEqual(ready.to_dict()["schema_version"], "palari.transition_check.v1")
+        self.assertEqual(ready.blockers, [])
         self.assertFalse(unqualified.ok)
         self.assertEqual(unqualified.blockers[0].code, "HUMAN_LACKS_CAPABILITY")
 
@@ -60,8 +61,26 @@ class TransitionCheckTests(unittest.TestCase):
         )
 
         self.assertFalse(result.ok)
-        self.assertEqual(result.blockers[0].code, "FRESH_EVIDENCE_MISSING")
-        self.assertIn("palari evidence record", result.blockers[0].next_command)
+        self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
+        self.assertIn("agent doctor", result.blockers[0].next_command)
+
+    def test_review_record_requires_existing_human_reviewer(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "review_record",
+            "REVIEW-MISSING-HUMAN",
+            actor="HUMAN-MISSING",
+            context={
+                "work_item_id": "WORK-0003",
+                "reviewed_head": "def5678",
+                "verdict": "changes-requested",
+            },
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.blockers[0].code, "REVIEWER_MISSING")
 
     def test_evidence_record_transition_blocks_wrong_attempt_head(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -101,7 +120,7 @@ class TransitionCheckTests(unittest.TestCase):
             data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("accept-ready review requires passed evidence", result.stderr)
+        self.assertIn("accept-ready review requires complete exact proof", result.stderr)
         self.assertNotIn("REVIEW-NO-EVIDENCE", json.dumps(data["review_verdicts"]))
 
     def test_cli_review_update_cannot_bypass_transition_gate(self) -> None:
@@ -135,8 +154,24 @@ class TransitionCheckTests(unittest.TestCase):
             review = next(item for item in data["review_verdicts"] if item["id"] == "REVIEW-CHANGES-FIRST")
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("accept-ready review requires passed evidence", result.stderr)
+        self.assertIn("accept-ready review requires complete exact proof", result.stderr)
         self.assertEqual(review["verdict"], "changes-requested")
+
+    def test_cli_exact_bound_review_is_immutable(self) -> None:
+        with self.temp_workspace() as workspace:
+            result = self.run_cli(
+                workspace,
+                "review",
+                "update",
+                "REVIEW-0001",
+                "--set",
+                "residual_risks=changed after review",
+                "--json",
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exact-proof-bound and immutable", result.stderr)
 
     def test_cli_evidence_record_uses_transition_gate(self) -> None:
         with self.temp_workspace() as workspace:

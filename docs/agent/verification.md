@@ -7,21 +7,28 @@ claiming the work is done.
 
 ```bash
 ./scripts/verify.sh
-python3 -m unittest discover -s tests
 ./scripts/install_smoke.sh
 ```
+
+`verify.sh` defaults to the authoritative `complete` profile. It always runs
+the full unit suite, static checks, fixture and schema validation, and the
+documented CLI smokes. The install smoke is a separate package-boundary check.
 
 ## Useful Focused Checks
 
 ```bash
-python3 -m unittest tests.test_agent_packets
-python3 -m unittest tests.test_validation
-python3 -m unittest tests.test_integrations
-python3 -m unittest tests.test_docs
+./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh focused tests.test_validation tests.test_integrations
+./scripts/verify.sh affected src/palari_company_os/agent_finish.py
+./scripts/verify.sh affected --git-diff
 ```
 
-Use focused checks to iterate quickly. Do not treat a narrow focused check as
-proof for a broad behavior change.
+The `affected` profile maps known paths to deterministic test modules. An
+unknown path fails safe by running the full unit suite. Use `--list` after a
+focused or affected command to inspect the selection without running it.
+
+Focused and affected profiles shorten iteration only. They are not acceptance
+proof and never replace the complete profile.
 
 ## CLI Smokes
 

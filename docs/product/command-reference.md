@@ -252,13 +252,16 @@ the queue blocks until a human answers.
 closeout status. By default it requires matching evidence for the head.
 
 Evidence records automatically get artifact hashes and a manifest hash when
-recorded through the CLI. Receipts automatically get a receipt hash. `evidence
-verify` recomputes artifact and receipt hashes and fails when artifacts changed
-after recording.
+recorded through the CLI. The manifest covers the exact receipt hash. Receipts
+automatically get a receipt hash. `evidence verify` requires the manifest and a
+matching receipt, recomputes artifact and receipt hashes, and fails on missing,
+changed, unsafe, or contradictory proof.
 
 `work accept` is the explicit human acceptance gate. It requires fresh passing
 evidence, fresh accept-ready review, qualified human authority, no open linked
-decision, no scope-overlap warning, and a valid evidence manifest when present.
+decision, no scope-overlap warning, and a valid exact evidence/receipt/review
+binding. New accept-ready reviews receive that binding automatically and become
+immutable; substantive changes require a new review record.
 It records both a human decision and an acceptance record. `work complete` keeps
 the terminal status gate and records a missing acceptance record from the latest
 qualified human decision when needed.
@@ -322,6 +325,8 @@ packet under `.palari/packets/`, records a local lease claim under
 `.palari/claims/`, and returns the same packet with `start` metadata. If the
 packet is blocked, `agent start` reports blockers and writes nothing. `agent
 release` removes this Palari's local claim when work is abandoned or handed off.
+For Git worktrees, the claim also stores a hashed, metadata-only baseline of
+already-dirty paths. It does not read their contents.
 
 The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -354,6 +359,10 @@ performs a lightweight file boundary audit. It reports modified, untracked, and
 deleted files; which changed files are inside or outside `allowed_paths.write`;
 missing file-backed required outputs; and changed files not represented by the
 current attempt `changed_files` or receipt `outputs_created`.
+Unchanged paths captured as dirty before `agent start` are reported separately
+as `preexisting_unchanged_files` and are not attributed to the agent. A new,
+changed, malformed, or baseline-mismatched path fails closed. Path checks use
+canonical repository paths and reject traversal and symlink escape.
 
 Agent subcommands that receive `--json` return machine-readable failures on
 workspace or command errors instead of plain text. The error payload includes
@@ -364,10 +373,11 @@ safe read commands.
 returns whether the agent may claim completion, whether the work should be
 handed off to a human, `next_step_type`, missing requirements, completed
 requirements, blockers, and report guidance. Handoff-ready receipt work points
-to `agent handoff` before the direct review guide; work with evidence but no
-review does the same. Missing approval points to a human-decision record
-template only when prerequisite proof is known. Missing proof or approval
-templates appear before generic inspect/validate commands. It does not close
+to `agent handoff` before the direct review guide. Review handoff is withheld
+until its receipt/evidence prerequisites pass. Human approval is withheld until
+receipt, evidence, and exact review all pass. Human-only mutation templates are
+isolated in `agent handoff.human_action_commands`, not returned as agent-safe
+finish commands. It does not close
 work, record receipts, mutate history, or perform external actions.
 In review mode, `ready-to-report` means the agent can report a review
 recommendation with evidence, not record a human review or claim the original

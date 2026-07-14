@@ -733,9 +733,10 @@
         "python3 -m unittest discover -s tests",
         "./bin/palari queue --json"
       ],
-      "artifacts": [
-        "reports/evidence/WORK-0001/summary.json"
-      ],
+      "artifacts": [],
+      "artifact_hashes": [],
+      "manifest_hash": "sha256:c8d6226239c13f834d579557e1d389cca1421d14a13853dea9302970966d473d",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7",
       "summary": "Unit tests and queue JSON passed for the beta checklist prototype.",
       "freshness": "fresh",
       "timestamp": "2026-06-18T17:35:00Z"
@@ -793,6 +794,15 @@
       "reviewed_head": "abc1234",
       "reviewer": "HUMAN-OPS",
       "verdict": "accept-ready",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-0001",
+      "attempt_hash": "sha256:ecf2603f394c3cb68de36048a0f7e53b4c4caa17b424afc702ec801af2ecbc31",
+      "evidence_reference": "EVIDENCE-0001",
+      "evidence_manifest_hash": "sha256:c8d6226239c13f834d579557e1d389cca1421d14a13853dea9302970966d473d",
+      "receipt_reference": "RECEIPT-0001A",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7",
+      "work_contract_hash": "sha256:97e69a650911a1f3e004121d51e5ca9aa48b3d59266866e0b3562f79839fa013",
+      "proof_hash": "sha256:45214ff01d8a90c186b303955102e697374dbb0b266d58c12b6f0ccc6915208a",
       "findings": [],
       "checks_inspected": [
         "python3 -m unittest discover -s tests",
@@ -872,6 +882,23 @@
         "remove examples/acme-company-os/outputs/beta-launch-summary.md"
       ],
       "timestamp": "2026-06-19T04:10:00Z"
+    },
+    {
+      "id": "RECEIPT-0001A",
+      "work_item_id": "WORK-0001",
+      "attempt_id": "ATTEMPT-0001",
+      "actor": "PALARI-SOFIA",
+      "actions_taken": [
+        "Prepared the bounded beta launch checklist."
+      ],
+      "outputs_created": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "not_done": [
+        "No deployment or external write was performed."
+      ],
+      "timestamp": "2026-06-18T17:34:00Z",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7"
     }
   ],
   "decisions": [

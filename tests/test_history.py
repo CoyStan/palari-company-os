@@ -51,6 +51,53 @@ class HistoryTests(unittest.TestCase):
         with self.fixture_workspace("valid-workspace.json") as workspace:
             self.run_cli(
                 workspace,
+                "receipt",
+                "record",
+                "RECEIPT-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--attempt-id",
+                "ATTEMPT-1",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=verified local checklist",
+            )
+            self.run_cli(
+                workspace,
+                "evidence",
+                "record",
+                "EVIDENCE-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--attempt-id",
+                "ATTEMPT-1",
+                "--head-sha",
+                "head-1",
+                "--status",
+                "passed",
+                "--summary",
+                "verification passed",
+                "--list",
+                "commands=python3 -m unittest tests.test_history",
+            )
+            self.run_cli(
+                workspace,
+                "review",
+                "record",
+                "REVIEW-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--reviewed-head",
+                "head-1",
+                "--reviewer",
+                "HUMAN-PRODUCT",
+                "--verdict",
+                "accept-ready",
+            )
+            history_file_path(workspace).unlink()
+            self.run_cli(
+                workspace,
                 "lifecycle",
                 "decide",
                 "HUMAN-DECISION-1",
@@ -65,9 +112,9 @@ class HistoryTests(unittest.TestCase):
                 "--status",
                 "accepted",
                 "--evidence-reference",
-                "EVIDENCE-1",
+                "EVIDENCE-BOUND",
                 "--review-reference",
-                "REVIEW-1",
+                "REVIEW-BOUND",
             )
             self.run_cli(workspace, "lifecycle", "complete", "WORK-1")
             self.run_cli(

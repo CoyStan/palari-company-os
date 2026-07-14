@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 
 WINDOWS_DRIVE_SEPARATOR_INDEX = 1
@@ -56,6 +56,64 @@ def path_allowed(path: str, allowed_resources: list[str]) -> bool:
             continue
         if normalized == allowed_path or normalized.startswith(f"{allowed_path}/"):
             return True
+    return False
+
+
+def resolve_workspace_path(
+    root: Path | str,
+    path: str,
+    *,
+    require_exists: bool = False,
+) -> Path:
+    """Resolve a workspace-relative path without allowing a symlink escape.
+
+    ``validate_workspace_path`` protects the lexical namespace. This helper is
+    for callers that will touch the filesystem: it additionally resolves
+    existing symlink components and requires the result to remain below the
+    canonical root. ``strict=False`` still resolves existing parents, so a new
+    file below a symlink that points outside the root is rejected before use.
+    """
+
+    normalized = validate_workspace_path(path)
+    canonical_root = Path(root).expanduser().resolve()
+    candidate = canonical_root.joinpath(*PurePosixPath(normalized).parts)
+    try:
+        resolved = candidate.resolve(strict=require_exists)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError(f"path cannot be resolved safely: {path}") from exc
+    try:
+        resolved.relative_to(canonical_root)
+    except ValueError as exc:
+        raise ValueError(f"path escapes workspace root through a symlink: {path}") from exc
+    return resolved
+
+
+def canonical_path_allowed(
+    path: str,
+    allowed_resources: list[str],
+    *,
+    root: Path | str,
+) -> bool:
+    """Return whether a filesystem path is canonically inside a boundary."""
+
+    try:
+        candidate = resolve_workspace_path(root, path)
+    except ValueError:
+        return False
+    for allowed in allowed_resources:
+        try:
+            if validate_workspace_path(allowed) != allowed:
+                continue
+            boundary = resolve_workspace_path(root, allowed)
+        except ValueError:
+            continue
+        if candidate == boundary:
+            return True
+        try:
+            candidate.relative_to(boundary)
+        except ValueError:
+            continue
+        return True
     return False
 
 

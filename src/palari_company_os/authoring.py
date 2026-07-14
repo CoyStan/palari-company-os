@@ -179,13 +179,14 @@ def update_record(
     record = _find(records, record_id)
     if record is None:
         raise WorkspaceError(f"{kind} not found: {record_id}")
+    _reject_generic_trust_transition(kind, record_id, record, updates)
     before = deepcopy(record)
     merged = dict(record)
     merged.update(updates)
     if _record_update_needs_transition(kind, updates):
         _assert_record_transition_allowed(store, kind, merged, allow_existing=True)
     record.update(updates)
-    _prepare_record_for_update(store, kind, record)
+    _prepare_record_for_update(store, kind, record, updates)
     workspace = write_store(store)
     append_history_event(
         store.data_path,
@@ -348,6 +349,18 @@ def _receipt_ready_completion_blocker(work_detail: dict[str, Any]) -> str:
 
 
 def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
+    work = workspace.work_item(work_id)
+    if work is not None and not (
+        work.risk in {"R1", "R2"} and work.required_approval_count == 0
+    ):
+        review = latest_for_work(workspace.review_verdicts, work_id)
+        if review is None:
+            return "exact review binding is missing"
+        from .governance_binding import current_review_binding_errors
+
+        binding_errors = current_review_binding_errors(workspace, review)
+        if binding_errors:
+            return binding_errors[0]
     evidence = latest_for_work(workspace.evidence_runs, work_id)
     if evidence is None or not evidence.manifest_hash:
         return ""
@@ -642,6 +655,13 @@ def _assert_acceptance_allowed(
             raise WorkspaceError(
                 f"work {work_id} evidence manifest verification failed; cannot accept"
             )
+    from .governance_binding import current_review_binding_errors
+
+    binding_errors = current_review_binding_errors(workspace, review)
+    if binding_errors:
+        raise WorkspaceError(
+            f"work {work_id} exact review proof is stale: {binding_errors[0]}; cannot accept"
+        )
 
 
 def _prepare_record_for_create(
@@ -652,15 +672,48 @@ def _prepare_record_for_create(
     if kind == "evidence":
         from .evidence_manifest import stamp_evidence_record
 
-        return stamp_evidence_record(record, store.data_path.parent)
+        stamped = dict(record)
+        if not stamped.get("timestamp"):
+            stamped["timestamp"] = _timestamp()
+        receipt = _latest_raw_for_attempt(
+            _records(store, "receipts"),
+            str(stamped.get("work_item_id") or ""),
+            str(stamped.get("attempt_id") or ""),
+        )
+        if receipt and receipt.get("receipt_hash") and not stamped.get("receipt_hash"):
+            stamped["receipt_hash"] = receipt["receipt_hash"]
+        return stamp_evidence_record(stamped, store.data_path.parent)
     if kind == "receipt":
         from .evidence_manifest import stamp_receipt_record
 
-        return stamp_receipt_record(record, _records(store, "receipts"))
+        stamped = dict(record)
+        if not stamped.get("timestamp"):
+            stamped["timestamp"] = _timestamp()
+        return stamp_receipt_record(stamped, _records(store, "receipts"))
+    if kind == "review":
+        stamped = dict(record)
+        if not stamped.get("timestamp"):
+            stamped["timestamp"] = _timestamp()
+        if stamped.get("verdict") == "accept-ready":
+            workspace = validate_data(store.data_path, store.data)
+            from .governance_binding import current_review_binding
+
+            binding, errors = current_review_binding(
+                workspace, str(stamped.get("work_item_id") or "")
+            )
+            if errors:
+                raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+            stamped.update(binding)
+        return stamped
     return record
 
 
-def _prepare_record_for_update(store: WorkspaceStore, kind: str, record: dict[str, Any]) -> None:
+def _prepare_record_for_update(
+    store: WorkspaceStore,
+    kind: str,
+    record: dict[str, Any],
+    updates: dict[str, Any],
+) -> None:
     if kind == "evidence":
         from .evidence_manifest import stamp_evidence_record
 
@@ -672,6 +725,18 @@ def _prepare_record_for_update(store: WorkspaceStore, kind: str, record: dict[st
             item for item in _records(store, "receipts") if item.get("id") != record.get("id")
         ]
         record.update(stamp_receipt_record(record, other_receipts))
+    if (
+        kind == "review"
+        and record.get("verdict") == "accept-ready"
+        and set(updates) & TRANSITION_UPDATE_FIELDS["review"]
+    ):
+        workspace = validate_data(store.data_path, store.data)
+        from .governance_binding import current_review_binding
+
+        binding, errors = current_review_binding(workspace, str(record.get("work_item_id") or ""))
+        if errors:
+            raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+        record.update(binding)
 
 
 def _assert_record_transition_allowed(
@@ -733,6 +798,11 @@ def _ensure_acceptance_record_for_completion(
     receipt = latest_for_work(workspace.receipts, work_id)
     if review is None or evidence is None or decision is None:
         return
+    if decision.status not in {"accepted", "approved"} and decision.decision not in {
+        "accepted",
+        "approved",
+    }:
+        return
     acceptance_id = f"ACCEPTANCE-{work_id}-{decision.human_id}"
     if _find(_records(store, "acceptance_records"), acceptance_id) is not None:
         return
@@ -766,9 +836,14 @@ def _qualified_approval_count_after(
         return 0
     humans_by_id = {human.id: human for human in workspace.humans}
     seen = {human_id}
+    latest_by_human: dict[str, Any] = {}
     for decision in workspace.human_decisions:
         if decision.work_item_id != work_id or decision.reviewed_head != reviewed_head:
             continue
+        previous = latest_by_human.get(decision.human_id)
+        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
+            latest_by_human[decision.human_id] = decision
+    for decision in latest_by_human.values():
         if decision.status not in {"accepted", "approved"} and decision.decision not in {
             "accepted",
             "approved",
@@ -781,6 +856,50 @@ def _qualified_approval_count_after(
             continue
         seen.add(decision.human_id)
     return len(seen)
+
+
+def _decision_order_key(decision: Any) -> tuple[str, str]:
+    return (str(getattr(decision, "timestamp", "")), str(getattr(decision, "id", "")))
+
+
+def _latest_raw_for_attempt(
+    records: list[dict[str, Any]], work_id: str, attempt_id: str
+) -> dict[str, Any] | None:
+    candidates = [
+        record
+        for record in records
+        if record.get("work_item_id") == work_id and record.get("attempt_id") == attempt_id
+    ]
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda record: (str(record.get("timestamp", "")), str(record.get("id", ""))),
+    )
+
+
+def _reject_generic_trust_transition(
+    kind: str, record_id: str, record: dict[str, Any], updates: dict[str, Any]
+) -> None:
+    if kind == "work" and str(updates.get("status") or "") in {"completed", "closed", "done"}:
+        raise WorkspaceError(
+            f"work {record_id} terminal status must use `palari work complete`"
+        )
+    if kind == "attempt" and set(updates) & {
+        "status",
+        "head_sha",
+        "commits",
+        "cleanliness",
+        "changed_files",
+        "output_targets",
+    }:
+        raise WorkspaceError(
+            f"attempt {record_id} trust fields must use `palari attempt closeout`"
+        )
+    if kind == "review" and record.get("binding_version"):
+        raise WorkspaceError(
+            f"review {record_id} is exact-proof-bound and immutable; record a new review"
+        )
 
 
 def _attempt_head(attempt: Any) -> str:

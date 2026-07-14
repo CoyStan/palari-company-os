@@ -30,6 +30,7 @@ from .models import (
     Workbench,
     WorkItem,
 )
+from .path_policy import resolve_workspace_path
 from .validation import (
     COLLECTION_FILE_KEYS,
     validate_raw_contract,
@@ -837,13 +838,13 @@ def _expand_collection_files(
 def _collection_file_path(workspace_path: Path, collection: str, value: str) -> Path:
     if not value:
         raise WorkspaceError(f"workspace.collection_files.{collection} contains an empty path")
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
+    try:
+        return resolve_workspace_path(workspace_path, value)
+    except ValueError as exc:
         raise WorkspaceError(
             f"workspace.collection_files.{collection} path must be workspace-relative "
-            f"and must not contain '..': {value}"
-        )
-    return workspace_path / path
+            f"and must not contain '..': {value}: {exc}"
+        ) from exc
 
 
 def _find(records: Iterable[T], identifier: str) -> T | None:

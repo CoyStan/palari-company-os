@@ -28,8 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
-from .agent_runtime import claim_is_active, claims_dir
-from .path_policy import path_allowed
+from .agent_runtime import load_active_claim_contexts
+from .path_policy import canonical_path_allowed
 from .store import workspace_file_path
 
 HOOK_EVENTS = ("pre-tool-use", "stop", "session-start")
@@ -82,13 +82,20 @@ def handle_hook_event(
     *,
     strict: bool = False,
 ) -> dict[str, Any]:
-    contexts = active_claim_contexts(workspace_path)
+    state = load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )
+    contexts = state["contexts"]
     if event == "pre-tool-use":
-        return _pre_tool_use(payload, contexts, strict=strict)
+        return _pre_tool_use(
+            payload, contexts, state["errors"], workspace_path, strict=strict
+        )
     if event == "stop":
-        return _stop(payload, contexts, workspace_path)
+        return _stop(payload, contexts, state["errors"], workspace_path)
     if event == "session-start":
-        return _session_start(contexts, workspace_path)
+        return _session_start(contexts, state["errors"], workspace_path)
     return {}
 
 
@@ -99,23 +106,11 @@ def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
     ``PALARI_AS`` / ``PALARI_WORK_ID`` environment variables narrow the set
     when one session among several must be pinned to a single claim.
     """
-    directory = claims_dir(workspace_path)
-    if not directory.is_dir():
-        return []
-    pin_palari = os.environ.get("PALARI_AS", "")
-    pin_work = os.environ.get("PALARI_WORK_ID", "")
-    contexts: list[dict[str, Any]] = []
-    for path in sorted(directory.glob("*.json")):
-        claim = _read_json(path)
-        if claim is None or not claim_is_active(claim):
-            continue
-        if pin_palari and claim.get("claimed_by") != pin_palari:
-            continue
-        if pin_work and claim.get("work_item") != pin_work:
-            continue
-        packet = _read_json(_packet_file(workspace_path, claim)) or {}
-        contexts.append({"claim": claim, "packet": packet})
-    return contexts
+    return load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )["contexts"]
 
 
 def bash_write_targets(command: str) -> list[str]:
@@ -288,7 +283,12 @@ def hooks_status(
                 "strict": strict,
             }
         )
-    contexts = active_claim_contexts(workspace_path)
+    state = load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )
+    contexts = state["contexts"]
     installed = any(item["palari_hook_events"] for item in files)
     return {
         "schema_version": "palari.claude_status.v1",
@@ -305,6 +305,7 @@ def hooks_status(
             }
             for context in contexts
         ],
+        "claim_errors": state["errors"],
         "message": (
             "Palari hooks are installed for Claude Code."
             if installed
@@ -316,6 +317,8 @@ def hooks_status(
 def _pre_tool_use(
     payload: dict[str, Any],
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
+    workspace_path: Path | str,
     *,
     strict: bool,
 ) -> dict[str, Any]:
@@ -335,6 +338,12 @@ def _pre_tool_use(
     if not raw_targets:
         return {}
 
+    if context_errors:
+        return _decision(
+            "deny" if exact else "ask",
+            "Palari cannot verify the active claim context: " + "; ".join(context_errors),
+        )
+
     execute = _execute_contexts(contexts)
     if not contexts:
         if strict:
@@ -351,33 +360,56 @@ def _pre_tool_use(
             "outside the packet contract. Start execute-mode work first: "
             "palari agent start WORK-ID --as PALARI-ID --mode execute --json"
         )
-        return _decision("deny" if exact and strict else "ask", reason)
+        return _decision("deny" if exact else "ask", reason)
 
     cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
     root = _resolution_root(payload)
-    allowed = _allowed_write_paths(execute)
-    outside: list[str] = []
     unresolved: list[str] = []
+    relative_targets: list[str] = []
     for target in raw_targets:
         relative = _relativize(target, root, cwd)
         if relative is None:
             unresolved.append(target)
-        elif not path_allowed(relative, allowed):
-            outside.append(relative)
-
-    if outside:
-        decision = "deny" if exact else "ask"
-        return _decision(decision, _boundary_reason(outside, allowed, execute, exact))
+        else:
+            relative_targets.append(relative)
     if unresolved:
-        if strict:
-            return _decision(
-                "ask",
-                "This command touches paths outside the repository "
-                f"({', '.join(sorted(unresolved))}), which the Palari packet cannot vouch for.",
+        return _decision(
+            "deny" if exact else "ask",
+            "This file change touches paths outside the repository "
+            f"({', '.join(sorted(unresolved))}), which the Palari packet cannot vouch for.",
+        )
+    if root is None or not _workspace_belongs_to_repo(workspace_path, root):
+        return _decision(
+            "deny" if exact else "ask",
+            "The active Palari workspace cannot be bound to this Git repository.",
+        )
+
+    covering = [
+        context
+        for context in execute
+        if all(
+            canonical_path_allowed(
+                target, _packet_write_paths(context["packet"]), root=root
             )
-        return {}
+            for target in relative_targets
+        )
+    ]
+    if len(covering) != 1:
+        if len(covering) > 1:
+            reason = (
+                "This file change is covered by multiple active execute claims. "
+                "Set PALARI_WORK_ID/PALARI_AS or release the overlapping claim before writing."
+            )
+        else:
+            reason = _boundary_reason(
+                relative_targets, _allowed_write_paths(execute), execute, exact
+            )
+        return _decision("deny" if exact else "ask", reason)
+
+    selected = covering[0]
+    allowed = _packet_write_paths(selected["packet"])
     if exact:
-        claim = execute[0]["claim"]
+        claim = selected["claim"]
         return _decision(
             "allow",
             f"Inside the Palari write boundary for {claim.get('work_item', '')} "
@@ -389,16 +421,72 @@ def _pre_tool_use(
 def _stop(
     payload: dict[str, Any],
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
     workspace_path: Path | str,
 ) -> dict[str, Any]:
     if payload.get("stop_hook_active"):
         return {}
+    if context_errors:
+        return {
+            "decision": "block",
+            "reason": "Palari cannot verify the active claim context: " + "; ".join(context_errors),
+        }
     execute = _execute_contexts(contexts)
-    if not execute:
+    if not contexts:
         return {}
+    if execute and len(execute) != 1:
+        return {
+            "decision": "block",
+            "reason": (
+                "Multiple active execute claims are ambiguous. Set PALARI_WORK_ID/PALARI_AS "
+                "or release overlapping claims before finishing."
+            ),
+        }
     cwd = str(payload.get("cwd") or "") or os.getcwd()
-    boundary_packet = {"allowed_paths": {"write": _allowed_write_paths(execute)}}
-    inspection = inspect_file_changes(boundary_packet, git_diff=True, cwd=Path(cwd))
+    root = git_repo_root(Path(cwd))
+    if root is None or not _workspace_belongs_to_repo(workspace_path, root):
+        return {
+            "decision": "block",
+            "reason": "Palari cannot bind this active claim and workspace to the current Git repository.",
+        }
+    if not execute:
+        inspection = inspect_file_changes(
+            {"allowed_paths": {"write": []}},
+            git_diff=True,
+            cwd=Path(cwd),
+            git_baseline=contexts[0]["claim"].get("git_baseline"),
+        )
+        observation_errors = inspection.get("observation_errors", []) if inspection else []
+        if observation_errors:
+            return {
+                "decision": "block",
+                "reason": "Palari could not inspect the Git worktree: "
+                + "; ".join(observation_errors),
+            }
+        changed = inspection.get("outside_write_boundary", []) if inspection else []
+        changed = _without_palari_runtime(changed, workspace_path, Path(cwd))
+        if changed:
+            return {
+                "decision": "block",
+                "reason": (
+                    "Active review-mode Palari claims are read-only; changed files: "
+                    + ", ".join(changed)
+                ),
+            }
+        return {}
+    boundary_packet = {"allowed_paths": {"write": _packet_write_paths(execute[0]["packet"])}}
+    inspection = inspect_file_changes(
+        boundary_packet,
+        git_diff=True,
+        cwd=Path(cwd),
+        git_baseline=execute[0]["claim"].get("git_baseline"),
+    )
+    observation_errors = inspection.get("observation_errors", []) if inspection else []
+    if observation_errors:
+        return {
+            "decision": "block",
+            "reason": "Palari could not inspect the Git worktree: " + "; ".join(observation_errors),
+        }
     outside = inspection.get("outside_write_boundary", []) if inspection else []
     outside = _without_palari_runtime(outside, workspace_path, Path(cwd))
     if not outside:
@@ -424,6 +512,7 @@ def _stop(
 
 def _session_start(
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
     workspace_path: Path | str,
 ) -> dict[str, Any]:
     workspace_dir = workspace_file_path(workspace_path).parent
@@ -431,6 +520,9 @@ def _session_start(
         "<palari-contract>",
         f"This project is governed by Palari Company OS (workspace: {workspace_dir}).",
     ]
+    if context_errors:
+        lines.append("Invalid active claim context (writes must stop):")
+        lines.extend(f"- {error}" for error in context_errors)
     if contexts:
         lines.append("Active claims:")
         for context in contexts:
@@ -599,15 +691,6 @@ def _looks_like_path(token: str) -> bool:
     return "/" in token or "." in Path(token).name
 
 
-def _packet_file(workspace_path: Path | str, claim: dict[str, Any]) -> Path:
-    workspace_dir = workspace_file_path(workspace_path).parent
-    relative = str(claim.get("packet_path", ""))
-    if relative:
-        return workspace_dir / relative
-    packet_id = str(claim.get("packet_id", ""))
-    return workspace_dir / ".palari" / "packets" / f"{packet_id}.json"
-
-
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -690,3 +773,11 @@ def _install_message(status: str, target: Path) -> str:
     if status == "removed":
         return f"Palari hooks removed from {target}."
     return f"{target} already matches the requested hook configuration."
+
+
+def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
+    try:
+        workspace_file_path(workspace_path).parent.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+    return True

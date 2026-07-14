@@ -590,6 +590,15 @@
         "work_item_id": { "type": "string" },
         "reviewed_head": { "type": "string" },
         "reviewer": { "type": "string" },
+        "binding_version": { "type": "string" },
+        "attempt_id": { "type": "string" },
+        "attempt_hash": { "type": "string" },
+        "evidence_reference": { "type": "string" },
+        "evidence_manifest_hash": { "type": "string" },
+        "receipt_reference": { "type": "string" },
+        "receipt_hash": { "type": "string" },
+        "work_contract_hash": { "type": "string" },
+        "proof_hash": { "type": "string" },
         "verdict": {
           "type": "string",
           "enum": ["accept-ready", "changes-requested", "needs-human-decision", "blocked"]

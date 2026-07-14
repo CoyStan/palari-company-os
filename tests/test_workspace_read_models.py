@@ -40,7 +40,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
         )
         self.assertEqual(len(workspace.workbenches), 2)
         self.assertEqual(len(workspace.work_items), 7)
-        self.assertEqual(len(workspace.receipts), 1)
+        self.assertEqual(len(workspace.receipts), 2)
 
     def test_dogfood_workspace_has_real_workbench_context(self) -> None:
         workspace = Workspace.load(DOGFOOD_WORKSPACE)
@@ -336,6 +336,22 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(item.attention, "needs-evidence")
         self.assertEqual(item.integration_state, "not-ready")
 
+    def test_approval_required_low_risk_work_does_not_use_receipt_ready_path(self) -> None:
+        def require_approval(data: dict[str, object]) -> None:
+            work_items = data["work_items"]
+            assert isinstance(work_items, list)
+            work_items[0]["required_approval_count"] = 1
+
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            require_approval,
+        )
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.receipt_state, "ready")
+        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.integration_state, "not-ready")
+
     def test_external_write_receipt_does_not_use_light_receipt_ready_path(self) -> None:
         def allow_external_write(data: dict[str, object]) -> None:
             data["work_items"][0]["allowed_actions"] = ["external_write"]
@@ -351,13 +367,43 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(item.attention, "needs-evidence")
 
     def test_evidence_staleness_blocks_review(self) -> None:
-        workspace = self.modified_workspace(
-            lambda data: data["attempts"][0].update({"commits": ["abc1234", "newhead"]})
-        )
+        def add_new_current_attempt(data: dict[str, object]) -> None:
+            work = data["work_items"][0]
+            work["current_attempt"] = "ATTEMPT-NEW"
+            data["attempts"].append(
+                {
+                    **data["attempts"][0],
+                    "id": "ATTEMPT-NEW",
+                    "status": "active",
+                    "commits": ["abc1234", "newhead"],
+                    "updated_at": "2026-06-18T18:10:00Z",
+                }
+            )
+
+        workspace = self.modified_workspace(add_new_current_attempt)
         item = {item.id: item for item in queue_items(workspace)}["WORK-0001"]
         self.assertEqual(item.attention, "needs-evidence")
         self.assertEqual(item.evidence_state, "stale")
         self.assertIn("stale", item.why)
+
+    def test_changes_requested_is_classified_as_repair_with_actionable_guidance(self) -> None:
+        def request_changes(data: dict[str, object]) -> None:
+            reviews = data["review_verdicts"]
+            assert isinstance(reviews, list)
+            review = next(item for item in reviews if item["work_item_id"] == "WORK-0006")
+            review["reviewed_head"] = "review-fresh"
+            review["verdict"] = "changes-requested"
+
+        workspace = self.modified_workspace(request_changes)
+        item = {item.id: item for item in queue_items(workspace)}["WORK-0006"]
+        payload = detail(workspace, "WORK-0006")
+
+        self.assertEqual(item.attention, "changes-requested")
+        self.assertEqual(item.next_step_type, "repair")
+        self.assertTrue(item.ai_safe_to_proceed)
+        self.assertIn("requested changes", item.why)
+        self.assertIn("Repair only the reviewed findings", item.next_action)
+        self.assertEqual(payload["next_step_type"], "repair")
 
     def test_qualified_human_decision_satisfies_quorum(self) -> None:
         def approve(data: dict[str, object]) -> None:
@@ -382,6 +428,56 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(item.attention, "ready-to-integrate")
         self.assertEqual(item.approval_progress, "1/1")
         self.assertEqual(item.integration_state, "ready")
+
+    def test_later_negative_human_decision_revokes_read_model_quorum(self) -> None:
+        def accept_then_reject(data: dict[str, object]) -> None:
+            decisions = data["human_decisions"]
+            decisions.extend(
+                [
+                    {
+                        "id": "HUMAN-DECISION-0002",
+                        "work_item_id": "WORK-0001",
+                        "human_id": "HUMAN-FOUNDER",
+                        "reviewed_head": "abc1234",
+                        "decision": "accepted",
+                        "status": "accepted",
+                        "acceptance_mode": "human",
+                        "quorum_status": "met",
+                        "evidence_reference": "EVIDENCE-0001",
+                        "review_reference": "REVIEW-0001",
+                        "timestamp": "2026-06-18T18:00:00Z",
+                    },
+                    {
+                        "id": "HUMAN-DECISION-0003",
+                        "work_item_id": "WORK-0001",
+                        "human_id": "HUMAN-FOUNDER",
+                        "reviewed_head": "abc1234",
+                        "decision": "changes-requested",
+                        "status": "changes-requested",
+                        "quorum_status": "not-met",
+                        "timestamp": "2026-06-18T18:01:00Z",
+                    },
+                ]
+            )
+
+        workspace = self.modified_workspace(accept_then_reject)
+        item = {item.id: item for item in queue_items(workspace)}["WORK-0001"]
+
+        self.assertEqual(item.attention, "needs-human-decision")
+        self.assertEqual(item.approval_progress, "0/1")
+        self.assertEqual(item.integration_state, "not-ready")
+
+    def test_work_contract_change_stales_exact_bound_review(self) -> None:
+        def change_contract(data: dict[str, object]) -> None:
+            data["work_items"][0]["scope"] = "Changed after the exact review."
+
+        workspace = self.modified_workspace(change_contract)
+        item = {item.id: item for item in queue_items(workspace)}["WORK-0001"]
+
+        self.assertEqual(item.attention, "needs-review")
+        self.assertEqual(item.review_state, "stale")
+        self.assertEqual(item.integration_state, "not-ready")
+        self.assertIn("work_contract_hash is stale", item.why)
 
     def test_scope_check_allows_declared_path_and_blocks_violations(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -452,10 +548,7 @@ class WorkspaceReadModelTests(unittest.TestCase):
     def modified_workspace(self, mutate: object) -> Workspace:
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         mutate(source)
-        with tempfile.TemporaryDirectory() as directory:
-            workspace_file = Path(directory) / "workspace.json"
-            workspace_file.write_text(json.dumps(source), encoding="utf-8")
-            return Workspace.load(workspace_file)
+        return Workspace.from_raw(source, WORKSPACE)
 
     def modified_fixture_workspace(self, fixture: str, mutate: object) -> Workspace:
         source = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
@@ -669,6 +762,27 @@ class CliTests(unittest.TestCase):
             )
             self.run_cli_in_workspace(
                 workspace,
+                "work",
+                "update",
+                "WORK-X",
+                "--set",
+                "current_attempt=ATTEMPT-X",
+            )
+            self.run_cli_in_workspace(
+                workspace,
+                "attempt",
+                "closeout",
+                "ATTEMPT-X",
+                "--head-sha",
+                "head-x",
+                "--cleanliness",
+                "clean",
+                "--changed",
+                "docs/product/company-os.md",
+                "--allow-missing-evidence",
+            )
+            self.run_cli_in_workspace(
+                workspace,
                 "receipt",
                 "record",
                 "RECEIPT-X",
@@ -689,7 +803,6 @@ class CliTests(unittest.TestCase):
                 "--list",
                 "undo_refs=revert docs/product/company-os.md",
             )
-            self.run_cli_in_workspace(workspace, "work", "update", "WORK-X", "--set", "current_attempt=ATTEMPT-X")
             self.run_cli_in_workspace(
                 workspace,
                 "lifecycle",
@@ -703,6 +816,8 @@ class CliTests(unittest.TestCase):
                 "head-x",
                 "--status",
                 "passed",
+                "--summary",
+                "The full unit suite passed for the closed attempt.",
                 "--list",
                 "commands=python3 -m unittest discover -s tests",
             )
@@ -716,7 +831,7 @@ class CliTests(unittest.TestCase):
                 "--reviewed-head",
                 "head-x",
                 "--reviewer",
-                "HUMAN-X",
+                "HUMAN-OPS",
                 "--verdict",
                 "accept-ready",
             )

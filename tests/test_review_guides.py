@@ -52,6 +52,20 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["attempt"], {"present": False})
         self.assertEqual(payload["receipt"], {"present": False})
 
+    def test_review_guide_excludes_human_attempt_actor(self) -> None:
+        raw = json.loads((ACME / "workspace.json").read_text(encoding="utf-8"))
+        raw["attempts"][0]["actor"] = "HUMAN-OPS"
+        raw["review_verdicts"] = [
+            item for item in raw["review_verdicts"] if item["work_item_id"] != "WORK-0001"
+        ]
+        workspace = Workspace.from_raw(raw, ACME)
+
+        payload = build_review_guide(workspace, "WORK-0001")
+
+        self.assertNotIn(
+            "HUMAN-OPS", {candidate["id"] for candidate in payload["reviewer_candidates"]}
+        )
+
     def test_review_guide_reports_stale_review_precisely(self) -> None:
         workspace = Workspace.load(ACME)
 

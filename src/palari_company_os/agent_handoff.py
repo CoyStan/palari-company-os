@@ -239,6 +239,7 @@ def _agent_safe_commands(
     human_approval_handoff: dict[str, Any] | None,
 ) -> list[str]:
     commands: list[str] = []
+    has_handoff = bool(review_handoff or decision_handoff or human_approval_handoff)
     if review_handoff is not None:
         _append_once(commands, review_handoff["command"])
     if decision_handoff is not None:
@@ -246,10 +247,20 @@ def _agent_safe_commands(
     if human_approval_handoff is not None:
         _append_once(commands, human_approval_handoff["command"])
     for command in finish.get("next_allowed_commands", []):
-        if _is_read_only_command(command):
+        if not has_handoff or _is_read_only_command(command):
             _append_once(commands, command)
     _append_once(commands, "palari validate --json")
     return commands
+
+
+def _is_read_only_command(command: str) -> bool:
+    return bool(
+        command.startswith("palari detail ")
+        or command.startswith("palari queue ")
+        or command.startswith("palari validate ")
+        or command.startswith("palari review guide ")
+        or command.startswith("palari decision guide ")
+    )
 
 
 def _human_action_commands(
@@ -302,16 +313,6 @@ def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[
             "Do not convert a recommendation into human review, decision, or acceptance.",
         ],
     }
-
-
-def _is_read_only_command(command: str) -> bool:
-    return bool(
-        command.startswith("palari detail ")
-        or command.startswith("palari queue ")
-        or command.startswith("palari validate ")
-        or command.startswith("palari review guide ")
-        or command.startswith("palari decision guide ")
-    )
 
 
 def _pick(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:

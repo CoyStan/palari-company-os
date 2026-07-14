@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, TypeVar
 
+from .governance_binding import current_review_binding_errors
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
 from .read_model_commands import (
@@ -292,11 +293,11 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
 
     attention, why, next_action = _attention(workspace, work, context)
     evidence_state = _evidence_state(work, context)
-    review_state = _review_state(work, context)
+    review_state = _review_state(workspace, work, context)
     receipt_state = _receipt_state(work, context)
     integration_state = _integration_state(workspace, work, context)
-    approval_progress = _approval_progress(work, context)
-    acceptance_state = _acceptance_state(work, context)
+    approval_progress = _approval_progress(workspace, work, context)
+    acceptance_state = _acceptance_state(workspace, work, context)
     authority_state = _authority_state(workspace, work)
     recommended_intensity, intensity_reason = recommend_intensity(work)
     learning_signal = _learning_signal(context, palari)
@@ -488,10 +489,17 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Review {review.id} requires human judgment.",
             "Resolve the human decision before continuing.",
         )
+    binding_errors = current_review_binding_errors(workspace, review)
+    if binding_errors:
+        return (
+            "needs-review",
+            f"Review {review.id} is stale: {binding_errors[0]}.",
+            "Refresh receipt, evidence, and independent review against the current exact proof.",
+        )
 
     human_decision = context.latest_human_decision_by_work.get(work.id)
     if review.verdict == "accept-ready" and human_decision is None:
-        approval_progress = _approval_progress(work, context)
+        approval_progress = _approval_progress(workspace, work, context)
         return (
             "needs-human-decision",
             f"Review is accept-ready, but approval quorum is incomplete ({approval_progress}).",
@@ -500,7 +508,7 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
     if review.verdict == "accept-ready" and not _approval_quorum_met(work, review, context):
         return (
             "needs-human-decision",
-            f"Review is accept-ready, but approval quorum is incomplete ({_approval_progress(work, context)}).",
+            f"Review is accept-ready, but approval quorum is incomplete ({_approval_progress(workspace, work, context)}).",
             "Collect the required human approval before integration.",
         )
     if human_decision and _approval_quorum_met(work, review, context):
@@ -590,8 +598,10 @@ def _next_step_type(
         and active_attempts
     ):
         return "check-active-proof"
+    if attention == "changes-requested":
+        return "repair"
     if (
-        attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"}
+        attention in {"ready-for-ai-work", "needs-evidence"}
         and ai_safe_to_proceed
     ):
         return "start-work"
@@ -599,8 +609,6 @@ def _next_step_type(
         return "human-decision"
     if attention in {"needs-review", "receipt-ready"}:
         return "review-handoff"
-    if attention == "changes-requested":
-        return "repair"
     if attention == "closed":
         return "closed"
     return "inspect"
@@ -618,7 +626,7 @@ def _evidence_state(work: Any, context: _ReadContext) -> str:
     return evidence.status
 
 
-def _review_state(work: Any, context: _ReadContext) -> str:
+def _review_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     evidence = context.latest_evidence_by_work.get(work.id)
     review = context.latest_review_by_work.get(work.id)
     if evidence is None:
@@ -626,6 +634,8 @@ def _review_state(work: Any, context: _ReadContext) -> str:
     if review is None:
         return "missing"
     if review.reviewed_head != evidence.head_sha:
+        return "stale"
+    if review.verdict == "accept-ready" and current_review_binding_errors(workspace, review):
         return "stale"
     return review.verdict
 
@@ -658,27 +668,57 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
     if attempt and _low_risk_receipt_ready(work, attempt, context):
         return "receipt-ready"
     review = context.latest_review_by_work.get(work.id)
-    if review and review.verdict == "accept-ready" and _approval_quorum_met(work, review, context):
+    if (
+        review
+        and review.verdict == "accept-ready"
+        and not current_review_binding_errors(workspace, review)
+        and _approval_quorum_met(work, review, context)
+    ):
         return "ready"
     if context.open_decision_by_work.get(work.id):
         return "blocked-by-decision"
     return "not-ready"
 
 
-def _approval_progress(work: Any, context: _ReadContext) -> str:
+def _approval_progress(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     review = context.latest_review_by_work.get(work.id)
-    if review is None:
+    if review is None or (
+        review.verdict == "accept-ready" and current_review_binding_errors(workspace, review)
+    ):
         return f"0/{work.required_approval_count}"
     count = _qualified_approval_count(work, review, context)
     return f"{count}/{work.required_approval_count}"
 
 
-def _acceptance_state(work: Any, context: _ReadContext) -> str:
+def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     acceptance = context.latest_acceptance_by_work.get(work.id)
     if acceptance is not None:
-        return acceptance.status
+        if acceptance.status != "accepted":
+            return acceptance.status
+        review = context.latest_review_by_work.get(work.id)
+        if review is None or current_review_binding_errors(workspace, review):
+            return "stale"
+        latest_for_human = _latest_decisions_by_human(work, review, context).get(
+            acceptance.human_id
+        )
+        if latest_for_human is not None and not _is_approval(latest_for_human):
+            return "revoked"
+        if (
+            acceptance.reviewed_head != review.reviewed_head
+            or acceptance.review_reference != review.id
+            or acceptance.evidence_reference != review.evidence_reference
+            or acceptance.receipt_hash != review.receipt_hash
+            or not _approval_quorum_met(work, review, context)
+        ):
+            return "stale"
+        return "accepted"
     review = context.latest_review_by_work.get(work.id)
-    if review and review.verdict == "accept-ready" and _approval_quorum_met(work, review, context):
+    if (
+        review
+        and review.verdict == "accept-ready"
+        and not current_review_binding_errors(workspace, review)
+        and _approval_quorum_met(work, review, context)
+    ):
         return "ready-to-record"
     if work.required_approval_count == 0 and work.risk in {"R1", "R2"}:
         return "receipt-path"
@@ -700,15 +740,13 @@ def _approval_quorum_met(work: Any, review: Any, context: _ReadContext) -> bool:
 
 def _qualified_approval_count(work: Any, review: Any, context: _ReadContext) -> int:
     seen_humans: set[str] = set()
-    for decision in context.human_decisions_by_work.get(work.id, []):
-        if decision.work_item_id != work.id:
+    for decision in _latest_decisions_by_human(work, review, context).values():
+        if not _is_approval(decision):
             continue
-        if decision.reviewed_head != review.reviewed_head:
-            continue
-        if decision.status not in {"accepted", "approved"} and decision.decision not in {
-            "accepted",
-            "approved",
-        }:
+        if review.binding_version and (
+            decision.review_reference != review.id
+            or decision.evidence_reference != review.evidence_reference
+        ):
             continue
         if work.required_approval_capability:
             human = context.humans_by_id.get(decision.human_id)
@@ -716,6 +754,30 @@ def _qualified_approval_count(work: Any, review: Any, context: _ReadContext) -> 
                 continue
         seen_humans.add(decision.human_id)
     return len(seen_humans)
+
+
+def _latest_decisions_by_human(
+    work: Any, review: Any, context: _ReadContext
+) -> dict[str, Any]:
+    latest: dict[str, Any] = {}
+    for decision in context.human_decisions_by_work.get(work.id, []):
+        if decision.work_item_id != work.id or decision.reviewed_head != review.reviewed_head:
+            continue
+        previous = latest.get(decision.human_id)
+        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
+            latest[decision.human_id] = decision
+    return latest
+
+
+def _decision_order_key(decision: Any) -> tuple[str, str]:
+    return (str(getattr(decision, "timestamp", "")), str(getattr(decision, "id", "")))
+
+
+def _is_approval(decision: Any) -> bool:
+    return decision.status in {"accepted", "approved"} or decision.decision in {
+        "accepted",
+        "approved",
+    }
 
 
 def _active_attempts_for_work(work: Any, context: _ReadContext) -> list[dict[str, Any]]:
@@ -782,6 +844,8 @@ def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> boo
 
 def _low_risk_receipt_ready(work: Any, attempt: Any, context: _ReadContext) -> bool:
     if work.risk not in {"R1", "R2"}:
+        return False
+    if work.required_approval_count != 0:
         return False
     if attempt.status not in {"complete", "completed"}:
         return False

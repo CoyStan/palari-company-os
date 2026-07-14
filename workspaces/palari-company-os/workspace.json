@@ -1780,6 +1780,84 @@
       "external_key": "PAL-6",
       "external_url": "https://linear.app/palari-lab/issue/PAL-6/add-git-pre-commit-hook-for-ide-agnostic-boundary-enforcement",
       "external_updated_at": "2026-07-11T18:56:21.995Z"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "parallel_policy": "coordinate",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_actions": [
+        "local_read",
+        "local_write",
+        "local_test",
+        "local_commit"
+      ],
+      "forbidden_actions": [
+        "deploy",
+        "push",
+        "merge",
+        "external_write",
+        "provider_call",
+        "secret_access",
+        "founder_acceptance"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "verification_expectations": [
+        "python3 -m unittest tests.test_transition_checks tests.test_governance_completion tests.test_agent_packets tests.test_validation tests.test_path_policy tests.test_git_hooks tests.test_claude_hooks tests.test_agent_done",
+        "./scripts/verify.sh",
+        "python3 -m unittest discover -s tests",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json"
+      ],
+      "id": "WORK-REPO-0023",
+      "title": "Harden model-independent governance and verification",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Mechanically bind review, evidence, human authority, scope, source, lifecycle, handoff, and verification state to exact current artifacts while preserving local-first minimality and compatibility through explicit migration where required.",
+      "acceptance_target": "Every checkbox in docs/product/governance-hardening-contract.md has objective committed evidence; unsafe, stale, incomplete, contradictory, out-of-scope, non-independent, and mismatched states fail closed; focused and complete verification pass; an independent exact-head review recommends ACCEPT; founder authority remains pending.",
+      "required_approval_capability": "architecture",
+      "required_approval_count": 1
     }
   ],
   "attempts": [

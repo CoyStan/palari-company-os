@@ -722,6 +722,15 @@ class ReviewVerdict:
     reviewed_head: str
     reviewer: str
     verdict: str
+    binding_version: str = ""
+    attempt_id: str = ""
+    attempt_hash: str = ""
+    evidence_reference: str = ""
+    evidence_manifest_hash: str = ""
+    receipt_reference: str = ""
+    receipt_hash: str = ""
+    work_contract_hash: str = ""
+    proof_hash: str = ""
     findings: list[Record] = field(default_factory=list)
     checks_inspected: list[str] = field(default_factory=list)
     residual_risks: list[str] = field(default_factory=list)
@@ -735,6 +744,15 @@ class ReviewVerdict:
             reviewed_head=_string(record, "reviewed_head"),
             reviewer=_string(record, "reviewer"),
             verdict=_string(record, "verdict"),
+            binding_version=_string(record, "binding_version"),
+            attempt_id=_string(record, "attempt_id"),
+            attempt_hash=_string(record, "attempt_hash"),
+            evidence_reference=_string(record, "evidence_reference"),
+            evidence_manifest_hash=_string(record, "evidence_manifest_hash"),
+            receipt_reference=_string(record, "receipt_reference"),
+            receipt_hash=_string(record, "receipt_hash"),
+            work_contract_hash=_string(record, "work_contract_hash"),
+            proof_hash=_string(record, "proof_hash"),
             findings=_records(record, "findings"),
             checks_inspected=_strings(record, "checks_inspected"),
             residual_risks=_strings(record, "residual_risks"),

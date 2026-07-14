@@ -30,6 +30,8 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `src/palari_company_os/agent_packets.py`: `agent brief` packet contract.
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
+- `src/palari_company_os/agent_file_changes.py`: canonical Git change
+  observation, start-time dirty baselines, and packet write-boundary checks.
 - `src/palari_company_os/agent_checks.py`: packet compliance checks.
 - `src/palari_company_os/agent_next.py`: candidate discovery.
 - `src/palari_company_os/agent_finish.py`: completion guidance.
@@ -48,6 +50,8 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/gate_profiles.py`: read-only review gate profiles.
 - `src/palari_company_os/playbooks.py`: external playbook recommendations.
 - `src/palari_company_os/review_guides.py`: read-only review guides.
+- `src/palari_company_os/governance_binding.py`: exact attempt, receipt,
+  evidence, work-contract, and review proof binding.
 - `src/palari_company_os/decision_guides.py`: read-only decision guides.
 - `src/palari_company_os/scope.py`: declared scope checks.
 - `src/palari_company_os/history.py`: append-only workspace history.
