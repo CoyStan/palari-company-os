@@ -80,11 +80,11 @@
         "typing"
       ],
       "path": "src/palari_company_os/pcaw_subjects.py",
-      "sha256": "02f1e51b16969314b840c401d72346ca130e52798d9a36d621c0e3a3dd9943b2",
-      "source_lines": 175
+      "sha256": "f57f1d387331480ede17ecb4d3acb151a0a9273a68909777eb3e04c1ab6d183e",
+      "source_lines": 187
     }
   ],
   "runtime_dependencies": [],
   "schema_version": "pcaw.trusted_code.v1",
-  "total_source_lines": 2322
+  "total_source_lines": 2334
 }

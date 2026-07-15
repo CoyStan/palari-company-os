@@ -127,6 +127,7 @@ The initial stable diagnostic code registry is:
 | `SUBJECT_PATH_UNSAFE` | error | An artifact name is not a safe relative POSIX path. |
 | `SUBJECT_ROOT_INVALID` | error | The selected artifact root is missing or cannot be opened safely. |
 | `SUBJECT_MISSING` | error | A required artifact cannot be read. |
+| `SUBJECT_UNREADABLE` | error | An artifact failed during descriptor-pinned reading. |
 | `SUBJECT_SYMLINK_ESCAPE` | error | An artifact resolves outside the subject root. |
 | `SUBJECT_PLATFORM_UNSAFE` | error | The platform lacks race-safe descriptor traversal support. |
 | `SUBJECT_DIGEST_MISMATCH` | error | Artifact bytes do not match the statement digest. |

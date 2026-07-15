@@ -126,31 +126,43 @@ def hash_subject(root: Path | str, name: str) -> str:
             raise SubjectError(code, message) from exc
         descriptors.append(descriptor)
 
-        digest = hashlib.sha256()
-        before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode):
+        try:
+            digest = hashlib.sha256()
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode):
+                raise SubjectError(
+                    "PCAW_SUBJECT_NOT_REGULAR",
+                    f"subject is not a regular file: {safe_name}",
+                )
+            while True:
+                chunk = os.read(descriptor, CHUNK_SIZE)
+                if not chunk:
+                    break
+                digest.update(chunk)
+            after = os.fstat(descriptor)
+            if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mtime_ns,
+            ):
+                raise SubjectError(
+                    "PCAW_SUBJECT_CHANGED_DURING_READ",
+                    f"subject changed while it was being verified: {safe_name}",
+                )
+        except SubjectError:
+            raise
+        except OSError as exc:
             raise SubjectError(
-                "PCAW_SUBJECT_NOT_REGULAR", f"subject is not a regular file: {safe_name}"
-            )
-        while True:
-            chunk = os.read(descriptor, CHUNK_SIZE)
-            if not chunk:
-                break
-            digest.update(chunk)
-        after = os.fstat(descriptor)
-        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
-            after.st_dev,
-            after.st_ino,
-            after.st_size,
-            after.st_mtime_ns,
-        ):
-            raise SubjectError(
-                "PCAW_SUBJECT_CHANGED_DURING_READ",
-                f"subject changed while it was being verified: {safe_name}",
-            )
+                "PCAW_SUBJECT_UNREADABLE",
+                f"subject failed during a safe read: {safe_name}",
+            ) from exc
     finally:
         for descriptor in reversed(descriptors):
-            os.close(descriptor)
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
     return digest.hexdigest()
 
 

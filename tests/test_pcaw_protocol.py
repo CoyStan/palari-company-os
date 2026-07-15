@@ -209,6 +209,21 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertEqual(digest, hashlib.sha256(b"inside").hexdigest())
 
+    def test_subject_read_error_returns_structured_rejection(self) -> None:
+        with patch(
+            "palari_company_os.pcaw_subjects.os.read",
+            side_effect=OSError("simulated EIO"),
+        ):
+            report = verify_pcaw_file(
+                ACCEPTED_VECTOR / "statement.json",
+                subject_root=ACCEPTED_VECTOR,
+            )
+
+        self.assertFalse(report["verified"])
+        self.assertFalse(report["acceptance_verified"])
+        self.assertEqual(report["subject_digest_status"], "failed")
+        self.assertIn("SUBJECT_UNREADABLE", _codes(report))
+
     def test_duplicate_json_keys_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             proof = Path(directory) / "duplicate.json"
