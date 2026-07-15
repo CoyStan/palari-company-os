@@ -40,7 +40,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     deterministic/permuted-input state-table tests; planner p95 over 10,000
     in-process calls was 0.0372ms.
 
-- [ ] One idempotent safe-advance command
+- [x] One idempotent safe-advance command
   - Required outcome: `palari agent advance WORK-ID --as PALARI-ID` derives the
     committed change range, creates or resumes exact attempt/receipt/evidence
     records, evaluates the governed completion/handoff state, releases the
@@ -51,9 +51,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     or claim release; repeated execution never duplicates records.
   - Verification command or artifact: focused CLI, lifecycle, and idempotence
     tests plus JSON/text snapshots.
-  - Current status: in progress; R1/R4, CLI, repeated-call, and no-duplicate
-    fixture tests pass, while the dogfood exact-head invocation remains.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed. The dogfood invocation derived the full
+    `cdefca7...8ed4dbf` range, ran all required profiles, created exact R4
+    receipt/evidence, released its claim, and stopped at independent review.
+  - Exact committed evidence when completed:
+    `e3264cca10059a2e2d252c7b78a2949d88de650d` commits
+    `ATTEMPT-REPO-0026-R4`,
+    `RECEIPT-ADVANCE-WORK-REPO-0026-8ED4DBF98355`, and
+    `EVIDENCE-ADVANCE-WORK-REPO-0026-8ED4DBF98355`, whose manifest, artifact
+    bytes, receipt chain, output coverage, and current binding all verify.
 
 - [x] Crash-safe proof reconciliation
   - Required outcome: verification occurs outside the workspace lock; before
@@ -123,7 +129,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     `e3041ff45329c4a368ab5a896cd3253376675b2f` aligns public CLI help with
     the advisory-cache contract and adds a regression assertion for that text.
 
-- [ ] Fast planning and non-repeated verification
+- [x] Fast planning and non-repeated verification
   - Required outcome: planning stays independent of complete verification;
     repeated submission of an already reconciled exact proof validates and
     reuses governed evidence instead of rerunning the full gate. An ungoverned
@@ -136,15 +142,20 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     planner time so Python/parser startup is visible rather than misattributed.
   - Verification command or artifact: performance test/measurement artifact,
     subprocess-spy tests, and before/after timing table.
-  - Current status: in progress. Planner p95 is 0.0372ms; the exact-claim fast
+  - Current status: completed. Planner p95 is 0.0372ms; the exact-claim fast
     path reduced 20-run cold dry-run median to 0.29s and p95 to 0.33s versus the
     0.35-0.40s loop baseline. The final deterministic affected mapping runs 96
     tests across advance, completion, transitions, and read models in 23.85s;
-    it remains intentionally broader than a single-module focused check. Final
-    exact-proof dogfood timing after the final repair remains.
-  - Exact committed evidence when completed: pending.
+    it remains intentionally broader than a single-module focused check. Five
+    dogfood exact-proof resumes ran in 0.53s, 0.52s, 0.57s, 0.58s, and 0.58s:
+    median 0.57s without subprocess verification or proof duplication.
+  - Exact committed evidence when completed:
+    `29d20dd7d75a2f8edd85f91e5ce3b53dcbf7f563` contains the accepted planner,
+    fast path, advisory-cache behavior, and focused mappings;
+    `e3264cca10059a2e2d252c7b78a2949d88de650d` contains the exact governed
+    proof used by the sub-second resume measurement.
 
-- [ ] Full verification remains authoritative
+- [x] Full verification remains authoritative
   - Required outcome: focused checks and governed exact-proof resume accelerate iteration without
     weakening the required complete gate before acceptance; advisory cache
     contents, failed verification, or stale proof can never produce passing
@@ -155,15 +166,21 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     43.56s baseline by more than 10% without explicit safety-value evidence.
   - Verification command or artifact: `./scripts/verify.sh`, three-run timing
     where required, and installed-package smoke.
-  - Current status: in progress. The unoptimized repaired gate passed at
+  - Current status: completed. The unoptimized repaired gate passed at
     49.08s, 47.88s, and 48.76s (48.76s median, 11.94% over baseline). Exact
     parallelization of the existing read-only CLI smokes in isolated temporary
     outputs preserved every command. The exact `d9d1b5bd...` candidate passed
     at 42.22s, 43.74s, and 42.30s: median 42.30s, 2.89% faster than the 43.56s
-    baseline and inside the 10% ceiling. The latest gate covers 699 tests across
-    42 modules, style, schemas/fixtures, CLI smokes, trusted-code accounting,
-    and 18/18 PCAW vectors. Installed-package and final dogfood evidence remain.
-  - Exact committed evidence when completed: pending.
+    baseline and inside the 10% ceiling. Exact-head independent review of
+    `29d20dd7...` ran the later 700-test gate across 42 modules plus style,
+    schemas/fixtures, CLI smokes, trusted-code accounting, and 18/18 PCAW
+    vectors. Dogfood then recorded complete in 43.347s, installed-package smoke
+    in 11.695s, and docs check in 0.258s, all passed.
+  - Exact committed evidence when completed:
+    `29d20dd7d75a2f8edd85f91e5ce3b53dcbf7f563` received exact-head ACCEPT with
+    the 700-test complete gate, install smoke, and docs check passing;
+    `e3264cca10059a2e2d252c7b78a2949d88de650d` commits the independently
+    verifiable dogfood attestations for candidate `8ed4dbf9835582b839206aa68bf185e0a04b0339`.
 
 - [x] Scope, source, authority, and protected-dirt boundaries remain closed
   - Required outcome: the reconciler never infers permission from changed
@@ -201,7 +218,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     snapshot; `8a903b430952e2bef334c51c2a8794b14b572fb8` removes duplicate packet
     compilation from shared preflight.
 
-- [ ] Minimal, documented, independently reviewed delivery
+- [x] Minimal, documented, independently reviewed delivery
   - Required outcome: standard library only, no daemon, provider, hook, React,
     Rust/C++ rewrite, external write, or commercial application change; docs
     distinguish deterministic conformance from semantic and human review; a
@@ -211,7 +228,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     review report, and founder packet.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/install_smoke.sh`, `./scripts/verify.sh`, and exact-head review.
-  - Current status: in progress. Runtime dependencies remain empty and current
+  - Current status: completed. Runtime dependencies remain empty and current
     docs/style checks pass. Exact review of `df4fb862...` rejected unsafe resume,
     cache authority, and symlink ordering; exact review of `ba274a232...`
     confirmed those repairs but rejected recovery-before-scope ordering and
@@ -253,9 +270,17 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     pending states byte-identical. Review of that exact commit found the
     implementation correct but rejected stale `--refresh-verification` help;
     `e3041ff45329c4a368ab5a896cd3253376675b2f` aligns the public text with
-    advisory cache behavior. Fresh exact review and final dogfood evidence
-    remain.
-  - Exact committed evidence when completed: pending.
+    advisory cache behavior. Fresh review of coherent exact head
+    `29d20dd7d75a2f8edd85f91e5ce3b53dcbf7f563` returned ACCEPT after 101
+    focused tests, the 700-test complete gate, install smoke, docs check, and
+    independent recovery/authority inspection. Dogfood proof at `e3264cca...`
+    then mechanically reproduced the complete/install/docs profile and stopped
+    at the human review boundary.
+  - Exact committed evidence when completed:
+    `29d20dd7d75a2f8edd85f91e5ce3b53dcbf7f563` is the exact independently
+    accepted coherent implementation/documentation head;
+    `e3264cca10059a2e2d252c7b78a2949d88de650d` is the exact committed dogfood
+    proof record. Standard-library runtime dependencies remain zero.
 
 ## Deferred
 
