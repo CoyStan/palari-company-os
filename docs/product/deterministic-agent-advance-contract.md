@@ -69,57 +69,100 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed:
     `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds one journaled proof
     transaction plus injected pre-replace abort/retry and post-replace
-    commit-recovery tests in `tests/test_agent_advance.py`.
+    commit-recovery tests in `tests/test_agent_advance.py`;
+    `609821a851cb3d535c5786b306a7d2238bba8ef8` moves claim/Git/scope
+    preflight before recovery and proves rejected recovery does not append;
+    `55791a179e34396902745c5c2ddf033382e6df57` additionally authenticates
+    the pending transaction's command, action, actor, exact proof objects, and
+    exclusive before/after object delta before commit or abort recovery;
+    `105ab4b37b0274139c71784959a0494bcfe3093c` derives the exact deterministic
+    object IDs and field projection from the claim-range preflight, rejects
+    work-authority expansion and proof-ID substitution, validates projected
+    evidence, and proves both pending states remain byte-unchanged on mismatch;
+    `6c43a62d628e04a16297cf74f1f68b0b91f302f6` rejects ungenerated worker,
+    claim, boundary, external-write, context, action, and summary metadata in
+    a proof-like recovery projection; `94cf1ca852148f51047910dd8215105d4e5db7a7`
+    also derives the exact receipt-chain predecessor and required built-in
+    verification-profile command identities before recovery;
+    `f60bd7f3cb5feb6648c979a4139fe3bffeb58909` binds factual receipt narration
+    into transaction metadata, rejects authority/external-action claims, and
+    matches the exact deterministic attestation IDs and cache keys;
+    `6d9edef9871276e94a3912a6622fa1888abe40cf` freshly reruns every built-in
+    profile before interrupted proof recovery, compares the actual results,
+    and binds the exact commit list; `27fb8bafe90430d39b091612e25906022f53c9fe`
+    replaces free-form governed narration with one deterministic action and
+    rechecks claim, Git, scope, and pending identity after recovery profiles;
+    `2990eaf0e3dc11deccda9137b34547fd3edec1f0` binds every generated proof
+    timestamp to the exact Git candidate's immutable commit timestamp and
+    requires current output-binding semantics; and
+    `ff18c451f958ba8102ab02a7808ce3f85e2c171c` holds the final workspace,
+    pending-transaction comparison, and terminal append behind the existing
+    one-writer lock, with exact mismatch and lock-ownership tests.
+    `d9d1b5bd60d5c971eaade1c584ed6f28568234e5` additionally proves both
+    legacy-claim pending states remain byte-identical under `--dry-run`.
 
-- [x] Exact verification attestations and safe reuse
+- [x] Exact verification records and governed-proof reuse
   - Required outcome: verification profiles are explicit argument vectors, not
-    executable prose; results bind the exact head, clean tree, profile digest,
-    runner/source state, platform, and interpreter. Passing exact-state results
-    may be reused; any relevant drift invalidates them.
-  - Objective completion evidence: cache-hit tests avoid subprocess execution;
+    executable prose; run records bind the exact head, clean tree, profile
+    digest, runner/source state, platform, and interpreter. Editable local cache
+    files are advisory and can never authorize new evidence; only current proof
+    already reconciled into governed evidence may skip subprocess verification.
+  - Objective completion evidence: exact governed-proof resume avoids subprocess
+    execution; forged cached passes are rerun and cannot create passing evidence;
     head, dirty state, profile, Python, platform, source, failure, timeout,
-    malformed result, and contradictory-result changes miss or fail closed.
+    malformed result, and contradictory-result changes rerun or fail closed.
   - Verification command or artifact: attestation unit/adversarial tests and
     exact serialized fixtures.
   - Current status: completed.
   - Exact committed evidence when completed:
-    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds strict attestations,
-    duplicate/unknown/contradictory/malformed rejection, symlink containment,
-    failure non-reuse, and exact cache-hit tests; `bb9e5bad61fd438cac17e8a9f848000b0b6d2398`
-    binds validated workspace bytes into the claim fast path.
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds strict exact-state run
+    records; `bb9e5bad61fd438cac17e8a9f848000b0b6d2398` binds validated workspace
+    bytes into the claim fast path; `ba274a232593b244513f509217084b1082bb4099`
+    makes the file cache advisory, reruns forged passes, and proves symlink
+    rejection creates no outside directory;
+    `e3041ff45329c4a368ab5a896cd3253376675b2f` aligns public CLI help with
+    the advisory-cache contract and adds a regression assertion for that text.
 
 - [ ] Fast planning and non-repeated verification
   - Required outcome: planning stays independent of complete verification;
-    repeated submission of an already verified exact state validates and reuses
-    its attestation instead of rerunning the full gate.
+    repeated submission of an already reconciled exact proof validates and
+    reuses governed evidence instead of rerunning the full gate. An ungoverned
+    cache file is never sufficient.
   - Objective completion evidence: deterministic local benchmark records the
     pure planner p95 below 10ms, public cold-process `agent advance --dry-run`
-    no slower than the 0.40s original loop baseline, and an exact cache-hit
+    no slower than the 0.40s original loop baseline, and an exact-proof resume
     advance below 1s; affected-area verification targets a median below 5s when
     a safe mapping exists. Public cold-process time is reported separately from
     planner time so Python/parser startup is visible rather than misattributed.
   - Verification command or artifact: performance test/measurement artifact,
-    cache-spy tests, and before/after timing table.
-  - Current status: in progress. Planner p95 is 0.0372ms; affected verification
-    median is 1.99s; the exact-claim fast path reduced 20-run cold dry-run median
-    to 0.29s and p95 to 0.33s versus the 0.35-0.40s loop baseline. Final exact
-    cache-hit dogfood timing remains.
+    subprocess-spy tests, and before/after timing table.
+  - Current status: in progress. Planner p95 is 0.0372ms; the exact-claim fast
+    path reduced 20-run cold dry-run median to 0.29s and p95 to 0.33s versus the
+    0.35-0.40s loop baseline. The final deterministic affected mapping runs 96
+    tests across advance, completion, transitions, and read models in 23.85s;
+    it remains intentionally broader than a single-module focused check. Final
+    exact-proof dogfood timing after the final repair remains.
   - Exact committed evidence when completed: pending.
 
 - [ ] Full verification remains authoritative
-  - Required outcome: focused and cached results accelerate iteration without
-    weakening the required complete gate before acceptance; failed or stale
-    verification can never produce passing evidence.
+  - Required outcome: focused checks and governed exact-proof resume accelerate iteration without
+    weakening the required complete gate before acceptance; advisory cache
+    contents, failed verification, or stale proof can never produce passing
+    evidence.
   - Objective completion evidence: negative tests cover failed focused and
     complete profiles, cached failure, incomplete mapping, altered tests, and
     stale result rejection. Final complete-gate median does not exceed the
     43.56s baseline by more than 10% without explicit safety-value evidence.
   - Verification command or artifact: `./scripts/verify.sh`, three-run timing
     where required, and installed-package smoke.
-  - Current status: in progress. The first complete candidate gate passed 671
-    tests, style, schemas/fixtures, CLI smokes, and 18/18 PCAW vectors in 47.15s
-    (8.2% over the 43.56s baseline and inside the 10% ceiling); final repeat and
-    installed-package evidence remain.
+  - Current status: in progress. The unoptimized repaired gate passed at
+    49.08s, 47.88s, and 48.76s (48.76s median, 11.94% over baseline). Exact
+    parallelization of the existing read-only CLI smokes in isolated temporary
+    outputs preserved every command. The exact `d9d1b5bd...` candidate passed
+    at 42.22s, 43.74s, and 42.30s: median 42.30s, 2.89% faster than the 43.56s
+    baseline and inside the 10% ceiling. The latest gate covers 699 tests across
+    42 modules, style, schemas/fixtures, CLI smokes, trusted-code accounting,
+    and 18/18 PCAW vectors. Installed-package and final dogfood evidence remain.
   - Exact committed evidence when completed: pending.
 
 - [x] Scope, source, authority, and protected-dirt boundaries remain closed
@@ -168,9 +211,50 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     review report, and founder packet.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/install_smoke.sh`, `./scripts/verify.sh`, and exact-head review.
-  - Current status: in progress. Runtime dependencies remain empty, docs/style
-    checks pass, and the implementation is local/provider-free; installed
-    smoke, final complete gate, and exact-head independent review remain.
+  - Current status: in progress. Runtime dependencies remain empty and current
+    docs/style checks pass. Exact review of `df4fb862...` rejected unsafe resume,
+    cache authority, and symlink ordering; exact review of `ba274a232...`
+    confirmed those repairs but rejected recovery-before-scope ordering and
+    terminal journal bypass. `609821a851cb3d535c5786b306a7d2238bba8ef8`
+    preflights before journal mutation, proves rejected recovery leaves journal
+    bytes unchanged, and restores terminal continuity validation; its fresh
+    review rejected recovery of a valid but unrelated pending transaction.
+    `55791a179e34396902745c5c2ddf033382e6df57` binds recovery to the exact
+    agent-proof transaction and rejects unrelated commit and abort recovery
+    without changing journal bytes; its fresh review then rejected arbitrary
+    bound-record fields and proof-ID substitution. Exact repair
+    `105ab4b37b0274139c71784959a0494bcfe3093c` binds the deterministic IDs,
+    permitted field delta, base/head/change range, artifacts, sources, outputs,
+    and projected evidence before recovery; its fresh review then rejected
+    substituted new-attempt claim and worker fields. Exact repair
+    `6c43a62d628e04a16297cf74f1f68b0b91f302f6` rejects all ungenerated attempt
+    attribution/boundary fields and external or ungenerated receipt claims;
+    its fresh review then rejected contradictory receipt narration and forged
+    verifier commands. `94cf1ca852148f51047910dd8215105d4e5db7a7` binds receipt
+    continuity and built-in profile identities; exact repair
+    `f60bd7f3cb5feb6648c979a4139fe3bffeb58909` binds the transaction's receipt
+    action, rejects authority/external-action summaries, and derives exact
+    attestation IDs and cache keys; its fresh review correctly rejected that
+    predictable strings still did not prove execution and that commit/timestamp
+    auxiliaries remained open. Exact repair
+    `6d9edef9871276e94a3912a6622fa1888abe40cf` requires fresh profile execution
+    before either recovery mutation, compares actual attestations, and validates
+    the exact commit list. Its fresh review rejected a post-verification race,
+    free-form narration, coherent timestamp substitution, and downgraded output
+    binding. Exact repair `2990eaf0e3dc11deccda9137b34547fd3edec1f0`
+    closed those four findings with deterministic candidate-bound fields; its
+    fresh review then rejected the remaining gap between the final state recheck
+    and terminal journal append. Exact repair
+    `ff18c451f958ba8102ab02a7808ce3f85e2c171c` serializes that comparison and
+    append through the workspace writer lock and proves mismatch leaves the
+    journal unchanged. Its fresh review then found a legacy-claim dry-run path
+    that entered recovery; `d9d1b5bd60d5c971eaade1c584ed6f28568234e5`
+    returns every dry-run before verification or mutation and proves both
+    pending states byte-identical. Review of that exact commit found the
+    implementation correct but rejected stale `--refresh-verification` help;
+    `e3041ff45329c4a368ab5a896cd3253376675b2f` aligns the public text with
+    advisory cache behavior. Fresh exact review and final dogfood evidence
+    remain.
   - Exact committed evidence when completed: pending.
 
 ## Deferred
