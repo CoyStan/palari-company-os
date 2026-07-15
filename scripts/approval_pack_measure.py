@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from palari_company_os.approval_packs import approval_interaction_measurement
+from palari_company_os.approval_packs import approval_interaction_measurement  # noqa: E402
 
 
 def main() -> int:

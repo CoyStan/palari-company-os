@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, cast
 
 from .evidence_manifest import verify_evidence
 from .errors import WorkspaceError
@@ -82,8 +82,8 @@ def build_approval_inbox(
         raise WorkspaceError(
             "approval inbox workspace differs from its committed journal projection"
         )
-    base = {
-        "workspace_digest": workspace_digest(raw_data),
+    base: dict[str, str] = {
+        "workspace_digest": cast(str, workspace_digest(raw_data)),
         "checkpoint_digest": str(journal.get("replay_workspace_digest") or ""),
         "journal_head_digest": str(journal.get("head_record_digest") or ""),
     }
@@ -434,7 +434,7 @@ def apply_pack_decision(
     crash_hook: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     _require_digest(pack_digest, "pack_digest")
-    request = {
+    request: dict[str, Any] = {
         "binding_version": DECISION_BINDING_VERSION,
         "pack_digest": pack_digest,
         "human_id": human_id,
@@ -620,6 +620,7 @@ def apply_pack_decision(
         if action == "approve":
             from .authoring import _assert_acceptance_allowed
 
+            assert review is not None
             _assert_acceptance_allowed(workspace, member_id, human_id, review.reviewed_head)
             assert_transition_allowed(
                 workspace,

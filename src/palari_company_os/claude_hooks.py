@@ -1188,6 +1188,7 @@ def _pre_tool_use(
         )
     workspace_bound = root is not None and _workspace_belongs_to_repo(workspace_path, root)
     if workspace_bound:
+        assert root is not None
         protected = [
             (target, _protected_governance_target(target, cwd, root, workspace_path))
             for target in raw_targets
@@ -1240,6 +1241,7 @@ def _pre_tool_use(
             "deny" if exact else "ask",
             "The active Palari workspace cannot be bound to this Git repository.",
         )
+    assert root is not None
 
     covering = [
         context
@@ -1264,7 +1266,6 @@ def _pre_tool_use(
         return _decision("deny" if exact else "ask", reason)
 
     selected = covering[0]
-    allowed = _packet_write_paths(selected["packet"])
     if exact:
         claim = selected["claim"]
         return _decision(

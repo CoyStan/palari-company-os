@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from .agent_done import _preflight
 from .agent_handoff import build_agent_handoff
@@ -83,7 +83,7 @@ def agent_advance_dry_run(
         str(packet.get("context_hash") or ""),
     )
     preflight = _preflight(
-        SimpleNamespace(path=data_path.parent),
+        cast(Workspace, SimpleNamespace(path=data_path.parent)),
         workspace_path,
         work_id,
         palari_id,

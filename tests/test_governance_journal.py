@@ -12,12 +12,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.governance_journal import (
-    JOURNAL_RELATIVE_PATH,
     JournalError,
     MutationMetadata,
     append_record_fsync,
     checkpoint_workspace_journal,
-    commit_record,
     journal_file_path,
     logical_changes,
     prepare_record,

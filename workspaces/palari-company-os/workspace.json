@@ -395,7 +395,11 @@
         "src/palari_company_os/cli_output_agent.py",
         "src/palari_company_os/evidence_manifest.py",
         "src/palari_company_os/governance_binding.py",
-        "src/palari_company_os/verification_attestations.py"
+        "src/palari_company_os/verification_attestations.py",
+        "scripts/approval_pack_measure.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_completion.py",
+        "tests/test_governance_journal.py"
       ],
       "status": "active"
     },
@@ -2273,6 +2277,78 @@
       ],
       "required_approval_capability": "architecture",
       "current_attempt": "ATTEMPT-REPO-0026-R5"
+    },
+    {
+      "id": "WORK-REPO-0027",
+      "title": "Repair GitHub CI Ruff failures for PR 12",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "risk": "R2",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Repair the observed Ruff and mypy findings blocking PR 12 without changing runtime behavior, weakening assertions, or weakening CI.",
+      "allowed_resources": [
+        ".github/workflows/ci.yml",
+        "pyproject.toml",
+        "scripts/approval_pack_measure.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_agent_done.py",
+        "tests/test_governance_completion.py",
+        "tests/test_governance_journal.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "scripts/approval_pack_measure.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_agent_done.py",
+        "tests/test_governance_completion.py",
+        "tests/test_governance_journal.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "scripts/approval_pack_measure.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "tests/test_agent_done.py",
+        "tests/test_governance_completion.py",
+        "tests/test_governance_journal.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Ruff and mypy pass with all existing rules; focused and complete verification pass; GitHub PR 12 CI is green; only the eleven diagnosed source/test/script files plus governed workspace metadata change.",
+      "verification_expectations": [
+        "ruff check .",
+        "python3 -m unittest tests.test_agent_done tests.test_governance_completion tests.test_governance_journal",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0
     }
   ],
   "attempts": [
@@ -7591,6 +7667,28 @@
       "required_human": "HUMAN-FOUNDER",
       "linked_goal": "GOAL-REPO-0001",
       "linked_work": ""
+    },
+    {
+      "id": "DECISION-REPO-0027-SCOPE-0001",
+      "question": "Should scope expand for WORK-REPO-0027?",
+      "status": "decided",
+      "context": "Reason: GitHub CI reached mypy after the approved Ruff repair and reported 12 additional typing errors in these four files; green CI requires bounded type-only repairs without weakening mypy.\nRequested write paths: src/palari_company_os/approval_packs.py, src/palari_company_os/verification_attestations.py, src/palari_company_os/agent_advance.py, src/palari_company_os/cli_dispatch.py",
+      "options": [
+        "approve scope expansion",
+        "reject scope expansion",
+        "split into new work"
+      ],
+      "tradeoffs": [
+        "Approving changes the declared work boundary.",
+        "Rejecting keeps the current attempt inside its packet.",
+        "Splitting preserves parallel safety for unrelated changes."
+      ],
+      "recommendation": "Do not expand scope until a human reviews the new boundary.",
+      "safe_default": "reject scope expansion",
+      "linked_goal": "GOAL-REPO-0001",
+      "linked_work": "WORK-REPO-0027",
+      "linked_palari": "PALARI-STEWARD",
+      "result": "approve scope expansion"
     }
   ],
   "outcomes": [

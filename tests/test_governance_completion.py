@@ -181,7 +181,7 @@ class GovernanceCompletionTests(unittest.TestCase):
             artifact = workspace_dir / "examples" / "acme-company-os" / "workspace.json"
             artifact.parent.mkdir(parents=True)
             artifact.write_text('{"ok": true}\n', encoding="utf-8")
-            stale = self.run_cli(
+            self.run_cli(
                 "--workspace",
                 str(workspace_file),
                 "receipt",
@@ -199,7 +199,7 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "outputs_created=examples/acme-company-os/workspace.json",
                 "--json",
             )
-            receipt_result = self.run_cli(
+            self.run_cli(
                 "--workspace",
                 str(workspace_file),
                 "evidence",
@@ -258,7 +258,7 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "--json",
                 check=False,
             )
-            receipt_result = self.run_cli(
+            self.run_cli(
                 "--workspace",
                 str(workspace_file),
                 "evidence",

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import timezone
-from pathlib import Path
 from typing import Any, Iterable, TypeVar
 
 from .evidence_manifest import evidence_artifact_root, verify_evidence

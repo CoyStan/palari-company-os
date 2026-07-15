@@ -172,8 +172,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .scope import check_scope
 
         workspace = Workspace.load(args.workspace)
-        payload = check_scope(workspace, args.work_id, args.changed, args.action)
-        return CommandResult("scope", payload.to_dict(), args.json)
+        scope_result = check_scope(workspace, args.work_id, args.changed, args.action)
+        return CommandResult("scope", scope_result.to_dict(), args.json)
 
     if args.command == "integrations":
         from .integrations import list_integrations

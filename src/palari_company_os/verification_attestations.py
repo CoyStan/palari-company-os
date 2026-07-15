@@ -270,8 +270,8 @@ def attestation_errors(
         except ValueError:
             errors.append("created_at must be an unambiguous UTC timestamp")
     for field in ("cache_key", "profile_digest", "changed_paths_digest", "source_digest", "stdout_digest", "stderr_digest"):
-        value = attestation.get(field)
-        if not isinstance(value, str) or not _valid_digest(value):
+        digest_value = attestation.get(field)
+        if not isinstance(digest_value, str) or not _valid_digest(digest_value):
             errors.append(f"{field} must be a sha256 digest")
     return errors
 

@@ -12,7 +12,7 @@ from .agent_packets import build_agent_brief
 from .agent_runtime import claim_check, read_claim, release_agent, start_agent
 from .authoring import closeout_attempt, complete_work, create_record, update_record
 from .read_models import detail
-from .workspace import Workspace, WorkspaceError
+from .workspace import Workspace
 
 
 def agent_done(
@@ -121,7 +121,7 @@ def agent_done(
         attempt_record["model_or_worker"] = model_or_worker
     if prior_attempt is None:
         create_record(
-            workspace_path,
+            str(workspace_path),
             "attempt",
             attempt_record,
             command="agent done",
@@ -144,7 +144,7 @@ def agent_done(
     prior_receipt = next((item for item in workspace.receipts if item.id == receipt_id), None)
     if prior_receipt is None:
         create_record(
-            workspace_path,
+            str(workspace_path),
             "receipt",
             receipt_record,
             command="agent done",
@@ -156,7 +156,7 @@ def agent_done(
 
     if work.get("current_attempt") != attempt_id:
         update_record(
-            workspace_path,
+            str(workspace_path),
             "work",
             work_id,
             {"current_attempt": attempt_id},
@@ -228,7 +228,7 @@ def agent_done(
     current_attempt = next(item for item in workspace.attempts if item.id == attempt_id)
     if current_attempt.status not in {"complete", "completed"}:
         closeout_attempt(
-            workspace_path,
+            str(workspace_path),
             attempt_id,
             status="completed",
             head_sha=head_sha,
@@ -244,7 +244,7 @@ def agent_done(
         steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "resumed"})
 
     complete_work(
-        workspace_path,
+        str(workspace_path),
         work_id,
         "completed",
         command="agent done",
