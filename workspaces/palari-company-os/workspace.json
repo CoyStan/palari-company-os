@@ -3319,7 +3319,7 @@
     },
     {
       "base_sha": "616670557183b6a0aae588ae2d5c84685026cd71",
-      "head_sha": "0df562471d4b6f241755ec7081684d93b98f4e7d",
+      "head_sha": "1dc7d0679252531f4f2abccec24593c33812cbc2",
       "allowed_paths": [
         "README.md",
         "docs/agent",
@@ -3393,12 +3393,59 @@
       "id": "ATTEMPT-REPO-0025-R2",
       "work_item_id": "WORK-REPO-0025",
       "actor": "PALARI-STEWARD",
-      "status": "active",
+      "status": "completed",
       "branch": "codex/approval-packs-checkpoints",
       "workspace_path": "/home/quetza/palari-company-os",
       "model_or_worker": "gpt-5-codex",
       "cleanliness": "clean",
-      "started_at": "2026-07-15T14:09:27.443769Z"
+      "started_at": "2026-07-15T14:09:27.443769Z",
+      "commits": [
+        "1dc7d0679252531f4f2abccec24593c33812cbc2"
+      ],
+      "updated_at": "2026-07-15T14:30:31.028923Z",
+      "changed_files": [
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/approval-packs-and-checkpoints-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/public-surface.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "schemas/workspace.schema.json",
+        "scripts/approval_pack_measure.py",
+        "spec/pcaw/v1/trusted-code.json",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/checkpoints.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_public_surface.py",
+        "tests/test_reversible_checkpoints.py",
+        "tests/test_transition_checks.py",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ]
     }
   ],
   "evidence_runs": [
@@ -3992,6 +4039,67 @@
         }
       ],
       "manifest_hash": "sha256:bdf3835e07a1b52782b826173c9ba0bd6e656235185e69f87f2b31785889e636"
+    },
+    {
+      "commands": [
+        "python3 -m unittest focused WORK-REPO-0025 suites",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json",
+        "independent exact-head review ACCEPT at 1dc7d0679252531f4f2abccec24593c33812cbc2"
+      ],
+      "artifacts": [
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/checkpoints.py",
+        "src/palari_company_os/claude_hooks.py",
+        "tests/test_approval_packs.py",
+        "tests/test_reversible_checkpoints.py",
+        "tests/test_claude_hooks.py"
+      ],
+      "id": "EVIDENCE-REPO-0025-R2",
+      "work_item_id": "WORK-REPO-0025",
+      "attempt_id": "ATTEMPT-REPO-0025-R2",
+      "head_sha": "1dc7d0679252531f4f2abccec24593c33812cbc2",
+      "status": "passed",
+      "base_ref": "616670557183b6a0aae588ae2d5c84685026cd71",
+      "summary": "656-test complete gate and exact-head independent review passed",
+      "freshness": "fresh",
+      "timestamp": "2026-07-15T14:30:56.233855Z",
+      "receipt_hash": "sha256:8ef57f930489283580e567994cc423c8d4b8e4664b23c6bc3f3083d541c75baa",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/approval_packs.py",
+          "sha256": "sha256:ff53555992a9deb8d70098750aff173fd33a674b292f770c71bff8d94d8402c5",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/checkpoints.py",
+          "sha256": "sha256:8ad16fa4abd4ab62f0adccdd9cd8144cf0e0a8193c53455bf2567c21f6898302",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/claude_hooks.py",
+          "sha256": "sha256:027bac6d6aa2acc21ea984fbf4ce60ab549b593710c0400fda5bb4e9a10ce8e2",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "sha256": "sha256:3d039fdd39247061a92ede482b55e5c77043633429de3576beec868bbb4cfdb5",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "sha256": "sha256:ec0cfb2b5237717127b4a60083ed2ca816f550084321a85a68b2be228f8b702a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_reversible_checkpoints.py",
+          "sha256": "sha256:d621e08d8250d7f11df9f589f4d06a1398862745873088c138721dcd56dddfa7",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:d959252fdba95de73624c2f2956428234fc0b8141e9e3db5bc2f564a03932651"
     }
   ],
   "review_verdicts": [
@@ -5413,6 +5521,34 @@
       "timestamp": "2026-07-15T01:46:04.327111Z",
       "previous_receipt_hash": "sha256:96a9c595c8ceea2c7e872b396edab513f83b91843f8eabe233488dbf8f3b469c",
       "receipt_hash": "sha256:2ad0d67865174e66557770c04179d2fd67af96ea15a8e21176ce321868d33da9"
+    },
+    {
+      "actions_taken": [
+        "implemented exact approval packs and recursive dependency bindings",
+        "implemented fail-closed human-only and checkpoint-history gates",
+        "ran complete offline verification and independent exact-head review"
+      ],
+      "outputs_created": [
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/checkpoints.py",
+        "src/palari_company_os/claude_hooks.py",
+        "tests/test_approval_packs.py",
+        "tests/test_reversible_checkpoints.py",
+        "tests/test_claude_hooks.py"
+      ],
+      "not_done": [
+        "did not record human review or acceptance",
+        "did not push merge deploy call providers or perform external writes"
+      ],
+      "undo_refs": [
+        "git revert local WORK-REPO-0025 commits or leave the feature branch"
+      ],
+      "id": "RECEIPT-REPO-0025-R2",
+      "work_item_id": "WORK-REPO-0025",
+      "attempt_id": "ATTEMPT-REPO-0025-R2",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-15T14:30:43.835924Z",
+      "receipt_hash": "sha256:8ef57f930489283580e567994cc423c8d4b8e4664b23c6bc3f3083d541c75baa"
     }
   ],
   "decisions": [
