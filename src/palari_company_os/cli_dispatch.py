@@ -191,6 +191,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent
 
+        if args.agent_command == "advance" and args.dry_run:
+            from .agent_advance import agent_advance_dry_run
+
+            fast_plan = agent_advance_dry_run(
+                args.workspace,
+                args.work_id,
+                args.palari_id,
+            )
+            if fast_plan is not None:
+                return CommandResult("agent-done", fast_plan, args.json)
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:

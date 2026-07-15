@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from .agent_done import _preflight
 from .agent_handoff import build_agent_handoff
-from .agent_runtime import read_claim, release_agent
+from .agent_runtime import claim_check, read_claim, read_claim_packet, release_agent
 from .authoring import complete_work, reconcile_agent_proof
 from .evidence_manifest import verify_evidence
 from .governance_journal import workspace_digest
@@ -25,6 +26,152 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_advance.v1"
 _TERMINAL = {"completed", "closed", "done"}
+
+
+def agent_advance_dry_run(
+    workspace_path: Path | str,
+    work_id: str,
+    palari_id: str,
+) -> dict[str, Any] | None:
+    """Use an exact claim-bound packet for a fast, fail-closed dry-run.
+
+    Legacy claims without a workspace-file binding return ``None`` so callers
+    can use the fully validated compatibility path.
+    """
+
+    from .store import workspace_file_path
+
+    workspace_path = Path(workspace_path)
+    claim = read_claim(workspace_path, work_id)
+    if not claim or not claim.get("workspace_file_hash"):
+        return None
+    data_path = workspace_file_path(workspace_path)
+    try:
+        current_hash = "sha256:" + hashlib.sha256(data_path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise WorkspaceError(f"cannot hash workspace for advance dry-run: {exc}") from exc
+    if current_hash != claim["workspace_file_hash"]:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "status": "blocked",
+            "work_item": work_id,
+            "workspace": "",
+            "can_advance": False,
+            "would_mutate": False,
+            "dry_run": True,
+            "expected_state": "unknown",
+            "blockers": [
+                {
+                    "code": "WORKSPACE_CHANGED_SINCE_CLAIM",
+                    "message": "Workspace bytes changed after the validated claim packet was persisted.",
+                    "next_safe_action": (
+                        f"Run palari agent start {work_id} --as {palari_id} "
+                        "--mode execute --json after inspecting the change."
+                    ),
+                }
+            ],
+            "steps": [],
+        }
+    packet = read_claim_packet(workspace_path, claim)
+    claim_result = claim_check(
+        workspace_path,
+        work_id,
+        palari_id,
+        "execute",
+        str(packet.get("context_hash") or ""),
+    )
+    preflight = _preflight(
+        SimpleNamespace(path=data_path.parent),
+        workspace_path,
+        work_id,
+        palari_id,
+        None,
+        packet=packet,
+    )
+    work = packet.get("work_item", {})
+    proof = packet.get("proof_state", {})
+    attempt = proof.get("attempt") if isinstance(proof, dict) else None
+    receipt = proof.get("receipt") if isinstance(proof, dict) else None
+    evidence = proof.get("evidence") if isinstance(proof, dict) else None
+    changed = list(preflight.get("changed_files", []))
+    profiles = verification_profiles(str(work.get("risk") or ""), changed)
+    base_sha = str(preflight.get("base_sha") or "")
+    head_sha = str(preflight.get("head_sha") or "")
+    context = default_context(
+        head_sha=head_sha,
+        base_sha=base_sha,
+        changed_paths=changed,
+        cleanliness="clean" if preflight.get("ok") else "unverified",
+    )
+    evidence_current = bool(
+        isinstance(evidence, dict)
+        and evidence.get("status") == "passed"
+        and evidence.get("head_sha") == head_sha
+    )
+    facts = {
+        "actor": palari_id,
+        "work": {
+            "id": work_id,
+            "palari": packet.get("agent", {}).get("id", ""),
+            "risk": work.get("risk", ""),
+            "intensity": work.get("intensity", ""),
+            "status": work.get("status", ""),
+            "required_approval_count": work.get("required_approval_count", 0),
+            "current_attempt": attempt.get("id", "") if isinstance(attempt, dict) else "",
+        },
+        "packet": {
+            "status": packet.get("status", "blocked"),
+            "context_hash": packet.get("context_hash", ""),
+        },
+        "claim": {
+            "status": claim_result.get("status", "fail"),
+            "claimed_by": claim.get("claimed_by", ""),
+            "context_hash": claim.get("context_hash", ""),
+            "base_sha": base_sha,
+        },
+        "git": {
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "clean": bool(preflight.get("ok")),
+            "changed_files": changed,
+            "scope_ok": bool(preflight.get("ok")),
+            "outputs_ok": bool(preflight.get("ok")),
+            "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
+        },
+        "proof": {
+            "attempt_id": attempt.get("id", "") if isinstance(attempt, dict) else "",
+            "receipt_id": receipt.get("id", "") if isinstance(receipt, dict) else "",
+            "evidence_id": evidence.get("id", "") if isinstance(evidence, dict) else "",
+            "attempt_current": isinstance(attempt, dict),
+            "attempt_bound": isinstance(attempt, dict),
+            "receipt_current": isinstance(receipt, dict),
+            "evidence_current": evidence_current,
+            "attempt_closed": bool(
+                isinstance(attempt, dict)
+                and attempt.get("status") in {"complete", "completed"}
+                and attempt.get("head_sha") == head_sha
+            ),
+        },
+        "verification_profiles": [
+            {
+                "profile_id": profile.id,
+                "cache_key": cache_key(profile, context),
+                "status": "required",
+            }
+            for profile in profiles
+        ],
+        "workspace_digest": current_hash,
+    }
+    plan = plan_advance(facts)
+    return {
+        **plan,
+        "workspace": str(packet.get("workspace") or ""),
+        "status": "planned" if plan["can_advance"] else "blocked",
+        "dry_run": True,
+        "would_mutate": False,
+        "preflight": preflight,
+        "fast_path": True,
+    }
 
 
 def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:

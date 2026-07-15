@@ -126,6 +126,7 @@ def start_agent(
             "lease_expires_at": expires,
             "packet_id": packet["packet_id"],
             "context_hash": packet["context_hash"],
+            "workspace_file_hash": _file_hash(data_path),
             "packet_path": _runtime_relative(data_path, packet_path),
             "git_baseline": git_baseline,
             "git_baseline_hash": _git_baseline_hash(git_baseline),
@@ -269,6 +270,15 @@ def read_claim(workspace_path: Path | str, work_id: str) -> dict[str, Any] | Non
             f"claim file for {work_id} identifies work item {value.get('work_item', '') or '(missing)'}"
         )
     return value
+
+
+def read_claim_packet(
+    workspace_path: Path | str,
+    claim: dict[str, Any],
+) -> dict[str, Any]:
+    """Read and boundary-check the exact persisted packet named by a claim."""
+
+    return _read_claim_packet(workspace_file_path(workspace_path), claim)
 
 
 def claim_is_active(claim: dict[str, Any]) -> bool:
@@ -516,6 +526,9 @@ def _validate_active_claim(claim: dict[str, Any]) -> str:
         return f"unsupported mode {claim['mode']}"
     if _parse_timestamp(str(claim.get("lease_expires_at") or "")) is None:
         return "lease_expires_at is missing or malformed"
+    workspace_file_hash = claim.get("workspace_file_hash")
+    if workspace_file_hash is not None and not _valid_sha256(workspace_file_hash):
+        return "workspace_file_hash is malformed"
     baseline = claim.get("git_baseline")
     if baseline is not None:
         if not isinstance(baseline, dict):
@@ -524,6 +537,20 @@ def _validate_active_claim(claim: dict[str, Any]) -> str:
         if not isinstance(declared_hash, str) or declared_hash != _git_baseline_hash(baseline):
             return "git_baseline does not match git_baseline_hash"
     return ""
+
+
+def _file_hash(path: Path) -> str:
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        raise WorkspaceError(f"cannot hash workspace file for claim: {exc}") from exc
+    return f"sha256:{hashlib.sha256(content).hexdigest()}"
+
+
+def _valid_sha256(value: Any) -> bool:
+    if not isinstance(value, str) or not value.startswith("sha256:") or len(value) != 71:
+        return False
+    return all(char in "0123456789abcdef" for char in value[7:])
 
 
 def _validate_claim_packet(claim: dict[str, Any], packet: dict[str, Any]) -> str:

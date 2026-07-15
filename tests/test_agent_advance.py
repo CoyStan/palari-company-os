@@ -16,7 +16,11 @@ from unittest.mock import Mock, patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.agent_advance import agent_advance, plan_advance
+from palari_company_os.agent_advance import (
+    agent_advance,
+    agent_advance_dry_run,
+    plan_advance,
+)
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.agent_runtime import release_agent
 from palari_company_os.authoring import create_record, reconcile_agent_proof
@@ -398,6 +402,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result.kind, "agent-done")
         self.assertEqual(result.payload["schema_version"], "palari.agent_advance.v1")
         self.assertEqual(result.payload["status"], "planned")
+        self.assertTrue(result.payload["fast_path"])
         output = io.StringIO()
         with redirect_stdout(output):
             print_agent_done(result.payload, False)
@@ -405,6 +410,24 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertIn(f"Agent advance: {self.work_id}", rendered)
         self.assertIn("Status: planned", rendered)
         self.assertIn("review-handoff: required", rendered)
+
+    def test_fast_dry_run_rejects_any_workspace_byte_drift(self) -> None:
+        data_path = self.temp_dir / "workspace.json"
+        data_path.write_bytes(data_path.read_bytes() + b"\n")
+
+        result = agent_advance_dry_run(
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(
+            ["WORKSPACE_CHANGED_SINCE_CLAIM"],
+            [item["code"] for item in result["blockers"]],
+        )
 
     def test_r1_advance_completes_without_human_authority(self) -> None:
         release_agent(
