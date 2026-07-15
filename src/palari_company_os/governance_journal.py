@@ -514,6 +514,62 @@ def recover_workspace_journal(
         return _operator_report(_error_report(data_path, exc))
 
 
+def recover_workspace_journal_if_current(
+    workspace_path: Path | str,
+    actor: str,
+    *,
+    expected_status: str,
+    expected_workspace_digest: str,
+    expected_prepare_digest: str,
+    expected_transaction_id: str,
+    action: str = "auto",
+    reason: str = "",
+) -> dict[str, Any]:
+    """Recover one authenticated pending transaction under the writer lock."""
+
+    from .store import workspace_write_lock
+
+    data_path = _workspace_data_path(workspace_path)
+    try:
+        with workspace_write_lock(workspace_path):
+            current_data = _load_workspace_data(data_path)
+            records = _read_records(data_path)
+            state = _scan_records(records)
+            prepared = state.pending
+            if prepared is None:
+                raise JournalError(
+                    "JOURNAL_RECOVERY_STATE_CHANGED",
+                    "the expected pending transaction is no longer present",
+                )
+            current_digest = workspace_digest(current_data)
+            if current_digest == prepared["after_workspace_digest"]:
+                current_status = "pending-commit"
+            elif current_digest == prepared["before_workspace_digest"]:
+                current_status = "pending-prepare"
+            else:
+                raise JournalError(
+                    "JOURNAL_WORKSPACE_DIVERGENCE",
+                    "workspace matches neither side of the pending journal transaction",
+                )
+            if (
+                current_status != expected_status
+                or current_digest != expected_workspace_digest
+                or prepared.get("record_digest") != expected_prepare_digest
+                or prepared.get("transaction_id") != expected_transaction_id
+            ):
+                raise JournalError(
+                    "JOURNAL_RECOVERY_STATE_CHANGED",
+                    "workspace or pending transaction changed after verification",
+                    next_action="Re-run the command against the current exact state.",
+                )
+            del actor  # Terminal records retain the prepared actor attribution.
+            return _operator_report(
+                recover_pending(data_path, current_data, action=action, reason=reason)
+            )
+    except JournalError as exc:
+        return _operator_report(_error_report(data_path, exc))
+
+
 def _recover_workspace_journal(
     workspace_path: Path | str,
     actor: str = "",

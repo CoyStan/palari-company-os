@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -22,11 +23,14 @@ from palari_company_os.governance_journal import (
     prepare_record,
     record_digest,
     recover_pending,
+    recover_workspace_journal_if_current,
     transact,
     verify_journal,
     verify_workspace_journal,
     workspace_digest,
 )
+from palari_company_os.store import workspace_write_lock
+from palari_company_os.workspace import WorkspaceError
 
 
 TIMESTAMP = "2026-07-14T12:00:00Z"
@@ -325,6 +329,108 @@ class GovernanceJournalTests(unittest.TestCase):
         self.assertTrue(aborted["ok"])
         self.assertEqual(aborted["aborted_transactions"], 1)
         self.assertEqual(repeated["record_count"], aborted["record_count"])
+
+    def test_exact_recovery_holds_writer_lock_until_terminal_append(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = root / "workspace.json"
+            initial = workspace("Initial")
+            updated = workspace("Updated")
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+
+            def crash_after_apply(point: str) -> None:
+                if point == "after_apply":
+                    raise RuntimeError("injected after apply")
+
+            with self.assertRaisesRegex(RuntimeError, "after apply"):
+                transact(
+                    data_path,
+                    before_data=initial,
+                    after_data=updated,
+                    metadata=metadata(),
+                    apply=lambda: data_path.write_text(
+                        json.dumps(updated), encoding="utf-8"
+                    ),
+                    crash_hook=crash_after_apply,
+                )
+            prepared = read_records(data_path)[-1]
+            actual_recover = recover_pending
+
+            def recover_while_asserting_lock(*args, **kwargs):
+                with self.assertRaisesRegex(WorkspaceError, "write is already in progress"):
+                    with workspace_write_lock(root):
+                        pass
+                return actual_recover(*args, **kwargs)
+
+            with patch(
+                "palari_company_os.governance_journal.recover_pending",
+                side_effect=recover_while_asserting_lock,
+            ):
+                report = recover_workspace_journal_if_current(
+                    root,
+                    "PALARI-TEST",
+                    expected_status="pending-commit",
+                    expected_workspace_digest=workspace_digest(updated),
+                    expected_prepare_digest=str(prepared["record_digest"]),
+                    expected_transaction_id=str(prepared["transaction_id"]),
+                )
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "valid")
+
+    def test_exact_recovery_state_mismatch_never_appends(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = root / "workspace.json"
+            initial = workspace("Initial")
+            updated = workspace("Updated")
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+
+            def crash_before_apply(point: str) -> None:
+                if point == "before_apply":
+                    raise RuntimeError("injected before apply")
+
+            with self.assertRaisesRegex(RuntimeError, "before apply"):
+                transact(
+                    data_path,
+                    before_data=initial,
+                    after_data=updated,
+                    metadata=metadata(),
+                    apply=lambda: data_path.write_text(
+                        json.dumps(updated), encoding="utf-8"
+                    ),
+                    crash_hook=crash_before_apply,
+                )
+            prepared = read_records(data_path)[-1]
+            journal = journal_file_path(data_path)
+            before_journal = journal.read_bytes()
+            report = recover_workspace_journal_if_current(
+                root,
+                "PALARI-TEST",
+                expected_status="pending-prepare",
+                expected_workspace_digest=workspace_digest(initial),
+                expected_prepare_digest="sha256:" + "0" * 64,
+                expected_transaction_id=str(prepared["transaction_id"]),
+                action="abort",
+            )
+
+            self.assertFalse(report["ok"])
+            self.assertEqual(
+                report["errors"][0]["code"], "JOURNAL_RECOVERY_STATE_CHANGED"
+            )
+            self.assertEqual(before_journal, journal.read_bytes())
 
     def test_journal_path_rejects_palari_and_file_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:

@@ -700,7 +700,7 @@ def _completed_projection(
     from .agent_done import _git_value
     from .governance_journal import (
         pending_workspace_journal_context,
-        recover_workspace_journal,
+        recover_workspace_journal_if_current,
         verify_workspace_journal,
     )
 
@@ -782,16 +782,24 @@ def _completed_projection(
                 "PENDING_TRANSACTION_MISMATCH",
                 pending_error,
             )
-        recovered = recover_workspace_journal(
+        prepare = pending["prepare"]
+        recovered = recover_workspace_journal_if_current(
             workspace_path,
             palari_id,
+            expected_status="pending-commit",
+            expected_workspace_digest=str(prepare["after_workspace_digest"]),
+            expected_prepare_digest=str(prepare["record_digest"]),
+            expected_transaction_id=str(prepare["transaction_id"]),
             action="auto",
             reason="resume atomic agent proof reconciliation",
         )
         if not recovered.get("ok"):
-            raise WorkspaceError(
-                "agent advance cannot recover the pending proof commit: "
-                + str(recovered.get("message") or recovered.get("status") or "unknown")
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_STATE_CHANGED",
+                "The pending proof changed before atomic commit recovery: "
+                + str(recovered.get("message") or recovered.get("status") or "unknown"),
             )
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
@@ -860,16 +868,24 @@ def _completed_projection(
                 "PENDING_TRANSACTION_MISMATCH",
                 pending_error,
             )
-        recovered = recover_workspace_journal(
+        prepare = pending["prepare"]
+        recovered = recover_workspace_journal_if_current(
             workspace_path,
             palari_id,
+            expected_status="pending-prepare",
+            expected_workspace_digest=str(prepare["before_workspace_digest"]),
+            expected_prepare_digest=str(prepare["record_digest"]),
+            expected_transaction_id=str(prepare["transaction_id"]),
             action="abort",
             reason="retry atomic agent proof reconciliation before workspace replacement",
         )
         if not recovered.get("ok"):
-            raise WorkspaceError(
-                "agent advance cannot abort the unapplied proof prepare: "
-                + str(recovered.get("message") or recovered.get("status") or "unknown")
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_STATE_CHANGED",
+                "The pending proof changed before atomic abort recovery: "
+                + str(recovered.get("message") or recovered.get("status") or "unknown"),
             )
         workspace = Workspace.load(workspace_path)
     elif journal_status not in {"", "not-enabled", "valid", "continuous"}:
