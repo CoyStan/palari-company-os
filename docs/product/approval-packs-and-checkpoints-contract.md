@@ -16,6 +16,9 @@ Independent-review repair head: `fd3121a2253b4d7a20cfa86d46702107235753d0`.
 Checkpoint authority/history repair head:
 `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`.
 
+Pack authority/dependency repair head:
+`dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`.
+
 ## Baseline
 
 The first pre-change `./scripts/verify.sh` run exposed a state-coupled test
@@ -48,6 +51,10 @@ tests exercise.
   schema/fixture/CLI/docs checks, and 18/18 PCAW vectors passed in 43.10
   seconds. The isolated installed-wheel smoke passed in 13.68 seconds. The
   PCAW trusted-code set remains 5 files, 2,334 lines, and zero dependencies.
+- Post-pack-authority/dependency repair gate: 656 tests across 41 modules,
+  style, schema/fixture/CLI/docs checks, and 18/18 PCAW vectors passed in 43.98
+  seconds. The isolated installed-wheel smoke passed in 13.26 seconds; the PCAW
+  trusted-code set remains unchanged.
 
 ## Independent Review History
 
@@ -73,11 +80,13 @@ tests exercise.
   reviewer found that Claude shells asked rather than hard-denied
   `human-decision pack`, and that a narrowed pack bound an outside dependency's
   terminal status but not its exact governed artifact state.
-- Current repair: hard-deny pack decisions for bare, reordered, equals-form,
-  path-qualified, and compound commands; recursively bind every dependency's
-  current contract, proof/artifact state, and dependency closure while
-  normalizing the expected in-pack terminal transition. Exact committed
-  evidence and a fresh exact-head verdict remain required.
+- Repair head `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`: pack decisions are
+  hard-denied for bare, reordered, equals-form, path-qualified, and compound
+  commands; every dependency recursively binds its current contract,
+  proof/artifact state, and dependency closure while normalizing the expected
+  in-pack terminal transition. A distinct-artifact terminal-dependency
+  regression proves a second quorum vote fails stale. A fresh exact-head
+  verdict remains required.
 - Dogfood attempt `ATTEMPT-REPO-0025-R1` was closed blocked at its unchanged
   base because its original path list omitted an implemented adapter and the
   newly required hook classifier. `ATTEMPT-REPO-0025-R2` owns the complete
@@ -115,7 +124,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
     plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
-    (policy-drift staleness, outside-pack dependency blocking, changed sibling,
+    plus dependency repair `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`
+    (policy-drift staleness, outside-pack dependency blocking, recursive exact
+    dependency state, distinct terminal artifact mutation, changed sibling,
     and rejection propagation tests).
 
 - [x] One attributable human action with exact per-item authorization
@@ -131,8 +142,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
     plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
-    (exact selection equality, durable manifest/member bindings, qualified
-    approve/reject/defer authority, transplant, and idempotence tests).
+    plus authority repair `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`
+    (exact selection equality, durable manifest/member/dependency bindings,
+    qualified approve/reject/defer authority, hard shell denial, transplant,
+    and idempotence tests).
 
 - [x] Parked execution and risk-based batch policy
   - Required outcome: bounded preparation may continue while governed effects
@@ -235,7 +248,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Current status: first exact-head review REJECT repaired at
     `fd3121a2253b4d7a20cfa86d46702107235753d0`; second exact-head review REJECT
     repaired at `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`; authoritative
-    verification and isolated install pass; fresh exact-head review remains.
+    verification and isolated install pass; third exact-head review REJECT
+    repaired at `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`; fresh exact-head
+    review remains.
   - Exact committed evidence when completed: pending.
 
 ## Human Boundary
