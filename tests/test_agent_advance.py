@@ -482,6 +482,16 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertIn("Status: planned", rendered)
         self.assertIn("review-handoff: required", rendered)
 
+    def test_cli_help_describes_verification_cache_as_advisory(self) -> None:
+        output = io.StringIO()
+        with redirect_stdout(output), self.assertRaises(SystemExit) as exit_context:
+            build_parser().parse_args(["agent", "advance", "--help"])
+
+        self.assertEqual(exit_context.exception.code, 0)
+        rendered = output.getvalue()
+        self.assertIn("Ignore advisory cached records", rendered)
+        self.assertNotIn("reusing matching passing attestations", rendered)
+
     def test_legacy_claim_pending_prepare_dry_run_is_read_only(self) -> None:
         self._assert_legacy_pending_dry_run_is_read_only("before_apply")
 

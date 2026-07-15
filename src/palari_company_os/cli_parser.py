@@ -414,7 +414,7 @@ def _add_agent_parser(subparsers: Any) -> None:
     advance.add_argument(
         "--refresh-verification",
         action="store_true",
-        help="Rerun exact profiles instead of reusing matching passing attestations.",
+        help="Ignore advisory cached records and rerun the required exact profiles.",
     )
     advance.add_argument("--json", action="store_true", help="Emit JSON.")
 
