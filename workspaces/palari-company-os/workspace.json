@@ -3729,19 +3729,81 @@
     {
       "base_sha": "cdefca768685099f12a5e8ef384a429fd1550217",
       "output_targets": [
-        "docs/product/deterministic-agent-advance-contract.md",
+        "README.md",
+        "docs/agent",
+        "docs/product",
+        "schemas/workspace.schema.json",
+        "scripts",
+        "src/palari_company_os/agent_advance.py",
         "src/palari_company_os/agent_done.py",
-        "tests/test_agent_done.py"
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "tests",
+        "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
       ],
       "id": "ATTEMPT-REPO-0026-R2",
       "work_item_id": "WORK-REPO-0026",
       "actor": "PALARI-STEWARD",
-      "status": "active",
+      "status": "completed",
       "branch": "codex/deterministic-agent-advance",
       "workspace_path": "/home/quetza/palari-company-os",
       "model_or_worker": "gpt-5-codex",
       "cleanliness": "clean",
-      "started_at": "2026-07-15T18:53:01.333152Z"
+      "started_at": "2026-07-15T18:53:01.333152Z",
+      "head_sha": "7139e0ad2dbf9885f552c2c2b8479f888ef54da0",
+      "commits": [
+        "7139e0ad2dbf9885f552c2c2b8479f888ef54da0"
+      ],
+      "updated_at": "2026-07-15T18:54:20.304813Z",
+      "changed_files": [
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/deterministic-agent-advance-contract.md",
+        "docs/product/public-surface.md",
+        "docs/product/security.md",
+        "scripts/install_smoke.sh",
+        "scripts/verification_profiles.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/verification_attestations.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ]
     }
   ],
   "evidence_runs": [
@@ -4557,6 +4619,173 @@
         }
       ],
       "manifest_hash": "sha256:0d29625638c4e878ceb7eeb06d3f95a652a13d8f06bdc424b7d1592136dbe444"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-REPO-0026-7139E0AD2DBF",
+      "work_item_id": "WORK-REPO-0026",
+      "attempt_id": "ATTEMPT-REPO-0026-R2",
+      "head_sha": "7139e0ad2dbf9885f552c2c2b8479f888ef54da0",
+      "status": "passed",
+      "base_ref": "cdefca768685099f12a5e8ef384a429fd1550217",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-A1CA6E41932A60EE sha256:9dae20390f88eed7360abf6a11bfb5b9d0a21c5b39ba3438a1ca6e41932a60ee",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-94F4BA6BA79D1F2B sha256:e301f35ce3594f4c9fed814d06448d41d4f86045116546f194f4ba6ba79d1f2b",
+        "docs-check attestation VERIFY-DOCS-CHECK-1538B198E5E31251 sha256:0e00c05a417379166464e0b806e157ff22beb6cede18758c1538b198e5e31251"
+      ],
+      "artifacts": [
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/deterministic-agent-advance-contract.md",
+        "docs/product/public-surface.md",
+        "docs/product/security.md",
+        "scripts/install_smoke.sh",
+        "scripts/verification_profiles.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/verification_attestations.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py"
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-15T18:54:20.163762Z",
+      "receipt_hash": "sha256:95c36b7f87357b7f5cf121a26e71c0984dfcec65b8e9b3fb6377ecc940ffb7e4",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "README.md",
+          "sha256": "sha256:1a5e09bba5484b7d2ac87a23ab6e407c02103c4714793d0e1363f6ff9093125f",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/product/deterministic-agent-advance-contract.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "scripts/install_smoke.sh",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "scripts/verification_profiles.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/agent_done.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/agent_file_changes.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_agent.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "src/palari_company_os/verification_attestations.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "tests/fixtures/public_commands.txt",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "tests/test_agent_done.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "tests/test_public_surface.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        },
+        {
+          "path": "tests/test_transition_checks.py",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        }
+      ],
+      "manifest_hash": "sha256:a032c28b2b3546661a4fa7a9f77a466866930a5b5edf356712eb18a21567e8de"
     }
   ],
   "review_verdicts": [
@@ -6117,6 +6346,77 @@
       ],
       "timestamp": "2026-07-15T18:48:56.607775Z",
       "receipt_hash": "sha256:c896bd21d110aa1205ec29221142164e996d5eb1f99195464ca92688bc78b8db"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-REPO-0026-7139E0AD2DBF",
+      "work_item_id": "WORK-REPO-0026",
+      "attempt_id": "ATTEMPT-REPO-0026-R2",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Repaired claim-range path projection so repeated paths are recorded once.",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/deterministic-agent-advance-contract.md",
+        "docs/product/public-surface.md",
+        "docs/product/security.md",
+        "scripts/install_smoke.sh",
+        "scripts/verification_profiles.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/verification_attestations.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/deterministic-agent-advance-contract.md",
+        "docs/product/public-surface.md",
+        "docs/product/security.md",
+        "scripts/install_smoke.sh",
+        "scripts/verification_profiles.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_done.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/verification_attestations.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "tests/test_public_surface.py",
+        "tests/test_transition_checks.py"
+      ],
+      "timestamp": "2026-07-15T18:54:20.029243Z",
+      "previous_receipt_hash": "sha256:c896bd21d110aa1205ec29221142164e996d5eb1f99195464ca92688bc78b8db",
+      "receipt_hash": "sha256:95c36b7f87357b7f5cf121a26e71c0984dfcec65b8e9b3fb6377ecc940ffb7e4"
     }
   ],
   "decisions": [
