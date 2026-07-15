@@ -275,11 +275,13 @@ def _preflight(
     work_id: str,
     palari_id: str,
     declared_changed: list[str] | None,
+    *,
+    packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     claim = read_claim(workspace_path, work_id)
     if not claim:
         return _blocked_preflight("agent done requires an active execute claim")
-    packet = build_agent_brief(workspace, work_id, palari_id, "execute")
+    packet = packet or build_agent_brief(workspace, work_id, palari_id, "execute")
     claim_result = claim_check(
         workspace_path,
         work_id,

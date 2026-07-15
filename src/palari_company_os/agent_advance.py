@@ -356,7 +356,14 @@ def _collect_facts(
         "execute",
         str(packet.get("context_hash") or ""),
     )
-    preflight = _preflight(workspace, workspace_path, work_id, palari_id, None)
+    preflight = _preflight(
+        workspace,
+        workspace_path,
+        work_id,
+        palari_id,
+        None,
+        packet=packet,
+    )
     changed = list(preflight.get("changed_files", []))
     profiles = verification_profiles(work.risk, changed)
     base_sha = str(preflight.get("base_sha") or claim.get("git_baseline", {}).get("head_sha") or "")
