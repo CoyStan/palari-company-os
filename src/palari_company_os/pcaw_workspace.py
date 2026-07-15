@@ -5,7 +5,7 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any, Iterable, TypeVar
 
-from .evidence_manifest import verify_evidence
+from .evidence_manifest import evidence_artifact_root, verify_evidence
 from .governance_case import (
     CASE_SCHEMA_VERSION,
     AcceptanceSnapshot,
@@ -135,7 +135,7 @@ def governance_case_from_workspace(
     )
 
     if inspect_external:
-        subject_observation, artifact_subjects = _artifact_subjects(workspace.path, evidence)
+        subject_observation, artifact_subjects = _artifact_subjects(workspace, evidence)
         evidence_observation = _evidence_observation(workspace, evidence)
         journal_observation = _journal_observation(workspace)
     else:
@@ -387,10 +387,19 @@ def _finding(value: dict[str, Any]) -> Finding:
 
 
 def _artifact_subjects(
-    root: Path, evidence: Any | None
+    workspace: Workspace, evidence: Any | None
 ) -> tuple[IntegrityObservation, list[dict[str, str]]]:
     if evidence is None or not evidence.artifacts:
         return IntegrityObservation("not-required"), []
+    try:
+        root = evidence_artifact_root(
+            workspace.path,
+            evidence.attempt_id,
+            evidence.artifacts,
+            workspace.attempts,
+        )
+    except ValueError as exc:
+        return IntegrityObservation("failed", (f"artifact boundary: {exc}",)), []
     details: list[str] = []
     subjects: list[dict[str, str]] = []
     seen: set[str] = set()

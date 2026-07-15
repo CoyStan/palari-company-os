@@ -58,6 +58,68 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_revoked_acceptance_remains_historical_when_new_attempt_starts(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["status"] = "active"
+        raw["work_items"][0]["current_attempt"] = "ATTEMPT-2"
+        raw["attempts"][0]["started_at"] = "2026-06-19T04:00:00Z"
+        raw["attempts"].append(
+            {
+                "id": "ATTEMPT-2",
+                "work_item_id": "WORK-1",
+                "actor": "PALARI-SOFIA",
+                "status": "active",
+                "started_at": "2026-06-19T04:05:00Z",
+            }
+        )
+        raw["human_decisions"].append(
+            {
+                "id": "HUMAN-DECISION-2",
+                "work_item_id": "WORK-1",
+                "human_id": "HUMAN-PRODUCT",
+                "reviewed_head": "head-1",
+                "decision": "changes-requested",
+                "status": "changes-requested",
+                "acceptance_mode": "human",
+                "quorum_status": "not-met",
+                "evidence_reference": "EVIDENCE-1",
+                "review_reference": "REVIEW-1",
+                "timestamp": "2026-06-19T04:04:00Z",
+            }
+        )
+        raw["acceptance_records"] = []
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].current_attempt, "ATTEMPT-2")
+        self.assertEqual(workspace.human_decisions[-1].status, "changes-requested")
+
+    def test_current_acceptance_cannot_be_carried_into_new_attempt(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["status"] = "active"
+        raw["work_items"][0]["current_attempt"] = "ATTEMPT-2"
+        raw["attempts"][0]["started_at"] = "2026-06-19T04:00:00Z"
+        raw["attempts"].append(
+            {
+                "id": "ATTEMPT-2",
+                "work_item_id": "WORK-1",
+                "actor": "PALARI-SOFIA",
+                "status": "active",
+                "started_at": "2026-06-19T04:05:00Z",
+            }
+        )
+        raw["acceptance_records"] = []
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "evidence_reference is not for current attempt ATTEMPT-2",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_nonterminal_acceptance_rejects_tampered_evidence_manifest(self) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")

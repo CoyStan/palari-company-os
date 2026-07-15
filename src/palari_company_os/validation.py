@@ -671,6 +671,15 @@ def validate_workspace_contract(workspace: Any) -> None:
     for decision in workspace.decisions:
         _require_allowed_value("decisions", decision.id, "status", decision.status, DECISION_STATUSES)
 
+    latest_human_decisions: dict[tuple[str, str], HumanDecision] = {}
+    for human_decision in workspace.human_decisions:
+        key = (human_decision.work_item_id, human_decision.human_id)
+        previous = latest_human_decisions.get(key)
+        if previous is None or _decision_order_key(human_decision) > _decision_order_key(
+            previous
+        ):
+            latest_human_decisions[key] = human_decision
+
     for human_decision in workspace.human_decisions:
         _require_allowed_value(
             "human_decisions",
@@ -729,6 +738,12 @@ def validate_workspace_contract(workspace: Any) -> None:
                 attempts_by_id,
                 evidence_by_id,
                 reviews_by_id,
+                require_current=(
+                    latest_human_decisions[
+                        (human_decision.work_item_id, human_decision.human_id)
+                    ].id
+                    == human_decision.id
+                ),
             )
     _validate_human_decision_order(workspace.human_decisions)
 
@@ -1358,6 +1373,8 @@ def _validate_accepted_human_decision(
     attempts_by_id: dict[str, Attempt],
     evidence_by_id: dict[str, EvidenceRun],
     reviews_by_id: dict[str, ReviewVerdict],
+    *,
+    require_current: bool,
 ) -> None:
     work = work_by_id[decision.work_item_id]
     human = humans_by_id[decision.human_id]
@@ -1391,7 +1408,11 @@ def _validate_accepted_human_decision(
             f"review for {review.work_item_id}, not {work.id}"
         )
     attempt = attempts_by_id[evidence.attempt_id]
-    if work.current_attempt and evidence.attempt_id != work.current_attempt:
+    if (
+        require_current
+        and work.current_attempt
+        and evidence.attempt_id != work.current_attempt
+    ):
         raise WorkspaceError(
             f"human_decisions.{decision.id}.evidence_reference is not for "
             f"current attempt {work.current_attempt}"
@@ -1410,7 +1431,7 @@ def _validate_accepted_human_decision(
         )
     from .governance_binding import work_contract_hash
 
-    if review.work_contract_hash != work_contract_hash(work):
+    if require_current and review.work_contract_hash != work_contract_hash(work):
         raise WorkspaceError(
             f"human_decisions.{decision.id}.review_reference is stale for the work contract"
         )

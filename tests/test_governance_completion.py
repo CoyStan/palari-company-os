@@ -12,6 +12,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ACME = REPO_ROOT / "examples" / "acme-company-os"
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from palari_company_os.pcaw_workspace import governance_case_from_workspace
+from palari_company_os.workspace import Workspace
 
 
 class GovernanceCompletionTests(unittest.TestCase):
@@ -302,6 +306,10 @@ class GovernanceCompletionTests(unittest.TestCase):
             attempt = next(item for item in raw["attempts"] if item["id"] == "ATTEMPT-0002")
             attempt["workspace_path"] = str(repo_root)
             attempt["allowed_paths"] = ["docs/product/company-os.md"]
+            work = next(item for item in raw["work_items"] if item["id"] == "WORK-0003")
+            work["risk"] = "R4"
+            work["required_approval_count"] = 1
+            work["required_approval_capability"] = "product"
             workspace_file.write_text(json.dumps(raw), encoding="utf-8")
             artifact = repo_root / "docs" / "product" / "company-os.md"
             artifact.parent.mkdir(parents=True)
@@ -357,11 +365,89 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "EVIDENCE-NESTED",
                 "--json",
             )
+            governance_case, subjects = governance_case_from_workspace(
+                Workspace.load(workspace_file),
+                "WORK-0003",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "attempt",
+                "closeout",
+                "ATTEMPT-0002",
+                "--head-sha",
+                "def5678",
+                "--cleanliness",
+                "clean",
+                "--changed",
+                "docs/product/company-os.md",
+                "--output-target",
+                "docs/product/company-os.md",
+                "--json",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "review",
+                "record",
+                "REVIEW-NESTED",
+                "--work-item-id",
+                "WORK-0003",
+                "--reviewed-head",
+                "def5678",
+                "--reviewer",
+                "HUMAN-FOUNDER",
+                "--verdict",
+                "accept-ready",
+                "--json",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "human-decision",
+                "record",
+                "DECISION-NESTED",
+                "--work-item-id",
+                "WORK-0003",
+                "--human-id",
+                "HUMAN-FOUNDER",
+                "--reviewed-head",
+                "def5678",
+                "--decision",
+                "accepted",
+                "--status",
+                "accepted",
+                "--quorum-status",
+                "met",
+                "--evidence-reference",
+                "EVIDENCE-NESTED",
+                "--review-reference",
+                "REVIEW-NESTED",
+                "--json",
+            )
+            completed = self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "work",
+                "complete",
+                "WORK-0003",
+                "--json",
+            )
 
         self.assertTrue(verified["ok"])
         self.assertTrue(verified["output_coverage_ok"])
         self.assertEqual(verified["unhashed_receipt_outputs"], [])
         self.assertEqual(verified["declared_artifact_hashes"][0]["status"], "present")
+        self.assertEqual(governance_case.observations.subject_integrity.status, "verified")
+        self.assertEqual(
+            subjects[0]["name"],
+            verified["declared_artifact_hashes"][0]["path"],
+        )
+        self.assertEqual(
+            f"sha256:{subjects[0]['sha256']}",
+            verified["declared_artifact_hashes"][0]["sha256"],
+        )
+        self.assertEqual(completed["action"], "completed")
 
     def test_new_output_binding_rejects_vacuous_empty_manifest(self) -> None:
         with self.temp_workspace() as workspace_file:

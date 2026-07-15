@@ -1941,7 +1941,7 @@
       "acceptance_target": "PCAW v1 exports byte-identical bounded-work statements; offline verification fails closed on stale, contradictory, unsafe, or altered proof; journal continuity is replayable; complete verification and fresh exact-head review ACCEPT; founder authority remains human-only.",
       "required_approval_capability": "architecture",
       "required_approval_count": 1,
-      "current_attempt": "ATTEMPT-REPO-0024-R2"
+      "current_attempt": "ATTEMPT-REPO-0024-R3"
     }
   ],
   "attempts": [
@@ -2980,6 +2980,32 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/workspace.json"
       ]
+    },
+    {
+      "base_sha": "9725d0f52f1bb7a217a079630405c6c745f56d17",
+      "allowed_paths": [
+        "src/palari_company_os",
+        "tests",
+        "spec/pcaw/v1",
+        "docs/product",
+        "scripts",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_completion.py",
+        "spec/pcaw/v1/trusted-code.json",
+        "docs/product/proof-carrying-governance-contract.md"
+      ],
+      "id": "ATTEMPT-REPO-0024-R3",
+      "work_item_id": "WORK-REPO-0024",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/proof-carrying-ai-work-kernel",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-07-15T01:34:28.497309Z"
     }
   ],
   "evidence_runs": [
