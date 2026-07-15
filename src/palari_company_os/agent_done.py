@@ -335,7 +335,7 @@ def _preflight(
     )
     if committed is None:
         return _blocked_preflight("Git commit inspection failed; agent done cannot prove changes")
-    changed_files = sorted(path for path in committed if path)
+    changed_files = sorted({path for path in committed if path})
     declared = sorted(dict.fromkeys(declared_changed or []))
     if declared and declared != changed_files:
         return _blocked_preflight(

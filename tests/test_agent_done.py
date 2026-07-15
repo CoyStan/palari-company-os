@@ -174,6 +174,36 @@ class AgentDoneTests(unittest.TestCase):
             f"ATTEMPT-DONE-{work_id}", {item.id for item in workspace.attempts}
         )
 
+    def test_commit_range_deduplicates_paths_changed_in_multiple_commits(self) -> None:
+        work_id = "WORK-TEST-DEDUPLICATE-RANGE"
+        self._create_light_work(work_id)
+        self._initialize_repo()
+        start_agent(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self._commit_readme_change()
+        self._commit_path("README.md", "after again\n", "second bounded output")
+
+        result = agent_done(
+            Ws.load(self.workspace_path),
+            self.workspace_path,
+            work_id,
+            "PALARI-STEWARD",
+            changed=["README.md"],
+        )
+
+        self.assertEqual(result["status"], "done")
+        attempt = next(
+            item
+            for item in Ws.load(self.workspace_path).attempts
+            if item.id == f"ATTEMPT-DONE-{work_id}"
+        )
+        self.assertEqual(attempt.changed_files, ["README.md"])
+
     def test_resumes_matching_partial_attempt(self) -> None:
         from palari_company_os.authoring import create_record, update_record
 
