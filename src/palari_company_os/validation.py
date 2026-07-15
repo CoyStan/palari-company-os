@@ -329,6 +329,13 @@ ALLOWED_RECORD_FIELDS = {
         "quorum_status",
         "evidence_reference",
         "review_reference",
+        "approval_pack_id",
+        "approval_pack_digest",
+        "approval_pack_member_digest",
+        "approval_pack_subject_digest",
+        "approval_pack_request_digest",
+        "approval_pack_action",
+        "approval_pack_manifest",
         "timestamp",
     },
     "acceptance_records": {
@@ -470,6 +477,7 @@ HUMAN_DECISION_STATUSES = {
     "rejected",
     "changes-requested",
     "blocked",
+    "deferred",
 }
 HUMAN_DECISION_VALUES = {
     "accepted",
@@ -478,7 +486,9 @@ HUMAN_DECISION_VALUES = {
     "needs-changes",
     "changes-requested",
     "blocked",
+    "deferred",
 }
+APPROVAL_PACK_ACTIONS = {"approve", "reject", "defer"}
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
 ACCEPTANCE_RECORD_STATUSES = {"accepted", "rejected", "revoked"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
@@ -730,6 +740,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions.{human_decision.id} has contradictory decision and status"
             )
+        _validate_approval_pack_decision(human_decision)
         if _is_acceptance(human_decision):
             _validate_accepted_human_decision(
                 human_decision,
@@ -746,6 +757,7 @@ def validate_workspace_contract(workspace: Any) -> None:
                 ),
             )
     _validate_human_decision_order(workspace.human_decisions)
+    _validate_approval_pack_decision_sets(workspace.human_decisions)
 
     _validate_ordered_trust_records(
         "attempts",
@@ -1525,17 +1537,23 @@ def _validate_acceptance_record(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
-    from .evidence_manifest import verify_evidence
+    if work.status in TERMINAL_WORK_STATUSES:
+        stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
+        if stored_errors:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
+                f"evidence or receipt integrity: {stored_errors[0]}"
+            )
+    else:
+        from .evidence_manifest import verify_evidence
 
-    # Only unversioned evidence predates mandatory receipt-output coverage.
-    # Derive strictness from the evidence marker so a versioned record cannot
-    # claim legacy compatibility merely because it is already accepted.
-    verification = verify_evidence(workspace, evidence.id, require_output_coverage=None)
-    if not verification["ok"]:
-        raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
-            "evidence or receipt integrity"
-        )
+        # Before execution, approval is always bound to current artifact bytes.
+        verification = verify_evidence(workspace, evidence.id, require_output_coverage=None)
+        if not verification["ok"]:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
+                "evidence or receipt integrity"
+            )
     if acceptance.evidence_reference != review.evidence_reference:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference does not match "
@@ -1666,16 +1684,15 @@ def _validate_completed_work(
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but review is missing")
     _require_fresh_accept_ready_review(work.id, evidence, review)
     if review.binding_version:
-        from .governance_binding import current_review_binding_errors
+        from .governance_binding import review_binding_integrity_errors, work_contract_hash
 
         # Exact output coverage is mandatory for versioned evidence. Terminal
         # records with genuinely unversioned evidence remain loadable as
         # legacy state, but a v1 record cannot use that compatibility path.
-        binding_errors = current_review_binding_errors(
-            workspace,
-            review,
-            require_output_coverage=None,
-        )
+        binding_errors = review_binding_integrity_errors(workspace, review)
+        binding_errors.extend(_stored_evidence_integrity_errors(workspace, evidence))
+        if review.work_contract_hash != work_contract_hash(work):
+            binding_errors.append(f"review {review.id} work contract is stale")
         if binding_errors:
             raise WorkspaceError(
                 f"work_items.{work.id}.status is terminal but exact review proof is stale: "
@@ -1707,6 +1724,50 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but approval quorum is "
             f"{count}/{work.required_approval_count}"
         )
+
+
+def _stored_evidence_integrity_errors(
+    workspace: Any,
+    evidence: EvidenceRun,
+) -> list[str]:
+    """Validate terminal proof records without rebinding them to a later checkout."""
+
+    from .evidence_manifest import evidence_manifest_hash, receipt_hash
+    from .models import to_plain
+
+    record = to_plain(evidence)
+    errors: list[str] = []
+    if not evidence.manifest_hash or evidence.manifest_hash != evidence_manifest_hash(record):
+        errors.append(f"evidence {evidence.id} manifest content changed")
+    receipts = [
+        receipt
+        for receipt in workspace.receipts
+        if receipt.work_item_id == evidence.work_item_id
+        and receipt.attempt_id == evidence.attempt_id
+    ]
+    receipt = max(receipts, key=record_time_key) if receipts else None
+    if receipt is None:
+        errors.append(f"evidence {evidence.id} receipt is missing")
+    else:
+        if not receipt.receipt_hash or receipt.receipt_hash != receipt_hash(to_plain(receipt)):
+            errors.append(f"receipt {receipt.id} content changed")
+        if evidence.receipt_hash != receipt.receipt_hash:
+            errors.append(f"evidence {evidence.id} receipt binding changed")
+    if evidence.output_binding_version:
+        declared_paths = sorted(evidence.artifacts)
+        hashed_paths = sorted(
+            str(item.get("path", ""))
+            for item in evidence.artifact_hashes
+            if item.get("status") == "present"
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", str(item.get("sha256", "")))
+        )
+        if declared_paths != hashed_paths:
+            errors.append(f"evidence {evidence.id} output hashes are incomplete")
+        if not hashed_paths:
+            errors.append(f"evidence {evidence.id} versioned output proof is vacuous")
+        if receipt is not None and not set(receipt.outputs_created).issubset(hashed_paths):
+            errors.append(f"evidence {evidence.id} receipt outputs are not artifact-hashed")
+    return list(dict.fromkeys(errors))
 
 
 def _completed_via_low_risk_receipt(workspace: Any, work: WorkItem, attempt: Attempt) -> bool:
@@ -1925,6 +1986,98 @@ def _is_acceptance(decision: HumanDecision) -> bool:
         "accepted",
         "approved",
     }
+
+
+def _validate_approval_pack_decision(decision: HumanDecision) -> None:
+    fields = {
+        "approval_pack_id": decision.approval_pack_id,
+        "approval_pack_digest": decision.approval_pack_digest,
+        "approval_pack_member_digest": decision.approval_pack_member_digest,
+        "approval_pack_subject_digest": decision.approval_pack_subject_digest,
+        "approval_pack_request_digest": decision.approval_pack_request_digest,
+        "approval_pack_action": decision.approval_pack_action,
+    }
+    present = {key for key, value in fields.items() if value}
+    if not present:
+        return
+    if present != set(fields):
+        missing = ", ".join(sorted(set(fields) - present))
+        raise WorkspaceError(
+            f"human_decisions.{decision.id} has incomplete approval-pack binding: {missing}"
+        )
+    if decision.acceptance_mode != "approval-pack":
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.acceptance_mode must be approval-pack"
+        )
+    if decision.approval_pack_action not in APPROVAL_PACK_ACTIONS:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.approval_pack_action is unsupported"
+        )
+    for field in (
+        "approval_pack_digest",
+        "approval_pack_member_digest",
+        "approval_pack_subject_digest",
+        "approval_pack_request_digest",
+    ):
+        value = getattr(decision, field)
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.{field} must be a sha256 digest"
+            )
+    expected = {
+        "approve": ({"accepted", "approved"}, {"accepted", "approved"}),
+        "reject": ({"rejected"}, {"rejected"}),
+        "defer": ({"deferred"}, {"deferred"}),
+    }[decision.approval_pack_action]
+    if decision.decision not in expected[0] or decision.status not in expected[1]:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id} action contradicts decision or status"
+        )
+
+
+def _validate_approval_pack_decision_sets(decisions: Iterable[HumanDecision]) -> None:
+    grouped: dict[str, list[HumanDecision]] = {}
+    for decision in decisions:
+        if decision.approval_pack_digest:
+            grouped.setdefault(decision.approval_pack_digest, []).append(decision)
+        elif decision.approval_pack_manifest:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.approval_pack_manifest requires pack binding"
+            )
+
+    for pack_digest, bound in grouped.items():
+        manifests = [
+            decision.approval_pack_manifest
+            for decision in bound
+            if decision.approval_pack_manifest
+        ]
+        if len(manifests) != 1:
+            raise WorkspaceError(
+                f"human_decisions approval pack {pack_digest} must retain exactly one canonical manifest"
+            )
+        from .approval_packs import validate_pack_manifest
+
+        manifest = manifests[0]
+        validate_pack_manifest(manifest)
+        if manifest["pack_digest"] != pack_digest:
+            raise WorkspaceError(
+                f"human_decisions approval pack {pack_digest} manifest digest does not match"
+            )
+        members = {member["id"]: member for member in manifest["members"]}
+        for decision in bound:
+            member = members.get(decision.work_item_id)
+            if member is None:
+                raise WorkspaceError(
+                    f"human_decisions.{decision.id} is not a member of its approval pack"
+                )
+            if member["member_digest"] != decision.approval_pack_member_digest:
+                raise WorkspaceError(
+                    f"human_decisions.{decision.id}.approval_pack_member_digest is transplanted or stale"
+                )
+            if member["subject_digest"] != decision.approval_pack_subject_digest:
+                raise WorkspaceError(
+                    f"human_decisions.{decision.id}.approval_pack_subject_digest is transplanted or stale"
+                )
 
 
 def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:

@@ -165,6 +165,14 @@ ambiguously ordered decisions fail closed. The review proof hash also
 covers reviewer-authored verdict context, and exact-bound terminal work
 requires its matching acceptance record.
 
+`palari human-decision pack` is an additional human-only acceptance surface,
+not an agent shortcut. It binds one attributable action to an immutable pack
+and derives one decision record per selected member. Each decision retains its
+own proof references and exact member/subject digest. The governance kernel
+counts `approval-pack` decisions under the same capability, reviewer
+independence, currency, and quorum rules as individual human decisions.
+Non-batchable and stale members cannot become approved through the bundle.
+
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
 work, it records a missing acceptance record from the latest qualified human
 decision so completion is auditable instead of being only a status change.

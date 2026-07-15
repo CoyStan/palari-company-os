@@ -35,9 +35,19 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "queue":
+        workspace = Workspace.load(args.workspace)
+        if args.approval_inbox:
+            from .workspace_read_models import approval_inbox
+
+            return CommandResult(
+                "approval-inbox",
+                approval_inbox(workspace, selected_work_ids=args.select),
+                args.json,
+            )
+        if args.select:
+            raise WorkspaceError("--select requires --approval-inbox")
         from .read_models import queue_items
 
-        workspace = Workspace.load(args.workspace)
         items = queue_items(workspace)
         if not args.include_closed:
             items = [item for item in items if item.attention != "closed"]
@@ -151,9 +161,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "detail":
         from .read_models import detail
+        from .workspace_read_models import approval_detail
 
         workspace = Workspace.load(args.workspace)
-        return CommandResult("detail", detail(workspace, args.work_id), args.json)
+        payload = detail(workspace, args.work_id)
+        payload["approval_pack"] = approval_detail(workspace, args.work_id)
+        return CommandResult("detail", payload, args.json)
 
     if args.command == "scope":
         from .scope import check_scope
@@ -609,6 +622,29 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 
     if args.command == "history":
+        if args.checkpoints:
+            from .checkpoints import list_checkpoints
+
+            return CommandResult(
+                "history-checkpoints",
+                list_checkpoints(args.workspace),
+                args.json,
+            )
+        if args.restore:
+            if not args.actor:
+                raise WorkspaceError("--restore requires --actor with a declared human id")
+            from .checkpoints import restore_checkpoint
+
+            return CommandResult(
+                "history-restoration",
+                restore_checkpoint(
+                    args.workspace,
+                    args.restore,
+                    actor=args.actor,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
         if args.verify or args.checkpoint or args.recover:
             from .governance_journal import (
                 checkpoint_workspace_journal,
@@ -623,6 +659,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                         args.workspace,
                         actor=args.actor or "local-operator",
                         acknowledge_break=args.acknowledge_break,
+                        reason=args.reason,
                     )
             elif args.recover:
                 with workspace_write_lock(args.workspace):
@@ -636,8 +673,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 0 if payload.get("ok") else 2,
             )
 
-        if args.acknowledge_break or args.actor:
-            raise WorkspaceError("--actor and --acknowledge-break require a journal mode")
+        if args.acknowledge_break or args.actor or args.reason:
+            raise WorkspaceError(
+                "--actor, --reason, and --acknowledge-break require a journal mode"
+            )
 
         from .history import read_history
 
@@ -852,6 +891,24 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         "receipt",
         "outcome",
     }:
+        if args.command == "human-decision" and args.object_command == "pack":
+            from .approval_packs import apply_pack_decision
+
+            return CommandResult(
+                "approval-pack-decision",
+                apply_pack_decision(
+                    args.workspace,
+                    pack_digest=args.pack_digest,
+                    human_id=args.human_id,
+                    approve_eligible=args.approve_eligible,
+                    approve=args.approve,
+                    reject=args.reject,
+                    defer=args.defer,
+                    pack_members=args.pack_member,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
         return CommandResult("mutation", run_authoring_command(args), args.json)
 
     if args.command == "lifecycle":

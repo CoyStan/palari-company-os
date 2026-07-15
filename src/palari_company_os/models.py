@@ -774,6 +774,13 @@ class HumanDecision:
     quorum_status: str = ""
     evidence_reference: str = ""
     review_reference: str = ""
+    approval_pack_id: str = ""
+    approval_pack_digest: str = ""
+    approval_pack_member_digest: str = ""
+    approval_pack_subject_digest: str = ""
+    approval_pack_request_digest: str = ""
+    approval_pack_action: str = ""
+    approval_pack_manifest: Record = field(default_factory=dict)
     timestamp: str = ""
 
     @classmethod
@@ -789,6 +796,13 @@ class HumanDecision:
             quorum_status=_string(record, "quorum_status"),
             evidence_reference=_string(record, "evidence_reference"),
             review_reference=_string(record, "review_reference"),
+            approval_pack_id=_string(record, "approval_pack_id"),
+            approval_pack_digest=_string(record, "approval_pack_digest"),
+            approval_pack_member_digest=_string(record, "approval_pack_member_digest"),
+            approval_pack_subject_digest=_string(record, "approval_pack_subject_digest"),
+            approval_pack_request_digest=_string(record, "approval_pack_request_digest"),
+            approval_pack_action=_string(record, "approval_pack_action"),
+            approval_pack_manifest=_mapping(record, "approval_pack_manifest"),
             timestamp=_string(record, "timestamp"),
         )
 

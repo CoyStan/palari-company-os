@@ -297,22 +297,7 @@ def complete_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
-    work_detail = detail(workspace, work_id)
-    blocker = _completion_blocker(work_detail)
-    if blocker:
-        raise WorkspaceError(
-            f"work {work_id} cannot be completed: {blocker}; "
-            f"next action is {work_detail['next_action']}"
-        )
-    integrity_blocker = _completion_integrity_blocker(workspace, work_id)
-    if integrity_blocker:
-        raise WorkspaceError(f"work {work_id} cannot be completed: {integrity_blocker}")
-    assert_transition_allowed(
-        workspace,
-        "work_complete",
-        work_id,
-        actor=actor,
-    )
+    assert_work_completion_ready(workspace, work_id, actor=actor)
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
@@ -333,6 +318,33 @@ def complete_work(
         after=work,
     )
     return MutationResult("completed", "work_items", work_id, workspace.name)
+
+
+def assert_work_completion_ready(
+    workspace: Any,
+    work_id: str,
+    *,
+    actor: str = "",
+) -> dict[str, Any]:
+    """Apply the authoritative completion checks without mutating workspace state."""
+
+    work_detail = detail(workspace, work_id)
+    blocker = _completion_blocker(work_detail)
+    if blocker:
+        raise WorkspaceError(
+            f"work {work_id} cannot be completed: {blocker}; "
+            f"next action is {work_detail['next_action']}"
+        )
+    integrity_blocker = _completion_integrity_blocker(workspace, work_id)
+    if integrity_blocker:
+        raise WorkspaceError(f"work {work_id} cannot be completed: {integrity_blocker}")
+    assert_transition_allowed(
+        workspace,
+        "work_complete",
+        work_id,
+        actor=actor,
+    )
+    return work_detail
 
 
 def _completion_blocker(work_detail: dict[str, Any]) -> str:

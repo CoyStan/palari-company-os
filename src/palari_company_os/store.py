@@ -86,7 +86,13 @@ def validate_data(data_path: Path, data: dict[str, Any]) -> Workspace:
     return Workspace.from_raw(data, data_path.parent)
 
 
-def write_store(store: WorkspaceStore, *, metadata: Any | None = None) -> Workspace:
+def write_store(
+    store: WorkspaceStore,
+    *,
+    metadata: Any | None = None,
+    event_kind: str = "mutation",
+    crash_hook: Any | None = None,
+) -> Workspace:
     if has_collection_files(store.data):
         raise WorkspaceError(
             "authoring writes are not supported for split workspaces yet; "
@@ -126,6 +132,7 @@ def write_store(store: WorkspaceStore, *, metadata: Any | None = None) -> Worksp
                     apply=lambda: _atomic_replace_text(store.data_path, text),
                     event_kind="checkpoint",
                     coverage="complete",
+                    crash_hook=crash_hook,
                 )
             elif journal_path.exists():
                 before_data = _load_current_raw(store.data_path)
@@ -135,6 +142,8 @@ def write_store(store: WorkspaceStore, *, metadata: Any | None = None) -> Worksp
                     after_data=store.data,
                     metadata=metadata,
                     apply=lambda: _atomic_replace_text(store.data_path, text),
+                    event_kind=event_kind,
+                    crash_hook=crash_hook,
                 )
             else:
                 _atomic_replace_text(store.data_path, text)

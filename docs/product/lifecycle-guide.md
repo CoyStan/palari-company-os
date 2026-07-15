@@ -6,6 +6,20 @@ Palari Company OS models this loop:
 Goal -> Palari -> Work -> Attempt -> Receipt -> Evidence -> Review -> Human Decision -> Outcome
 ```
 
+For asynchronous preparation, multiple reviewed items may be compiled into a
+parked Approval Inbox:
+
+```text
+bounded preparation -> parked item proofs -> canonical Approval Pack
+-> one exact human pack decision -> eligible local execution -> outcome
+```
+
+The interaction is compressed; each item keeps its own scope, attempt,
+receipt, evidence, review, decision, and journal result. A dependency change
+stales descendants while unrelated current members retain their valid state.
+External or irreversible effects remain parked for their native individual
+gate.
+
 ## Create Intent And Actors
 
 ```bash
@@ -81,6 +95,16 @@ match the reviewed head. An `accept-ready` review is automatically bound to the
 exact terminal attempt, receipt, evidence manifest, reviewed head, and work
 contract. Any later substantive change requires refreshed proof and a new
 review.
+
+For a coherent set, use `queue --approval-inbox` and the human-only
+`human-decision pack` surface. Agents may prepare or summarize a pack but may
+not record that decision. A pack with incomplete quorum records the qualified
+vote and leaves execution parked; a later qualified human must act on the same
+stored exact manifest.
+
+The journal also exposes content-addressed state checkpoints. Restoring an
+earlier checkpoint appends a new transition and reason. It reproduces local
+governed state but does not erase history or undo external effects.
 
 `palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
 An offline verifier derives `blocked`, `review-required`,

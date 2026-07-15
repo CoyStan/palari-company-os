@@ -88,5 +88,17 @@ process running as the same OS user from rewriting local governance files and
 exporting a new statement. Signing, key custody, revocation, and protected
 identity are deferred to a versioned future protocol.
 
+Approval Packs use the same declared-identity limitation. A canonical pack and
+each member digest are persisted with the human decision, and current bytes,
+review, dependencies, authority, and quorum are rechecked before local
+execution. This prevents accidental replay or transplant inside Palari, but it
+does not cryptographically authenticate a human against a hostile process
+running as the same OS user.
+
+Checkpoint restoration is local state restoration, not external rollback.
+Sent messages, filings, payments, access changes, and provider effects are
+reported as compensating-action-required or irreversible. They are never
+described as undone because a prior `workspace.json` projection was restored.
+
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.

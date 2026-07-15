@@ -138,13 +138,39 @@ the review verdict. Its timezone-bearing timestamp establishes ordering, while
 its decision and status must agree. Approval counts only for the exact review
 and evidence references it names.
 
+Pack-bound decisions additionally retain the exact canonical pack manifest,
+pack digest, member digest, subject digest, request digest, and per-item action.
+Exactly one decision record retains the manifest; every derived member
+decision remains independently attributable and journaled. Copying a member
+binding to another item fails validation.
+
+## Approval Pack
+
+Immutable read model for batching human attention without batching evidence.
+A pack binds the committed workspace/checkpoint and journal head, canonically
+ordered members, exact subjects and outputs, dependencies, conflicts, risk,
+reversibility, authority, proof references, effects, resource estimates,
+lifecycle claim, and its own digest. The manifest begins `parked`; evaluation
+derives current item states. Pack approval cannot widen any member boundary.
+
+## Governed Checkpoint
+
+Every committed governance-journal projection is a content-addressed
+checkpoint. Restoring one creates a new `restoration` transaction with the old
+projection; it does not delete the original chain, later work, decisions, or
+the restoration reason. Checkpoints classify local reversibility separately
+from compensating or irreversible external effects.
+
 ## Acceptance Record
 
 Audit record for the final human acceptance gate. It links work, human,
 reviewed head, evidence, review, receipt hash, authority profile, quorum state,
 and reason so acceptance is visible beyond a status toggle. Its timezone-aware
-`accepted_at` orders later acceptance or revocation records; the latest status
-must still match the current exact proof before work can remain terminal.
+`accepted_at` orders later acceptance or revocation records. Nonterminal
+acceptance must still match current artifact bytes before execution. Terminal
+acceptance retains and validates the exact stored proof for its historical
+subject, so later authorized work does not pretend the old artifact version is
+the current checkout.
 
 ## Receipt
 

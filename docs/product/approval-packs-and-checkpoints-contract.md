@@ -24,7 +24,16 @@ tests exercise.
   manifest, and 18/18 PCAW vectors passed.
 - PCAW trusted-code baseline: 5 files, 2,334 source lines, zero runtime
   dependencies.
-- Existing approval-interaction counts for 1, 10, and 100 items: pending audit.
+- Existing individual approval-interaction counts for 1, 10, and 100 eligible
+  items: 1, 10, and 100 attributable commands. Approval Pack counts: one
+  review session and one attributable action for each size while retaining 1,
+  10, and 100 item proof records.
+- Three successful complete-gate timings: 42.96s, 42.77s, and 42.98s; median
+  42.96s versus the 78.88s baseline (45.5% lower). No timing optimization or
+  assertion weakening was introduced by this work.
+- Current PCAW trusted code: unchanged at 5 files, 2,334 source lines, and zero
+  runtime dependencies. Approval Pack/checkpoint code is outside the offline
+  PCAW verifier TCB.
 
 Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
@@ -40,7 +49,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     changes the pack digest.
   - Verification command or artifact: focused pack model and canonicalization
     tests plus schema validation.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Item-granular eligibility and dependency-aware staleness
@@ -51,7 +60,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     changed members, changed dependencies, partial decisions, and independent
     unchanged siblings.
   - Verification command or artifact: focused approval-pack evaluator tests.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] One attributable human action with exact per-item authorization
@@ -64,7 +73,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     idempotence, and exact member authorization reports.
   - Verification command or artifact: focused human-decision, transition, and
     approval-pack tests.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Parked execution and risk-based batch policy
@@ -77,7 +86,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     individually gated, and external effects are never called rollback-safe.
   - Verification command or artifact: focused policy, boundary, and negative
     execution tests.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Approval Inbox operator experience
@@ -90,7 +99,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     1-item, 10-item, and 100-item inboxes with concise actionable diagnostics.
   - Verification command or artifact: CLI/read-model tests and public-surface
     snapshots.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Content-addressed chained checkpoints and append-only restoration
@@ -101,7 +110,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Objective completion evidence: exact projection replay, chain-prefix,
     restoration, reason-attribution, and history-preservation tests.
   - Verification command or artifact: focused checkpoint and journal tests.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Crash-safe, idempotent approval and execution journaling
@@ -111,7 +120,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Objective completion evidence: crash injection at every new transaction
     boundary plus truncation, fork, duplicate, reorder, and divergence tests.
   - Verification command or artifact: journal crash suite and prefix replay.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Filesystem, source, identity, and authority boundaries remain closed
@@ -122,7 +131,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     bytes or actions are consumed and diagnostics name the next safe action.
   - Verification command or artifact: filesystem security, transition, pack,
     and validation suites.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Measurement proves interaction compression without hidden proof loss
@@ -133,7 +142,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Objective completion evidence: deterministic measurement fixture and
     before/after table with per-item proof-count equality.
   - Verification command or artifact: measurement script/test and timing logs.
-  - Current status: pending.
+  - Current status: implemented and verified; awaiting candidate commit.
   - Exact committed evidence when completed: pending.
 
 - [ ] Compatibility, minimality, documentation, and final independent review
@@ -147,7 +156,8 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
     security/pack/checkpoint tests, and exact-head review report.
-  - Current status: in progress.
+  - Current status: implementation verified; candidate commit and independent
+    exact-head review remain.
   - Exact committed evidence when completed: pending.
 
 ## Human Boundary

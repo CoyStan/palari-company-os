@@ -70,6 +70,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include completed/closed work items in the queue output.",
     )
+    queue_parser.add_argument(
+        "--approval-inbox",
+        action="store_true",
+        help="Show deterministic Approval Packs instead of the ordinary queue.",
+    )
+    queue_parser.add_argument(
+        "--select",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Narrow the Approval Inbox to exact work items. Repeatable.",
+    )
     queue_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     state_parser = subparsers.add_parser("state", help="Show compact operator state.")
@@ -156,6 +168,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Idempotently resolve a prepared journal transaction when safe.",
     )
+    history_mode.add_argument(
+        "--checkpoints",
+        action="store_true",
+        help="List content-addressed committed workspace checkpoints.",
+    )
+    history_mode.add_argument(
+        "--restore",
+        metavar="SHA256",
+        help="Append a human-attributed restoration to an exact checkpoint.",
+    )
     history_parser.add_argument(
         "--acknowledge-break",
         action="store_true",
@@ -165,6 +187,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--actor",
         default="",
         help="Declared local actor for a checkpoint or recovery record.",
+    )
+    history_parser.add_argument(
+        "--reason",
+        default="",
+        help="Reason for checkpointing or restoring governed local state.",
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -1325,6 +1352,29 @@ def _add_human_decision_parser(subparsers: Any) -> None:
     update = nested.add_parser("update", help="Update human decision.")
     update.add_argument("id")
     _add_common_mutation_args(update)
+    pack = nested.add_parser(
+        "pack",
+        help="Record one attributable human action over an exact Approval Pack.",
+    )
+    pack.add_argument("--pack-digest", required=True, help="Exact canonical pack digest.")
+    pack.add_argument("--human-id", required=True, help="Human recording the decision.")
+    pack.add_argument(
+        "--approve-eligible",
+        action="store_true",
+        help="Approve every currently eligible member in the exact pack.",
+    )
+    pack.add_argument("--approve", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument("--reject", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument("--defer", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument(
+        "--pack-member",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Reproduce a narrowed pack selection. Repeat for every selected member.",
+    )
+    pack.add_argument("--reason", default="", help="Human rationale retained in the journal.")
+    pack.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_receipt_parser(subparsers: Any) -> None:

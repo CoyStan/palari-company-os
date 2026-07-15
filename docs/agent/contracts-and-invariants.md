@@ -24,6 +24,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Human authority is explicit. Agents do not silently inherit approval power.
 - Human decisions, reviews, receipts, evidence, and outcomes are separate
   records with separate meanings.
+- Approval Packs compress one human review interaction, never item evidence.
+  Pack and member digests are exact; changed members or dependencies fail
+  closed, and external or irreversible actions remain individually gated.
+- Agents may prepare, refresh, or summarize packs. Only a human may invoke the
+  pack-decision authority surface.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but
@@ -99,6 +104,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   workspace data but are not part of the offline verifier trusted-code base.
 - PCAW v1 attribution is declared, not cryptographically authenticated. It
   grants no acceptance, merge, push, deployment, or external-write authority.
+- Every committed journal projection is a content-addressed checkpoint.
+  Restoration appends a human-attributed transition and never claims to undo
+  external effects.
 
 ## Sources, Receipts, And External Actions
 

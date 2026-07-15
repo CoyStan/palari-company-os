@@ -648,7 +648,8 @@
             "rejected",
             "needs-changes",
             "changes-requested",
-            "blocked"
+            "blocked",
+            "deferred"
           ]
         },
         "status": {
@@ -659,13 +660,21 @@
             "approved",
             "rejected",
             "changes-requested",
-            "blocked"
+            "blocked",
+            "deferred"
           ]
         },
         "acceptance_mode": { "type": "string" },
         "quorum_status": { "type": "string", "enum": ["", "pending", "met", "not-met"] },
         "evidence_reference": { "type": "string" },
         "review_reference": { "type": "string" },
+        "approval_pack_id": { "type": "string" },
+        "approval_pack_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_member_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_subject_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_action": { "type": "string", "enum": ["approve", "reject", "defer"] },
+        "approval_pack_manifest": { "type": "object" },
         "timestamp": { "type": "string" }
       }
     },

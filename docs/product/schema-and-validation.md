@@ -143,13 +143,18 @@ Validation checks:
   work item has multiple records of that kind, every record must be dated
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
+- pack-bound human decisions require a complete exact pack/member/subject/
+  request binding, one retained canonical manifest per pack, and an action
+  consistent with decision and status; copied or incomplete member bindings
+  fail closed
 - accepted human decisions are made by a human with the required approval
   capability
 - acceptance records reference fresh passing evidence, fresh accept-ready
   exact-bound review, qualified human authority, matching receipt hash, and a
-  matching human-decision record; active acceptance also recomputes evidence,
-  artifact, and receipt integrity before terminal completion; `accepted_at`
-  orders acceptance and revocation records, and the latest status controls
+  matching human-decision record; nonterminal acceptance recomputes current
+  artifact bytes before execution, while terminal acceptance validates its
+  immutable stored proof rather than rebinding history to a later checkout;
+  `accepted_at` orders acceptance and revocation records, and the latest status controls
 - completed work has fresh passing evidence, fresh accept-ready review, no open
   linked decision, current exact proof, a terminal clean attempt, and enough
   qualified human approvals; each human's latest decision for that exact

@@ -48,6 +48,20 @@ def print_result(result: CommandResult) -> None:
             print_queue(workspace, items)
         return
 
+    if result.kind == "approval-inbox":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_approval_inbox(result.payload)
+        return
+
+    if result.kind == "approval-pack-decision":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_approval_pack_decision(result.payload)
+        return
+
     if result.kind == "state":
         if result.as_json:
             print_json(result.payload)
@@ -265,6 +279,20 @@ def print_result(result: CommandResult) -> None:
             print_history_journal(result.payload)
         return
 
+    if result.kind == "history-checkpoints":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_history_checkpoints(result.payload)
+        return
+
+    if result.kind == "history-restoration":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_history_restoration(result.payload)
+        return
+
     if result.kind == "dashboard":
         print_dashboard(result.payload, result.as_json)
         return
@@ -461,6 +489,28 @@ def print_history_journal(payload: dict[str, Any]) -> None:
             print(f"    next: {item['next_action']}")
     for item in payload.get("warnings", []):
         print(f"  warning {item.get('code', '')}: {item.get('message', '')}")
+
+
+def print_history_checkpoints(payload: dict[str, Any]) -> None:
+    print(f"Governed checkpoints: {payload['count']}")
+    print(f"Current: {payload['current_checkpoint_digest']}")
+    for item in payload["checkpoints"]:
+        print(
+            f"  {item['checkpoint_digest']} [{item['event_kind']}] "
+            f"by {item['metadata']['actor']} via {item['metadata']['command']}"
+        )
+    print("Restoration appends history; it does not undo external effects.")
+
+
+def print_history_restoration(payload: dict[str, Any]) -> None:
+    print(f"Checkpoint restoration: {payload['status']}")
+    print(f"Checkpoint: {payload['checkpoint_digest']}")
+    print(f"Class: {payload['restoration_class']}")
+    print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
+    if payload.get("message"):
+        print(payload["message"])
+    for effect in payload.get("external_effects_not_undone", []):
+        print(f"  NOT UNDONE: {effect}")
 
 
 def print_proof(payload: dict[str, Any], as_json: bool) -> None:
@@ -918,6 +968,57 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         print("")
 
 
+def print_approval_inbox(payload: dict[str, Any]) -> None:
+    counts = payload["counts"]
+    print(f"Approval Inbox: {payload['workspace']}")
+    print(
+        f"{counts['packs']} packs / {counts['items']} items | "
+        f"eligible {counts['eligible']} | blocked {counts['blocked']} | "
+        f"stale {counts['stale']} | non-batchable {counts['non_batchable']}"
+    )
+    print(
+        f"Reversible local: {payload['groups']['safe_reversible']} | "
+        f"external or irreversible: {payload['groups']['external_or_irreversible']}"
+    )
+    for pack, evaluation in zip(payload["packs"], payload["evaluations"], strict=True):
+        summary = pack["cumulative_effect_summary"]
+        print("")
+        print(f"{pack['pack_id']} {pack['pack_digest']}")
+        print(
+            f"  {summary['items']} items; {summary['batchable']} batchable; "
+            f"{summary['external_or_irreversible']} external/irreversible"
+        )
+        if pack["external_effects"]:
+            print(f"  EXTERNAL EFFECTS: {', '.join(pack['external_effects'])}")
+        for item in evaluation["members"]:
+            dependencies = ", ".join(item["dependencies"]) or "none"
+            print(
+                f"  {item['id']}: {item['state']} | {item['reversibility']} | "
+                f"dependencies {dependencies}"
+            )
+            for reason in item["reasons"]:
+                print(f"    reason: {reason}")
+        print(f"  approve: {payload['actions']['approve_eligible']}")
+    print("")
+    print("Parked is not approved. Exact evidence remains item-level.")
+
+
+def print_approval_pack_decision(payload: dict[str, Any]) -> None:
+    print(f"Approval Pack decision: {payload['status']}")
+    print(f"Pack: {payload['pack_digest']}")
+    print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
+    if payload.get("approved"):
+        print(f"Approved: {', '.join(payload['approved'])}")
+    if payload.get("rejected"):
+        print(f"Rejected: {', '.join(payload['rejected'])}")
+    if payload.get("deferred"):
+        print(f"Deferred: {', '.join(payload['deferred'])}")
+    if payload.get("executed"):
+        print(f"Executed locally: {', '.join(payload['executed'])}")
+    if payload.get("parked"):
+        print(f"Still parked: {', '.join(payload['parked'])}")
+
+
 def print_detail(payload: dict[str, Any]) -> None:
     work = payload["work_item"]
     goal = payload["goal"] or {}
@@ -941,6 +1042,15 @@ def print_detail(payload: dict[str, Any]) -> None:
     if payload.get("agent_handoff_command"):
         print("Agent handoff:")
         print(f"  {payload['agent_handoff_command']}")
+    approval = payload.get("approval_pack") or {}
+    if approval.get("available"):
+        item = approval.get("item") or {}
+        print(
+            f"Approval Pack: {approval.get('pack_id', '')} | "
+            f"{item.get('state', 'unknown')} | {approval.get('pack_digest', '')}"
+        )
+    elif approval:
+        print(f"Approval Pack unavailable: {approval.get('reason', 'unknown reason')}")
     print(f"Safety: {payload['safety']}")
     if payload.get("agent_commands"):
         print("Agent commands:")

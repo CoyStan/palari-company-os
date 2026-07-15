@@ -849,7 +849,7 @@ def _decision_is_approval(decision: HumanDecisionSnapshot) -> bool:
     return (
         decision.decision in APPROVAL_VALUES
         and decision.status in APPROVAL_VALUES
-        and decision.acceptance_mode == "human"
+        and decision.acceptance_mode in {"human", "approval-pack"}
     )
 
 

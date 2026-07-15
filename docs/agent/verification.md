@@ -10,6 +10,8 @@ claiming the work is done.
 ./scripts/install_smoke.sh
 python3 spec/pcaw/v1/conformance.py -- ./bin/palari proof verify
 ./scripts/pcaw_demo.sh
+python3 -m unittest discover -s tests -p 'test_approval_packs.py'
+python3 -m unittest discover -s tests -p 'test_reversible_checkpoints.py'
 ```
 
 `verify.sh` defaults to the authoritative `complete` profile. It always runs
@@ -37,6 +39,8 @@ proof and never replace the complete profile.
 ```bash
 ./bin/palari validate --json
 ./bin/palari queue --json
+./bin/palari queue --approval-inbox --json
+./bin/palari history --checkpoints --json
 ./bin/palari docs check --json
 ./bin/palari --workspace examples/acme-company-os agent next --json
 ./bin/palari proof verify spec/pcaw/v1/vectors/valid/accepted/statement.json \

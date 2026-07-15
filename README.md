@@ -92,6 +92,13 @@ governance claim offline, without the original workspace, provider, network,
 credentials, or source contents. See the normative [PCAW v1
 specification](spec/pcaw/v1/README.md).
 
+Its operator complement is the **Approval Inbox**: agents may prepare many
+bounded, individually proven items, while one human review session can approve
+an exact eligible bundle. The interaction is compressed; evidence and
+authority are not. Content-addressed checkpoints make local tentative chains
+reversible without rewriting history or pretending external effects were
+undone.
+
 New to those words? Start with the plain-language
 [Glossary](docs/product/glossary.md).
 
@@ -122,6 +129,10 @@ Implemented now:
   canonical JSON, exact artifact digests, and a provider-neutral conformance corpus
 - staged, hash-chained governance journaling for new or explicitly checkpointed
   workspaces, with replay, corruption detection, and crash recovery
+- canonical Approval Packs with item-level proof, dependency-aware staleness,
+  one exact human decision, risk-based batching, and parked external effects
+- content-addressed journal checkpoints with append-only human restoration and
+  explicit external-effect non-guarantees
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and

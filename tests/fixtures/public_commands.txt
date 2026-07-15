@@ -131,6 +131,7 @@ palari review update
 palari human-decision
 palari human-decision record
 palari human-decision update
+palari human-decision pack
 palari receipt
 palari receipt record
 palari receipt update

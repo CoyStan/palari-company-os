@@ -47,6 +47,8 @@ connections by itself.
 ./bin/palari queue
 ./bin/palari queue --json
 ./bin/palari queue --include-closed --json
+./bin/palari queue --approval-inbox --json
+./bin/palari queue --approval-inbox --select WORK-0001 --json
 ```
 
 Shows the current operator queue with attention state, `next_step_type`, goal,
@@ -57,6 +59,12 @@ by default so the command stays focused on current attention. Use
 `--include-closed` for audit/history-style inspection. `next_step_type`
 classifies intent for humans and agents without requiring them to parse the
 command string.
+
+`--approval-inbox` compiles immutable, canonical Approval Packs from the
+current committed journal projection. JSON retains one subject, output,
+receipt, evidence, and review binding per member while grouping the operator
+summary and approval interaction. `--select` narrows the pack without changing
+work. Parked, blocked, stale, and non-batchable items remain unexecuted.
 
 ## Detail
 
@@ -71,6 +79,28 @@ linked decisions, human decisions, outcome, active parallel attempts,
 coordination warnings, safety state, `next_step_type`, and next action. Active
 work that is missing proof points `next_commands` toward `agent check` and
 `agent finish` before review or human decision steps.
+For governed work, detail also includes the item-level Approval Pack state and
+exact pack digest, or a concise reason the pack cannot currently be compiled.
+
+## Approval Pack Human Decision
+
+```bash
+./bin/palari human-decision pack \
+  --pack-digest sha256:... \
+  --human-id HUMAN-ID \
+  --approve-eligible \
+  --reason "Morning review of the exact bundle" \
+  --json
+./bin/palari human-decision pack --pack-digest sha256:... --human-id HUMAN-ID \
+  --approve WORK-1 --reject WORK-2 --defer WORK-3 --json
+```
+
+This is a human-only authority surface. One command records item-granular
+decisions over one exact immutable manifest. Local eligible actions execute in
+dependency order inside the same crash-safe journal transaction. Incomplete
+quorum remains parked. Changed subjects, artifacts, reviews, dependencies, or
+pack bindings fail closed. External, access-expanding, financial, legal,
+security, and irreversible actions remain individually gated.
 
 ## State
 
@@ -700,6 +730,9 @@ receipt cannot imply a canceled write is still waiting to execute.
 ./bin/palari history --verify --json
 ./bin/palari history --checkpoint --actor HUMAN-ID --json
 ./bin/palari history --recover --json
+./bin/palari history --checkpoints --json
+./bin/palari history --restore sha256:... --actor HUMAN-ID \
+  --reason "Return to reviewed S1" --json
 ```
 
 Shows recent append-only audit events from `.palari/history.jsonl` beside the
@@ -712,6 +745,13 @@ and workspace projection. `--checkpoint --acknowledge-break` records, rather
 than hides, a legitimate continuity break after a manual edit. `--recover`
 idempotently resolves a prepared transaction when the on-disk projection makes
 the safe result unambiguous.
+
+`--checkpoints` lists every committed journal projection by content digest.
+`--restore` requires a declared human and reason, then appends a restoration
+transition whose projection exactly matches the selected digest. It never
+rewrites prior history. It reports external effects separately because local
+restoration cannot undo an email, filing, payment, provider write, or other
+irreversible effect.
 
 ## Proof-Carrying AI Work
 

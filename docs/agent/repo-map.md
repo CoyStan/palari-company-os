@@ -11,6 +11,12 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
 - `src/palari_company_os/governance_journal.py`: replayable prepare/commit
   journal, checkpoints, verification, and crash recovery.
+- `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
+  item evaluation, risk policy, and exact human pack decisions.
+- `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
+  and append-only human restoration.
+- `src/palari_company_os/workspace_read_models.py`: product-facing approval
+  inbox/detail adapters over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
   provider-neutral governance normalization contract and evaluator.
 - `src/palari_company_os/pcaw_protocol.py`: offline PCAW statement verifier.
@@ -92,6 +98,10 @@ runtime state.
 - `tests/test_integrations.py`: dry-run integration trust loop.
 - `tests/test_gate_profiles.py`: review gate recommendations.
 - `tests/test_docs.py`: docs and agent-ready documentation behavior.
+- `tests/test_approval_packs.py`: batching, staleness, authority, policy, and
+  crash recovery.
+- `tests/test_reversible_checkpoints.py`: exact projection restoration,
+  append-only history, non-guarantees, and crash recovery.
 
 Prefer focused regression tests for a discovered failure mode, then run the full
 verification stack before claiming done.

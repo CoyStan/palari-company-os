@@ -19,6 +19,11 @@ Implemented in the v0.2 local foundation:
   changed-during-read, and digest-mismatch rejection;
 - a staged hash-chained governance journal with explicit checkpoints, replay,
   continuity breaks, prepared/committed transactions, fsync, and crash recovery;
+- deterministic Approval Inbox manifests with exact item proof, dependency
+  ordering, risk-based batching, one attributable human pack action, quorum,
+  staleness, and parked external effects;
+- content-addressed committed projections and append-only human restoration
+  transitions with explicit external-effect non-guarantees;
 - focused, affected, complete, install, documentation, conformance, and
   network-free demonstration checks.
 
@@ -32,6 +37,8 @@ Deferred honestly:
 - live Slack, GitHub, Jira, email, Drive, or document connector execution;
 - autonomous acceptance, merge, push, deployment, or external-write authority.
 
-The next protocol work should be earned by conformance evidence: stabilize v1
-through independent implementations, measure the verifier trusted-code base,
-and design signatures only together with identity, revocation, and custody.
+The next protocol work should be earned by conformance and operator evidence:
+stabilize PCAW v1 through independent implementations, exercise Approval Packs
+in real bounded knowledge-work sessions, measure verifier trusted code and
+review comprehension, and design signatures only together with identity,
+revocation, and custody.

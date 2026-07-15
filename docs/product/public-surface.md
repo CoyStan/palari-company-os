@@ -35,7 +35,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **153**.
+Current CLI command count from parser inspection: **154**.
 
 The command surface is intentionally broad because Palari exposes primitive
 record operations directly. New commands should be rare. Prefer docs, examples,

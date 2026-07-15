@@ -25,7 +25,7 @@ JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
 HASH_PREFIX = "sha256:"
 IJSON_INTEGER_MAX = 9_007_199_254_740_991
 
-EVENT_KINDS = {"checkpoint", "mutation"}
+EVENT_KINDS = {"checkpoint", "mutation", "restoration"}
 COVERAGE_MODES = {"complete", "from-checkpoint", "continuous", "continuity-break"}
 RECORD_TYPES = {"prepare", "commit", "abort"}
 
@@ -337,6 +337,66 @@ def verify_journal(
 
 def verify_workspace_journal(workspace_path: Path | str) -> dict[str, Any]:
     return _operator_report(verify_journal(_workspace_data_path(workspace_path)))
+
+
+def committed_journal_states(data_path: Path | str) -> list[dict[str, Any]]:
+    """Return verified committed projections as content-addressed checkpoints."""
+
+    records = _read_records(data_path)
+    state = _scan_records(records)
+    if state.pending is not None:
+        raise JournalError(
+            "JOURNAL_PENDING_PREPARE",
+            "cannot enumerate checkpoints while a transaction is pending",
+            next_action="Recover the pending transaction first.",
+        )
+    prepared: dict[str, dict[str, Any]] = {}
+    checkpoints: list[dict[str, Any]] = []
+    for record in records:
+        if record["record_type"] == "prepare":
+            prepared[record["transaction_id"]] = record
+            continue
+        if record["record_type"] == "abort":
+            prepared.pop(record["transaction_id"], None)
+            continue
+        source = prepared.pop(record["transaction_id"])
+        checkpoints.append(
+            {
+                "checkpoint_digest": source["after_workspace_digest"],
+                "transaction_id": source["transaction_id"],
+                "prepare_sequence": source["sequence"],
+                "commit_sequence": record["sequence"],
+                "event_kind": source["event_kind"],
+                "coverage": source["coverage"],
+                "before_workspace_digest": source["before_workspace_digest"],
+                "changed_paths": [item["path"] for item in source["logical_changes"]],
+                "metadata": deepcopy(source["metadata"]),
+                "projection": deepcopy(source["after_projection"]),
+            }
+        )
+    return checkpoints
+
+
+def journal_projection_for_digest(
+    data_path: Path | str,
+    checkpoint_digest: str,
+) -> dict[str, Any] | None:
+    matches = [
+        item
+        for item in committed_journal_states(data_path)
+        if item["checkpoint_digest"] == checkpoint_digest
+    ]
+    return deepcopy(matches[-1]["projection"]) if matches else None
+
+
+def pending_journal_prepare(data_path: Path | str) -> dict[str, Any] | None:
+    """Return the exact verified pending prepare for safe command-level retry."""
+
+    records = _read_records(data_path)
+    if not records:
+        return None
+    state = _scan_records(records)
+    return deepcopy(state.pending)
 
 
 def checkpoint_workspace_journal(

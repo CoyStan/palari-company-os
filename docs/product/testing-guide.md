@@ -107,8 +107,14 @@ The test suite covers:
   equivalent-instant ordering claims fail closed
 - nonterminal acceptance evidence/receipt tamper rejection
 - strict PCAW canonicalization, deterministic export, offline artifact checks,
-  17 provider-neutral conformance vectors, and verifier TCB accounting
+  18 provider-neutral conformance vectors, and verifier TCB accounting
 - journal replay, corruption/truncation/fork detection, every crash boundary,
   idempotent recovery, legacy checkpointing, and centralized store integration
+- 1/10/100-item Approval Inbox compression with item-level proof retention,
+  dependency staleness, partial decisions, pack-transplant rejection, risk
+  policy, exact human authority, and every approval transaction crash boundary
+- content-addressed checkpoint replay and append-only restoration, including
+  human attribution, exact projection equality, external-effect non-guarantees,
+  and every restoration transaction crash boundary
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks
