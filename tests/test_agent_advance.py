@@ -591,12 +591,12 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "review-required", result)
 
-    def test_crash_after_workspace_replace_recovers_commit_without_rerun(self) -> None:
+    def test_crash_after_workspace_replace_reverifies_before_commit_recovery(self) -> None:
         self._crash_reconciliation("after_apply")
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
-            side_effect=AssertionError("committed proof reran verification"),
-        ):
+            side_effect=self._passing_attestation,
+        ) as runner:
             result = agent_advance(
                 Ws.load(self.temp_dir),
                 self.temp_dir,
@@ -606,6 +606,37 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "review-required")
         self.assertFalse(result["would_mutate"])
+        self.assertEqual(runner.call_count, 3)
+
+    def test_pending_recovery_failed_fresh_verification_never_mutates_journal(self) -> None:
+        self._crash_reconciliation("after_apply")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
+
+        def failed(_workspace, _root, profile, context, **_kwargs):
+            result = self._passing_attestation(
+                _workspace, _root, profile, context, **_kwargs
+            )
+            result["attestation"]["status"] = "failed"
+            return result
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=failed,
+        ) as runner:
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(
+            result["blockers"][0]["code"], "RECOVERY_VERIFICATION_FAILED"
+        )
+        self.assertEqual(runner.call_count, 1)
+        self.assertEqual(before_journal, journal.read_bytes())
 
     def test_completed_proof_resume_rejects_wrong_actor_before_recovery(self) -> None:
         self._crash_reconciliation("after_apply")
@@ -804,6 +835,19 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self._tamper_pending_proof("after_apply", mutate)
         self._assert_pending_mismatch_without_journal_mutation("pending-commit")
+
+    def test_proof_like_pending_prepare_rejects_commit_and_time_substitution(self) -> None:
+        def mutate(_metadata: dict, after: dict) -> None:
+            work = next(item for item in after["work_items"] if item["id"] == self.work_id)
+            attempt = next(
+                item for item in after["attempts"] if item["id"] == work["current_attempt"]
+            )
+            attempt["commits"] = ["b" * 40, attempt["head_sha"]]
+            attempt["started_at"] = "2098-01-01T00:00:00Z"
+            attempt["updated_at"] = "2099-01-01T00:00:00Z"
+
+        self._tamper_pending_proof("before_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-prepare")
 
     def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
         self._crash_reconciliation("after_apply")
@@ -1041,7 +1085,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         return {
             "cache_hit": False,
             "attestation": {
-                "attestation_id": f"VERIFY-{profile.id.upper()}-TEST",
+                "attestation_id": f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}",
                 "cache_key": key,
                 "status": "passed",
                 "duration_ms": 1,

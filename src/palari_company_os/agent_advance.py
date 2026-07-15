@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -739,6 +740,31 @@ def _completed_projection(
                 "PENDING_TRANSACTION_MISMATCH",
                 pending_error,
             )
+        recovery_verification = _run_recovery_verification(
+            workspace_path, work, recovery_preflight
+        )
+        if not recovery_verification["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_VERIFICATION_FAILED",
+                str(recovery_verification["message"]),
+            )
+        pending_error = _pending_advance_recovery_error(
+            pending,
+            work_id,
+            palari_id,
+            recovery_preflight,
+            workspace_path,
+            verified_commands=recovery_verification["commands"],
+        )
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
+            )
         recovered = recover_workspace_journal(
             workspace_path,
             palari_id,
@@ -765,6 +791,31 @@ def _completed_projection(
             )
         pending_error = _pending_advance_recovery_error(
             pending, work_id, palari_id, recovery_preflight, workspace_path
+        )
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
+            )
+        recovery_verification = _run_recovery_verification(
+            workspace_path, work, recovery_preflight
+        )
+        if not recovery_verification["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_VERIFICATION_FAILED",
+                str(recovery_verification["message"]),
+            )
+        pending_error = _pending_advance_recovery_error(
+            pending,
+            work_id,
+            palari_id,
+            recovery_preflight,
+            workspace_path,
+            verified_commands=recovery_verification["commands"],
         )
         if pending_error:
             return _resume_blocked(
@@ -956,6 +1007,8 @@ def _pending_advance_recovery_error(
     palari_id: str,
     preflight: dict[str, Any],
     workspace_path: Path,
+    *,
+    verified_commands: list[str] | None = None,
 ) -> str:
     if not isinstance(context, dict):
         return "The pending journal transaction cannot be inspected safely."
@@ -1102,6 +1155,14 @@ def _pending_advance_recovery_error(
     )
     expected_receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     expected_evidence_id = _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
+    before_commits = (
+        list(before_attempt.get("commits") or [])
+        if isinstance(before_attempt, dict)
+        else []
+    )
+    expected_commits = list(before_commits)
+    if not expected_commits or expected_commits[-1] != head_sha:
+        expected_commits.append(head_sha)
     allowed_resources = work.get("allowed_resources")
     allowed_paths = attempt.get("allowed_paths")
     changed_files = list(preflight.get("changed_files") or [])
@@ -1137,6 +1198,7 @@ def _pending_advance_recovery_error(
         or attempt.get("changed_files") != changed_files
         or attempt.get("output_targets") != work.get("output_targets")
         or attempt.get("cleanliness") != "clean"
+        or attempt.get("commits") != expected_commits
         or receipt.get("work_item_id") != work_id
         or receipt.get("attempt_id") != attempt_id
         or receipt.get("actor") != palari_id
@@ -1164,8 +1226,10 @@ def _pending_advance_recovery_error(
         or not isinstance(commands, list)
         or not commands
         or not _verification_commands_bound(commands, work, preflight)
+        or (verified_commands is not None and commands != verified_commands)
         or evidence.get("summary")
         != f"{len(commands)} exact-state verification profile(s) passed."
+        or not _recovery_timestamps_ordered(attempt, receipt, evidence, metadata)
     ):
         return "The pending journal projection has contradictory proof bindings."
     evidence_verification = verify_evidence(
@@ -1176,6 +1240,42 @@ def _pending_advance_recovery_error(
     if not evidence_verification["ok"]:
         return "The pending journal projection does not contain verifiable exact evidence."
     return ""
+
+
+def _run_recovery_verification(
+    workspace_path: Path,
+    work: Any,
+    preflight: dict[str, Any],
+) -> dict[str, Any]:
+    changed_files = list(preflight.get("changed_files") or [])
+    profiles = verification_profiles(str(work.risk), changed_files)
+    context = default_context(
+        head_sha=str(preflight.get("head_sha") or ""),
+        base_sha=str(preflight.get("base_sha") or ""),
+        changed_paths=changed_files,
+        cleanliness="clean",
+    )
+    commands: list[str] = []
+    for profile in profiles:
+        result = run_or_reuse(
+            workspace_path,
+            Path(str(preflight.get("git_root") or "")),
+            profile,
+            context,
+            refresh=True,
+        )
+        attestation = result["attestation"]
+        if attestation.get("status") != "passed":
+            return {
+                "ok": False,
+                "commands": [],
+                "message": f"Recovery verification profile {profile.id} did not pass.",
+            }
+        commands.append(
+            f"{profile.id} attestation {attestation['attestation_id']} "
+            f"{attestation['cache_key']}"
+        )
+    return {"ok": True, "commands": commands, "message": ""}
 
 
 def _only_bound_records_changed(
@@ -1254,6 +1354,31 @@ def _verification_commands_bound(
 
 def _receipt_action_is_safe(action: str) -> bool:
     return bool(action.strip()) and _UNSAFE_RECEIPT_ACTION.search(action) is None
+
+
+def _recovery_timestamps_ordered(
+    attempt: dict[str, Any],
+    receipt: dict[str, Any],
+    evidence: dict[str, Any],
+    metadata: dict[str, Any],
+) -> bool:
+    raw = [
+        attempt.get("started_at"),
+        receipt.get("timestamp"),
+        evidence.get("timestamp"),
+        attempt.get("updated_at"),
+        metadata.get("timestamp"),
+    ]
+    if not all(isinstance(value, str) and value.endswith("Z") for value in raw):
+        return False
+    try:
+        parsed = [
+            datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+            for value in raw
+        ]
+    except ValueError:
+        return False
+    return parsed == sorted(parsed)
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
