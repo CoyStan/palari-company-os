@@ -44,7 +44,9 @@ from palari_company_os.verification_attestations import (
     VerificationContext,
     VerificationProfile,
     cache_key,
+    default_context,
     run_or_reuse,
+    verification_profiles,
 )
 from palari_company_os.workspace import Workspace as Ws
 from palari_company_os.workspace import WorkspaceError
@@ -433,6 +435,22 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertTrue(result["can_advance"])
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
 
+    def test_unsafe_receipt_summary_fails_before_verification(self) -> None:
+        before = (self.temp_dir / "workspace.json").read_bytes()
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("unsafe summary executed verification"),
+        ):
+            with self.assertRaisesRegex(WorkspaceError, "cannot perform"):
+                agent_advance(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    summary="Performed an external deployment.",
+                )
+        self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
+
     def test_cli_dry_run_json_result_and_text_output_are_stable(self) -> None:
         args = build_parser().parse_args(
             [
@@ -764,6 +782,29 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self._tamper_pending_proof("before_apply", mutate)
         self._assert_pending_mismatch_without_journal_mutation("pending-prepare")
 
+    def test_proof_like_pending_prepare_rejects_unsafe_receipt_action(self) -> None:
+        def mutate(metadata: dict, after: dict) -> None:
+            receipt = next(
+                item for item in after["receipts"] if item["work_item_id"] == self.work_id
+            )
+            receipt["actions_taken"][0] = "Performed an external deployment."
+            metadata["reason"] = "receipt-action:" + receipt["actions_taken"][0]
+
+        self._tamper_pending_proof("before_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-prepare")
+
+    def test_proof_like_pending_commit_rejects_forged_verification_command(self) -> None:
+        def mutate(_metadata: dict, after: dict) -> None:
+            evidence = next(
+                item for item in after["evidence_runs"] if item["work_item_id"] == self.work_id
+            )
+            evidence["commands"][0] = (
+                "complete attestation VERIFY-COMPLETE-FORGED sha256:" + "0" * 64
+            )
+
+        self._tamper_pending_proof("after_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-commit")
+
     def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
         self._crash_reconciliation("after_apply")
         protected = self.temp_dir / "docs" / "company"
@@ -854,6 +895,17 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             capture_output=True,
             text=True,
         ).stdout.strip()
+        context = default_context(
+            head_sha=head,
+            base_sha=base_sha,
+            changed_paths=["README.md"],
+            cleanliness="clean",
+        )
+        commands = []
+        for profile in verification_profiles("R4", ["README.md"]):
+            key = cache_key(profile, context)
+            attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
+            commands.append(f"{profile.id} attestation {attestation_id} {key}")
 
         def crash_hook(current: str) -> None:
             if current == point:
@@ -896,12 +948,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "head_sha": head,
                     "status": "passed",
                     "base_ref": base_sha,
-                    "commands": [
-                        "complete attestation VERIFY-COMPLETE-TEST sha256:" + "1" * 64,
-                        "install-smoke attestation VERIFY-INSTALL-SMOKE-TEST sha256:"
-                        + "2" * 64,
-                        "docs-check attestation VERIFY-DOCS-CHECK-TEST sha256:" + "3" * 64,
-                    ],
+                    "commands": commands,
                     "artifacts": ["README.md"],
                     "summary": "3 exact-state verification profile(s) passed.",
                     "freshness": "exact-head",

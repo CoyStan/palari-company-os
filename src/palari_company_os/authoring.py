@@ -792,6 +792,8 @@ def reconcile_agent_proof(
                     ("evidence", "evidence_runs", evidence_id),
                 )
             ),
+            reason="receipt-action:"
+            + str((receipt.get("actions_taken") or [""])[0]),
         )
         workspace = write_store(store, metadata=metadata, crash_hook=crash_hook)
         append_history_event(

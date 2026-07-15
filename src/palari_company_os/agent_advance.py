@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -27,6 +28,11 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_advance.v1"
 _TERMINAL = {"completed", "closed", "done"}
+_UNSAFE_RECEIPT_ACTION = re.compile(
+    r"\b(?:accept(?:ed|ance)?|approv(?:al|ed)|deploy(?:ed|ment)?|external\s+write|"
+    r"human\s+(?:decision|review)|merge(?:d)?|push(?:ed)?)\b",
+    re.IGNORECASE,
+)
 
 
 def agent_advance_dry_run(
@@ -354,6 +360,11 @@ def agent_advance(
     resumed = _completed_projection(workspace, workspace_path, work_id, palari_id)
     if resumed is not None:
         return resumed
+    if summary.strip() and not _receipt_action_is_safe(summary):
+        raise WorkspaceError(
+            "agent advance summary claims an authority or external action that this command "
+            "cannot perform; describe only the bounded local artifact change or omit --summary"
+        )
     facts, profiles, context, preflight = _collect_facts(
         workspace, workspace_path, work_id, palari_id
     )
@@ -1102,6 +1113,7 @@ def _pending_advance_recovery_error(
     ]
     commands = evidence.get("commands")
     expected_previous_receipt_hash = _latest_receipt_hash(before, work_id)
+    receipt_action = actions[0] if isinstance(actions, list) and actions else ""
     paths_bound = (
         isinstance(allowed_resources, list)
         and isinstance(allowed_paths, list)
@@ -1137,7 +1149,9 @@ def _pending_advance_recovery_error(
         or len(actions) != 2
         or not isinstance(actions[0], str)
         or not actions[0].strip()
+        or not _receipt_action_is_safe(actions[0])
         or actions[1] != "Ran exact-state Palari verification profiles."
+        or metadata.get("reason") != f"receipt-action:{receipt_action}"
         or not_done != expected_not_done
         or evidence.get("work_item_id") != work_id
         or evidence.get("attempt_id") != attempt_id
@@ -1149,7 +1163,7 @@ def _pending_advance_recovery_error(
         or evidence.get("previous_receipt_hash") not in {None, ""}
         or not isinstance(commands, list)
         or not commands
-        or not _verification_commands_bound(commands, work, changed_files)
+        or not _verification_commands_bound(commands, work, preflight)
         or evidence.get("summary")
         != f"{len(commands)} exact-state verification profile(s) passed."
     ):
@@ -1216,26 +1230,30 @@ def _latest_receipt_hash(projection: dict[str, Any], work_id: str) -> str:
 
 
 def _verification_commands_bound(
-    commands: list[Any], work: dict[str, Any], changed_files: list[str]
+    commands: list[Any], work: dict[str, Any], preflight: dict[str, Any]
 ) -> bool:
+    changed_files = list(preflight.get("changed_files") or [])
     expected_profiles = verification_profiles(str(work.get("risk") or ""), changed_files)
     if len(commands) != len(expected_profiles):
         return False
+    context = default_context(
+        head_sha=str(preflight.get("head_sha") or ""),
+        base_sha=str(preflight.get("base_sha") or ""),
+        changed_paths=changed_files,
+        cleanliness="clean",
+    )
     for command, profile in zip(commands, expected_profiles, strict=True):
         if not isinstance(command, str):
             return False
-        parts = command.split(" ")
-        if (
-            len(parts) != 4
-            or parts[0] != profile.id
-            or parts[1] != "attestation"
-            or not parts[2].startswith("VERIFY-")
-            or not parts[3].startswith("sha256:")
-            or len(parts[3]) != 71
-            or any(char not in "0123456789abcdef" for char in parts[3][7:])
-        ):
+        key = cache_key(profile, context)
+        attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
+        if command != f"{profile.id} attestation {attestation_id} {key}":
             return False
     return True
+
+
+def _receipt_action_is_safe(action: str) -> bool:
+    return bool(action.strip()) and _UNSAFE_RECEIPT_ACTION.search(action) is None
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
