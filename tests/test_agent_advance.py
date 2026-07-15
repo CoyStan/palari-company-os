@@ -17,7 +17,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_advance import (
-    _pending_advance_recovery_error,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -30,9 +29,16 @@ from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.governance_journal import (
     MutationMetadata,
+    _transaction_id,
     checkpoint_workspace_journal,
+    journal_file_path,
+    logical_changes,
+    pending_workspace_journal_context,
+    record_digest,
     transact,
     utc_timestamp,
+    verify_workspace_journal,
+    workspace_digest,
 )
 from palari_company_os.verification_attestations import (
     VerificationContext,
@@ -96,74 +102,6 @@ class AdvancePlannerTests(unittest.TestCase):
         self.assertEqual(plan["stop_boundary"], "none")
         self.assertIn("lifecycle-complete", [item["step"] for item in plan["steps"]])
         self.assertNotIn("review-handoff", [item["step"] for item in plan["steps"]])
-
-    def test_pending_recovery_binding_rejects_unmentioned_change(self) -> None:
-        before = {
-            "name": "before",
-            "work_items": [{"id": "WORK-TEST", "current_attempt": ""}],
-            "attempts": [],
-            "receipts": [],
-            "evidence_runs": [],
-        }
-        after = deepcopy(before)
-        after["work_items"][0]["current_attempt"] = "ATTEMPT-TEST"
-        after["attempts"] = [
-            {
-                "id": "ATTEMPT-TEST",
-                "work_item_id": "WORK-TEST",
-                "actor": "PALARI-STEWARD",
-                "status": "completed",
-                "head_sha": "a" * 40,
-            }
-        ]
-        after["receipts"] = [
-            {
-                "id": "RECEIPT-TEST",
-                "work_item_id": "WORK-TEST",
-                "attempt_id": "ATTEMPT-TEST",
-                "actor": "PALARI-STEWARD",
-            }
-        ]
-        after["evidence_runs"] = [
-            {
-                "id": "EVIDENCE-TEST",
-                "work_item_id": "WORK-TEST",
-                "attempt_id": "ATTEMPT-TEST",
-                "head_sha": "a" * 40,
-                "status": "passed",
-            }
-        ]
-        context = {
-            "before_projection": before,
-            "prepare": {
-                "metadata": {
-                    "command": "agent advance",
-                    "actor": "PALARI-STEWARD",
-                    "action": "reconciled-agent-proof",
-                    "objects": [
-                        {"type": "work", "collection": "work_items", "id": "WORK-TEST"},
-                        {"type": "attempt", "collection": "attempts", "id": "ATTEMPT-TEST"},
-                        {"type": "receipt", "collection": "receipts", "id": "RECEIPT-TEST"},
-                        {
-                            "type": "evidence",
-                            "collection": "evidence_runs",
-                            "id": "EVIDENCE-TEST",
-                        },
-                    ],
-                },
-                "after_projection": after,
-            },
-        }
-        self.assertEqual(
-            _pending_advance_recovery_error(context, "WORK-TEST", "PALARI-STEWARD"),
-            "",
-        )
-
-        after["name"] = "unmentioned change"
-        self.assertIn(
-            "outside its proof binding",
-            _pending_advance_recovery_error(context, "WORK-TEST", "PALARI-STEWARD"),
-        )
 
     def _facts(self) -> dict[str, object]:
         return {
@@ -783,6 +721,46 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["blockers"][0]["code"], "PENDING_TRANSACTION_MISMATCH")
         self.assertEqual(before_journal, journal.read_bytes())
 
+    def test_proof_like_pending_commit_cannot_expand_bound_fields(self) -> None:
+        def mutate(_metadata: dict, after: dict) -> None:
+            work = next(item for item in after["work_items"] if item["id"] == self.work_id)
+            attempt = next(
+                item for item in after["attempts"] if item["id"] == work["current_attempt"]
+            )
+            work["title"] = "Expanded during recovery"
+            work["allowed_resources"].append("outside/**")
+            attempt["allowed_paths"].append("outside/**")
+
+        self._tamper_pending_proof("after_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-commit")
+
+    def test_proof_like_pending_prepare_cannot_substitute_proof_ids(self) -> None:
+        def mutate(metadata: dict, after: dict) -> None:
+            replacements = {
+                "attempt": "ATTEMPT-ARBITRARY",
+                "receipt": "RECEIPT-ARBITRARY",
+                "evidence": "EVIDENCE-ARBITRARY",
+            }
+            for item in metadata["objects"]:
+                if item["type"] in replacements:
+                    old_id = item["id"]
+                    new_id = replacements[item["type"]]
+                    item["id"] = new_id
+                    collection = item["collection"]
+                    record = next(value for value in after[collection] if value["id"] == old_id)
+                    record["id"] = new_id
+            work = next(item for item in after["work_items"] if item["id"] == self.work_id)
+            work["current_attempt"] = replacements["attempt"]
+            receipt = next(item for item in after["receipts"] if item["id"] == replacements["receipt"])
+            receipt["attempt_id"] = replacements["attempt"]
+            evidence = next(
+                item for item in after["evidence_runs"] if item["id"] == replacements["evidence"]
+            )
+            evidence["attempt_id"] = replacements["attempt"]
+
+        self._tamper_pending_proof("before_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-prepare")
+
     def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
         self._crash_reconciliation("after_apply")
         protected = self.temp_dir / "docs" / "company"
@@ -862,6 +840,12 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             capture_output=True,
             text=True,
         ).stdout.strip()
+        base_sha = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD^"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
 
         def crash_hook(current: str) -> None:
             if current == point:
@@ -878,12 +862,8 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "actor": "PALARI-STEWARD",
                     "status": "active",
                     "workspace_path": str(self.temp_dir),
-                    "base_sha": subprocess.run(
-                        ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD^"],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    ).stdout.strip(),
+                    "base_sha": base_sha,
+                    "allowed_paths": ["README.md"],
                 },
                 receipt_record={
                     "id": f"RECEIPT-ADVANCE-{self.work_id}-{head[:12].upper()}",
@@ -902,7 +882,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "attempt_id": f"ATTEMPT-ADVANCE-{self.work_id}-{head[:12].upper()}",
                     "head_sha": head,
                     "status": "passed",
-                    "base_ref": "HEAD^",
+                    "base_ref": base_sha,
                     "commands": ["mock exact-state attestation"],
                     "artifacts": ["README.md"],
                     "summary": "Exact-state verification passed before injection.",
@@ -948,6 +928,48 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 apply=apply,
                 crash_hook=crash_hook,
             )
+
+    def _tamper_pending_proof(self, point: str, mutate) -> None:
+        self._crash_reconciliation(point)
+        context = pending_workspace_journal_context(self.temp_dir)
+        self.assertIsNotNone(context)
+        assert context is not None
+        journal = journal_file_path(self.temp_dir / "workspace.json")
+        records = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+        prepared = records[-1]
+        self.assertEqual(prepared["record_type"], "prepare")
+        mutate(prepared["metadata"], prepared["after_projection"])
+        prepared["after_workspace_digest"] = workspace_digest(prepared["after_projection"])
+        prepared["logical_changes"] = logical_changes(
+            context["before_projection"], prepared["after_projection"]
+        )
+        prepared["transaction_id"] = _transaction_id(prepared)
+        prepared["record_digest"] = record_digest(prepared)
+        journal.write_text(
+            "".join(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n" for item in records),
+            encoding="utf-8",
+        )
+        if point == "after_apply":
+            (self.temp_dir / "workspace.json").write_text(
+                json.dumps(prepared["after_projection"]), encoding="utf-8"
+            )
+
+    def _assert_pending_mismatch_without_journal_mutation(self, expected_status: str) -> None:
+        report = verify_workspace_journal(self.temp_dir)
+        self.assertEqual(report["status"], expected_status, report)
+        journal = journal_file_path(self.temp_dir / "workspace.json")
+        before_journal = journal.read_bytes()
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "PENDING_TRANSACTION_MISMATCH")
+        self.assertEqual(before_journal, journal.read_bytes())
 
     def _passing_attestation(self, _workspace, _root, profile, context, **_kwargs):
         key = cache_key(profile, context)

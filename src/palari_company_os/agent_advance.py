@@ -707,14 +707,6 @@ def _completed_projection(
     journal_status = str(journal.get("status") or "")
     if journal_status == "pending-commit":
         pending = pending_workspace_journal_context(workspace_path)
-        pending_error = _pending_advance_recovery_error(pending, work_id, palari_id)
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
         recovery_preflight = _resume_preflight(
             workspace, workspace_path, work, palari_id
         )
@@ -724,6 +716,16 @@ def _completed_projection(
                 work_id,
                 "RESUME_PREFLIGHT_FAILED",
                 str(recovery_preflight["message"]),
+            )
+        pending_error = _pending_advance_recovery_error(
+            pending, work_id, palari_id, recovery_preflight, workspace_path
+        )
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
             )
         recovered = recover_workspace_journal(
             workspace_path,
@@ -739,14 +741,6 @@ def _completed_projection(
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
         pending = pending_workspace_journal_context(workspace_path)
-        pending_error = _pending_advance_recovery_error(pending, work_id, palari_id)
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
         recovery_preflight = _resume_preflight(
             workspace, workspace_path, work, palari_id
         )
@@ -756,6 +750,16 @@ def _completed_projection(
                 work_id,
                 "RESUME_PREFLIGHT_FAILED",
                 str(recovery_preflight["message"]),
+            )
+        pending_error = _pending_advance_recovery_error(
+            pending, work_id, palari_id, recovery_preflight, workspace_path
+        )
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
             )
         recovered = recover_workspace_journal(
             workspace_path,
@@ -938,6 +942,8 @@ def _pending_advance_recovery_error(
     context: dict[str, Any] | None,
     work_id: str,
     palari_id: str,
+    preflight: dict[str, Any],
+    workspace_path: Path,
 ) -> str:
     if not isinstance(context, dict):
         return "The pending journal transaction cannot be inspected safely."
@@ -998,23 +1004,117 @@ def _pending_advance_recovery_error(
     assert isinstance(attempt, dict)
     assert isinstance(receipt, dict)
     assert isinstance(evidence, dict)
+    try:
+        projected_workspace = Workspace.from_raw(after, workspace_path)
+    except WorkspaceError as exc:
+        return f"The pending journal proof projection is invalid: {exc}"
+    before_work = _record_by_id(before, "work_items", collection_ids["work_items"])
+    before_attempt = _record_by_id(before, "attempts", collection_ids["attempts"])
+    before_receipt = _record_by_id(before, "receipts", collection_ids["receipts"])
+    before_evidence = _record_by_id(
+        before, "evidence_runs", collection_ids["evidence_runs"]
+    )
+    if not isinstance(before_work, dict) or not _record_changes_within(
+        before_work, work, {"current_attempt"}
+    ):
+        return "The pending journal transaction changes work authority, not only proof binding."
+    if isinstance(before_attempt, dict) and not _record_changes_within(
+        before_attempt,
+        attempt,
+        {
+            "status",
+            "head_sha",
+            "commits",
+            "cleanliness",
+            "updated_at",
+            "changed_files",
+            "output_targets",
+        },
+    ):
+        return "The pending journal transaction changes immutable attempt authority."
+    if isinstance(before_receipt, dict) and before_receipt != receipt:
+        return "The pending journal transaction rewrites an existing receipt."
+    if isinstance(before_evidence, dict) and before_evidence != evidence:
+        return "The pending journal transaction rewrites existing evidence."
     attempt_id = collection_ids["attempts"]
     head_sha = str(attempt.get("head_sha") or "")
+    current_attempt_id = str(before_work.get("current_attempt") or "")
+    current_attempt = (
+        _record_by_id(before, "attempts", current_attempt_id)
+        if current_attempt_id
+        else None
+    )
+    current_attempt_head = ""
+    if isinstance(current_attempt, dict):
+        current_attempt_head = str(current_attempt.get("head_sha") or "")
+        if not current_attempt_head:
+            commits = current_attempt.get("commits")
+            if isinstance(commits, list) and commits:
+                current_attempt_head = str(commits[-1] or "")
+    current_attempt_reusable = (
+        isinstance(current_attempt, dict)
+        and current_attempt.get("actor") == palari_id
+        and (
+            current_attempt.get("status") not in {"complete", "completed"}
+            or current_attempt_head == head_sha
+        )
+    )
+    expected_attempt_id = (
+        current_attempt_id
+        if current_attempt_reusable
+        else _proof_id("ATTEMPT-ADVANCE", work_id, head_sha)
+    )
+    expected_receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
+    expected_evidence_id = _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
+    allowed_resources = work.get("allowed_resources")
+    allowed_paths = attempt.get("allowed_paths")
+    changed_files = list(preflight.get("changed_files") or [])
+    artifacts = _governed_artifacts(changed_files)
+    paths_bound = (
+        isinstance(allowed_resources, list)
+        and isinstance(allowed_paths, list)
+        and bool(allowed_paths)
+        and allowed_paths == allowed_resources
+    )
     if (
-        work.get("current_attempt") != attempt_id
+        attempt_id != expected_attempt_id
+        or collection_ids["receipts"] != expected_receipt_id
+        or collection_ids["evidence_runs"] != expected_evidence_id
+        or work.get("current_attempt") != attempt_id
         or attempt.get("work_item_id") != work_id
         or attempt.get("actor") != palari_id
         or attempt.get("status") not in {"complete", "completed"}
         or not head_sha
+        or head_sha != preflight.get("head_sha")
+        or attempt.get("base_sha") != preflight.get("base_sha")
+        or Path(str(attempt.get("workspace_path") or "")).resolve()
+        != Path(str(preflight.get("git_root") or "")).resolve()
+        or not paths_bound
+        or attempt.get("changed_files") != changed_files
+        or attempt.get("output_targets") != work.get("output_targets")
+        or attempt.get("cleanliness") != "clean"
         or receipt.get("work_item_id") != work_id
         or receipt.get("attempt_id") != attempt_id
         or receipt.get("actor") != palari_id
+        or receipt.get("sources_used") != work.get("allowed_sources")
+        or receipt.get("outputs_created") != artifacts
+        or receipt.get("undo_refs") != artifacts
         or evidence.get("work_item_id") != work_id
         or evidence.get("attempt_id") != attempt_id
         or evidence.get("head_sha") != head_sha
         or evidence.get("status") != "passed"
+        or evidence.get("base_ref") != preflight.get("base_sha")
+        or evidence.get("artifacts") != artifacts
+        or evidence.get("freshness") != "exact-head"
     ):
         return "The pending journal projection has contradictory proof bindings."
+    evidence_verification = verify_evidence(
+        projected_workspace,
+        expected_evidence_id,
+        require_output_coverage=True,
+    )
+    if not evidence_verification["ok"]:
+        return "The pending journal projection does not contain verifiable exact evidence."
     return ""
 
 
@@ -1037,6 +1137,15 @@ def _only_bound_records_changed(
             ):
                 return False
     return True
+
+
+def _record_changes_within(
+    before: dict[str, Any], after: dict[str, Any], allowed_fields: set[str]
+) -> bool:
+    return all(
+        key in allowed_fields or before.get(key) == after.get(key)
+        for key in set(before) | set(after)
+    )
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
