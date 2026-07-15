@@ -637,6 +637,7 @@ def reconcile_agent_proof(
     head_sha: str,
     changed_files: list[str],
     output_targets: list[str],
+    proof_timestamp: str,
     crash_hook: Any | None = None,
 ) -> dict[str, Any]:
     """Atomically create or resume the agent-owned proof projection.
@@ -647,7 +648,7 @@ def reconcile_agent_proof(
     workspace replacement and one governance-journal transaction.
     """
 
-    from .governance_journal import MutationMetadata, utc_timestamp
+    from .governance_journal import MutationMetadata
 
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
@@ -664,7 +665,9 @@ def reconcile_agent_proof(
     attempt = _find(attempts, attempt_id)
     if attempt is None:
         _assert_record_transition_allowed(store, "attempt", attempt_record)
-        attempt = _prepare_record_for_create(store, "attempt", dict(attempt_record))
+        new_attempt = dict(attempt_record)
+        new_attempt["started_at"] = proof_timestamp
+        attempt = _prepare_record_for_create(store, "attempt", new_attempt)
         attempts.append(attempt)
         steps.append({"step": "attempt-record", "id": attempt_id, "status": "created"})
         changed = True
@@ -693,7 +696,9 @@ def reconcile_agent_proof(
     receipt = _find(receipts, receipt_id)
     if receipt is None:
         _assert_record_transition_allowed(store, "receipt", receipt_record)
-        receipt = _prepare_record_for_create(store, "receipt", dict(receipt_record))
+        new_receipt = dict(receipt_record)
+        new_receipt["timestamp"] = proof_timestamp
+        receipt = _prepare_record_for_create(store, "receipt", new_receipt)
         receipts.append(receipt)
         steps.append({"step": "receipt-record", "id": receipt_id, "status": "created"})
         changed = True
@@ -710,7 +715,9 @@ def reconcile_agent_proof(
     evidence = _find(evidence_runs, evidence_id)
     if evidence is None:
         _assert_record_transition_allowed(store, "evidence", evidence_record)
-        evidence = _prepare_record_for_create(store, "evidence", dict(evidence_record))
+        new_evidence = dict(evidence_record)
+        new_evidence["timestamp"] = proof_timestamp
+        evidence = _prepare_record_for_create(store, "evidence", new_evidence)
         evidence_runs.append(evidence)
         steps.append({"step": "evidence-record", "id": evidence_id, "status": "created"})
         changed = True
@@ -764,7 +771,7 @@ def reconcile_agent_proof(
             commits.append(head_sha)
         attempt["commits"] = commits
         attempt["cleanliness"] = "clean"
-        attempt["updated_at"] = _timestamp()
+        attempt["updated_at"] = proof_timestamp
         attempt["changed_files"] = list(changed_files)
         attempt["output_targets"] = list(output_targets)
         steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "closed-out"})
@@ -778,7 +785,7 @@ def reconcile_agent_proof(
             command="agent advance",
             actor=palari_id,
             action="reconciled-agent-proof",
-            timestamp=utc_timestamp(),
+            timestamp=proof_timestamp,
             objects=tuple(
                 {
                     "type": kind,

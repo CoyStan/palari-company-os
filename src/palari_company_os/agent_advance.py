@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -638,6 +638,9 @@ def _reconcile_proof(
     receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     evidence_id = _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
     action = f"Changed {len(artifacts)} bounded committed artifact(s)."
+    proof_timestamp = _git_commit_timestamp(preflight)
+    if not proof_timestamp:
+        raise WorkspaceError("Git HEAD timestamp is unavailable for deterministic proof binding")
     commands = [
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification
@@ -683,6 +686,7 @@ def _reconcile_proof(
         head_sha=head_sha,
         changed_files=list(preflight["changed_files"]),
         output_targets=list(work.output_targets),
+        proof_timestamp=proof_timestamp,
     )
     return list(result["steps"])
 
@@ -1258,9 +1262,19 @@ def _pending_advance_recovery_error(
         or not commands
         or not _verification_commands_bound(commands, work, preflight)
         or (verified_commands is not None and commands != verified_commands)
+        or evidence.get("output_binding_version") != "palari.evidence_outputs.v1"
         or evidence.get("summary")
         != f"{len(commands)} exact-state verification profile(s) passed."
-        or not _recovery_timestamps_ordered(attempt, receipt, evidence, metadata)
+        or not _recovery_timestamps_bound(
+            attempt,
+            receipt,
+            evidence,
+            metadata,
+            before_attempt,
+            before_receipt,
+            before_evidence,
+            _git_commit_timestamp(preflight),
+        )
     ):
         return "The pending journal projection has contradictory proof bindings."
     evidence_verification = verify_evidence(
@@ -1433,29 +1447,81 @@ def _verification_commands_bound(
     return True
 
 
-def _recovery_timestamps_ordered(
+def _recovery_timestamps_bound(
     attempt: dict[str, Any],
     receipt: dict[str, Any],
     evidence: dict[str, Any],
     metadata: dict[str, Any],
+    before_attempt: dict[str, Any] | None,
+    before_receipt: dict[str, Any] | None,
+    before_evidence: dict[str, Any] | None,
+    expected_event_timestamp: str,
 ) -> bool:
-    raw = [
+    event_timestamp = metadata.get("timestamp")
+    if event_timestamp != expected_event_timestamp or not expected_event_timestamp:
+        return False
+    try:
+        event_time = datetime.fromisoformat(
+            event_timestamp.removesuffix("Z") + "+00:00"
+        )
+    except ValueError:
+        return False
+    closeout_changed = before_attempt is None or any(
+        attempt.get(field) != before_attempt.get(field)
+        for field in (
+            "status",
+            "head_sha",
+            "commits",
+            "cleanliness",
+            "changed_files",
+            "output_targets",
+        )
+    )
+    expected = [
+        event_timestamp
+        if before_attempt is None
+        else before_attempt.get("started_at"),
+        event_timestamp
+        if before_receipt is None
+        else before_receipt.get("timestamp"),
+        event_timestamp
+        if before_evidence is None
+        else before_evidence.get("timestamp"),
+        event_timestamp
+        if closeout_changed
+        else before_attempt.get("updated_at") if before_attempt is not None else "",
+    ]
+    actual = [
         attempt.get("started_at"),
         receipt.get("timestamp"),
         evidence.get("timestamp"),
         attempt.get("updated_at"),
-        metadata.get("timestamp"),
     ]
-    if not all(isinstance(value, str) and value.endswith("Z") for value in raw):
+    if actual != expected:
         return False
     try:
-        parsed = [
+        proof_times = [
             datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
-            for value in raw
+            for value in actual
+            if isinstance(value, str) and value.endswith("Z")
         ]
     except ValueError:
         return False
-    return parsed == sorted(parsed)
+    return len(proof_times) == len(actual) and all(value <= event_time for value in proof_times)
+
+
+def _git_commit_timestamp(preflight: dict[str, Any]) -> str:
+    from .agent_done import _git_value
+
+    raw = _git_value(
+        Path(str(preflight.get("git_root") or "")),
+        ["show", "-s", "--format=%ct", str(preflight.get("head_sha") or "")],
+    )
+    try:
+        timestamp = datetime.fromtimestamp(int(raw), timezone.utc)
+    except (OverflowError, ValueError):
+        return ""
+    return timestamp.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:

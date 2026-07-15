@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_advance import (
+    _git_commit_timestamp,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -27,6 +28,7 @@ from palari_company_os.authoring import create_record, reconcile_agent_proof
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
+from palari_company_os.evidence_manifest import evidence_manifest_hash, receipt_hash
 from palari_company_os.governance_journal import (
     MutationMetadata,
     _transaction_id,
@@ -913,6 +915,42 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self._tamper_pending_proof("before_apply", mutate)
         self._assert_pending_mismatch_without_journal_mutation("pending-prepare")
 
+    def test_proof_like_pending_commit_rejects_coherent_timestamp_restamp(self) -> None:
+        def mutate(metadata: dict, after: dict) -> None:
+            substituted = "2030-01-01T00:00:00Z"
+            work = next(item for item in after["work_items"] if item["id"] == self.work_id)
+            attempt = next(
+                item for item in after["attempts"] if item["id"] == work["current_attempt"]
+            )
+            receipt = next(
+                item for item in after["receipts"] if item["work_item_id"] == self.work_id
+            )
+            evidence = next(
+                item for item in after["evidence_runs"] if item["work_item_id"] == self.work_id
+            )
+            attempt["started_at"] = substituted
+            attempt["updated_at"] = substituted
+            receipt["timestamp"] = substituted
+            receipt["receipt_hash"] = receipt_hash(receipt)
+            evidence["timestamp"] = substituted
+            evidence["receipt_hash"] = receipt["receipt_hash"]
+            evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+            metadata["timestamp"] = substituted
+
+        self._tamper_pending_proof("after_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-commit")
+
+    def test_proof_like_pending_commit_requires_current_output_binding(self) -> None:
+        def mutate(_metadata: dict, after: dict) -> None:
+            evidence = next(
+                item for item in after["evidence_runs"] if item["work_item_id"] == self.work_id
+            )
+            evidence["output_binding_version"] = ""
+            evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+
+        self._tamper_pending_proof("after_apply", mutate)
+        self._assert_pending_mismatch_without_journal_mutation("pending-commit")
+
     def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
         self._crash_reconciliation("after_apply")
         protected = self.temp_dir / "docs" / "company"
@@ -986,6 +1024,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 head_sha=head,
                 changed_files=["README.md"],
                 output_targets=["README.md"],
+                proof_timestamp=_git_commit_timestamp(
+                    {"git_root": str(self.temp_dir), "head_sha": head}
+                ),
             )
 
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
@@ -1064,6 +1105,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 head_sha=head,
                 changed_files=["README.md"],
                 output_targets=["README.md"],
+                proof_timestamp=_git_commit_timestamp(
+                    {"git_root": str(self.temp_dir), "head_sha": head}
+                ),
                 crash_hook=crash_hook,
             )
 
