@@ -2,6 +2,10 @@
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# The local bin/palari wrapper exports the source tree for development. An
+# isolated wheel smoke must not let that source checkout or its egg-info make
+# pip believe the package is already installed inside the fresh venv.
+unset PYTHONPATH PYTHONHOME
 tmp_dir="$(mktemp -d)"
 log_dir="$tmp_dir/logs"
 mkdir "$log_dir"
