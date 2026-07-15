@@ -2944,11 +2944,42 @@
       "id": "ATTEMPT-REPO-0024-R2",
       "work_item_id": "WORK-REPO-0024",
       "actor": "PALARI-STEWARD",
-      "status": "active",
+      "status": "completed",
       "branch": "codex/proof-carrying-ai-work-kernel",
       "workspace_path": "/home/quetza/palari-company-os",
       "model_or_worker": "gpt-5-codex",
-      "started_at": "2026-07-15T00:41:02.560522Z"
+      "started_at": "2026-07-15T00:41:02.560522Z",
+      "head_sha": "74757acdd9c9bf4fed90f8cbda92b6e55ebb5186",
+      "commits": [
+        "74757acdd9c9bf4fed90f8cbda92b6e55ebb5186"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-15T01:20:52.706990Z",
+      "changed_files": [
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/proof-carrying-governance-contract.md",
+        "docs/product/schema-and-validation.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_governance_completion.py",
+        "tests/test_history.py",
+        "tests/test_mission_control.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ]
     }
   ],
   "evidence_runs": [
@@ -3440,6 +3471,48 @@
       "receipt_hash": "sha256:5cd1f679e492c3d465e3cac44080d8cc9e41f5642c589ade4a5a303d90a42b57",
       "manifest_hash": "sha256:01de78ea8957399dec26d94ed56705f8abe1176ffd9b436e7cf64069bc9c76b8",
       "artifact_hashes": []
+    },
+    {
+      "commands": [
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./bin/palari docs check --json",
+        "python3 -m unittest tests.test_validation tests.test_governance_completion tests.test_filesystem_security tests.test_transition_checks"
+      ],
+      "artifacts": [
+        "docs/product/proof-carrying-governance-contract.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/trusted-code.json"
+      ],
+      "id": "EVIDENCE-REPO-0024-R2",
+      "work_item_id": "WORK-REPO-0024",
+      "attempt_id": "ATTEMPT-REPO-0024-R2",
+      "head_sha": "74757acdd9c9bf4fed90f8cbda92b6e55ebb5186",
+      "status": "passed",
+      "base_ref": "56577687ba8a77385e8a854fbf04f911b403f7b4",
+      "summary": "PCAW v1 exact artifact head passed 622 tests, style, 18 conformance vectors, docs validation, isolated wheel smoke, adversarial boundary reproduction, and independent exact-head review.",
+      "freshness": "current",
+      "timestamp": "2026-07-15T01:19:58.512711Z",
+      "receipt_hash": "sha256:96a9c595c8ceea2c7e872b396edab513f83b91843f8eabe233488dbf8f3b469c",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/proof-carrying-governance-contract.md",
+          "sha256": "sha256:bd5dd439cd533e57dcb7ac7a52506a1c26391268ade3b79b34ae4fc3a3d88dec",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/README.md",
+          "sha256": "sha256:733c9f730d9156e678dc677153655f73ecbbb218ac9418ac6f68f4b4c9319bbf",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/trusted-code.json",
+          "sha256": "sha256:65a3ea2ce4611321ba67d9e78c238db83de6548a90e50c49e34a2f86fd615eed",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:e73b9e22ead2ccf59f54ded9272438141a161332a5f85b7628a50ae1e8a482b2"
     }
   ],
   "review_verdicts": [
@@ -4722,6 +4795,33 @@
       "actor": "PALARI-STEWARD",
       "timestamp": "2026-07-15T00:32:42.454984Z",
       "receipt_hash": "sha256:5cd1f679e492c3d465e3cac44080d8cc9e41f5642c589ade4a5a303d90a42b57"
+    },
+    {
+      "context_packet": "PACKET-WORK-REPO-0024-PALARI-STEWARD-EXECUTE-V1",
+      "context_hash": "sha256:cf2f86dc983b804c3c4a4445e9d6ffc2eeff7d1e789060c53aae3b4a0e70ab51",
+      "actions_taken": [
+        "Repaired non-vacuous evidence output coverage",
+        "Enforced bounded artifact roots without fallback reads",
+        "Enforced version-derived terminal validation",
+        "Completed exact-head verification and independent review"
+      ],
+      "outputs_created": [
+        "docs/product/proof-carrying-governance-contract.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/trusted-code.json"
+      ],
+      "external_writes": [],
+      "not_done": [
+        "No external writes",
+        "No push PR merge deployment or human acceptance"
+      ],
+      "id": "RECEIPT-REPO-0024-R2",
+      "work_item_id": "WORK-REPO-0024",
+      "attempt_id": "ATTEMPT-REPO-0024-R2",
+      "actor": "PALARI-STEWARD",
+      "timestamp": "2026-07-15T01:19:49.347261Z",
+      "previous_receipt_hash": "sha256:5cd1f679e492c3d465e3cac44080d8cc9e41f5642c589ade4a5a303d90a42b57",
+      "receipt_hash": "sha256:96a9c595c8ceea2c7e872b396edab513f83b91843f8eabe233488dbf8f3b469c"
     }
   ],
   "decisions": [
