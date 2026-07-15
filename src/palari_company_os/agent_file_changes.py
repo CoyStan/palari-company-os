@@ -371,7 +371,10 @@ def _git_head_result(root: Path) -> tuple[str, str]:
 
 def _path_allowed(path: str, allowed_paths: list[str], *, root: Path | None) -> bool:
     if root is not None:
-        return canonical_path_allowed(path, allowed_paths, root=root)
+        possible_boundaries = [
+            allowed for allowed in allowed_paths if path_allowed(path, [allowed])
+        ]
+        return canonical_path_allowed(path, possible_boundaries, root=root)
     return path_allowed(path, allowed_paths)
 
 
