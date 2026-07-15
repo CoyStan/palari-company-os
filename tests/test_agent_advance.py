@@ -482,6 +482,12 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertIn("Status: planned", rendered)
         self.assertIn("review-handoff: required", rendered)
 
+    def test_legacy_claim_pending_prepare_dry_run_is_read_only(self) -> None:
+        self._assert_legacy_pending_dry_run_is_read_only("before_apply")
+
+    def test_legacy_claim_pending_commit_dry_run_is_read_only(self) -> None:
+        self._assert_legacy_pending_dry_run_is_read_only("after_apply")
+
     def test_fast_dry_run_rejects_any_workspace_byte_drift(self) -> None:
         data_path = self.temp_dir / "workspace.json"
         data_path.write_bytes(data_path.read_bytes() + b"\n")
@@ -1110,6 +1116,45 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 ),
                 crash_hook=crash_hook,
             )
+
+    def _assert_legacy_pending_dry_run_is_read_only(self, point: str) -> None:
+        self._crash_reconciliation(point)
+        claim_path = next((self.temp_dir / ".palari" / "claims").glob("*.json"))
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        claim.pop("workspace_file_hash", None)
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        workspace_path = self.temp_dir / "workspace.json"
+        journal_path = journal_file_path(workspace_path)
+        before = {
+            "workspace": workspace_path.read_bytes(),
+            "journal": journal_path.read_bytes(),
+            "claim": claim_path.read_bytes(),
+        }
+        args = build_parser().parse_args(
+            [
+                "--workspace",
+                str(self.temp_dir),
+                "agent",
+                "advance",
+                self.work_id,
+                "--as",
+                "PALARI-STEWARD",
+                "--dry-run",
+                "--json",
+            ]
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("legacy dry-run executed verification"),
+        ):
+            result = run_command(args)
+
+        self.assertTrue(result.payload["dry_run"])
+        self.assertFalse(result.payload["would_mutate"])
+        self.assertEqual(before["workspace"], workspace_path.read_bytes())
+        self.assertEqual(before["journal"], journal_path.read_bytes())
+        self.assertEqual(before["claim"], claim_path.read_bytes())
 
     def _unrelated_pending_transaction(self, point: str) -> None:
         data_path = self.temp_dir / "workspace.json"

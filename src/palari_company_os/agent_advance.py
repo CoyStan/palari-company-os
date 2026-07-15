@@ -352,9 +352,10 @@ def agent_advance(
     refresh_verification: bool = False,
 ) -> dict[str, Any]:
     workspace_path = Path(workspace_path)
-    resumed = _completed_projection(workspace, workspace_path, work_id, palari_id)
-    if resumed is not None:
-        return resumed
+    if not dry_run:
+        resumed = _completed_projection(workspace, workspace_path, work_id, palari_id)
+        if resumed is not None:
+            return resumed
     if summary.strip():
         raise WorkspaceError(
             "agent advance persists deterministic receipt actions only; omit --summary and "
