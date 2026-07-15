@@ -17,27 +17,29 @@ Every item below records the required outcome, objective evidence, verification
 command or artifact, current status, and exact committed proof. A checkbox may
 be marked complete only after its evidence is committed.
 
-- [ ] Opaque identity by default
+- [x] Opaque identity by default
   - Required outcome: `palari work add` creates a collision-resistant opaque
     work ID without reading or incrementing existing numeric IDs; explicit and
     legacy IDs remain compatible.
   - Objective evidence: focused tests prove format, uniqueness, collision retry,
     explicit-ID compatibility, and independence from existing numeric IDs.
   - Verification: `python3 -m unittest tests.test_onramp`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: complete; focused verification passed.
+  - Exact committed proof: implementation and tests in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
-- [ ] Explicit dependency DAG
+- [x] Explicit dependency DAG
   - Required outcome: quick work creation accepts repeatable explicit
     dependencies, and workspace loading fails closed for missing, duplicate,
     self-referential, or cyclic dependency edges.
   - Objective evidence: CLI and workspace tests cover valid independent and
     dependent work plus every rejected graph shape.
   - Verification: `python3 -m unittest tests.test_onramp tests.test_validation`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: complete; focused verification passed.
+  - Exact committed proof: implementation and tests in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
-- [ ] Cross-worktree single-owner lease
+- [x] Cross-worktree single-owner lease
   - Required outcome: a work item can have at most one active execute/review
     claim across linked Git worktrees; acquisition, renewal, expiry replacement,
     integrity checking, and release use compare-and-swap behavior and fail
@@ -46,10 +48,11 @@ be marked complete only after its evidence is committed.
     rejected, prove another work item remains independently claimable, and prove
     release/expiry permits safe reacquisition.
   - Verification: `python3 -m unittest tests.test_agent_packets`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: complete; focused and linked-worktree verification passed.
+  - Exact committed proof: implementation and tests in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
-- [ ] Mechanical isolated start
+- [x] Mechanical isolated start
   - Required outcome: `palari agent start WORK-ID --as PALARI-ID --isolate`
     creates or safely resumes a deterministic local branch/worktree, persists
     the packet and claim there, and returns a direct resume command without
@@ -57,18 +60,20 @@ be marked complete only after its evidence is committed.
   - Objective evidence: CLI tests prove clean creation, idempotent resume,
     uncommitted-work refusal, branch collision refusal, and actionable output.
   - Verification: `python3 -m unittest tests.test_agent_packets tests.test_cli_smoke`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: complete; focused verification passed.
+  - Exact committed proof: implementation and tests in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
-- [ ] Order-independent operator diagnostics
+- [x] Order-independent operator diagnostics
   - Required outcome: agent-next output names explicit dependency blockers and
     active cross-worktree claims; an opaque ID is never described as priority or
     dependency evidence.
   - Objective evidence: JSON and text smoke tests cover ready independent work,
     dependency-blocked work, and work claimed in another worktree.
   - Verification: `python3 -m unittest tests.test_agent_packets tests.test_cli_smoke`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: complete; JSON and text smoke verification passed.
+  - Exact committed proof: implementation and tests in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
 - [ ] Compatibility, minimality, and authority preservation
   - Required outcome: schema v2 and arbitrary historical work IDs remain valid;
@@ -79,8 +84,11 @@ be marked complete only after its evidence is committed.
     and full repository verification pass.
   - Verification: `./bin/palari docs check --json`, `./scripts/verify.sh`, and
     `./scripts/install_smoke.sh`.
-  - Current status: in progress.
-  - Exact committed proof: pending.
+  - Current status: implementation committed; exact-head complete verification
+    pending.
+  - Exact committed proof: compatibility implementation in
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`; final verification evidence
+    pending.
 
 - [ ] Exact candidate and independent review
   - Required outcome: all implementation and contract evidence is committed;
