@@ -19,6 +19,7 @@ from palari_company_os.git_hooks import (
     pre_commit,
 )
 from palari_company_os.workspace import Workspace as Ws
+from tests.workspace_fixture import write_portable_agent_workspace
 
 
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
@@ -37,7 +38,10 @@ class GitHooksTests(unittest.TestCase):
         self._tmp = tempfile.mkdtemp()
         self.workspace_path = Path(self._tmp) / "ws"
         self.workspace_path.mkdir()
-        shutil.copy2(DOGFOOD / "workspace.json", self.workspace_path / "workspace.json")
+        write_portable_agent_workspace(
+            DOGFOOD / "workspace.json",
+            self.workspace_path / "workspace.json",
+        )
         palari_dir = self.workspace_path / ".palari"
         if palari_dir.exists():
             shutil.rmtree(palari_dir)

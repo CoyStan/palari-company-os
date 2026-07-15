@@ -1,0 +1,158 @@
+# Approval Packs And Reversible Checkpoints Contract
+
+This is the completion contract for `WORK-REPO-0025` on branch
+`codex/approval-packs-checkpoints`. Its governing principle is: **compress the
+interaction, not the evidence**. A checkbox may be marked complete only when
+its objective evidence is committed and the named verification passes.
+
+Accepted dependency head: `b24b644ca8a6df26eb5a3fadb246d3a11093ccea`.
+
+Implementation setup head: `342db2bf716b4e8db0c4df326bfa787178085df0`.
+
+## Baseline
+
+The first pre-change `./scripts/verify.sh` run exposed a state-coupled test
+fixture after WORK-REPO-0024 received real human acceptance. Two test modules
+relocated the live dogfood `workspace.json`; its exact artifact-root binding
+correctly failed outside the repository. Production validation was not
+weakened. The test fixture now copies only the two portable legacy records the
+tests exercise.
+
+- `python3 -m unittest tests.test_agent_done tests.test_git_hooks`: 32 tests
+  passed in 3.662 seconds.
+- `./scripts/verify.sh`: 624 tests across 39 modules, style, trusted-code
+  manifest, and 18/18 PCAW vectors passed.
+- PCAW trusted-code baseline: 5 files, 2,334 source lines, zero runtime
+  dependencies.
+- Existing approval-interaction counts for 1, 10, and 100 items: pending audit.
+
+Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
+
+## Required Outcomes
+
+- [ ] Immutable canonical Approval Pack manifests
+  - Required outcome: a pack binds the exact base workspace/checkpoint digest,
+    ordered members, subjects and outputs, dependencies, risk, reversibility,
+    authority, receipts, evidence, reviews, cumulative effects, external
+    effects, bounded resources, lifecycle state, and its own content digest.
+  - Objective completion evidence: deterministic canonicalization tests prove
+    identical logical packs are byte-identical and any governed member change
+    changes the pack digest.
+  - Verification command or artifact: focused pack model and canonicalization
+    tests plus schema validation.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Item-granular eligibility and dependency-aware staleness
+  - Required outcome: the evaluator derives each member as eligible, stale,
+    blocked, rejected, deferred, or non-batchable without discarding unrelated
+    valid approval; dependency mutation or rejection blocks descendants.
+  - Objective completion evidence: positive and negative graph tests, including
+    changed members, changed dependencies, partial decisions, and independent
+    unchanged siblings.
+  - Verification command or artifact: focused approval-pack evaluator tests.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] One attributable human action with exact per-item authorization
+  - Required outcome: one human decision over an exact immutable pack may
+    derive authorization only for the selected eligible members; agents cannot
+    create, replay, or transplant that decision, and every item retains its
+    own proof and journal record.
+  - Objective completion evidence: one-decision 1/10/100-member tests,
+    actor-boundary tests, pack-transplant rejection, repeated-command
+    idempotence, and exact member authorization reports.
+  - Verification command or artifact: focused human-decision, transition, and
+    approval-pack tests.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Parked execution and risk-based batch policy
+  - Required outcome: bounded preparation may continue while governed effects
+    remain parked; batch policy distinguishes local drafts, memory proposals,
+    edits, communications, access expansion, and financial/legal/security or
+    irreversible effects. Pack approval never widens declared authority.
+  - Objective completion evidence: policy vectors and transition tests prove
+    parked is neither approved nor executed, non-batchable actions remain
+    individually gated, and external effects are never called rollback-safe.
+  - Verification command or artifact: focused policy, boundary, and negative
+    execution tests.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Approval Inbox operator experience
+  - Required outcome: existing queue/detail/human-decision surfaces provide a
+    concise machine-readable inbox with pack/item counts, cumulative summaries,
+    risk/reversibility groups, dependencies, conflicts, stale or blocked
+    members, exact post-approval actions, and approve-eligible/select/reject/
+    narrow/defer guidance.
+  - Objective completion evidence: stable JSON/text snapshots for empty, mixed,
+    1-item, 10-item, and 100-item inboxes with concise actionable diagnostics.
+  - Verification command or artifact: CLI/read-model tests and public-surface
+    snapshots.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Content-addressed chained checkpoints and append-only restoration
+  - Required outcome: tentative state chains bind exact transitions; approving
+    through a checkpoint authorizes only that exact prefix; restoration appends
+    a new transition whose governed projection exactly matches the selected
+    checkpoint without erasing later history or effects.
+  - Objective completion evidence: exact projection replay, chain-prefix,
+    restoration, reason-attribution, and history-preservation tests.
+  - Verification command or artifact: focused checkpoint and journal tests.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Crash-safe, idempotent approval and execution journaling
+  - Required outcome: interrupted approval, per-member authorization,
+    execution, and restoration transitions recover idempotently or fail closed;
+    the journal retains every member decision and execution result.
+  - Objective completion evidence: crash injection at every new transaction
+    boundary plus truncation, fork, duplicate, reorder, and divergence tests.
+  - Verification command or artifact: journal crash suite and prefix replay.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Filesystem, source, identity, and authority boundaries remain closed
+  - Required outcome: path traversal, sibling-prefix, symlink escape,
+    unapproved sources, builder/reviewer/human collisions, copied approval, and
+    authority expansion fail before effects.
+  - Objective completion evidence: adversarial negative tests prove no unsafe
+    bytes or actions are consumed and diagnostics name the next safe action.
+  - Verification command or artifact: filesystem security, transition, pack,
+    and validation suites.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Measurement proves interaction compression without hidden proof loss
+  - Required outcome: record commands/actions needed for 1, 10, and 100 items,
+    time-to-understand proxy, complete-gate duration, and trusted-code growth;
+    the target is one review session and one attributable approval action for a
+    coherent eligible pack.
+  - Objective completion evidence: deterministic measurement fixture and
+    before/after table with per-item proof-count equality.
+  - Verification command or artifact: measurement script/test and timing logs.
+  - Current status: pending.
+  - Exact committed evidence when completed: pending.
+
+- [ ] Compatibility, minimality, documentation, and final independent review
+  - Required outcome: existing CLI/schema/PCAW/history behavior remains
+    compatible; no runtime dependency, background service, provider call, or
+    autonomous authority is added; canonical docs are current; full verification
+    and fresh exact-head independent review return ACCEPT before human handoff.
+  - Objective completion evidence: public-surface snapshots, schema/fixture
+    checks, docs/examples, isolated install, complete verification, trusted-code
+    accounting, exact review history, and founder packet.
+  - Verification command or artifact: `./scripts/verify.sh`,
+    `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
+    security/pack/checkpoint tests, and exact-head review report.
+  - Current status: in progress.
+  - Exact committed evidence when completed: pending.
+
+## Human Boundary
+
+Agents may create, refresh, summarize, and recommend Approval Packs. They may
+not record a human pack decision, execute external effects, widen authority,
+push, merge, deploy, call providers, access secrets, or describe irreversible
+effects as locally rollback-safe.

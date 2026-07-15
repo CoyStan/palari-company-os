@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_done import agent_done
 from palari_company_os.agent_runtime import _git_baseline_hash, release_agent, start_agent
 from palari_company_os.workspace import Workspace as Ws
+from tests.workspace_fixture import write_portable_agent_workspace
 
 
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
@@ -24,9 +25,10 @@ class AgentDoneTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.mkdtemp()
         self.workspace_path = Path(self._tmp)
-        src = DOGFOOD / "workspace.json"
-        dst = self.workspace_path / "workspace.json"
-        shutil.copy2(src, dst)
+        write_portable_agent_workspace(
+            DOGFOOD / "workspace.json",
+            self.workspace_path / "workspace.json",
+        )
         palari_dir = self.workspace_path / ".palari"
         if palari_dir.exists():
             shutil.rmtree(palari_dir)
