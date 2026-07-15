@@ -8,6 +8,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
+- Work-item IDs are identity only. New quick-created work uses collision-resistant
+  opaque IDs; legacy IDs remain valid. Dependency authority exists only through
+  explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
 - New workspaces begin a replayable governance journal. Legacy workspaces keep
   working until an operator explicitly checkpoints them. Prepared and committed
   journal records bracket the atomic, fsynced workspace replacement; divergence,
@@ -50,6 +53,15 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and a dedicated local Git ref/reflog witness when Git is available. Releasing
   and restarting the same work item must reuse that baseline rather than
   laundering later changes.
+- Linked Git worktrees coordinate active ownership through an expiring atomic
+  ref-to-blob lease. A foreign live lease and malformed or contradictory lease
+  state fail closed. Different work items retain independent leases.
+- `agent start --isolate` requires a committed work definition, creates or
+  resumes a deterministic local branch/worktree, and grants no review,
+  acceptance, merge, push, deploy, or external-write authority.
+- Git integration readiness compares the exact attempt commit with a target in
+  an isolated temporary clone. Divergent projections always require refreshed
+  exact proof even when the simulated merge is clean.
 - Blocked packets must not be claimed.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.

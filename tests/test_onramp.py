@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -14,6 +15,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
+from palari_company_os.work_identity import generate_work_id, is_opaque_work_id
 from palari_company_os.workspace import Workspace, WorkspaceError, default_workspace_path
 
 
@@ -82,9 +84,10 @@ class WorkAddTests(unittest.TestCase):
             write=["docs/notes.md"],
         )
 
-        self.assertEqual(result["work_item"]["id"], "WORK-0001")
+        work_id = result["work_item"]["id"]
+        self.assertTrue(is_opaque_work_id(work_id))
         workspace = Workspace.load(self.project)
-        packet = build_agent_brief(workspace, "WORK-0001", "PALARI-CLAUDE", "execute")
+        packet = build_agent_brief(workspace, work_id, "PALARI-CLAUDE", "execute")
         self.assertEqual(packet["status"], "ready")
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/notes.md"])
 
@@ -104,12 +107,79 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/summary.md"])
         self.assertIn("research/raw.md", packet["allowed_paths"]["read"])
 
-    def test_work_ids_auto_increment(self) -> None:
+    def test_work_ids_are_unique_and_do_not_encode_creation_order(self) -> None:
         first = quick_add_work(self.project, "One", write=["docs/a.md"])
         second = quick_add_work(self.project, "Two", write=["docs/b.md"])
 
-        self.assertEqual(first["work_item"]["id"], "WORK-0001")
-        self.assertEqual(second["work_item"]["id"], "WORK-0002")
+        first_id = first["work_item"]["id"]
+        second_id = second["work_item"]["id"]
+        self.assertTrue(is_opaque_work_id(first_id))
+        self.assertTrue(is_opaque_work_id(second_id))
+        self.assertNotEqual(first_id, second_id)
+
+    def test_work_add_preserves_explicit_legacy_id(self) -> None:
+        result = quick_add_work(
+            self.project,
+            "Legacy import",
+            write=["docs/legacy.md"],
+            work_id="WORK-0001",
+        )
+
+        self.assertEqual(result["work_item"]["id"], "WORK-0001")
+
+    def test_opaque_id_retries_a_collision_without_scanning_numeric_ids(self) -> None:
+        collision = UUID("00000000-0000-4000-8000-000000000001")
+        fresh = UUID("00000000-0000-4000-8000-000000000002")
+        values = iter((collision, fresh))
+
+        result = generate_work_id(
+            ["WORK-9999", f"WORK-{collision.hex.upper()}"],
+            uuid_factory=lambda: next(values),
+        )
+
+        self.assertEqual(result, f"WORK-{fresh.hex.upper()}")
+
+    def test_work_add_records_only_explicit_dependencies(self) -> None:
+        first = quick_add_work(self.project, "One", write=["docs/a.md"])
+        second = quick_add_work(
+            self.project,
+            "Two",
+            write=["docs/b.md"],
+            dependencies=[first["work_item"]["id"]],
+            parallel_policy="coordinate",
+        )
+
+        self.assertEqual(
+            second["work_item"]["dependency_ids"],
+            [first["work_item"]["id"]],
+        )
+        self.assertEqual(second["work_item"]["parallel_policy"], "coordinate")
+
+    def test_work_add_rejects_missing_duplicate_and_self_dependencies(self) -> None:
+        first = quick_add_work(self.project, "One", write=["docs/a.md"])
+        first_id = first["work_item"]["id"]
+        with self.assertRaisesRegex(WorkspaceError, "unknown work item"):
+            quick_add_work(
+                self.project,
+                "Missing",
+                write=["docs/missing.md"],
+                dependencies=["WORK-NOT-THERE"],
+            )
+        with self.assertRaisesRegex(WorkspaceError, "repeats work item"):
+            quick_add_work(
+                self.project,
+                "Duplicate",
+                write=["docs/duplicate.md"],
+                dependencies=[first_id, first_id],
+            )
+        with self.assertRaisesRegex(WorkspaceError, "cannot reference the new work item"):
+            quick_add_work(
+                self.project,
+                "Self",
+                write=["docs/self.md"],
+                work_id="WORK-SELF",
+                dependencies=["WORK-SELF"],
+            )
 
     def test_workbench_outputs_grow_with_the_work_boundary(self) -> None:
         result = quick_add_work(self.project, "One", write=["docs/a.md"])

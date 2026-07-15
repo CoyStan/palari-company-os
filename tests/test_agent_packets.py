@@ -16,13 +16,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_done import agent_done
 from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
+from palari_company_os.agent_isolation import (
+    git_integration_readiness,
+    isolation_branch,
+    start_isolated_agent,
+)
 from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
-from palari_company_os.workspace import Workspace
+from palari_company_os.agent_runtime import release_agent, start_agent
+from palari_company_os.onramp import quick_add_work
+from palari_company_os.workspace import Workspace, WorkspaceError
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
@@ -44,6 +52,429 @@ def _remove_work_0001_exact_proof(data: dict[str, object]) -> None:
 
 
 class AgentPacketTests(unittest.TestCase):
+    def test_git_lease_coordinates_claims_across_linked_worktrees(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            second_root = root.parent / "parallel-worktree"
+            subprocess.run(
+                ["git", "-C", str(root), "worktree", "add", "-b", "parallel", str(second_root)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            first_workspace = Workspace.load(workspace_file)
+            second_workspace_file = second_root / "workspace.json"
+            second_workspace = Workspace.load(second_workspace_file)
+
+            first = start_agent(
+                first_workspace,
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            with self.assertRaisesRegex(WorkspaceError, "another Git worktree"):
+                start_agent(
+                    second_workspace,
+                    second_workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                )
+
+            independent = start_agent(
+                second_workspace,
+                second_workspace_file,
+                "WORK-0005",
+                "PALARI-SOFIA",
+            )
+            self.assertEqual(independent["start"]["status"], "claimed")
+            self.assertNotEqual(
+                independent["start"]["claim"]["git_lease_ref"],
+                first["start"]["claim"]["git_lease_ref"],
+            )
+
+            release_agent(
+                first_workspace,
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            transferred = start_agent(
+                second_workspace,
+                second_workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            self.assertEqual(transferred["start"]["status"], "claimed")
+
+    def test_registered_worktree_scan_blocks_a_legacy_claim_without_shared_ref(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            second_root = root.parent / "legacy-worktree"
+            subprocess.run(
+                ["git", "-C", str(root), "worktree", "add", "-b", "legacy", str(second_root)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            first = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = first["start"]["claim"]
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "update-ref",
+                    "-d",
+                    str(claim["git_lease_ref"]),
+                    str(claim["git_lease_oid"]),
+                ],
+                check=True,
+            )
+
+            with self.assertRaisesRegex(WorkspaceError, "another Git worktree"):
+                start_agent(
+                    Workspace.load(second_root / "workspace.json"),
+                    second_root / "workspace.json",
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                )
+
+    def test_expired_git_lease_can_be_replaced_without_overwriting_live_state(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            second_root = root.parent / "expiry-worktree"
+            subprocess.run(
+                ["git", "-C", str(root), "worktree", "add", "-b", "expiry", str(second_root)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            first = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = first["start"]["claim"]
+            self.expire_git_lease(root, claim)
+
+            replacement = start_agent(
+                Workspace.load(second_root / "workspace.json"),
+                second_root / "workspace.json",
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+
+            self.assertNotEqual(
+                replacement["start"]["claim"]["claim_session"],
+                claim["claim_session"],
+            )
+            self.assertNotEqual(
+                replacement["start"]["claim"]["git_lease_oid"],
+                claim["git_lease_oid"],
+            )
+
+    def test_malformed_git_lease_blocks_queue_and_cannot_be_released_as_owned(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            malformed_oid = subprocess.run(
+                ["git", "-C", str(root), "hash-object", "-w", "--stdin"],
+                input="{}\n",
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "update-ref",
+                    str(claim["git_lease_ref"]),
+                    malformed_oid,
+                    str(claim["git_lease_oid"]),
+                ],
+                check=True,
+            )
+
+            next_payload = build_agent_next(
+                Workspace.load(workspace_file),
+                "PALARI-SOFIA",
+                limit=20,
+            )
+            candidate = {
+                item["work_item_id"]: item for item in next_payload["candidates"]
+            }["WORK-0003"]
+            self.assertFalse(candidate["can_start"])
+            self.assertEqual(candidate["claim"]["status"], "invalid")
+            self.assertIn(
+                "CLAIM_COORDINATION_INVALID",
+                candidate["start_blocker_codes"],
+            )
+            with self.assertRaisesRegex(WorkspaceError, "changed"):
+                release_agent(
+                    Workspace.load(workspace_file),
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                )
+
+    def test_isolated_start_creates_resumes_and_surfaces_the_shared_claim(self) -> None:
+        with self.git_workspace() as workspace_file:
+            created = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "WORK-0003",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--lease-minutes",
+                    "10",
+                    "--isolate",
+                    "--json",
+                ).stdout
+            )
+
+            self.assertEqual(created["isolation"]["status"], "created")
+            isolated_root = Path(created["isolation"]["worktree_path"])
+            self.assertTrue(isolated_root.is_dir())
+            self.assertEqual(
+                created["isolation"]["branch"],
+                isolation_branch("WORK-0003"),
+            )
+            self.assertFalse(created["isolation"]["authority"]["merge"])
+            self.assertIn(str(isolated_root), created["isolation"]["resume_command"])
+
+            resumed = start_isolated_agent(
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+                lease_minutes=10,
+            )
+            self.assertEqual(resumed["isolation"]["status"], "resumed")
+            self.assertEqual(
+                resumed["start"]["claim"]["claim_session"],
+                created["start"]["claim"]["claim_session"],
+            )
+
+            next_payload = build_agent_next(
+                Workspace.load(workspace_file),
+                "PALARI-SOFIA",
+                limit=20,
+            )
+            work = {
+                item["work_item_id"]: item for item in next_payload["candidates"]
+            }["WORK-0003"]
+            self.assertFalse(work["can_start"])
+            self.assertEqual(work["claim"]["status"], "claimed")
+            self.assertIn("WORK_ALREADY_CLAIMED", work["start_blocker_codes"])
+
+            independent = start_isolated_agent(
+                workspace_file,
+                "WORK-0005",
+                "PALARI-SOFIA",
+                lease_minutes=10,
+            )
+            self.assertEqual(independent["isolation"]["status"], "created")
+            self.assertNotEqual(
+                independent["isolation"]["worktree_path"],
+                created["isolation"]["worktree_path"],
+            )
+
+    def test_isolated_start_requires_committed_work_definition(self) -> None:
+        with self.git_workspace() as workspace_file:
+            original = workspace_file.read_text(encoding="utf-8")
+            workspace_file.write_text(original + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(WorkspaceError, "uncommitted changes"):
+                start_isolated_agent(
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                )
+
+    def test_isolated_start_refuses_orphaned_branch_collision(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            branch = isolation_branch("WORK-0003")
+            subprocess.run(
+                ["git", "-C", str(root), "branch", branch],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            with self.assertRaisesRegex(WorkspaceError, "already exists"):
+                start_isolated_agent(
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                )
+
+    def test_git_readiness_separates_governance_from_target_compatibility(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            quick_add_work(
+                workspace_file,
+                "Integration-ready work",
+                write=["README.md"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id="WORK-READY",
+                verify=["echo ok"],
+            )
+            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "define work"],
+                check=True,
+            )
+            base_sha = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-READY",
+                "PALARI-SOFIA",
+            )
+            (root / "README.md").write_text("candidate\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "candidate"],
+                check=True,
+            )
+            done = agent_done(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-READY",
+                "PALARI-SOFIA",
+                changed=["README.md"],
+            )
+            self.assertEqual(done["status"], "done")
+
+            integrated = git_integration_readiness(
+                workspace_file,
+                "WORK-READY",
+                target_ref="HEAD",
+            )
+            self.assertTrue(integrated["ready"])
+            self.assertEqual(integrated["status"], "integrated")
+            self.assertEqual(integrated["relationship"], "already-integrated")
+            cli_integrated = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "git",
+                    "status",
+                    "--work-id",
+                    "WORK-READY",
+                    "--target-ref",
+                    "HEAD",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(cli_integrated["status"], "integrated")
+
+            clean_target = root.parent / "clean-target"
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "worktree",
+                    "add",
+                    "-b",
+                    "clean-target",
+                    str(clean_target),
+                    base_sha,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            (clean_target / "OTHER.md").write_text("target\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(clean_target), "add", "OTHER.md"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(clean_target), "commit", "-qm", "clean target"],
+                check=True,
+            )
+            diverged = git_integration_readiness(
+                workspace_file,
+                "WORK-READY",
+                target_ref="clean-target",
+            )
+            self.assertFalse(diverged["ready"])
+            self.assertEqual(diverged["relationship"], "diverged")
+            self.assertEqual(diverged["merge_simulation"]["status"], "clean")
+            self.assertIn(
+                "REVALIDATION_REQUIRED",
+                {blocker["code"] for blocker in diverged["blockers"]},
+            )
+
+            conflict_target = root.parent / "conflict-target"
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "worktree",
+                    "add",
+                    "-b",
+                    "conflict-target",
+                    str(conflict_target),
+                    base_sha,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            (conflict_target / "README.md").write_text("conflict\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(conflict_target), "add", "README.md"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(conflict_target), "commit", "-qm", "conflict target"],
+                check=True,
+            )
+            conflict = git_integration_readiness(
+                workspace_file,
+                "WORK-READY",
+                target_ref="conflict-target",
+            )
+            self.assertFalse(conflict["ready"])
+            self.assertEqual(conflict["merge_simulation"]["status"], "conflict")
+            self.assertIn(
+                "TARGET_CONFLICT",
+                {blocker["code"] for blocker in conflict["blockers"]},
+            )
+
     def test_agent_next_lists_safe_candidates_first_for_palari(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
@@ -105,6 +536,11 @@ class AgentPacketTests(unittest.TestCase):
             by_id["WORK-0007"]["handoff_guidance"][0]["message"],
         )
         self.assertIn("ATTENTION_NOT_STARTABLE", by_id["WORK-0007"]["start_blocker_codes"])
+        self.assertEqual(by_id["WORK-0007"]["dependency_ids"], ["WORK-0003"])
+        self.assertEqual(
+            by_id["WORK-0007"]["blocked_by_dependency_ids"],
+            ["WORK-0003"],
+        )
         self.assertIn("WORK-0004", by_id)
         self.assertFalse(by_id["WORK-0004"]["can_start"])
         self.assertIn("HUMAN_DECISION_REQUIRED", by_id["WORK-0004"]["blocker_codes"])
@@ -1594,6 +2030,64 @@ class AgentPacketTests(unittest.TestCase):
 
     def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
         return {check["code"]: check for check in result["checks"]}
+
+    @contextmanager
+    def git_workspace(self) -> Iterator[Path]:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            root = workspace_file.parent
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.name", "Test"],
+                check=True,
+            )
+            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "workspace"],
+                check=True,
+            )
+            yield workspace_file
+
+    def expire_git_lease(self, root: Path, claim: dict[str, object]) -> None:
+        current = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "blob", str(claim["git_lease_oid"])],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        record = json.loads(current.stdout)
+        record["lease_expires_at"] = "2000-01-01T00:00:00Z"
+        encoded = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+        expired = subprocess.run(
+            ["git", "-C", str(root), "hash-object", "-w", "--stdin"],
+            input=encoded,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "update-ref",
+                str(claim["git_lease_ref"]),
+                expired,
+                str(claim["git_lease_oid"]),
+            ],
+            check=True,
+        )
+        local_claim_path = (
+            root / ".palari" / "claims" / f"{claim['work_item']}.json"
+        )
+        local_claim = json.loads(local_claim_path.read_text(encoding="utf-8"))
+        local_claim["lease_expires_at"] = "2000-01-01T00:00:00Z"
+        local_claim_path.write_text(json.dumps(local_claim), encoding="utf-8")
 
     def modified_workspace(self, mutate: object) -> Workspace:
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))

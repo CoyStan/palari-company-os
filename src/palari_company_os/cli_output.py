@@ -250,6 +250,13 @@ def print_result(result: CommandResult) -> None:
             print_git_status(result.payload)
         return
 
+    if result.kind == "git-readiness":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_git_readiness(result.payload)
+        return
+
     if result.kind == "workspace-init":
         print_workspace_init(result.payload, result.as_json)
         return
@@ -824,9 +831,27 @@ def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
         print("Extra read paths:")
         for path in reads:
             print(f"  - {path}")
+    dependencies = work.get("dependency_ids", [])
+    if dependencies:
+        print("Explicit dependencies:")
+        for dependency in dependencies:
+            print(f"  - {dependency}")
     print("Next commands:")
     for command in payload["next_commands"]:
         print(f"  {command}")
+
+
+def print_git_readiness(payload: dict[str, Any]) -> None:
+    print(f"Git integration readiness: {payload['work_item']}")
+    print(f"Status: {payload['status']} | ready: {_yes_no(payload['ready'])}")
+    print(
+        f"Candidate: {payload['candidate']['sha'] or 'missing'} | "
+        f"target {payload['target']['ref']}: {payload['target']['sha']}"
+    )
+    print(f"Relationship: {payload['relationship']}")
+    for blocker in payload.get("blockers", []):
+        print(f"  - {blocker['code']}: {blocker['message']}")
+        print(f"    next: {blocker['next_safe_action']}")
 
 
 def print_claude_install(payload: dict[str, Any], as_json: bool) -> None:

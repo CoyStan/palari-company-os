@@ -24,7 +24,13 @@ so no `--workspace` flag is needed after `init`.
 paths. `--write` paths become the enforced write boundary (and are declared on
 the workbench so the boundary stays consistent); `--read` paths stay
 read-only. Defaults: the workspace's only Palari, goal, and workbench, risk
-R1, intensity light, and the next `WORK-NNNN` id. Pass `--as`, `--goal`,
+R1, intensity light, and a collision-resistant opaque `WORK-<UUID>` id. The ID
+identifies work and carries no priority, dependency, review, acceptance, or
+integration ordering meaning. Historical and explicit IDs remain valid. Pass
+`--depends-on WORK-ID` repeatedly to declare real prerequisite edges and
+`--parallel-policy independent|coordinate|exclusive` to declare overlap
+coordination. Missing, repeated, self-referential, and cyclic dependencies fail
+closed. Pass `--as`, `--goal`,
 `--workbench`, `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`,
 `--id`, or `--approvals` to override.
 
@@ -342,6 +348,7 @@ JSON-RPC MCP messages to stdout.
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --isolate --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/output.md --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --git-diff --json
@@ -369,7 +376,10 @@ proof points to `agent check` / `agent finish` instead of re-starting with
 another brief. Each candidate also includes `doctor_command`, a plain-language
 safety diagnosis, and `loop_command`, a compact orientation helper that
 summarizes brief/check/finish/handoff status without replacing the concrete
-`next_command`. It is read-only and does not claim or assign work.
+`next_command`. Candidate JSON names `dependency_ids`, unfinished
+`blocked_by_dependency_ids`, and repository-shared claim state directly. Queue
+rank is presentation only and never substitutes for a dependency edge. It is
+read-only and does not claim or assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 It is a read-only preview and returns either `status: ready` or
@@ -388,6 +398,20 @@ entry witness that head independently of the ignored JSON files. An active
 claim may renew only while its freshly compiled packet authority is unchanged;
 generic `work update` is blocked until the claim is released and the change is
 routed through an authorized handoff into a new claim epoch.
+
+When Git is available, an active claim also has a compare-and-swap lease under
+`refs/palari/leases/`. Linked worktrees therefore cannot both claim the same
+work item, while different work items remain independently claimable. Lease
+records contain local coordination metadata and expiry, not human authority.
+Malformed, contradictory, or concurrently changed leases fail closed.
+
+`agent start --isolate` requires the work definition to be committed, then
+creates or safely resumes a deterministic `palari/work-*` branch in a sibling
+`.palari-worktrees/` directory. The returned JSON includes the worktree,
+workspace, branch, and exact resume command. It never removes an operator
+worktree and grants no review, acceptance, merge, push, deployment, or external
+write authority. Commit all intended work-item definitions first, then many
+independent sessions may call `--isolate` concurrently.
 
 The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -501,6 +525,22 @@ Queue, state, and detail JSON also expose `agent_loop_command` as a compact
 agent orientation helper for the selected work item.
 Detail and dashboard agent command blocks add review-mode packet/check commands
 when the selected work item is in a review handoff state.
+
+## Git Integration Readiness
+
+```bash
+./bin/palari git status --work-id WORK-ID --target-ref main --json
+```
+
+This read-only check separates governed work acceptance from current-target
+compatibility. It binds the current attempt's exact commit, derives whether the
+work has current terminal/acceptance proof, compares ancestry with the target,
+and simulates divergent merges in a temporary shared clone. It reports
+`ready`, `integrated`, or `blocked` with stable blockers such as missing
+candidate proof, incomplete attempts, conflicts, and revalidation required.
+A clean divergent projection is not called ready: because its bytes differ
+from the reviewed candidate, the branch must be updated and exact proof
+refreshed. The command does not merge, push, review, accept, or deploy.
 
 ## Claude Code Enforcement
 

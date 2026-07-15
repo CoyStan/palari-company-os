@@ -27,6 +27,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
 - `src/palari_company_os/onramp.py`: `init` starter workspace and `work add`
   quick-create for existing repos.
+- `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
+  generation with no lifecycle ordering semantics.
 
 ## CLI
 
@@ -43,6 +45,8 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `src/palari_company_os/agent_packets.py`: `agent brief` packet contract.
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
+- `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
+  exact-target integration readiness, and non-authority diagnostics.
 - `src/palari_company_os/agent_file_changes.py`: canonical Git change
   observation, start-time dirty baselines, and packet write-boundary checks.
 - `src/palari_company_os/agent_checks.py`: packet compliance checks.

@@ -87,7 +87,12 @@ history/detail views, and cannot be used by receipts as queued external writes.
 
 Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
 allowed sources, allowed actions, output targets, forbidden actions, acceptance
-target, verification expectations, and optional recommended playbooks.
+target, verification expectations, explicit dependency ids, parallel policy,
+and optional recommended playbooks. New quick-created work uses an opaque
+UUIDv4-backed ID. The ID is identity only: dependencies are explicit DAG edges,
+and no numeric or lexical ID order grants priority or constrains execution,
+review, acceptance, or integration. Historical and externally assigned IDs
+remain compatible.
 
 ## Proposal
 
@@ -100,7 +105,10 @@ silently broadening a work item.
 
 Concrete execution session for a work item. Attempts record actor, branch or
 workspace, worker/model, base SHA, head SHA, changed files, allowed paths,
-forbidden paths, claim lease metadata, and cleanliness.
+forbidden paths, claim lease metadata, and cleanliness. Local runtime claims
+use an expiring compare-and-swap Git lease so linked worktrees cannot
+simultaneously own the same work item. An isolated worktree is an execution
+boundary only; it conveys no human or integration authority.
 
 ## Evidence Run
 
