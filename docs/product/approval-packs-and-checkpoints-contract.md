@@ -13,6 +13,9 @@ Initial implementation head: `9f297661ded33debb155cc85e77ebff470a704e5`.
 
 Independent-review repair head: `fd3121a2253b4d7a20cfa86d46702107235753d0`.
 
+Checkpoint authority/history repair head:
+`707ede7ddd867d5bb85b40f23de20f9cd5c923d2`.
+
 ## Baseline
 
 The first pre-change `./scripts/verify.sh` run exposed a state-coupled test
@@ -41,6 +44,10 @@ tests exercise.
 - Post-review authoritative gate: 651 tests across 41 modules, style,
   schema/fixture/CLI/docs checks, and 18/18 PCAW vectors passed in 42.76
   seconds. The isolated installed-wheel smoke passed in 12.73 seconds.
+- Post-checkpoint-authority repair gate: 653 tests across 41 modules, style,
+  schema/fixture/CLI/docs checks, and 18/18 PCAW vectors passed in 43.10
+  seconds. The isolated installed-wheel smoke passed in 13.68 seconds. The
+  PCAW trusted-code set remains 5 files, 2,334 lines, and zero dependencies.
 
 ## Independent Review History
 
@@ -57,11 +64,16 @@ tests exercise.
   reviewer proved that `history --restore` was still agent-invokable through
   the Claude shell classifier and that an external effect in an intermediate
   committed projection could be hidden by a later local reset/removal.
-- Current repair: classify restoration as human-only for direct and reordered
-  flag forms; scan every projection after the earliest matching checkpoint,
-  before the already-at-target shortcut; cover sent, failed, receipt-write,
-  reset/removal, and hook-denial negatives. Exact committed evidence and a
-  fresh exact-head verdict remain required.
+- Repair head `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`: restoration is human-only
+  for direct, reordered, and `--restore=...` flag forms; every projection after
+  the earliest matching checkpoint is scanned before the already-at-target
+  shortcut; sent, failed, receipt-write, reset/removal, and hook-denial
+  negatives pass. A fresh exact-head verdict remains required.
+- Dogfood attempt `ATTEMPT-REPO-0025-R1` was closed blocked at its unchanged
+  base because its original path list omitted an implemented adapter and the
+  newly required hook classifier. `ATTEMPT-REPO-0025-R2` owns the complete
+  bounded diff from `616670557183b6a0aae588ae2d5c84685026cd71`; the workbench,
+  work item, packet, and claim now explicitly include both paths.
 
 Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
@@ -155,9 +167,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
     plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    and authority/history repair `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`
     (`checkpoints.py`, `history --checkpoints/--restore`, exact projection,
-    same-id effect detection, pre-mutation external-effect refusal, and
-    append-only history tests).
+    same-id and intermediate effect detection, already-at-target refusal,
+    human-only shell classification, and append-only history tests).
 
 - [x] Crash-safe, idempotent approval and execution journaling
   - Required outcome: interrupted approval, per-member authorization,
@@ -211,8 +224,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
     security/pack/checkpoint tests, and exact-head review report.
   - Current status: first exact-head review REJECT repaired at
-    `fd3121a2253b4d7a20cfa86d46702107235753d0`; authoritative verification and
-    isolated install pass; fresh exact-head review remains.
+    `fd3121a2253b4d7a20cfa86d46702107235753d0`; second exact-head review REJECT
+    repaired at `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`; authoritative
+    verification and isolated install pass; fresh exact-head review remains.
   - Exact committed evidence when completed: pending.
 
 ## Human Boundary
