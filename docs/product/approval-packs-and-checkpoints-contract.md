@@ -39,7 +39,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
 ## Required Outcomes
 
-- [ ] Immutable canonical Approval Pack manifests
+- [x] Immutable canonical Approval Pack manifests
   - Required outcome: a pack binds the exact base workspace/checkpoint digest,
     ordered members, subjects and outputs, dependencies, risk, reversibility,
     authority, receipts, evidence, reviews, cumulative effects, external
@@ -49,10 +49,11 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     changes the pack digest.
   - Verification command or artifact: focused pack model and canonicalization
     tests plus schema validation.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`approval_packs.py`, canonical manifest validation, and 1/10/100 tests).
 
-- [ ] Item-granular eligibility and dependency-aware staleness
+- [x] Item-granular eligibility and dependency-aware staleness
   - Required outcome: the evaluator derives each member as eligible, stale,
     blocked, rejected, deferred, or non-batchable without discarding unrelated
     valid approval; dependency mutation or rejection blocks descendants.
@@ -60,10 +61,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     changed members, changed dependencies, partial decisions, and independent
     unchanged siblings.
   - Verification command or artifact: focused approval-pack evaluator tests.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`test_changed_dependency_stales_descendants_but_not_unrelated_members` and
+    `test_rejection_blocks_dependent_and_preserves_unrelated_approval`).
 
-- [ ] One attributable human action with exact per-item authorization
+- [x] One attributable human action with exact per-item authorization
   - Required outcome: one human decision over an exact immutable pack may
     derive authorization only for the selected eligible members; agents cannot
     create, replay, or transplant that decision, and every item retains its
@@ -73,10 +76,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     idempotence, and exact member authorization reports.
   - Verification command or artifact: focused human-decision, transition, and
     approval-pack tests.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (pack decision result, durable manifest/member bindings, transplant and
+    idempotence tests).
 
-- [ ] Parked execution and risk-based batch policy
+- [x] Parked execution and risk-based batch policy
   - Required outcome: bounded preparation may continue while governed effects
     remain parked; batch policy distinguishes local drafts, memory proposals,
     edits, communications, access expansion, and financial/legal/security or
@@ -86,10 +91,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     individually gated, and external effects are never called rollback-safe.
   - Verification command or artifact: focused policy, boundary, and negative
     execution tests.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`test_risk_friction_policy_keeps_governed_effects_individually_gated` and
+    pending-quorum artifact-mutation rejection).
 
-- [ ] Approval Inbox operator experience
+- [x] Approval Inbox operator experience
   - Required outcome: existing queue/detail/human-decision surfaces provide a
     concise machine-readable inbox with pack/item counts, cumulative summaries,
     risk/reversibility groups, dependencies, conflicts, stale or blocked
@@ -99,10 +106,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     1-item, 10-item, and 100-item inboxes with concise actionable diagnostics.
   - Verification command or artifact: CLI/read-model tests and public-surface
     snapshots.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`queue --approval-inbox`, enriched `detail`, `human-decision pack`, CLI
+    JSON/text tests, and 154-command public snapshot).
 
-- [ ] Content-addressed chained checkpoints and append-only restoration
+- [x] Content-addressed chained checkpoints and append-only restoration
   - Required outcome: tentative state chains bind exact transitions; approving
     through a checkpoint authorizes only that exact prefix; restoration appends
     a new transition whose governed projection exactly matches the selected
@@ -110,20 +119,24 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Objective completion evidence: exact projection replay, chain-prefix,
     restoration, reason-attribution, and history-preservation tests.
   - Verification command or artifact: focused checkpoint and journal tests.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`checkpoints.py`, `history --checkpoints/--restore`, exact projection and
+    append-only history tests).
 
-- [ ] Crash-safe, idempotent approval and execution journaling
+- [x] Crash-safe, idempotent approval and execution journaling
   - Required outcome: interrupted approval, per-member authorization,
     execution, and restoration transitions recover idempotently or fail closed;
     the journal retains every member decision and execution result.
   - Objective completion evidence: crash injection at every new transaction
     boundary plus truncation, fork, duplicate, reorder, and divergence tests.
   - Verification command or artifact: journal crash suite and prefix replay.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (approval and restoration crash injection plus existing 21-test journal
+    corruption/replay suite).
 
-- [ ] Filesystem, source, identity, and authority boundaries remain closed
+- [x] Filesystem, source, identity, and authority boundaries remain closed
   - Required outcome: path traversal, sibling-prefix, symlink escape,
     unapproved sources, builder/reviewer/human collisions, copied approval, and
     authority expansion fail before effects.
@@ -131,10 +144,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     bytes or actions are consumed and diagnostics name the next safe action.
   - Verification command or artifact: filesystem security, transition, pack,
     and validation suites.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (identity/transplant negatives, 18 filesystem security tests, exact human
+    restore actor, and unchanged source/path validation).
 
-- [ ] Measurement proves interaction compression without hidden proof loss
+- [x] Measurement proves interaction compression without hidden proof loss
   - Required outcome: record commands/actions needed for 1, 10, and 100 items,
     time-to-understand proxy, complete-gate duration, and trusted-code growth;
     the target is one review session and one attributable approval action for a
@@ -142,8 +157,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Objective completion evidence: deterministic measurement fixture and
     before/after table with per-item proof-count equality.
   - Verification command or artifact: measurement script/test and timing logs.
-  - Current status: implemented and verified; awaiting candidate commit.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
+    (`approval_pack_measure.py`, deterministic 1/10/100 measurement test,
+    42.96s complete-gate median, unchanged 2,334-line PCAW TCB).
 
 - [ ] Compatibility, minimality, documentation, and final independent review
   - Required outcome: existing CLI/schema/PCAW/history behavior remains
@@ -156,8 +173,8 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
     security/pack/checkpoint tests, and exact-head review report.
-  - Current status: implementation verified; candidate commit and independent
-    exact-head review remain.
+  - Current status: exact candidate committed; independent exact-head review
+    remains.
   - Exact committed evidence when completed: pending.
 
 ## Human Boundary
