@@ -399,6 +399,29 @@ def pending_journal_prepare(data_path: Path | str) -> dict[str, Any] | None:
     return deepcopy(state.pending)
 
 
+def pending_workspace_journal_context(
+    workspace_path: Path | str,
+) -> dict[str, Any] | None:
+    """Return a verified pending prepare and its committed before projection.
+
+    Command-level recovery must authenticate the pending mutation itself, not
+    only the caller asking to recover it. Exposing the replayed before state
+    lets the command prove that no unmentioned object shares the transaction.
+    """
+
+    data_path = _workspace_data_path(workspace_path)
+    records = _read_records(data_path)
+    if not records:
+        return None
+    state = _scan_records(records)
+    if state.pending is None:
+        return None
+    return {
+        "prepare": deepcopy(state.pending),
+        "before_projection": deepcopy(state.replay_projection),
+    }
+
+
 def checkpoint_workspace_journal(
     workspace_path: Path | str,
     actor: str,

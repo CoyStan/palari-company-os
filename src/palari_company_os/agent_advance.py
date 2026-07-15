@@ -687,7 +687,11 @@ def _completed_projection(
     palari_id: str,
 ) -> dict[str, Any] | None:
     from .agent_done import _git_value
-    from .governance_journal import recover_workspace_journal, verify_workspace_journal
+    from .governance_journal import (
+        pending_workspace_journal_context,
+        recover_workspace_journal,
+        verify_workspace_journal,
+    )
 
     work = workspace.work_item(work_id)
     if work is None:
@@ -702,6 +706,15 @@ def _completed_projection(
     journal = verify_workspace_journal(workspace_path)
     journal_status = str(journal.get("status") or "")
     if journal_status == "pending-commit":
+        pending = pending_workspace_journal_context(workspace_path)
+        pending_error = _pending_advance_recovery_error(pending, work_id, palari_id)
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
+            )
         recovery_preflight = _resume_preflight(
             workspace, workspace_path, work, palari_id
         )
@@ -725,6 +738,15 @@ def _completed_projection(
             )
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
+        pending = pending_workspace_journal_context(workspace_path)
+        pending_error = _pending_advance_recovery_error(pending, work_id, palari_id)
+        if pending_error:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_error,
+            )
         recovery_preflight = _resume_preflight(
             workspace, workspace_path, work, palari_id
         )
@@ -910,6 +932,132 @@ def _resume_claim_packet(
             "message": str(checked.get("message") or "active claim is invalid"),
         }
     return {"ok": True, "claim": checked["claim"], "packet": packet, "message": ""}
+
+
+def _pending_advance_recovery_error(
+    context: dict[str, Any] | None,
+    work_id: str,
+    palari_id: str,
+) -> str:
+    if not isinstance(context, dict):
+        return "The pending journal transaction cannot be inspected safely."
+    prepared = context.get("prepare")
+    before = context.get("before_projection")
+    if not isinstance(prepared, dict) or not isinstance(before, dict):
+        return "The pending journal transaction has no verified before projection."
+    metadata = prepared.get("metadata")
+    if not isinstance(metadata, dict):
+        return "The pending journal transaction has no valid metadata."
+    if (
+        metadata.get("command") != "agent advance"
+        or metadata.get("action") != "reconciled-agent-proof"
+        or metadata.get("actor") != palari_id
+    ):
+        return "The pending journal transaction is not this Palari's agent proof."
+
+    objects = metadata.get("objects")
+    if not isinstance(objects, list):
+        return "The pending journal transaction has no bound proof objects."
+    keyed: dict[tuple[str, str], str] = {}
+    for item in objects:
+        if not isinstance(item, dict):
+            return "The pending journal transaction has malformed proof objects."
+        key = (str(item.get("type") or ""), str(item.get("collection") or ""))
+        record_id = str(item.get("id") or "")
+        if not all(key) or not record_id or key in keyed:
+            return "The pending journal transaction has ambiguous proof objects."
+        keyed[key] = record_id
+    expected_keys = {
+        ("work", "work_items"),
+        ("attempt", "attempts"),
+        ("receipt", "receipts"),
+        ("evidence", "evidence_runs"),
+    }
+    if set(keyed) != expected_keys or keyed[("work", "work_items")] != work_id:
+        return "The pending journal transaction does not bind this exact work proof."
+
+    after = prepared.get("after_projection")
+    if not isinstance(after, dict):
+        return "The pending journal transaction has no proof projection."
+    collection_ids = {
+        "work_items": keyed[("work", "work_items")],
+        "attempts": keyed[("attempt", "attempts")],
+        "receipts": keyed[("receipt", "receipts")],
+        "evidence_runs": keyed[("evidence", "evidence_runs")],
+    }
+    if not _only_bound_records_changed(before, after, collection_ids):
+        return "The pending journal transaction changes objects outside its proof binding."
+
+    work = _record_by_id(after, "work_items", collection_ids["work_items"])
+    attempt = _record_by_id(after, "attempts", collection_ids["attempts"])
+    receipt = _record_by_id(after, "receipts", collection_ids["receipts"])
+    evidence = _record_by_id(after, "evidence_runs", collection_ids["evidence_runs"])
+    if not all(isinstance(item, dict) for item in (work, attempt, receipt, evidence)):
+        return "The pending journal projection is missing a bound proof object."
+    assert isinstance(work, dict)
+    assert isinstance(attempt, dict)
+    assert isinstance(receipt, dict)
+    assert isinstance(evidence, dict)
+    attempt_id = collection_ids["attempts"]
+    head_sha = str(attempt.get("head_sha") or "")
+    if (
+        work.get("current_attempt") != attempt_id
+        or attempt.get("work_item_id") != work_id
+        or attempt.get("actor") != palari_id
+        or attempt.get("status") not in {"complete", "completed"}
+        or not head_sha
+        or receipt.get("work_item_id") != work_id
+        or receipt.get("attempt_id") != attempt_id
+        or receipt.get("actor") != palari_id
+        or evidence.get("work_item_id") != work_id
+        or evidence.get("attempt_id") != attempt_id
+        or evidence.get("head_sha") != head_sha
+        or evidence.get("status") != "passed"
+    ):
+        return "The pending journal projection has contradictory proof bindings."
+    return ""
+
+
+def _only_bound_records_changed(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    collection_ids: dict[str, str],
+) -> bool:
+    for key in set(before) | set(after):
+        if key not in collection_ids and before.get(key) != after.get(key):
+            return False
+    for collection, allowed_id in collection_ids.items():
+        before_records = _records_by_id(before.get(collection))
+        after_records = _records_by_id(after.get(collection))
+        if before_records is None or after_records is None:
+            return False
+        for record_id in set(before_records) | set(after_records):
+            if record_id != allowed_id and before_records.get(record_id) != after_records.get(
+                record_id
+            ):
+                return False
+    return True
+
+
+def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
+    if not isinstance(value, list):
+        return None
+    result: dict[str, dict[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            return None
+        record_id = str(item.get("id") or "")
+        if not record_id or record_id in result:
+            return None
+        result[record_id] = item
+    return result
+
+
+def _record_by_id(
+    projection: dict[str, Any], collection: str, record_id: str
+) -> dict[str, Any] | None:
+    records = _records_by_id(projection.get(collection))
+    return records.get(record_id) if records is not None else None
 
 
 def _resume_preflight(
