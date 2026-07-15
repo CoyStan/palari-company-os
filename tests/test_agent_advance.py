@@ -824,7 +824,12 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "attempt_id": "ATTEMPT-TEST-MISSING-ARTIFACT",
                     "head_sha": head,
                     "status": "passed",
-                    "commands": ["mock exact-state attestation"],
+                    "commands": [
+                        "complete attestation VERIFY-COMPLETE-TEST sha256:" + "1" * 64,
+                        "install-smoke attestation VERIFY-INSTALL-SMOKE-TEST sha256:"
+                        + "2" * 64,
+                        "docs-check attestation VERIFY-DOCS-CHECK-TEST sha256:" + "3" * 64,
+                    ],
                     "artifacts": ["README.md"],
                     "summary": "This must fail before mutation.",
                     "freshness": "exact-head",
@@ -891,9 +896,14 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "head_sha": head,
                     "status": "passed",
                     "base_ref": base_sha,
-                    "commands": ["mock exact-state attestation"],
+                    "commands": [
+                        "complete attestation VERIFY-COMPLETE-TEST sha256:" + "1" * 64,
+                        "install-smoke attestation VERIFY-INSTALL-SMOKE-TEST sha256:"
+                        + "2" * 64,
+                        "docs-check attestation VERIFY-DOCS-CHECK-TEST sha256:" + "3" * 64,
+                    ],
                     "artifacts": ["README.md"],
-                    "summary": "1 exact-state verification profile(s) passed.",
+                    "summary": "3 exact-state verification profile(s) passed.",
                     "freshness": "exact-head",
                 },
                 head_sha=head,

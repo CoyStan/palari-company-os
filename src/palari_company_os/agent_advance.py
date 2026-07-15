@@ -12,6 +12,7 @@ from .agent_runtime import claim_check, read_claim, read_claim_packet, release_a
 from .authoring import complete_work, reconcile_agent_proof
 from .evidence_manifest import verify_evidence
 from .governance_journal import workspace_digest
+from .record_order import record_time_key
 from .store import load_store
 from .verification_attestations import (
     VerificationContext,
@@ -1100,6 +1101,7 @@ def _pending_advance_recovery_error(
         "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
     ]
     commands = evidence.get("commands")
+    expected_previous_receipt_hash = _latest_receipt_hash(before, work_id)
     paths_bound = (
         isinstance(allowed_resources, list)
         and isinstance(allowed_paths, list)
@@ -1129,6 +1131,8 @@ def _pending_advance_recovery_error(
         or receipt.get("sources_used") != work.get("allowed_sources")
         or receipt.get("outputs_created") != artifacts
         or receipt.get("undo_refs") != artifacts
+        or str(receipt.get("previous_receipt_hash") or "")
+        != expected_previous_receipt_hash
         or not isinstance(actions, list)
         or len(actions) != 2
         or not isinstance(actions[0], str)
@@ -1142,9 +1146,10 @@ def _pending_advance_recovery_error(
         or evidence.get("base_ref") != preflight.get("base_sha")
         or evidence.get("artifacts") != artifacts
         or evidence.get("freshness") != "exact-head"
+        or evidence.get("previous_receipt_hash") not in {None, ""}
         or not isinstance(commands, list)
         or not commands
-        or not all(isinstance(command, str) and command for command in commands)
+        or not _verification_commands_bound(commands, work, changed_files)
         or evidence.get("summary")
         != f"{len(commands)} exact-state verification profile(s) passed."
     ):
@@ -1191,6 +1196,46 @@ def _record_changes_within(
 
 def _empty_record_value(value: Any) -> bool:
     return value is None or value == "" or value == [] or value == ()
+
+
+def _latest_receipt_hash(projection: dict[str, Any], work_id: str) -> str:
+    receipts = projection.get("receipts")
+    if not isinstance(receipts, list):
+        return ""
+    candidates = [
+        item
+        for item in receipts
+        if isinstance(item, dict)
+        and item.get("work_item_id") == work_id
+        and item.get("receipt_hash")
+    ]
+    if not candidates:
+        return ""
+    latest = max(candidates, key=record_time_key)
+    return str(latest.get("receipt_hash") or "")
+
+
+def _verification_commands_bound(
+    commands: list[Any], work: dict[str, Any], changed_files: list[str]
+) -> bool:
+    expected_profiles = verification_profiles(str(work.get("risk") or ""), changed_files)
+    if len(commands) != len(expected_profiles):
+        return False
+    for command, profile in zip(commands, expected_profiles, strict=True):
+        if not isinstance(command, str):
+            return False
+        parts = command.split(" ")
+        if (
+            len(parts) != 4
+            or parts[0] != profile.id
+            or parts[1] != "attestation"
+            or not parts[2].startswith("VERIFY-")
+            or not parts[3].startswith("sha256:")
+            or len(parts[3]) != 71
+            or any(char not in "0123456789abcdef" for char in parts[3][7:])
+        ):
+            return False
+    return True
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
