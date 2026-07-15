@@ -14,7 +14,12 @@ TERMINAL_ATTEMPT_STATUSES = {"complete", "completed"}
 CLEAN_ATTEMPT_STATES = {"clean", "pristine"}
 
 
-def current_review_binding(workspace: Any, work_id: str) -> tuple[dict[str, str], list[str]]:
+def current_review_binding(
+    workspace: Any,
+    work_id: str,
+    *,
+    require_output_coverage: bool = True,
+) -> tuple[dict[str, str], list[str]]:
     """Return the exact current proof binding and fail-closed eligibility errors."""
     work = workspace.work_item(work_id)
     if work is None:
@@ -42,7 +47,15 @@ def current_review_binding(workspace: Any, work_id: str) -> tuple[dict[str, str]
     if receipt is None:
         errors.append(f"attempt {attempt.id} has no receipt")
     if evidence is not None:
-        errors.extend(_evidence_errors(workspace, attempt, evidence, receipt))
+        errors.extend(
+            _evidence_errors(
+                workspace,
+                attempt,
+                evidence,
+                receipt,
+                require_output_coverage=require_output_coverage,
+            )
+        )
     if receipt is not None:
         errors.extend(_receipt_errors(receipt))
 
@@ -107,10 +120,19 @@ def review_binding_integrity_errors(workspace: Any, review: Any) -> list[str]:
     return errors
 
 
-def current_review_binding_errors(workspace: Any, review: Any) -> list[str]:
+def current_review_binding_errors(
+    workspace: Any,
+    review: Any,
+    *,
+    require_output_coverage: bool = True,
+) -> list[str]:
     """Require a structurally sound review to match the current proof and contract."""
     errors = review_binding_integrity_errors(workspace, review)
-    binding, current_errors = current_review_binding(workspace, review.work_item_id)
+    binding, current_errors = current_review_binding(
+        workspace,
+        review.work_item_id,
+        require_output_coverage=require_output_coverage,
+    )
     errors.extend(current_errors)
     if binding:
         for field, expected in binding.items():
@@ -228,7 +250,14 @@ def _review_binding_dict(review: Any) -> dict[str, str]:
     }
 
 
-def _evidence_errors(workspace: Any, attempt: Any, evidence: Any, receipt: Any | None) -> list[str]:
+def _evidence_errors(
+    workspace: Any,
+    attempt: Any,
+    evidence: Any,
+    receipt: Any | None,
+    *,
+    require_output_coverage: bool,
+) -> list[str]:
     errors: list[str] = []
     if evidence.status != "passed":
         errors.append(f"evidence {evidence.id} is {evidence.status}, not passed")
@@ -243,7 +272,11 @@ def _evidence_errors(workspace: Any, attempt: Any, evidence: Any, receipt: Any |
     if not evidence.manifest_hash:
         errors.append(f"evidence {evidence.id} has no manifest hash")
     else:
-        verification = verify_evidence(workspace, evidence.id)
+        verification = verify_evidence(
+            workspace,
+            evidence.id,
+            require_output_coverage=require_output_coverage,
+        )
         if not verification["ok"]:
             errors.append(f"evidence {evidence.id} manifest verification failed")
     artifact_statuses = {

@@ -1941,7 +1941,7 @@
       "acceptance_target": "PCAW v1 exports byte-identical bounded-work statements; offline verification fails closed on stale, contradictory, unsafe, or altered proof; journal continuity is replayable; complete verification and fresh exact-head review ACCEPT; founder authority remains human-only.",
       "required_approval_capability": "architecture",
       "required_approval_count": 1,
-      "current_attempt": "ATTEMPT-REPO-0024"
+      "current_attempt": "ATTEMPT-REPO-0024-R2"
     }
   ],
   "attempts": [
@@ -2914,6 +2914,41 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/workspace.json"
       ]
+    },
+    {
+      "base_sha": "56577687ba8a77385e8a854fbf04f911b403f7b4",
+      "allowed_paths": [
+        "src/palari_company_os",
+        "tests",
+        "schemas/workspace.schema.json",
+        "spec/pcaw/v1",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "examples/acme-company-os/workspace.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/data/examples/acme-company-os/workspace.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "output_targets": [
+        "docs/product/proof-carrying-governance-contract.md",
+        "spec/pcaw/v1"
+      ],
+      "id": "ATTEMPT-REPO-0024-R2",
+      "work_item_id": "WORK-REPO-0024",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/proof-carrying-ai-work-kernel",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-07-15T00:41:02.560522Z"
     }
   ],
   "evidence_runs": [
@@ -3397,13 +3432,13 @@
       "work_item_id": "WORK-REPO-0024",
       "attempt_id": "ATTEMPT-REPO-0024",
       "head_sha": "ca158be321fd7e2de4463b50b285a0de7883ff37",
-      "status": "passed",
+      "status": "failed",
       "base_ref": "5727fa4cc99396229db3c392f0227db225989cc2",
-      "summary": "PCAW v1 exact head passed 616 tests, style, 18 conformance vectors, schema and fixture validation, CLI and security boundaries, docs and examples, dogfood, demo, and isolated wheel smoke; complete-gate median 44.58 seconds. Repository outputs are bound by exact Git head; the nested dogfood workspace does not traverse outward to hash them as local artifacts.",
-      "freshness": "current",
+      "summary": "Independent exact-head review rejected this evidence: receipt outputs were not artifact-hashed, so the governance kernel emitted PCAW_EVIDENCE_OUTPUT_UNHASHED. Superseded by a repair attempt.",
+      "freshness": "stale",
       "timestamp": "2026-07-15T00:32:55.058622Z",
       "receipt_hash": "sha256:5cd1f679e492c3d465e3cac44080d8cc9e41f5642c589ade4a5a303d90a42b57",
-      "manifest_hash": "sha256:5fb899448e6eb557d6a0301c98a626a1e3398dd99c8fe9b907d550f0a154e75e",
+      "manifest_hash": "sha256:01de78ea8957399dec26d94ed56705f8abe1176ffd9b436e7cf64069bc9c76b8",
       "artifact_hashes": []
     }
   ],

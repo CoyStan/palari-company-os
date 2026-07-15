@@ -983,24 +983,10 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertNotEqual(review_proof_hash(review), original_hash)
 
     def test_exact_bound_terminal_work_requires_acceptance_record(self) -> None:
-        raw = json.loads((EXAMPLE_WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        work = next(item for item in raw["work_items"] if item["id"] == "WORK-0001")
-        work["status"] = "completed"
-        raw["human_decisions"].append(
-            {
-                "id": "HUMAN-DECISION-EXACT",
-                "work_item_id": "WORK-0001",
-                "human_id": "HUMAN-FOUNDER",
-                "reviewed_head": "abc1234",
-                "decision": "accepted",
-                "status": "accepted",
-                "acceptance_mode": "human",
-                "quorum_status": "met",
-                "evidence_reference": "EVIDENCE-0001",
-                "review_reference": "REVIEW-0001",
-                "timestamp": "2026-06-18T18:00:00Z",
-            }
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
+        raw["acceptance_records"] = []
 
         with self.assertRaisesRegex(
             WorkspaceError,

@@ -255,7 +255,12 @@ Evidence records automatically get artifact hashes and a manifest hash when
 recorded through the CLI. The manifest covers the exact receipt hash. Receipts
 automatically get a receipt hash. `evidence verify` requires the manifest and a
 matching receipt, recomputes artifact and receipt hashes, and fails on missing,
-changed, unsafe, or contradictory proof.
+changed, unsafe, or contradictory proof. It also fails when any output declared
+by the bound receipt is absent from the evidence artifact manifest. When a
+workspace file is nested below an attempt's recorded workspace root, artifacts
+resolve from that root only if the workspace is canonically contained there and
+every artifact stays inside the attempt's explicit allowed paths; otherwise
+resolution remains workspace-local and fails closed.
 
 `work accept` is the explicit human acceptance gate. It requires fresh passing
 evidence, fresh accept-ready review, qualified human authority, no open linked

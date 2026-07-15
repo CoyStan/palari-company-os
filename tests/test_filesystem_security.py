@@ -14,7 +14,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_file_changes import capture_git_baseline, inspect_file_changes
 from palari_company_os.agent_runtime import claims_dir, load_active_claim_contexts
-from palari_company_os.evidence_manifest import _artifact_hashes, verify_evidence
+from palari_company_os.evidence_manifest import (
+    _artifact_hashes,
+    evidence_artifact_root,
+    verify_evidence,
+)
 from palari_company_os.workspace import WorkspaceError, _collection_file_path
 
 
@@ -105,6 +109,47 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
                 result = _artifact_hashes(root, ["artifact.txt"])
 
             self.assertEqual(result[0]["status"], "unreadable")
+
+    def test_attempt_artifact_root_must_contain_nested_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as workspace_name, tempfile.TemporaryDirectory() as outside_name:
+            workspace_root = Path(workspace_name)
+            outside = Path(outside_name)
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                workspace_path=str(outside),
+                allowed_paths=["artifacts/result.txt"],
+                forbidden_paths=[],
+            )
+
+            root = evidence_artifact_root(
+                workspace_root,
+                "ATTEMPT-1",
+                ["artifacts/result.txt"],
+                [attempt],
+            )
+
+            self.assertEqual(root, workspace_root.resolve())
+
+    def test_attempt_artifact_root_requires_every_artifact_in_allowed_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as root_name:
+            root = Path(root_name)
+            nested = root / "workspaces" / "dogfood"
+            nested.mkdir(parents=True)
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                workspace_path=str(root),
+                allowed_paths=["docs"],
+                forbidden_paths=[],
+            )
+
+            selected = evidence_artifact_root(
+                nested,
+                "ATTEMPT-1",
+                ["secrets/token.txt"],
+                [attempt],
+            )
+
+            self.assertEqual(selected, nested.resolve())
 
 
 class FileChangeObservationTests(unittest.TestCase):

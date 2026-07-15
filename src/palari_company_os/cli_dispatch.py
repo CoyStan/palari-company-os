@@ -748,7 +748,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .evidence_manifest import verify_evidence
 
         workspace = Workspace.load(args.workspace)
-        return CommandResult("evidence-verify", verify_evidence(workspace, args.id), args.json)
+        payload = verify_evidence(workspace, args.id)
+        return CommandResult(
+            "evidence-verify",
+            payload,
+            args.json,
+            0 if payload["ok"] else 1,
+        )
 
     if args.command == "proposal" and args.object_command in {"adopt", "reject", "defer"}:
         from .proposals import adopt_proposal, decide_proposal

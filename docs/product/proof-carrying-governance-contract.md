@@ -222,7 +222,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     source lines, and zero runtime dependencies. Package version remains
     `0.2.0`.
 
-- [x] Verification timing, independent exact-head review, and founder packet
+- [ ] Verification timing, independent exact-head review, and founder packet
   - Required outcome: the authoritative complete gate remains singular and
     equivalent; three-run median is compared with 77.934 seconds and any
     regression over 10% is corrected or explicitly justified by safety value;
@@ -236,15 +236,17 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: three `./scripts/verify.sh` runs,
     `./scripts/install_smoke.sh`, schema/fixture/CLI/security/docs/conformance
     checks, and final exact-head review report.
-  - Current status: completed locally; founder authority remains pending.
+  - Current status: in progress after exact-head review rejected incomplete
+    dogfood artifact coverage; founder authority remains pending.
   - Exact committed evidence when completed: final verified code head
     `50594e93fe4412791d99cace97937c1f5fe704c3`; 616 tests, style, 18/18
     conformance vectors, schemas/fixtures, CLI, security, docs/examples,
     dogfood, and demo passed. Three exact-head complete-gate samples were
     51.91, 43.87, and 44.58 seconds (44.58-second median, 42.8% faster than
     the 77.934-second baseline). Isolated install smoke passed in 13.48
-    seconds. The exact-head review history below ends in ACCEPT; the founder
-    packet is the final implementation report and does not record acceptance.
+    seconds. The exact-head review history below records the final-metadata
+    rejection and required repair. A fresh ACCEPT is required before this item
+    returns to complete; the founder packet does not record acceptance.
 
 ## Independent Exact-Head Review History
 
@@ -264,6 +266,13 @@ the required Palari human review or human decision.
    and `os.fstat` failures, reran focused protocol tests, checked all repaired
    invariants, confirmed the trusted-code manifest, and found no release-blocking
    issue. The declared same-OS-user identity limitation remains non-blocking.
+5. `56577687ba8a77385e8a854fbf04f911b403f7b4`: REJECT. The final-metadata
+   reviewer found that receipt `RECEIPT-REPO-0024` declared three outputs while
+   evidence `EVIDENCE-REPO-0024` had an empty artifact manifest. The governance
+   kernel correctly emitted `PCAW_EVIDENCE_OUTPUT_UNHASHED`, but `evidence
+   verify` passed the empty lists vacuously. The evidence was marked failed and
+   repair attempt `ATTEMPT-REPO-0024-R2` opened; completion remains pending a
+   bounded-root artifact fix, exact-head verification, and fresh review.
 
 ## Security Non-Claims
 

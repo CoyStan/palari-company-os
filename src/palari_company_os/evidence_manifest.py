@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .path_policy import resolve_workspace_path
+from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
 
@@ -59,7 +59,12 @@ def receipt_hash(record: dict[str, Any]) -> str:
     return _stable_hash(payload)
 
 
-def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
+def verify_evidence(
+    workspace: Workspace,
+    evidence_id: str,
+    *,
+    require_output_coverage: bool = True,
+) -> dict[str, Any]:
     evidence = next((item for item in workspace.evidence_runs if item.id == evidence_id), None)
     if evidence is None:
         known = ", ".join(sorted(item.id for item in workspace.evidence_runs))
@@ -81,7 +86,13 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
         "freshness": evidence.freshness,
         "timestamp": evidence.timestamp,
     }
-    recomputed_artifacts = _artifact_hashes(workspace.path, evidence.artifacts)
+    artifact_root = evidence_artifact_root(
+        workspace.path,
+        evidence.attempt_id,
+        evidence.artifacts,
+        getattr(workspace, "attempts", []),
+    )
+    recomputed_artifacts = _artifact_hashes(artifact_root, evidence.artifacts)
     recomputed_record = dict(record)
     recomputed_record["artifact_hashes"] = recomputed_artifacts
     recomputed_manifest = evidence_manifest_hash(recomputed_record)
@@ -91,7 +102,22 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
     )
     manifest_ok = bool(evidence.manifest_hash) and evidence.manifest_hash == recomputed_manifest
     receipt_checks = _receipt_checks(workspace, evidence)
-    ok = artifact_ok and manifest_ok and all(item["ok"] for item in receipt_checks)
+    matching_receipts = _matching_receipts(workspace, evidence)
+    declared_outputs = sorted(
+        {
+            output
+            for receipt in matching_receipts
+            for output in receipt.outputs_created
+        }
+    )
+    unhashed_outputs = sorted(set(declared_outputs) - set(evidence.artifacts))
+    output_coverage_ok = bool(matching_receipts) and not unhashed_outputs
+    ok = (
+        artifact_ok
+        and manifest_ok
+        and (output_coverage_ok or not require_output_coverage)
+        and all(item["ok"] for item in receipt_checks)
+    )
     return {
         "schema_version": "palari.evidence_verify.v1",
         "workspace": workspace.name,
@@ -103,6 +129,10 @@ def verify_evidence(workspace: Workspace, evidence_id: str) -> dict[str, Any]:
         "computed_manifest_hash": recomputed_manifest,
         "declared_artifact_hashes": _sorted_artifact_hashes(evidence.artifact_hashes),
         "computed_artifact_hashes": recomputed_artifacts,
+        "output_coverage_ok": output_coverage_ok,
+        "output_coverage_required": require_output_coverage,
+        "declared_receipt_outputs": declared_outputs,
+        "unhashed_receipt_outputs": unhashed_outputs,
         "receipt_checks": receipt_checks,
     }
 
@@ -119,13 +149,7 @@ def _receipt_checks(workspace: Workspace, evidence: Any) -> list[dict[str, Any]]
             }
         ]
 
-    matching = [
-        receipt
-        for receipt in workspace.receipts
-        if receipt.work_item_id == evidence.work_item_id
-        and receipt.attempt_id == evidence.attempt_id
-        and receipt.receipt_hash == evidence.receipt_hash
-    ]
+    matching = _matching_receipts(workspace, evidence)
     if not matching:
         return [
             {
@@ -175,6 +199,62 @@ def _receipt_checks(workspace: Workspace, evidence: Any) -> list[dict[str, Any]]
     return checks
 
 
+def _matching_receipts(workspace: Workspace, evidence: Any) -> list[Any]:
+    return [
+        receipt
+        for receipt in workspace.receipts
+        if receipt.work_item_id == evidence.work_item_id
+        and receipt.attempt_id == evidence.attempt_id
+        and receipt.receipt_hash == evidence.receipt_hash
+    ]
+
+
+def evidence_artifact_root(
+    workspace_path: Path,
+    attempt_id: str,
+    artifacts: list[str],
+    attempts: list[Any],
+) -> Path:
+    """Return the bounded root used to resolve an evidence artifact list.
+
+    A workspace file may live below the repository governed by an attempt. In
+    that case artifact paths can be resolved from the attempt's recorded
+    workspace root only when the workspace itself is inside that root and every
+    artifact is inside the attempt's explicit allowed-path boundary. Legacy or
+    incomplete attempts retain the workspace-local behavior.
+    """
+
+    fallback = Path(workspace_path).expanduser().resolve()
+    attempt = next(
+        (item for item in attempts if str(_field(item, "id") or "") == attempt_id),
+        None,
+    )
+    if attempt is None:
+        return fallback
+
+    root_value = str(_field(attempt, "workspace_path") or "")
+    allowed_paths = _string_list(_field(attempt, "allowed_paths"))
+    forbidden_paths = _string_list(_field(attempt, "forbidden_paths"))
+    if not root_value or not allowed_paths:
+        return fallback
+    if any(not path_allowed(artifact, allowed_paths) for artifact in artifacts):
+        return fallback
+    if any(path_allowed(artifact, forbidden_paths) for artifact in artifacts):
+        return fallback
+
+    candidate = Path(root_value).expanduser()
+    if not candidate.is_absolute():
+        return fallback
+    try:
+        candidate = candidate.resolve(strict=True)
+        if not candidate.is_dir():
+            return fallback
+        fallback.relative_to(candidate)
+    except (OSError, RuntimeError, ValueError):
+        return fallback
+    return candidate
+
+
 def _artifact_hashes(workspace_path: Path, artifacts: list[str]) -> list[dict[str, str]]:
     hashes: list[dict[str, str]] = []
     for artifact in artifacts:
@@ -219,6 +299,18 @@ def _sorted_artifact_hashes(value: Any) -> list[dict[str, Any]]:
 
 def _strings(value: Any) -> list[str]:
     if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _field(record: Any, name: str) -> Any:
+    if isinstance(record, dict):
+        return record.get(name)
+    return getattr(record, name, None)
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple)):
         return []
     return [item for item in value if isinstance(item, str)]
 

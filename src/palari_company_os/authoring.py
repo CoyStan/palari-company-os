@@ -708,7 +708,7 @@ def _prepare_record_for_create(
             stamped["started_at"] = _timestamp()
         return stamped
     if kind == "evidence":
-        from .evidence_manifest import stamp_evidence_record
+        from .evidence_manifest import evidence_artifact_root, stamp_evidence_record
 
         stamped = dict(record)
         if not stamped.get("timestamp"):
@@ -720,7 +720,13 @@ def _prepare_record_for_create(
         )
         if receipt and receipt.get("receipt_hash") and not stamped.get("receipt_hash"):
             stamped["receipt_hash"] = receipt["receipt_hash"]
-        return stamp_evidence_record(stamped, store.data_path.parent)
+        artifact_root = evidence_artifact_root(
+            store.data_path.parent,
+            str(stamped.get("attempt_id") or ""),
+            [item for item in stamped.get("artifacts", []) if isinstance(item, str)],
+            _records(store, "attempts"),
+        )
+        return stamp_evidence_record(stamped, artifact_root)
     if kind == "receipt":
         from .evidence_manifest import stamp_receipt_record
 
@@ -767,11 +773,17 @@ def _prepare_record_for_update(
         if "timestamp" not in updates:
             record["timestamp"] = _timestamp()
     if kind == "evidence":
-        from .evidence_manifest import stamp_evidence_record
+        from .evidence_manifest import evidence_artifact_root, stamp_evidence_record
 
         if "artifacts" in updates and "artifact_hashes" not in updates:
             record.pop("artifact_hashes", None)
-        record.update(stamp_evidence_record(record, store.data_path.parent))
+        artifact_root = evidence_artifact_root(
+            store.data_path.parent,
+            str(record.get("attempt_id") or ""),
+            [item for item in record.get("artifacts", []) if isinstance(item, str)],
+            _records(store, "attempts"),
+        )
+        record.update(stamp_evidence_record(record, artifact_root))
     if kind == "receipt":
         from .evidence_manifest import stamp_receipt_record
 
