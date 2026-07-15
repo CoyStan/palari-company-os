@@ -1980,7 +1980,7 @@
       "workbench_id": "WORKBENCH-REPO-FOUNDATION",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Implement immutable approval packs, exact batched human authority, parked execution, dependency-aware staleness, and content-addressed reversible checkpoints without external effects.",
       "allowed_resources": [
         "README.md",
@@ -4378,6 +4378,23 @@
       "receipt_hash": "sha256:2ad0d67865174e66557770c04179d2fd67af96ea15a8e21176ce321868d33da9",
       "work_contract_hash": "sha256:870eaf7e1cb39fa8fd0e114e564d0be1a0e1a518e281c14e7820959049112136",
       "proof_hash": "sha256:1eea71bb0b3ff9c2910df9fdbe2b74131e8648da1401cc88cbbc4e694a854884"
+    },
+    {
+      "id": "REVIEW-REPO-0025-FOUNDER",
+      "work_item_id": "WORK-REPO-0025",
+      "reviewed_head": "1dc7d0679252531f4f2abccec24593c33812cbc2",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-15T17:52:19.925153Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-REPO-0025-R2",
+      "attempt_hash": "sha256:bdd3448930cc4b294b5865c0df7d41c7e7f03af6e9a1c4c49ba7fc899d0577d2",
+      "evidence_reference": "EVIDENCE-REPO-0025-R2",
+      "evidence_manifest_hash": "sha256:d959252fdba95de73624c2f2956428234fc0b8141e9e3db5bc2f564a03932651",
+      "receipt_reference": "RECEIPT-REPO-0025-R2",
+      "receipt_hash": "sha256:8ef57f930489283580e567994cc423c8d4b8e4664b23c6bc3f3083d541c75baa",
+      "work_contract_hash": "sha256:56cf9f6bc3e50c12076534a27d36693ce5803dddcbe13c33711bd682aafb3373",
+      "proof_hash": "sha256:b6388211dc305dcc582ab9f2b66c2cc3d34eb8b5979acb87ea69cdf52f230b2f"
     }
   ],
   "human_decisions": [
@@ -4445,6 +4462,32 @@
       "evidence_reference": "EVIDENCE-REPO-0024-R3",
       "review_reference": "REVIEW-REPO-0024-R3-FINAL",
       "timestamp": "2026-07-15T12:09:11.355932Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-REPO-0025-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-REPO-0025",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "1dc7d0679252531f4f2abccec24593c33812cbc2",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-REPO-0025-R2",
+      "review_reference": "REVIEW-REPO-0025-FOUNDER",
+      "timestamp": "2026-07-15T17:53:34.319508Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-REPO-0025-HUMAN-FOUNDER",
+      "work_item_id": "WORK-REPO-0025",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "1dc7d0679252531f4f2abccec24593c33812cbc2",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-REPO-0025-R2",
+      "review_reference": "REVIEW-REPO-0025-FOUNDER",
+      "timestamp": "2026-07-15T17:56:14.660825Z"
     }
   ],
   "receipts": [
@@ -5988,6 +6031,21 @@
       "quorum_status": "met",
       "reason": "completion gate",
       "accepted_at": "2026-07-15T12:11:02.116323Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-REPO-0025-HUMAN-FOUNDER",
+      "work_item_id": "WORK-REPO-0025",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "1dc7d0679252531f4f2abccec24593c33812cbc2",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-REPO-0025-HUMAN-FOUNDER",
+      "evidence_reference": "EVIDENCE-REPO-0025-R2",
+      "review_reference": "REVIEW-REPO-0025-FOUNDER",
+      "receipt_hash": "sha256:8ef57f930489283580e567994cc423c8d4b8e4664b23c6bc3f3083d541c75baa",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "Founder accepts the independently reviewed WORK-REPO-0025 candidate.",
+      "accepted_at": "2026-07-15T17:56:14.660825Z"
     }
   ]
 }
