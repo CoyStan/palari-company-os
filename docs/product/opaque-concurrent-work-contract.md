@@ -75,7 +75,7 @@ be marked complete only after its evidence is committed.
   - Exact committed proof: implementation and tests in
     `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`.
 
-- [ ] Compatibility, minimality, and authority preservation
+- [x] Compatibility, minimality, and authority preservation
   - Required outcome: schema v2 and arbitrary historical work IDs remain valid;
     no runtime dependency or background service is added; isolated execution
     grants no human review, acceptance, merge, push, deployment, or external
@@ -84,11 +84,13 @@ be marked complete only after its evidence is committed.
     and full repository verification pass.
   - Verification: `./bin/palari docs check --json`, `./scripts/verify.sh`, and
     `./scripts/install_smoke.sh`.
-  - Current status: implementation committed; exact-head complete verification
-    pending.
+  - Current status: complete; 228 affected tests passed in 31.843 seconds,
+    documentation checks passed 12/12, workspace validation passed, the full
+    gate passed 716 tests across 42 modules plus 18/18 PCAW vectors, and the
+    isolated wheel smoke passed in 11.99 seconds.
   - Exact committed proof: compatibility implementation in
-    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`; final verification evidence
-    pending.
+    `75b9bcd851a450a7f0a6a068d5e20f2fd8b840f8`; exact-head verification at
+    `c2a4ef26b324eb19959d3983a6aeccf4e73e7fac`.
 
 - [ ] Exact candidate and independent review
   - Required outcome: all implementation and contract evidence is committed;
