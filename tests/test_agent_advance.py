@@ -527,6 +527,59 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "review-required")
         self.assertFalse(result["would_mutate"])
 
+    def test_atomic_reconciliation_rejects_missing_artifact_before_mutation(self) -> None:
+        head = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        (self.temp_dir / "README.md").unlink()
+        before = (self.temp_dir / "workspace.json").read_bytes()
+
+        with self.assertRaisesRegex(WorkspaceError, "manifest verification failed"):
+            reconcile_agent_proof(
+                str(self.temp_dir),
+                work_id=self.work_id,
+                palari_id="PALARI-STEWARD",
+                attempt_record={
+                    "id": "ATTEMPT-TEST-MISSING-ARTIFACT",
+                    "work_item_id": self.work_id,
+                    "actor": "PALARI-STEWARD",
+                    "status": "active",
+                    "workspace_path": str(self.temp_dir),
+                    "base_sha": head,
+                    "allowed_paths": ["README.md"],
+                },
+                receipt_record={
+                    "id": "RECEIPT-TEST-MISSING-ARTIFACT",
+                    "work_item_id": self.work_id,
+                    "attempt_id": "ATTEMPT-TEST-MISSING-ARTIFACT",
+                    "actor": "PALARI-STEWARD",
+                    "sources_used": ["SOURCE-REPO-FOUNDATION"],
+                    "actions_taken": ["Claimed a missing output."],
+                    "outputs_created": ["README.md"],
+                    "not_done": ["No human authority was exercised."],
+                    "undo_refs": ["README.md"],
+                },
+                evidence_record={
+                    "id": "EVIDENCE-TEST-MISSING-ARTIFACT",
+                    "work_item_id": self.work_id,
+                    "attempt_id": "ATTEMPT-TEST-MISSING-ARTIFACT",
+                    "head_sha": head,
+                    "status": "passed",
+                    "commands": ["mock exact-state attestation"],
+                    "artifacts": ["README.md"],
+                    "summary": "This must fail before mutation.",
+                    "freshness": "exact-head",
+                },
+                head_sha=head,
+                changed_files=["README.md"],
+                output_targets=["README.md"],
+            )
+
+        self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
+
     def _crash_reconciliation(self, point: str) -> None:
         head = subprocess.run(
             ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],

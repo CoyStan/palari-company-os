@@ -673,7 +673,7 @@ def reconcile_agent_proof(
             "attempt",
             attempt,
             attempt_record,
-            ("work_item_id", "actor", "base_sha"),
+            ("work_item_id", "actor", "base_sha", "allowed_paths"),
         )
         steps.append({"step": "attempt-record", "id": attempt_id, "status": "resumed"})
 
@@ -723,12 +723,30 @@ def reconcile_agent_proof(
         )
         steps.append({"step": "evidence-record", "id": evidence_id, "status": "resumed"})
 
+    staged_workspace = validate_data(store.data_path, store.data)
+    from .evidence_manifest import verify_evidence
+
+    evidence_verification = verify_evidence(
+        staged_workspace,
+        evidence_id,
+        require_output_coverage=True,
+    )
+    if not evidence_verification["ok"]:
+        missing = [
+            item["path"]
+            for item in evidence_verification["computed_artifact_hashes"]
+            if item.get("status") != "present"
+        ]
+        detail = f": {', '.join(missing)}" if missing else ""
+        raise WorkspaceError(
+            f"agent proof evidence manifest verification failed{detail}"
+        )
+
     current_head = str(attempt.get("head_sha") or "")
     commits = list(attempt.get("commits", []))
     if not current_head and commits:
         current_head = str(commits[-1])
     if attempt.get("status") not in {"complete", "completed"} or current_head != head_sha:
-        staged_workspace = validate_data(store.data_path, store.data)
         assert_transition_allowed(
             staged_workspace,
             "attempt_closeout",

@@ -626,6 +626,7 @@ def _reconcile_proof(
             "status": "active",
             "workspace_path": str(Path(preflight["git_root"])),
             "base_sha": preflight["base_sha"],
+            "allowed_paths": list(work.allowed_resources),
         },
         receipt_record={
             "id": receipt_id,
