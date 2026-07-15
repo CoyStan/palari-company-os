@@ -9,6 +9,10 @@ Accepted dependency head: `b24b644ca8a6df26eb5a3fadb246d3a11093ccea`.
 
 Implementation setup head: `342db2bf716b4e8db0c4df326bfa787178085df0`.
 
+Initial implementation head: `9f297661ded33debb155cc85e77ebff470a704e5`.
+
+Independent-review repair head: `fd3121a2253b4d7a20cfa86d46702107235753d0`.
+
 ## Baseline
 
 The first pre-change `./scripts/verify.sh` run exposed a state-coupled test
@@ -34,6 +38,22 @@ tests exercise.
 - Current PCAW trusted code: unchanged at 5 files, 2,334 source lines, and zero
   runtime dependencies. Approval Pack/checkpoint code is outside the offline
   PCAW verifier TCB.
+- Post-review authoritative gate: 651 tests across 41 modules, style,
+  schema/fixture/CLI/docs checks, and 18/18 PCAW vectors passed in 42.76
+  seconds. The isolated installed-wheel smoke passed in 12.73 seconds.
+
+## Independent Review History
+
+- Exact head `be8050b065f0b4d20b3bcb683a3ac783cefcddab`: **REJECT**. The fresh
+  reviewer found that a stored pack could reuse an older batch policy, a
+  narrowed `--pack-member` request could expand through a stored manifest,
+  same-id receipt/outbox transitions could hide external effects, and a
+  dependency omitted from a narrowed pack was not represented as blocked.
+- Repair head `fd3121a2253b4d7a20cfa86d46702107235753d0`: all four findings repaired,
+  with additional strict nested manifest validation, qualified authority for
+  approve/reject/defer, exact per-pack operator commands, stale-decision
+  rejection, sent/failed external-effect blocking, and adversarial regressions.
+  A fresh exact-head verdict remains required.
 
 Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
@@ -51,7 +71,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     tests plus schema validation.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (`approval_packs.py`, canonical manifest validation, and 1/10/100 tests).
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (`approval_packs.py`, strict nested canonical manifest validation, and
+    1/10/100 plus malformed-manifest tests).
 
 - [x] Item-granular eligibility and dependency-aware staleness
   - Required outcome: the evaluator derives each member as eligible, stale,
@@ -63,8 +85,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: focused approval-pack evaluator tests.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (`test_changed_dependency_stales_descendants_but_not_unrelated_members` and
-    `test_rejection_blocks_dependent_and_preserves_unrelated_approval`).
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (policy-drift staleness, outside-pack dependency blocking, changed sibling,
+    and rejection propagation tests).
 
 - [x] One attributable human action with exact per-item authorization
   - Required outcome: one human decision over an exact immutable pack may
@@ -78,8 +101,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     approval-pack tests.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (pack decision result, durable manifest/member bindings, transplant and
-    idempotence tests).
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (exact selection equality, durable manifest/member bindings, qualified
+    approve/reject/defer authority, transplant, and idempotence tests).
 
 - [x] Parked execution and risk-based batch policy
   - Required outcome: bounded preparation may continue while governed effects
@@ -108,8 +132,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     snapshots.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (`queue --approval-inbox`, enriched `detail`, `human-decision pack`, CLI
-    JSON/text tests, and 154-command public snapshot).
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (`queue --approval-inbox` exact `approval_commands`, enriched `detail`,
+    `human-decision pack`, CLI JSON/text tests, and 154-command public snapshot).
 
 - [x] Content-addressed chained checkpoints and append-only restoration
   - Required outcome: tentative state chains bind exact transitions; approving
@@ -121,7 +146,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: focused checkpoint and journal tests.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (`checkpoints.py`, `history --checkpoints/--restore`, exact projection and
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (`checkpoints.py`, `history --checkpoints/--restore`, exact projection,
+    same-id effect detection, pre-mutation external-effect refusal, and
     append-only history tests).
 
 - [x] Crash-safe, idempotent approval and execution journaling
@@ -146,8 +173,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     and validation suites.
   - Current status: completed.
   - Exact committed evidence when completed: `9f297661ded33debb155cc85e77ebff470a704e5`
-    (identity/transplant negatives, 18 filesystem security tests, exact human
-    restore actor, and unchanged source/path validation).
+    plus repair `fd3121a2253b4d7a20cfa86d46702107235753d0`
+    (identity/capability/transplant negatives, strict nested path validation,
+    18 filesystem security tests, exact human restore actor, and unchanged
+    source/path validation).
 
 - [x] Measurement proves interaction compression without hidden proof loss
   - Required outcome: record commands/actions needed for 1, 10, and 100 items,
@@ -173,8 +202,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
     security/pack/checkpoint tests, and exact-head review report.
-  - Current status: exact candidate committed; independent exact-head review
-    remains.
+  - Current status: first exact-head review REJECT repaired at
+    `fd3121a2253b4d7a20cfa86d46702107235753d0`; authoritative verification and
+    isolated install pass; fresh exact-head review remains.
   - Exact committed evidence when completed: pending.
 
 ## Human Boundary
