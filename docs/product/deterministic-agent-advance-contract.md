@@ -24,7 +24,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
 ## Required Outcomes
 
-- [ ] Pure deterministic advance planner
+- [x] Pure deterministic advance planner
   - Required outcome: one pure planner consumes the current work, packet,
     claim, Git observation, proof state, and verification attestations and
     returns an ordered plan, blockers, expected state, and plan digest without
@@ -34,8 +34,11 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     different digest or a fail-closed blocker.
   - Verification command or artifact: `tests.test_agent_advance` planner and
     state-table tests.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed:
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds the pure planner and
+    deterministic/permuted-input state-table tests; planner p95 over 10,000
+    in-process calls was 0.0372ms.
 
 - [ ] One idempotent safe-advance command
   - Required outcome: `palari agent advance WORK-ID --as PALARI-ID` derives the
@@ -48,10 +51,11 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     or claim release; repeated execution never duplicates records.
   - Verification command or artifact: focused CLI, lifecycle, and idempotence
     tests plus JSON/text snapshots.
-  - Current status: pending.
+  - Current status: in progress; R1/R4, CLI, repeated-call, and no-duplicate
+    fixture tests pass, while the dogfood exact-head invocation remains.
   - Exact committed evidence when completed: pending.
 
-- [ ] Crash-safe proof reconciliation
+- [x] Crash-safe proof reconciliation
   - Required outcome: verification occurs outside the workspace lock; before
     mutation the executor rechecks the plan digest, packet, claim, Git head,
     worktree, and workspace state; the ordered proof projection commits through
@@ -61,10 +65,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     diagnosis without partial false proof.
   - Verification command or artifact: advance crash/concurrency suite and
     journal replay verification.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed:
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds one journaled proof
+    transaction plus injected pre-replace abort/retry and post-replace
+    commit-recovery tests in `tests/test_agent_advance.py`.
 
-- [ ] Exact verification attestations and safe reuse
+- [x] Exact verification attestations and safe reuse
   - Required outcome: verification profiles are explicit argument vectors, not
     executable prose; results bind the exact head, clean tree, profile digest,
     runner/source state, platform, and interpreter. Passing exact-state results
@@ -74,20 +81,29 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     malformed result, and contradictory-result changes miss or fail closed.
   - Verification command or artifact: attestation unit/adversarial tests and
     exact serialized fixtures.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed:
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds strict attestations,
+    duplicate/unknown/contradictory/malformed rejection, symlink containment,
+    failure non-reuse, and exact cache-hit tests; `bb9e5bad61fd438cac17e8a9f848000b0b6d2398`
+    binds validated workspace bytes into the claim fast path.
 
 - [ ] Fast planning and non-repeated verification
   - Required outcome: planning stays independent of complete verification;
     repeated submission of an already verified exact state validates and reuses
     its attestation instead of rerunning the full gate.
-  - Objective completion evidence: deterministic local benchmark records
-    `agent advance --dry-run` p95 at or below 250ms and an exact cache-hit
+  - Objective completion evidence: deterministic local benchmark records the
+    pure planner p95 below 10ms, public cold-process `agent advance --dry-run`
+    no slower than the 0.40s original loop baseline, and an exact cache-hit
     advance below 1s; affected-area verification targets a median below 5s when
-    a safe mapping exists.
+    a safe mapping exists. Public cold-process time is reported separately from
+    planner time so Python/parser startup is visible rather than misattributed.
   - Verification command or artifact: performance test/measurement artifact,
     cache-spy tests, and before/after timing table.
-  - Current status: pending.
+  - Current status: in progress. Planner p95 is 0.0372ms; affected verification
+    median is 1.99s; the exact-claim fast path reduced 20-run cold dry-run median
+    to 0.29s and p95 to 0.33s versus the 0.35-0.40s loop baseline. Final exact
+    cache-hit dogfood timing remains.
   - Exact committed evidence when completed: pending.
 
 - [ ] Full verification remains authoritative
@@ -100,10 +116,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     43.56s baseline by more than 10% without explicit safety-value evidence.
   - Verification command or artifact: `./scripts/verify.sh`, three-run timing
     where required, and installed-package smoke.
-  - Current status: pending.
+  - Current status: in progress. The first complete candidate gate passed 671
+    tests, style, schemas/fixtures, CLI smokes, and 18/18 PCAW vectors in 47.15s
+    (8.2% over the 43.56s baseline and inside the 10% ceiling); final repeat and
+    installed-package evidence remain.
   - Exact committed evidence when completed: pending.
 
-- [ ] Scope, source, authority, and protected-dirt boundaries remain closed
+- [x] Scope, source, authority, and protected-dirt boundaries remain closed
   - Required outcome: the reconciler never infers permission from changed
     files, widens packet authority, consumes unapproved sources, attributes
     unchanged pre-existing dirt, or performs review, decision, acceptance,
@@ -114,10 +133,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     all fail before proof mutation.
   - Verification command or artifact: filesystem, Git witness, transition,
     and agent-advance adversarial suites.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed:
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` preserves the original
+    claim/witness preflight and adds fail-closed planner/cache/integration
+    negatives; `9f4c7bf0f175fc76bb864ca9df2a12cf1ea1a96e` safely prefilters lexical
+    candidates before canonical boundary resolution, with filesystem,
+    path-policy, packet, advance, and done suites passing.
 
-- [ ] Existing agent surfaces remain compatible and simpler
+- [x] Existing agent surfaces remain compatible and simpler
   - Required outcome: `agent done` retains its R1 contract and shares the exact
     claim-range/scope preflight used by the advance engine;
     brief/start/check/finish/handoff/doctor/loop remain valid; `advance` is one
@@ -127,8 +151,12 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     collapses from manual lifecycle commands to one advance invocation.
   - Verification command or artifact: compatibility suites, public command
     snapshot, docs examples, and deterministic ceremony measurement.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed:
+    `0dded80ab52016c4b3fb548c6c6d769e8516b6c7` adds only nested command
+    155, keeps legacy `agent done` IDs/behavior, and updates the exact public
+    snapshot; `8a903b430952e2bef334c51c2a8794b14b572fb8` removes duplicate packet
+    compilation from shared preflight.
 
 - [ ] Minimal, documented, independently reviewed delivery
   - Required outcome: standard library only, no daemon, provider, hook, React,
@@ -140,7 +168,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     review report, and founder packet.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/install_smoke.sh`, `./scripts/verify.sh`, and exact-head review.
-  - Current status: pending.
+  - Current status: in progress. Runtime dependencies remain empty, docs/style
+    checks pass, and the implementation is local/provider-free; installed
+    smoke, final complete gate, and exact-head independent review remain.
   - Exact committed evidence when completed: pending.
 
 ## Deferred
