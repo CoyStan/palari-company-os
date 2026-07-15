@@ -43,6 +43,8 @@ def start_agent(
     palari_id: str,
     mode: str = "execute",
     lease_minutes: int = 30,
+    *,
+    claim_start_head: str = "",
 ) -> dict[str, Any]:
     packet = build_agent_brief(workspace, work_id, palari_id, mode)
     if packet.get("status") != "ready":
@@ -105,6 +107,8 @@ def start_agent(
         persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
         if persisted_baseline is None:
             git_baseline = capture_git_baseline(workspace.path)
+            if claim_start_head:
+                git_baseline = _baseline_at_claim_start(git_baseline, claim_start_head)
             git_witness_ref = _create_git_witness(work_id, git_baseline)
             baseline_record = {
                 "schema_version": "palari.persisted_git_baseline.v1",
@@ -171,6 +175,20 @@ def start_agent(
         "claim_path": _runtime_relative(data_path, claim_path),
     }
     return packet
+
+
+def claim_baseline_head(workspace_path: Path | str, work_id: str) -> str:
+    """Return a verified persistent claim-start commit for safe worktree migration."""
+
+    data_path = workspace_file_path(workspace_path)
+    persisted = _read_persisted_baseline(_baseline_path(data_path, work_id), work_id)
+    if persisted is None:
+        return ""
+    witness_error = _git_witness_error(work_id, persisted)
+    if witness_error:
+        raise WorkspaceError(f"persisted Git baseline for {work_id}: {witness_error}")
+    baseline = persisted["git_baseline"]
+    return str(baseline.get("head_sha") or "")
 
 
 def release_agent(
@@ -753,6 +771,34 @@ def _packet_authority_hash(packet: dict[str, Any]) -> str:
 def _git_baseline_hash(baseline: dict[str, Any]) -> str:
     encoded = json.dumps(baseline, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _baseline_at_claim_start(
+    captured: dict[str, Any], claim_start_head: str
+) -> dict[str, Any]:
+    root = str(captured.get("git_root") or "")
+    current_head = str(captured.get("head_sha") or "")
+    if not root or not current_head or not captured.get("observation_complete"):
+        raise WorkspaceError(
+            "cannot migrate a claim baseline without a complete Git worktree observation"
+        )
+    resolved = _git_output(root, ["rev-parse", "--verify", f"{claim_start_head}^{{commit}}"])
+    if resolved != claim_start_head:
+        raise WorkspaceError("persisted claim-start commit is unavailable in the isolated worktree")
+    ancestor = subprocess.run(
+        ["git", "-C", root, "merge-base", "--is-ancestor", claim_start_head, current_head],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if ancestor.returncode != 0:
+        raise WorkspaceError(
+            "isolated base must descend from the persisted claim-start commit"
+        )
+    migrated = dict(captured)
+    migrated["head_sha"] = claim_start_head
+    return migrated
 
 
 def _git_witness_ref(work_id: str) -> str:

@@ -310,6 +310,40 @@ class AgentPacketTests(unittest.TestCase):
                     "PALARI-SOFIA",
                 )
 
+    def test_isolated_start_preserves_released_claim_start_witness(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim_start = started["start"]["claim"]["git_baseline"]["head_sha"]
+            release_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            (root / "README.md").write_text("committed attempt\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "commit attempt"],
+                check=True,
+            )
+
+            isolated = start_isolated_agent(
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+
+            isolated_root = Path(isolated["isolation"]["worktree_path"])
+            migrated = isolated["start"]["claim"]["git_baseline"]
+            self.assertEqual(migrated["head_sha"], claim_start)
+            self.assertEqual(migrated["git_root"], str(isolated_root.resolve()))
+
     def test_isolated_start_refuses_orphaned_branch_collision(self) -> None:
         with self.git_workspace() as workspace_file:
             root = workspace_file.parent

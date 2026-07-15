@@ -10,7 +10,7 @@ from pathlib import Path
 from shlex import quote
 from typing import Any
 
-from .agent_runtime import start_agent
+from .agent_runtime import claim_baseline_head, start_agent
 from .read_models import detail
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
@@ -35,6 +35,7 @@ def start_isolated_agent(
     source_workspace = Workspace.load(source_data_path)
     if source_workspace.work_item(work_id) is None:
         raise WorkspaceError(f"work item not found: {work_id}")
+    persisted_claim_head = claim_baseline_head(source_data_path, work_id)
 
     source_root = _required_git_output(source_data_path.parent, ["rev-parse", "--show-toplevel"])
     root_path = Path(source_root).resolve()
@@ -55,6 +56,7 @@ def start_isolated_agent(
             lease_minutes,
             branch,
             base_ref,
+            persisted_claim_head,
             created=False,
         )
 
@@ -100,6 +102,7 @@ def start_isolated_agent(
         lease_minutes,
         branch,
         base_sha,
+        persisted_claim_head,
         created=created,
     )
 
@@ -286,6 +289,7 @@ def _start_in_worktree(
     lease_minutes: int,
     branch: str,
     base_ref: str,
+    claim_start_head: str,
     *,
     created: bool,
 ) -> dict[str, Any]:
@@ -302,6 +306,7 @@ def _start_in_worktree(
         palari_id,
         mode,
         lease_minutes=lease_minutes,
+        claim_start_head=claim_start_head,
     )
     workspace_argument = workspace_relative.as_posix()
     command = (
