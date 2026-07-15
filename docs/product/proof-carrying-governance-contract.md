@@ -37,7 +37,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     explorer in `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact-proof and
     state-claim corrections in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`;
     retained and reverified at final implementation head
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Deterministic PCAW v1 statement export
   - Required outcome: `palari proof export WORK-ID --output FILE --json`
@@ -75,8 +75,8 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     failures in `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`; contained subject
     read failures in `50594e93fe4412791d99cace97937c1f5fe704c3`, retained and
     reverified at final implementation head
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`. Final isolated install
-    smoke passed in 12.56 seconds.
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`. Final isolated install
+    smoke passed in 12.69 seconds.
 
 - [x] Strict canonical JSON and protocol schema
   - Required outcome: PCAW inputs and outputs obey the supported I-JSON/RFC
@@ -94,7 +94,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     positive/negative vectors in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`; all 18 conformance vectors
     passed at final implementation head
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Exact proof, review, and human-authority verification
   - Required outcome: every verified accepted result proves terminal attempt
@@ -116,7 +116,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     coverage, bounded artifact roots, and version-derived terminal validation
     in `021e23e6ec7454bff278537f3c648b428228cbfc`,
     `e77122048768fe4b96630b199b004deb0842d777`, and final implementation
-    head `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    head `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`; nested-workspace
+    governance normalization and revocation-safe repair startup in final
+    implementation head `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Safe subject and source boundaries
   - Required outcome: artifact verification uses canonical relative paths and
@@ -136,7 +138,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     containment in `50594e93fe4412791d99cace97937c1f5fe704c3`; bounded-attempt
     root/allow/forbid failures stamp artifacts unsafe without fallback reads in
     `021e23e6ec7454bff278537f3c648b428228cbfc`, independently reverified at
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Normative specification and portable conformance corpus
   - Required outcome: `spec/pcaw/v1/` contains the normative statement and
@@ -155,7 +157,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     dependency-free runner, and corpus in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact evidence/subject
     mismatch vector in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; final corpus is
-    18/18 passing at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    18/18 passing at `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Staged replayable governance journal
   - Required outcome: legacy `.palari/history.jsonl` remains compatible while a
@@ -175,7 +177,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     store transaction integration, prefix replay, corruption cases, and
     history checkpoint/verify modes in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
-    gate at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    gate at `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Crash-safe, idempotent journal recovery
   - Required outcome: interruption at every prepared/write/replace/commit
@@ -191,7 +193,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: prepared/apply/commit crash
     injection and retry/recovery tests in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
-    gate at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    gate at `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Operator clarity and two-minute offline demonstration
   - Required outcome: proof and history commands explain valid, incomplete,
@@ -229,7 +231,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     `50594e93fe4412791d99cace97937c1f5fe704c3` accounts for 5 files, 2,334
     source lines, and zero runtime dependencies. Package version remains
     `0.2.0`; the final implementation head is
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`.
 
 - [x] Verification timing, independent exact-head review, and founder packet
   - Required outcome: the authoritative complete gate remains singular and
@@ -245,18 +247,21 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: three `./scripts/verify.sh` runs,
     `./scripts/install_smoke.sh`, schema/fixture/CLI/security/docs/conformance
     checks, and final exact-head review report.
-  - Current status: completed locally with independent ACCEPT; Palari human
-    review and founder acceptance remain explicitly pending.
+  - Current status: completed locally with independent ACCEPT after the R3
+    completion-path repair; fresh Palari human review and founder acceptance
+    remain explicitly pending.
   - Exact committed evidence when completed: final implementation head
-    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`; 622 tests, style, 18/18
+    `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`; 624 tests, style, 18/18
     conformance vectors, schemas/fixtures, CLI, security, docs/examples,
-    dogfood, and demo passed in the authoritative complete gate at 41.26
+    dogfood, and demo passed in the authoritative complete gate at 42.92
     seconds. Three earlier exact-head complete-gate samples were
     51.91, 43.87, and 44.58 seconds (44.58-second median, 42.8% faster than
-    the 77.934-second baseline). Isolated install smoke passed in 12.56
-    seconds. Fresh review of exact head `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`
-    returned ACCEPT after independently reproducing every output-coverage and
-    attempt-boundary repair. The founder packet records no human acceptance.
+    the 77.934-second baseline). Isolated install smoke passed in 12.69
+    seconds. Fresh review of exact head `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`
+    returned ACCEPT after independently reproducing output coverage,
+    attempt-boundary enforcement, nested-workspace completion, and safe repair
+    after a revoked decision. The founder packet records no current human
+    acceptance.
 
 ## Independent Exact-Head Review History
 
@@ -301,6 +306,16 @@ the required Palari human review or human decision.
    invalid-root, unallowed, and forbidden artifacts remain unread and unsafe.
    The focused review suite passed 125 tests in 8.582 seconds; the authoritative
    complete gate passed 622 tests and all 18 vectors in 41.26 seconds.
+9. `cfd45b7e504ce882329d511ecbbfe968ff5cbb14`: ACCEPT. A real human
+   completion attempt exposed that governance subject hashing still used the
+   nested dogfood directory instead of the bounded attempt root. The accepted
+   decision was revoked, a changes-requested review opened R3, and the repair
+   unified governance normalization with evidence artifact-root resolution.
+   The reviewer independently completed a nested high-risk lifecycle, proved
+   invalid roots still fail before reads, and verified that revoked acceptance
+   remains historical while current acceptance cannot cross attempts. The
+   focused suite passed 154 tests; the complete gate passed 624 tests and all
+   18 vectors in 42.92 seconds.
 
 ## Security Non-Claims
 
