@@ -3,15 +3,30 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
 log_dir="$tmp_dir/logs"
 mkdir "$log_dir"
 
+cleanup() {
+  status=$?
+  if [[ "$status" -ne 0 ]]; then
+    for log in "$log_dir"/*.log; do
+      if [[ -f "$log" ]]; then
+        printf 'install smoke log: %s\n' "$(basename "$log")" >&2
+        tail -n 40 "$log" >&2
+      fi
+    done
+  fi
+  rm -rf "$tmp_dir"
+  exit "$status"
+}
+trap cleanup EXIT
+
 python3 -m venv "$tmp_dir/venv"
-"$tmp_dir/venv/bin/python" -m pip install --disable-pip-version-check --upgrade pip >"$log_dir/pip.log"
-"$tmp_dir/venv/bin/python" -m pip wheel --disable-pip-version-check --no-deps "$repo_dir" -w "$tmp_dir/wheelhouse" >"$log_dir/wheel.log"
+"$tmp_dir/venv/bin/python" -m pip wheel --disable-pip-version-check --no-deps \
+  "$repo_dir" -w "$tmp_dir/wheelhouse" >"$log_dir/wheel.log"
 wheel_path="$(find "$tmp_dir/wheelhouse" -name 'palari_company_os-*.whl' -print -quit)"
-"$tmp_dir/venv/bin/python" -m pip install --disable-pip-version-check "$wheel_path" >"$log_dir/install.log"
+"$tmp_dir/venv/bin/python" -m pip install --disable-pip-version-check --no-index --no-deps \
+  "$wheel_path" >"$log_dir/install.log"
 
 "$tmp_dir/venv/bin/python" -c 'import palari_company_os; print(palari_company_os.__version__)' >"$log_dir/import.log"
 "$tmp_dir/venv/bin/palari" --help >"$log_dir/help.log"
