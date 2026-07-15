@@ -154,7 +154,7 @@ class VerificationAttestationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_matching_pass_is_reused_without_subprocess(self) -> None:
+    def test_matching_advisory_pass_is_reverified(self) -> None:
         first_runner = Mock(
             return_value=subprocess.CompletedProcess(self.profile.argv, 0, b"ok", b"")
         )
@@ -165,7 +165,9 @@ class VerificationAttestationTests(unittest.TestCase):
             self.context,
             runner=first_runner,
         )
-        second_runner = Mock(side_effect=AssertionError("cache hit executed a process"))
+        second_runner = Mock(
+            return_value=subprocess.CompletedProcess(self.profile.argv, 0, b"ok", b"")
+        )
 
         second = run_or_reuse(
             self.temp_dir,
@@ -176,9 +178,45 @@ class VerificationAttestationTests(unittest.TestCase):
         )
 
         self.assertFalse(first["cache_hit"])
-        self.assertTrue(second["cache_hit"])
-        second_runner.assert_not_called()
-        self.assertEqual(first["attestation"], second["attestation"])
+        self.assertFalse(second["cache_hit"])
+        self.assertTrue(second["cache_observed"])
+        second_runner.assert_called_once()
+        self.assertEqual(
+            first["attestation"]["cache_key"], second["attestation"]["cache_key"]
+        )
+
+    def test_forged_cached_pass_cannot_create_passing_evidence(self) -> None:
+        failed_runner = Mock(
+            return_value=subprocess.CompletedProcess(self.profile.argv, 1, b"", b"failed")
+        )
+        failed = run_or_reuse(
+            self.temp_dir,
+            REPO_ROOT,
+            self.profile,
+            self.context,
+            runner=failed_runner,
+        )
+        key = failed["attestation"]["cache_key"].removeprefix("sha256:")
+        path = self.temp_dir / ".palari" / "verification" / f"{key}.json"
+        forged = dict(failed["attestation"])
+        forged.update(status="passed", exit_code=0)
+        path.write_text(json.dumps(forged), encoding="utf-8")
+        actual_runner = Mock(
+            return_value=subprocess.CompletedProcess(self.profile.argv, 1, b"", b"still failed")
+        )
+
+        result = run_or_reuse(
+            self.temp_dir,
+            REPO_ROOT,
+            self.profile,
+            self.context,
+            runner=actual_runner,
+        )
+
+        actual_runner.assert_called_once()
+        self.assertFalse(result["cache_hit"])
+        self.assertTrue(result["cache_observed"])
+        self.assertEqual(result["attestation"]["status"], "failed")
 
     def test_head_profile_environment_and_dirty_state_do_not_reuse(self) -> None:
         runner = Mock(
@@ -256,6 +294,7 @@ class VerificationAttestationTests(unittest.TestCase):
                     self.context,
                     runner=runner,
                 )
+            self.assertFalse((outside / "verification").exists())
         finally:
             shutil.rmtree(outside, ignore_errors=True)
 
@@ -526,6 +565,99 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "review-required")
         self.assertFalse(result["would_mutate"])
+
+    def test_completed_proof_resume_rejects_wrong_actor_before_recovery(self) -> None:
+        self._crash_reconciliation("after_apply")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-REVIEWER",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "ACTOR_NOT_ASSIGNED")
+
+    def test_completed_proof_resume_rejects_missing_claim_before_recovery(self) -> None:
+        self._crash_reconciliation("after_apply")
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_AUTHORITY_INVALID")
+
+    def test_completed_proof_resume_rejects_stale_claim_packet(self) -> None:
+        self._crash_reconciliation("after_apply")
+        packet_path = next((self.temp_dir / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["stop_conditions"] = ["forged packet authority"]
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_AUTHORITY_INVALID")
+
+    def test_completed_proof_resume_rejects_dirty_allowed_path(self) -> None:
+        self._crash_reconciliation("after_apply")
+        (self.temp_dir / "README.md").write_text("dirty after proof\n", encoding="utf-8")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
+
+    def test_completed_proof_resume_rejects_dirty_unapproved_path(self) -> None:
+        self._crash_reconciliation("after_apply")
+        (self.temp_dir / "unapproved.txt").write_text("dirty after proof\n", encoding="utf-8")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
+
+    def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
+        self._crash_reconciliation("after_apply")
+        protected = self.temp_dir / "docs" / "company"
+        protected.mkdir(parents=True)
+        (protected / "private.md").write_text("must remain outside scope\n", encoding="utf-8")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
 
     def test_atomic_reconciliation_rejects_missing_artifact_before_mutation(self) -> None:
         head = subprocess.run(

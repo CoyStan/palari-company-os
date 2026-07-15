@@ -152,6 +152,7 @@ def run_or_reuse(
     directory = _cache_directory(Path(workspace_path), create=True)
     key = cache_key(profile, context)
     path = directory / f"{key.removeprefix(HASH_PREFIX)}.json"
+    cache_observed = False
     if path.exists() and not refresh:
         attestation = _read_attestation(path)
         errors = attestation_errors(attestation, profile, context)
@@ -161,7 +162,12 @@ def run_or_reuse(
             )
         if attestation["status"] != "passed":
             raise WorkspaceError("cached verification result is not passing; use --refresh-verification")
-        return {"cache_hit": True, "attestation": attestation}
+        # This file is an advisory performance/debugging record, not an
+        # authority boundary. A process running as the same OS user can edit
+        # it, so a cached pass must never create governed passing evidence.
+        # Exact proof that has already been reconciled into the workspace is
+        # reused by the advance projection before this function is called.
+        cache_observed = True
 
     started = time.monotonic()
     try:
@@ -207,6 +213,7 @@ def run_or_reuse(
     _write_attestation(path, attestation)
     return {
         "cache_hit": False,
+        "cache_observed": cache_observed,
         "attestation": attestation,
         "stdout_tail": _tail(stdout),
         "stderr_tail": _tail(stderr),
@@ -272,13 +279,19 @@ def attestation_errors(
 def _cache_directory(workspace_path: Path, *, create: bool) -> Path:
     root = workspace_path.resolve()
     directory = workspace_path / ".palari" / "verification"
-    if create:
-        directory.mkdir(parents=True, exist_ok=True)
     current = workspace_path
     for part in (".palari", "verification"):
         current = current / part
         if current.is_symlink():
             raise WorkspaceError(f"verification cache path is a symlink: {current}")
+        if current.exists() and not current.is_dir():
+            raise WorkspaceError(f"verification cache path is not a directory: {current}")
+        if create and not current.exists():
+            # Create one proven parent at a time. In particular, never call
+            # mkdir(parents=True) through an unchecked .palari symlink.
+            current.mkdir()
+            if current.is_symlink():
+                raise WorkspaceError(f"verification cache path is a symlink: {current}")
     try:
         directory.resolve().relative_to(root)
     except ValueError as exc:

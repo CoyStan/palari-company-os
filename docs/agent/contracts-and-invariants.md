@@ -62,9 +62,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   runs only built-in shell-free verification profiles, rechecks the exact plan,
   and atomically reconciles attempt, receipt, evidence, and closeout records.
   It may complete R1/light/0 work; higher-risk work stops at independent review.
-- A cached verification pass is authority only for its exact head, base,
-  changed-path digest, profile arguments, clean state, source state,
-  interpreter, and platform. Failures, malformed records, and drift fail closed.
+- Verification cache files are advisory diagnostics, never proof authority.
+  They bind exact state and malformed or contradictory records fail closed, but
+  a structurally valid cached pass is still rerun. Only exact proof already
+  reconciled into current governed evidence may skip subprocess verification.
 - Execute hooks rebuild the current workspace packet before granting writes;
   coordinated claim/packet self-rehashing cannot expand current scope.
 - Generic work updates cannot change an actively claimed packet, and an active

@@ -277,6 +277,7 @@ def _preflight(
     declared_changed: list[str] | None,
     *,
     packet: dict[str, Any] | None = None,
+    allow_current_proof_projection: bool = False,
 ) -> dict[str, Any]:
     claim = read_claim(workspace_path, work_id)
     if not claim:
@@ -304,10 +305,25 @@ def _preflight(
     )
     if status_inspection is None or not status_inspection.get("observation_complete"):
         return _blocked_preflight("Git status failed; agent done cannot prove repository state")
+    proof_projection_paths: set[str] = set()
+    if allow_current_proof_projection:
+        data_path = (workspace.path / "workspace.json").resolve()
+        try:
+            relative_data = data_path.relative_to(root.resolve()).as_posix()
+            proof_projection_paths.add(relative_data)
+            history_path = data_path.parent / ".palari" / "history.jsonl"
+            proof_projection_paths.add(
+                history_path.relative_to(root.resolve()).as_posix()
+            )
+        except ValueError:
+            return _blocked_preflight(
+                "workspace proof paths escape the Git repository boundary"
+            )
     dirty = [
         path
         for path in status_inspection.get("changed_files", [])
         if not _is_agent_runtime_path(path, root, workspace.path)
+        and path not in proof_projection_paths
     ]
     if dirty:
         return _blocked_preflight(

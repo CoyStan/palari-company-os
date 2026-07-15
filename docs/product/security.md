@@ -37,12 +37,15 @@ Authority rules:
   the original head; coordinated rewrites of the claim and baseline fail.
 - `agent advance` applies that same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
-  argument vectors rather than workspace prose. Passing attestations bind the
-  head, base, changed-path digest, clean state, profile, source state,
-  interpreter, and platform. The command rechecks its plan after verification,
-  commits agent-owned proof as one journaled transaction, and stops before
-  independent review or human authority. A pending prepare is aborted before a
-  safe retry; an already-applied pending commit is completed before handoff.
+  argument vectors rather than workspace prose. Run records bind the head,
+  base, changed-path digest, clean state, profile, source state, interpreter,
+  and platform, but local cache files are advisory and a cached pass is rerun.
+  Only current proof already reconciled into governed evidence is reusable.
+  The command rechecks its plan and post-proof actor, claim, clean-tree, and
+  scope boundaries, commits agent-owned proof as one journaled transaction,
+  and stops before independent review or human authority. A pending prepare is
+  aborted before a safe retry; an already-applied pending commit is completed
+  only under the exact original execution authority.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari

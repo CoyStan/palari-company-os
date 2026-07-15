@@ -54,7 +54,7 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
   deterministic proof reconciler that stops at authority boundaries.
 - `src/palari_company_os/verification_attestations.py`: exact-state,
-  content-addressed verification profiles and passing-result reuse.
+  content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
 - `src/palari_company_os/claude_hooks.py`: Claude Code hook enforcement of the

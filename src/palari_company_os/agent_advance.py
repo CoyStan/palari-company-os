@@ -435,10 +435,23 @@ def agent_advance(
         and work.intensity == "light"
         and work.required_approval_count == 0
     )
+    resume_preflight = _resume_preflight(
+        final_workspace, workspace_path, work, palari_id
+    )
+    if not resume_preflight["ok"]:
+        return {
+            **payload,
+            "status": "state-changed",
+            "would_mutate": False,
+            "verification": verification_results,
+            "proof_steps": proof_steps,
+            "preflight": resume_preflight,
+            "message": (
+                "Governed state changed after proof reconciliation; "
+                + resume_preflight["message"]
+            ),
+        }
     if low_risk:
-        _release_claim_if_owned(
-            final_workspace, workspace_path, work_id, palari_id, proof_steps
-        )
         complete_work(
             str(workspace_path),
             work_id,
@@ -447,6 +460,13 @@ def agent_advance(
             actor=palari_id,
         )
         proof_steps.append({"step": "lifecycle-complete", "status": "completed"})
+        _release_claim_if_owned(
+            Workspace.load(workspace_path),
+            workspace_path,
+            work_id,
+            palari_id,
+            proof_steps,
+        )
         return {
             **payload,
             "status": "completed",
@@ -669,9 +689,40 @@ def _completed_projection(
     from .agent_done import _git_value
     from .governance_journal import recover_workspace_journal, verify_workspace_journal
 
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    if work.palari != palari_id:
+        return _resume_blocked(
+            workspace,
+            work_id,
+            "ACTOR_NOT_ASSIGNED",
+            "The acting Palari is not assigned to this work item.",
+        )
+    if work.status in _TERMINAL:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "status": "completed",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_advance": True,
+            "would_mutate": False,
+            "expected_state": "completed",
+            "message": f"Work item {work_id} is already completed.",
+            "steps": [{"step": "resume", "status": "already-completed"}],
+        }
+
     journal = verify_workspace_journal(workspace_path)
     journal_status = str(journal.get("status") or "")
     if journal_status == "pending-commit":
+        recovery_authority = _resume_claim_packet(workspace_path, work, palari_id)
+        if not recovery_authority["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RESUME_AUTHORITY_INVALID",
+                str(recovery_authority["message"]),
+            )
         recovered = recover_workspace_journal(
             workspace_path,
             palari_id,
@@ -685,6 +736,14 @@ def _completed_projection(
             )
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
+        recovery_authority = _resume_claim_packet(workspace_path, work, palari_id)
+        if not recovery_authority["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RESUME_AUTHORITY_INVALID",
+                str(recovery_authority["message"]),
+            )
         recovered = recover_workspace_journal(
             workspace_path,
             palari_id,
@@ -705,20 +764,13 @@ def _completed_projection(
     work = workspace.work_item(work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
-    if work.status in _TERMINAL:
-        steps: list[dict[str, str]] = [{"step": "resume", "status": "already-completed"}]
-        _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, steps)
-        return {
-            "schema_version": SCHEMA_VERSION,
-            "status": "completed",
-            "work_item": work_id,
-            "workspace": workspace.name,
-            "can_advance": True,
-            "would_mutate": False,
-            "expected_state": "completed",
-            "message": f"Work item {work_id} is already completed.",
-            "steps": steps,
-        }
+    if work.palari != palari_id:
+        return _resume_blocked(
+            workspace,
+            work_id,
+            "ACTOR_NOT_ASSIGNED",
+            "The acting Palari is not assigned to this work item.",
+        )
     if not work.current_attempt:
         return None
     attempt = next(
@@ -727,6 +779,13 @@ def _completed_projection(
     )
     if attempt is None or attempt.status not in {"complete", "completed"}:
         return None
+    if attempt.actor != palari_id:
+        return _resume_blocked(
+            workspace,
+            work_id,
+            "ATTEMPT_ACTOR_MISMATCH",
+            "The current proof attempt belongs to a different Palari.",
+        )
     root = Path(attempt.workspace_path) if attempt.workspace_path else workspace_path
     head_sha = _git_value(root, ["rev-parse", "HEAD"])
     attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
@@ -747,7 +806,15 @@ def _completed_projection(
         return None
     verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
     if not verification["ok"]:
-        return None
+        errors = verification.get("errors", [])
+        detail = "; ".join(str(item) for item in errors[:3])
+        return _resume_blocked(
+            workspace,
+            work_id,
+            "CURRENT_PROOF_INVALID",
+            "The recorded exact proof no longer verifies"
+            + (f": {detail}" if detail else "."),
+        )
     proof_steps: list[dict[str, str]] = [
         {"step": "proof-projection", "status": "already-current"}
     ]
@@ -757,7 +824,14 @@ def _completed_projection(
         and work.required_approval_count == 0
     )
     if low_risk:
-        _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
+        preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
+        if not preflight["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RESUME_PREFLIGHT_FAILED",
+                str(preflight["message"]),
+            )
         complete_work(
             str(workspace_path),
             work_id,
@@ -767,6 +841,7 @@ def _completed_projection(
         )
         proof_steps.append({"step": "lifecycle-complete", "status": "completed"})
         workspace = Workspace.load(workspace_path)
+        _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
         return {
             "schema_version": SCHEMA_VERSION,
             "status": "completed",
@@ -778,7 +853,17 @@ def _completed_projection(
             "proof_steps": proof_steps,
             "message": f"Work item {work_id} resumed from exact proof and completed.",
         }
-    _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
+    claim = read_claim(workspace_path, work_id)
+    if claim is not None:
+        preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
+        if not preflight["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RESUME_PREFLIGHT_FAILED",
+                str(preflight["message"]),
+            )
+        _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
     workspace = Workspace.load(workspace_path)
     handoff = build_agent_handoff(workspace, work_id, palari_id, "execute")
     return {
@@ -792,6 +877,81 @@ def _completed_projection(
         "proof_steps": proof_steps,
         "handoff": handoff,
         "message": f"Work item {work_id} already has current exact proof.",
+    }
+
+
+def _resume_claim_packet(
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+) -> dict[str, Any]:
+    if work.palari != palari_id:
+        return {"ok": False, "message": "the acting Palari is not assigned to this work"}
+    claim = read_claim(workspace_path, work.id)
+    if claim is None:
+        return {"ok": False, "message": "an exact active execute claim is required"}
+    try:
+        packet = read_claim_packet(workspace_path, claim)
+    except WorkspaceError as exc:
+        return {"ok": False, "message": str(exc)}
+    checked = claim_check(
+        workspace_path,
+        work.id,
+        palari_id,
+        "execute",
+        str(packet.get("context_hash") or ""),
+    )
+    if checked.get("status") != "pass":
+        return {
+            "ok": False,
+            "message": str(checked.get("message") or "active claim is invalid"),
+        }
+    return {"ok": True, "claim": checked["claim"], "packet": packet, "message": ""}
+
+
+def _resume_preflight(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+) -> dict[str, Any]:
+    authority = _resume_claim_packet(workspace_path, work, palari_id)
+    if not authority["ok"]:
+        return {
+            "ok": False,
+            "message": str(authority["message"]),
+            "git_root": "",
+            "base_sha": "",
+            "head_sha": "",
+            "changed_files": [],
+        }
+    return _preflight(
+        workspace,
+        workspace_path,
+        work.id,
+        palari_id,
+        None,
+        packet=authority["packet"],
+        allow_current_proof_projection=True,
+    )
+
+
+def _resume_blocked(
+    workspace: Workspace,
+    work_id: str,
+    code: str,
+    message: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "blocked",
+        "work_item": work_id,
+        "workspace": workspace.name,
+        "can_advance": False,
+        "would_mutate": False,
+        "expected_state": "blocked",
+        "blockers": [{"code": code, "message": message}],
+        "message": message,
     }
 
 

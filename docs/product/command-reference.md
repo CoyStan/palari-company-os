@@ -478,10 +478,12 @@ profile, source state, interpreter, and platform. It then rechecks the plan and
 commits attempt, receipt, evidence, and closeout as one journaled workspace
 transaction. R1/light/0 work may complete; higher-risk work releases its claim
 and stops with an independent-review handoff. A repeated exact-state call
-reuses valid passing attestations and proof without duplicating records.
-`--refresh-verification` deliberately reruns the profiles. This command never
-records review, human decision, acceptance, an external write, push, merge, or
-deployment.
+reuses current governed proof without duplicating records or rerunning profiles.
+Local verification-cache files are advisory: even a structurally valid cached
+pass is rerun before new evidence is created. `--refresh-verification` ignores
+the advisory record, including a prior failure, and reruns the profiles. This
+command never records review, human decision, acceptance, an external write,
+push, merge, or deployment.
 
 `git install` writes a Palari-managed pre-commit hook into `.git/hooks/pre-commit`
 that checks staged files against active claim write boundaries. If any staged

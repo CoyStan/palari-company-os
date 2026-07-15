@@ -206,7 +206,7 @@ Implemented:
 - claim-start commit-range proof for `agent done`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
 - deterministic claim-range planning and atomic proof reconciliation through
-  `agent advance`, with exact-state verification reuse and an authority stop
+  `agent advance`, with governed exact-proof reuse and an authority stop
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
