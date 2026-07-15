@@ -19,6 +19,12 @@ Checkpoint authority/history repair head:
 Pack authority/dependency repair head:
 `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`.
 
+Accepted implementation-review head:
+`1dc7d0679252531f4f2abccec24593c33812cbc2`.
+
+Dogfood receipt/evidence handoff head:
+`3816d67849f43b6f08ea391aefc14e4fefbeb92a`.
+
 ## Baseline
 
 The first pre-change `./scripts/verify.sh` run exposed a state-coupled test
@@ -85,8 +91,12 @@ tests exercise.
   commands; every dependency recursively binds its current contract,
   proof/artifact state, and dependency closure while normalizing the expected
   in-pack terminal transition. A distinct-artifact terminal-dependency
-  regression proves a second quorum vote fails stale. A fresh exact-head
-  verdict remains required.
+  regression proves a second quorum vote fails stale.
+- Exact head `1dc7d0679252531f4f2abccec24593c33812cbc2`: **ACCEPT**. A fresh
+  independent reviewer inspected the complete diff from the accepted
+  dependency, confirmed all three earlier rejection classes were closed, and
+  ran 107 focused approval-pack, checkpoint, and Claude-boundary tests. No
+  substantive findings remained.
 - Dogfood attempt `ATTEMPT-REPO-0025-R1` was closed blocked at its unchanged
   base because its original path list omitted an implemented adapter and the
   newly required hook classifier. `ATTEMPT-REPO-0025-R2` owns the complete
@@ -234,7 +244,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     (`approval_pack_measure.py`, deterministic 1/10/100 measurement test,
     42.96s complete-gate median, unchanged 2,334-line PCAW TCB).
 
-- [ ] Compatibility, minimality, documentation, and final independent review
+- [x] Compatibility, minimality, documentation, and final independent review
   - Required outcome: existing CLI/schema/PCAW/history behavior remains
     compatible; no runtime dependency, background service, provider call, or
     autonomous authority is added; canonical docs are current; full verification
@@ -245,13 +255,17 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, focused
     security/pack/checkpoint tests, and exact-head review report.
-  - Current status: first exact-head review REJECT repaired at
-    `fd3121a2253b4d7a20cfa86d46702107235753d0`; second exact-head review REJECT
-    repaired at `707ede7ddd867d5bb85b40f23de20f9cd5c923d2`; authoritative
-    verification and isolated install pass; third exact-head review REJECT
-    repaired at `dcdcb02cfdeb14cc5d160537169eaad92a28c7f8`; fresh exact-head
-    review remains.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed for implementation and engineering review.
+    The dogfood workspace correctly remains blocked on its separate human-only
+    review and acceptance records; an agent has not manufactured those acts.
+  - Exact committed evidence when completed:
+    `1dc7d0679252531f4f2abccec24593c33812cbc2` (documented public surface,
+    compatibility snapshots, unchanged PCAW trusted-code manifest, 656-test
+    complete gate in 43.98 seconds, installed-wheel smoke in 13.26 seconds,
+    and fresh independent ACCEPT) plus
+    `3816d67849f43b6f08ea391aefc14e4fefbeb92a` (bounded dogfood attempt
+    closeout, `RECEIPT-REPO-0025-R2`, artifact-fresh
+    `EVIDENCE-REPO-0025-R2`, and explicit human-review handoff state).
 
 ## Human Boundary
 
