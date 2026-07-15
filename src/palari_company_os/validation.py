@@ -1506,10 +1506,10 @@ def _validate_acceptance_record(
     _require_fresh_accept_ready_review(work.id, evidence, review)
     from .evidence_manifest import verify_evidence
 
-    # Existing accepted work predates mandatory receipt-output coverage. Keep
-    # those records loadable; every new review/acceptance and explicit evidence
-    # verification uses the strict default and cannot create this legacy state.
-    verification = verify_evidence(workspace, evidence.id, require_output_coverage=False)
+    # Only unversioned evidence predates mandatory receipt-output coverage.
+    # Derive strictness from the evidence marker so a versioned record cannot
+    # claim legacy compatibility merely because it is already accepted.
+    verification = verify_evidence(workspace, evidence.id, require_output_coverage=None)
     if not verification["ok"]:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
@@ -1647,12 +1647,13 @@ def _validate_completed_work(
     if review.binding_version:
         from .governance_binding import current_review_binding_errors
 
-        # Exact output coverage is mandatory for every new review/acceptance.
-        # Terminal records created before PCAW remain loadable as legacy state.
+        # Exact output coverage is mandatory for versioned evidence. Terminal
+        # records with genuinely unversioned evidence remain loadable as
+        # legacy state, but a v1 record cannot use that compatibility path.
         binding_errors = current_review_binding_errors(
             workspace,
             review,
-            require_output_coverage=False,
+            require_output_coverage=None,
         )
         if binding_errors:
             raise WorkspaceError(

@@ -35,6 +35,29 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].status, "completed")
         self.assertEqual(workspace.human_decisions[0].status, "accepted")
 
+    def test_versioned_empty_terminal_evidence_cannot_use_legacy_compatibility(self) -> None:
+        from palari_company_os.evidence_manifest import (
+            OUTPUT_BINDING_VERSION,
+            evidence_manifest_hash,
+        )
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        evidence = raw["evidence_runs"][0]
+        evidence["output_binding_version"] = OUTPUT_BINDING_VERSION
+        evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+        review = raw["review_verdicts"][0]
+        review["evidence_manifest_hash"] = evidence["manifest_hash"]
+        review["proof_hash"] = review_proof_hash(review)
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "fails exact evidence or receipt integrity|receipt outputs are not fully hashed",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_nonterminal_acceptance_rejects_tampered_evidence_manifest(self) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
