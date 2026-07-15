@@ -730,6 +730,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             work["title"] = "Expanded during recovery"
             work["allowed_resources"].append("outside/**")
             attempt["allowed_paths"].append("outside/**")
+            attempt["claim_id"] = "CLAIM-SUBSTITUTED"
+            attempt["claim_expires_at"] = "2099-01-01T00:00:00Z"
+            attempt["model_or_worker"] = "substituted-worker"
 
         self._tamper_pending_proof("after_apply", mutate)
         self._assert_pending_mismatch_without_journal_mutation("pending-commit")
@@ -871,9 +874,14 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "attempt_id": f"ATTEMPT-ADVANCE-{self.work_id}-{head[:12].upper()}",
                     "actor": "PALARI-STEWARD",
                     "sources_used": ["SOURCE-REPO-FOUNDATION"],
-                    "actions_taken": ["Tested an atomic proof projection."],
+                    "actions_taken": [
+                        "Tested an atomic proof projection.",
+                        "Ran exact-state Palari verification profiles.",
+                    ],
                     "outputs_created": ["README.md"],
-                    "not_done": ["No human authority was exercised."],
+                    "not_done": [
+                        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+                    ],
                     "undo_refs": ["README.md"],
                 },
                 evidence_record={
@@ -885,7 +893,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "base_ref": base_sha,
                     "commands": ["mock exact-state attestation"],
                     "artifacts": ["README.md"],
-                    "summary": "Exact-state verification passed before injection.",
+                    "summary": "1 exact-state verification profile(s) passed.",
                     "freshness": "exact-head",
                 },
                 head_sha=head,

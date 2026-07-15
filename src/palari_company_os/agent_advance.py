@@ -1032,10 +1032,34 @@ def _pending_advance_recovery_error(
         },
     ):
         return "The pending journal transaction changes immutable attempt authority."
+    if before_attempt is None and any(
+        not _empty_record_value(attempt.get(field))
+        for field in (
+            "branch",
+            "model_or_worker",
+            "claim_id",
+            "claim_expires_at",
+            "result",
+        )
+    ):
+        return "The pending journal transaction injects ungenerated attempt metadata."
+    if before_attempt is None and any(
+        not _empty_record_value(attempt.get(field))
+        for field in ("forbidden_paths",)
+    ):
+        return "The pending journal transaction injects ungenerated attempt boundaries."
     if isinstance(before_receipt, dict) and before_receipt != receipt:
         return "The pending journal transaction rewrites an existing receipt."
     if isinstance(before_evidence, dict) and before_evidence != evidence:
         return "The pending journal transaction rewrites existing evidence."
+    if any(
+        not _empty_record_value(receipt.get(field))
+        for field in ("context_packet", "context_hash", "evidence_manifest_hash")
+    ) or any(
+        not _empty_record_value(receipt.get(field))
+        for field in ("planned_external_writes", "queued_external_writes", "external_writes")
+    ):
+        return "The pending journal transaction injects external or ungenerated receipt claims."
     attempt_id = collection_ids["attempts"]
     head_sha = str(attempt.get("head_sha") or "")
     current_attempt_id = str(before_work.get("current_attempt") or "")
@@ -1070,6 +1094,12 @@ def _pending_advance_recovery_error(
     allowed_paths = attempt.get("allowed_paths")
     changed_files = list(preflight.get("changed_files") or [])
     artifacts = _governed_artifacts(changed_files)
+    actions = receipt.get("actions_taken")
+    not_done = receipt.get("not_done")
+    expected_not_done = [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+    ]
+    commands = evidence.get("commands")
     paths_bound = (
         isinstance(allowed_resources, list)
         and isinstance(allowed_paths, list)
@@ -1099,6 +1129,12 @@ def _pending_advance_recovery_error(
         or receipt.get("sources_used") != work.get("allowed_sources")
         or receipt.get("outputs_created") != artifacts
         or receipt.get("undo_refs") != artifacts
+        or not isinstance(actions, list)
+        or len(actions) != 2
+        or not isinstance(actions[0], str)
+        or not actions[0].strip()
+        or actions[1] != "Ran exact-state Palari verification profiles."
+        or not_done != expected_not_done
         or evidence.get("work_item_id") != work_id
         or evidence.get("attempt_id") != attempt_id
         or evidence.get("head_sha") != head_sha
@@ -1106,6 +1142,11 @@ def _pending_advance_recovery_error(
         or evidence.get("base_ref") != preflight.get("base_sha")
         or evidence.get("artifacts") != artifacts
         or evidence.get("freshness") != "exact-head"
+        or not isinstance(commands, list)
+        or not commands
+        or not all(isinstance(command, str) and command for command in commands)
+        or evidence.get("summary")
+        != f"{len(commands)} exact-state verification profile(s) passed."
     ):
         return "The pending journal projection has contradictory proof bindings."
     evidence_verification = verify_evidence(
@@ -1146,6 +1187,10 @@ def _record_changes_within(
         key in allowed_fields or before.get(key) == after.get(key)
         for key in set(before) | set(after)
     )
+
+
+def _empty_record_value(value: Any) -> bool:
+    return value is None or value == "" or value == [] or value == ()
 
 
 def _records_by_id(value: Any) -> dict[str, dict[str, Any]] | None:
