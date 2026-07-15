@@ -63,7 +63,7 @@ def hash_subject(root: Path | str, name: str) -> str:
         )
     try:
         root_path = Path(root).expanduser().resolve(strict=True)
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:
         raise SubjectError(
             "PCAW_SUBJECT_ROOT_INVALID", "subject root does not exist or is unreadable"
         ) from exc

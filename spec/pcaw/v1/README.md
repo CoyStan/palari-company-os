@@ -111,6 +111,7 @@ The initial stable diagnostic code registry is:
 | Code | Kind | Meaning |
 | --- | --- | --- |
 | `INVALID_UTF8` | error | The proof is not strict UTF-8. |
+| `PROOF_UNREADABLE` | operational | The proof path cannot be resolved or read; the command exits 2. |
 | `INVALID_JSON` | error | The proof is not valid JSON. |
 | `DUPLICATE_KEY` | error | An object repeats a member name. |
 | `FLOAT_FORBIDDEN` | error | A float or non-finite number is present. |

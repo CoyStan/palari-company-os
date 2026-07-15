@@ -104,11 +104,21 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 subject_root=args.subject_root,
                 statement_only=args.statement_only,
             )
+            error_codes = {
+                str(item.get("code", ""))
+                for item in payload.get("errors", [])
+                if isinstance(item, dict)
+            }
+            exit_code = (
+                0
+                if payload.get("verified")
+                else 2 if "PROOF_UNREADABLE" in error_codes else 1
+            )
             return CommandResult(
                 "proof",
                 payload,
                 args.json,
-                0 if payload.get("verified") else 1,
+                exit_code,
             )
 
     if args.command == "validate":

@@ -51,25 +51,31 @@ def verify_pcaw_file(
 ) -> dict[str, Any]:
     """Verify a PCAW statement offline without loading a Palari workspace."""
 
-    path = Path(proof_file).expanduser().resolve()
-    root = (
-        Path(subject_root).expanduser().resolve()
-        if str(subject_root)
-        else path.parent
-    )
+    try:
+        path = Path(proof_file).expanduser().resolve()
+    except (OSError, RuntimeError) as exc:
+        return _proof_unreadable_report(statement_only, exc)
     try:
         raw = path.read_bytes()
     except OSError as exc:
-        report = _empty_report(statement_only, b"")
+        return _proof_unreadable_report(statement_only, exc)
+    try:
+        root = (
+            Path(subject_root).expanduser().resolve()
+            if str(subject_root)
+            else path.parent
+        )
+    except (OSError, RuntimeError) as exc:
+        report = _empty_report(statement_only, raw)
         report["errors"].append(
             _diag(
-                "PROOF_UNREADABLE",
-                "$",
-                f"proof file cannot be read: {exc}",
-                "Restore a readable proof file and verify again.",
+                "SUBJECT_ROOT_INVALID",
+                "$.subject",
+                f"subject root cannot be resolved safely: {exc}",
+                "Select a real subject directory without symlink cycles and verify again.",
             )
         )
-        return report
+        return _finalize(report)
     return verify_pcaw_bytes(raw, subject_root=root, statement_only=statement_only)
 
 
@@ -429,6 +435,22 @@ def _empty_report(statement_only: bool, raw: bytes) -> dict[str, Any]:
         "warnings": [],
         "security_limitations": list(SECURITY_LIMITATIONS),
     }
+
+
+def _proof_unreadable_report(
+    statement_only: bool,
+    error: Exception,
+) -> dict[str, Any]:
+    report = _empty_report(statement_only, b"")
+    report["errors"].append(
+        _diag(
+            "PROOF_UNREADABLE",
+            "$",
+            f"proof file cannot be read: {error}",
+            "Restore a readable proof file and verify again.",
+        )
+    )
+    return _finalize(report)
 
 
 def _finalize(report: dict[str, Any]) -> dict[str, Any]:

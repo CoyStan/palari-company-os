@@ -244,6 +244,73 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertIn("SUBJECT_ROOT_INVALID", _codes(report))
         self.assertNotIn("Traceback", result.stderr)
 
+    def test_cli_cyclic_subject_root_is_a_structured_rejection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cycle = Path(directory) / "loop"
+            cycle.symlink_to(cycle.name)
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "proof",
+                    "verify",
+                    str(ACCEPTED_VECTOR / "statement.json"),
+                    "--subject-root",
+                    str(cycle),
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SUBJECT_ROOT_INVALID", _codes(json.loads(result.stdout)))
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_cli_unreadable_proof_is_structured_operational_exit_two(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "missing.json"
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "proof",
+                    "verify",
+                    str(missing),
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("PROOF_UNREADABLE", _codes(json.loads(result.stdout)))
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_cli_cyclic_proof_path_is_structured_operational_exit_two(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cycle = Path(directory) / "proof.json"
+            cycle.symlink_to(cycle.name)
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "proof",
+                    "verify",
+                    str(cycle),
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("PROOF_UNREADABLE", _codes(json.loads(result.stdout)))
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_export_preserves_workspace_claim_and_stales_changed_review_binding(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
