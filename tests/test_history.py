@@ -49,6 +49,15 @@ class HistoryTests(unittest.TestCase):
 
     def test_lifecycle_decide_complete_and_outcome_append_events(self) -> None:
         with self.fixture_workspace("valid-workspace.json") as workspace:
+            workspace_file = workspace / "workspace.json"
+            raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+            raw["work_items"][0]["allowed_resources"] = ["result.txt"]
+            raw["work_items"][0]["output_targets"] = ["result.txt"]
+            raw["attempts"][0]["workspace_path"] = str(workspace)
+            raw["attempts"][0]["allowed_paths"] = ["result.txt"]
+            raw["attempts"][0]["output_targets"] = ["result.txt"]
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            (workspace / "result.txt").write_text("bounded result\n", encoding="utf-8")
             self.run_cli(
                 workspace,
                 "receipt",
@@ -62,6 +71,8 @@ class HistoryTests(unittest.TestCase):
                 "PALARI-SOFIA",
                 "--list",
                 "actions_taken=verified local checklist",
+                "--list",
+                "outputs_created=result.txt",
             )
             self.run_cli(
                 workspace,
@@ -80,6 +91,8 @@ class HistoryTests(unittest.TestCase):
                 "verification passed",
                 "--list",
                 "commands=python3 -m unittest tests.test_history",
+                "--list",
+                "artifacts=result.txt",
             )
             self.run_cli(
                 workspace,
