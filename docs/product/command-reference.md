@@ -255,12 +255,14 @@ Evidence records automatically get artifact hashes and a manifest hash when
 recorded through the CLI. The manifest covers the exact receipt hash. Receipts
 automatically get a receipt hash. `evidence verify` requires the manifest and a
 matching receipt, recomputes artifact and receipt hashes, and fails on missing,
-changed, unsafe, or contradictory proof. It also fails when any output declared
-by the bound receipt is absent from the evidence artifact manifest. When a
+changed, unsafe, or contradictory proof. New output-bound evidence requires a
+non-empty receipt output list and artifact manifest, and fails when any receipt
+output is absent from that manifest. When a
 workspace file is nested below an attempt's recorded workspace root, artifacts
 resolve from that root only if the workspace is canonically contained there and
 every artifact stays inside the attempt's explicit allowed paths; otherwise
-resolution remains workspace-local and fails closed.
+the artifacts are marked unsafe without being read. Legacy attempts without an
+explicit parent-root boundary retain workspace-local resolution.
 Pre-PCAW evidence without `output_binding_version` remains readable and reports
 the legacy limitation, but every refreshed evidence record and every new
 review or acceptance requires `palari.evidence_outputs.v1` coverage.

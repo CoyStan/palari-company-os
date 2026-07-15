@@ -16,6 +16,7 @@ from palari_company_os.agent_file_changes import capture_git_baseline, inspect_f
 from palari_company_os.agent_runtime import claims_dir, load_active_claim_contexts
 from palari_company_os.evidence_manifest import (
     _artifact_hashes,
+    evidence_artifact_hashes,
     evidence_artifact_root,
     verify_evidence,
 )
@@ -121,14 +122,20 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
                 forbidden_paths=[],
             )
 
-            root = evidence_artifact_root(
+            with self.assertRaisesRegex(ValueError, "not contained"):
+                evidence_artifact_root(
+                    workspace_root,
+                    "ATTEMPT-1",
+                    ["artifacts/result.txt"],
+                    [attempt],
+                )
+            hashes = evidence_artifact_hashes(
                 workspace_root,
                 "ATTEMPT-1",
                 ["artifacts/result.txt"],
                 [attempt],
             )
-
-            self.assertEqual(root, workspace_root.resolve())
+            self.assertEqual(hashes[0]["status"], "unsafe")
 
     def test_attempt_artifact_root_requires_every_artifact_in_allowed_paths(self) -> None:
         with tempfile.TemporaryDirectory() as root_name:
@@ -142,14 +149,46 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
                 forbidden_paths=[],
             )
 
-            selected = evidence_artifact_root(
-                nested,
-                "ATTEMPT-1",
-                ["secrets/token.txt"],
-                [attempt],
+            with self.assertRaisesRegex(ValueError, "outside attempt allowed_paths"):
+                evidence_artifact_root(
+                    nested,
+                    "ATTEMPT-1",
+                    ["secrets/token.txt"],
+                    [attempt],
+                )
+
+    def test_attempt_forbidden_artifact_is_never_read_from_fallback_root(self) -> None:
+        with tempfile.TemporaryDirectory() as root_name:
+            root = Path(root_name)
+            nested = root / "workspaces" / "dogfood"
+            secret = nested / "secrets" / "token.txt"
+            secret.parent.mkdir(parents=True)
+            secret.write_text("do not read", encoding="utf-8")
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                workspace_path=str(root),
+                allowed_paths=["secrets"],
+                forbidden_paths=["secrets"],
             )
 
-            self.assertEqual(selected, nested.resolve())
+            with patch.object(Path, "read_bytes", side_effect=AssertionError("file was read")):
+                hashes = evidence_artifact_hashes(
+                    nested,
+                    "ATTEMPT-1",
+                    ["secrets/token.txt"],
+                    [attempt],
+                )
+
+            self.assertEqual(
+                hashes,
+                [
+                    {
+                        "path": "secrets/token.txt",
+                        "sha256": "sha256:unsafe",
+                        "status": "unsafe",
+                    }
+                ],
+            )
 
 
 class FileChangeObservationTests(unittest.TestCase):

@@ -363,6 +363,65 @@ class GovernanceCompletionTests(unittest.TestCase):
         self.assertEqual(verified["unhashed_receipt_outputs"], [])
         self.assertEqual(verified["declared_artifact_hashes"][0]["status"], "present")
 
+    def test_new_output_binding_rejects_vacuous_empty_manifest(self) -> None:
+        with self.temp_workspace() as workspace_file:
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "receipt",
+                "record",
+                "RECEIPT-EMPTY",
+                "--work-item-id",
+                "WORK-0003",
+                "--attempt-id",
+                "ATTEMPT-0002",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=verified no declared output",
+                "--list",
+                "outputs_created=",
+                "--json",
+            )
+            self.run_json(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "record",
+                "EVIDENCE-EMPTY",
+                "--work-item-id",
+                "WORK-0003",
+                "--attempt-id",
+                "ATTEMPT-0002",
+                "--head-sha",
+                "def5678",
+                "--status",
+                "passed",
+                "--summary",
+                "empty output proof must fail",
+                "--list",
+                "commands=python3 -m unittest tests.test_governance_completion",
+                "--list",
+                "artifacts=",
+                "--json",
+            )
+            result = self.run_cli(
+                "--workspace",
+                str(workspace_file),
+                "evidence",
+                "verify",
+                "EVIDENCE-EMPTY",
+                "--json",
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(payload["ok"])
+        self.assertFalse(payload["output_coverage_ok"])
+        self.assertTrue(payload["output_coverage_required"])
+        self.assertEqual(payload["declared_receipt_outputs"], [])
+
     def test_work_accept_records_human_decision_and_acceptance_record(self) -> None:
         with self.temp_workspace() as workspace_file:
             workspace_dir = workspace_file.parent

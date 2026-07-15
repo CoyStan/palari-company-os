@@ -331,6 +331,27 @@ def temp_workspace() -> Any:
 
 
 def record_bound_work_0001(workspace_file: Path) -> None:
+    raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+    attempt = next(item for item in raw["attempts"] if item["id"] == "ATTEMPT-0001")
+    attempt["workspace_path"] = str(workspace_file.parent)
+    attempt["allowed_paths"] = [
+        "examples/acme-company-os/workspace.json",
+        "docs/product/company-os.md",
+    ]
+    attempt["output_targets"] = ["docs/product/company-os.md"]
+    raw["review_verdicts"] = [
+        item for item in raw["review_verdicts"] if item["work_item_id"] != "WORK-0001"
+    ]
+    raw["human_decisions"] = [
+        item for item in raw["human_decisions"] if item["work_item_id"] != "WORK-0001"
+    ]
+    raw["acceptance_records"] = [
+        item for item in raw["acceptance_records"] if item["work_item_id"] != "WORK-0001"
+    ]
+    workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+    artifact = workspace_file.parent / "docs" / "product" / "company-os.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("mission-control proof\n", encoding="utf-8")
     create_record(
         workspace_file,
         "receipt",
@@ -341,7 +362,7 @@ def record_bound_work_0001(workspace_file: Path) -> None:
             "actor": "PALARI-SOFIA",
             "sources_used": [],
             "actions_taken": ["prepared exact proof for the mission-control test"],
-            "outputs_created": [],
+            "outputs_created": ["docs/product/company-os.md"],
             "external_writes": [],
             "not_done": ["No external writes performed"],
             "undo_refs": [],
@@ -358,7 +379,7 @@ def record_bound_work_0001(workspace_file: Path) -> None:
             "status": "passed",
             "base_ref": "main",
             "commands": ["python3 -m unittest tests.test_mission_control"],
-            "artifacts": [],
+            "artifacts": ["docs/product/company-os.md"],
             "summary": "Mission-control acceptance fixture proof passed.",
             "freshness": "fresh",
         },

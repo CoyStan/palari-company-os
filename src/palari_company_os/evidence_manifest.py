@@ -14,11 +14,22 @@ HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
 
 
-def stamp_evidence_record(record: dict[str, Any], workspace_path: Path) -> dict[str, Any]:
+def stamp_evidence_record(
+    record: dict[str, Any],
+    workspace_path: Path,
+    *,
+    attempts: list[Any] | None = None,
+) -> dict[str, Any]:
     stamped = dict(record)
     if not stamped.get("output_binding_version"):
         stamped["output_binding_version"] = OUTPUT_BINDING_VERSION
-    artifact_hashes = _artifact_hashes(workspace_path, _strings(stamped.get("artifacts", [])))
+    artifacts = _strings(stamped.get("artifacts", []))
+    artifact_hashes = evidence_artifact_hashes(
+        workspace_path,
+        str(stamped.get("attempt_id") or ""),
+        artifacts,
+        attempts or [],
+    )
     stamped.setdefault("artifact_hashes", artifact_hashes)
     stamped["manifest_hash"] = evidence_manifest_hash(stamped)
     return stamped
@@ -92,13 +103,12 @@ def verify_evidence(
         "freshness": evidence.freshness,
         "timestamp": evidence.timestamp,
     }
-    artifact_root = evidence_artifact_root(
+    recomputed_artifacts = evidence_artifact_hashes(
         workspace.path,
         evidence.attempt_id,
         evidence.artifacts,
         getattr(workspace, "attempts", []),
     )
-    recomputed_artifacts = _artifact_hashes(artifact_root, evidence.artifacts)
     recomputed_record = dict(record)
     recomputed_record["artifact_hashes"] = recomputed_artifacts
     recomputed_manifest = evidence_manifest_hash(recomputed_record)
@@ -117,7 +127,12 @@ def verify_evidence(
         }
     )
     unhashed_outputs = sorted(set(declared_outputs) - set(evidence.artifacts))
-    output_coverage_ok = bool(matching_receipts) and not unhashed_outputs
+    output_coverage_ok = (
+        bool(matching_receipts)
+        and bool(declared_outputs)
+        and bool(evidence.artifacts)
+        and not unhashed_outputs
+    )
     output_binding_version = str(getattr(evidence, "output_binding_version", "") or "")
     output_binding_version_ok = output_binding_version in {"", OUTPUT_BINDING_VERSION}
     coverage_required = (
@@ -259,24 +274,44 @@ def evidence_artifact_root(
     root_value = str(_field(attempt, "workspace_path") or "")
     allowed_paths = _string_list(_field(attempt, "allowed_paths"))
     forbidden_paths = _string_list(_field(attempt, "forbidden_paths"))
+    if not allowed_paths and not forbidden_paths:
+        return fallback
     if not root_value or not allowed_paths:
-        return fallback
+        raise ValueError("attempt artifact boundary requires workspace_path and allowed_paths")
     if any(not path_allowed(artifact, allowed_paths) for artifact in artifacts):
-        return fallback
+        raise ValueError("evidence artifact is outside attempt allowed_paths")
     if any(path_allowed(artifact, forbidden_paths) for artifact in artifacts):
-        return fallback
+        raise ValueError("evidence artifact is inside attempt forbidden_paths")
 
     candidate = Path(root_value).expanduser()
     if not candidate.is_absolute():
-        return fallback
+        raise ValueError("attempt workspace_path must be absolute for parent-root artifacts")
     try:
         candidate = candidate.resolve(strict=True)
         if not candidate.is_dir():
-            return fallback
+            raise ValueError("attempt workspace_path is not a directory")
         fallback.relative_to(candidate)
-    except (OSError, RuntimeError, ValueError):
-        return fallback
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("attempt workspace_path cannot be resolved safely") from exc
+    except ValueError as exc:
+        raise ValueError("workspace is not contained by attempt workspace_path") from exc
     return candidate
+
+
+def evidence_artifact_hashes(
+    workspace_path: Path,
+    attempt_id: str,
+    artifacts: list[str],
+    attempts: list[Any],
+) -> list[dict[str, str]]:
+    try:
+        root = evidence_artifact_root(workspace_path, attempt_id, artifacts, attempts)
+    except ValueError:
+        return [
+            {"path": artifact, "sha256": f"{HASH_PREFIX}unsafe", "status": "unsafe"}
+            for artifact in sorted(artifacts)
+        ]
+    return _artifact_hashes(root, artifacts)
 
 
 def _artifact_hashes(workspace_path: Path, artifacts: list[str]) -> list[dict[str, str]]:

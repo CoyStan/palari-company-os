@@ -236,8 +236,9 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: three `./scripts/verify.sh` runs,
     `./scripts/install_smoke.sh`, schema/fixture/CLI/security/docs/conformance
     checks, and final exact-head review report.
-  - Current status: in progress after exact-head review rejected incomplete
-    dogfood artifact coverage; founder authority remains pending.
+  - Current status: in progress after a second repair review rejected vacuous
+    empty coverage and attempt-boundary fallback; founder authority remains
+    pending.
   - Exact committed evidence when completed: final verified code head
     `50594e93fe4412791d99cace97937c1f5fe704c3`; 616 tests, style, 18/18
     conformance vectors, schemas/fixtures, CLI, security, docs/examples,
@@ -273,6 +274,13 @@ the required Palari human review or human decision.
    verify` passed the empty lists vacuously. The evidence was marked failed and
    repair attempt `ATTEMPT-REPO-0024-R2` opened; completion remains pending a
    bounded-root artifact fix, exact-head verification, and fresh review.
+6. `7f84a8565cd2d6c811f32a894041cf0c4a5aecb7`: REJECT. The first
+   output-coverage repair made failed evidence exit nonzero and versioned the
+   legacy boundary, but new v1 evidence could still pass with both receipt
+   outputs and artifacts empty. An explicit attempt boundary violation also
+   fell back to a usable nested workspace root. The next repair must require a
+   non-empty v1 output manifest and mark invalid-root, unallowed, or forbidden
+   artifacts unsafe without reading them.
 
 ## Security Non-Claims
 
