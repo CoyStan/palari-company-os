@@ -532,6 +532,17 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         assert completed is not None
         self.assertEqual(completed.status, "completed")
 
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        with journal.open("a", encoding="utf-8") as stream:
+            stream.write("{}\n")
+        with self.assertRaisesRegex(WorkspaceError, "valid journal continuity"):
+            agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                work_id,
+                "PALARI-STEWARD",
+            )
+
     def test_crash_before_workspace_replace_aborts_prepare_and_retries(self) -> None:
         self._crash_reconciliation("before_apply")
         workspace = Ws.load(self.temp_dir)
@@ -596,7 +607,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "blocked")
-        self.assertEqual(result["blockers"][0]["code"], "RESUME_AUTHORITY_INVALID")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
 
     def test_completed_proof_resume_rejects_stale_claim_packet(self) -> None:
         self._crash_reconciliation("after_apply")
@@ -613,25 +624,13 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "blocked")
-        self.assertEqual(result["blockers"][0]["code"], "RESUME_AUTHORITY_INVALID")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
 
     def test_completed_proof_resume_rejects_dirty_allowed_path(self) -> None:
         self._crash_reconciliation("after_apply")
         (self.temp_dir / "README.md").write_text("dirty after proof\n", encoding="utf-8")
-
-        result = agent_advance(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-        )
-
-        self.assertEqual(result["status"], "blocked")
-        self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
-
-    def test_completed_proof_resume_rejects_dirty_unapproved_path(self) -> None:
-        self._crash_reconciliation("after_apply")
-        (self.temp_dir / "unapproved.txt").write_text("dirty after proof\n", encoding="utf-8")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
 
         result = agent_advance(
             Ws.load(self.temp_dir),
@@ -642,12 +641,49 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
+        self.assertEqual(before_journal, journal.read_bytes())
+
+    def test_completed_proof_resume_rejects_dirty_unapproved_path(self) -> None:
+        self._crash_reconciliation("after_apply")
+        (self.temp_dir / "unapproved.txt").write_text("dirty after proof\n", encoding="utf-8")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
+        self.assertEqual(before_journal, journal.read_bytes())
+
+    def test_pending_prepare_rejects_dirty_scope_without_journal_mutation(self) -> None:
+        self._crash_reconciliation("before_apply")
+        (self.temp_dir / "unapproved.txt").write_text("dirty during prepare\n", encoding="utf-8")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
+        self.assertEqual(before_journal, journal.read_bytes())
 
     def test_completed_proof_resume_rejects_new_protected_dirt(self) -> None:
         self._crash_reconciliation("after_apply")
         protected = self.temp_dir / "docs" / "company"
         protected.mkdir(parents=True)
         (protected / "private.md").write_text("must remain outside scope\n", encoding="utf-8")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
 
         result = agent_advance(
             Ws.load(self.temp_dir),
@@ -658,6 +694,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"][0]["code"], "RESUME_PREFLIGHT_FAILED")
+        self.assertEqual(before_journal, journal.read_bytes())
 
     def test_atomic_reconciliation_rejects_missing_artifact_before_mutation(self) -> None:
         head = subprocess.run(

@@ -699,29 +699,18 @@ def _completed_projection(
             "ACTOR_NOT_ASSIGNED",
             "The acting Palari is not assigned to this work item.",
         )
-    if work.status in _TERMINAL:
-        return {
-            "schema_version": SCHEMA_VERSION,
-            "status": "completed",
-            "work_item": work_id,
-            "workspace": workspace.name,
-            "can_advance": True,
-            "would_mutate": False,
-            "expected_state": "completed",
-            "message": f"Work item {work_id} is already completed.",
-            "steps": [{"step": "resume", "status": "already-completed"}],
-        }
-
     journal = verify_workspace_journal(workspace_path)
     journal_status = str(journal.get("status") or "")
     if journal_status == "pending-commit":
-        recovery_authority = _resume_claim_packet(workspace_path, work, palari_id)
-        if not recovery_authority["ok"]:
+        recovery_preflight = _resume_preflight(
+            workspace, workspace_path, work, palari_id
+        )
+        if not recovery_preflight["ok"]:
             return _resume_blocked(
                 workspace,
                 work_id,
-                "RESUME_AUTHORITY_INVALID",
-                str(recovery_authority["message"]),
+                "RESUME_PREFLIGHT_FAILED",
+                str(recovery_preflight["message"]),
             )
         recovered = recover_workspace_journal(
             workspace_path,
@@ -736,13 +725,15 @@ def _completed_projection(
             )
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
-        recovery_authority = _resume_claim_packet(workspace_path, work, palari_id)
-        if not recovery_authority["ok"]:
+        recovery_preflight = _resume_preflight(
+            workspace, workspace_path, work, palari_id
+        )
+        if not recovery_preflight["ok"]:
             return _resume_blocked(
                 workspace,
                 work_id,
-                "RESUME_AUTHORITY_INVALID",
-                str(recovery_authority["message"]),
+                "RESUME_PREFLIGHT_FAILED",
+                str(recovery_preflight["message"]),
             )
         recovered = recover_workspace_journal(
             workspace_path,
@@ -771,6 +762,18 @@ def _completed_projection(
             "ACTOR_NOT_ASSIGNED",
             "The acting Palari is not assigned to this work item.",
         )
+    if work.status in _TERMINAL:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "status": "completed",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_advance": True,
+            "would_mutate": False,
+            "expected_state": "completed",
+            "message": f"Work item {work_id} is already completed.",
+            "steps": [{"step": "resume", "status": "already-completed"}],
+        }
     if not work.current_attempt:
         return None
     attempt = next(
