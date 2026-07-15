@@ -435,19 +435,19 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertTrue(result["can_advance"])
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
 
-    def test_unsafe_receipt_summary_fails_before_verification(self) -> None:
+    def test_custom_receipt_summary_fails_before_verification(self) -> None:
         before = (self.temp_dir / "workspace.json").read_bytes()
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
             side_effect=AssertionError("unsafe summary executed verification"),
         ):
-            with self.assertRaisesRegex(WorkspaceError, "cannot perform"):
+            with self.assertRaisesRegex(WorkspaceError, "deterministic receipt actions"):
                 agent_advance(
                     Ws.load(self.temp_dir),
                     self.temp_dir,
                     self.work_id,
                     "PALARI-STEWARD",
-                    summary="Performed an external deployment.",
+                    summary="Changed the bounded README artifact.",
                 )
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
 
@@ -636,6 +636,70 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             result["blockers"][0]["code"], "RECOVERY_VERIFICATION_FAILED"
         )
         self.assertEqual(runner.call_count, 1)
+        self.assertEqual(before_journal, journal.read_bytes())
+
+    def test_pending_recovery_rechecks_scope_after_fresh_verification(self) -> None:
+        self._crash_reconciliation("after_apply")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
+        calls = 0
+
+        def dirty_then_pass(_workspace, _root, profile, context, **_kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                (self.temp_dir / "unapproved-after-verification.txt").write_text(
+                    "unexpected mutation\n", encoding="utf-8"
+                )
+            return self._passing_attestation(
+                _workspace, _root, profile, context, **_kwargs
+            )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=dirty_then_pass,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RECOVERY_STATE_CHANGED")
+        self.assertEqual(before_journal, journal.read_bytes())
+
+    def test_pending_prepare_rechecks_scope_after_fresh_verification(self) -> None:
+        self._crash_reconciliation("before_apply")
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        before_journal = journal.read_bytes()
+        calls = 0
+
+        def dirty_then_pass(_workspace, _root, profile, context, **_kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                (self.temp_dir / "unapproved-after-verification.txt").write_text(
+                    "unexpected mutation\n", encoding="utf-8"
+                )
+            return self._passing_attestation(
+                _workspace, _root, profile, context, **_kwargs
+            )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=dirty_then_pass,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "RECOVERY_STATE_CHANGED")
         self.assertEqual(before_journal, journal.read_bytes())
 
     def test_completed_proof_resume_rejects_wrong_actor_before_recovery(self) -> None:
@@ -976,7 +1040,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "actor": "PALARI-STEWARD",
                     "sources_used": ["SOURCE-REPO-FOUNDATION"],
                     "actions_taken": [
-                        "Tested an atomic proof projection.",
+                        "Changed 1 bounded committed artifact(s).",
                         "Ran exact-state Palari verification profiles.",
                     ],
                     "outputs_created": ["README.md"],

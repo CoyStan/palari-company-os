@@ -409,7 +409,7 @@ def _add_agent_parser(subparsers: Any) -> None:
     advance.add_argument(
         "--summary",
         default="",
-        help="Optional factual receipt summary; defaults to a deterministic Git summary.",
+        help="Reserved for compatibility; governed receipts use deterministic actions.",
     )
     advance.add_argument(
         "--refresh-verification",

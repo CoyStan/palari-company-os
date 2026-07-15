@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,11 +28,6 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_advance.v1"
 _TERMINAL = {"completed", "closed", "done"}
-_UNSAFE_RECEIPT_ACTION = re.compile(
-    r"\b(?:accept(?:ed|ance)?|approv(?:al|ed)|deploy(?:ed|ment)?|external\s+write|"
-    r"human\s+(?:decision|review)|merge(?:d)?|push(?:ed)?)\b",
-    re.IGNORECASE,
-)
 
 
 def agent_advance_dry_run(
@@ -361,10 +355,10 @@ def agent_advance(
     resumed = _completed_projection(workspace, workspace_path, work_id, palari_id)
     if resumed is not None:
         return resumed
-    if summary.strip() and not _receipt_action_is_safe(summary):
+    if summary.strip():
         raise WorkspaceError(
-            "agent advance summary claims an authority or external action that this command "
-            "cannot perform; describe only the bounded local artifact change or omit --summary"
+            "agent advance persists deterministic receipt actions only; omit --summary and "
+            "record non-authoritative commentary outside governance proof"
         )
     facts, profiles, context, preflight = _collect_facts(
         workspace, workspace_path, work_id, palari_id
@@ -643,7 +637,7 @@ def _reconcile_proof(
         raise WorkspaceError("no non-governance output artifact remains to bind as evidence")
     receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     evidence_id = _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
-    action = summary.strip() or f"Changed {len(artifacts)} bounded committed artifact(s)."
+    action = f"Changed {len(artifacts)} bounded committed artifact(s)."
     commands = [
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification
@@ -750,6 +744,25 @@ def _completed_projection(
                 "RECOVERY_VERIFICATION_FAILED",
                 str(recovery_verification["message"]),
             )
+        rechecked = _recheck_recovery_state(
+            workspace_path,
+            work_id,
+            palari_id,
+            "pending-commit",
+            pending,
+            recovery_preflight,
+        )
+        if not rechecked["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_STATE_CHANGED",
+                str(rechecked["message"]),
+            )
+        workspace = rechecked["workspace"]
+        work = rechecked["work"]
+        pending = rechecked["pending"]
+        recovery_preflight = rechecked["preflight"]
         pending_error = _pending_advance_recovery_error(
             pending,
             work_id,
@@ -809,6 +822,25 @@ def _completed_projection(
                 "RECOVERY_VERIFICATION_FAILED",
                 str(recovery_verification["message"]),
             )
+        rechecked = _recheck_recovery_state(
+            workspace_path,
+            work_id,
+            palari_id,
+            "pending-prepare",
+            pending,
+            recovery_preflight,
+        )
+        if not rechecked["ok"]:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "RECOVERY_STATE_CHANGED",
+                str(rechecked["message"]),
+            )
+        workspace = rechecked["workspace"]
+        work = rechecked["work"]
+        pending = rechecked["pending"]
+        recovery_preflight = rechecked["preflight"]
         pending_error = _pending_advance_recovery_error(
             pending,
             work_id,
@@ -1172,6 +1204,7 @@ def _pending_advance_recovery_error(
     expected_not_done = [
         "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
     ]
+    expected_action = f"Changed {len(artifacts)} bounded committed artifact(s)."
     commands = evidence.get("commands")
     expected_previous_receipt_hash = _latest_receipt_hash(before, work_id)
     receipt_action = actions[0] if isinstance(actions, list) and actions else ""
@@ -1209,9 +1242,7 @@ def _pending_advance_recovery_error(
         != expected_previous_receipt_hash
         or not isinstance(actions, list)
         or len(actions) != 2
-        or not isinstance(actions[0], str)
-        or not actions[0].strip()
-        or not _receipt_action_is_safe(actions[0])
+        or actions[0] != expected_action
         or actions[1] != "Ran exact-state Palari verification profiles."
         or metadata.get("reason") != f"receipt-action:{receipt_action}"
         or not_done != expected_not_done
@@ -1276,6 +1307,56 @@ def _run_recovery_verification(
             f"{attestation['cache_key']}"
         )
     return {"ok": True, "commands": commands, "message": ""}
+
+
+def _recheck_recovery_state(
+    workspace_path: Path,
+    work_id: str,
+    palari_id: str,
+    expected_status: str,
+    expected_pending: dict[str, Any] | None,
+    expected_preflight: dict[str, Any],
+) -> dict[str, Any]:
+    from .governance_journal import (
+        pending_workspace_journal_context,
+        verify_workspace_journal,
+    )
+
+    try:
+        workspace = Workspace.load(workspace_path)
+    except WorkspaceError as exc:
+        return {"ok": False, "message": f"Workspace changed during verification: {exc}"}
+    work = workspace.work_item(work_id)
+    if work is None or work.palari != palari_id:
+        return {"ok": False, "message": "Work authority changed during verification."}
+    preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
+    compared_fields = ("git_root", "base_sha", "head_sha", "changed_files")
+    if not preflight.get("ok") or any(
+        preflight.get(field) != expected_preflight.get(field) for field in compared_fields
+    ):
+        return {"ok": False, "message": "Claim, Git, or scope state changed during verification."}
+    report = verify_workspace_journal(workspace_path)
+    pending = pending_workspace_journal_context(workspace_path)
+    expected_prepare = (
+        expected_pending.get("prepare") if isinstance(expected_pending, dict) else None
+    )
+    current_prepare = pending.get("prepare") if isinstance(pending, dict) else None
+    if (
+        report.get("status") != expected_status
+        or not isinstance(expected_prepare, dict)
+        or not isinstance(current_prepare, dict)
+        or current_prepare.get("record_digest") != expected_prepare.get("record_digest")
+        or current_prepare.get("transaction_id") != expected_prepare.get("transaction_id")
+    ):
+        return {"ok": False, "message": "Pending proof transaction changed during verification."}
+    return {
+        "ok": True,
+        "message": "",
+        "workspace": workspace,
+        "work": work,
+        "preflight": preflight,
+        "pending": pending,
+    }
 
 
 def _only_bound_records_changed(
@@ -1350,10 +1431,6 @@ def _verification_commands_bound(
         if command != f"{profile.id} attestation {attestation_id} {key}":
             return False
     return True
-
-
-def _receipt_action_is_safe(action: str) -> bool:
-    return bool(action.strip()) and _UNSAFE_RECEIPT_ACTION.search(action) is None
 
 
 def _recovery_timestamps_ordered(
