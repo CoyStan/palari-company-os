@@ -2083,7 +2083,8 @@
         "local_test",
         "local_commit"
       ],
-      "required_approval_capability": "architecture"
+      "required_approval_capability": "architecture",
+      "current_attempt": "ATTEMPT-REPO-0025"
     }
   ],
   "attempts": [
@@ -3165,6 +3166,54 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/workspace.json"
       ]
+    },
+    {
+      "base_sha": "efc126179621957ecb94f83e13fd621553a5f48f",
+      "head_sha": "efc126179621957ecb94f83e13fd621553a5f48f",
+      "allowed_paths": [
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/checkpoints.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/record_order.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests",
+        "tests/fixtures/public_commands.txt",
+        "docs/product",
+        "docs/agent",
+        "scripts",
+        "spec/pcaw/v1",
+        "README.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/checkpoints.py",
+        "tests/test_approval_packs.py",
+        "tests/test_reversible_checkpoints.py",
+        "docs/product/approval-packs-and-checkpoints-contract.md"
+      ],
+      "id": "ATTEMPT-REPO-0025",
+      "work_item_id": "WORK-REPO-0025",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/approval-packs-checkpoints",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "cleanliness": "dirty",
+      "started_at": "2026-07-15T12:33:26.174917Z"
     }
   ],
   "evidence_runs": [
