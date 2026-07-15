@@ -11,10 +11,13 @@ from .workspace import Workspace, WorkspaceError
 
 
 HASH_PREFIX = "sha256:"
+OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
 
 
 def stamp_evidence_record(record: dict[str, Any], workspace_path: Path) -> dict[str, Any]:
     stamped = dict(record)
+    if not stamped.get("output_binding_version"):
+        stamped["output_binding_version"] = OUTPUT_BINDING_VERSION
     artifact_hashes = _artifact_hashes(workspace_path, _strings(stamped.get("artifacts", [])))
     stamped.setdefault("artifact_hashes", artifact_hashes)
     stamped["manifest_hash"] = evidence_manifest_hash(stamped)
@@ -47,6 +50,8 @@ def evidence_manifest_hash(record: dict[str, Any]) -> str:
         "freshness": record.get("freshness", ""),
         "timestamp": record.get("timestamp", ""),
     }
+    if record.get("output_binding_version"):
+        payload["output_binding_version"] = record["output_binding_version"]
     return _stable_hash(payload)
 
 
@@ -63,7 +68,7 @@ def verify_evidence(
     workspace: Workspace,
     evidence_id: str,
     *,
-    require_output_coverage: bool = True,
+    require_output_coverage: bool | None = None,
 ) -> dict[str, Any]:
     evidence = next((item for item in workspace.evidence_runs if item.id == evidence_id), None)
     if evidence is None:
@@ -80,6 +85,7 @@ def verify_evidence(
         "commands": evidence.commands,
         "artifacts": evidence.artifacts,
         "artifact_hashes": evidence.artifact_hashes,
+        "output_binding_version": getattr(evidence, "output_binding_version", ""),
         "receipt_hash": evidence.receipt_hash,
         "previous_receipt_hash": evidence.previous_receipt_hash,
         "summary": evidence.summary,
@@ -112,10 +118,20 @@ def verify_evidence(
     )
     unhashed_outputs = sorted(set(declared_outputs) - set(evidence.artifacts))
     output_coverage_ok = bool(matching_receipts) and not unhashed_outputs
+    output_binding_version = str(getattr(evidence, "output_binding_version", "") or "")
+    output_binding_version_ok = output_binding_version in {"", OUTPUT_BINDING_VERSION}
+    coverage_required = (
+        output_binding_version == OUTPUT_BINDING_VERSION
+        if require_output_coverage is None
+        else require_output_coverage
+    )
+    status_ok = evidence.status == "passed"
     ok = (
-        artifact_ok
+        status_ok
+        and artifact_ok
         and manifest_ok
-        and (output_coverage_ok or not require_output_coverage)
+        and output_binding_version_ok
+        and (output_coverage_ok or not coverage_required)
         and all(item["ok"] for item in receipt_checks)
     )
     return {
@@ -129,11 +145,19 @@ def verify_evidence(
         "computed_manifest_hash": recomputed_manifest,
         "declared_artifact_hashes": _sorted_artifact_hashes(evidence.artifact_hashes),
         "computed_artifact_hashes": recomputed_artifacts,
+        "status_ok": status_ok,
+        "output_binding_version": output_binding_version,
+        "output_binding_version_ok": output_binding_version_ok,
         "output_coverage_ok": output_coverage_ok,
-        "output_coverage_required": require_output_coverage,
+        "output_coverage_required": coverage_required,
         "declared_receipt_outputs": declared_outputs,
         "unhashed_receipt_outputs": unhashed_outputs,
         "receipt_checks": receipt_checks,
+        "limitations": (
+            []
+            if coverage_required
+            else ["legacy evidence does not claim complete receipt-output coverage"]
+        ),
     }
 
 

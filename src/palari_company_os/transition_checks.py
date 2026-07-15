@@ -283,7 +283,9 @@ def _check_review_record(
             )
         )
     if verdict == "accept-ready":
-        binding, proof_errors = current_review_binding(workspace, work_id)
+        binding, proof_errors = current_review_binding(
+            workspace, work_id, require_output_coverage=True
+        )
         if proof_errors:
             blockers.append(
                 TransitionBlocker(
@@ -433,7 +435,9 @@ def _check_acceptance_prerequisites(
     elif evidence is not None and review.reviewed_head != evidence.head_sha:
         blockers.append(TransitionBlocker("REVIEW_STALE", f"work {work_id} review is stale"))
     elif review is not None:
-        binding_errors = current_review_binding_errors(workspace, review)
+        binding_errors = current_review_binding_errors(
+            workspace, review, require_output_coverage=True
+        )
         if binding_errors:
             blockers.append(
                 TransitionBlocker(
@@ -533,7 +537,9 @@ def _check_work_complete(
         if review is None:
             blockers.append(TransitionBlocker("REVIEW_MISSING", "current review is missing"))
         else:
-            binding_errors = current_review_binding_errors(workspace, review)
+            binding_errors = current_review_binding_errors(
+                workspace, review, require_output_coverage=True
+            )
             if binding_errors:
                 blockers.append(
                     TransitionBlocker(

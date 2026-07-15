@@ -388,7 +388,9 @@ def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
             return "exact review binding is missing"
         from .governance_binding import current_review_binding_errors
 
-        binding_errors = current_review_binding_errors(workspace, review)
+        binding_errors = current_review_binding_errors(
+            workspace, review, require_output_coverage=True
+        )
         if binding_errors:
             return binding_errors[0]
     evidence = latest_for_work(workspace.evidence_runs, work_id)
@@ -396,7 +398,7 @@ def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
         return ""
     from .evidence_manifest import verify_evidence
 
-    verification = verify_evidence(workspace, evidence.id)
+    verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
     if verification["ok"]:
         return ""
     return "evidence manifest verification failed"
@@ -683,14 +685,16 @@ def _assert_acceptance_allowed(
     if evidence.manifest_hash:
         from .evidence_manifest import verify_evidence
 
-        verification = verify_evidence(workspace, evidence.id)
+        verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
         if not verification["ok"]:
             raise WorkspaceError(
                 f"work {work_id} evidence manifest verification failed; cannot accept"
             )
     from .governance_binding import current_review_binding_errors
 
-    binding_errors = current_review_binding_errors(workspace, review)
+    binding_errors = current_review_binding_errors(
+        workspace, review, require_output_coverage=True
+    )
     if binding_errors:
         raise WorkspaceError(
             f"work {work_id} exact review proof is stale: {binding_errors[0]}; cannot accept"
@@ -743,7 +747,9 @@ def _prepare_record_for_create(
             from .governance_binding import current_review_binding, review_proof_hash
 
             binding, errors = current_review_binding(
-                workspace, str(stamped.get("work_item_id") or "")
+                workspace,
+                str(stamped.get("work_item_id") or ""),
+                require_output_coverage=True,
             )
             if errors:
                 raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
@@ -799,7 +805,11 @@ def _prepare_record_for_update(
         workspace = validate_data(store.data_path, store.data)
         from .governance_binding import current_review_binding, review_proof_hash
 
-        binding, errors = current_review_binding(workspace, str(record.get("work_item_id") or ""))
+        binding, errors = current_review_binding(
+            workspace,
+            str(record.get("work_item_id") or ""),
+            require_output_coverage=True,
+        )
         if errors:
             raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
         record.update(binding)

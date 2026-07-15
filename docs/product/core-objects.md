@@ -106,8 +106,12 @@ forbidden paths, claim lease metadata, and cleanliness.
 
 Proof attached to a work item and attempt. Evidence records commands, status,
 head SHA, artifacts, artifact hashes, manifest hash, exact receipt hash,
-summary, and timestamp. The manifest covers the receipt hash as well as the
-artifact and verification fields, so changing either side invalidates proof.
+summary, and timestamp. New records carry `output_binding_version` so every
+receipt output must have a present artifact digest. The manifest covers the
+receipt hash, output-binding version, artifacts, and verification fields, so
+changing either side invalidates proof. Pre-PCAW records without that version
+remain readable but cannot support a new strict review or acceptance until
+their evidence is refreshed.
 
 ## Review Verdict
 

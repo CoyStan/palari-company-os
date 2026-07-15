@@ -687,6 +687,7 @@ class EvidenceRun:
     commands: list[str] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     artifact_hashes: list[Record] = field(default_factory=list)
+    output_binding_version: str = ""
     manifest_hash: str = ""
     receipt_hash: str = ""
     previous_receipt_hash: str = ""
@@ -706,6 +707,7 @@ class EvidenceRun:
             commands=_strings(record, "commands"),
             artifacts=_strings(record, "artifacts"),
             artifact_hashes=_records(record, "artifact_hashes"),
+            output_binding_version=_string(record, "output_binding_version"),
             manifest_hash=_string(record, "manifest_hash"),
             receipt_hash=_string(record, "receipt_hash"),
             previous_receipt_hash=_string(record, "previous_receipt_hash"),

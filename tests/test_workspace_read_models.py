@@ -838,6 +838,9 @@ class CliTests(unittest.TestCase):
                 "docs/product/company-os.md",
                 "--allow-missing-evidence",
             )
+            artifact = workspace / "docs" / "product" / "company-os.md"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("bounded onboarding note\n", encoding="utf-8")
             self.run_cli_in_workspace(
                 workspace,
                 "receipt",
@@ -877,6 +880,8 @@ class CliTests(unittest.TestCase):
                 "The full unit suite passed for the closed attempt.",
                 "--list",
                 "commands=python3 -m unittest discover -s tests",
+                "--list",
+                "artifacts=docs/product/company-os.md",
             )
             self.run_cli_in_workspace(
                 workspace,

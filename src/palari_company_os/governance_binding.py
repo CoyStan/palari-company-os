@@ -18,7 +18,7 @@ def current_review_binding(
     workspace: Any,
     work_id: str,
     *,
-    require_output_coverage: bool = True,
+    require_output_coverage: bool | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """Return the exact current proof binding and fail-closed eligibility errors."""
     work = workspace.work_item(work_id)
@@ -124,7 +124,7 @@ def current_review_binding_errors(
     workspace: Any,
     review: Any,
     *,
-    require_output_coverage: bool = True,
+    require_output_coverage: bool | None = None,
 ) -> list[str]:
     """Require a structurally sound review to match the current proof and contract."""
     errors = review_binding_integrity_errors(workspace, review)
@@ -256,7 +256,7 @@ def _evidence_errors(
     evidence: Any,
     receipt: Any | None,
     *,
-    require_output_coverage: bool,
+    require_output_coverage: bool | None,
 ) -> list[str]:
     errors: list[str] = []
     if evidence.status != "passed":

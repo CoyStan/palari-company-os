@@ -39,9 +39,10 @@ class TransitionCheckTests(unittest.TestCase):
             context={"reviewed_head": "abc1234"},
         )
 
-        self.assertTrue(ready.ok)
+        self.assertFalse(ready.ok)
         self.assertEqual(ready.to_dict()["schema_version"], "palari.transition_check.v1")
-        self.assertEqual(ready.blockers, [])
+        self.assertEqual(ready.blockers[0].code, "REVIEW_PROOF_STALE")
+        self.assertIn("manifest verification failed", ready.blockers[0].message)
         self.assertFalse(unqualified.ok)
         self.assertEqual(unqualified.blockers[0].code, "HUMAN_LACKS_CAPABILITY")
 

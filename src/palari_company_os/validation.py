@@ -290,6 +290,7 @@ ALLOWED_RECORD_FIELDS = {
         "commands",
         "artifacts",
         "artifact_hashes",
+        "output_binding_version",
         "manifest_hash",
         "receipt_hash",
         "previous_receipt_hash",

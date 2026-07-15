@@ -341,7 +341,7 @@ def record_bound_work_0001(workspace_file: Path) -> None:
             "actor": "PALARI-SOFIA",
             "sources_used": [],
             "actions_taken": ["prepared exact proof for the mission-control test"],
-            "outputs_created": ["examples/acme-company-os/workspace.json"],
+            "outputs_created": [],
             "external_writes": [],
             "not_done": ["No external writes performed"],
             "undo_refs": [],

@@ -413,7 +413,7 @@ def _evidence_observation(
     if evidence is None:
         return IntegrityObservation("not-checked", ("current attempt has no evidence",))
     try:
-        result = verify_evidence(workspace, evidence.id)
+        result = verify_evidence(workspace, evidence.id, require_output_coverage=True)
     except (OSError, ValueError, WorkspaceError) as exc:
         return IntegrityObservation("failed", (str(exc),))
     if result.get("ok"):
@@ -473,7 +473,9 @@ def _review_binding_current(
     try:
         from .governance_binding import current_review_binding_errors
 
-        return not current_review_binding_errors(workspace, review)
+        return not current_review_binding_errors(
+            workspace, review, require_output_coverage=True
+        )
     except (OSError, ValueError, WorkspaceError):
         return False
 

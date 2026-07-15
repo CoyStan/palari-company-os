@@ -573,6 +573,7 @@
             }
           }
         },
+        "output_binding_version": { "type": "string" },
         "manifest_hash": { "type": "string" },
         "receipt_hash": { "type": "string" },
         "previous_receipt_hash": { "type": "string" },

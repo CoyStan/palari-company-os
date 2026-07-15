@@ -282,6 +282,10 @@ class GovernanceCompletionTests(unittest.TestCase):
         self.assertFalse(tampered["artifact_hashes_ok"])
         self.assertFalse(cleared["ok"])
         self.assertEqual(cleared_result.returncode, 1)
+        self.assertEqual(
+            cleared["output_binding_version"], "palari.evidence_outputs.v1"
+        )
+        self.assertTrue(cleared["output_coverage_required"])
         self.assertFalse(cleared["output_coverage_ok"])
         self.assertEqual(
             cleared["unhashed_receipt_outputs"],

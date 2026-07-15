@@ -261,6 +261,9 @@ workspace file is nested below an attempt's recorded workspace root, artifacts
 resolve from that root only if the workspace is canonically contained there and
 every artifact stays inside the attempt's explicit allowed paths; otherwise
 resolution remains workspace-local and fails closed.
+Pre-PCAW evidence without `output_binding_version` remains readable and reports
+the legacy limitation, but every refreshed evidence record and every new
+review or acceptance requires `palari.evidence_outputs.v1` coverage.
 
 `work accept` is the explicit human acceptance gate. It requires fresh passing
 evidence, fresh accept-ready review, qualified human authority, no open linked

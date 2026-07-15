@@ -70,6 +70,8 @@ Validation checks:
 - basic field types
 - supported lifecycle values for statuses, risk, intensity, evidence status,
   review verdicts, human decision values, and outcome status
+- optional evidence `output_binding_version`; newly authored evidence uses
+  `palari.evidence_outputs.v1` to bind every receipt output to an artifact digest
 - unique ids per collection
 - work item goal and Palari references
 - work item workbench, parent work item, and dependency references
