@@ -20,7 +20,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 
 ## Required Outcomes
 
-- [ ] One deterministic governance kernel
+- [x] One deterministic governance kernel
   - Required outcome: workspace validation, lifecycle gates, proof export, and
     proof verification normalize into one pure governance case and derive the
     same bounded lifecycle state without wall-clock, locale, path, provider, or
@@ -32,10 +32,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3 -m unittest
     tests.test_governance_kernel tests.test_governance_explorer` and the
     complete repository gate.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: implementation and fixed-point
+    explorer in `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact-proof and
+    state-claim corrections in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`;
+    final verified code head `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Deterministic PCAW v1 statement export
+- [x] Deterministic PCAW v1 statement export
   - Required outcome: `palari proof export WORK-ID --output FILE --json`
     exports blocked, incomplete, and accepted work as an in-toto Statement v1
     whose subjects bind the exact normalized work state and declared output
@@ -46,10 +49,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3 -m unittest
     tests.test_pcaw_protocol` plus valid conformance vectors under
     `spec/pcaw/v1/vectors/valid/`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: exporter, path/time-zone/locale
+    determinism tests, and valid vectors in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`; stale stored-binding and
+    claimed-state repairs in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`.
 
-- [ ] Strict offline PCAW v1 verification
+- [x] Strict offline PCAW v1 verification
   - Required outcome: `palari proof verify FILE [--subject-root DIR]
     [--statement-only] --json` derives lifecycle state independently, verifies
     subjects by default, fails closed on unsafe or contradictory proof, and
@@ -62,10 +68,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3 -m unittest
     tests.test_pcaw_protocol` and
     `./scripts/install_smoke.sh`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: verifier and isolated-wheel smoke
+    in `d23f047ddf47de38a859d399040bcfb7aa9c4169`; structured proof/root
+    failures in `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`; contained subject
+    read failures in final verified code head
+    `50594e93fe4412791d99cace97937c1f5fe704c3`. Final isolated install smoke
+    passed in 13.48 seconds.
 
-- [ ] Strict canonical JSON and protocol schema
+- [x] Strict canonical JSON and protocol schema
   - Required outcome: PCAW inputs and outputs obey the supported I-JSON/RFC
     8785 subset and reject duplicate keys, floats, unsafe integers, invalid
     Unicode, ambiguous timestamps, unsafe paths, unknown fields, and unsupported
@@ -76,10 +87,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3 -m unittest
     tests.test_canonical_json tests.test_pcaw_protocol` and
     `spec/pcaw/v1/statement.schema.json`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: canonicalizer, schema, and
+    positive/negative vectors in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`; all 18 conformance vectors
+    passed at final verified code head
+    `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Exact proof, review, and human-authority verification
+- [x] Exact proof, review, and human-authority verification
   - Required outcome: every verified accepted result proves terminal attempt
     state, current receipt/evidence binding, independent reviewer identity,
     current review proof, qualified human quorum, current acceptance, source
@@ -91,10 +106,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3 -m unittest
     tests.test_governance_kernel tests.test_pcaw_protocol` and the conformance
     corpus.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: one-to-one evidence subjects,
+    qualified acceptance ownership, reviewer independence, human quorum,
+    current exact bindings, and negative tests in
+    `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`, retained at final verified
+    code head `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Safe subject and source boundaries
+- [x] Safe subject and source boundaries
   - Required outcome: artifact verification uses canonical relative paths and
     rejects traversal, absolute paths, sibling-prefix confusion, symlink escape,
     missing/unreadable subjects, changed bytes, duplicate subjects, and
@@ -104,10 +123,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     root or mutating operator files.
   - Verification command or artifact: `python3 -m unittest
     tests.test_pcaw_protocol tests.test_filesystem_security`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: descriptor-pinned traversal,
+    symlink and parent-swap tests in
+    `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; cyclic path handling in
+    `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`; `fstat`/read failure
+    containment in `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Normative specification and portable conformance corpus
+- [x] Normative specification and portable conformance corpus
   - Required outcome: `spec/pcaw/v1/` contains the normative statement and
     predicate specification, schema, valid vectors, invalid vectors, stable
     diagnostic contract, falsifiable guarantees/non-guarantees, DSSE-compatible
@@ -119,10 +142,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `python3
     spec/pcaw/v1/conformance.py -- ./bin/palari proof verify` and
     `python3 -m unittest tests.test_pcaw_protocol`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: normative specification, schema,
+    dependency-free runner, and corpus in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact evidence/subject
+    mismatch vector in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; final corpus is
+    18/18 passing at `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Staged replayable governance journal
+- [x] Staged replayable governance journal
   - Required outcome: legacy `.palari/history.jsonl` remains compatible while a
     separate versioned hash-chained journal begins at an explicit checkpoint;
     prepared events are fsynced before atomic workspace replacement and commit
@@ -135,10 +162,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     tests.test_governance_journal tests.test_store_journal_integration
     tests.test_history` and `palari history
     --verify --json` against temporary workspaces.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: hash-chained journal, centralized
+    store transaction integration, prefix replay, corruption cases, and
+    history checkpoint/verify modes in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
+    gate at `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Crash-safe, idempotent journal recovery
+- [x] Crash-safe, idempotent journal recovery
   - Required outcome: interruption at every prepared/write/replace/commit
     boundary is detectable and either safely retryable or reported with an
     actionable fail-closed diagnosis; repeated recovery never duplicates a
@@ -148,10 +179,13 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     prepared-event recovery state.
   - Verification command or artifact: `python3 -m unittest
     tests.test_governance_journal_crash`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: prepared/apply/commit crash
+    injection and retry/recovery tests in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
+    gate at `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Operator clarity and two-minute offline demonstration
+- [x] Operator clarity and two-minute offline demonstration
   - Required outcome: proof and history commands explain valid, incomplete,
     blocked, stale, altered, statement-only, discontinuous, and unsupported
     states concisely; a network-free demo verifies a valid accepted artifact,
@@ -161,10 +195,14 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     isolated installation.
   - Verification command or artifact: `python3 -m unittest
     tests.test_pcaw_protocol tests.test_history` and `./scripts/pcaw_demo.sh`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: structured diagnostics, CLI
+    rendering, history guidance, and `scripts/pcaw_demo.sh` in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`; operational-path corrections
+    in `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3` and
+    `50594e93fe4412791d99cace97937c1f5fe704c3`.
 
-- [ ] Compatibility, minimality, and trusted-code accounting
+- [x] Compatibility, minimality, and trusted-code accounting
   - Required outcome: existing CLI/schema/examples/adapters remain compatible;
     no runtime dependency, provider call, secret access, signing key, background
     service, autonomous authority, push, merge, or deployment is added; verifier
@@ -176,10 +214,15 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, and trusted
     code report under `spec/pcaw/v1/`.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed.
+  - Exact committed evidence when completed: compatibility snapshots, docs,
+    install smoke, and trusted-code manifest in
+    `d23f047ddf47de38a859d399040bcfb7aa9c4169`; final manifest at
+    `50594e93fe4412791d99cace97937c1f5fe704c3` accounts for 5 files, 2,334
+    source lines, and zero runtime dependencies. Package version remains
+    `0.2.0`.
 
-- [ ] Verification timing, independent exact-head review, and founder packet
+- [x] Verification timing, independent exact-head review, and founder packet
   - Required outcome: the authoritative complete gate remains singular and
     equivalent; three-run median is compared with 77.934 seconds and any
     regression over 10% is corrected or explicitly justified by safety value;
@@ -193,8 +236,34 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: three `./scripts/verify.sh` runs,
     `./scripts/install_smoke.sh`, schema/fixture/CLI/security/docs/conformance
     checks, and final exact-head review report.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed locally; founder authority remains pending.
+  - Exact committed evidence when completed: final verified code head
+    `50594e93fe4412791d99cace97937c1f5fe704c3`; 616 tests, style, 18/18
+    conformance vectors, schemas/fixtures, CLI, security, docs/examples,
+    dogfood, and demo passed. Three exact-head complete-gate samples were
+    51.91, 43.87, and 44.58 seconds (44.58-second median, 42.8% faster than
+    the 77.934-second baseline). Isolated install smoke passed in 13.48
+    seconds. The exact-head review history below ends in ACCEPT; the founder
+    packet is the final implementation report and does not record acceptance.
+
+## Independent Exact-Head Review History
+
+These are independent agent review recommendations. They do not substitute for
+the required Palari human review or human decision.
+
+1. `d23f047ddf47de38a859d399040bcfb7aa9c4169`: REJECT. Findings covered
+   evidence/subject contradictions, qualified acceptance ownership,
+   parent-symlink time-of-check/time-of-use exposure, manufactured current
+   bindings/derived claimed state, and unstructured missing-root failure.
+2. `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`: REJECT. Prior findings closed;
+   cyclic proof/subject paths and operational exit classification remained.
+3. `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`: REJECT. Prior findings closed;
+   injected artifact `os.read` failure still escaped the structured verifier.
+4. `50594e93fe4412791d99cace97937c1f5fe704c3`: ACCEPT. The fresh reviewer
+   reproduced structured `SUBJECT_UNREADABLE` handling for injected `os.read`
+   and `os.fstat` failures, reran focused protocol tests, checked all repaired
+   invariants, confirmed the trusted-code manifest, and found no release-blocking
+   issue. The declared same-OS-user identity limitation remains non-blocking.
 
 ## Security Non-Claims
 
