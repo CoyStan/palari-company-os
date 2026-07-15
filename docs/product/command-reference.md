@@ -64,7 +64,10 @@ command string.
 current committed journal projection. JSON retains one subject, output,
 receipt, evidence, and review binding per member while grouping the operator
 summary and approval interaction. `--select` narrows the pack without changing
-work. Parked, blocked, stale, and non-batchable items remain unexecuted.
+work. Each JSON pack has an `approval_commands` entry containing its exact
+digest and every required `--pack-member`; copying that command cannot silently
+expand a narrowed selection. Parked, blocked, stale, and non-batchable items
+remain unexecuted.
 
 ## Detail
 
@@ -89,6 +92,8 @@ exact pack digest, or a concise reason the pack cannot currently be compiled.
   --pack-digest sha256:... \
   --human-id HUMAN-ID \
   --approve-eligible \
+  --pack-member WORK-1 \
+  --pack-member WORK-2 \
   --reason "Morning review of the exact bundle" \
   --json
 ./bin/palari human-decision pack --pack-digest sha256:... --human-id HUMAN-ID \
@@ -99,8 +104,11 @@ This is a human-only authority surface. One command records item-granular
 decisions over one exact immutable manifest. Local eligible actions execute in
 dependency order inside the same crash-safe journal transaction. Incomplete
 quorum remains parked. Changed subjects, artifacts, reviews, dependencies, or
-pack bindings fail closed. External, access-expanding, financial, legal,
-security, and irreversible actions remain individually gated.
+pack policies fail closed. A non-empty `--pack-member` selection must cover the
+exact reviewed manifest, and unfinished dependencies outside a narrowed pack
+remain visible blockers. Approve, reject, and defer all require each work
+item's declared human approval capability. External, access-expanding,
+financial, legal, security, and irreversible actions remain individually gated.
 
 ## State
 
@@ -749,9 +757,11 @@ the safe result unambiguous.
 `--checkpoints` lists every committed journal projection by content digest.
 `--restore` requires a declared human and reason, then appends a restoration
 transition whose projection exactly matches the selected digest. It never
-rewrites prior history. It reports external effects separately because local
-restoration cannot undo an email, filing, payment, provider write, or other
-irreversible effect.
+rewrites prior history. If a receipt gained an external write or an existing
+outbox item became sent or failed after the target, restoration stops before
+mutation; local state is not rewound into a duplicate-send or ambiguous-retry
+hazard. Record any external compensation separately and create a new governed
+checkpoint instead.
 
 ## Proof-Carrying AI Work
 

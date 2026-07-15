@@ -757,7 +757,7 @@ def validate_workspace_contract(workspace: Any) -> None:
                 ),
             )
     _validate_human_decision_order(workspace.human_decisions)
-    _validate_approval_pack_decision_sets(workspace.human_decisions)
+    _validate_approval_pack_decision_sets(workspace)
 
     _validate_ordered_trust_records(
         "attempts",
@@ -2035,7 +2035,8 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
         )
 
 
-def _validate_approval_pack_decision_sets(decisions: Iterable[HumanDecision]) -> None:
+def _validate_approval_pack_decision_sets(workspace: Any) -> None:
+    decisions = workspace.human_decisions
     grouped: dict[str, list[HumanDecision]] = {}
     for decision in decisions:
         if decision.approval_pack_digest:
@@ -2078,6 +2079,44 @@ def _validate_approval_pack_decision_sets(decisions: Iterable[HumanDecision]) ->
                 raise WorkspaceError(
                     f"human_decisions.{decision.id}.approval_pack_subject_digest is transplanted or stale"
                 )
+            work = workspace.work_item(decision.work_item_id)
+            human = workspace.human(decision.human_id)
+            if work is None or human is None:
+                continue
+            if work.required_approval_capability and (
+                work.required_approval_capability not in human.approval_capabilities
+            ):
+                raise WorkspaceError(
+                    f"human_decisions.{decision.id}.human_id lacks required approval "
+                    f"capability {work.required_approval_capability}"
+                )
+            if decision.approval_pack_action == "approve":
+                attempt = next(
+                    (
+                        item
+                        for item in workspace.attempts
+                        if item.work_item_id == work.id
+                        and item.id == member["proof"]["attempt_id"]
+                    ),
+                    None,
+                )
+                review = next(
+                    (
+                        item
+                        for item in workspace.review_verdicts
+                        if item.work_item_id == work.id
+                        and item.id == member["proof"]["review_reference"]
+                    ),
+                    None,
+                )
+                if attempt is not None and decision.human_id == attempt.actor:
+                    raise WorkspaceError(
+                        f"human_decisions.{decision.id}.human_id collides with the builder"
+                    )
+                if review is not None and decision.human_id == review.reviewer:
+                    raise WorkspaceError(
+                        f"human_decisions.{decision.id}.human_id collides with the reviewer"
+                    )
 
 
 def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:

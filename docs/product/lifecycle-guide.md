@@ -16,9 +16,10 @@ bounded preparation -> parked item proofs -> canonical Approval Pack
 
 The interaction is compressed; each item keeps its own scope, attempt,
 receipt, evidence, review, decision, and journal result. A dependency change
-stales descendants while unrelated current members retain their valid state.
-External or irreversible effects remain parked for their native individual
-gate.
+stales descendants—even when a narrowed pack omits the dependency—while
+unrelated current members retain their valid state. A changed risk or batch
+policy also stales the exact pack. External or irreversible effects remain
+parked for their native individual gate.
 
 ## Create Intent And Actors
 
@@ -104,7 +105,9 @@ stored exact manifest.
 
 The journal also exposes content-addressed state checkpoints. Restoring an
 earlier checkpoint appends a new transition and reason. It reproduces local
-governed state but does not erase history or undo external effects.
+governed state but does not erase history. If an external effect occurred after
+that checkpoint, restoration is blocked before mutation because rewinding an
+outbox or receipt could invite duplicate execution.
 
 `palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
 An offline verifier derives `blocked`, `review-required`,

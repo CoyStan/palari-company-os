@@ -970,6 +970,10 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
 
 def print_approval_inbox(payload: dict[str, Any]) -> None:
     counts = payload["counts"]
+    commands = {
+        item["pack_digest"]: item["approve_eligible"]
+        for item in payload.get("approval_commands", [])
+    }
     print(f"Approval Inbox: {payload['workspace']}")
     print(
         f"{counts['packs']} packs / {counts['items']} items | "
@@ -998,7 +1002,10 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
             )
             for reason in item["reasons"]:
                 print(f"    reason: {reason}")
-        print(f"  approve: {payload['actions']['approve_eligible']}")
+        print(
+            "  approve: "
+            + commands.get(pack["pack_digest"], payload["actions"]["approve_eligible"])
+        )
     print("")
     print("Parked is not approved. Exact evidence remains item-level.")
 

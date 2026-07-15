@@ -20,6 +20,7 @@ from .governance_journal import (
     workspace_digest,
 )
 from .history import append_history_event
+from .path_policy import validate_workspace_path
 from .pcaw_canonical import canonical_json_bytes, canonical_sha256
 from .record_order import record_time_key
 from .store import load_store, validate_data, write_store
@@ -131,6 +132,14 @@ def build_approval_inbox(
             packs,
             individual_items,
         ),
+        "approval_commands": [
+            {
+                "pack_id": pack["pack_id"],
+                "pack_digest": pack["pack_digest"],
+                "approve_eligible": _approval_command(pack),
+            }
+            for pack in packs
+        ],
         "actions": {
             "approve_eligible": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve-eligible --json",
             "approve_selected": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve WORK-ID --json",
@@ -191,6 +200,34 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
         raise WorkspaceError("approval pack has unknown or missing fields")
     if pack["schema_version"] != PACK_SCHEMA_VERSION:
         raise WorkspaceError("approval pack schema version is unsupported")
+    _require_string(pack["pack_id"], "pack_id")
+    _exact_object(
+        pack["base"],
+        {"workspace_digest", "checkpoint_digest", "journal_head_digest"},
+        "base",
+    )
+    for field in ("workspace_digest", "checkpoint_digest", "journal_head_digest"):
+        _require_digest(pack["base"][field], f"base.{field}")
+    _exact_object(
+        pack["cumulative_effect_summary"],
+        {"group", "items", "batchable", "blocked", "external_or_irreversible", "summary"},
+        "cumulative_effect_summary",
+    )
+    _require_string(pack["cumulative_effect_summary"]["group"], "cumulative_effect_summary.group")
+    _require_string(pack["cumulative_effect_summary"]["summary"], "cumulative_effect_summary.summary")
+    for field in ("items", "batchable", "blocked", "external_or_irreversible"):
+        _require_nonnegative_int(
+            pack["cumulative_effect_summary"][field],
+            f"cumulative_effect_summary.{field}",
+        )
+    _exact_object(pack["estimated_resources"], {"cost", "time", "items"}, "estimated_resources")
+    _require_string(pack["estimated_resources"]["cost"], "estimated_resources.cost")
+    _require_string(pack["estimated_resources"]["time"], "estimated_resources.time")
+    _require_nonnegative_int(pack["estimated_resources"]["items"], "estimated_resources.items")
+    _require_string_list(pack["external_effects"], "external_effects", canonical=True)
+    _require_string_list(pack["security_limitations"], "security_limitations")
+    if pack["lifecycle_state"] != "parked":
+        raise WorkspaceError("approval pack lifecycle_state must be parked")
     _require_digest(pack["pack_digest"], "pack_digest")
     unsigned = {key: deepcopy(value) for key, value in pack.items() if key != "pack_digest"}
     if canonical_sha256(unsigned) != pack["pack_digest"]:
@@ -200,14 +237,11 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
         raise WorkspaceError("approval pack must contain at least one member")
     ids: list[str] = []
     for member in members:
-        if not isinstance(member, dict) or "member_digest" not in member:
-            raise WorkspaceError("approval pack member is malformed")
+        _validate_pack_member(member)
         member_id = member.get("id")
         if not isinstance(member_id, str) or not member_id:
             raise WorkspaceError("approval pack member id is required")
         ids.append(member_id)
-        _require_digest(member.get("subject_digest"), f"members.{member_id}.subject_digest")
-        _require_digest(member.get("member_digest"), f"members.{member_id}.member_digest")
         unsigned_member = {
             key: deepcopy(value) for key, value in member.items() if key != "member_digest"
         }
@@ -215,6 +249,43 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
             raise WorkspaceError(f"approval pack member {member_id} digest is stale")
     if ids != sorted(ids) or len(ids) != len(set(ids)):
         raise WorkspaceError("approval pack members must be unique and canonically ordered")
+    summary = pack["cumulative_effect_summary"]
+    expected_group = {
+        "batchable-local" if member["batch_policy"]["batchable"]
+        else member["batch_policy"]["class"]
+        for member in members
+    }
+    if len(expected_group) != 1 or summary["group"] not in expected_group:
+        raise WorkspaceError("approval pack members do not match the declared policy group")
+    expected_pack_id = (
+        "PACK-"
+        + canonical_sha256({"group": summary["group"], "members": ids})
+        .removeprefix("sha256:")[:16]
+        .upper()
+    )
+    if pack["pack_id"] != expected_pack_id:
+        raise WorkspaceError("approval pack id does not match its canonical members")
+    expected_summary = {
+        "group": summary["group"],
+        "items": len(members),
+        "batchable": sum(1 for member in members if member["batch_policy"]["batchable"]),
+        "blocked": sum(1 for member in members if not member["eligibility"]["eligible"]),
+        "external_or_irreversible": sum(
+            1
+            for member in members
+            if member["reversibility"]["class"] != "reversible-local"
+        ),
+        "summary": "; ".join(member["action"]["summary"] for member in members),
+    }
+    if summary != expected_summary:
+        raise WorkspaceError("approval pack cumulative summary does not match its members")
+    if pack["estimated_resources"]["items"] != len(members):
+        raise WorkspaceError("approval pack estimated resource item count is stale")
+    expected_effects = sorted(
+        {effect for member in members for effect in member["external_effects"]}
+    )
+    if pack["external_effects"] != expected_effects:
+        raise WorkspaceError("approval pack external effect summary does not match its members")
     order = pack["execution_order"]
     if not isinstance(order, list) or sorted(order) != ids or len(order) != len(ids):
         raise WorkspaceError("approval pack execution order must cover every member exactly once")
@@ -248,6 +319,9 @@ def evaluate_approval_pack(workspace: Workspace, pack: dict[str, Any]) -> dict[s
         elif current["subject_digest"] != member["subject_digest"]:
             state = "stale"
             reasons.append("current governed subject digest differs from the reviewed pack")
+        elif _decision_member_digest(current) != _decision_member_digest(member):
+            state = "stale"
+            reasons.append("current governed member or batch policy differs from the reviewed pack")
         elif (
             proof_errors := [
                 error
@@ -302,6 +376,24 @@ def evaluate_approval_pack(workspace: Workspace, pack: dict[str, Any]) -> dict[s
             result["state"] = "stale" if result["state"] in {"approved", "executed"} else "blocked"
             result["reasons"].append(
                 "dependency is not current or approved: " + ", ".join(sorted(blockers))
+            )
+            result["next_safe_action"] = _member_next_action(result["state"], member_id)
+        outside_blockers = [
+            dependency
+            for dependency in result["dependencies"]
+            if dependency not in result_by_id
+            and (
+                dependency not in work_by_id
+                or work_by_id[dependency].status not in TERMINAL_WORK_STATUSES
+            )
+        ]
+        if outside_blockers and result["state"] not in {"rejected", "deferred"}:
+            result["state"] = (
+                "stale" if result["state"] in {"approved", "executed"} else "blocked"
+            )
+            result["reasons"].append(
+                "dependency outside this pack is unfinished: "
+                + ", ".join(sorted(outside_blockers))
             )
             result["next_safe_action"] = _member_next_action(result["state"], member_id)
 
@@ -421,6 +513,13 @@ def apply_pack_decision(
         raise WorkspaceError(
             "approval pack is missing or stale; rebuild the Approval Inbox and review the new digest"
         )
+    exact_member_ids = {str(member["id"]) for member in pack["members"]}
+    requested_member_ids = set(request["pack_members"])
+    if requested_member_ids and requested_member_ids != exact_member_ids:
+        raise WorkspaceError(
+            "approval pack member selection does not match the exact reviewed manifest; "
+            "use every --pack-member from the Approval Inbox command or rebuild a narrowed pack"
+        )
     if stored_pack is None and pack["base"]["workspace_digest"] != workspace_digest(store.data):
         raise WorkspaceError("approval pack base workspace digest is stale")
     evaluation = evaluate_approval_pack(workspace, pack)
@@ -438,6 +537,17 @@ def apply_pack_decision(
     unknown = (approve_ids | reject_ids | defer_ids) - member_ids
     if unknown:
         raise WorkspaceError("approval pack members not found: " + ", ".join(sorted(unknown)))
+    stale_selected = sorted(
+        member_id
+        for member_id in approve_ids | reject_ids | defer_ids
+        if states[member_id]["state"] == "stale"
+    )
+    if stale_selected:
+        raise WorkspaceError(
+            "approval pack decision is stale for: "
+            + ", ".join(stale_selected)
+            + "; rebuild the Approval Inbox before recording a decision"
+        )
     if approve_eligible:
         approve_ids.update(
             member_id
@@ -506,6 +616,8 @@ def apply_pack_decision(
                 raise WorkspaceError(
                     f"approval pack human {human_id} must be distinct from builder and reviewer for {member_id}"
                 )
+        _assert_pack_human_authority(work, human, human_id)
+        if action == "approve":
             from .authoring import _assert_acceptance_allowed
 
             _assert_acceptance_allowed(workspace, member_id, human_id, review.reviewed_head)
@@ -964,6 +1076,16 @@ def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> i
     return len(qualified)
 
 
+def _assert_pack_human_authority(work: Any, human: Any, human_id: str) -> None:
+    if work.required_approval_capability and (
+        work.required_approval_capability not in human.approval_capabilities
+    ):
+        raise WorkspaceError(
+            f"human {human_id} lacks required approval capability "
+            f"{work.required_approval_capability} for {work.id}"
+        )
+
+
 def _decision_id(pack_digest: str, human_id: str, member_id: str) -> str:
     suffix = canonical_sha256(
         {"pack_digest": pack_digest, "human_id": human_id, "member_id": member_id}
@@ -1030,8 +1152,168 @@ def _security_limitations() -> list[str]:
     ]
 
 
+def _approval_command(pack: dict[str, Any]) -> str:
+    members = " ".join(
+        f"--pack-member {member_id}" for member_id in pack["execution_order"]
+    )
+    return (
+        "palari human-decision pack "
+        f"--pack-digest {pack['pack_digest']} --human-id HUMAN-ID "
+        f"--approve-eligible {members} --json"
+    )
+
+
+def _decision_member_digest(member: dict[str, Any]) -> str:
+    """Bind policy and proof while allowing the expected local terminal transition."""
+
+    normalized = deepcopy(member)
+    normalized.pop("member_digest", None)
+    eligibility = normalized.get("eligibility")
+    if isinstance(eligibility, dict) and isinstance(eligibility.get("errors"), list):
+        eligibility["errors"] = [
+            error
+            for error in eligibility["errors"]
+            if error != "work item is already terminal"
+        ]
+        eligibility["eligible"] = not eligibility["errors"]
+    return canonical_sha256(normalized)
+
+
+def _validate_pack_member(member: Any) -> None:
+    fields = {
+        "id", "kind", "title", "subject_digest", "risk", "reversibility",
+        "authority", "boundaries", "proof", "outputs", "dependencies", "conflicts",
+        "batch_policy", "action", "external_effects", "estimated_resources",
+        "eligibility", "member_digest",
+    }
+    _exact_object(member, fields, "members[]")
+    member_id = _require_string(member["id"], "members[].id")
+    if member["kind"] != "work-item":
+        raise WorkspaceError(f"approval pack member {member_id} kind is unsupported")
+    _require_string(member["title"], f"members.{member_id}.title")
+    _require_string(member["risk"], f"members.{member_id}.risk")
+    _require_digest(member["subject_digest"], f"members.{member_id}.subject_digest")
+    _require_digest(member["member_digest"], f"members.{member_id}.member_digest")
+
+    _exact_object(member["reversibility"], {"class", "reason"}, f"members.{member_id}.reversibility")
+    _require_string(member["reversibility"]["class"], f"members.{member_id}.reversibility.class")
+    _require_string(member["reversibility"]["reason"], f"members.{member_id}.reversibility.reason")
+    _exact_object(
+        member["authority"],
+        {"required_approval_count", "required_approval_capability"},
+        f"members.{member_id}.authority",
+    )
+    _require_nonnegative_int(
+        member["authority"]["required_approval_count"],
+        f"members.{member_id}.authority.required_approval_count",
+    )
+    if not isinstance(member["authority"]["required_approval_capability"], str):
+        raise WorkspaceError(
+            f"approval pack members.{member_id}.authority.required_approval_capability must be a string"
+        )
+
+    _exact_object(
+        member["boundaries"],
+        {"sources", "paths", "tools_or_actions", "forbidden_actions"},
+        f"members.{member_id}.boundaries",
+    )
+    for field in ("sources", "paths", "tools_or_actions", "forbidden_actions"):
+        _require_string_list(
+            member["boundaries"][field],
+            f"members.{member_id}.boundaries.{field}",
+            canonical=True,
+        )
+    _exact_object(
+        member["proof"],
+        {"attempt_id", "receipt_reference", "evidence_reference", "review_reference", "reviewed_head"},
+        f"members.{member_id}.proof",
+    )
+    for field in member["proof"]:
+        if not isinstance(member["proof"][field], str):
+            raise WorkspaceError(
+                f"approval pack members.{member_id}.proof.{field} must be a string"
+            )
+
+    if not isinstance(member["outputs"], list):
+        raise WorkspaceError(f"approval pack members.{member_id}.outputs must be a list")
+    output_paths: list[str] = []
+    for index, output in enumerate(member["outputs"]):
+        path = f"members.{member_id}.outputs[{index}]"
+        _exact_object(output, {"path", "sha256"}, path)
+        output_path = _require_string(output["path"], f"{path}.path")
+        try:
+            normalized_path = validate_workspace_path(output_path)
+        except ValueError as exc:
+            raise WorkspaceError(f"approval pack {path}.path is unsafe: {exc}") from exc
+        if normalized_path != output_path:
+            raise WorkspaceError(f"approval pack {path}.path is not canonical")
+        _require_digest(output["sha256"], f"{path}.sha256")
+        output_paths.append(output_path)
+    if output_paths != sorted(set(output_paths)):
+        raise WorkspaceError(f"approval pack members.{member_id}.outputs must be unique and ordered")
+
+    for field in ("dependencies", "conflicts", "external_effects"):
+        _require_string_list(member[field], f"members.{member_id}.{field}", canonical=True)
+    _exact_object(
+        member["batch_policy"],
+        {"class", "batchable", "reason"},
+        f"members.{member_id}.batch_policy",
+    )
+    _require_string(member["batch_policy"]["class"], f"members.{member_id}.batch_policy.class")
+    _require_bool(member["batch_policy"]["batchable"], f"members.{member_id}.batch_policy.batchable")
+    _require_string(member["batch_policy"]["reason"], f"members.{member_id}.batch_policy.reason")
+    _exact_object(
+        member["action"],
+        {"type", "summary", "external", "irreversible"},
+        f"members.{member_id}.action",
+    )
+    _require_string(member["action"]["type"], f"members.{member_id}.action.type")
+    _require_string(member["action"]["summary"], f"members.{member_id}.action.summary")
+    _require_bool(member["action"]["external"], f"members.{member_id}.action.external")
+    _require_bool(member["action"]["irreversible"], f"members.{member_id}.action.irreversible")
+    _exact_object(member["estimated_resources"], {"cost", "time"}, f"members.{member_id}.estimated_resources")
+    _require_string(member["estimated_resources"]["cost"], f"members.{member_id}.estimated_resources.cost")
+    _require_string(member["estimated_resources"]["time"], f"members.{member_id}.estimated_resources.time")
+    _exact_object(member["eligibility"], {"eligible", "errors"}, f"members.{member_id}.eligibility")
+    _require_bool(member["eligibility"]["eligible"], f"members.{member_id}.eligibility.eligible")
+    _require_string_list(member["eligibility"]["errors"], f"members.{member_id}.eligibility.errors")
+
+
+def _exact_object(value: Any, fields: set[str], path: str) -> None:
+    if not isinstance(value, dict) or set(value) != fields:
+        raise WorkspaceError(f"approval pack {path} has unknown or missing fields")
+
+
+def _require_string(value: Any, path: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise WorkspaceError(f"approval pack {path} must be a non-empty string")
+    return value
+
+
+def _require_nonnegative_int(value: Any, path: str) -> None:
+    if type(value) is not int or value < 0:
+        raise WorkspaceError(f"approval pack {path} must be a non-negative integer")
+
+
+def _require_bool(value: Any, path: str) -> None:
+    if type(value) is not bool:
+        raise WorkspaceError(f"approval pack {path} must be a boolean")
+
+
+def _require_string_list(value: Any, path: str, *, canonical: bool = False) -> None:
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+        raise WorkspaceError(f"approval pack {path} must be a list of non-empty strings")
+    if canonical and value != sorted(set(value)):
+        raise WorkspaceError(f"approval pack {path} must be unique and canonically ordered")
+
+
 def _require_digest(value: Any, path: str) -> None:
-    if not isinstance(value, str) or len(value) != 71 or not value.startswith("sha256:"):
+    if (
+        not isinstance(value, str)
+        or len(value) != 71
+        or not value.startswith("sha256:")
+        or any(character not in "0123456789abcdef" for character in value[7:])
+    ):
         raise WorkspaceError(f"approval pack {path} must be a sha256 digest")
     try:
         int(value[7:], 16)

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -158,6 +159,47 @@ class ReversibleCheckpointTests(unittest.TestCase):
             effects,
             ["outbox:OUTBOX-1:sent", "receipt:RECEIPT-EXT:email:sent-message"],
         )
+
+    def test_existing_records_gaining_external_effects_are_detected(self) -> None:
+        target = {
+            "receipts": [{"id": "RECEIPT-EXT", "external_writes": []}],
+            "integration_outbox": [{"id": "OUTBOX-1", "status": "queued"}],
+        }
+        current = {
+            "receipts": [
+                {"id": "RECEIPT-EXT", "external_writes": ["email:sent-message"]}
+            ],
+            "integration_outbox": [{"id": "OUTBOX-1", "status": "sent"}],
+        }
+
+        self.assertEqual(
+            _external_effects_after(target, current),
+            ["outbox:OUTBOX-1:sent", "receipt:RECEIPT-EXT:email:sent-message"],
+        )
+
+    def test_restoration_blocks_before_mutation_when_external_effects_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_chain(Path(directory))
+            target = committed_journal_states(data_path)[0]["checkpoint_digest"]
+            before = load_store(data_path).data
+            before_count = len(committed_journal_states(data_path))
+
+            with patch(
+                "palari_company_os.checkpoints._external_effects_after",
+                return_value=["outbox:OUTBOX-1:sent"],
+            ), self.assertRaisesRegex(WorkspaceError, "restoration blocked"):
+                restore_checkpoint(
+                    str(data_path),
+                    target,
+                    actor="HUMAN-PRODUCT",
+                    reason="Must not requeue a sent external action.",
+                )
+
+            after = load_store(data_path)
+            after_count = len(committed_journal_states(data_path))
+
+        self.assertEqual(after.data, before)
+        self.assertEqual(after_count, before_count)
 
     def test_restore_requires_declared_human_reason_and_exact_digest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

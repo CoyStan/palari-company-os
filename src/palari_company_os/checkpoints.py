@@ -114,9 +114,14 @@ def restore_checkpoint(
     projection = deepcopy(target["projection"])
     validate_data(store.data_path, projection)
     external_effects = _external_effects_after(projection, store.data)
-    restoration_class = (
-        "compensating-action-required" if external_effects else "reversible-local"
-    )
+    if external_effects:
+        raise WorkspaceError(
+            "checkpoint restoration blocked because external effects after the target "
+            "cannot be undone locally: "
+            + ", ".join(external_effects)
+            + "; record any external compensation separately and create a new "
+            "governed checkpoint instead"
+        )
     metadata = MutationMetadata(
         command=f"history --restore {checkpoint_digest}",
         actor=actor,
@@ -148,14 +153,10 @@ def restore_checkpoint(
         "checkpoint_digest": checkpoint_digest,
         "current_checkpoint_digest": workspace_digest(final_store.data),
         "restoration_transition_digest": final_report.get("head_record_digest"),
-        "restoration_class": restoration_class,
-        "external_effects_not_undone": external_effects,
+        "restoration_class": "reversible-local",
+        "external_effects_not_undone": [],
         "history_preserved": True,
-        "message": (
-            "Local projection restored; listed external effects still require compensation."
-            if external_effects
-            else "Local governed projection restored without rewriting prior history."
-        ),
+        "message": "Local governed projection restored without rewriting prior history.",
     }
 
 
@@ -164,14 +165,27 @@ def _external_effects_after(
     current: dict[str, Any],
 ) -> list[str]:
     effects: set[str] = set()
-    target_receipts = {item.get("id") for item in target.get("receipts", [])}
+    target_receipts = {
+        item.get("id"): set(item.get("external_writes", []))
+        for item in target.get("receipts", [])
+        if isinstance(item, dict)
+    }
     for receipt in current.get("receipts", []):
-        if receipt.get("id") in target_receipts:
+        if not isinstance(receipt, dict):
             continue
-        for value in receipt.get("external_writes", []):
+        receipt_id = receipt.get("id")
+        prior_writes = target_receipts.get(receipt_id, set())
+        for value in set(receipt.get("external_writes", [])) - prior_writes:
             effects.add(f"receipt:{receipt.get('id', '')}:{value}")
-    target_outbox = {item.get("id") for item in target.get("integration_outbox", [])}
+    target_outbox = {
+        item.get("id"): item.get("status")
+        for item in target.get("integration_outbox", [])
+        if isinstance(item, dict)
+    }
     for item in current.get("integration_outbox", []):
-        if item.get("id") not in target_outbox and item.get("status") == "sent":
-            effects.add(f"outbox:{item.get('id', '')}:sent")
+        if not isinstance(item, dict):
+            continue
+        status = item.get("status")
+        if status in {"sent", "failed"} and target_outbox.get(item.get("id")) != status:
+            effects.add(f"outbox:{item.get('id', '')}:{status}")
     return sorted(effects)

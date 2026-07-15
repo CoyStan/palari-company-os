@@ -124,8 +124,9 @@ local items without merging or weakening their evidence.
 A governed checkpoint is the content digest of one committed workspace
 projection in the append-only journal.
 
-You see it when a human lists or restores local state while retaining the
-original history and any warning about external effects that cannot be undone.
+You see it when a human lists or restores effect-free local state while
+retaining the original history. External effects after the target block the
+restoration before local state changes.
 
 ## Receipt
 

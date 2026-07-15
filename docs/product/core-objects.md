@@ -158,8 +158,9 @@ derives current item states. Pack approval cannot widen any member boundary.
 Every committed governance-journal projection is a content-addressed
 checkpoint. Restoring one creates a new `restoration` transaction with the old
 projection; it does not delete the original chain, later work, decisions, or
-the restoration reason. Checkpoints classify local reversibility separately
-from compensating or irreversible external effects.
+the restoration reason. Only effect-free local chains are restorable. A later
+external write or sent outbox transition blocks restoration before mutation;
+compensation must be modeled as new governed work.
 
 ## Acceptance Record
 

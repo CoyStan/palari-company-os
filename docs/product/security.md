@@ -96,9 +96,12 @@ does not cryptographically authenticate a human against a hostile process
 running as the same OS user.
 
 Checkpoint restoration is local state restoration, not external rollback.
-Sent messages, filings, payments, access changes, and provider effects are
-reported as compensating-action-required or irreversible. They are never
-described as undone because a prior `workspace.json` projection was restored.
+Sent messages, filings, payments, access changes, and provider effects cannot
+be reversed by replacing `workspace.json`. When effect-bearing receipt fields
+or a sent/failed outbox transition show that an effect occurred or may have
+occurred after the selected checkpoint, restoration fails closed before
+changing local state. Compensation must be a separate governed action; it is
+never inferred from local restoration.
 
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.

@@ -31,6 +31,7 @@ from palari_company_os.governance_binding import (
     review_proof_hash,
 )
 from palari_company_os.governance_journal import verify_journal
+from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -59,6 +60,19 @@ class ApprovalPackTests(unittest.TestCase):
                     measurement["commands_or_clicks"],
                     {"individual_approval_baseline": count, "approval_pack": 1},
                 )
+
+    def test_incomplete_member_remains_visible_as_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            incomplete = load_store(data_path)
+            incomplete.data["review_verdicts"] = []
+            write_store(incomplete)
+
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+
+        self.assertEqual(inbox["counts"]["blocked"], 1)
+        self.assertEqual(inbox["evaluations"][0]["members"][0]["state"], "blocked")
 
     def test_cli_exposes_inbox_detail_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -97,6 +111,7 @@ class ApprovalPackTests(unittest.TestCase):
             )
 
         self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v1")
+        self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
         self.assertTrue(detail["approval_pack"]["available"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
@@ -230,6 +245,87 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertEqual(first["parked"], ["WORK-001"])
         self.assertEqual(evaluation["members"][0]["state"], "stale")
 
+    def test_changed_batch_policy_stales_pending_quorum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            first = apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                reason="First quorum vote before policy change.",
+            )
+            changed = load_store(data_path)
+            changed.data["work_items"][0]["title"] = "Approve legal filing and payment"
+            write_store(changed)
+
+            evaluation = evaluate_approval_pack(Workspace.load(data_path), pack)
+            with self.assertRaisesRegex(WorkspaceError, "stale"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    reason="Second vote must not reuse an older risk policy.",
+                )
+            with self.assertRaisesRegex(WorkspaceError, "decision is stale"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    human_id="HUMAN-SECOND",
+                    reject=["WORK-001"],
+                    reason="A stale pack cannot authorize rejection either.",
+                )
+
+        self.assertEqual(first["executed"], [])
+        self.assertEqual(evaluation["members"][0]["state"], "stale")
+
+    def test_stored_pack_cannot_expand_a_narrowed_member_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=3, approvals=2)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                reason="First exact full-pack quorum vote.",
+            )
+
+            with self.assertRaisesRegex(WorkspaceError, "selection does not match"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                    reason="A narrow request must not expand to the stored full pack.",
+                )
+            decision_count = len(load_store(data_path).data["human_decisions"])
+
+        self.assertEqual(decision_count, 3)
+
+    def test_narrowed_pack_reports_unfinished_outside_dependency_as_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=2,
+                dependencies={"WORK-002": ["WORK-001"]},
+            )
+            store = load_store(data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                store.data,
+                selected_work_ids=["WORK-002"],
+            )
+
+        item = inbox["evaluations"][0]["members"][0]
+        self.assertEqual(item["state"], "blocked")
+        self.assertIn("outside this pack is unfinished", item["reasons"][0])
+
     def test_review_identity_and_pack_transplant_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
@@ -253,6 +349,88 @@ class ApprovalPackTests(unittest.TestCase):
                     human_id="HUMAN-PRODUCT",
                     approve_eligible=True,
                 )
+
+    def test_reject_and_defer_require_the_work_capability(self) -> None:
+        for action in ("reject", "defer"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as directory:
+                data_path = make_ready_workspace(Path(directory), count=1)
+                store = load_store(data_path)
+                pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+
+                with self.assertRaisesRegex(WorkspaceError, "lacks required approval capability"):
+                    apply_pack_decision(
+                        str(data_path),
+                        pack_digest=pack["pack_digest"],
+                        human_id="HUMAN-UNQUALIFIED",
+                        **{action: ["WORK-001"]},
+                    )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                reject=["WORK-001"],
+            )
+            manufactured = load_store(data_path).data
+            manufactured["human_decisions"][0]["human_id"] = "HUMAN-UNQUALIFIED"
+
+            with self.assertRaisesRegex(WorkspaceError, "lacks required approval capability"):
+                Workspace.from_raw(manufactured, root)
+
+    def test_pack_manifest_rejects_unknown_nested_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+
+        bad_base = deepcopy(pack)
+        bad_base["base"]["unknown"] = "self-consistent but unsupported"
+        bad_base["pack_digest"] = canonical_sha256(
+            {key: value for key, value in bad_base.items() if key != "pack_digest"}
+        )
+        with self.assertRaisesRegex(WorkspaceError, "base has unknown or missing fields"):
+            canonical_pack_bytes(bad_base)
+
+        bad_member = deepcopy(pack)
+        bad_member["members"][0]["unknown"] = "self-consistent but unsupported"
+        bad_member["members"][0]["member_digest"] = canonical_sha256(
+            {
+                key: value
+                for key, value in bad_member["members"][0].items()
+                if key != "member_digest"
+            }
+        )
+        bad_member["pack_digest"] = canonical_sha256(
+            {key: value for key, value in bad_member.items() if key != "pack_digest"}
+        )
+        with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
+            canonical_pack_bytes(bad_member)
+
+    def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                reason="Complete exact local output.",
+            )
+            (root / OUTPUT).write_text("changed after terminal record\n", encoding="utf-8")
+
+            historical = Workspace.load(data_path)
+            evaluation = evaluate_approval_pack(historical, pack)
+
+        self.assertEqual(historical.work_item("WORK-001").status, "completed")
+        self.assertEqual(evaluation["members"][0]["state"], "stale")
 
     def test_stored_member_binding_cannot_be_copied_between_pack_items(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -358,6 +536,7 @@ def make_ready_workspace(
             "approval_capabilities": ["product"],
         },
         {"id": "HUMAN-REVIEW", "name": "Independent reviewer"},
+        {"id": "HUMAN-UNQUALIFIED", "name": "Unqualified human"},
     ]
     raw["palaris"][0]["owner_human"] = "HUMAN-PRODUCT"
     raw["palaris"][0]["active_work"] = []

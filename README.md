@@ -96,8 +96,8 @@ Its operator complement is the **Approval Inbox**: agents may prepare many
 bounded, individually proven items, while one human review session can approve
 an exact eligible bundle. The interaction is compressed; evidence and
 authority are not. Content-addressed checkpoints make local tentative chains
-reversible without rewriting history or pretending external effects were
-undone.
+reversible without rewriting history. Restoration fails closed when effects
+after the target checkpoint have already escaped the local workspace.
 
 New to those words? Start with the plain-language
 [Glossary](docs/product/glossary.md).

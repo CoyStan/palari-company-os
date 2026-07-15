@@ -105,8 +105,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - PCAW v1 attribution is declared, not cryptographically authenticated. It
   grants no acceptance, merge, push, deployment, or external-write authority.
 - Every committed journal projection is a content-addressed checkpoint.
-  Restoration appends a human-attributed transition and never claims to undo
-  external effects.
+  Restoration appends a human-attributed transition only for an effect-free
+  local chain. External effects after the target block restoration before any
+  projection change.
 
 ## Sources, Receipts, And External Actions
 
