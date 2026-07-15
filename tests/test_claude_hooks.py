@@ -390,6 +390,35 @@ class PreToolUseTests(unittest.TestCase):
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
 
+    def test_approval_pack_decision_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari human-decision pack --pack-digest=sha256:abc "
+            "--human-id HUMAN-HOOK --approve-eligible",
+            "./bin/palari --workspace=workspace.json human-decision pack "
+            "--approve WORK-1 --pack-digest sha256:abc --human-id HUMAN-HOOK",
+            "git status && palari human-decision pack --defer WORK-1 "
+            "--pack-digest sha256:abc --human-id HUMAN-HOOK",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(
+                    bash_human_authority_command(command),
+                    "human-decision pack",
+                )
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
     def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
         command = (

@@ -151,7 +151,11 @@ A pack binds the committed workspace/checkpoint and journal head, canonically
 ordered members, exact subjects and outputs, dependencies, conflicts, risk,
 reversibility, authority, proof references, effects, resource estimates,
 lifecycle claim, and its own digest. The manifest begins `parked`; evaluation
-derives current item states. Pack approval cannot widen any member boundary.
+derives current item states. Dependency bindings recursively cover the exact
+contract, proof/artifact state, and dependency closure, so narrowing a pack
+does not reduce dependency freshness. Expected in-pack completion remains
+stable; later dependency mutation stales the pack. Pack approval cannot widen
+any member boundary.
 
 ## Governed Checkpoint
 

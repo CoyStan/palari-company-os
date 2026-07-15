@@ -25,10 +25,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Human decisions, reviews, receipts, evidence, and outcomes are separate
   records with separate meanings.
 - Approval Packs compress one human review interaction, never item evidence.
-  Pack and member digests are exact; changed members or dependencies fail
-  closed, and external or irreversible actions remain individually gated.
+  Pack and member digests are exact; recursive dependency bindings retain
+  exact proof/artifact freshness even outside a narrowed pack. Changed members
+  or dependencies fail closed, and external or irreversible actions remain
+  individually gated.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
-  pack-decision authority surface.
+  pack-decision authority surface; Claude agent shells hard-deny it.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but

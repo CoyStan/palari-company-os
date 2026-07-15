@@ -216,6 +216,30 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertEqual(states["WORK-002"], "blocked")
         self.assertEqual(states["WORK-003"], "eligible")
 
+    def test_expected_internal_dependency_completion_keeps_pack_executed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=2,
+                dependencies={"WORK-002": ["WORK-001"]},
+            )
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            result = apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                reason="Approve exact dependency-ordered pack.",
+            )
+            evaluation = evaluate_approval_pack(Workspace.load(data_path), pack)
+
+        self.assertEqual(result["executed"], ["WORK-001", "WORK-002"])
+        self.assertEqual(
+            [item["state"] for item in evaluation["members"]],
+            ["executed", "executed"],
+        )
+
     def test_pending_quorum_cannot_execute_changed_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -325,6 +349,66 @@ class ApprovalPackTests(unittest.TestCase):
         item = inbox["evaluations"][0]["members"][0]
         self.assertEqual(item["state"], "blocked")
         self.assertIn("outside this pack is unfinished", item["reasons"][0])
+
+    def test_narrowed_pack_binds_terminal_dependency_artifact_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(
+                root,
+                count=2,
+                dependencies={"WORK-002": ["WORK-001"]},
+                approvals=2,
+                distinct_outputs=True,
+            )
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            parent_pack = build_approval_inbox(
+                workspace,
+                store.data,
+                selected_work_ids=["WORK-001"],
+            )["packs"][0]
+            for human_id in ("HUMAN-PRODUCT", "HUMAN-SECOND"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=parent_pack["pack_digest"],
+                    human_id=human_id,
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                    reason=f"Complete terminal dependency as {human_id}.",
+                )
+
+            current = load_store(data_path)
+            child_pack = build_approval_inbox(
+                Workspace.load(data_path),
+                current.data,
+                selected_work_ids=["WORK-002"],
+            )["packs"][0]
+            first = apply_pack_decision(
+                str(data_path),
+                pack_digest=child_pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                pack_members=["WORK-002"],
+                reason="First child quorum vote.",
+            )
+            (root / "artifacts/result-001.txt").write_text(
+                "terminal dependency artifact changed\n",
+                encoding="utf-8",
+            )
+
+            evaluation = evaluate_approval_pack(Workspace.load(data_path), child_pack)
+            with self.assertRaisesRegex(WorkspaceError, "stale"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=child_pack["pack_digest"],
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    pack_members=["WORK-002"],
+                    reason="Changed parent bytes must block second child vote.",
+                )
+
+        self.assertEqual(first["executed"], [])
+        self.assertEqual(evaluation["members"][0]["state"], "stale")
 
     def test_review_identity_and_pack_transplant_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -521,6 +605,7 @@ def make_ready_workspace(
     count: int,
     dependencies: dict[str, list[str]] | None = None,
     approvals: int = 1,
+    distinct_outputs: bool = False,
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -553,9 +638,6 @@ def make_ready_workspace(
     raw["integration_outbox"] = []
     raw["proposals"] = []
     root.mkdir(parents=True, exist_ok=True)
-    output = root / OUTPUT
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text("exact reviewed bytes\n", encoding="utf-8")
     dependencies = dependencies or {}
     base_time = datetime(2030, 1, 1, tzinfo=timezone.utc)
 
@@ -563,6 +645,14 @@ def make_ready_workspace(
         work_id = f"WORK-{index:03d}"
         attempt_id = f"ATTEMPT-{index:03d}"
         head = f"head-{index:03d}"
+        output_path = (
+            f"artifacts/result-{index:03d}.txt"
+            if distinct_outputs
+            else OUTPUT
+        )
+        output = root / output_path
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("exact reviewed bytes\n", encoding="utf-8")
         raw["work_items"].append(
             {
                 "id": work_id,
@@ -574,9 +664,9 @@ def make_ready_workspace(
                 "intensity": "standard",
                 "status": "in-review",
                 "scope": "Prepare one bounded local draft without external effects.",
-                "allowed_resources": [OUTPUT],
+                "allowed_resources": [output_path],
                 "allowed_actions": ["write local draft"],
-                "output_targets": [OUTPUT],
+                "output_targets": [output_path],
                 "forbidden_actions": ["external writes", "send messages"],
                 "acceptance_target": "Human confirms the exact reviewed local draft.",
                 "current_attempt": attempt_id,
@@ -594,10 +684,10 @@ def make_ready_workspace(
                 "base_sha": "base",
                 "head_sha": head,
                 "commits": [head],
-                "changed_files": [OUTPUT],
-                "allowed_paths": [OUTPUT],
+                "changed_files": [output_path],
+                "allowed_paths": [output_path],
                 "cleanliness": "clean",
-                "output_targets": [OUTPUT],
+                "output_targets": [output_path],
                 "started_at": timestamp(base_time + timedelta(seconds=index * 10)),
                 "updated_at": timestamp(base_time + timedelta(seconds=index * 10 + 1)),
             }
@@ -609,7 +699,7 @@ def make_ready_workspace(
                 "attempt_id": attempt_id,
                 "actor": "PALARI-SOFIA",
                 "actions_taken": ["prepared bounded local draft"],
-                "outputs_created": [OUTPUT],
+                "outputs_created": [output_path],
                 "timestamp": timestamp(base_time + timedelta(seconds=index * 10 + 2)),
             },
             raw["receipts"],
@@ -624,7 +714,7 @@ def make_ready_workspace(
                 "status": "passed",
                 "base_ref": "base",
                 "commands": ["offline deterministic check"],
-                "artifacts": [OUTPUT],
+                "artifacts": [output_path],
                 "receipt_hash": receipt["receipt_hash"],
                 "summary": "Exact local bytes verified.",
                 "freshness": "fresh",

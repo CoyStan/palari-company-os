@@ -90,10 +90,11 @@ identity are deferred to a versioned future protocol.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
 each member digest are persisted with the human decision, and current bytes,
-review, dependencies, authority, and quorum are rechecked before local
-execution. This prevents accidental replay or transplant inside Palari, but it
-does not cryptographically authenticate a human against a hostile process
-running as the same OS user.
+review, recursively bound dependency state, authority, and quorum are rechecked
+before local execution. A terminal dependency's changed artifact stales a
+narrowed dependent pack. This prevents accidental replay or transplant inside
+Palari, but it does not cryptographically authenticate a human against a
+hostile process running as the same OS user.
 
 Checkpoint restoration is local state restoration, not external rollback.
 Sent messages, filings, payments, access changes, and provider effects cannot
@@ -108,6 +109,9 @@ be a separate governed action; it is never inferred from local restoration.
 `history --restore` is human-only in the Claude shell enforcement boundary. A
 declared human id is attribution, not authority delegation: agent Bash is
 denied before the command can mutate the workspace.
+`human-decision pack` receives the same hard denial; agent Bash cannot record
+approve, reject, or defer authority through a bare, reordered, path-qualified,
+equals-form, or compound command.
 
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.

@@ -63,8 +63,10 @@ command string.
 `--approval-inbox` compiles immutable, canonical Approval Packs from the
 current committed journal projection. JSON retains one subject, output,
 receipt, evidence, and review binding per member while grouping the operator
-summary and approval interaction. `--select` narrows the pack without changing
-work. Each JSON pack has an `approval_commands` entry containing its exact
+summary and approval interaction. Every direct dependency also carries a
+recursive state digest over its current contract, proof, artifacts, and own
+dependencies. `--select` narrows the pack without changing work. Each JSON pack
+has an `approval_commands` entry containing its exact
 digest and every required `--pack-member`; copying that command cannot silently
 expand a narrowed selection. Parked, blocked, stale, and non-batchable items
 remain unexecuted.
@@ -106,9 +108,11 @@ dependency order inside the same crash-safe journal transaction. Incomplete
 quorum remains parked. Changed subjects, artifacts, reviews, dependencies, or
 pack policies fail closed. A non-empty `--pack-member` selection must cover the
 exact reviewed manifest, and unfinished dependencies outside a narrowed pack
-remain visible blockers. Approve, reject, and defer all require each work
-item's declared human approval capability. External, access-expanding,
-financial, legal, security, and irreversible actions remain individually gated.
+remain visible blockers. A terminal dependency whose exact governed artifact
+changes also stales the narrowed pack before another quorum vote can execute.
+Approve, reject, and defer all require each work item's declared human approval
+capability. External, access-expanding, financial, legal, security, and
+irreversible actions remain individually gated.
 
 ## State
 
@@ -501,7 +505,8 @@ workspace, and prints a JSON decision. It denies human-attributed Palari
 mutations, integration enqueue/cancel/send, Linear adoption, and generic
 packet-authority changes from agent Bash. Content-addressed
 `history --restore` is also denied as human-only; supplying a declared human id
-does not let an agent shell borrow that authority. It asks a human before opaque
+does not let an agent shell borrow that authority. `human-decision pack` is
+likewise a hard deny, including path-qualified and compound commands. It asks a human before opaque
 interpreters, unreviewed or path-qualified executables, unquoted pathname
 expansion, tree-shaped or backup-producing writes, hook self-modification,
 unclassified Palari commands, or Git witness mutations, including `git -C` and

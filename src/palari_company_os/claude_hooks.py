@@ -171,6 +171,7 @@ HUMAN_ONLY_PALARI_COMMANDS = {
     ("decision", "create"),
     ("decision", "update"),
     ("human-decision", "record"),
+    ("human-decision", "pack"),
     ("human-decision", "update"),
     ("history", "--restore"),
     ("integration", "approve"),

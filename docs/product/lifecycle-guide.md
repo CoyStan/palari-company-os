@@ -18,8 +18,10 @@ The interaction is compressed; each item keeps its own scope, attempt,
 receipt, evidence, review, decision, and journal result. A dependency change
 stales descendants—even when a narrowed pack omits the dependency—while
 unrelated current members retain their valid state. A changed risk or batch
-policy also stales the exact pack. External or irreversible effects remain
-parked for their native individual gate.
+policy also stales the exact pack. Recursive dependency bindings make a changed
+terminal dependency artifact stale rather than treating terminal status as
+sufficient. External or irreversible effects remain parked for their native
+individual gate.
 
 ## Create Intent And Actors
 

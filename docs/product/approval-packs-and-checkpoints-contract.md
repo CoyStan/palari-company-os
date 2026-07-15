@@ -68,7 +68,16 @@ tests exercise.
   for direct, reordered, and `--restore=...` flag forms; every projection after
   the earliest matching checkpoint is scanned before the already-at-target
   shortcut; sent, failed, receipt-write, reset/removal, and hook-denial
-  negatives pass. A fresh exact-head verdict remains required.
+  negatives pass.
+- Exact head `5b2ce115873fc1a5d95e59266f29c9dd3a3102f8`: **REJECT**. The third fresh
+  reviewer found that Claude shells asked rather than hard-denied
+  `human-decision pack`, and that a narrowed pack bound an outside dependency's
+  terminal status but not its exact governed artifact state.
+- Current repair: hard-deny pack decisions for bare, reordered, equals-form,
+  path-qualified, and compound commands; recursively bind every dependency's
+  current contract, proof/artifact state, and dependency closure while
+  normalizing the expected in-pack terminal transition. Exact committed
+  evidence and a fresh exact-head verdict remain required.
 - Dogfood attempt `ATTEMPT-REPO-0025-R1` was closed blocked at its unchanged
   base because its original path list omitted an implemented adapter and the
   newly required hook classifier. `ATTEMPT-REPO-0025-R2` owns the complete

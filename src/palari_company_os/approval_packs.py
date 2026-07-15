@@ -814,7 +814,12 @@ def _pack_manifest(
     return pack
 
 
-def _work_member(workspace: Workspace, work: Any) -> dict[str, Any]:
+def _work_member(
+    workspace: Workspace,
+    work: Any,
+    *,
+    include_dependency_bindings: bool = True,
+) -> dict[str, Any]:
     attempt = current_attempt_for_work(work, workspace.attempts)
     receipt = latest_for_work(workspace.receipts, work.id)
     evidence = latest_for_work(workspace.evidence_runs, work.id)
@@ -924,6 +929,11 @@ def _work_member(workspace: Workspace, work: Any) -> dict[str, Any]:
         },
         "outputs": artifacts,
         "dependencies": sorted(work.dependency_ids),
+        "dependency_bindings": (
+            _dependency_bindings(workspace, work)
+            if include_dependency_bindings
+            else []
+        ),
         "conflicts": sorted(work.conflict_targets),
         "batch_policy": {
             "class": policy["class"],
@@ -1016,6 +1026,56 @@ def _topological_order(members: list[dict[str, Any]]) -> list[str]:
         order.extend(ready)
         remaining.difference_update(ready)
     return order
+
+
+def _dependency_bindings(workspace: Workspace, work: Any) -> list[dict[str, str]]:
+    return [
+        {
+            "id": dependency_id,
+            "state_digest": _dependency_state_digest(
+                workspace,
+                dependency_id,
+                ancestors=frozenset({work.id}),
+            ),
+        }
+        for dependency_id in sorted(work.dependency_ids)
+    ]
+
+
+def _dependency_state_digest(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    ancestors: frozenset[str],
+) -> str:
+    if work_id in ancestors:
+        return canonical_sha256({"id": work_id, "cycle": True})
+    work = workspace.work_item(work_id)
+    if work is None:
+        return canonical_sha256({"id": work_id, "missing": True})
+    member = _work_member(
+        workspace,
+        work,
+        include_dependency_bindings=False,
+    )
+    descendants = [
+        {
+            "id": dependency_id,
+            "state_digest": _dependency_state_digest(
+                workspace,
+                dependency_id,
+                ancestors=ancestors | {work_id},
+            ),
+        }
+        for dependency_id in sorted(work.dependency_ids)
+    ]
+    return canonical_sha256(
+        {
+            "id": work_id,
+            "member_state_digest": _decision_member_digest(member),
+            "dependency_bindings": descendants,
+        }
+    )
 
 
 def _latest_pack_decision(
@@ -1183,8 +1243,8 @@ def _validate_pack_member(member: Any) -> None:
     fields = {
         "id", "kind", "title", "subject_digest", "risk", "reversibility",
         "authority", "boundaries", "proof", "outputs", "dependencies", "conflicts",
-        "batch_policy", "action", "external_effects", "estimated_resources",
-        "eligibility", "member_digest",
+        "dependency_bindings", "batch_policy", "action", "external_effects",
+        "estimated_resources", "eligibility", "member_digest",
     }
     _exact_object(member, fields, "members[]")
     member_id = _require_string(member["id"], "members[].id")
@@ -1254,6 +1314,22 @@ def _validate_pack_member(member: Any) -> None:
 
     for field in ("dependencies", "conflicts", "external_effects"):
         _require_string_list(member[field], f"members.{member_id}.{field}", canonical=True)
+    bindings = member["dependency_bindings"]
+    if not isinstance(bindings, list):
+        raise WorkspaceError(
+            f"approval pack members.{member_id}.dependency_bindings must be a list"
+        )
+    binding_ids: list[str] = []
+    for index, binding in enumerate(bindings):
+        path = f"members.{member_id}.dependency_bindings[{index}]"
+        _exact_object(binding, {"id", "state_digest"}, path)
+        binding_ids.append(_require_string(binding["id"], f"{path}.id"))
+        _require_digest(binding["state_digest"], f"{path}.state_digest")
+    if binding_ids != member["dependencies"]:
+        raise WorkspaceError(
+            f"approval pack members.{member_id}.dependency_bindings must cover "
+            "every dependency exactly once"
+        )
     _exact_object(
         member["batch_policy"],
         {"class", "batchable", "reason"},
