@@ -36,7 +36,8 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: implementation and fixed-point
     explorer in `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact-proof and
     state-claim corrections in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`;
-    final verified code head `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    retained and reverified at final implementation head
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Deterministic PCAW v1 statement export
   - Required outcome: `palari proof export WORK-ID --output FILE --json`
@@ -72,9 +73,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: verifier and isolated-wheel smoke
     in `d23f047ddf47de38a859d399040bcfb7aa9c4169`; structured proof/root
     failures in `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`; contained subject
-    read failures in final verified code head
-    `50594e93fe4412791d99cace97937c1f5fe704c3`. Final isolated install smoke
-    passed in 13.48 seconds.
+    read failures in `50594e93fe4412791d99cace97937c1f5fe704c3`, retained and
+    reverified at final implementation head
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`. Final isolated install
+    smoke passed in 12.56 seconds.
 
 - [x] Strict canonical JSON and protocol schema
   - Required outcome: PCAW inputs and outputs obey the supported I-JSON/RFC
@@ -91,8 +93,8 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: canonicalizer, schema, and
     positive/negative vectors in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`; all 18 conformance vectors
-    passed at final verified code head
-    `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    passed at final implementation head
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Exact proof, review, and human-authority verification
   - Required outcome: every verified accepted result proves terminal attempt
@@ -110,8 +112,11 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: one-to-one evidence subjects,
     qualified acceptance ownership, reviewer independence, human quorum,
     current exact bindings, and negative tests in
-    `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`, retained at final verified
-    code head `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; non-vacuous v1 output
+    coverage, bounded artifact roots, and version-derived terminal validation
+    in `021e23e6ec7454bff278537f3c648b428228cbfc`,
+    `e77122048768fe4b96630b199b004deb0842d777`, and final implementation
+    head `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Safe subject and source boundaries
   - Required outcome: artifact verification uses canonical relative paths and
@@ -128,7 +133,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     symlink and parent-swap tests in
     `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; cyclic path handling in
     `bc4b4418d4ff95114dc2cd12d9f9bf68ba523dd3`; `fstat`/read failure
-    containment in `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    containment in `50594e93fe4412791d99cace97937c1f5fe704c3`; bounded-attempt
+    root/allow/forbid failures stamp artifacts unsafe without fallback reads in
+    `021e23e6ec7454bff278537f3c648b428228cbfc`, independently reverified at
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Normative specification and portable conformance corpus
   - Required outcome: `spec/pcaw/v1/` contains the normative statement and
@@ -147,7 +155,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     dependency-free runner, and corpus in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`; exact evidence/subject
     mismatch vector in `cc7a4f66c8781901cd2039cb3389d98811eb1e8b`; final corpus is
-    18/18 passing at `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    18/18 passing at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Staged replayable governance journal
   - Required outcome: legacy `.palari/history.jsonl` remains compatible while a
@@ -167,7 +175,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     store transaction integration, prefix replay, corruption cases, and
     history checkpoint/verify modes in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
-    gate at `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    gate at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Crash-safe, idempotent journal recovery
   - Required outcome: interruption at every prepared/write/replace/commit
@@ -183,7 +191,7 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Exact committed evidence when completed: prepared/apply/commit crash
     injection and retry/recovery tests in
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`, passing the final complete
-    gate at `50594e93fe4412791d99cace97937c1f5fe704c3`.
+    gate at `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
 - [x] Operator clarity and two-minute offline demonstration
   - Required outcome: proof and history commands explain valid, incomplete,
@@ -220,9 +228,10 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
     `d23f047ddf47de38a859d399040bcfb7aa9c4169`; final manifest at
     `50594e93fe4412791d99cace97937c1f5fe704c3` accounts for 5 files, 2,334
     source lines, and zero runtime dependencies. Package version remains
-    `0.2.0`.
+    `0.2.0`; the final implementation head is
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`.
 
-- [ ] Verification timing, independent exact-head review, and founder packet
+- [x] Verification timing, independent exact-head review, and founder packet
   - Required outcome: the authoritative complete gate remains singular and
     equivalent; three-run median is compared with 77.934 seconds and any
     regression over 10% is corrected or explicitly justified by safety value;
@@ -236,18 +245,18 @@ Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
   - Verification command or artifact: three `./scripts/verify.sh` runs,
     `./scripts/install_smoke.sh`, schema/fixture/CLI/security/docs/conformance
     checks, and final exact-head review report.
-  - Current status: in progress after a second repair review rejected vacuous
-    empty coverage and attempt-boundary fallback; founder authority remains
-    pending.
-  - Exact committed evidence when completed: final verified code head
-    `50594e93fe4412791d99cace97937c1f5fe704c3`; 616 tests, style, 18/18
+  - Current status: completed locally with independent ACCEPT; Palari human
+    review and founder acceptance remain explicitly pending.
+  - Exact committed evidence when completed: final implementation head
+    `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`; 622 tests, style, 18/18
     conformance vectors, schemas/fixtures, CLI, security, docs/examples,
-    dogfood, and demo passed. Three exact-head complete-gate samples were
+    dogfood, and demo passed in the authoritative complete gate at 41.26
+    seconds. Three earlier exact-head complete-gate samples were
     51.91, 43.87, and 44.58 seconds (44.58-second median, 42.8% faster than
-    the 77.934-second baseline). Isolated install smoke passed in 13.48
-    seconds. The exact-head review history below records the final-metadata
-    rejection and required repair. A fresh ACCEPT is required before this item
-    returns to complete; the founder packet does not record acceptance.
+    the 77.934-second baseline). Isolated install smoke passed in 12.56
+    seconds. Fresh review of exact head `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`
+    returned ACCEPT after independently reproducing every output-coverage and
+    attempt-boundary repair. The founder packet records no human acceptance.
 
 ## Independent Exact-Head Review History
 
@@ -281,6 +290,17 @@ the required Palari human review or human decision.
    fell back to a usable nested workspace root. The next repair must require a
    non-empty v1 output manifest and mark invalid-root, unallowed, or forbidden
    artifacts unsafe without reading them.
+7. `e77122048768fe4b96630b199b004deb0842d777`: REJECT. Empty v1 evidence and
+   invalid bounded roots were closed, but canonical terminal validation still
+   forced legacy compatibility for versioned evidence. A recomputed,
+   internally consistent empty-v1 accepted fixture incorrectly validated.
+8. `2379ba46d21f9ff7d6d9e9816a892d0d5c304af0`: ACCEPT. The fresh reviewer
+   independently proved that the recomputed empty-v1 terminal fixture fails,
+   genuinely unversioned legacy evidence remains readable with an explicit
+   limitation, new review and acceptance paths reject empty v1 proof, and
+   invalid-root, unallowed, and forbidden artifacts remain unread and unsafe.
+   The focused review suite passed 125 tests in 8.582 seconds; the authoritative
+   complete gate passed 622 tests and all 18 vectors in 41.26 seconds.
 
 ## Security Non-Claims
 
