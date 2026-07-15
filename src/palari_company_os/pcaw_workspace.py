@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from datetime import timezone
 from pathlib import Path
 from typing import Any, Iterable, TypeVar
@@ -91,18 +91,22 @@ def governance_case_from_workspace(
     receipt_snapshot = _receipt_snapshot(receipt)
     evidence_snapshot = _evidence_snapshot(evidence, receipt_snapshot)
 
+    claimed_state = _claimed_workspace_state(work.status)
     case_stub = GovernanceCase(
         schema_version=CASE_SCHEMA_VERSION,
-        claimed_state=work.status,
+        claimed_state=claimed_state,
         contract=contract,
         attempt=attempt_snapshot,
         receipt=receipt_snapshot,
         evidence=evidence_snapshot,
     )
-    review_snapshot = _review_snapshot(review, case_stub)
+    review_binding_current = _review_binding_current(
+        workspace, review, inspect_external=inspect_external
+    )
+    review_snapshot = _review_snapshot(review, case_stub, review_binding_current)
     review_case = GovernanceCase(
         schema_version=CASE_SCHEMA_VERSION,
-        claimed_state=work.status,
+        claimed_state=claimed_state,
         contract=contract,
         attempt=attempt_snapshot,
         receipt=receipt_snapshot,
@@ -113,11 +117,20 @@ def governance_case_from_workspace(
     evidence_digest = case_stub.evidence_digest()
     receipt_digest = case_stub.receipt_digest()
     decisions = tuple(
-        _decision_snapshot(item, evidence_digest, review_digest)
+        _decision_snapshot(
+            item,
+            evidence_digest if review_binding_current else "",
+            review_digest if review_binding_current else "",
+        )
         for item in _current_human_decisions(workspace, work_id, review)
     )
     acceptances = tuple(
-        _acceptance_snapshot(item, receipt_digest, evidence_digest, review_digest)
+        _acceptance_snapshot(
+            item,
+            receipt_digest if review_binding_current else "",
+            evidence_digest if review_binding_current else "",
+            review_digest if review_binding_current else "",
+        )
         for item in _ordered_for_work(workspace.acceptance_records, work_id)
     )
 
@@ -137,7 +150,7 @@ def governance_case_from_workspace(
 
     governance_case = GovernanceCase(
         schema_version=CASE_SCHEMA_VERSION,
-        claimed_state=work.status,
+        claimed_state=claimed_state,
         contract=contract,
         dependencies=tuple(
             DependencyState(id=dependency_id, status=_work_status(workspace, dependency_id))
@@ -187,8 +200,7 @@ def governance_case_from_workspace(
             journal_continuity=journal_observation,
         ),
     )
-    derived_state = evaluate_governance_case(governance_case).derived_state
-    return replace(governance_case, claimed_state=derived_state), artifact_subjects
+    return governance_case, artifact_subjects
 
 
 def _attempt_snapshot(attempt: Any | None) -> AttemptSnapshot | None:
@@ -274,7 +286,11 @@ def _evidence_snapshot(
     )
 
 
-def _review_snapshot(review: Any | None, case: GovernanceCase) -> ReviewSnapshot | None:
+def _review_snapshot(
+    review: Any | None,
+    case: GovernanceCase,
+    binding_current: bool,
+) -> ReviewSnapshot | None:
     if review is None:
         return None
     return ReviewSnapshot(
@@ -286,10 +302,14 @@ def _review_snapshot(review: Any | None, case: GovernanceCase) -> ReviewSnapshot
         attempt_id=review.attempt_id,
         evidence_id=review.evidence_reference,
         receipt_id=review.receipt_reference,
-        contract_digest=case.contract_digest(),
-        attempt_digest=case.attempt_digest(),
-        evidence_digest=case.evidence_digest(),
-        receipt_digest=case.receipt_digest(),
+        contract_digest=(
+            case.contract_digest() if binding_current else review.work_contract_hash
+        ),
+        attempt_digest=case.attempt_digest() if binding_current else review.attempt_hash,
+        evidence_digest=(
+            case.evidence_digest() if binding_current else review.evidence_manifest_hash
+        ),
+        receipt_digest=case.receipt_digest() if binding_current else review.receipt_hash,
         findings=tuple(_finding(item) for item in review.findings),
         checks_inspected=tuple(review.checks_inspected),
         residual_risks=tuple(review.residual_risks),
@@ -440,6 +460,36 @@ def _current_human_decisions(
         if prior is None or record_time_key(decision) > record_time_key(prior):
             latest[decision.human_id] = decision
     return sorted(latest.values(), key=lambda item: item.human_id)
+
+
+def _review_binding_current(
+    workspace: Workspace,
+    review: Any | None,
+    *,
+    inspect_external: bool,
+) -> bool:
+    if review is None or not inspect_external:
+        return True
+    try:
+        from .governance_binding import current_review_binding_errors
+
+        return not current_review_binding_errors(workspace, review)
+    except (OSError, ValueError, WorkspaceError):
+        return False
+
+
+def _claimed_workspace_state(status: str) -> str:
+    mapping = {
+        "proposed": "in-progress",
+        "active": "in-progress",
+        "in-review": "review-required",
+        "needs-human": "human-decision-required",
+        "blocked": "blocked",
+        "completed": "completed",
+        "closed": "completed",
+        "done": "completed",
+    }
+    return mapping.get(status, status)
 
 
 def _latest_for_attempt(records: Iterable[T], work_id: str, attempt_id: str) -> T | None:

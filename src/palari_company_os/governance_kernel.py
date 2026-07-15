@@ -125,10 +125,17 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
     else:
         review_result = _review_property(case, evidence_result, receipt_result, errors)
         properties["independent_review"] = review_result
-        quorum_result, current_decisions = _quorum_property(case, review_result, errors)
+        quorum_result, current_decisions, qualified_humans = _quorum_property(
+            case, review_result, errors
+        )
         properties["human_quorum"] = quorum_result
         acceptance_result = _acceptance_property(
-            case, review_result, quorum_result, current_decisions, errors
+            case,
+            review_result,
+            quorum_result,
+            current_decisions,
+            qualified_humans,
+            errors,
         )
         properties["acceptance_currency"] = acceptance_result
         derived_state = _derive_state(case, properties)
@@ -319,13 +326,8 @@ def _receipt_property(case: GovernanceCase, errors: list[Diagnostic]) -> Propert
             "receipt records neither actions nor outputs",
             "Record what the attempt actually did.",
         )
-    if attempt is not None:
-        _require_order(
-            attempt.updated_at or attempt.started_at,
-            receipt.timestamp,
-            "$.receipt.timestamp",
-            errors,
-        )
+    if attempt is not None and attempt.started_at:
+        _require_order(attempt.started_at, receipt.timestamp, "$.receipt.timestamp", errors)
     status = "failed" if len(errors) != before else "verified"
     return PropertyResult("receipt_binding", status, ("$.receipt",))
 
@@ -543,14 +545,15 @@ def _quorum_property(
     case: GovernanceCase,
     review_result: PropertyResult,
     errors: list[Diagnostic],
-) -> tuple[PropertyResult, dict[str, HumanDecisionSnapshot]]:
+) -> tuple[PropertyResult, dict[str, HumanDecisionSnapshot], set[str]]:
     if case.contract.required_approval_count == 0:
         return (
             PropertyResult("human_quorum", "not-required", ("$.contract.required_approval_count",)),
             {},
+            set(),
         )
     if review_result.status != "verified" or case.review is None:
-        return PropertyResult("human_quorum", "failed"), {}
+        return PropertyResult("human_quorum", "failed"), {}, set()
     before = len(errors)
     current: dict[str, HumanDecisionSnapshot] = {}
     seen_instants: dict[tuple[str, datetime], str] = {}
@@ -624,7 +627,11 @@ def _quorum_property(
             "Collect current decisions from qualified humans.",
         )
     status = "failed" if len(errors) != before else "verified"
-    return PropertyResult("human_quorum", status, ("$.human_decisions", "$.humans")), current
+    return (
+        PropertyResult("human_quorum", status, ("$.human_decisions", "$.humans")),
+        current,
+        qualified,
+    )
 
 
 def _acceptance_property(
@@ -632,6 +639,7 @@ def _acceptance_property(
     review_result: PropertyResult,
     quorum_result: PropertyResult,
     current_decisions: dict[str, HumanDecisionSnapshot],
+    qualified_humans: set[str],
     errors: list[Diagnostic],
 ) -> PropertyResult:
     if not case.acceptance_records:
@@ -704,6 +712,17 @@ def _acceptance_property(
             "acceptance does not reference the current approving decision",
             "Record acceptance from a current qualified decision.",
         )
+    elif (
+        case.contract.required_approval_count > 0
+        and acceptance.human_id not in qualified_humans
+    ):
+        _error(
+            errors,
+            "PCAW_ACCEPTANCE_HUMAN_UNQUALIFIED",
+            "$.acceptance_records.human_id",
+            "acceptance is attributed to a human outside the qualified quorum",
+            "Record acceptance from a current human with the required capability.",
+        )
     elif decision.timestamp:
         _require_order(decision.timestamp, acceptance.accepted_at, "$.acceptance_records", errors)
     if review_result.status != "verified" or quorum_result.status not in {
@@ -758,6 +777,10 @@ def _legacy_receipt_completion(
 
 
 def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -> str:
+    if case.contract.status in {"proposed", "active"} and (
+        case.attempt is None or case.attempt.status == "active"
+    ):
+        return "in-progress"
     if (
         case.contract.status == "blocked"
         or case.open_decisions

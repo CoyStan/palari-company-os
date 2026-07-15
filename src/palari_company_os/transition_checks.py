@@ -482,6 +482,8 @@ def _check_work_complete(
             claimed_state="completed",
             contract=replace(governance_case.contract, status="completed"),
         )
+    else:
+        governance_case = replace(governance_case, claimed_state="accepted")
     governance = evaluate_governance_case(governance_case)
     # Legacy v2 workspaces may omit PCAW-only artifact coverage and stage
     # timestamps. Existing gates below remain authoritative for those records;
@@ -492,6 +494,7 @@ def _check_work_complete(
         "PCAW_ACCEPTANCE_PREREQUISITE_INVALID",
         "PCAW_LIFECYCLE_ORDER_INVALID",
         "PCAW_EVIDENCE_RECEIPT_INVALID",
+        "PCAW_CLAIMED_STATE_MISMATCH",
     }
     kernel_errors = [
         item for item in governance.errors if item.code not in compatibility_only

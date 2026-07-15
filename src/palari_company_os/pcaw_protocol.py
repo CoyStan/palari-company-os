@@ -148,7 +148,14 @@ def verify_pcaw_bytes(
             )
 
     evidence_artifacts = set(case.evidence.artifacts if case.evidence is not None else ())
+    evidence_hashes = (
+        {item.path: item for item in case.evidence.artifact_hashes}
+        if case.evidence is not None
+        else {}
+    )
+    evidence_subject_mismatch = False
     if set(artifact_names) != evidence_artifacts:
+        evidence_subject_mismatch = True
         report["errors"].append(
             _diag(
                 "SUBJECT_ROLE_MISMATCH",
@@ -157,9 +164,31 @@ def verify_pcaw_bytes(
                 "Export one output-artifact subject for every declared evidence artifact.",
             )
         )
+    if (
+        len(evidence_hashes)
+        != len(case.evidence.artifact_hashes if case.evidence is not None else ())
+        or set(evidence_hashes) != evidence_artifacts
+        or any(
+            evidence_hashes[name].status != "present"
+            or evidence_hashes[name].sha256 != subjects.get(name)
+            for name in evidence_artifacts
+            if name in evidence_hashes
+        )
+    ):
+        evidence_subject_mismatch = True
+        report["errors"].append(
+            _diag(
+                "PCAW_EVIDENCE_SUBJECT_MISMATCH",
+                "$.predicate.governance_case.evidence.artifact_hashes",
+                "evidence artifact digests do not exactly match output subjects",
+                "Refresh evidence and export subjects from the same exact artifact bytes.",
+            )
+        )
 
     evaluation = evaluate_governance_case(case).to_dict()
     _merge_evaluation(report, evaluation)
+    if evidence_subject_mismatch:
+        report["verified_properties"]["evidence_freshness"] = "failed"
     if predicate["claimed_state"] != case.claimed_state:
         report["errors"].append(
             _diag(
@@ -330,6 +359,7 @@ def _verify_artifacts(
                 "PCAW_SUBJECT_PATH_UNSAFE": "SUBJECT_PATH_UNSAFE",
                 "PCAW_SUBJECT_MISSING": "SUBJECT_MISSING",
                 "PCAW_SUBJECT_SYMLINK": "SUBJECT_SYMLINK_ESCAPE",
+                "PCAW_SUBJECT_ROOT_INVALID": "SUBJECT_ROOT_INVALID",
             }
             diagnostic["code"] = code_map.get(exc.code, exc.code.removeprefix("PCAW_"))
             report["errors"].append(diagnostic)

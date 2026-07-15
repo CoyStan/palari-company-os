@@ -272,6 +272,38 @@ class GovernanceKernelTests(unittest.TestCase):
         self.assertEqual(result.derived_state, "human-decision-required")
         self.assertIn("PCAW_HUMAN_QUORUM_INCOMPLETE", {item.code for item in result.errors})
 
+    def test_acceptance_actor_must_belong_to_qualified_quorum(self) -> None:
+        case = accepted_case(claimed_state="blocked")
+        observer = HumanAuthority("HUMAN-OBSERVER")
+        observer_decision = replace(
+            case.human_decisions[0],
+            id="DECISION-OBSERVER",
+            human_id=observer.id,
+            timestamp="2030-01-01T00:05:30Z",
+        )
+        observer_acceptance = replace(
+            case.acceptance_records[0],
+            id="ACCEPTANCE-OBSERVER",
+            human_id=observer.id,
+            decision_id=observer_decision.id,
+            accepted_at="2030-01-01T00:06:30Z",
+        )
+
+        result = evaluate_governance_case(
+            replace(
+                case,
+                humans=(*case.humans, observer),
+                human_decisions=(*case.human_decisions, observer_decision),
+                acceptance_records=(observer_acceptance,),
+            )
+        )
+
+        self.assertEqual(result.derived_state, "blocked")
+        self.assertIn(
+            "PCAW_ACCEPTANCE_HUMAN_UNQUALIFIED",
+            {item.code for item in result.errors},
+        )
+
     def test_traversal_fails_scope_closed(self) -> None:
         case = accepted_case(claimed_state="blocked")
         case = replace(

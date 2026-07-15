@@ -146,6 +146,22 @@
       }
     },
     {
+      "id": "invalid-evidence-subject-mismatch",
+      "statement": "invalid/evidence-subject-mismatch/statement.json",
+      "subject_root": "invalid/evidence-subject-mismatch",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "subject_digest_status": "verified",
+        "properties": {
+          "evidence_freshness": "failed"
+        },
+        "error_codes": ["PCAW_EVIDENCE_SUBJECT_MISMATCH"],
+        "warning_codes": []
+      }
+    },
+    {
       "id": "invalid-missing-subject",
       "statement": "valid/accepted/statement.json",
       "subject_root": "invalid/missing-subject",

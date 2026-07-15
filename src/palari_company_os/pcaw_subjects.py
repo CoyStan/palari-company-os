@@ -8,6 +8,13 @@ from typing import Any
 
 
 CHUNK_SIZE = 1024 * 1024
+SAFE_DIRECTORY_WALK_SUPPORTED = (
+    hasattr(os, "O_NOFOLLOW")
+    and hasattr(os, "O_DIRECTORY")
+    and os.open in os.supports_dir_fd
+    and os.stat in os.supports_dir_fd
+    and os.stat in os.supports_follow_symlinks
+)
 
 
 class SubjectError(ValueError):
@@ -46,51 +53,80 @@ def validate_subject_name(name: str) -> str:
 
 
 def hash_subject(root: Path | str, name: str) -> str:
-    """Hash a regular file beneath root without following symbolic links."""
+    """Hash a regular file beneath root through pinned directory descriptors."""
 
     safe_name = validate_subject_name(name)
-    root_path = Path(root).expanduser().resolve(strict=True)
+    if not SAFE_DIRECTORY_WALK_SUPPORTED:
+        raise SubjectError(
+            "PCAW_SUBJECT_PLATFORM_UNSAFE",
+            "platform cannot verify subjects without symlink races",
+        )
+    try:
+        root_path = Path(root).expanduser().resolve(strict=True)
+    except OSError as exc:
+        raise SubjectError(
+            "PCAW_SUBJECT_ROOT_INVALID", "subject root does not exist or is unreadable"
+        ) from exc
     if not root_path.is_dir():
         raise SubjectError("PCAW_SUBJECT_ROOT_INVALID", "subject root is not a directory")
 
-    current = root_path
-    parts = PurePosixPath(safe_name).parts
-    for part in parts[:-1]:
-        current = current / part
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    file_flags = os.O_RDONLY | os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        directory_flags |= os.O_CLOEXEC
+        file_flags |= os.O_CLOEXEC
+    descriptors: list[int] = []
+    try:
         try:
-            item_stat = current.lstat()
+            current_descriptor = os.open(root_path, directory_flags)
+        except OSError as exc:
+            raise SubjectError(
+                "PCAW_SUBJECT_ROOT_INVALID", "subject root cannot be opened safely"
+            ) from exc
+        descriptors.append(current_descriptor)
+        parts = PurePosixPath(safe_name).parts
+        for part in parts[:-1]:
+            try:
+                current_descriptor = os.open(
+                    part,
+                    directory_flags,
+                    dir_fd=current_descriptor,
+                )
+            except FileNotFoundError as exc:
+                raise SubjectError(
+                    "PCAW_SUBJECT_MISSING",
+                    f"subject path component is missing: {part}",
+                ) from exc
+            except OSError as exc:
+                code = _component_error_code(descriptors[-1], part)
+                message = (
+                    f"subject path crosses a symbolic link: {part}"
+                    if code == "PCAW_SUBJECT_SYMLINK"
+                    else f"subject path component is not a safe directory: {part}"
+                )
+                raise SubjectError(code, message) from exc
+            descriptors.append(current_descriptor)
+        try:
+            descriptor = os.open(
+                parts[-1],
+                file_flags,
+                dir_fd=current_descriptor,
+            )
         except FileNotFoundError as exc:
             raise SubjectError(
-                "PCAW_SUBJECT_MISSING", f"subject path component is missing: {part}"
+                "PCAW_SUBJECT_MISSING", f"subject is missing: {safe_name}"
             ) from exc
-        if stat.S_ISLNK(item_stat.st_mode):
-            raise SubjectError(
-                "PCAW_SUBJECT_SYMLINK", f"subject path crosses a symbolic link: {part}"
+        except OSError as exc:
+            code = _component_error_code(current_descriptor, parts[-1])
+            message = (
+                f"subject is a symbolic link: {safe_name}"
+                if code == "PCAW_SUBJECT_SYMLINK"
+                else f"subject cannot be opened safely: {safe_name}"
             )
-        if not stat.S_ISDIR(item_stat.st_mode):
-            raise SubjectError(
-                "PCAW_SUBJECT_PATH_UNSAFE", f"subject path component is not a directory: {part}"
-            )
+            raise SubjectError(code, message) from exc
+        descriptors.append(descriptor)
 
-    target = current / parts[-1]
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(target, flags)
-    except FileNotFoundError as exc:
-        raise SubjectError("PCAW_SUBJECT_MISSING", f"subject is missing: {safe_name}") from exc
-    except OSError as exc:
-        if target.is_symlink():
-            raise SubjectError(
-                "PCAW_SUBJECT_SYMLINK", f"subject is a symbolic link: {safe_name}"
-            ) from exc
-        raise SubjectError(
-            "PCAW_SUBJECT_UNREADABLE", f"subject cannot be opened safely: {safe_name}"
-        ) from exc
-
-    digest = hashlib.sha256()
-    try:
+        digest = hashlib.sha256()
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
             raise SubjectError(
@@ -113,8 +149,21 @@ def hash_subject(root: Path | str, name: str) -> str:
                 f"subject changed while it was being verified: {safe_name}",
             )
     finally:
-        os.close(descriptor)
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
     return digest.hexdigest()
+
+
+def _component_error_code(directory_descriptor: int, name: str) -> str:
+    try:
+        item_stat = os.stat(name, dir_fd=directory_descriptor, follow_symlinks=False)
+    except (OSError, TypeError, NotImplementedError):
+        return "PCAW_SUBJECT_PATH_UNSAFE"
+    return (
+        "PCAW_SUBJECT_SYMLINK"
+        if stat.S_ISLNK(item_stat.st_mode)
+        else "PCAW_SUBJECT_PATH_UNSAFE"
+    )
 
 
 def subject_diagnostic(error: SubjectError, path: str) -> dict[str, Any]:

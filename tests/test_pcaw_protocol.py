@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.pcaw_protocol import verify_pcaw_file
+from palari_company_os.governance_case import GovernanceCase
+from palari_company_os.pcaw_canonical import canonical_json_bytes, canonical_sha256
+from palari_company_os.pcaw_export import export_pcaw_statement
+from palari_company_os.pcaw_protocol import verify_pcaw_bytes, verify_pcaw_file
 from palari_company_os.pcaw_subjects import SubjectError, hash_subject, validate_subject_name
 
 
@@ -57,6 +63,53 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertFalse(report["acceptance_verified"])
         self.assertEqual(report["subject_digest_status"], "failed")
         self.assertIn("SUBJECT_DIGEST_MISMATCH", _codes(report))
+
+    def test_evidence_digest_must_match_the_output_subject_digest(self) -> None:
+        statement = json.loads((ACCEPTED_VECTOR / "statement.json").read_text(encoding="utf-8"))
+        case = GovernanceCase.from_dict(statement["predicate"]["governance_case"])
+        evidence = replace(
+            case.evidence,
+            artifact_hashes=(
+                replace(case.evidence.artifact_hashes[0], sha256="a" * 64),
+            ),
+        )
+        case = replace(case, evidence=evidence)
+        review = replace(case.review, evidence_digest=case.evidence_digest())
+        case = replace(case, review=review)
+        decisions = tuple(
+            replace(
+                item,
+                evidence_digest=case.evidence_digest(),
+                review_digest=case.review_digest(),
+            )
+            for item in case.human_decisions
+        )
+        acceptances = tuple(
+            replace(
+                item,
+                evidence_digest=case.evidence_digest(),
+                review_digest=case.review_digest(),
+            )
+            for item in case.acceptance_records
+        )
+        case = replace(case, human_decisions=decisions, acceptance_records=acceptances)
+        statement["predicate"]["governance_case"] = case.to_dict()
+        work_subject = next(
+            item for item in statement["subject"] if item["name"].startswith("urn:palari:")
+        )
+        work_subject["digest"]["sha256"] = canonical_sha256(case.to_dict()).removeprefix(
+            "sha256:"
+        )
+
+        report = verify_pcaw_bytes(
+            canonical_json_bytes(statement),
+            subject_root=ACCEPTED_VECTOR,
+        )
+
+        self.assertFalse(report["verified"])
+        self.assertFalse(report["acceptance_verified"])
+        self.assertEqual(report["verified_properties"]["evidence_freshness"], "failed")
+        self.assertIn("PCAW_EVIDENCE_SUBJECT_MISMATCH", _codes(report))
 
     def test_statement_only_never_claims_full_or_acceptance_verification(self) -> None:
         report = verify_pcaw_file(
@@ -130,6 +183,32 @@ class PCAWProtocolTests(unittest.TestCase):
             finally:
                 outside.unlink(missing_ok=True)
 
+    def test_parent_directory_swap_cannot_escape_pinned_subject_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            safe = root / "safe"
+            outside = Path(directory) / "outside"
+            safe.mkdir(parents=True)
+            outside.mkdir()
+            (safe / "result.txt").write_text("inside", encoding="utf-8")
+            (outside / "result.txt").write_text("outside", encoding="utf-8")
+            original_open = os.open
+            swapped = False
+
+            def racing_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+                nonlocal swapped
+                if path == "result.txt" and kwargs.get("dir_fd") is not None and not swapped:
+                    safe.rename(root / "pinned")
+                    safe.symlink_to(outside, target_is_directory=True)
+                    swapped = True
+                return original_open(path, flags, *args, **kwargs)
+
+            with patch("palari_company_os.pcaw_subjects.os.open", side_effect=racing_open):
+                digest = hash_subject(root, "safe/result.txt")
+
+        self.assertTrue(swapped)
+        self.assertEqual(digest, hashlib.sha256(b"inside").hexdigest())
+
     def test_duplicate_json_keys_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             proof = Path(directory) / "duplicate.json"
@@ -140,36 +219,65 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertIn("DUPLICATE_KEY", _codes(report))
 
     def test_cli_rejection_uses_exit_one_and_complete_json_report(self) -> None:
-        invalid = (
-            REPO_ROOT
-            / "spec"
-            / "pcaw"
-            / "v1"
-            / "vectors"
-            / "invalid"
-            / "changed-artifact"
-            / "statement.json"
-        )
-        result = subprocess.run(
-            [
-                str(REPO_ROOT / "bin" / "palari"),
-                "proof",
-                "verify",
-                str(invalid),
-                "--subject-root",
-                str(invalid.parent),
-                "--json",
-            ],
-            cwd=REPO_ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            missing_root = Path(directory) / "missing"
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "proof",
+                    "verify",
+                    str(ACCEPTED_VECTOR / "statement.json"),
+                    "--subject-root",
+                    str(missing_root),
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
 
         self.assertEqual(result.returncode, 1)
         report = json.loads(result.stdout)
         self.assertFalse(report["verified"])
         self.assertEqual(report["schema_version"], "pcaw.verification.v1")
+        self.assertIn("SUBJECT_ROOT_INVALID", _codes(report))
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_export_preserves_workspace_claim_and_stales_changed_review_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = json.loads(ACCEPTED_WORKSPACE.read_text(encoding="utf-8"))
+            raw["work_items"][0]["status"] = "in-review"
+            raw["work_items"][0]["scope"] = "Changed after the exact review."
+            raw["human_decisions"] = []
+            raw["acceptance_records"] = []
+            workspace_file = root / "workspace.json"
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            proof_file = root / "proof.json"
+
+            export_pcaw_statement(workspace_file, "WORK-1", proof_file)
+            statement = json.loads(proof_file.read_text(encoding="utf-8"))
+            report = verify_pcaw_file(proof_file)
+
+        self.assertEqual(statement["predicate"]["claimed_state"], "review-required")
+        self.assertIn("PCAW_REVIEW_BINDING_STALE", _codes(report))
+
+    def test_export_does_not_replace_active_workspace_claim_with_derived_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = json.loads(ACCEPTED_WORKSPACE.read_text(encoding="utf-8"))
+            raw["work_items"][0]["status"] = "active"
+            workspace_file = root / "workspace.json"
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            proof_file = root / "proof.json"
+
+            result = export_pcaw_statement(workspace_file, "WORK-1", proof_file)
+            statement = json.loads(proof_file.read_text(encoding="utf-8"))
+
+        self.assertEqual(result["claimed_state"], "in-progress")
+        self.assertEqual(statement["predicate"]["claimed_state"], "in-progress")
+        self.assertNotEqual(result["claimed_state"], result["derived_lifecycle_state"])
 
 
 def _codes(report: dict[str, object]) -> set[str]:

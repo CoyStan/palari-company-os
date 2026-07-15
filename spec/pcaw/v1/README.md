@@ -124,9 +124,12 @@ The initial stable diagnostic code registry is:
 | `AMBIGUOUS_TIMESTAMP` | error | A timestamp is missing or is not normalized UTC RFC 3339. |
 | `SUBJECT_ROLE_MISMATCH` | error | Subjects and role declarations do not match one-to-one. |
 | `SUBJECT_PATH_UNSAFE` | error | An artifact name is not a safe relative POSIX path. |
+| `SUBJECT_ROOT_INVALID` | error | The selected artifact root is missing or cannot be opened safely. |
 | `SUBJECT_MISSING` | error | A required artifact cannot be read. |
 | `SUBJECT_SYMLINK_ESCAPE` | error | An artifact resolves outside the subject root. |
+| `SUBJECT_PLATFORM_UNSAFE` | error | The platform lacks race-safe descriptor traversal support. |
 | `SUBJECT_DIGEST_MISMATCH` | error | Artifact bytes do not match the statement digest. |
+| `PCAW_EVIDENCE_SUBJECT_MISMATCH` | error | Evidence artifact digests contradict output subjects. |
 | `WORK_STATE_DIGEST_MISMATCH` | error | The governance case does not match its virtual subject. |
 | `CLAIMED_STATE_MISMATCH` | error | Claimed and independently derived lifecycle states differ. |
 | `PCAW_SCOPE_OUTSIDE_BOUNDARY` | error | A changed path is outside the contract boundary. |
@@ -136,6 +139,7 @@ The initial stable diagnostic code registry is:
 | `PCAW_REVIEW_BINDING_STALE` | error | Review is bound to different contract, attempt, receipt, or evidence. |
 | `PCAW_REVIEWER_NOT_INDEPENDENT` | error | Builder and reviewer identities collide. |
 | `PCAW_HUMAN_QUORUM_INCOMPLETE` | error | Current qualified human decisions do not satisfy quorum. |
+| `PCAW_ACCEPTANCE_HUMAN_UNQUALIFIED` | error | Acceptance is attributed outside the qualified quorum. |
 | `PCAW_ACCEPTANCE_BINDING_STALE` | error | Acceptance is bound to stale or mismatched proof. |
 | `PCAW_JOURNAL_CONTINUITY_FAILED` | error | Included journal continuity evidence reports corruption or divergence. |
 | `ARTIFACT_CHECKS_SKIPPED` | warning | Statement-only mode did not check output bytes. |
