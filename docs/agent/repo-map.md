@@ -51,6 +51,10 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_handoff.py`: read-only human handoff packets.
 - `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
 - `src/palari_company_os/agent_loop.py`: compact loop summary.
+- `src/palari_company_os/agent_advance.py`: pure advance planning and the
+  deterministic proof reconciler that stops at authority boundaries.
+- `src/palari_company_os/verification_attestations.py`: exact-state,
+  content-addressed verification profiles and passing-result reuse.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
 - `src/palari_company_os/claude_hooks.py`: Claude Code hook enforcement of the
@@ -93,6 +97,8 @@ runtime state.
 ## Tests
 
 - `tests/test_agent_packets.py`: agent packet/check/loop behavior.
+- `tests/test_agent_advance.py`: deterministic planning, verification cache,
+  atomic proof reconciliation, crash recovery, and idempotence.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.

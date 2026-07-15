@@ -350,6 +350,8 @@ JSON-RPC MCP messages to stdout.
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent advance WORK-0003 --as PALARI-SOFIA --dry-run --json
+./bin/palari agent advance WORK-0003 --as PALARI-SOFIA --json
 ```
 
 `agent next` reads the current open queue for one Palari, ranks safe-to-start
@@ -466,6 +468,20 @@ attempt; and completes the work item — all in one command. For R2+ or
 non-light work, it rejects with guidance to use the full proof lifecycle.
 Pass `--changed PATH` for each changed file, `--head-sha` for attempt
 closeout, and `--model-or-worker` to label the attempt.
+
+`agent advance` is the risk-aware deterministic successor for governed Git
+work. `--dry-run` derives an ordered, content-addressed plan without running
+verification or mutating state. Execution derives the complete claim-start
+commit range, checks the packet boundary, runs built-in argument-vector
+profiles (never work-item prose), and binds passing results to the exact head,
+profile, source state, interpreter, and platform. It then rechecks the plan and
+commits attempt, receipt, evidence, and closeout as one journaled workspace
+transaction. R1/light/0 work may complete; higher-risk work releases its claim
+and stops with an independent-review handoff. A repeated exact-state call
+reuses valid passing attestations and proof without duplicating records.
+`--refresh-verification` deliberately reruns the profiles. This command never
+records review, human decision, acceptance, an external write, push, merge, or
+deployment.
 
 `git install` writes a Palari-managed pre-commit hook into `.git/hooks/pre-commit`
 that checks staged files against active claim write boundaries. If any staged

@@ -395,6 +395,28 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Model or worker label for the attempt record.",
     )
     done.add_argument("--json", action="store_true", help="Emit JSON.")
+    advance = nested.add_parser(
+        "advance",
+        help="Deterministically verify and reconcile proof to the next authority boundary.",
+    )
+    advance.add_argument("work_id")
+    advance.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    advance.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Return the exact plan without verification or mutation.",
+    )
+    advance.add_argument(
+        "--summary",
+        default="",
+        help="Optional factual receipt summary; defaults to a deterministic Git summary.",
+    )
+    advance.add_argument(
+        "--refresh-verification",
+        action="store_true",
+        help="Rerun exact profiles instead of reusing matching passing attestations.",
+    )
+    advance.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_claude_parser(subparsers: Any) -> None:

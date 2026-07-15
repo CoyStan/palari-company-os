@@ -13,6 +13,7 @@ MODULE_PATTERN = re.compile(r"^tests\.test_[a-z0-9_]+$")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE_TESTS = {
+    "agent_advance.py": ("tests.test_agent_advance",),
     "agent_done.py": ("tests.test_agent_done", "tests.test_agent_packets"),
     "agent_file_changes.py": (
         "tests.test_filesystem_security",
@@ -84,6 +85,7 @@ SOURCE_TESTS = {
         "tests.test_governance_completion",
     ),
     "validation.py": ("tests.test_validation", "tests.test_transition_checks"),
+    "verification_attestations.py": ("tests.test_agent_advance",),
     "workspace.py": ("tests.test_validation", "tests.test_workspace_read_models"),
 }
 

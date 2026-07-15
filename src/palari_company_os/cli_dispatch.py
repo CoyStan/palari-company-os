@@ -285,6 +285,22 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 ),
                 args.json,
             )
+        if args.agent_command == "advance":
+            from .agent_advance import agent_advance
+
+            return CommandResult(
+                "agent-done",
+                agent_advance(
+                    workspace,
+                    args.workspace,
+                    args.work_id,
+                    args.palari_id,
+                    dry_run=args.dry_run,
+                    summary=args.summary,
+                    refresh_verification=args.refresh_verification,
+                ),
+                args.json,
+            )
 
     if args.command == "claude":
         from .claude_hooks import hooks_status, install_hooks, run_hook

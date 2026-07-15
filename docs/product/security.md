@@ -35,6 +35,14 @@ Authority rules:
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
   the original head; coordinated rewrites of the claim and baseline fail.
+- `agent advance` applies that same exact-range proof to every risk tier. Its
+  planner is side-effect free; executable verification profiles are fixed
+  argument vectors rather than workspace prose. Passing attestations bind the
+  head, base, changed-path digest, clean state, profile, source state,
+  interpreter, and platform. The command rechecks its plan after verification,
+  commits agent-owned proof as one journaled transaction, and stops before
+  independent review or human authority. A pending prepare is aborted before a
+  safe retry; an already-applied pending commit is completed before handoff.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari

@@ -408,9 +408,11 @@ def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> b
     except ValueError:
         return False
     base = f"{relative_workspace}/" if relative_workspace != "." else ""
+    if path == f"{base}.palari/governance-journal.v1.jsonl":
+        return True
     return any(
         path.startswith(f"{base}.palari/{name}/")
-        for name in ("claims", "packets", "locks")
+        for name in ("claims", "packets", "locks", "verification")
     )
 
 

@@ -626,6 +626,190 @@ def closeout_attempt(
     return MutationResult("closed-out", "attempts", attempt_id, workspace.name, next_action=work_id)
 
 
+def reconcile_agent_proof(
+    workspace_path: str,
+    *,
+    work_id: str,
+    palari_id: str,
+    attempt_record: dict[str, Any],
+    receipt_record: dict[str, Any],
+    evidence_record: dict[str, Any],
+    head_sha: str,
+    changed_files: list[str],
+    output_targets: list[str],
+    crash_hook: Any | None = None,
+) -> dict[str, Any]:
+    """Atomically create or resume the agent-owned proof projection.
+
+    Verification is deliberately outside this transaction. The caller must
+    recheck its exact plan before entering. This function then commits the
+    attempt, work binding, receipt, evidence, and attempt closeout through one
+    workspace replacement and one governance-journal transaction.
+    """
+
+    from .governance_journal import MutationMetadata, utc_timestamp
+
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    attempt_id = _record_id(attempt_record)
+    receipt_id = _record_id(receipt_record)
+    evidence_id = _record_id(evidence_record)
+    steps: list[dict[str, str]] = []
+    changed = False
+
+    attempts = _records(store, "attempts")
+    attempt = _find(attempts, attempt_id)
+    if attempt is None:
+        _assert_record_transition_allowed(store, "attempt", attempt_record)
+        attempt = _prepare_record_for_create(store, "attempt", dict(attempt_record))
+        attempts.append(attempt)
+        steps.append({"step": "attempt-record", "id": attempt_id, "status": "created"})
+        changed = True
+    else:
+        _assert_exact_resume(
+            "attempt",
+            attempt,
+            attempt_record,
+            ("work_item_id", "actor", "base_sha"),
+        )
+        steps.append({"step": "attempt-record", "id": attempt_id, "status": "resumed"})
+
+    work_records = _records(store, "work_items")
+    raw_work = _find(work_records, work_id)
+    if raw_work is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    before_work = deepcopy(raw_work)
+    if raw_work.get("current_attempt") != attempt_id:
+        raw_work["current_attempt"] = attempt_id
+        steps.append({"step": "work-attempt-bind", "id": work_id, "status": "updated"})
+        changed = True
+    else:
+        steps.append({"step": "work-attempt-bind", "id": work_id, "status": "resumed"})
+
+    receipts = _records(store, "receipts")
+    receipt = _find(receipts, receipt_id)
+    if receipt is None:
+        _assert_record_transition_allowed(store, "receipt", receipt_record)
+        receipt = _prepare_record_for_create(store, "receipt", dict(receipt_record))
+        receipts.append(receipt)
+        steps.append({"step": "receipt-record", "id": receipt_id, "status": "created"})
+        changed = True
+    else:
+        _assert_exact_resume(
+            "receipt",
+            receipt,
+            receipt_record,
+            ("work_item_id", "attempt_id", "actor", "outputs_created"),
+        )
+        steps.append({"step": "receipt-record", "id": receipt_id, "status": "resumed"})
+
+    evidence_runs = _records(store, "evidence_runs")
+    evidence = _find(evidence_runs, evidence_id)
+    if evidence is None:
+        _assert_record_transition_allowed(store, "evidence", evidence_record)
+        evidence = _prepare_record_for_create(store, "evidence", dict(evidence_record))
+        evidence_runs.append(evidence)
+        steps.append({"step": "evidence-record", "id": evidence_id, "status": "created"})
+        changed = True
+    else:
+        _assert_exact_resume(
+            "evidence",
+            evidence,
+            evidence_record,
+            ("work_item_id", "attempt_id", "head_sha", "status", "artifacts"),
+        )
+        steps.append({"step": "evidence-record", "id": evidence_id, "status": "resumed"})
+
+    current_head = str(attempt.get("head_sha") or "")
+    commits = list(attempt.get("commits", []))
+    if not current_head and commits:
+        current_head = str(commits[-1])
+    if attempt.get("status") not in {"complete", "completed"} or current_head != head_sha:
+        staged_workspace = validate_data(store.data_path, store.data)
+        assert_transition_allowed(
+            staged_workspace,
+            "attempt_closeout",
+            attempt_id,
+            actor=palari_id,
+            context={
+                "head_sha": head_sha,
+                "cleanliness": "clean",
+                "allow_missing_evidence": False,
+            },
+        )
+        attempt["status"] = "completed"
+        attempt["head_sha"] = head_sha
+        if not commits or commits[-1] != head_sha:
+            commits.append(head_sha)
+        attempt["commits"] = commits
+        attempt["cleanliness"] = "clean"
+        attempt["updated_at"] = _timestamp()
+        attempt["changed_files"] = list(changed_files)
+        attempt["output_targets"] = list(output_targets)
+        steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "closed-out"})
+        changed = True
+    else:
+        steps.append({"step": "attempt-closeout", "id": attempt_id, "status": "resumed"})
+
+    if changed:
+        validate_data(store.data_path, store.data)
+        metadata = MutationMetadata(
+            command="agent advance",
+            actor=palari_id,
+            action="reconciled-agent-proof",
+            timestamp=utc_timestamp(),
+            objects=tuple(
+                {
+                    "type": kind,
+                    "collection": collection,
+                    "id": record_id,
+                }
+                for kind, collection, record_id in (
+                    ("work", "work_items", work_id),
+                    ("attempt", "attempts", attempt_id),
+                    ("receipt", "receipts", receipt_id),
+                    ("evidence", "evidence_runs", evidence_id),
+                )
+            ),
+        )
+        workspace = write_store(store, metadata=metadata, crash_hook=crash_hook)
+        append_history_event(
+            store.data_path,
+            schema_version=workspace.schema_version,
+            command="agent advance",
+            action="reconciled-proof",
+            object_type="work",
+            object_collection="work_items",
+            object_id=work_id,
+            actor=palari_id,
+            before=before_work,
+            after=raw_work,
+        )
+    return {
+        "attempt_id": attempt_id,
+        "receipt_id": receipt_id,
+        "evidence_id": evidence_id,
+        "changed": changed,
+        "steps": steps,
+    }
+
+
+def _assert_exact_resume(
+    kind: str,
+    current: dict[str, Any],
+    expected: dict[str, Any],
+    fields: tuple[str, ...],
+) -> None:
+    for field in fields:
+        if current.get(field) != expected.get(field):
+            raise WorkspaceError(
+                f"existing {kind} {current.get('id', '')} conflicts on {field}"
+            )
+
+
 def parse_setters(setters: list[str], list_setters: list[str]) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     for item in setters:

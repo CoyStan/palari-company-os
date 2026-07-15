@@ -236,6 +236,13 @@ can run them to inspect the contract, but the normal idea is that an agent asks
 Palari what work is safe, reads one compact packet, starts a bounded local
 attempt, checks its file changes, and releases or finishes cleanly.
 
+For a committed Git candidate, `agent advance` compresses the mechanical tail
+of that loop into one deterministic operation: it derives the exact claim-start
+range, runs bound verification, records receipt/evidence/attempt closeout
+atomically, and either completes eligible R1 work or stops at independent
+review. `--dry-run` returns the exact plan without verification or mutation;
+the command never records human review, decision, or acceptance.
+
 Find the next useful item:
 
 ```bash

@@ -43,16 +43,21 @@ The v1 loop is:
     plain-language diagnosis of the current safety state.
 14. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-15. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
+15. After committing bounded implementation output, run `palari agent advance
+    WORK-ID --as PALARI-ID --dry-run --json` to inspect the deterministic plan,
+    then run it without `--dry-run`. It derives changed paths and the exact head,
+    runs bound verification, records proof atomically, releases the claim, and
+    stops at review or human authority. It does not exercise that authority.
+16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and
     attributes the complete committed range from the persisted claim-start
     head through current `HEAD`; a commit made before the claim does not count.
     For R2+ work, use the full lifecycle above.
-16. Run `palari validate --json`.
-17. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
+17. Run `palari validate --json`.
+18. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
     handing off the local claim before completion.
-18. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
+19. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -186,6 +191,8 @@ Implemented:
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
 - `palari agent done WORK-ID --as PALARI-ID --json` (R1/light/0-approval only)
+- `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
+- `palari agent advance WORK-ID --as PALARI-ID --json`
 - `palari agent loop WORK-ID --as PALARI-ID --json`
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
@@ -198,6 +205,8 @@ Implemented:
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
 - claim-start commit-range proof for `agent done`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
+- deterministic claim-range planning and atomic proof reconciliation through
+  `agent advance`, with exact-state verification reuse and an authority stop
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
