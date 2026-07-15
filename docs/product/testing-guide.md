@@ -6,16 +6,34 @@ The main verification command is:
 ./scripts/verify.sh
 ```
 
+This is the authoritative `complete` profile. `./scripts/verify.sh complete`
+is equivalent and is useful when a caller wants to name the profile explicitly.
+
 It runs:
 
 - unit tests
 - style checks with `scripts/check_style.py`
 - Python compilation
 - JSON validity checks for example workspaces and schemas
-- CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`,
-  `history`, and `maintainer status`
-- validation and queue/detail/history smoke checks for the repo dogfood
-  workspace at `workspaces/palari-company-os`
+- CLI smoke checks for core read models, agent packets, playbooks, dashboard,
+  desktop prototype, documentation, integrations, and the demo
+- validation and read-model smokes for the repo dogfood and split-workspace
+  fixtures
+
+For faster development feedback, name tests directly or select tests from
+changed paths:
+
+```bash
+./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh focused tests.test_validation tests.test_transition_checks
+./scripts/verify.sh affected src/palari_company_os/transition_checks.py
+./scripts/verify.sh affected --git-diff
+```
+
+Add `--list` to a focused or affected command to print its deterministic test
+selection. If an affected path has no safe mapping, the command runs the full
+unit suite. These profiles are iteration tools only; final acceptance still
+requires the complete profile.
 
 The package install smoke command is:
 
@@ -23,15 +41,17 @@ The package install smoke command is:
 ./scripts/install_smoke.sh
 ```
 
-It creates a temporary virtual environment, installs the package in editable
-mode, imports `palari_company_os`, and runs the installed `palari` command
-against the example workspace.
+It creates a unique temporary virtual environment, builds and installs a wheel,
+imports `palari_company_os`, and runs the installed `palari` command against
+temporary workspace copies. Logs and generated files are written only inside
+that unique temporary directory and are removed at exit, so concurrent runs do
+not share fixed `/tmp` paths.
 
 Focused commands:
 
 ```bash
 python3 -m pip install -e .
-python3 -m unittest discover -s tests
+python3 -m unittest tests.test_agent_packets
 python3 -m compileall -q src
 python3 -m json.tool examples/acme-company-os/workspace.json
 python3 -m json.tool workspaces/palari-company-os/workspace.json
@@ -65,5 +85,36 @@ The test suite covers:
 - migration from legacy unversioned workspaces
 - read-only split workspace collection files
 - write refusal for split workspaces
+- in-place split-workspace migration with stale-proof invalidation
+- coordinated claim/packet/baseline rehash rejection and Git witness history
+- agent-shell denial for human-only and packet-authority commands, dynamic
+  shell/Git-global-option approval, composed-command masking, helper-launching
+  config/environment options, post-release workspace-truth protection, and
+  option-encoded/linked-worktree metadata paths, pager/filter helpers, and
+  compact/newline separators, ordinary directory destinations, repository or
+  ripgrep helper overrides, global-option abbreviation rejection, destructive
+  ancestor targets, unquoted pathname expansion, tree-shaped copy and hidden
+  backup outputs, path-qualified trusted-command spoofing, hook self-removal,
+  fail-closed unclassified Palari commands, external/human integration
+  mutations, Bash `|&`, assignment-position tilde expansion, abbreviated GNU
+  write and Git helper options, Git pathspec-file target imports, direct Claude
+  settings mutation, read/write redirections, and active-claim scope-change
+  rejection; quoted Git pathspec magic/globs, dash-prefixed post-`--` operands,
+  and cross-workspace agent-safe Palari mutations also fail closed
+- timezone-normalized latest-record ordering across differing ISO offsets,
+  including later failed evidence, changes-requested review, and acceptance
+  revocation; malformed, missing-while-competing, timezone-free, and
+  equivalent-instant ordering claims fail closed
+- nonterminal acceptance evidence/receipt tamper rejection
+- strict PCAW canonicalization, deterministic export, offline artifact checks,
+  18 provider-neutral conformance vectors, and verifier TCB accounting
+- journal replay, corruption/truncation/fork detection, every crash boundary,
+  idempotent recovery, legacy checkpointing, and centralized store integration
+- 1/10/100-item Approval Inbox compression with item-level proof retention,
+  dependency staleness, partial decisions, pack-transplant rejection, risk
+  policy, exact human authority, and every approval transaction crash boundary
+- content-addressed checkpoint replay and append-only restoration, including
+  human attribution, exact projection equality, external-effect non-guarantees,
+  and every restoration transaction crash boundary
 - external maintainer status
 - dogfood workspace validation and read-model smoke checks

@@ -49,6 +49,66 @@ class HistoryTests(unittest.TestCase):
 
     def test_lifecycle_decide_complete_and_outcome_append_events(self) -> None:
         with self.fixture_workspace("valid-workspace.json") as workspace:
+            workspace_file = workspace / "workspace.json"
+            raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+            raw["work_items"][0]["allowed_resources"] = ["result.txt"]
+            raw["work_items"][0]["output_targets"] = ["result.txt"]
+            raw["attempts"][0]["workspace_path"] = str(workspace)
+            raw["attempts"][0]["allowed_paths"] = ["result.txt"]
+            raw["attempts"][0]["output_targets"] = ["result.txt"]
+            workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+            (workspace / "result.txt").write_text("bounded result\n", encoding="utf-8")
+            self.run_cli(
+                workspace,
+                "receipt",
+                "record",
+                "RECEIPT-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--attempt-id",
+                "ATTEMPT-1",
+                "--actor",
+                "PALARI-SOFIA",
+                "--list",
+                "actions_taken=verified local checklist",
+                "--list",
+                "outputs_created=result.txt",
+            )
+            self.run_cli(
+                workspace,
+                "evidence",
+                "record",
+                "EVIDENCE-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--attempt-id",
+                "ATTEMPT-1",
+                "--head-sha",
+                "head-1",
+                "--status",
+                "passed",
+                "--summary",
+                "verification passed",
+                "--list",
+                "commands=python3 -m unittest tests.test_history",
+                "--list",
+                "artifacts=result.txt",
+            )
+            self.run_cli(
+                workspace,
+                "review",
+                "record",
+                "REVIEW-BOUND",
+                "--work-item-id",
+                "WORK-1",
+                "--reviewed-head",
+                "head-1",
+                "--reviewer",
+                "HUMAN-PRODUCT",
+                "--verdict",
+                "accept-ready",
+            )
+            history_file_path(workspace).unlink()
             self.run_cli(
                 workspace,
                 "lifecycle",
@@ -65,9 +125,9 @@ class HistoryTests(unittest.TestCase):
                 "--status",
                 "accepted",
                 "--evidence-reference",
-                "EVIDENCE-1",
+                "EVIDENCE-BOUND",
                 "--review-reference",
-                "REVIEW-1",
+                "REVIEW-BOUND",
             )
             self.run_cli(workspace, "lifecycle", "complete", "WORK-1")
             self.run_cli(
@@ -167,7 +227,7 @@ class HistoryTests(unittest.TestCase):
 
     def empty_workspace(self) -> "_WorkspaceCopy":
         data = {
-            "schema_version": 1,
+            "schema_version": 2,
             "name": "History Test Workspace",
             "goals": [],
             "humans": [],

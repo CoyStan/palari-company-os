@@ -17,7 +17,7 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 150)
+        self.assertEqual(len(actual), 155)
         self.assertEqual(actual, expected)
 
     def test_public_surface_doc_classifies_core_and_visual_surfaces(self) -> None:
@@ -32,7 +32,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("| Desktop prototype and desktop serve | visual |", surface)
         self.assertNotRegex(surface, r"(?i)dashboard and local serve \| core")
         self.assertNotRegex(surface, r"(?i)desktop prototype and desktop serve \| core")
-        self.assertIn("Current CLI command count from parser inspection: **150**.", surface)
+        self.assertIn("Current CLI command count from parser inspection: **155**.", surface)
 
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")

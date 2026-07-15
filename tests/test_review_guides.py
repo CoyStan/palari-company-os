@@ -52,6 +52,20 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["attempt"], {"present": False})
         self.assertEqual(payload["receipt"], {"present": False})
 
+    def test_review_guide_excludes_human_attempt_actor(self) -> None:
+        raw = json.loads((ACME / "workspace.json").read_text(encoding="utf-8"))
+        raw["attempts"][0]["actor"] = "HUMAN-OPS"
+        raw["review_verdicts"] = [
+            item for item in raw["review_verdicts"] if item["work_item_id"] != "WORK-0001"
+        ]
+        workspace = Workspace.from_raw(raw, ACME)
+
+        payload = build_review_guide(workspace, "WORK-0001")
+
+        self.assertNotIn(
+            "HUMAN-OPS", {candidate["id"] for candidate in payload["reviewer_candidates"]}
+        )
+
     def test_review_guide_reports_stale_review_precisely(self) -> None:
         workspace = Workspace.load(ACME)
 
@@ -114,11 +128,25 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("step: review-handoff", result.stdout)
 
     def test_cli_agent_next_rollup_text_prints_top_candidate(self) -> None:
+        payload = json.loads(self.run_cli("agent", "next", "--json").stdout)
         result = self.run_cli("agent", "next")
+        top = payload["top_candidate"]
+        if top is None:
+            self.assertIn("Status: no-ready-work", result.stdout)
+            self.assertNotIn("Top:", result.stdout)
+            self.assertIn("Next commands:", result.stdout)
+            self.assertIn(payload["next_allowed_commands"][0], result.stdout)
+            return
 
-        self.assertIn("Top: WORK-REPO-0005 [waiting] via PALARI-ARCHITECT", result.stdout)
-        self.assertIn("step: human-decision", result.stdout)
-        self.assertIn("palari decision guide DECISION-REPO-0001 --json", result.stdout)
+        availability = "ready" if top["candidate"]["can_start"] else "waiting"
+
+        self.assertIn(
+            f"Top: {top['candidate']['work_item_id']} [{availability}] "
+            f"via {top['agent']['id']}",
+            result.stdout,
+        )
+        self.assertIn(f"step: {top['candidate']['next_step_type']}", result.stdout)
+        self.assertIn(payload["next_allowed_commands"][0], result.stdout)
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()

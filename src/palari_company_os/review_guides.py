@@ -15,7 +15,12 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
     receipt = payload.get("receipt")
     review_focus = _review_focus(payload)
     reviewer_candidates = _reviewer_candidates(
-        workspace, payload.get("workbench"), work.get("required_approval_capability", ""), work_id, evidence
+        workspace,
+        payload.get("workbench"),
+        work.get("required_approval_capability", ""),
+        work_id,
+        evidence,
+        str((attempt or {}).get("actor", "")),
     )
     return {
         "schema_version": "palari.review_guide.v1",
@@ -164,10 +169,13 @@ def _reviewer_candidates(
     required_capability: str,
     work_id: str,
     evidence: dict[str, Any] | None,
+    attempt_actor: str,
 ) -> list[dict[str, Any]]:
     workbench_humans = set((workbench or {}).get("human_ids", []))
     candidates: list[dict[str, Any]] = []
     for human in workspace.humans:
+        if human.id == attempt_actor:
+            continue
         if human.availability == "inactive":
             continue
         if workbench_humans and human.id not in workbench_humans:

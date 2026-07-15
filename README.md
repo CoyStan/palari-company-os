@@ -71,7 +71,7 @@ See the [Quickstart](docs/product/quickstart.md) for the full path.
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
+[![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
 
 Palari Company OS is a local, file-backed control plane for AI-assisted work.
 It helps humans and AI agents agree on:
@@ -86,12 +86,25 @@ It is not another chatbot. It is the operating contract around AI work: goals,
 workbenches, named AI partners, bounded work items, receipts, evidence, review,
 human decisions, and outcomes.
 
+Its protocol north star is **Proof-Carrying AI Work (PCAW)**: an independent
+party can take one canonical statement plus its named artifacts and verify the
+governance claim offline, without the original workspace, provider, network,
+credentials, or source contents. See the normative [PCAW v1
+specification](spec/pcaw/v1/README.md).
+
+Its operator complement is the **Approval Inbox**: agents may prepare many
+bounded, individually proven items, while one human review session can approve
+an exact eligible bundle. The interaction is compressed; evidence and
+authority are not. Content-addressed checkpoints make local tentative chains
+reversible without rewriting history. Restoration fails closed when effects
+after the target checkpoint have already escaped the local workspace.
+
 New to those words? Start with the plain-language
 [Glossary](docs/product/glossary.md).
 
 ## What Works Today
 
-This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
+This is a **v0.2 alpha local CLI**. It runs from local files, has no runtime
 package dependencies beyond the Python standard library, and does not require
 API keys, cloud accounts, databases, Slack, GitHub apps, Google Drive, or a
 background service.
@@ -105,9 +118,21 @@ Implemented now:
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - file-change boundary checks for `agent check --changed` and `--git-diff`
+- canonical path/symlink enforcement and metadata-only start baselines that
+  distinguish unchanged pre-existing dirt from agent changes
 - structural boundary enforcement inside Claude Code via `palari claude install`
   (out-of-boundary writes are denied by hooks, not just reported)
 - source and receipt trust records
+- exact attempt/receipt/evidence/work-contract review binding, immutable bound
+  reviews, and latest-decision quorum revocation
+- deterministic PCAW v1 proof export and offline verification with strict
+  canonical JSON, exact artifact digests, and a provider-neutral conformance corpus
+- staged, hash-chained governance journaling for new or explicitly checkpointed
+  workspaces, with replay, corruption detection, and crash recovery
+- canonical Approval Packs with item-level proof, dependency-aware staleness,
+  one exact human decision, risk-based batching, and parked external effects
+- content-addressed journal checkpoints with append-only human restoration and
+  explicit external-effect non-guarantees
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and
@@ -132,6 +157,15 @@ Not implemented yet:
   requires an approved plan first)
 
 ## Try More Locally
+
+Run the two-minute, network-free proof demonstration:
+
+```bash
+./scripts/pcaw_demo.sh
+```
+
+It verifies an accepted artifact, changes one governed byte, and shows the
+stable digest-mismatch rejection.
 
 Run the local verification:
 
@@ -201,6 +235,13 @@ The `agent` commands are mostly meant for coding agents or AI operators. Humans
 can run them to inspect the contract, but the normal idea is that an agent asks
 Palari what work is safe, reads one compact packet, starts a bounded local
 attempt, checks its file changes, and releases or finishes cleanly.
+
+For a committed Git candidate, `agent advance` compresses the mechanical tail
+of that loop into one deterministic operation: it derives the exact claim-start
+range, runs bound verification, records receipt/evidence/attempt closeout
+atomically, and either completes eligible R1 work or stops at independent
+review. `--dry-run` returns the exact plan without verification or mutation;
+the command never records human review, decision, or acceptance.
 
 Find the next useful item:
 
@@ -359,13 +400,16 @@ Then go deeper:
 Run the normal local verification stack:
 
 ```bash
-./scripts/verify.sh
-python3 -m unittest discover -s tests
+./scripts/verify.sh complete
+./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh affected --git-diff
 ./scripts/install_smoke.sh
 ```
 
-`./scripts/verify.sh` runs unit tests, Python compilation, JSON validity checks,
-the lightweight style checker, and CLI smoke checks. `install_smoke.sh` creates
+`./scripts/verify.sh` defaults to the authoritative `complete` profile and runs
+unit tests, Python compilation, JSON validity checks, the lightweight style
+checker, CLI smokes, security tests, and package checks. `focused` and
+`affected` are iteration profiles, not acceptance gates. `install_smoke.sh` creates
 a temporary virtual environment, builds and installs a wheel, imports it, checks
 the installed `palari` command, and confirms packaged default fixtures work.
 

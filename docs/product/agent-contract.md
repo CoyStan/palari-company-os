@@ -43,14 +43,21 @@ The v1 loop is:
     plain-language diagnosis of the current safety state.
 14. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
     compact summary of the current brief/check/finish/handoff state.
-15. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
+15. After committing bounded implementation output, run `palari agent advance
+    WORK-ID --as PALARI-ID --dry-run --json` to inspect the deterministic plan,
+    then run it without `--dry-run`. It derives changed paths and the exact head,
+    runs bound verification, records proof atomically, releases the claim, and
+    stops at review or human authority. It does not exercise that authority.
+16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
-    completes the work item in one step. For R2+ work, use the full lifecycle
-    above.
-16. Run `palari validate --json`.
-17. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
+    completes the work item in one step. It requires a clean worktree and
+    attributes the complete committed range from the persisted claim-start
+    head through current `HEAD`; a commit made before the claim does not count.
+    For R2+ work, use the full lifecycle above.
+17. Run `palari validate --json`.
+18. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
     handing off the local claim before completion.
-18. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
+19. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
 For independent inspection work, use `--mode review` only after a work item is
 already in `needs-review` or `receipt-ready`. A review packet is read-only. It
@@ -156,11 +163,18 @@ Agents must never:
 ## V1 Scope
 
 Agent Packet Contract v1 keeps provider actions read-only, but the local agent
-runtime now writes two audit files for ready started work:
+runtime writes packet/claim audit state and, when Git has a committed head, a
+local Git witness for ready started work:
 
 - `.palari/packets/PACKET-...json` stores the exact bounded packet.
 - `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
-  and context hash for the active local claim.
+  context hash, and a hashed metadata-only Git dirty baseline for the active
+  local claim. The baseline records path/status/stat metadata, never contents.
+  Its `.baseline` companion survives claim release/restart for the same work
+  item so an agent cannot reclassify its own later changes as pre-existing.
+  For a committed claim-start head, `refs/palari/claims/...` and its oldest
+  local reflog entry provide a separate Git-backed witness. All four views must
+  agree before claim authority or `agent done` attribution is accepted.
 
 Implemented:
 
@@ -177,6 +191,8 @@ Implemented:
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
 - `palari agent done WORK-ID --as PALARI-ID --json` (R1/light/0-approval only)
+- `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
+- `palari agent advance WORK-ID --as PALARI-ID --json`
 - `palari agent loop WORK-ID --as PALARI-ID --json`
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
@@ -186,6 +202,11 @@ Implemented:
 - machine-readable packet compliance checks
 - local packet persistence and local claim leases
 - optional changed-file boundary checks
+- unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
+- claim-start commit-range proof for `agent done`, preserved across release and
+  restart so earlier out-of-boundary commits remain visible
+- deterministic claim-range planning and atomic proof reconciliation through
+  `agent advance`, with governed exact-proof reuse and an authority stop
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
@@ -220,9 +241,57 @@ When `--changed PATH` or `--git-diff` is supplied, `agent check` also compares
 observed file changes against the packet's writable paths and required outputs.
 It reports changed files inside and outside the write boundary, missing file
 outputs, and changed files not represented by the current attempt/receipt
-records. This is intentionally lightweight: Palari does not inspect file
-contents, but it can catch edits outside the packet boundary before an agent
-claims work is done.
+records. For claims started in Git, unchanged dirty paths captured at start are
+listed separately and not attributed to the agent; a changed fingerprint is
+attributed normally. This is intentionally content-blind: Palari compares Git
+status and file metadata, rejects traversal/symlink escape and incomplete
+observations, and never treats the baseline as cryptographic provenance.
+Execute-mode hooks additionally rebuild the current packet from workspace truth
+before granting writes, so coordinated edits to a packet and claim cannot
+expand scope. A generic `work update` cannot mutate a work item while any local
+claim is active, and `agent start` refuses to renew an active claim when the
+current workspace would compile different packet authority. Scope changes must
+therefore cross a release and authorized handoff into a new claim epoch.
+Opaque interpreters, unreviewed executables, dynamic shell expansion or
+indirection, and Git witness mutations (including Git commands with global
+`-C`, `--git-dir`, or `--work-tree` options) require a human hook decision.
+That review applies to every shell segment even when an earlier segment has an
+in-scope write target, and execution-capable command environments, `git -c`,
+external diff/text-conversion options, and `rg --pre` cannot inherit a read-only
+classification. Opaque or indirect commands still ask when no claim is active,
+so releasing a claim cannot turn indirection into an authority bypass.
+Direct writes to the workspace root, declared split collection files,
+`.palari/`, or Git metadata are denied or escalated even without an active
+claim; option-encoded destinations such as `dd of=` and `--target-directory`
+are inspected, and linked worktree Git/common directories are included. Those
+surfaces must change through governed Palari/Git commands. Pager and filter
+options that can launch helpers are not read-only Git operations. Compact or
+newline-separated shell segments are tokenized identically, and ordinary
+existing-directory destinations resolve the effective destination basename.
+Repository overrides and ripgrep preprocessor/hostname helpers require review.
+The CLI does not accept abbreviated long options at any parser nesting level,
+and the hook still scans protected Palari command pairs defensively. Unquoted
+pathname expansion, tree-shaped or backup-producing writes, path-qualified
+trusted-command names, hook self-modification, and unclassified Palari commands
+require review. The same applies to Bash `|&`, assignment-position tilde
+expansion, abbreviated GNU write/Git helper options, and Git pathspec-file
+imports. Destructive removal or move
+targets include ancestors of workspace, runtime, Git truth, and the standard
+Claude hook settings, so deleting a parent directory cannot bypass the
+exact-file checks. Quoted Git pathspec magic/globs and dash-prefixed operands
+after `--` remain reviewable. Agent-safe Palari mutations cannot point
+`--workspace` at another workspace or silently use a different default.
+Human-attributed review, decision, integration approval/cancel/enqueue/send,
+Linear adoption, terminal lifecycle, work-accept, and generic packet-authority
+mutation commands are denied from the supported agent shell.
+
+Latest evidence, review, receipt, attempt, acceptance, outcome, and integration
+records are ordered by timezone-normalized UTC instants. ISO offset spelling
+cannot make an older pass or acceptance outrank a semantically later failure,
+rejection, or revocation. Malformed, timezone-free, missing-while-competing, and
+equivalent-instant ordering claims fail closed; record ids never decide trust
+authority. A single undated schema-v2 legacy record may remain only when no
+ordering choice exists; multiple competing records must all be dated.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target work item

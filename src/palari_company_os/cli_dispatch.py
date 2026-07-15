@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ class CommandResult:
     kind: str
     payload: Any
     as_json: bool
+    exit_code: int = 0
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
@@ -33,9 +35,19 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "queue":
+        workspace = Workspace.load(args.workspace)
+        if args.approval_inbox:
+            from .workspace_read_models import approval_inbox
+
+            return CommandResult(
+                "approval-inbox",
+                approval_inbox(workspace, selected_work_ids=args.select),
+                args.json,
+            )
+        if args.select:
+            raise WorkspaceError("--select requires --approval-inbox")
         from .read_models import queue_items
 
-        workspace = Workspace.load(args.workspace)
         items = queue_items(workspace)
         if not args.include_closed:
             items = [item for item in items if item.attention != "closed"]
@@ -85,6 +97,40 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         if args.docs_command == "map":
             return CommandResult("docs-map", build_docs_map(args.repo), args.json)
 
+    if args.command == "proof":
+        if args.proof_command == "export":
+            from .pcaw_export import export_pcaw_statement
+
+            return CommandResult(
+                "proof",
+                export_pcaw_statement(args.workspace, args.work_id, args.output),
+                args.json,
+            )
+        if args.proof_command == "verify":
+            from .pcaw_protocol import verify_pcaw_file
+
+            payload = verify_pcaw_file(
+                args.proof_file,
+                subject_root=args.subject_root,
+                statement_only=args.statement_only,
+            )
+            error_codes = {
+                str(item.get("code", ""))
+                for item in payload.get("errors", [])
+                if isinstance(item, dict)
+            }
+            exit_code = (
+                0
+                if payload.get("verified")
+                else 2 if "PROOF_UNREADABLE" in error_codes else 1
+            )
+            return CommandResult(
+                "proof",
+                payload,
+                args.json,
+                exit_code,
+            )
+
     if args.command == "validate":
         workspace = Workspace.load(args.workspace)
         return CommandResult(
@@ -115,16 +161,19 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "detail":
         from .read_models import detail
+        from .workspace_read_models import approval_detail
 
         workspace = Workspace.load(args.workspace)
-        return CommandResult("detail", detail(workspace, args.work_id), args.json)
+        payload = detail(workspace, args.work_id)
+        payload["approval_pack"] = approval_detail(workspace, args.work_id)
+        return CommandResult("detail", payload, args.json)
 
     if args.command == "scope":
         from .scope import check_scope
 
         workspace = Workspace.load(args.workspace)
-        payload = check_scope(workspace, args.work_id, args.changed, args.action)
-        return CommandResult("scope", payload.to_dict(), args.json)
+        scope_result = check_scope(workspace, args.work_id, args.changed, args.action)
+        return CommandResult("scope", scope_result.to_dict(), args.json)
 
     if args.command == "integrations":
         from .integrations import list_integrations
@@ -142,6 +191,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent
 
+        if args.agent_command == "advance" and args.dry_run:
+            from .agent_advance import agent_advance_dry_run
+
+            fast_plan = agent_advance_dry_run(
+                args.workspace,
+                args.work_id,
+                args.palari_id,
+            )
+            if fast_plan is not None:
+                return CommandResult("agent-done", fast_plan, args.json)
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:
@@ -190,7 +249,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.mode,
                     changed_paths=args.changed,
                     git_diff=args.git_diff,
-                    cwd=Path.cwd(),
+                    # Bind Git observation to the checkout that contains the
+                    # selected workspace, not an arbitrary caller directory.
+                    cwd=workspace.path,
                 ),
                 args.json,
             )
@@ -231,6 +292,22 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     changed=args.changed,
                     head_sha=args.head_sha,
                     model_or_worker=args.model_or_worker,
+                ),
+                args.json,
+            )
+        if args.agent_command == "advance":
+            from .agent_advance import agent_advance
+
+            return CommandResult(
+                "agent-done",
+                agent_advance(
+                    workspace,
+                    args.workspace,
+                    args.work_id,
+                    args.palari_id,
+                    dry_run=args.dry_run,
+                    summary=args.summary,
+                    refresh_verification=args.refresh_verification,
                 ),
                 args.json,
             )
@@ -279,7 +356,15 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.git_command == "pre-commit":
             result = pre_commit(args.workspace, cwd=Path.cwd())
-            if not result["ok"] and not args.json:
+            if not result["ok"]:
+                if args.json:
+                    print(json.dumps(result, indent=2, sort_keys=True))
+                else:
+                    print(result.get("message", "Palari commit check failed."), file=sys.stderr)
+                    for error in result.get("errors", []):
+                        print(f"  error: {error}", file=sys.stderr)
+                    for path in result.get("outside", []):
+                        print(f"  outside: {path}", file=sys.stderr)
                 sys.exit(1)
             return CommandResult("git-pre-commit", result, args.json)
         if args.git_command == "status":
@@ -563,6 +648,62 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
 
     if args.command == "history":
+        if args.checkpoints:
+            from .checkpoints import list_checkpoints
+
+            return CommandResult(
+                "history-checkpoints",
+                list_checkpoints(args.workspace),
+                args.json,
+            )
+        if args.restore:
+            if not args.actor:
+                raise WorkspaceError("--restore requires --actor with a declared human id")
+            from .checkpoints import restore_checkpoint
+
+            return CommandResult(
+                "history-restoration",
+                restore_checkpoint(
+                    args.workspace,
+                    args.restore,
+                    actor=args.actor,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
+        if args.verify or args.checkpoint or args.recover:
+            from .governance_journal import (
+                checkpoint_workspace_journal,
+                recover_workspace_journal,
+                verify_workspace_journal,
+            )
+            from .store import workspace_write_lock
+
+            if args.checkpoint:
+                with workspace_write_lock(args.workspace):
+                    payload = checkpoint_workspace_journal(
+                        args.workspace,
+                        actor=args.actor or "local-operator",
+                        acknowledge_break=args.acknowledge_break,
+                        reason=args.reason,
+                    )
+            elif args.recover:
+                with workspace_write_lock(args.workspace):
+                    payload = recover_workspace_journal(args.workspace, actor=args.actor)
+            else:
+                payload = verify_workspace_journal(args.workspace)
+            return CommandResult(
+                "history-journal",
+                payload,
+                args.json,
+                0 if payload.get("ok") else 2,
+            )
+
+        if args.acknowledge_break or args.actor or args.reason:
+            raise WorkspaceError(
+                "--actor, --reason, and --acknowledge-break require a journal mode"
+            )
+
         from .history import read_history
 
         return CommandResult("history", read_history(args.workspace, args.limit), args.json)
@@ -672,7 +813,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .evidence_manifest import verify_evidence
 
         workspace = Workspace.load(args.workspace)
-        return CommandResult("evidence-verify", verify_evidence(workspace, args.id), args.json)
+        payload = verify_evidence(workspace, args.id)
+        return CommandResult(
+            "evidence-verify",
+            payload,
+            args.json,
+            0 if payload["ok"] else 1,
+        )
 
     if args.command == "proposal" and args.object_command in {"adopt", "reject", "defer"}:
         from .proposals import adopt_proposal, decide_proposal
@@ -770,6 +917,24 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         "receipt",
         "outcome",
     }:
+        if args.command == "human-decision" and args.object_command == "pack":
+            from .approval_packs import apply_pack_decision
+
+            return CommandResult(
+                "approval-pack-decision",
+                apply_pack_decision(
+                    args.workspace,
+                    pack_digest=args.pack_digest,
+                    human_id=args.human_id,
+                    approve_eligible=args.approve_eligible,
+                    approve=args.approve,
+                    reject=args.reject,
+                    defer=args.defer,
+                    pack_members=args.pack_member,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
         return CommandResult("mutation", run_authoring_command(args), args.json)
 
     if args.command == "lifecycle":
@@ -812,19 +977,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
 def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
     from .history import append_history_event
-    from .store import load_store, migrate_data, write_store
+    from .store import load_store, migrate_store
 
     store = load_store(workspace_path)
     before = deepcopy(store.data)
-    migrated, changes = migrate_data(store.data)
+    migrated, changes, workspace = migrate_store(store, write=write)
     payload = {
         "workspace_file": str(store.data_path),
         "write": write,
         "changes": changes,
     }
     if write:
-        store = store.with_data(migrated)
-        workspace = write_store(store)
+        if workspace is None:
+            raise WorkspaceError("migration write did not produce a workspace")
+        after = load_store(store.data_path).data
         append_history_event(
             store.data_path,
             schema_version=workspace.schema_version,
@@ -834,7 +1000,7 @@ def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
             object_collection="workspace",
             object_id=workspace.name,
             before=before,
-            after=migrated,
+            after=after,
         )
     return payload
 

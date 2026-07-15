@@ -118,7 +118,7 @@ def _finish_stage(
         "command": f"palari agent finish {work_id} --as {palari_id} --mode {mode} --json",
         "status": finish.get("status", "blocked"),
         "ok": bool(finish.get("can_finish")),
-        "handoff_ready": bool(finish.get("handoff_guidance")),
+        "handoff_ready": bool(finish.get("handoff_ready")),
         "message": finish.get("report_guidance", ""),
     }
 

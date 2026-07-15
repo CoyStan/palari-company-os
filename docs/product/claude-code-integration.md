@@ -11,8 +11,9 @@ New to the packet and claim vocabulary? Start with the
 
 ## What It Enforces
 
-Three hooks, all derived from the persisted claim and packet files that
-`palari agent start` writes under `.palari/`:
+Three hooks, derived from the persisted claim and packet files that `palari
+agent start` writes under `.palari/` and reconciled with current workspace
+truth before execute authority is granted:
 
 - **PreToolUse** — before Claude writes a file with `Write`, `Edit`, or
   `NotebookEdit`, the target path is checked against the active claim's write
@@ -24,7 +25,24 @@ Three hooks, all derived from the persisted claim and packet files that
   conservative heuristic (redirections and common mutating commands such as
   `rm`, `mv`, `cp`, `tee`, `sed -i`, `git rm`). A suspected out-of-boundary
   write escalates to a human **ask**, never a silent deny or allow, because a
-  heuristic should not have deny authority.
+  heuristic should not have deny authority. Opaque interpreters, unreviewed
+  executables, dynamic shell expansion or indirection, and Git witness
+  mutations also require a human ask; Git global options cannot hide a witness
+  subcommand, and an earlier allowed write cannot mask a later unsafe shell
+  segment. Command environment assignments, execution-capable `git -c` or diff
+  options, and `rg --pre` also ask. Unquoted pathname expansion, recursive or
+  tree-shaped copy semantics, backup-producing write options, path-qualified
+  executable names, hook installation/removal, and Palari commands not on the
+  explicit agent-safe command list also ask. Human-attributed review, decision,
+  integration approval/cancel/enqueue/send, Linear adoption, terminal
+  lifecycle, work-accept, and generic packet-authority mutations are denied
+  from agent Bash. Bash `|&`, assignment-position tilde expansion, abbreviated
+  GNU write options, Git helper-option abbreviations, and Git pathspec-file
+  imports are treated as indirect rather than inheriting a safe command label;
+  read/write `<>` redirections are write targets too. Git pathspec magic and
+  quoted pathspec globs require review, and an explicit `--` keeps subsequent
+  dash-prefixed operands in write/destructive target analysis. Agent-safe
+  Palari mutations must resolve to the workspace configured for the hook.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -34,9 +52,12 @@ Three hooks, all derived from the persisted claim and packet files that
   paths, check command) is injected into Claude's context at session start.
   Unclaimed sessions are pointed at `palari agent next`.
 
-Hook handlers read only `.palari/claims/` and `.palari/packets/`. They never
-load, validate, or mutate the workspace, and they fail open: a Palari error
-degrades to "no decision" instead of locking up an unrelated Claude session.
+Hook handlers read `.palari/claims/`, `.palari/packets/`, and the current
+workspace to ensure a self-rehashed runtime packet cannot expand current scope.
+They never mutate the workspace, and unexpected handler errors fail open: a
+Palari error degrades to "no decision" instead of locking up an unrelated
+Claude session. A structurally invalid active claim is an ordinary checked
+state and blocks or escalates writes rather than taking that error path.
 
 ## Install
 
@@ -55,8 +76,23 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   shared settings file.
 - `--strict` also escalates writes that **no** active claim covers, and writes
   that target paths outside the repository, to a human ask. Without it,
-  sessions with no claimed work item are left to Claude Code's normal
-  permission flow.
+  transparent file writes in sessions with no claimed work item are left to
+  Claude Code's normal permission flow. Opaque, indirect, or unreviewed shell
+  execution still asks even without a claim so hidden authority commands cannot
+  bypass the hook by releasing a claim first. Direct writes to workspace truth,
+  split collection files, `.palari/`, and standard or linked-worktree Git
+  metadata also remain protected, including `dd of=`, `-t`, and
+  `--target-directory` destinations. Compact/newline shell separators and
+  ordinary existing-directory copy/move/link/install destinations resolve to
+  their effective paths. Git repository overrides and ripgrep helper-launching
+  options ask rather than inheriting a read-only classification. Abbreviated
+  global CLI options are rejected, protected command pairs are scanned
+  defensively, destructive parent-directory targets remain protected, and new
+  or unclassified Palari commands fail closed to a human ask. The standard
+  Claude settings files that hold these hooks are protected from direct edits
+  and destructive parent operations. `history --restore` is classified as a
+  human-only authority command even when its options are reordered or use
+  `--restore=...`; an agent shell receives a deny before any local restoration.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays
@@ -81,9 +117,10 @@ Claude Code session:
 Review-mode claims grant no write paths: they are read-only by contract, so
 file writes under a review-only claim escalate to a human.
 
-When several claims are active in one workspace, the boundary is the union of
-their execute-mode write paths. Pin one Claude session to one claim with the
-`PALARI_AS` and `PALARI_WORK_ID` environment variables.
+When several claims are active in one workspace, a target is allowed only when
+exactly one execute claim covers it; overlapping authority fails closed. Pin
+one Claude session to one claim with the `PALARI_AS` and `PALARI_WORK_ID`
+environment variables.
 
 ## Boundaries And Honest Limits
 
@@ -97,9 +134,9 @@ their execute-mode write paths. Pin one Claude session to one claim with the
   that predate the session will also block a stop. The block message says how
   to proceed; start agent sessions from a clean tree to avoid it.
 - The PreToolUse matcher includes `Bash`, so every shell command in a hooked
-  session invokes `palari` once. The handler reads only claim and packet
-  files (no workspace load), so this is fast in practice — but if a hooked
-  session ever feels sluggish, this is the first place to look.
+  session invokes `palari` once. The handler reads the claim and packet and
+  recompiles execute authority from workspace truth; if a hooked session ever
+  feels sluggish, this is the first place to measure.
 - This is enforcement for Claude Code specifically. Other harnesses keep the
   cooperative contract from [agent-contract.md](agent-contract.md) until they
   grow their own adapters.

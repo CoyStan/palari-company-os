@@ -1,19 +1,37 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from .agent_file_changes import capture_git_baseline
 from .agent_packets import build_agent_brief
+from .path_policy import resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, WorkspaceError
 
 
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
+GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
+PACKET_RUNTIME_STATE_FIELDS = {
+    "blockers",
+    "completion_contract",
+    "context_hash",
+    "created_at",
+    "documentation_state",
+    "next_allowed_commands",
+    "omitted_context",
+    "one_sentence_instruction",
+    "proof_state",
+    "state",
+    "status",
+}
 
 
 def start_agent(
@@ -46,20 +64,9 @@ def start_agent(
     data_path = workspace_file_path(workspace_path)
     now = _timestamp()
     expires = _timestamp_after(minutes=max(1, lease_minutes))
-    claim = {
-        "schema_version": CLAIM_SCHEMA_VERSION,
-        "work_item": work_id,
-        "claimed_by": palari_id,
-        "mode": mode or "execute",
-        "claimed_at": now,
-        "lease_expires_at": expires,
-        "packet_id": packet["packet_id"],
-        "context_hash": packet["context_hash"],
-        "packet_path": _runtime_relative(data_path, _packet_path(data_path, packet["packet_id"])),
-    }
-
     packet_path = _packet_path(data_path, packet["packet_id"])
     claim_path = _claim_path(data_path, work_id)
+    baseline_path = _baseline_path(data_path, work_id)
     lock_path = _acquire_claim_lock(data_path, work_id)
     try:
         existing = read_claim(workspace_path, work_id)
@@ -67,6 +74,66 @@ def start_agent(
             raise WorkspaceError(
                 f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
             )
+        if existing and _claim_active(existing):
+            requested_mode = mode or "execute"
+            if existing.get("mode") != requested_mode:
+                raise WorkspaceError(
+                    f"work {work_id} already has an active {existing.get('mode', 'unknown')} "
+                    f"claim; release it before starting {requested_mode} mode"
+                )
+            try:
+                existing_packet = _read_claim_packet(data_path, existing)
+            except (ValueError, WorkspaceError) as exc:
+                raise WorkspaceError(
+                    f"work {work_id} active claim packet is invalid: {exc}"
+                ) from exc
+            packet_error = _validate_claim_packet(existing, existing_packet)
+            if packet_error:
+                raise WorkspaceError(
+                    f"work {work_id} active claim packet is invalid: {packet_error}"
+                )
+            if _packet_authority_hash(existing_packet) != _packet_authority_hash(packet):
+                raise WorkspaceError(
+                    f"work {work_id} has an active claim whose packet authority differs "
+                    "from the current workspace; release it and route the scope change "
+                    "through an authorized handoff before starting a new claim epoch"
+                )
+
+        persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
+        if persisted_baseline is None:
+            git_baseline = capture_git_baseline(workspace.path)
+            git_witness_ref = _create_git_witness(work_id, git_baseline)
+            baseline_record = {
+                "schema_version": "palari.persisted_git_baseline.v1",
+                "work_item": work_id,
+                "captured_at": now,
+                "git_baseline": git_baseline,
+                "git_baseline_hash": _git_baseline_hash(git_baseline),
+                "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+                "git_witness_ref": git_witness_ref,
+            }
+            _write_json(baseline_path, baseline_record)
+        else:
+            git_baseline = persisted_baseline["git_baseline"]
+            git_witness_ref = str(persisted_baseline.get("git_witness_ref") or "")
+
+        claim = {
+            "schema_version": CLAIM_SCHEMA_VERSION,
+            "work_item": work_id,
+            "claimed_by": palari_id,
+            "mode": mode or "execute",
+            "claimed_at": now,
+            "lease_expires_at": expires,
+            "packet_id": packet["packet_id"],
+            "context_hash": packet["context_hash"],
+            "workspace_file_hash": _file_hash(data_path),
+            "packet_path": _runtime_relative(data_path, packet_path),
+            "git_baseline": git_baseline,
+            "git_baseline_hash": _git_baseline_hash(git_baseline),
+            "git_baseline_path": _runtime_relative(data_path, baseline_path),
+            "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+            "git_witness_ref": git_witness_ref,
+        }
 
         _write_json(packet_path, packet)
         _write_json(claim_path, claim)
@@ -136,6 +203,14 @@ def claim_check(
             "claim": None,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }
+    claim_error = claim_integrity_error(workspace_path, work_id, claim)
+    if claim_error:
+        return {
+            "status": "fail",
+            "message": f"Active claim is invalid: {claim_error}. Restart the claim.",
+            "claim": claim,
+            "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
+        }
     if claim.get("claimed_by") != palari_id:
         return {
             "status": "fail",
@@ -164,6 +239,14 @@ def claim_check(
             "claim": claim,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }
+    packet_error = _persisted_packet_error(workspace_file_path(workspace_path), claim)
+    if packet_error:
+        return {
+            "status": "fail",
+            "message": f"Active claim packet is invalid: {packet_error}. Restart the claim.",
+            "claim": claim,
+            "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
+        }
     return {
         "status": "pass",
         "message": "Active claim belongs to this Palari and matches the current packet.",
@@ -182,7 +265,20 @@ def read_claim(workspace_path: Path | str, work_id: str) -> dict[str, Any] | Non
         raise WorkspaceError(f"invalid claim JSON for {work_id}: {exc}") from exc
     if not isinstance(value, dict):
         raise WorkspaceError(f"claim file for {work_id} must contain a JSON object")
+    if value.get("work_item") != work_id:
+        raise WorkspaceError(
+            f"claim file for {work_id} identifies work item {value.get('work_item', '') or '(missing)'}"
+        )
     return value
+
+
+def read_claim_packet(
+    workspace_path: Path | str,
+    claim: dict[str, Any],
+) -> dict[str, Any]:
+    """Read and boundary-check the exact persisted packet named by a claim."""
+
+    return _read_claim_packet(workspace_file_path(workspace_path), claim)
 
 
 def claim_is_active(claim: dict[str, Any]) -> bool:
@@ -190,8 +286,136 @@ def claim_is_active(claim: dict[str, Any]) -> bool:
     return _claim_active(claim)
 
 
+def claim_integrity_error(
+    workspace_path: Path | str,
+    work_id: str,
+    claim: dict[str, Any],
+) -> str:
+    """Validate claim structure and its immutable persisted Git baseline."""
+
+    error = _validate_active_claim(claim)
+    if error:
+        return error
+    if claim.get("work_item") != work_id:
+        return f"work_item is {claim.get('work_item', '') or '(missing)'}, not {work_id}"
+    data_path = workspace_file_path(workspace_path)
+    baseline_path = _baseline_path(data_path, work_id)
+    expected_relative = _runtime_relative(data_path, baseline_path)
+    if claim.get("git_baseline_path") != expected_relative:
+        return "git_baseline_path does not identify the persisted baseline"
+    try:
+        persisted = _read_persisted_baseline(baseline_path, work_id)
+    except WorkspaceError as exc:
+        return str(exc)
+    if persisted is None:
+        return "persisted Git baseline is missing"
+    if claim.get("git_baseline_hash") != persisted.get("git_baseline_hash"):
+        return "claim Git baseline hash differs from the persisted baseline"
+    if claim.get("git_baseline") != persisted.get("git_baseline"):
+        return "claim Git baseline differs from the persisted baseline"
+    if claim.get("git_witness_version") != persisted.get("git_witness_version"):
+        return "claim Git witness version differs from the persisted baseline"
+    if claim.get("git_witness_ref") != persisted.get("git_witness_ref"):
+        return "claim Git witness ref differs from the persisted baseline"
+    witness_error = _git_witness_error(work_id, persisted)
+    if witness_error:
+        return witness_error
+    return ""
+
+
 def claims_dir(workspace_path: Path | str) -> Path:
-    return workspace_file_path(workspace_path).parent / ".palari" / "claims"
+    data_path = workspace_file_path(workspace_path)
+    return _runtime_path(data_path, ".palari/claims")
+
+
+def load_active_claim_contexts(
+    workspace_path: Path | str,
+    *,
+    pin_palari: str = "",
+    pin_work: str = "",
+) -> dict[str, Any]:
+    """Load active claims only when their persisted packet context is intact.
+
+    Hook callers use ``errors`` as a fail-closed diagnostic. An invalid or
+    mismatched active claim never contributes write authority.
+    """
+
+    contexts: list[dict[str, Any]] = []
+    errors: list[str] = []
+    data_path = workspace_file_path(workspace_path)
+    if not data_path.is_file():
+        return {"contexts": [], "errors": []}
+    try:
+        directory = claims_dir(workspace_path)
+    except WorkspaceError as exc:
+        return {"contexts": [], "errors": [str(exc)]}
+    if not directory.is_dir():
+        return {"contexts": [], "errors": []}
+
+    workspace: Workspace | None = None
+    workspace_error = ""
+    try:
+        workspace = Workspace.load(workspace_path)
+    except WorkspaceError as exc:
+        workspace_error = str(exc)
+
+    for path in sorted(directory.glob("*.json")):
+        try:
+            relative_claim_path = path.relative_to(data_path.parent).as_posix()
+            safe_claim_path = resolve_workspace_path(
+                data_path.parent, relative_claim_path, require_exists=True
+            )
+            claim = _read_json_object(safe_claim_path, "claim")
+        except (ValueError, WorkspaceError) as exc:
+            errors.append(str(exc))
+            continue
+        if pin_palari and claim.get("claimed_by") != pin_palari:
+            continue
+        if pin_work and claim.get("work_item") != pin_work:
+            continue
+        work_id = str(claim.get("work_item") or "")
+        error = claim_integrity_error(workspace_path, work_id, claim)
+        if error:
+            errors.append(f"invalid active claim {path.name}: {error}")
+            continue
+        if not _claim_active(claim):
+            continue
+        try:
+            packet_relative = validate_workspace_path(str(claim["packet_path"]))
+            if not packet_relative.startswith(".palari/packets/"):
+                raise ValueError("packet_path must be under .palari/packets")
+            packet_path = resolve_workspace_path(
+                data_path.parent, packet_relative, require_exists=True
+            )
+            packet = _read_json_object(packet_path, "packet")
+        except (ValueError, WorkspaceError) as exc:
+            errors.append(f"invalid active claim {path.name}: {exc}")
+            continue
+        packet_error = _validate_claim_packet(claim, packet)
+        if packet_error:
+            errors.append(f"invalid active claim {path.name}: {packet_error}")
+            continue
+        if claim.get("mode") == "execute":
+            if workspace is None:
+                errors.append(
+                    f"invalid active claim {path.name}: current workspace cannot be loaded: "
+                    f"{workspace_error}"
+                )
+                continue
+            current_packet = build_agent_brief(
+                workspace,
+                str(claim.get("work_item") or ""),
+                str(claim.get("claimed_by") or ""),
+                "execute",
+            )
+            if current_packet.get("context_hash") != claim.get("context_hash"):
+                errors.append(
+                    f"invalid active claim {path.name}: persisted packet authority "
+                    "differs from the current workspace packet"
+                )
+                continue
+        contexts.append({"claim": claim, "packet": packet})
+    return {"contexts": contexts, "errors": errors}
 
 
 def _claim_active(claim: dict[str, Any]) -> bool:
@@ -200,15 +424,19 @@ def _claim_active(claim: dict[str, Any]) -> bool:
 
 
 def _packet_path(data_path: Path, packet_id: str) -> Path:
-    return data_path.parent / ".palari" / "packets" / f"{_safe_file_id(packet_id)}.json"
+    return _runtime_path(data_path, f".palari/packets/{_safe_file_id(packet_id)}.json")
 
 
 def _claim_path(data_path: Path, work_id: str) -> Path:
-    return data_path.parent / ".palari" / "claims" / f"{_safe_file_id(work_id)}.json"
+    return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.json")
 
 
 def _claim_lock_path(data_path: Path, work_id: str) -> Path:
-    return data_path.parent / ".palari" / "claims" / f"{_safe_file_id(work_id)}.lock"
+    return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.lock")
+
+
+def _baseline_path(data_path: Path, work_id: str) -> Path:
+    return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.baseline")
 
 
 def _acquire_claim_lock(data_path: Path, work_id: str) -> Path:
@@ -242,6 +470,255 @@ def _runtime_relative(data_path: Path, target: Path) -> str:
         return target.relative_to(data_path.parent).as_posix()
     except ValueError:
         return target.name
+
+
+def _runtime_path(data_path: Path, relative: str) -> Path:
+    try:
+        return resolve_workspace_path(data_path.parent, relative)
+    except ValueError as exc:
+        raise WorkspaceError(f"unsafe Palari runtime path {relative}: {exc}") from exc
+
+
+def _read_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise WorkspaceError(f"cannot read {label} file {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise WorkspaceError(f"invalid {label} JSON in {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise WorkspaceError(f"{label} file {path} must contain a JSON object")
+    return value
+
+
+def _read_persisted_baseline(path: Path, work_id: str) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    record = _read_json_object(path, "persisted Git baseline")
+    if record.get("schema_version") != "palari.persisted_git_baseline.v1":
+        raise WorkspaceError(f"persisted Git baseline for {work_id} has unsupported schema")
+    if record.get("work_item") != work_id:
+        raise WorkspaceError(f"persisted Git baseline for {work_id} identifies different work")
+    baseline = record.get("git_baseline")
+    if not isinstance(baseline, dict):
+        raise WorkspaceError(f"persisted Git baseline for {work_id} is malformed")
+    if record.get("git_baseline_hash") != _git_baseline_hash(baseline):
+        raise WorkspaceError(f"persisted Git baseline for {work_id} does not match its hash")
+    if baseline.get("head_sha"):
+        if record.get("git_witness_version") != GIT_WITNESS_VERSION:
+            raise WorkspaceError(
+                f"persisted Git baseline for {work_id} has no supported Git witness"
+            )
+        if record.get("git_witness_ref") != _git_witness_ref(work_id):
+            raise WorkspaceError(
+                f"persisted Git baseline for {work_id} has an invalid Git witness ref"
+            )
+    return record
+
+
+def _validate_active_claim(claim: dict[str, Any]) -> str:
+    if claim.get("schema_version") != CLAIM_SCHEMA_VERSION:
+        return f"unsupported schema_version {claim.get('schema_version', '') or '(missing)'}"
+    for field in ("work_item", "claimed_by", "mode", "packet_id", "context_hash", "packet_path"):
+        if not isinstance(claim.get(field), str) or not claim[field]:
+            return f"{field} is missing"
+    if claim["mode"] not in {"execute", "review"}:
+        return f"unsupported mode {claim['mode']}"
+    if _parse_timestamp(str(claim.get("lease_expires_at") or "")) is None:
+        return "lease_expires_at is missing or malformed"
+    workspace_file_hash = claim.get("workspace_file_hash")
+    if workspace_file_hash is not None and not _valid_sha256(workspace_file_hash):
+        return "workspace_file_hash is malformed"
+    baseline = claim.get("git_baseline")
+    if baseline is not None:
+        if not isinstance(baseline, dict):
+            return "git_baseline must be an object"
+        declared_hash = claim.get("git_baseline_hash")
+        if not isinstance(declared_hash, str) or declared_hash != _git_baseline_hash(baseline):
+            return "git_baseline does not match git_baseline_hash"
+    return ""
+
+
+def _file_hash(path: Path) -> str:
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        raise WorkspaceError(f"cannot hash workspace file for claim: {exc}") from exc
+    return f"sha256:{hashlib.sha256(content).hexdigest()}"
+
+
+def _valid_sha256(value: Any) -> bool:
+    if not isinstance(value, str) or not value.startswith("sha256:") or len(value) != 71:
+        return False
+    return all(char in "0123456789abcdef" for char in value[7:])
+
+
+def _validate_claim_packet(claim: dict[str, Any], packet: dict[str, Any]) -> str:
+    if packet.get("packet_id") != claim.get("packet_id"):
+        return "packet_id does not match the claim"
+    if packet.get("context_hash") != claim.get("context_hash"):
+        return "packet context_hash does not match the claim"
+    if _packet_context_hash(packet) != claim.get("context_hash"):
+        return "packet content does not match its context_hash"
+    if packet.get("mode") != claim.get("mode"):
+        return "packet mode does not match the claim"
+    work_item = packet.get("work_item")
+    if not isinstance(work_item, dict) or work_item.get("id") != claim.get("work_item"):
+        return "packet work_item does not match the claim"
+    agent = packet.get("agent")
+    if not isinstance(agent, dict) or agent.get("id") != claim.get("claimed_by"):
+        return "packet agent does not match the claim"
+    if packet.get("status") != "ready":
+        return f"packet status is {packet.get('status', '') or '(missing)'}, not ready"
+    allowed_paths = packet.get("allowed_paths")
+    if not isinstance(allowed_paths, dict):
+        return "packet allowed_paths is missing"
+    for mode in ("read", "write"):
+        paths = allowed_paths.get(mode, [])
+        if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+            return f"packet allowed_paths.{mode} must be a list of paths"
+        try:
+            for item in paths:
+                if validate_workspace_path(item) != item:
+                    raise ValueError(f"path is not canonical: {item}")
+        except ValueError as exc:
+            return f"packet allowed_paths.{mode} contains an unsafe path: {exc}"
+    return ""
+
+
+def _persisted_packet_error(data_path: Path, claim: dict[str, Any]) -> str:
+    try:
+        packet = _read_claim_packet(data_path, claim)
+    except (ValueError, WorkspaceError) as exc:
+        return str(exc)
+    return _validate_claim_packet(claim, packet)
+
+
+def _read_claim_packet(data_path: Path, claim: dict[str, Any]) -> dict[str, Any]:
+    packet_relative = validate_workspace_path(str(claim.get("packet_path") or ""))
+    if not packet_relative.startswith(".palari/packets/"):
+        raise WorkspaceError("packet_path must be under .palari/packets")
+    packet_path = resolve_workspace_path(
+        data_path.parent, packet_relative, require_exists=True
+    )
+    return _read_json_object(packet_path, "packet")
+
+
+def _packet_context_hash(packet: dict[str, Any]) -> str:
+    stable = {
+        key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
+    }
+    encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _packet_authority_hash(packet: dict[str, Any]) -> str:
+    """Hash packet authority while excluding proof/read-model runtime state."""
+
+    authority = {
+        key: value for key, value in packet.items() if key not in PACKET_RUNTIME_STATE_FIELDS
+    }
+    encoded = json.dumps(authority, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _git_baseline_hash(baseline: dict[str, Any]) -> str:
+    encoded = json.dumps(baseline, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _git_witness_ref(work_id: str) -> str:
+    safe = _safe_file_id(work_id).strip("-") or "work"
+    digest = hashlib.sha256(work_id.encode("utf-8")).hexdigest()[:12]
+    return f"refs/palari/claims/{safe}-{digest}"
+
+
+def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:
+    root = str(baseline.get("git_root") or "")
+    head = str(baseline.get("head_sha") or "")
+    if not root or not head:
+        return ""
+    witness_ref = _git_witness_ref(work_id)
+    existing = _git_output(root, ["rev-parse", "--verify", witness_ref])
+    if existing:
+        if existing != head:
+            raise WorkspaceError(
+                f"Git witness for {work_id} identifies {existing}, not claim head {head}"
+            )
+        error = _git_witness_history_error(root, witness_ref, head)
+        if error:
+            raise WorkspaceError(error)
+        return witness_ref
+    result = subprocess.run(
+        ["git", "-C", root, "update-ref", "--create-reflog", witness_ref, head],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise WorkspaceError(
+            f"cannot create Git witness for {work_id}: "
+            f"{result.stderr.strip() or 'git update-ref failed'}"
+        )
+    error = _git_witness_history_error(root, witness_ref, head)
+    if error:
+        raise WorkspaceError(error)
+    return witness_ref
+
+
+def _git_witness_error(work_id: str, persisted: dict[str, Any]) -> str:
+    baseline = persisted.get("git_baseline")
+    if not isinstance(baseline, dict):
+        return "persisted Git baseline is malformed"
+    root = str(baseline.get("git_root") or "")
+    head = str(baseline.get("head_sha") or "")
+    if not head:
+        return ""
+    witness_ref = str(persisted.get("git_witness_ref") or "")
+    if witness_ref != _git_witness_ref(work_id):
+        return "persisted Git witness ref is invalid"
+    current = _git_output(root, ["rev-parse", "--verify", witness_ref])
+    if current != head:
+        return "Git witness does not match the persisted claim-start head"
+    return _git_witness_history_error(root, witness_ref, head)
+
+
+def _git_witness_history_error(root: str, witness_ref: str, head: str) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            root,
+            "reflog",
+            "show",
+            "--format=%H",
+            witness_ref,
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    entries = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if result.returncode != 0 or not entries:
+        return "Git witness history is missing or unreadable"
+    if entries[-1] != head:
+        return "Git witness history does not start at the persisted claim-start head"
+    return ""
+
+
+def _git_output(root: str, args: list[str]) -> str:
+    if not root:
+        return ""
+    result = subprocess.run(
+        ["git", "-C", root, *args],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def _safe_file_id(value: str) -> str:

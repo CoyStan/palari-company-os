@@ -10,9 +10,11 @@ for Claude Code sessions instead of a voluntary contract:
   changes outside the boundary, so shell writes cannot slip through silently.
 - ``SessionStart`` injects the active packet contract into Claude's context.
 
-Hook handlers read only the persisted claim and packet files under
-``.palari/`` that ``palari agent start`` wrote, so they enforce the exact
-contract the agent started under and never load or mutate the workspace.
+Hook handlers reconcile persisted claim and packet files under ``.palari/``
+against the current workspace packet before granting execute-mode writes.
+They also stop agent shells from invoking human-attributed Palari mutations
+and require approval for opaque interpreters or Git witness mutations.
+They never mutate the workspace.
 Handlers must never crash the Claude Code tool flow: every entry point
 catches errors and degrades to "no decision".
 """
@@ -28,8 +30,8 @@ from pathlib import Path
 from typing import Any
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
-from .agent_runtime import claim_is_active, claims_dir
-from .path_policy import path_allowed
+from .agent_runtime import load_active_claim_contexts
+from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 
 HOOK_EVENTS = ("pre-tool-use", "stop", "session-start")
@@ -38,6 +40,7 @@ PRE_TOOL_USE_MATCHER = "Write|Edit|NotebookEdit|Bash"
 HOOK_COMMAND_MARKER = "claude hook"
 HOOK_TIMEOUT_SECONDS = 20
 _REDIRECT_NO_TARGET = "\x00"
+_REDIRECT_FD_OR_TARGET = "\x01"
 BASH_WRITE_COMMANDS = {
     "cp",
     "dd",
@@ -51,6 +54,264 @@ BASH_WRITE_COMMANDS = {
     "touch",
     "truncate",
 }
+OPAQUE_INTERPRETERS = {
+    "alias",
+    "bash",
+    "builtin",
+    "command",
+    "deno",
+    "env",
+    "eval",
+    "exec",
+    "find",
+    "fish",
+    "node",
+    "nohup",
+    "perl",
+    "php",
+    "python",
+    "python3",
+    "ruby",
+    "sh",
+    "sudo",
+    "time",
+    "xargs",
+    "zsh",
+}
+GIT_WITNESS_MUTATIONS = {
+    "checkout",
+    "gc",
+    "reflog",
+    "replace",
+    "reset",
+    "switch",
+    "update-ref",
+}
+SAFE_GIT_READ_SUBCOMMANDS = {
+    "blame",
+    "cat-file",
+    "describe",
+    "diff",
+    "diff-tree",
+    "for-each-ref",
+    "grep",
+    "log",
+    "ls-files",
+    "ls-tree",
+    "merge-base",
+    "name-rev",
+    "rev-list",
+    "rev-parse",
+    "show",
+    "show-ref",
+    "status",
+}
+SAFE_GIT_OBSERVABLE_WRITE_SUBCOMMANDS = {"mv", "rm"}
+SAFE_TARGET_FREE_COMMANDS = {
+    "basename",
+    "cat",
+    "cmp",
+    "cut",
+    "diff",
+    "dirname",
+    "du",
+    "echo",
+    "grep",
+    "head",
+    "ls",
+    "printf",
+    "pwd",
+    "readlink",
+    "realpath",
+    "rg",
+    "stat",
+    "tail",
+    "true",
+    "wc",
+    "which",
+}
+GIT_EXECUTION_GLOBAL_OPTIONS = {
+    "-C",
+    "-c",
+    "--config-env",
+    "--exec-path",
+    "--git-dir",
+    "--paginate",
+    "-p",
+    "--work-tree",
+}
+GIT_EXECUTION_OPTIONS = {
+    "--ext-diff",
+    "--filters",
+    "--open-files-in-pager",
+    "--show-signature",
+    "--textconv",
+}
+RG_EXECUTION_OPTIONS = {"--hostname-bin", "--pre"}
+GIT_INDIRECT_PATH_OPTIONS = {"--pathspec-from-file"}
+GIT_GLOBAL_OPTIONS_WITH_VALUE = {
+    "-C",
+    "-c",
+    "--config-env",
+    "--exec-path",
+    "--git-dir",
+    "--namespace",
+    "--super-prefix",
+    "--work-tree",
+}
+GIT_GLOBAL_OPTIONS_WITH_ATTACHED_VALUE = {
+    "--config-env=",
+    "--exec-path=",
+    "--git-dir=",
+    "--namespace=",
+    "--super-prefix=",
+    "--work-tree=",
+}
+HUMAN_ONLY_PALARI_COMMANDS = {
+    ("decision", "create"),
+    ("decision", "update"),
+    ("human-decision", "record"),
+    ("human-decision", "pack"),
+    ("human-decision", "update"),
+    ("history", "--restore"),
+    ("integration", "approve"),
+    ("integration", "cancel"),
+    ("integration", "enqueue"),
+    ("integration", "outbox-cancel"),
+    ("integration", "reject"),
+    ("lifecycle", "complete"),
+    ("lifecycle", "decide"),
+    ("lifecycle", "outcome"),
+    ("lifecycle", "review"),
+    ("linear", "send"),
+    ("outcome", "record"),
+    ("outcome", "update"),
+    ("proposal", "adopt"),
+    ("proposal", "defer"),
+    ("proposal", "reject"),
+    ("review", "record"),
+    ("review", "update"),
+    ("work", "accept"),
+    ("work", "complete"),
+}
+PACKET_AUTHORITY_PALARI_COMMANDS = {
+    (kind, action)
+    for kind in (
+        "authority-profile",
+        "capability",
+        "goal",
+        "human",
+        "palari",
+        "playbook-source",
+        "source",
+        "work",
+        "workbench",
+    )
+    for action in ("create", "update")
+} | {("work", "add")}
+
+# These commands are either read-only or perform the bounded agent/runtime
+# transitions that the packet contract explicitly asks an agent to run. New
+# commands do not inherit this list: an unclassified Palari command asks a
+# human instead of silently acquiring a shell-hook bypass.
+SAFE_AGENT_PALARI_COMMANDS = {
+    ("agent", action)
+    for action in (
+        "brief",
+        "check",
+        "doctor",
+        "done",
+        "finish",
+        "handoff",
+        "loop",
+        "next",
+        "release",
+        "start",
+    )
+} | {
+    ("attempt", action) for action in ("closeout", "record", "update")
+} | {
+    ("authority", action) for action in ("check", "profiles")
+} | {
+    ("capability", action) for action in ("check", "export-policy", "list")
+} | {
+    ("claude", "status"),
+    ("data", "map"),
+    ("decision", "guide"),
+    ("docs", "check"),
+    ("docs", "map"),
+    ("evidence", "record"),
+    ("evidence", "update"),
+    ("evidence", "verify"),
+    ("gate", "profiles"),
+    ("gate", "recommend"),
+    ("git", "pre-commit"),
+    ("git", "status"),
+    ("integration", "check"),
+    ("integration", "outbox-check"),
+    ("integration", "plan"),
+    ("lifecycle", "evidence"),
+    ("linear", "block-template"),
+    ("linear", "doctor"),
+    ("linear", "import"),
+    ("linear", "inspect-block"),
+    ("linear", "issue"),
+    ("linear", "issues"),
+    ("linear", "linked"),
+    ("linear", "post-gate"),
+    ("linear", "push"),
+    ("linear", "start"),
+    ("linear", "status"),
+    ("linear", "sync"),
+    ("linear", "webhook-events"),
+    ("linear", "webhook-verify"),
+    ("maintainer", "status"),
+    ("playbooks", "recommend"),
+    ("playbooks", "sources"),
+    ("proposal", "create"),
+    ("proposal", "update"),
+    ("receipt", "record"),
+    ("receipt", "update"),
+    ("review", "guide"),
+    ("work", "expand-scope"),
+} | {
+    (command, "")
+    for command in (
+        "detail",
+        "history",
+        "integrations",
+        "queue",
+        "scope",
+        "state",
+        "validate",
+    )
+}
+
+PALARI_SELF_PROTECTION_COMMANDS = {
+    ("claude", "install"),
+    ("git", "install"),
+}
+MUTATING_AGENT_PALARI_COMMANDS = {
+    ("agent", action) for action in ("done", "release", "start")
+} | {
+    ("attempt", action) for action in ("closeout", "record", "update")
+} | {
+    ("evidence", action) for action in ("record", "update")
+} | {
+    ("integration", "plan"),
+    ("lifecycle", "evidence"),
+    ("linear", "import"),
+    ("linear", "post-gate"),
+    ("linear", "push"),
+    ("linear", "start"),
+    ("linear", "sync"),
+    ("proposal", "create"),
+    ("proposal", "update"),
+    ("receipt", "record"),
+    ("receipt", "update"),
+    ("work", "expand-scope"),
+}
+SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
 
 def run_hook(
@@ -82,13 +343,20 @@ def handle_hook_event(
     *,
     strict: bool = False,
 ) -> dict[str, Any]:
-    contexts = active_claim_contexts(workspace_path)
+    state = load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )
+    contexts = state["contexts"]
     if event == "pre-tool-use":
-        return _pre_tool_use(payload, contexts, strict=strict)
+        return _pre_tool_use(
+            payload, contexts, state["errors"], workspace_path, strict=strict
+        )
     if event == "stop":
-        return _stop(payload, contexts, workspace_path)
+        return _stop(payload, contexts, state["errors"], workspace_path)
     if event == "session-start":
-        return _session_start(contexts, workspace_path)
+        return _session_start(contexts, state["errors"], workspace_path)
     return {}
 
 
@@ -99,47 +367,67 @@ def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
     ``PALARI_AS`` / ``PALARI_WORK_ID`` environment variables narrow the set
     when one session among several must be pinned to a single claim.
     """
-    directory = claims_dir(workspace_path)
-    if not directory.is_dir():
-        return []
-    pin_palari = os.environ.get("PALARI_AS", "")
-    pin_work = os.environ.get("PALARI_WORK_ID", "")
-    contexts: list[dict[str, Any]] = []
-    for path in sorted(directory.glob("*.json")):
-        claim = _read_json(path)
-        if claim is None or not claim_is_active(claim):
-            continue
-        if pin_palari and claim.get("claimed_by") != pin_palari:
-            continue
-        if pin_work and claim.get("work_item") != pin_work:
-            continue
-        packet = _read_json(_packet_file(workspace_path, claim)) or {}
-        contexts.append({"claim": claim, "packet": packet})
-    return contexts
+    return load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )["contexts"]
 
 
-def bash_write_targets(command: str) -> list[str]:
+def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
     """Return path-like write targets a Bash command appears to touch.
 
     This is a conservative heuristic: it only inspects redirections and a
     short list of mutating commands, and its findings only ever produce an
     ``ask`` decision, never a silent ``deny`` or ``allow``.
     """
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
+    tokens = _shell_tokens(command)
+    command_cwd = (cwd or Path.cwd()).resolve()
     targets: list[str] = []
     expect_command = True
     expect_target = False
+    expect_fd_or_target = False
+    expect_write_option_target = False
     active_write_command = ""
+    active_write_sources: list[str] = []
+    write_target_directory = ""
+    write_options_ended = False
+    git_subcommand_index = -1
     sed_in_place = False
     sed_script_consumed = False
-    for token in tokens:
-        if token in {"&&", "||", ";", "|"}:
+
+    def add_ordinary_directory_destinations() -> None:
+        if (
+            active_write_command not in {"cp", "git-mv", "install", "ln", "mv"}
+            or write_target_directory
+            or len(active_write_sources) < 2
+        ):
+            return
+        destination = Path(active_write_sources[-1])
+        resolved_destination = (
+            destination
+            if destination.is_absolute()
+            else command_cwd / destination
+        ).resolve()
+        if not resolved_destination.is_dir():
+            return
+        targets.extend(
+            str(destination / Path(source).name)
+            for source in active_write_sources[:-1]
+        )
+
+    for token_index, token in enumerate(tokens):
+        if token in SHELL_COMMAND_SEPARATORS:
+            add_ordinary_directory_destinations()
             expect_command = True
             expect_target = False
+            expect_fd_or_target = False
+            expect_write_option_target = False
             active_write_command = ""
+            active_write_sources = []
+            write_target_directory = ""
+            write_options_ended = False
+            git_subcommand_index = -1
             sed_in_place = False
             sed_script_consumed = False
             continue
@@ -147,14 +435,27 @@ def bash_write_targets(command: str) -> list[str]:
         if redirect is not None:
             if redirect == _REDIRECT_NO_TARGET:
                 pass
+            elif redirect == _REDIRECT_FD_OR_TARGET:
+                expect_target = True
+                expect_fd_or_target = True
             elif redirect:
                 targets.append(redirect)
             else:
                 expect_target = True
             continue
         if expect_target:
-            targets.append(token)
+            if not (expect_fd_or_target and (token.isdigit() or token == "-")):
+                targets.append(token)
             expect_target = False
+            expect_fd_or_target = False
+            continue
+        if expect_write_option_target:
+            targets.append(token)
+            write_target_directory = token
+            targets.extend(
+                str(Path(token) / Path(source).name) for source in active_write_sources
+            )
+            expect_write_option_target = False
             continue
         if expect_command:
             expect_command = False
@@ -166,16 +467,23 @@ def bash_write_targets(command: str) -> list[str]:
                 sed_script_consumed = False
                 active_write_command = "sed"
             elif name == "git":
-                active_write_command = "git"
+                subcommand, git_subcommand_index = _git_subcommand_details(
+                    tokens, token_index
+                )
+                active_write_command = (
+                    f"git-{subcommand}" if subcommand in {"rm", "mv"} else ""
+                )
             continue
-        if active_write_command == "git":
-            active_write_command = "git-sub" if token in {"rm", "mv"} else ""
+        if git_subcommand_index >= 0 and token_index <= git_subcommand_index:
             continue
         if active_write_command == "sed":
+            if token == "--":
+                write_options_ended = True
+                continue
             if token in {"-i", "--in-place"} or token.startswith("-i"):
                 sed_in_place = True
                 continue
-            if token.startswith("-"):
+            if not write_options_ended and token.startswith("-"):
                 continue
             if not sed_script_consumed:
                 sed_script_consumed = True
@@ -183,9 +491,496 @@ def bash_write_targets(command: str) -> list[str]:
             if sed_in_place and _looks_like_path(token):
                 targets.append(token)
             continue
-        if active_write_command and not token.startswith("-"):
+        if active_write_command == "dd":
+            if token.startswith("of=") and token[3:]:
+                targets.append(token[3:])
+            continue
+        if active_write_command and token == "--":
+            write_options_ended = True
+            continue
+        if (
+            active_write_command in {"cp", "install", "ln", "mv"}
+            and not write_options_ended
+        ):
+            if token in {"-t", "--target-directory"}:
+                expect_write_option_target = True
+                continue
+            if token.startswith("--target-directory="):
+                target = token.split("=", 1)[1]
+                if target:
+                    targets.append(target)
+                    write_target_directory = target
+                    targets.extend(
+                        str(Path(target) / Path(source).name)
+                        for source in active_write_sources
+                    )
+                continue
+            if token.startswith("-t") and token != "-t":
+                target = token[2:]
+                targets.append(target)
+                write_target_directory = target
+                targets.extend(
+                    str(Path(target) / Path(source).name)
+                    for source in active_write_sources
+                )
+                continue
+        if active_write_command and (write_options_ended or not token.startswith("-")):
             targets.append(token)
+            active_write_sources.append(token)
+            if write_target_directory:
+                targets.append(str(Path(write_target_directory) / Path(token).name))
+    add_ordinary_directory_destinations()
     return targets
+
+
+def _bash_destructive_targets(command: str) -> list[str]:
+    """Return paths whose existing contents a shell command may remove or move."""
+
+    targets: list[str] = []
+    expect_command = True
+    active_command = ""
+    options_ended = False
+    git_subcommand_index = -1
+    tokens = _shell_tokens(command)
+    for token_index, token in enumerate(tokens):
+        if token in SHELL_COMMAND_SEPARATORS:
+            expect_command = True
+            active_command = ""
+            options_ended = False
+            git_subcommand_index = -1
+            continue
+        if expect_command:
+            if _is_shell_assignment(token):
+                continue
+            expect_command = False
+            name = Path(token).name
+            if name in {"mv", "rm", "rmdir"}:
+                active_command = name
+            elif name == "git":
+                subcommand, git_subcommand_index = _git_subcommand_details(
+                    tokens, token_index
+                )
+                active_command = (
+                    f"git-{subcommand}" if subcommand in {"mv", "rm"} else ""
+                )
+            continue
+        if git_subcommand_index >= 0 and token_index <= git_subcommand_index:
+            continue
+        if active_command and token == "--":
+            options_ended = True
+            continue
+        if active_command in {"git-mv", "git-rm", "mv", "rm", "rmdir"}:
+            if options_ended or not token.startswith("-"):
+                targets.append(token)
+    return targets
+
+
+def bash_human_authority_command(command: str) -> str:
+    """Name a human-only or packet-authority Palari shell mutation."""
+
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name != "palari":
+            continue
+        if _is_history_restore(tokens, index):
+            return "history --restore"
+        args = tokens[index + 1 :]
+        for argument_index in range(len(args) - 1):
+            command_key = (args[argument_index], args[argument_index + 1])
+            if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
+                return " ".join(command_key)
+        if (
+            any(
+                (args[argument_index], args[argument_index + 1]) == ("linear", "start")
+                for argument_index in range(len(args) - 1)
+            )
+            and any(
+                argument.startswith("--adopt")
+                for argument in args
+            )
+        ):
+            return "linear start --adopt-by"
+    return ""
+
+
+def bash_requires_human_review(command: str) -> str:
+    """Return why a target-free shell command is too opaque to auto-authorize."""
+
+    if "\\\n" in command or "\\\r\n" in command:
+        return "shell line continuation"
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name == "palari" and _is_history_restore(tokens, index):
+            return "human-only Palari command history --restore"
+    if "$" in command or "`" in command or "<(" in command or ">(" in command:
+        return "dynamic shell expansion"
+    expansion_reason = _unquoted_shell_expansion_reason(command)
+    if expansion_reason:
+        return expansion_reason
+    expect_command = True
+    for index, token in enumerate(tokens):
+        if token in SHELL_COMMAND_SEPARATORS:
+            expect_command = True
+            continue
+        if not expect_command:
+            continue
+        if _is_shell_assignment(token):
+            return "command environment assignment"
+        expect_command = False
+        name = Path(token).name
+        if token == ".":
+            return "opaque interpreter ."
+        if token != name:
+            return f"unreviewed executable (path-qualified executable {token})"
+        if name in OPAQUE_INTERPRETERS:
+            return f"opaque interpreter {name}"
+        write_reason = _write_command_semantics_reason(tokens, index, name)
+        if write_reason:
+            return write_reason
+        if name in BASH_WRITE_COMMANDS:
+            continue
+        if name == "git":
+            subcommand = _git_subcommand(tokens, index)
+            if subcommand in GIT_WITNESS_MUTATIONS:
+                return f"Git metadata mutation git {subcommand}"
+            option_reason = _git_execution_option_reason(tokens, index)
+            if option_reason:
+                return option_reason
+            if subcommand in SAFE_GIT_OBSERVABLE_WRITE_SUBCOMMANDS:
+                continue
+            if subcommand not in SAFE_GIT_READ_SUBCOMMANDS:
+                return f"unreviewed Git subcommand git {subcommand or '(missing)'}"
+            continue
+        if name == "palari":
+            palari_reason = _palari_shell_review_reason(tokens, index)
+            if palari_reason:
+                return palari_reason
+            continue
+        if name == "rg":
+            for option in RG_EXECUTION_OPTIONS:
+                if _command_has_option(tokens, index, {option}):
+                    return f"execution-capable rg {option}"
+        if name not in SAFE_TARGET_FREE_COMMANDS:
+            return f"unreviewed executable {name or token}"
+    if ".palari" in command:
+        return "Palari runtime path mutation"
+    return ""
+
+
+def _unquoted_shell_expansion_reason(command: str) -> str:
+    """Identify syntax whose runtime path cannot be known from lexical tokens."""
+
+    single_quoted = False
+    double_quoted = False
+    escaped = False
+    word_start = True
+    for character in command:
+        if escaped:
+            escaped = False
+            word_start = False
+            continue
+        if character == "\\" and not single_quoted:
+            escaped = True
+            continue
+        if single_quoted:
+            if character == "'":
+                single_quoted = False
+            continue
+        if double_quoted:
+            if character == '"':
+                double_quoted = False
+            continue
+        if character == "'":
+            single_quoted = True
+            word_start = False
+            continue
+        if character == '"':
+            double_quoted = True
+            word_start = False
+            continue
+        if character in "*?[{(":
+            return "unquoted shell pathname expansion"
+        if character == "~" and word_start:
+            return "unquoted shell home expansion"
+        word_start = character.isspace() or character in ";|&<>=:"
+    return ""
+
+
+def _write_command_semantics_reason(
+    tokens: list[str], command_index: int, command_name: str
+) -> str:
+    """Reject write options that create paths absent from the command text."""
+
+    arguments = _command_arguments(tokens, command_index)
+    option_arguments: list[str] = []
+    for argument in arguments:
+        if argument == "--":
+            break
+        option_arguments.append(argument)
+    if command_name == "cp":
+        for argument in option_arguments:
+            if argument in {
+                "--archive",
+                "--no-target-directory",
+                "--parents",
+                "--recursive",
+            }:
+                return f"tree-writing cp option {argument}"
+            if argument.startswith("-") and not argument.startswith("--"):
+                flags = argument[1:]
+                if any(flag in flags for flag in "RraT"):
+                    return f"tree-writing cp option {argument}"
+    if command_name in {"cp", "install", "ln", "mv"}:
+        for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long {command_name} write option {argument}"
+            if argument == "--no-target-directory":
+                return f"exact-destination {command_name} option {argument}"
+            if argument.startswith("-") and not argument.startswith("--"):
+                if "T" in argument[1:]:
+                    return f"exact-destination {command_name} option {argument}"
+            if argument in {"--backup", "-b"} or argument.startswith("--backup="):
+                return f"backup-producing {command_name} option {argument}"
+            if (
+                argument.startswith("-")
+                and not argument.startswith("--")
+                and any(flag in argument[1:] for flag in "bS")
+            ):
+                return f"backup-producing {command_name} option {argument}"
+    if command_name == "sed":
+        for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long sed write option {argument}"
+            if (
+                argument.startswith("--in-place=")
+                or (argument.startswith("-i") and argument != "-i")
+            ):
+                return f"backup-producing sed option {argument}"
+    if command_name in {"mkdir", "rmdir"}:
+        for argument in option_arguments:
+            if argument.startswith("--"):
+                return f"unreviewed long {command_name} write option {argument}"
+            if argument.startswith("-") and "p" in argument[1:]:
+                return f"ancestor-writing {command_name} option {argument}"
+    if command_name == "install":
+        for argument in option_arguments:
+            if argument.startswith("-") and any(flag in argument[1:] for flag in "Dd"):
+                return f"ancestor-writing install option {argument}"
+    return ""
+
+
+def _palari_shell_review_reason(tokens: list[str], command_index: int) -> str:
+    """Fail closed for Palari CLI commands not classified for agent shells."""
+
+    command_key = _palari_command_key(tokens, command_index)
+    if command_key in PALARI_SELF_PROTECTION_COMMANDS:
+        return f"Palari self-protection mutation {' '.join(command_key)}"
+    if command_key in SAFE_AGENT_PALARI_COMMANDS:
+        return ""
+    label = " ".join(part for part in command_key if part) or "(missing)"
+    return f"unreviewed Palari command {label}"
+
+
+def _palari_workspace_review_reason(
+    command: str, cwd: Path, workspace_path: Path | str
+) -> str:
+    """Keep agent-safe Palari mutations bound to this hook's workspace."""
+
+    current = workspace_file_path(workspace_path).resolve()
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name != "palari":
+            continue
+        command_key = _palari_command_key(tokens, index)
+        if command_key not in MUTATING_AGENT_PALARI_COMMANDS:
+            continue
+        arguments = _command_arguments(tokens, index)
+        declared = ""
+        for argument_index, argument in enumerate(arguments):
+            if argument == "--workspace":
+                if argument_index + 1 < len(arguments):
+                    declared = arguments[argument_index + 1]
+                break
+            if argument.startswith("--workspace="):
+                declared = argument.split("=", 1)[1]
+                break
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = cwd / candidate
+            if workspace_file_path(candidate).resolve() != current:
+                return f"Palari mutation {' '.join(command_key)} targets another workspace"
+            continue
+        local_default = (cwd / "workspace.json").resolve()
+        if local_default != current:
+            return (
+                f"Palari mutation {' '.join(command_key)} must name this hook's "
+                "workspace with --workspace"
+            )
+    return ""
+
+
+def _palari_command_key(tokens: list[str], command_index: int) -> tuple[str, str]:
+    arguments = _command_arguments(tokens, command_index)
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--workspace":
+            index += 2
+            continue
+        if argument.startswith("--workspace="):
+            index += 1
+            continue
+        if argument.startswith("-"):
+            return ("", "")
+        break
+    if index >= len(arguments):
+        return ("", "")
+    command = arguments[index]
+    if command in {
+        "detail",
+        "history",
+        "integrations",
+        "queue",
+        "scope",
+        "state",
+        "validate",
+    }:
+        return (command, "")
+    if index + 1 >= len(arguments) or arguments[index + 1].startswith("-"):
+        return (command, "")
+    nested = arguments[index + 1]
+    if command == "linear" and nested == "webhook":
+        if index + 2 >= len(arguments) or arguments[index + 2].startswith("-"):
+            return ("linear", "webhook")
+        return ("linear", f"webhook-{arguments[index + 2]}")
+    return (command, nested)
+
+
+def _is_history_restore(tokens: list[str], command_index: int) -> bool:
+    if _palari_command_key(tokens, command_index) != ("history", ""):
+        return False
+    return any(
+        argument == "--restore" or argument.startswith("--restore=")
+        for argument in _command_arguments(tokens, command_index)
+    )
+
+
+def _shell_tokens(command: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(
+            command.replace("\r\n", "\n").replace("\n", " ; "),
+            posix=True,
+            punctuation_chars=True,
+        )
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+def _is_shell_assignment(token: str) -> bool:
+    if "=" not in token:
+        return False
+    name, _separator, _value = token.partition("=")
+    return bool(name) and name.replace("_", "a").isalnum() and not name[0].isdigit()
+
+
+def _git_subcommand(tokens: list[str], git_index: int) -> str:
+    """Return a Git subcommand after recognized global options."""
+
+    return _git_subcommand_details(tokens, git_index)[0]
+
+
+def _git_subcommand_details(tokens: list[str], git_index: int) -> tuple[str, int]:
+    """Return a Git subcommand and its token index after global options."""
+
+    index = git_index + 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            index += 1
+            break
+        if token in GIT_GLOBAL_OPTIONS_WITH_VALUE:
+            index += 2
+            continue
+        if token.startswith("-C") and token != "-C":
+            index += 1
+            continue
+        if token.startswith("-c") and token != "-c":
+            index += 1
+            continue
+        if any(token.startswith(prefix) for prefix in GIT_GLOBAL_OPTIONS_WITH_ATTACHED_VALUE):
+            index += 1
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        return token, index
+    return (tokens[index], index) if index < len(tokens) else ("", -1)
+
+
+def _git_execution_option_reason(tokens: list[str], git_index: int) -> str:
+    """Reject Git options that can launch helpers or write output indirectly."""
+
+    subcommand, subcommand_index = _git_subcommand_details(tokens, git_index)
+    if subcommand == "rm" and subcommand_index >= 0:
+        for token in _command_arguments(tokens, subcommand_index):
+            if token.startswith(":"):
+                return f"Git pathspec magic {token}"
+            if any(marker in token for marker in ("*", "?", "[")):
+                return f"Git pathspec expansion {token}"
+    for token in _command_arguments(tokens, git_index):
+        if any(_long_option_matches(token, option) for option in GIT_INDIRECT_PATH_OPTIONS):
+            return f"indirect Git path option {token.split('=', 1)[0]}"
+        if token in GIT_EXECUTION_GLOBAL_OPTIONS:
+            return f"execution-capable Git option {token}"
+        if any(
+            _long_option_matches(token, option)
+            for option in GIT_EXECUTION_GLOBAL_OPTIONS
+            if option.startswith("--")
+        ):
+            return f"execution-capable Git option {token.split('=', 1)[0]}"
+        if token.startswith("-c") and token != "-C":
+            return "execution-capable Git option -c"
+        if token.startswith("-C") and token != "-C":
+            return "repository-overriding Git option -C"
+        if any(
+            _long_option_matches(token, option)
+            for option in GIT_EXECUTION_OPTIONS
+        ):
+            return f"execution-capable Git option {token.split('=', 1)[0]}"
+        if _long_option_matches(token, "--output"):
+            return "Git output-file mutation"
+        if token == "-O" or token.startswith("-O"):
+            return "execution-capable Git pager option -O"
+    return ""
+
+
+def _command_has_option(tokens: list[str], command_index: int, options: set[str]) -> bool:
+    return any(
+        token in options or any(_long_option_matches(token, option) for option in options)
+        for token in _command_arguments(tokens, command_index)
+    )
+
+
+def _long_option_matches(token: str, option: str) -> bool:
+    """Match a GNU/Git long option, including accepted unique abbreviations."""
+
+    if not option.startswith("--") or not token.startswith("--"):
+        return token == option
+    name = token.split("=", 1)[0]
+    return len(name) > 2 and option.startswith(name)
+
+
+def _command_arguments(tokens: list[str], command_index: int) -> list[str]:
+    arguments: list[str] = []
+    for token in tokens[command_index + 1 :]:
+        if token in SHELL_COMMAND_SEPARATORS:
+            break
+        arguments.append(token)
+    return arguments
 
 
 def install_hooks(
@@ -288,7 +1083,12 @@ def hooks_status(
                 "strict": strict,
             }
         )
-    contexts = active_claim_contexts(workspace_path)
+    state = load_active_claim_contexts(
+        workspace_path,
+        pin_palari=os.environ.get("PALARI_AS", ""),
+        pin_work=os.environ.get("PALARI_WORK_ID", ""),
+    )
+    contexts = state["contexts"]
     installed = any(item["palari_hook_events"] for item in files)
     return {
         "schema_version": "palari.claude_status.v1",
@@ -305,6 +1105,7 @@ def hooks_status(
             }
             for context in contexts
         ],
+        "claim_errors": state["errors"],
         "message": (
             "Palari hooks are installed for Claude Code."
             if installed
@@ -316,6 +1117,8 @@ def hooks_status(
 def _pre_tool_use(
     payload: dict[str, Any],
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
+    workspace_path: Path | str,
     *,
     strict: bool,
 ) -> dict[str, Any]:
@@ -323,19 +1126,97 @@ def _pre_tool_use(
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
         tool_input = {}
+    cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
+    destructive_targets: list[str] = []
 
     exact = tool_name in FILE_WRITE_TOOLS
     if exact:
         raw_targets = [str(tool_input.get(FILE_WRITE_TOOLS[tool_name], ""))]
     elif tool_name == "Bash":
-        raw_targets = bash_write_targets(str(tool_input.get("command", "")))
+        command = str(tool_input.get("command", ""))
+        authority_command = bash_human_authority_command(command)
+        if authority_command:
+            return _decision(
+                "deny",
+                f"Palari command `{authority_command}` is human-only and cannot run "
+                "from an agent shell. Use the human handoff packet instead.",
+            )
+        opaque_reason = bash_requires_human_review(command)
+        if opaque_reason:
+            return _decision(
+                "ask",
+                f"{opaque_reason} can bypass Palari's observable write boundary. "
+                "A human must approve this shell command or use a directly inspected tool.",
+            )
+        workspace_reason = _palari_workspace_review_reason(
+            command, cwd, workspace_path
+        )
+        if workspace_reason:
+            return _decision(
+                "ask",
+                f"{workspace_reason}. Agent-safe Palari mutations cannot cross "
+                "the active hook workspace boundary.",
+            )
+        raw_targets = bash_write_targets(command, cwd=cwd)
+        destructive_targets = _bash_destructive_targets(command)
     else:
         return {}
     raw_targets = [target for target in raw_targets if target]
     if not raw_targets:
         return {}
 
-    execute = _execute_contexts(contexts)
+    if context_errors:
+        return _decision(
+            "deny" if exact else "ask",
+            "Palari cannot verify the active claim context: " + "; ".join(context_errors),
+        )
+
+    root = _resolution_root(payload)
+    unresolved: list[str] = []
+    relative_targets: list[str] = []
+    for target in raw_targets:
+        relative = _relativize(target, root, cwd)
+        if relative is None:
+            unresolved.append(target)
+        else:
+            relative_targets.append(relative)
+    if contexts and unresolved:
+        return _decision(
+            "deny" if exact else "ask",
+            "This file change touches paths outside the repository "
+            f"({', '.join(sorted(unresolved))}), which the Palari packet cannot vouch for.",
+        )
+    workspace_bound = root is not None and _workspace_belongs_to_repo(workspace_path, root)
+    if workspace_bound:
+        assert root is not None
+        protected = [
+            (target, _protected_governance_target(target, cwd, root, workspace_path))
+            for target in raw_targets
+        ]
+        protected.extend(
+            (
+                target,
+                _protected_governance_target(
+                    target,
+                    cwd,
+                    root,
+                    workspace_path,
+                    include_ancestors=True,
+                ),
+            )
+            for target in destructive_targets
+        )
+        protected = list(
+            dict.fromkeys((target, reason) for target, reason in protected if reason)
+        )
+        if protected:
+            details = ", ".join(f"{target} ({reason})" for target, reason in protected)
+            return _decision(
+                "deny" if exact else "ask",
+                "Governance source-of-truth and runtime metadata must change through "
+                f"governed Palari commands, not direct file writes: {details}.",
+            )
+
     if not contexts:
         if strict:
             return _decision(
@@ -345,39 +1226,48 @@ def _pre_tool_use(
                 "--as PALARI-ID --mode execute --json before changing files.",
             )
         return {}
+
+    execute = _execute_contexts(contexts)
     if not execute:
         reason = (
             "Active Palari claims are review-mode (read-only); file changes are "
             "outside the packet contract. Start execute-mode work first: "
             "palari agent start WORK-ID --as PALARI-ID --mode execute --json"
         )
-        return _decision("deny" if exact and strict else "ask", reason)
+        return _decision("deny" if exact else "ask", reason)
 
-    cwd = Path(str(payload.get("cwd") or "") or os.getcwd())
-    root = _resolution_root(payload)
-    allowed = _allowed_write_paths(execute)
-    outside: list[str] = []
-    unresolved: list[str] = []
-    for target in raw_targets:
-        relative = _relativize(target, root, cwd)
-        if relative is None:
-            unresolved.append(target)
-        elif not path_allowed(relative, allowed):
-            outside.append(relative)
+    if not workspace_bound:
+        return _decision(
+            "deny" if exact else "ask",
+            "The active Palari workspace cannot be bound to this Git repository.",
+        )
+    assert root is not None
 
-    if outside:
-        decision = "deny" if exact else "ask"
-        return _decision(decision, _boundary_reason(outside, allowed, execute, exact))
-    if unresolved:
-        if strict:
-            return _decision(
-                "ask",
-                "This command touches paths outside the repository "
-                f"({', '.join(sorted(unresolved))}), which the Palari packet cannot vouch for.",
+    covering = [
+        context
+        for context in execute
+        if all(
+            canonical_path_allowed(
+                target, _packet_write_paths(context["packet"]), root=root
             )
-        return {}
+            for target in relative_targets
+        )
+    ]
+    if len(covering) != 1:
+        if len(covering) > 1:
+            reason = (
+                "This file change is covered by multiple active execute claims. "
+                "Set PALARI_WORK_ID/PALARI_AS or release the overlapping claim before writing."
+            )
+        else:
+            reason = _boundary_reason(
+                relative_targets, _allowed_write_paths(execute), execute, exact
+            )
+        return _decision("deny" if exact else "ask", reason)
+
+    selected = covering[0]
     if exact:
-        claim = execute[0]["claim"]
+        claim = selected["claim"]
         return _decision(
             "allow",
             f"Inside the Palari write boundary for {claim.get('work_item', '')} "
@@ -389,16 +1279,72 @@ def _pre_tool_use(
 def _stop(
     payload: dict[str, Any],
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
     workspace_path: Path | str,
 ) -> dict[str, Any]:
     if payload.get("stop_hook_active"):
         return {}
+    if context_errors:
+        return {
+            "decision": "block",
+            "reason": "Palari cannot verify the active claim context: " + "; ".join(context_errors),
+        }
     execute = _execute_contexts(contexts)
-    if not execute:
+    if not contexts:
         return {}
+    if execute and len(execute) != 1:
+        return {
+            "decision": "block",
+            "reason": (
+                "Multiple active execute claims are ambiguous. Set PALARI_WORK_ID/PALARI_AS "
+                "or release overlapping claims before finishing."
+            ),
+        }
     cwd = str(payload.get("cwd") or "") or os.getcwd()
-    boundary_packet = {"allowed_paths": {"write": _allowed_write_paths(execute)}}
-    inspection = inspect_file_changes(boundary_packet, git_diff=True, cwd=Path(cwd))
+    root = git_repo_root(Path(cwd))
+    if root is None or not _workspace_belongs_to_repo(workspace_path, root):
+        return {
+            "decision": "block",
+            "reason": "Palari cannot bind this active claim and workspace to the current Git repository.",
+        }
+    if not execute:
+        inspection = inspect_file_changes(
+            {"allowed_paths": {"write": []}},
+            git_diff=True,
+            cwd=Path(cwd),
+            git_baseline=contexts[0]["claim"].get("git_baseline"),
+        )
+        observation_errors = inspection.get("observation_errors", []) if inspection else []
+        if observation_errors:
+            return {
+                "decision": "block",
+                "reason": "Palari could not inspect the Git worktree: "
+                + "; ".join(observation_errors),
+            }
+        changed = inspection.get("outside_write_boundary", []) if inspection else []
+        changed = _without_palari_runtime(changed, workspace_path, Path(cwd))
+        if changed:
+            return {
+                "decision": "block",
+                "reason": (
+                    "Active review-mode Palari claims are read-only; changed files: "
+                    + ", ".join(changed)
+                ),
+            }
+        return {}
+    boundary_packet = {"allowed_paths": {"write": _packet_write_paths(execute[0]["packet"])}}
+    inspection = inspect_file_changes(
+        boundary_packet,
+        git_diff=True,
+        cwd=Path(cwd),
+        git_baseline=execute[0]["claim"].get("git_baseline"),
+    )
+    observation_errors = inspection.get("observation_errors", []) if inspection else []
+    if observation_errors:
+        return {
+            "decision": "block",
+            "reason": "Palari could not inspect the Git worktree: " + "; ".join(observation_errors),
+        }
     outside = inspection.get("outside_write_boundary", []) if inspection else []
     outside = _without_palari_runtime(outside, workspace_path, Path(cwd))
     if not outside:
@@ -424,6 +1370,7 @@ def _stop(
 
 def _session_start(
     contexts: list[dict[str, Any]],
+    context_errors: list[str],
     workspace_path: Path | str,
 ) -> dict[str, Any]:
     workspace_dir = workspace_file_path(workspace_path).parent
@@ -431,6 +1378,9 @@ def _session_start(
         "<palari-contract>",
         f"This project is governed by Palari Company OS (workspace: {workspace_dir}).",
     ]
+    if context_errors:
+        lines.append("Invalid active claim context (writes must stop):")
+        lines.extend(f"- {error}" for error in context_errors)
     if contexts:
         lines.append("Active claims:")
         for context in contexts:
@@ -587,8 +1537,12 @@ def _redirect_target(token: str) -> str | None:
     the no-target sentinel; non-redirect tokens return ``None``.
     """
     stripped = token.lstrip("012&")
+    if stripped.startswith("<>"):
+        return stripped[2:]
     if not stripped.startswith(">"):
         return None
+    if stripped == ">&":
+        return _REDIRECT_FD_OR_TARGET
     remainder = stripped.lstrip(">").lstrip("|")
     if remainder.startswith("&"):
         return _REDIRECT_NO_TARGET
@@ -597,15 +1551,6 @@ def _redirect_target(token: str) -> str | None:
 
 def _looks_like_path(token: str) -> bool:
     return "/" in token or "." in Path(token).name
-
-
-def _packet_file(workspace_path: Path | str, claim: dict[str, Any]) -> Path:
-    workspace_dir = workspace_file_path(workspace_path).parent
-    relative = str(claim.get("packet_path", ""))
-    if relative:
-        return workspace_dir / relative
-    packet_id = str(claim.get("packet_id", ""))
-    return workspace_dir / ".palari" / "packets" / f"{packet_id}.json"
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -690,3 +1635,101 @@ def _install_message(status: str, target: Path) -> str:
     if status == "removed":
         return f"Palari hooks removed from {target}."
     return f"{target} already matches the requested hook configuration."
+
+
+def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
+    try:
+        workspace_file_path(workspace_path).parent.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _protected_governance_target(
+    raw_target: str,
+    cwd: Path,
+    root: Path,
+    workspace_path: Path | str,
+    *,
+    include_ancestors: bool = False,
+) -> str:
+    """Name governance state that must not be edited around the CLI gates."""
+
+    target = Path(raw_target.strip().replace("\\", "/"))
+    if not target.is_absolute():
+        target = cwd / target
+    target = target.resolve()
+    data_path = workspace_file_path(workspace_path).resolve()
+    protected_files = {data_path}
+    try:
+        raw = json.loads(data_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raw = {}
+    collection_files = raw.get("collection_files") if isinstance(raw, dict) else None
+    if isinstance(collection_files, dict):
+        for paths in collection_files.values():
+            if not isinstance(paths, list):
+                continue
+            for relative in paths:
+                if not isinstance(relative, str):
+                    continue
+                try:
+                    canonical = validate_workspace_path(relative)
+                    protected_files.add(resolve_workspace_path(data_path.parent, canonical))
+                except ValueError:
+                    continue
+    if target in protected_files or (
+        include_ancestors and any(target in path.parents for path in protected_files)
+    ):
+        return "workspace source of truth"
+    runtime = (data_path.parent / ".palari").resolve()
+    if (
+        target == runtime
+        or runtime in target.parents
+        or (include_ancestors and target in runtime.parents)
+    ):
+        return "Palari runtime state"
+    hook_settings = {
+        (root / ".claude" / "settings.json").resolve(),
+        (root / ".claude" / "settings.local.json").resolve(),
+    }
+    if target in hook_settings or (
+        include_ancestors and any(target in path.parents for path in hook_settings)
+    ):
+        return "Claude hook configuration"
+    for git_metadata in _git_metadata_roots(root):
+        if (
+            target == git_metadata
+            or git_metadata in target.parents
+            or (include_ancestors and target in git_metadata.parents)
+        ):
+            return "Git metadata"
+    return ""
+
+
+def _git_metadata_roots(root: Path) -> set[Path]:
+    marker = root / ".git"
+    roots = {marker.resolve()}
+    if not marker.is_file():
+        return roots
+    try:
+        declaration = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return roots
+    if not declaration.lower().startswith("gitdir:"):
+        return roots
+    git_dir = Path(declaration.split(":", 1)[1].strip())
+    if not git_dir.is_absolute():
+        git_dir = root / git_dir
+    git_dir = git_dir.resolve()
+    roots.add(git_dir)
+    common_marker = git_dir / "commondir"
+    if common_marker.is_file():
+        try:
+            common_dir = Path(common_marker.read_text(encoding="utf-8").strip())
+            if not common_dir.is_absolute():
+                common_dir = git_dir / common_dir
+            roots.add(common_dir.resolve())
+        except OSError:
+            pass
+    return roots

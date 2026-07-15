@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .errors import WorkspaceError
+from .governance_binding import current_review_binding, current_review_binding_errors
 from .read_models import detail
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
@@ -66,7 +67,7 @@ def check_transition(
     elif transition == "evidence_record":
         _check_evidence_record(workspace, target_id, context, blockers, next_commands)
     elif transition == "review_record":
-        _check_review_record(workspace, target_id, context, blockers, next_commands)
+        _check_review_record(workspace, target_id, actor, context, blockers, next_commands)
     elif transition == "human_decision_accept":
         _check_human_decision_accept(workspace, target_id, actor, context, blockers, next_commands)
     elif transition == "work_accept":
@@ -255,6 +256,7 @@ def _check_evidence_record(
 def _check_review_record(
     workspace: Workspace,
     review_id: str,
+    reviewer_id: str,
     context: dict[str, Any],
     blockers: list[TransitionBlocker],
     next_commands: list[str],
@@ -268,16 +270,40 @@ def _check_review_record(
         return
     if _review(workspace, review_id) is not None and not context.get("allow_existing"):
         blockers.append(TransitionBlocker("REVIEW_EXISTS", f"review already exists: {review_id}"))
+    if workspace.human(reviewer_id) is None:
+        blockers.append(
+            TransitionBlocker("REVIEWER_MISSING", f"reviewer must be an existing human: {reviewer_id}")
+        )
+    current_attempt = current_attempt_for_work(work, workspace.attempts)
+    if current_attempt is not None and current_attempt.actor == reviewer_id:
+        blockers.append(
+            TransitionBlocker(
+                "REVIEWER_NOT_INDEPENDENT",
+                f"reviewer {reviewer_id} is also attempt actor {current_attempt.actor}",
+            )
+        )
     if verdict == "accept-ready":
-        evidence = _matching_fresh_passed_evidence(workspace, work, reviewed_head)
-        if evidence is None:
+        binding, proof_errors = current_review_binding(
+            workspace, work_id, require_output_coverage=True
+        )
+        if proof_errors:
             blockers.append(
                 TransitionBlocker(
-                    "FRESH_EVIDENCE_MISSING",
-                    f"accept-ready review requires passed evidence for head {reviewed_head}",
-                    f"palari evidence record EVIDENCE-ID --work-item-id {work_id} --status passed --json",
+                    "EXACT_PROOF_NOT_READY",
+                    "accept-ready review requires complete exact proof: "
+                    + "; ".join(proof_errors),
+                    f"palari agent doctor {work_id} --as PALARI-ID --mode review --json",
                 )
             )
+        elif binding.get("attempt_id") and binding.get("evidence_reference"):
+            evidence = _evidence(workspace, binding["evidence_reference"])
+            if evidence is None or evidence.head_sha != reviewed_head:
+                blockers.append(
+                    TransitionBlocker(
+                        "REVIEWED_HEAD_MISMATCH",
+                        f"review head {reviewed_head} does not match current exact proof head",
+                    )
+                )
     next_commands.append(
         f"palari review record {review_id or 'REVIEW-ID'} "
         f"--work-item-id {work_id} --reviewed-head {reviewed_head or 'HEAD'} --verdict VERDICT --json"
@@ -408,6 +434,18 @@ def _check_acceptance_prerequisites(
         )
     elif evidence is not None and review.reviewed_head != evidence.head_sha:
         blockers.append(TransitionBlocker("REVIEW_STALE", f"work {work_id} review is stale"))
+    elif review is not None:
+        binding_errors = current_review_binding_errors(
+            workspace, review, require_output_coverage=True
+        )
+        if binding_errors:
+            blockers.append(
+                TransitionBlocker(
+                    "REVIEW_PROOF_STALE",
+                    f"work {work_id} review proof is stale: {binding_errors[0]}",
+                    f"palari review guide {work_id} --json",
+                )
+            )
     if reviewed_head and review is not None and reviewed_head != review.reviewed_head:
         blockers.append(
             TransitionBlocker(
@@ -437,7 +475,78 @@ def _check_work_complete(
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
+    from .governance_kernel import evaluate_governance_case
+    from .pcaw_workspace import governance_case_from_workspace
+
+    governance_case, _ = governance_case_from_workspace(workspace, work_id)
+    low_risk_receipt_path = work.risk in {"R1", "R2"} and work.required_approval_count == 0
+    if low_risk_receipt_path:
+        governance_case = replace(
+            governance_case,
+            claimed_state="completed",
+            contract=replace(governance_case.contract, status="completed"),
+        )
+    else:
+        governance_case = replace(governance_case, claimed_state="accepted")
+    governance = evaluate_governance_case(governance_case)
+    # Legacy v2 workspaces may omit PCAW-only artifact coverage and stage
+    # timestamps. Existing gates below remain authoritative for those records;
+    # their exported proof is honestly not acceptance-verified until refreshed.
+    compatibility_only = {
+        "PCAW_EVIDENCE_OUTPUT_UNHASHED",
+        "PCAW_REVIEW_PREREQUISITE_INVALID",
+        "PCAW_ACCEPTANCE_PREREQUISITE_INVALID",
+        "PCAW_LIFECYCLE_ORDER_INVALID",
+        "PCAW_EVIDENCE_RECEIPT_INVALID",
+        "PCAW_CLAIMED_STATE_MISMATCH",
+    }
+    kernel_errors = [
+        item for item in governance.errors if item.code not in compatibility_only
+    ]
+    if low_risk_receipt_path:
+        kernel_errors = []
+    if governance.derived_state not in {"accepted", "completed"} and kernel_errors:
+        first_error = kernel_errors[0]
+        blockers.append(
+            TransitionBlocker(
+                "GOVERNANCE_PROOF_INCOMPLETE",
+                (
+                    first_error.message
+                    if first_error is not None
+                    else f"governance kernel derives {governance.derived_state}"
+                ),
+                (
+                    first_error.next_action
+                    if first_error is not None
+                    else f"palari agent doctor {work_id} --json"
+                ),
+            )
+        )
     work_detail = detail(workspace, work_id)
+    attempt = current_attempt_for_work(work, workspace.attempts)
+    if not low_risk_receipt_path:
+        if attempt is None or attempt.status not in {"complete", "completed"}:
+            blockers.append(
+                TransitionBlocker("ATTEMPT_NOT_COMPLETE", "current attempt is not complete")
+            )
+        elif attempt.cleanliness.lower() not in {"clean", "pristine"}:
+            blockers.append(
+                TransitionBlocker("ATTEMPT_NOT_CLEAN", "current attempt is not recorded clean")
+            )
+        review = latest_for_work(workspace.review_verdicts, work_id)
+        if review is None:
+            blockers.append(TransitionBlocker("REVIEW_MISSING", "current review is missing"))
+        else:
+            binding_errors = current_review_binding_errors(
+                workspace, review, require_output_coverage=True
+            )
+            if binding_errors:
+                blockers.append(
+                    TransitionBlocker(
+                        "REVIEW_PROOF_STALE",
+                        f"current review proof is stale: {binding_errors[0]}",
+                    )
+                )
     attention = work_detail.get("attention")
     integration_state = work_detail.get("safety", {}).get("integration_state")
     if attention == "blocked":

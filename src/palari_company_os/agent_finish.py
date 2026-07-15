@@ -30,7 +30,17 @@ def build_agent_finish(
         item for item in failed_required if item.get("code") != "PACKET_READY"
     ]
     blocker_codes = [blocker.get("code", "") for blocker in check.get("blockers", [])]
-    handoff_ready = not missing_proof and bool(set(blocker_codes) & HANDOFF_BLOCKERS)
+    linked_decision_command = _linked_decision_command(workspace, work_id)
+    handoff_guidance = _handoff_guidance(check, linked_decision_command)
+    human_approval_ready = (
+        "HUMAN_DECISION_REQUIRED" in blocker_codes
+        and linked_decision_command is None
+        and human_approval_prerequisites_met(check)
+    )
+    handoff_ready = (
+        human_approval_ready
+        or (not missing_proof and bool(set(blocker_codes) & HANDOFF_BLOCKERS))
+    )
     can_finish = bool(check.get("ok", False))
     status = _finish_status(can_finish, handoff_ready, missing_proof, blocker_codes)
     return {
@@ -56,7 +66,7 @@ def build_agent_finish(
             if item.get("required") and item.get("status") == "pass"
         ],
         "blockers": check.get("blockers", []),
-        "handoff_guidance": _handoff_guidance(check, _linked_decision_command(workspace, work_id)),
+        "handoff_guidance": handoff_guidance,
         "next_allowed_commands": _next_commands(check),
         "report_guidance": _report_guidance(status, mode),
     }
@@ -70,10 +80,10 @@ def _finish_status(
 ) -> str:
     if can_finish:
         return "ready-to-report"
-    if missing_proof:
-        return "missing-proof"
     if handoff_ready:
         return "handoff-ready"
+    if missing_proof:
+        return "missing-proof"
     if blocker_codes:
         return "blocked"
     return "not-ready"
@@ -82,16 +92,23 @@ def _finish_status(
 def _next_commands(check: dict[str, Any]) -> list[str]:
     commands: list[str] = []
     for item in check.get("checks", []):
-        if item.get("required") and item.get("status") == "fail" and item.get("code") != "PACKET_READY":
+        if (
+            item.get("required")
+            and item.get("status") == "fail"
+            and item.get("code") not in {"PACKET_READY", "HUMAN_DECISION_PRESENT"}
+        ):
             _append_once(commands, item.get("next_command", ""))
     for command in check.get("next_allowed_commands", []):
-        _append_once(commands, command)
+        if not _is_human_action_command(command):
+            _append_once(commands, command)
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
     review_command = f"palari review guide {work_id} --json"
-    review_needed = "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
+    review_needed = (
+        "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
+    ) and review_prerequisites_met(check)
     if review_needed:
         _prioritize(commands, [handoff_command, review_command])
     _append_once(commands, "palari validate --json")
@@ -107,7 +124,9 @@ def _handoff_guidance(
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
     handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
-    if "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes:
+    if (
+        "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
+    ) and review_prerequisites_met(check):
         guidance.append(
             {
                 "code": "REVIEW_HANDOFF",
@@ -121,9 +140,11 @@ def _handoff_guidance(
         if linked_decision_command or decision_command.startswith("palari decision guide "):
             code = "DECISION_HANDOFF"
             message = "Use agent handoff for required human authority and suggested decision update commands."
-        else:
+        elif human_approval_prerequisites_met(check):
             code = "HUMAN_APPROVAL_HANDOFF"
             message = "Use agent handoff for required work approval and human-only acceptance commands."
+        else:
+            return guidance
         guidance.append(
             {
                 "code": code,
@@ -133,6 +154,30 @@ def _handoff_guidance(
             }
         )
     return guidance
+
+
+def human_approval_prerequisites_met(check: dict[str, Any]) -> bool:
+    """Return whether receipt, evidence, and review proof is ready for human approval."""
+
+    prerequisite_codes = {"RECEIPT_PRESENT", "EVIDENCE_PRESENT", "REVIEW_PRESENT"}
+    checks = {item.get("code", ""): item for item in check.get("checks", [])}
+    return all(
+        checks.get(code, {}).get("required") is True
+        and checks.get(code, {}).get("status") == "pass"
+        for code in prerequisite_codes
+    )
+
+
+def review_prerequisites_met(check: dict[str, Any]) -> bool:
+    """Return whether receipt and evidence are ready for independent review."""
+
+    checks = {item.get("code", ""): item for item in check.get("checks", [])}
+    receipt = checks.get("RECEIPT_PRESENT", {})
+    evidence = checks.get("EVIDENCE_PRESENT", {})
+    return (
+        receipt.get("status") == "pass"
+        and (not evidence.get("required") or evidence.get("status") == "pass")
+    )
 
 
 def _linked_decision_command(workspace: Workspace, work_id: str) -> str | None:
@@ -155,6 +200,17 @@ def _append_once(commands: list[str], command: str) -> None:
         commands.append(command)
 
 
+def _is_human_action_command(command: str) -> bool:
+    return command.startswith(
+        (
+            "palari human-decision record ",
+            "palari work accept ",
+            "palari review record ",
+            "palari decision update ",
+        )
+    )
+
+
 def _prioritize(commands: list[str], prioritized: list[str]) -> None:
     for command in reversed([item for item in prioritized if item]):
         if command in commands:
@@ -167,7 +223,7 @@ def _requirement(check: dict[str, Any]) -> dict[str, Any]:
         "code": check.get("code", ""),
         "message": check.get("message", ""),
     }
-    if check.get("next_command"):
+    if check.get("next_command") and check.get("code") != "HUMAN_DECISION_PRESENT":
         payload["next_command"] = check["next_command"]
     return payload
 

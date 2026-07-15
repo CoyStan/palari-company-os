@@ -311,7 +311,7 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _optional_string(arguments, "mode", "execute"),
             changed_paths=_string_list(arguments.get("changed_paths", [])),
             git_diff=bool(arguments.get("git_diff", False)),
-            cwd=Path.cwd(),
+            cwd=workspace.path,
         )
     if name == "palari_agent_finish":
         return build_agent_finish(

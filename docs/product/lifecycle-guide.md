@@ -3,8 +3,25 @@
 Palari Company OS models this loop:
 
 ```text
-Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
+Goal -> Palari -> Work -> Attempt -> Receipt -> Evidence -> Review -> Human Decision -> Outcome
 ```
+
+For asynchronous preparation, multiple reviewed items may be compiled into a
+parked Approval Inbox:
+
+```text
+bounded preparation -> parked item proofs -> canonical Approval Pack
+-> one exact human pack decision -> eligible local execution -> outcome
+```
+
+The interaction is compressed; each item keeps its own scope, attempt,
+receipt, evidence, review, decision, and journal result. A dependency change
+stales descendants—even when a narrowed pack omits the dependency—while
+unrelated current members retain their valid state. A changed risk or batch
+policy also stales the exact pack. Recursive dependency bindings make a changed
+terminal dependency artifact stale rather than treating terminal status as
+sufficient. External or irreversible effects remain parked for their native
+individual gate.
 
 ## Create Intent And Actors
 
@@ -28,7 +45,7 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
   --required-approval-capability product
 ```
 
-## Record Attempt, Evidence, Review, And Human Decision
+## Record Attempt, Receipt, Evidence, Review, And Human Decision
 
 ```bash
 ./bin/palari attempt record ATTEMPT-X \
@@ -39,12 +56,25 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
 
 ./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X
 
+./bin/palari receipt record RECEIPT-X \
+  --work-item-id WORK-X \
+  --attempt-id ATTEMPT-X \
+  --actor PALARI-X \
+  --list actions_taken="drafted the bounded note" \
+  --list outputs_created=docs/product/company-os.md
+
 ./bin/palari lifecycle evidence EVIDENCE-X \
   --work-item-id WORK-X \
   --attempt-id ATTEMPT-X \
   --head-sha head-x \
   --status passed \
+  --summary "Focused verification passed." \
   --list "commands=python3 -m unittest discover -s tests"
+
+./bin/palari attempt closeout ATTEMPT-X \
+  --head-sha head-x \
+  --cleanliness clean \
+  --changed docs/product/company-os.md
 
 ./bin/palari lifecycle review REVIEW-X \
   --work-item-id WORK-X \
@@ -64,7 +94,29 @@ Goal -> Palari -> Work -> Evidence -> Review -> Human Decision -> Outcome
 
 Acceptance fails closed if the human lacks the required capability, evidence is
 missing or stale, review is missing or stale, or the decision head does not
-match the reviewed head.
+match the reviewed head. An `accept-ready` review is automatically bound to the
+exact terminal attempt, receipt, evidence manifest, reviewed head, and work
+contract. Any later substantive change requires refreshed proof and a new
+review.
+
+For a coherent set, use `queue --approval-inbox` and the human-only
+`human-decision pack` surface. Agents may prepare or summarize a pack but may
+not record that decision. A pack with incomplete quorum records the qualified
+vote and leaves execution parked; a later qualified human must act on the same
+stored exact manifest.
+
+The journal also exposes content-addressed state checkpoints. Restoring an
+earlier checkpoint appends a new transition and reason. It reproduces local
+governed state but does not erase history. If an external effect occurred after
+that checkpoint, restoration is blocked before mutation because rewinding an
+outbox or receipt could invite duplicate execution.
+
+`palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
+An offline verifier derives `blocked`, `review-required`,
+`human-decision-required`, `accept-ready`, `accepted`, or `completed` from the
+included records rather than trusting the claimed state. Legacy lifecycle
+records remain loadable, but absent artifact digests or stage timestamps are
+reported honestly and cannot become PCAW acceptance verification.
 
 ## Complete Work And Record Outcome
 
@@ -77,4 +129,3 @@ match the reviewed head.
 ```
 
 Completion fails closed unless the queue says the work is ready to integrate.
-

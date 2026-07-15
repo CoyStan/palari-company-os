@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Acme Company OS Example",
   "goals": [
     {
@@ -473,7 +473,7 @@
       "workbench_id": "WORKBENCH-BETA",
       "risk": "R1",
       "intensity": "light",
-      "status": "completed",
+      "status": "in-review",
       "scope": "Capture what was learned from the first queue prototype.",
       "allowed_resources": [
         "examples/acme-company-os/workspace.json"
@@ -733,9 +733,10 @@
         "python3 -m unittest discover -s tests",
         "./bin/palari queue --json"
       ],
-      "artifacts": [
-        "reports/evidence/WORK-0001/summary.json"
-      ],
+      "artifacts": [],
+      "artifact_hashes": [],
+      "manifest_hash": "sha256:c8d6226239c13f834d579557e1d389cca1421d14a13853dea9302970966d473d",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7",
       "summary": "Unit tests and queue JSON passed for the beta checklist prototype.",
       "freshness": "fresh",
       "timestamp": "2026-06-18T17:35:00Z"
@@ -793,6 +794,15 @@
       "reviewed_head": "abc1234",
       "reviewer": "HUMAN-OPS",
       "verdict": "accept-ready",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-0001",
+      "attempt_hash": "sha256:ecf2603f394c3cb68de36048a0f7e53b4c4caa17b424afc702ec801af2ecbc31",
+      "evidence_reference": "EVIDENCE-0001",
+      "evidence_manifest_hash": "sha256:c8d6226239c13f834d579557e1d389cca1421d14a13853dea9302970966d473d",
+      "receipt_reference": "RECEIPT-0001A",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7",
+      "work_contract_hash": "sha256:97e69a650911a1f3e004121d51e5ca9aa48b3d59266866e0b3562f79839fa013",
+      "proof_hash": "sha256:cbe58a1ac116185bdf63c29bc30071e3049dea7e68aa08fa4e36ece01114fd6a",
       "findings": [],
       "checks_inspected": [
         "python3 -m unittest discover -s tests",
@@ -808,12 +818,14 @@
       "work_item_id": "WORK-0004",
       "reviewed_head": "aaa1111",
       "reviewer": "HUMAN-FOUNDER",
-      "verdict": "accept-ready",
+      "verdict": "blocked",
       "findings": [],
       "checks_inspected": [
         "./bin/palari detail WORK-0004 --json"
       ],
-      "residual_risks": [],
+      "residual_risks": [
+        "Migrated from schema v1: fresh exact-bound review required."
+      ],
       "timestamp": "2026-06-18T16:40:00Z"
     },
     {
@@ -821,13 +833,14 @@
       "work_item_id": "WORK-0006",
       "reviewed_head": "review-old",
       "reviewer": "HUMAN-OPS",
-      "verdict": "accept-ready",
+      "verdict": "blocked",
       "findings": [],
       "checks_inspected": [
         "./bin/palari detail WORK-0006 --json"
       ],
       "residual_risks": [
-        "Review must be rerun against review-fresh."
+        "Review must be rerun against review-fresh.",
+        "Migrated from schema v1: fresh exact-bound review required."
       ],
       "timestamp": "2026-06-18T18:22:00Z"
     }
@@ -838,10 +851,10 @@
       "work_item_id": "WORK-0004",
       "human_id": "HUMAN-FOUNDER",
       "reviewed_head": "aaa1111",
-      "decision": "accepted",
-      "status": "accepted",
+      "decision": "blocked",
+      "status": "blocked",
       "acceptance_mode": "human",
-      "quorum_status": "met",
+      "quorum_status": "not-met",
       "evidence_reference": "EVIDENCE-0002",
       "review_reference": "REVIEW-0002",
       "timestamp": "2026-06-18T16:45:00Z"
@@ -872,6 +885,23 @@
         "remove examples/acme-company-os/outputs/beta-launch-summary.md"
       ],
       "timestamp": "2026-06-19T04:10:00Z"
+    },
+    {
+      "id": "RECEIPT-0001A",
+      "work_item_id": "WORK-0001",
+      "attempt_id": "ATTEMPT-0001",
+      "actor": "PALARI-SOFIA",
+      "actions_taken": [
+        "Prepared the bounded beta launch checklist."
+      ],
+      "outputs_created": [
+        "examples/acme-company-os/workspace.json"
+      ],
+      "not_done": [
+        "No deployment or external write was performed."
+      ],
+      "timestamp": "2026-06-18T17:34:00Z",
+      "receipt_hash": "sha256:40825741faa3b12f7fefdb5689ebdc42392dcbb40baf4085de6a1b8083e279b7"
     }
   ],
   "decisions": [
@@ -924,5 +954,11 @@
       ],
       "timestamp": "2026-06-18T16:50:00Z"
     }
-  ]
+  ],
+  "capabilities": [],
+  "authority_profiles": [],
+  "proposals": [],
+  "acceptance_records": [],
+  "integration_plans": [],
+  "integration_outbox": []
 }

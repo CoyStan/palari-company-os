@@ -7,6 +7,33 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Bound new accept-ready reviews to the exact terminal attempt, receipt,
+  evidence manifest, reviewed head, and work contract. Acceptance, completion,
+  read models, and quorum now fail closed on stale or contradictory proof, and
+  later negative decisions revoke earlier approval from the same human.
+- Hardened filesystem enforcement against traversal, sibling-prefix and
+  symlink escape, malformed Git observations, ambiguous claims, and review-mode
+  writes. Agent claims now distinguish unchanged pre-existing dirt with a
+  hashed metadata-only baseline plus an independent local Git ref/reflog
+  witness; hooks reconcile execute scope with current workspace truth.
+- Revalidate evidence manifests, artifacts, and receipt hashes for active
+  acceptance records, and stop supported agent shells from invoking
+  human-attributed Palari mutations or silently running opaque interpreters.
+
+### Changed
+
+- Advanced the workspace contract to schema v2. `palari migrate` now blocks
+  legacy unbound accept-ready reviews, revokes dependent acceptance, reopens
+  affected governed terminal work, and normalizes human-decision ordering
+  metadata instead of grandfathering unverifiable authority.
+- Added focused and affected verification profiles while keeping `complete` as
+  the authoritative acceptance gate; isolated install smokes now use unique
+  temporary directories safely under concurrent execution.
+- Human review and approval templates are emitted only inside explicit
+  read-only handoff boundaries after their prerequisite proof passes.
+
 ### Added
 
 - Completed the governed Linear loop: `palari linear connect` verifies

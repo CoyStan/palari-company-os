@@ -155,11 +155,29 @@ recommendation never means the work is accepted.
 `palari work accept` is the explicit final human acceptance command. It records
 a human decision and an acceptance record after checking fresh evidence, fresh
 accept-ready review, human capability, open decisions, scope overlap, and
-evidence manifest integrity when present.
+mandatory evidence/receipt manifest integrity. The review must carry the
+current `palari.review_binding.v1` binding for the exact attempt, evidence,
+receipt, reviewed head, and work contract. A later contract, attempt, evidence,
+or receipt change makes it stale. A later timezone-ordered negative decision by
+the same human revokes that human's earlier approval from quorum. Approval is
+counted only for the exact review and evidence references; contradictory or
+ambiguously ordered decisions fail closed. The review proof hash also
+covers reviewer-authored verdict context, and exact-bound terminal work
+requires its matching acceptance record.
+
+`palari human-decision pack` is an additional human-only acceptance surface,
+not an agent shortcut. It binds one attributable action to an immutable pack
+and derives one decision record per selected member. Each decision retains its
+own proof references and exact member/subject digest. The governance kernel
+counts `approval-pack` decisions under the same capability, reviewer
+independence, currency, and quorum rules as individual human decisions.
+Non-batchable and stale members cannot become approved through the bundle.
 
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
 work, it records a missing acceptance record from the latest qualified human
 decision so completion is auditable instead of being only a status change.
+Generic record updates cannot set terminal work state, rewrite attempt trust
+fields, or mutate an exact-bound review.
 
 ## Gate And Key Custody
 

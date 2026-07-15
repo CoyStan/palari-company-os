@@ -7,7 +7,11 @@ from .workspace import default_workspace_path
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="palari", description="Palari Company OS CLI")
+    parser = argparse.ArgumentParser(
+        prog="palari",
+        description="Palari Company OS CLI",
+        allow_abbrev=False,
+    )
     parser.add_argument(
         "--workspace",
         default=str(default_workspace_path()),
@@ -66,6 +70,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include completed/closed work items in the queue output.",
     )
+    queue_parser.add_argument(
+        "--approval-inbox",
+        action="store_true",
+        help="Show deterministic Approval Packs instead of the ordinary queue.",
+    )
+    queue_parser.add_argument(
+        "--select",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Narrow the Approval Inbox to exact work items. Repeatable.",
+    )
     queue_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     state_parser = subparsers.add_parser("state", help="Show compact operator state.")
@@ -80,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_map_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     _add_docs_parser(subparsers)
+    _add_proof_parser(subparsers)
 
     validate_parser = subparsers.add_parser("validate", help="Validate the workspace.")
     validate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
@@ -126,12 +143,55 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_parser.add_argument("--write", action="store_true", help="Write migration result.")
     migrate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
-    history_parser = subparsers.add_parser("history", help="Show recent workspace history events.")
+    history_parser = subparsers.add_parser(
+        "history", help="Show history or inspect the replayable governance journal."
+    )
     history_parser.add_argument(
         "--limit",
         type=int,
         default=20,
         help="Number of recent events to show. Use 0 for none.",
+    )
+    history_mode = history_parser.add_mutually_exclusive_group()
+    history_mode.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify the governance journal chain and workspace projection.",
+    )
+    history_mode.add_argument(
+        "--checkpoint",
+        action="store_true",
+        help="Start or extend the governance journal with an explicit checkpoint.",
+    )
+    history_mode.add_argument(
+        "--recover",
+        action="store_true",
+        help="Idempotently resolve a prepared journal transaction when safe.",
+    )
+    history_mode.add_argument(
+        "--checkpoints",
+        action="store_true",
+        help="List content-addressed committed workspace checkpoints.",
+    )
+    history_mode.add_argument(
+        "--restore",
+        metavar="SHA256",
+        help="Append a human-attributed restoration to an exact checkpoint.",
+    )
+    history_parser.add_argument(
+        "--acknowledge-break",
+        action="store_true",
+        help="With --checkpoint, preserve a visible continuity break after manual edits.",
+    )
+    history_parser.add_argument(
+        "--actor",
+        default="",
+        help="Declared local actor for a checkpoint or recovery record.",
+    )
+    history_parser.add_argument(
+        "--reason",
+        default="",
+        help="Reason for checkpointing or restoring governed local state.",
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -198,7 +258,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_playbooks_parser(subparsers)
     _add_gate_parser(subparsers)
 
+    _disable_argument_abbreviations(parser)
     return parser
+
+
+def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
+    """Apply the root's fail-closed option grammar to every nested parser."""
+
+    parser.allow_abbrev = False
+    for action in parser._actions:
+        choices = getattr(action, "choices", None)
+        if not isinstance(choices, dict):
+            continue
+        for child in set(choices.values()):
+            if isinstance(child, argparse.ArgumentParser):
+                _disable_argument_abbreviations(child)
 
 
 def _add_agent_parser(subparsers: Any) -> None:
@@ -321,6 +395,28 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Model or worker label for the attempt record.",
     )
     done.add_argument("--json", action="store_true", help="Emit JSON.")
+    advance = nested.add_parser(
+        "advance",
+        help="Deterministically verify and reconcile proof to the next authority boundary.",
+    )
+    advance.add_argument("work_id")
+    advance.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    advance.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Return the exact plan without verification or mutation.",
+    )
+    advance.add_argument(
+        "--summary",
+        default="",
+        help="Reserved for compatibility; governed receipts use deterministic actions.",
+    )
+    advance.add_argument(
+        "--refresh-verification",
+        action="store_true",
+        help="Ignore advisory cached records and rerun the required exact profiles.",
+    )
+    advance.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_claude_parser(subparsers: Any) -> None:
@@ -458,6 +554,39 @@ def _add_docs_parser(subparsers: Any) -> None:
     docs_map = nested.add_parser("map", help="Show the agent-ready documentation map.")
     docs_map.add_argument("--repo", default=".", help="Repository path to inspect.")
     docs_map.add_argument("--json", action="store_true", help="Emit JSON.")
+
+
+def _add_proof_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "proof",
+        help="Export or independently verify Proof-Carrying AI Work statements.",
+    )
+    nested = parser.add_subparsers(dest="proof_command", required=True)
+
+    export = nested.add_parser(
+        "export",
+        help="Export a deterministic PCAW v1 statement for one work item.",
+    )
+    export.add_argument("work_id", help="Work item id.")
+    export.add_argument("--output", required=True, help="Proof statement output file.")
+    export.add_argument("--json", action="store_true", help="Emit a structured export report.")
+
+    verify = nested.add_parser(
+        "verify",
+        help="Verify a PCAW v1 statement without loading a Palari workspace.",
+    )
+    verify.add_argument("proof_file", help="PCAW statement JSON file.")
+    verify.add_argument(
+        "--subject-root",
+        default="",
+        help="Root for artifact subjects. Defaults to the proof file directory.",
+    )
+    verify.add_argument(
+        "--statement-only",
+        action="store_true",
+        help="Verify governance consistency without reading artifact subjects.",
+    )
+    verify.add_argument("--json", action="store_true", help="Emit structured diagnostics.")
 
 
 def _add_workspace_parser(subparsers: Any) -> None:
@@ -1245,6 +1374,29 @@ def _add_human_decision_parser(subparsers: Any) -> None:
     update = nested.add_parser("update", help="Update human decision.")
     update.add_argument("id")
     _add_common_mutation_args(update)
+    pack = nested.add_parser(
+        "pack",
+        help="Record one attributable human action over an exact Approval Pack.",
+    )
+    pack.add_argument("--pack-digest", required=True, help="Exact canonical pack digest.")
+    pack.add_argument("--human-id", required=True, help="Human recording the decision.")
+    pack.add_argument(
+        "--approve-eligible",
+        action="store_true",
+        help="Approve every currently eligible member in the exact pack.",
+    )
+    pack.add_argument("--approve", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument("--reject", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument("--defer", action="append", default=[], metavar="WORK-ID")
+    pack.add_argument(
+        "--pack-member",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Reproduce a narrowed pack selection. Repeat for every selected member.",
+    )
+    pack.add_argument("--reason", default="", help="Human rationale retained in the journal.")
+    pack.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_receipt_parser(subparsers: Any) -> None:

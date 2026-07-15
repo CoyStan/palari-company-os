@@ -111,6 +111,23 @@ An acceptance record is the audit trail of final human acceptance.
 
 You see it when Palari records who accepted reviewed evidence and under which authority profile.
 
+## Approval Pack
+
+An Approval Pack is one immutable bundle of individually proven, related work
+items prepared for a concise human review session.
+
+You see it when the Approval Inbox shows one exact decision can approve eligible
+local items without merging or weakening their evidence.
+
+## Governed Checkpoint
+
+A governed checkpoint is the content digest of one committed workspace
+projection in the append-only journal.
+
+You see it when a human lists or restores effect-free local state while
+retaining the original history. External effects after the target block the
+restoration before local state changes.
+
 ## Receipt
 
 A receipt is the human-readable record of what happened.

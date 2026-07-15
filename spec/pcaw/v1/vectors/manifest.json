@@ -1,0 +1,265 @@
+{
+  "schema_version": "pcaw.conformance.v1",
+  "cases": [
+    {
+      "id": "valid-accepted-full",
+      "statement": "valid/accepted/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 0,
+      "expected": {
+        "verified": true,
+        "fully_verified": true,
+        "acceptance_verified": true,
+        "verification_level": "full",
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "accepted",
+        "subject_digest_status": "verified",
+        "properties": {
+          "scope_compliance": "verified",
+          "subject_integrity": "verified",
+          "evidence_freshness": "verified",
+          "receipt_binding": "verified",
+          "independent_review": "verified",
+          "human_quorum": "verified",
+          "acceptance_currency": "verified",
+          "journal_continuity": "not-applicable"
+        },
+        "error_codes": [],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "valid-accepted-statement-only",
+      "statement": "valid/accepted/statement.json",
+      "subject_root": "valid/accepted",
+      "statement_only": true,
+      "expected_exit": 0,
+      "expected": {
+        "verified": true,
+        "fully_verified": false,
+        "acceptance_verified": false,
+        "verification_level": "statement-only",
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "accepted",
+        "subject_digest_status": "not-checked",
+        "properties": {
+          "subject_integrity": "not-checked"
+        },
+        "error_codes": [],
+        "warning_codes": ["ARTIFACT_CHECKS_SKIPPED"]
+      }
+    },
+    {
+      "id": "valid-blocked-full",
+      "statement": "valid/blocked/statement.json",
+      "subject_root": "valid/blocked",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "fully_verified": false,
+        "acceptance_verified": false,
+        "verification_level": "full",
+        "claimed_state": "blocked",
+        "derived_lifecycle_state": "blocked",
+        "subject_digest_status": "not-applicable",
+        "error_codes": ["PCAW_RECEIPT_MISSING", "PCAW_EVIDENCE_MISSING"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-duplicate-key",
+      "statement": "invalid/duplicate-key/statement.json",
+      "subject_root": "invalid/duplicate-key",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["DUPLICATE_KEY"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-unknown-field",
+      "statement": "invalid/unknown-field/statement.json",
+      "subject_root": "invalid/unknown-field",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["UNKNOWN_FIELD"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-noncanonical-json",
+      "statement": "invalid/noncanonical/statement.json",
+      "subject_root": "invalid/noncanonical",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["NON_CANONICAL_JSON"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-unsupported-algorithm",
+      "statement": "invalid/unsupported-algorithm/statement.json",
+      "subject_root": "invalid/unsupported-algorithm",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["UNSUPPORTED_DIGEST_ALGORITHM"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-path-traversal",
+      "statement": "invalid/path-traversal/statement.json",
+      "subject_root": "invalid/path-traversal",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["SUBJECT_PATH_UNSAFE"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-ambiguous-timestamp",
+      "statement": "invalid/ambiguous-timestamp/statement.json",
+      "subject_root": "invalid/ambiguous-timestamp",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "error_codes": ["AMBIGUOUS_TIMESTAMP"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-changed-artifact",
+      "statement": "valid/accepted/statement.json",
+      "subject_root": "invalid/changed-artifact",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "subject_digest_status": "failed",
+        "error_codes": ["SUBJECT_DIGEST_MISMATCH"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-evidence-subject-mismatch",
+      "statement": "invalid/evidence-subject-mismatch/statement.json",
+      "subject_root": "invalid/evidence-subject-mismatch",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "subject_digest_status": "verified",
+        "properties": {
+          "evidence_freshness": "failed"
+        },
+        "error_codes": ["PCAW_EVIDENCE_SUBJECT_MISMATCH"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-missing-subject",
+      "statement": "valid/accepted/statement.json",
+      "subject_root": "invalid/missing-subject",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "subject_digest_status": "failed",
+        "error_codes": ["SUBJECT_MISSING"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-symlink-escape",
+      "statement": "valid/accepted/statement.json",
+      "subject_root": "invalid/symlink-escape",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "subject_digest_status": "failed",
+        "error_codes": ["SUBJECT_SYMLINK_ESCAPE"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-stale-decision",
+      "statement": "invalid/stale-decision/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "human-decision-required",
+        "error_codes": ["PCAW_HUMAN_QUORUM_INCOMPLETE"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-contradictory-decision",
+      "statement": "invalid/contradictory-decision/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "human-decision-required",
+        "error_codes": ["PCAW_DECISION_CONTRADICTORY"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-builder-reviewer-collision",
+      "statement": "invalid/builder-reviewer-collision/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "review-required",
+        "error_codes": ["PCAW_REVIEWER_NOT_INDEPENDENT"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-altered-contract",
+      "statement": "invalid/altered-contract/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "acceptance_verified": false,
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "review-required",
+        "error_codes": ["PCAW_REVIEW_BINDING_STALE"],
+        "warning_codes": []
+      }
+    },
+    {
+      "id": "invalid-journal-corruption",
+      "statement": "invalid/journal-corruption/statement.json",
+      "subject_root": "valid/accepted",
+      "expected_exit": 1,
+      "expected": {
+        "verified": false,
+        "fully_verified": false,
+        "acceptance_verified": false,
+        "claimed_state": "accepted",
+        "derived_lifecycle_state": "accepted",
+        "properties": {
+          "journal_continuity": "failed"
+        },
+        "error_codes": ["PCAW_JOURNAL_CONTINUITY_FAILED"],
+        "warning_codes": []
+      }
+    }
+  ]
+}

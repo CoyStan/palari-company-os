@@ -105,7 +105,14 @@ forbidden paths, claim lease metadata, and cleanliness.
 ## Evidence Run
 
 Proof attached to a work item and attempt. Evidence records commands, status,
-head SHA, artifacts, artifact hashes, manifest hash, summary, and timestamp.
+head SHA, artifacts, artifact hashes, manifest hash, exact receipt hash,
+summary, and timestamp. New records carry `output_binding_version`, require a
+non-empty output/artifact set, and give every receipt output a present digest.
+The manifest covers the
+receipt hash, output-binding version, artifacts, and verification fields, so
+changing either side invalidates proof. Pre-PCAW records without that version
+remain readable but cannot support a new strict review or acceptance until
+their evidence is refreshed.
 
 ## Review Verdict
 
@@ -116,16 +123,59 @@ Independent inspection. Verdicts are intentionally small:
 - `needs-human-decision`
 - `blocked`
 
+New `accept-ready` verdicts are bound to the exact attempt state, evidence
+manifest, receipt, reviewed head, and work contract. The binding has its own
+proof hash, which also covers the reviewer, verdict, findings, inspected
+checks, residual risks, and timestamp. Bound verdicts are immutable; a reviewer
+records a new verdict after any substantive change. Schema v2 rejects an
+unbound `accept-ready` verdict. Migration keeps legacy unbound non-accepting
+verdicts inspectable and blocks any legacy accept-ready authority.
+
 ## Human Decision
 
 Authority-bearing human action tied to reviewed evidence. This is separate from
-the review verdict.
+the review verdict. Its timezone-bearing timestamp establishes ordering, while
+its decision and status must agree. Approval counts only for the exact review
+and evidence references it names.
+
+Pack-bound decisions additionally retain the exact canonical pack manifest,
+pack digest, member digest, subject digest, request digest, and per-item action.
+Exactly one decision record retains the manifest; every derived member
+decision remains independently attributable and journaled. Copying a member
+binding to another item fails validation.
+
+## Approval Pack
+
+Immutable read model for batching human attention without batching evidence.
+A pack binds the committed workspace/checkpoint and journal head, canonically
+ordered members, exact subjects and outputs, dependencies, conflicts, risk,
+reversibility, authority, proof references, effects, resource estimates,
+lifecycle claim, and its own digest. The manifest begins `parked`; evaluation
+derives current item states. Dependency bindings recursively cover the exact
+contract, proof/artifact state, and dependency closure, so narrowing a pack
+does not reduce dependency freshness. Expected in-pack completion remains
+stable; later dependency mutation stales the pack. Pack approval cannot widen
+any member boundary.
+
+## Governed Checkpoint
+
+Every committed governance-journal projection is a content-addressed
+checkpoint. Restoring one creates a new `restoration` transaction with the old
+projection; it does not delete the original chain, later work, decisions, or
+the restoration reason. Only effect-free local chains are restorable. A later
+external write or sent outbox transition blocks restoration before mutation;
+compensation must be modeled as new governed work.
 
 ## Acceptance Record
 
 Audit record for the final human acceptance gate. It links work, human,
 reviewed head, evidence, review, receipt hash, authority profile, quorum state,
-and reason so acceptance is visible beyond a status toggle.
+and reason so acceptance is visible beyond a status toggle. Its timezone-aware
+`accepted_at` orders later acceptance or revocation records. Nonterminal
+acceptance must still match current artifact bytes before execution. Terminal
+acceptance retains and validates the exact stored proof for its historical
+subject, so later authorized work does not pretend the old artifact version is
+the current checkout.
 
 ## Receipt
 
@@ -133,7 +183,8 @@ Human-facing trust record for an attempt. A receipt says which sources were
 used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
-the user review, undo, or continue bounded work. Planned external writes must
+the user review, undo, or continue bounded work. The receipt hash is also part
+of exact evidence/review proof for governed acceptance. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
 used as receipt-backed external-write claims. Canceled outbox items also cannot

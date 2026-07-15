@@ -6,7 +6,7 @@ from typing import Any
 
 from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
-from .agent_runtime import claim_check
+from .agent_runtime import claim_check, read_claim
 from .workspace import Workspace
 
 
@@ -24,11 +24,13 @@ def build_agent_check(
     checks = _packet_boundary_checks(packet)
     if packet.get("status") == "ready":
         checks.append(_claim_owned_check(workspace, work_id, palari_id, mode, packet))
+    claim = read_claim(workspace.path, work_id)
     file_changes = inspect_file_changes(
         packet,
         changed_paths=changed_paths,
         git_diff=git_diff,
         cwd=cwd,
+        git_baseline=(claim or {}).get("git_baseline"),
     )
     if file_changes is not None:
         checks.extend(_file_change_checks(file_changes))

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Invalid Completed Work Fixture",
   "goals": [
     {
@@ -46,6 +46,7 @@
       "work_item_id": "WORK-1",
       "actor": "PALARI-SOFIA",
       "status": "complete",
+      "cleanliness": "clean",
       "commits": [
         "head-1"
       ]

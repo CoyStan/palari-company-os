@@ -13,6 +13,7 @@ into a process ritual.
 - gate profile recommendations
 - examples, quickstarts, installation, or verification commands
 - public README or showcase claims
+- PCAW schemas, diagnostics, conformance vectors, verifier TCB, or journal semantics
 
 ## Usually No Docs Update Needed
 
@@ -30,6 +31,7 @@ into a process ritual.
 - Gates and authority: `docs/product/authority-and-gates.md`
 - Verification: `docs/agent/verification.md` and `docs/product/testing-guide.md`
 - Repo orientation: `docs/agent/repo-map.md`
+- PCAW protocol: `spec/pcaw/v1/README.md` and its schemas/vectors
 
 When unsure, prefer a short truthful doc update over leaving future agents to
 rediscover the behavior from code.

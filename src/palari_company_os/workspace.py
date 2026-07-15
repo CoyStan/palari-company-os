@@ -30,6 +30,8 @@ from .models import (
     Workbench,
     WorkItem,
 )
+from .path_policy import resolve_workspace_path
+from .record_order import record_time_key
 from .validation import (
     COLLECTION_FILE_KEYS,
     validate_raw_contract,
@@ -37,7 +39,7 @@ from .validation import (
 )
 
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 T = TypeVar("T")
 
@@ -129,9 +131,9 @@ class Workspace:
         if schema_version is None:
             raise WorkspaceError(
                 "workspace schema_version is missing; run `palari migrate --write` "
-                "or add schema_version: 1"
+                f"or add schema_version: {CURRENT_SCHEMA_VERSION}"
             )
-        if not isinstance(schema_version, int):
+        if type(schema_version) is not int:
             raise WorkspaceError("workspace schema_version must be an integer")
         if schema_version < CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
@@ -735,13 +737,13 @@ def default_workspace_path() -> Path:
 
 def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Attempt | None:
     latest: Attempt | None = None
-    latest_key: tuple[str, str, str, str] | None = None
+    latest_key = None
     for attempt in attempts:
         if attempt.work_item_id != work.id:
             continue
         if work.current_attempt and attempt.id == work.current_attempt:
             return attempt
-        key = _record_time_key(attempt)
+        key = record_time_key(attempt)
         if latest_key is None or key > latest_key:
             latest = attempt
             latest_key = key
@@ -750,24 +752,15 @@ def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Att
 
 def latest_for_work(records: Iterable[T], work_id: str) -> T | None:
     latest: T | None = None
-    latest_key: tuple[str, str, str, str] | None = None
+    latest_key = None
     for record in records:
         if getattr(record, "work_item_id") != work_id:
             continue
-        key = _record_time_key(record)
+        key = record_time_key(record)
         if latest_key is None or key > latest_key:
             latest = record
             latest_key = key
     return latest
-
-
-def _record_time_key(record: object) -> tuple[str, str, str, str]:
-    return (
-        str(getattr(record, "timestamp", "")),
-        str(getattr(record, "updated_at", "")),
-        str(getattr(record, "started_at", "")),
-        str(getattr(record, "id", "")),
-    )
 
 
 def _packaged_data_path(*parts: str) -> Path:
@@ -837,13 +830,13 @@ def _expand_collection_files(
 def _collection_file_path(workspace_path: Path, collection: str, value: str) -> Path:
     if not value:
         raise WorkspaceError(f"workspace.collection_files.{collection} contains an empty path")
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
+    try:
+        return resolve_workspace_path(workspace_path, value)
+    except ValueError as exc:
         raise WorkspaceError(
             f"workspace.collection_files.{collection} path must be workspace-relative "
-            f"and must not contain '..': {value}"
-        )
-    return workspace_path / path
+            f"and must not contain '..': {value}: {exc}"
+        ) from exc
 
 
 def _find(records: Iterable[T], identifier: str) -> T | None:

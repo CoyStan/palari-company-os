@@ -687,6 +687,7 @@ class EvidenceRun:
     commands: list[str] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     artifact_hashes: list[Record] = field(default_factory=list)
+    output_binding_version: str = ""
     manifest_hash: str = ""
     receipt_hash: str = ""
     previous_receipt_hash: str = ""
@@ -706,6 +707,7 @@ class EvidenceRun:
             commands=_strings(record, "commands"),
             artifacts=_strings(record, "artifacts"),
             artifact_hashes=_records(record, "artifact_hashes"),
+            output_binding_version=_string(record, "output_binding_version"),
             manifest_hash=_string(record, "manifest_hash"),
             receipt_hash=_string(record, "receipt_hash"),
             previous_receipt_hash=_string(record, "previous_receipt_hash"),
@@ -722,6 +724,15 @@ class ReviewVerdict:
     reviewed_head: str
     reviewer: str
     verdict: str
+    binding_version: str = ""
+    attempt_id: str = ""
+    attempt_hash: str = ""
+    evidence_reference: str = ""
+    evidence_manifest_hash: str = ""
+    receipt_reference: str = ""
+    receipt_hash: str = ""
+    work_contract_hash: str = ""
+    proof_hash: str = ""
     findings: list[Record] = field(default_factory=list)
     checks_inspected: list[str] = field(default_factory=list)
     residual_risks: list[str] = field(default_factory=list)
@@ -735,6 +746,15 @@ class ReviewVerdict:
             reviewed_head=_string(record, "reviewed_head"),
             reviewer=_string(record, "reviewer"),
             verdict=_string(record, "verdict"),
+            binding_version=_string(record, "binding_version"),
+            attempt_id=_string(record, "attempt_id"),
+            attempt_hash=_string(record, "attempt_hash"),
+            evidence_reference=_string(record, "evidence_reference"),
+            evidence_manifest_hash=_string(record, "evidence_manifest_hash"),
+            receipt_reference=_string(record, "receipt_reference"),
+            receipt_hash=_string(record, "receipt_hash"),
+            work_contract_hash=_string(record, "work_contract_hash"),
+            proof_hash=_string(record, "proof_hash"),
             findings=_records(record, "findings"),
             checks_inspected=_strings(record, "checks_inspected"),
             residual_risks=_strings(record, "residual_risks"),
@@ -754,6 +774,13 @@ class HumanDecision:
     quorum_status: str = ""
     evidence_reference: str = ""
     review_reference: str = ""
+    approval_pack_id: str = ""
+    approval_pack_digest: str = ""
+    approval_pack_member_digest: str = ""
+    approval_pack_subject_digest: str = ""
+    approval_pack_request_digest: str = ""
+    approval_pack_action: str = ""
+    approval_pack_manifest: Record = field(default_factory=dict)
     timestamp: str = ""
 
     @classmethod
@@ -769,6 +796,13 @@ class HumanDecision:
             quorum_status=_string(record, "quorum_status"),
             evidence_reference=_string(record, "evidence_reference"),
             review_reference=_string(record, "review_reference"),
+            approval_pack_id=_string(record, "approval_pack_id"),
+            approval_pack_digest=_string(record, "approval_pack_digest"),
+            approval_pack_member_digest=_string(record, "approval_pack_member_digest"),
+            approval_pack_subject_digest=_string(record, "approval_pack_subject_digest"),
+            approval_pack_request_digest=_string(record, "approval_pack_request_digest"),
+            approval_pack_action=_string(record, "approval_pack_action"),
+            approval_pack_manifest=_mapping(record, "approval_pack_manifest"),
             timestamp=_string(record, "timestamp"),
         )
 

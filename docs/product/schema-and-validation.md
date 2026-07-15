@@ -8,14 +8,14 @@ The first implementation has two layers of contract:
 The current workspace schema version is:
 
 ```text
-1
+2
 ```
 
 Every current workspace must include:
 
 ```json
 {
-  "schema_version": 1
+  "schema_version": 2
 }
 ```
 
@@ -24,7 +24,7 @@ preserving `workspace.json` as the manifest:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Example",
   "collection_files": {
     "workbenches": ["records/workbenches.json"],
@@ -46,7 +46,11 @@ for the collection named in the manifest.
 Read-only commands such as `validate`, `queue`, `detail`, `state`, and
 `dashboard` can read split workspaces. Authoring and lifecycle write commands
 currently refuse split workspaces with a clear error instead of silently
-collapsing or corrupting collection files.
+collapsing or corrupting collection files. Schema migration is the narrow
+exception: it validates the consolidated records, preserves each record's root
+or included-file placement, writes included files first, and advances the root
+schema version last so an interrupted migration remains fail closed and
+retryable.
 
 The CLI validation path uses the Python models and strict workspace checks:
 
@@ -66,6 +70,8 @@ Validation checks:
 - basic field types
 - supported lifecycle values for statuses, risk, intensity, evidence status,
   review verdicts, human decision values, and outcome status
+- optional evidence `output_binding_version`; newly authored evidence uses
+  `palari.evidence_outputs.v1` to bind every receipt output to an artifact digest
 - unique ids per collection
 - work item goal and Palari references
 - work item workbench, parent work item, and dependency references
@@ -109,8 +115,12 @@ Validation checks:
 - attempt, evidence, review, human decision, receipt, and outcome references
 - attempt isolation metadata such as explicit head SHA, allowed paths,
   forbidden paths, and claim lease fields
-- evidence manifest hash shape and artifact hash path safety
+- evidence manifest hash shape, exact receipt binding, artifact presence, and
+  artifact hash path safety
 - receipt hash, previous receipt hash, and evidence manifest hash shape
+- mandatory exact review-binding fields for every `accept-ready` verdict,
+  covering the attempt, evidence, receipt, work contract, and aggregate proof
+  hash including reviewer-authored verdict context
 - non-negative approval quorum counts
 - receipts use only sources allowed by the work item
 - receipt actor matches the attempt actor or work Palari
@@ -123,12 +133,34 @@ Validation checks:
 - external writes in a receipt require an explicit external-write action
 - accepted human decisions reference fresh passing evidence and fresh
   accept-ready review
+- latest attempt, evidence, review, acceptance, receipt, outcome, and
+  integration ordering compares timezone-bearing timestamps as normalized UTC
+  instants, not lexical timestamp spellings; malformed or timezone-free values
+  and instants outside the UTC-normalizable datetime range fail closed, and two
+  records for the same work item cannot claim the same instant because their
+  latest-state order would be ambiguous. For schema-v2 compatibility, one
+  undated record remains loadable only when no ordering choice exists; once a
+  work item has multiple records of that kind, every record must be dated
+- human decisions have timezone-bearing, unambiguous timestamps; decision and
+  status must agree before an acceptance can count
+- pack-bound human decisions require a complete exact pack/member/subject/
+  request binding, one retained canonical manifest per pack, and an action
+  consistent with decision and status; copied or incomplete member bindings
+  fail closed
 - accepted human decisions are made by a human with the required approval
   capability
 - acceptance records reference fresh passing evidence, fresh accept-ready
-  review, qualified human authority, and a matching human-decision record
+  exact-bound review, qualified human authority, matching receipt hash, and a
+  matching human-decision record; nonterminal acceptance recomputes current
+  artifact bytes before execution, while terminal acceptance validates its
+  immutable stored proof rather than rebinding history to a later checkout;
+  `accepted_at` orders acceptance and revocation records, and the latest status controls
 - completed work has fresh passing evidence, fresh accept-ready review, no open
-  linked decision, and enough qualified human approvals
+  linked decision, current exact proof, a terminal clean attempt, and enough
+  qualified human approvals; each human's latest decision for that exact
+  review, evidence, and reviewed head controls whether their approval counts
+- terminal work with an exact-bound review also requires the matching
+  acceptance record; removing it fails closed
 
 Validation is intentionally stricter than a permissive JSON reader. Extra fields
 fail closed so typos and hidden state cannot quietly enter the source of truth.
@@ -140,12 +172,21 @@ Migration:
 ./bin/palari migrate --write
 ```
 
-`migrate` adds `schema_version: 1` to old unversioned workspaces and ensures
+`migrate` upgrades unversioned, v0, and v1 workspaces to schema v2 and ensures
 known collections exist, including optional governance collections such as
 `capabilities`, `authority_profiles`, `proposals`, and `acceptance_records`.
-Older v1 workspaces may still omit optional collections when read directly; if
-present, they are strictly validated. Workspaces with a newer schema version
-fail closed until this code supports them.
+Migration fails safe: legacy unbound `accept-ready` reviews become `blocked`,
+accepting decisions tied to them become blocked, matching acceptance records
+are revoked, and governed terminal work is reopened for a fresh exact-bound
+review. Missing or ambiguous human-decision timestamps are assigned stable,
+UTC-normalized values. Split workspaces retain their collection-file layout;
+concurrent changes to the root or any included file block the write. A preview
+lists every migration action before `--write` persists it. Workspaces with a
+newer schema version fail closed until this code supports them.
+
+Schema v2 deliberately makes the exact review binding non-optional for
+`accept-ready`. Historical unbound non-accepting verdicts remain inspectable,
+but no legacy marker can manufacture acceptance authority.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

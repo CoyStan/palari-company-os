@@ -21,7 +21,7 @@
     "outcomes"
   ],
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": "integer", "const": 2 },
     "name": { "type": "string", "minLength": 1 },
     "collection_files": { "$ref": "#/$defs/collection_files" },
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
@@ -573,6 +573,7 @@
             }
           }
         },
+        "output_binding_version": { "type": "string" },
         "manifest_hash": { "type": "string" },
         "receipt_hash": { "type": "string" },
         "previous_receipt_hash": { "type": "string" },
@@ -585,11 +586,41 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "work_item_id", "reviewed_head", "reviewer", "verdict"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "verdict": { "const": "accept-ready" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "required": [
+              "binding_version",
+              "attempt_id",
+              "attempt_hash",
+              "evidence_reference",
+              "evidence_manifest_hash",
+              "receipt_reference",
+              "receipt_hash",
+              "work_contract_hash",
+              "proof_hash"
+            ]
+          }
+        }
+      ],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
         "reviewed_head": { "type": "string" },
         "reviewer": { "type": "string" },
+        "binding_version": { "type": "string" },
+        "attempt_id": { "type": "string" },
+        "attempt_hash": { "type": "string" },
+        "evidence_reference": { "type": "string" },
+        "evidence_manifest_hash": { "type": "string" },
+        "receipt_reference": { "type": "string" },
+        "receipt_hash": { "type": "string" },
+        "work_contract_hash": { "type": "string" },
+        "proof_hash": { "type": "string" },
         "verdict": {
           "type": "string",
           "enum": ["accept-ready", "changes-requested", "needs-human-decision", "blocked"]
@@ -603,7 +634,7 @@
     "human_decision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "human_id", "reviewed_head", "decision"],
+      "required": ["id", "work_item_id", "human_id", "reviewed_head", "decision", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -617,7 +648,8 @@
             "rejected",
             "needs-changes",
             "changes-requested",
-            "blocked"
+            "blocked",
+            "deferred"
           ]
         },
         "status": {
@@ -628,13 +660,21 @@
             "approved",
             "rejected",
             "changes-requested",
-            "blocked"
+            "blocked",
+            "deferred"
           ]
         },
         "acceptance_mode": { "type": "string" },
         "quorum_status": { "type": "string", "enum": ["", "pending", "met", "not-met"] },
         "evidence_reference": { "type": "string" },
         "review_reference": { "type": "string" },
+        "approval_pack_id": { "type": "string" },
+        "approval_pack_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_member_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_subject_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_pack_action": { "type": "string", "enum": ["approve", "reject", "defer"] },
+        "approval_pack_manifest": { "type": "object" },
         "timestamp": { "type": "string" }
       }
     },
