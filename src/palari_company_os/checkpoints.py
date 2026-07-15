@@ -94,12 +94,31 @@ def restore_checkpoint(
         states = committed_journal_states(store.data_path)
     except JournalError as exc:
         raise WorkspaceError(f"checkpoint restoration failed [{exc.code}]: {exc.message}") from exc
-    target = next(
-        (item for item in reversed(states) if item["checkpoint_digest"] == checkpoint_digest),
+    target_entry = next(
+        (
+            (index, item)
+            for index, item in enumerate(states)
+            if item["checkpoint_digest"] == checkpoint_digest
+        ),
         None,
     )
-    if target is None:
+    if target_entry is None:
         raise WorkspaceError("checkpoint digest is not present in the verified journal")
+    target_index, target = target_entry
+    projection = deepcopy(target["projection"])
+    validate_data(store.data_path, projection)
+    external_effects = _external_effects_since(
+        projection,
+        states[target_index + 1 :],
+    )
+    if external_effects:
+        raise WorkspaceError(
+            "checkpoint restoration blocked because external effects after the target "
+            "cannot be undone locally: "
+            + ", ".join(external_effects)
+            + "; record any external compensation separately and create a new "
+            "governed checkpoint instead"
+        )
     if workspace_digest(store.data) == checkpoint_digest:
         return {
             "schema_version": RESTORATION_SCHEMA_VERSION,
@@ -110,18 +129,6 @@ def restore_checkpoint(
             "restoration_class": "reversible-local",
             "external_effects_not_undone": [],
         }
-
-    projection = deepcopy(target["projection"])
-    validate_data(store.data_path, projection)
-    external_effects = _external_effects_after(projection, store.data)
-    if external_effects:
-        raise WorkspaceError(
-            "checkpoint restoration blocked because external effects after the target "
-            "cannot be undone locally: "
-            + ", ".join(external_effects)
-            + "; record any external compensation separately and create a new "
-            "governed checkpoint instead"
-        )
     metadata = MutationMetadata(
         command=f"history --restore {checkpoint_digest}",
         actor=actor,
@@ -188,4 +195,18 @@ def _external_effects_after(
         status = item.get("status")
         if status in {"sent", "failed"} and target_outbox.get(item.get("id")) != status:
             effects.add(f"outbox:{item.get('id', '')}:{status}")
+    return sorted(effects)
+
+
+def _external_effects_since(
+    target: dict[str, Any],
+    later_states: list[dict[str, Any]],
+) -> list[str]:
+    """Return every external effect visible in any committed later projection."""
+
+    effects: set[str] = set()
+    for state in later_states:
+        projection = state.get("projection")
+        if isinstance(projection, dict):
+            effects.update(_external_effects_after(target, projection))
     return sorted(effects)

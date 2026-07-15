@@ -172,6 +172,7 @@ HUMAN_ONLY_PALARI_COMMANDS = {
     ("decision", "update"),
     ("human-decision", "record"),
     ("human-decision", "update"),
+    ("history", "--restore"),
     ("integration", "approve"),
     ("integration", "cancel"),
     ("integration", "enqueue"),
@@ -580,6 +581,8 @@ def bash_human_authority_command(command: str) -> str:
     for index, token in enumerate(tokens):
         if Path(token).name != "palari":
             continue
+        if _is_history_restore(tokens, index):
+            return "history --restore"
         args = tokens[index + 1 :]
         for argument_index in range(len(args) - 1):
             command_key = (args[argument_index], args[argument_index + 1])
@@ -604,12 +607,15 @@ def bash_requires_human_review(command: str) -> str:
 
     if "\\\n" in command or "\\\r\n" in command:
         return "shell line continuation"
+    tokens = _shell_tokens(command)
+    for index, token in enumerate(tokens):
+        if Path(token).name == "palari" and _is_history_restore(tokens, index):
+            return "human-only Palari command history --restore"
     if "$" in command or "`" in command or "<(" in command or ">(" in command:
         return "dynamic shell expansion"
     expansion_reason = _unquoted_shell_expansion_reason(command)
     if expansion_reason:
         return expansion_reason
-    tokens = _shell_tokens(command)
     expect_command = True
     for index, token in enumerate(tokens):
         if token in SHELL_COMMAND_SEPARATORS:
@@ -848,6 +854,15 @@ def _palari_command_key(tokens: list[str], command_index: int) -> tuple[str, str
             return ("linear", "webhook")
         return ("linear", f"webhook-{arguments[index + 2]}")
     return (command, nested)
+
+
+def _is_history_restore(tokens: list[str], command_index: int) -> bool:
+    if _palari_command_key(tokens, command_index) != ("history", ""):
+        return False
+    return any(
+        argument == "--restore" or argument.startswith("--restore=")
+        for argument in _command_arguments(tokens, command_index)
+    )
 
 
 def _shell_tokens(command: str) -> list[str]:

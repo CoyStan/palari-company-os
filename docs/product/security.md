@@ -100,8 +100,14 @@ Sent messages, filings, payments, access changes, and provider effects cannot
 be reversed by replacing `workspace.json`. When effect-bearing receipt fields
 or a sent/failed outbox transition show that an effect occurred or may have
 occurred after the selected checkpoint, restoration fails closed before
-changing local state. Compensation must be a separate governed action; it is
-never inferred from local restoration.
+changing local state. Detection scans all committed projections after the
+earliest occurrence of the selected content digest, including when a later
+projection removed the record or returned to the same bytes. Compensation must
+be a separate governed action; it is never inferred from local restoration.
+
+`history --restore` is human-only in the Claude shell enforcement boundary. A
+declared human id is attribution, not authority delegation: agent Bash is
+denied before the command can mutate the workspace.
 
 Future broker, policy, deployment, or signed-gate work must preserve these
 boundaries and must not expose raw credentials to AI models or chat context.

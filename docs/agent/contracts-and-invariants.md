@@ -106,8 +106,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   grants no acceptance, merge, push, deployment, or external-write authority.
 - Every committed journal projection is a content-addressed checkpoint.
   Restoration appends a human-attributed transition only for an effect-free
-  local chain. External effects after the target block restoration before any
-  projection change.
+  local chain. Every committed projection after the earliest matching digest
+  is inspected; external effects block restoration before any projection
+  change, even if later local state hid the effect or returned to the target.
+- `history --restore` is a human-only shell authority command. An agent cannot
+  acquire it by supplying a declared human id.
 
 ## Sources, Receipts, And External Actions
 

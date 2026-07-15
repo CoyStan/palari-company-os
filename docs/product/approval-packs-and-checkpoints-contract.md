@@ -53,7 +53,15 @@ tests exercise.
   with additional strict nested manifest validation, qualified authority for
   approve/reject/defer, exact per-pack operator commands, stale-decision
   rejection, sent/failed external-effect blocking, and adversarial regressions.
-  A fresh exact-head verdict remains required.
+- Exact head `0df562471d4b6f241755ec7081684d93b98f4e7d`: **REJECT**. The second fresh
+  reviewer proved that `history --restore` was still agent-invokable through
+  the Claude shell classifier and that an external effect in an intermediate
+  committed projection could be hidden by a later local reset/removal.
+- Current repair: classify restoration as human-only for direct and reordered
+  flag forms; scan every projection after the earliest matching checkpoint,
+  before the already-at-target shortcut; cover sent, failed, receipt-write,
+  reset/removal, and hook-denial negatives. Exact committed evidence and a
+  fresh exact-head verdict remain required.
 
 Status vocabulary: `pending`, `in progress`, `completed`, or `blocked`.
 

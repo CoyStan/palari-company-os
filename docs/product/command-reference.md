@@ -499,7 +499,9 @@ invoke: it reads one hook payload from stdin, checks it against the active
 claims under `.palari/`, recompiles execute authority from the current
 workspace, and prints a JSON decision. It denies human-attributed Palari
 mutations, integration enqueue/cancel/send, Linear adoption, and generic
-packet-authority changes from agent Bash. It asks a human before opaque
+packet-authority changes from agent Bash. Content-addressed
+`history --restore` is also denied as human-only; supplying a declared human id
+does not let an agent shell borrow that authority. It asks a human before opaque
 interpreters, unreviewed or path-qualified executables, unquoted pathname
 expansion, tree-shaped or backup-producing writes, hook self-modification,
 unclassified Palari commands, or Git witness mutations, including `git -C` and
@@ -760,8 +762,10 @@ transition whose projection exactly matches the selected digest. It never
 rewrites prior history. If a receipt gained an external write or an existing
 outbox item became sent or failed after the target, restoration stops before
 mutation; local state is not rewound into a duplicate-send or ambiguous-retry
-hazard. Record any external compensation separately and create a new governed
-checkpoint instead.
+hazard. The check scans every committed projection after the earliest matching
+checkpoint digest, so a later reset/removal—or already being back at the target
+bytes—cannot hide an intervening effect. Record any external compensation
+separately and create a new governed checkpoint instead.
 
 ## Proof-Carrying AI Work
 

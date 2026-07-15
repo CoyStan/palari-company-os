@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -199,6 +200,49 @@ class ReversibleCheckpointTests(unittest.TestCase):
             after_count = len(committed_journal_states(data_path))
 
         self.assertEqual(after.data, before)
+        self.assertEqual(after_count, before_count)
+
+    def test_intermediate_external_effect_cannot_be_hidden_before_restore(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_chain(Path(directory))
+            current = load_store(data_path).data
+            target_digest = committed_journal_states(data_path)[-1]["checkpoint_digest"]
+            effect_projection = deepcopy(current)
+            effect_projection["receipts"] = [
+                {"id": "RECEIPT-HIDDEN", "external_writes": ["email:sent-message"]}
+            ]
+            effect_projection["integration_outbox"] = [
+                {"id": "OUTBOX-SENT", "status": "sent"},
+                {"id": "OUTBOX-FAILED", "status": "failed"},
+            ]
+            states = [
+                {"checkpoint_digest": target_digest, "projection": deepcopy(current)},
+                {
+                    "checkpoint_digest": "sha256:" + "1" * 64,
+                    "projection": effect_projection,
+                },
+                {"checkpoint_digest": target_digest, "projection": deepcopy(current)},
+            ]
+            before_count = len(committed_journal_states(data_path))
+
+            with patch(
+                "palari_company_os.checkpoints.committed_journal_states",
+                return_value=states,
+            ), self.assertRaisesRegex(
+                WorkspaceError,
+                "OUTBOX-FAILED:failed.*OUTBOX-SENT:sent.*RECEIPT-HIDDEN",
+            ):
+                restore_checkpoint(
+                    str(data_path),
+                    target_digest,
+                    actor="HUMAN-PRODUCT",
+                    reason="Already-at-target must still inspect committed history.",
+                )
+
+            after = load_store(data_path)
+            after_count = len(committed_journal_states(data_path))
+
+        self.assertEqual(after.data, current)
         self.assertEqual(after_count, before_count)
 
     def test_restore_requires_declared_human_reason_and_exact_digest(self) -> None:

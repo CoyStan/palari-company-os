@@ -17,6 +17,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.claude_hooks import (
     _git_metadata_roots,
+    bash_human_authority_command,
+    bash_requires_human_review,
     bash_write_targets,
     handle_hook_event,
     hooks_status,
@@ -360,6 +362,33 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(_decision(result), "deny")
         self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_checkpoint_restoration_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari --workspace workspace.json history --restore=sha256:abc "
+            "--actor HUMAN-HOOK --reason exact",
+            "./bin/palari history --json --restore sha256:abc --actor HUMAN-HOOK",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(
+                    bash_human_authority_command(command),
+                    "history --restore",
+                )
+                self.assertIn("human-only", bash_requires_human_review(command))
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
 
     def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
