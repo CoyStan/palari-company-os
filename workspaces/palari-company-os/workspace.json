@@ -2812,10 +2812,12 @@
       ],
       "output_targets": [
         "src/palari_company_os/agent_advance.py",
-        "tests/test_agent_advance.py"
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
       ],
       "verification_expectations": [
-        "focused accepted convergence and stale-proof tests",
+        "focused refresh positive and unsafe-state negative tests",
+        "./bin/palari docs check --json",
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
@@ -2825,14 +2827,14 @@
         "bypass human authority"
       ],
       "id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
-      "title": "Converge accepted current proof without an execute claim",
+      "title": "Refresh stale accepted proof without rewriting artifacts",
       "goal": "GOAL-REPO-0001",
       "palari": "PALARI-STEWARD",
       "risk": "R4",
       "intensity": "high",
       "status": "active",
-      "scope": "Repair deterministic agent advance so an already accepted exact proof can terminalize before execution-claim preflight, while stale or changed proof still requires a fresh bounded attempt. Do not modify the accepted blueprint.",
-      "acceptance_target": "The unchanged accepted blueprint terminalizes automatically; claim requirements still fail closed for any state that needs new proof; focused negative tests and complete verification pass.",
+      "scope": "Extend deterministic agent advance so --refresh-verification can create a new exact-head proof for unchanged governed artifacts after later substantive repository changes. Require clean current bytes, rerun authoritative verification, and stop at fresh independent review; never reuse the old human decision or modify the accepted blueprint.",
+      "acceptance_target": "The unchanged blueprint receives new exact-head attempt, receipt, and evidence records after complete verification; old review and human authority remain stale; fresh review and founder acceptance are required; ordinary claim and proof-freshness gates remain fail closed.",
       "required_approval_count": 1
     }
   ],
