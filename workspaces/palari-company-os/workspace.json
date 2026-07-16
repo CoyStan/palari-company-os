@@ -6671,6 +6671,32 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-REPO-0026-FACE5D3EAD53",
       "review_reference": "REVIEW-WORK-REPO-0026-FOUNDER",
       "timestamp": "2026-07-15T21:18:08.881789Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-AC8CE9E4197C4D57B6FA096F14F33A3F",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "d76e07647e4c05179acd875db4beedccd7873b3c",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-D76E07647E4C",
+      "review_reference": "REVIEW-AC8CE9E4-D76E076-FOUNDER",
+      "timestamp": "2026-07-16T00:18:36.622845Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-98F990192C4449B5BB8B21138D512222-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "bcc17028e43655f7bafb3beb659ebabd8f3d222b",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "review_reference": "REVIEW-98F99019-BCC1702-FOUNDER",
+      "timestamp": "2026-07-16T00:18:49.278443Z"
     }
   ],
   "receipts": [
