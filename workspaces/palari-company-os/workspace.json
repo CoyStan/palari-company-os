@@ -2961,8 +2961,8 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
-      "scope": "Carry verified workspace, Git head, substantive tracked cleanliness, and SHA-256 artifact state through final proof reconciliation, with stable fail-closed diagnostics for races.",
+      "status": "blocked",
+      "scope": "Superseded after exact-head review found staged rename masking in tracked cleanliness. Child WORK-FCA33836DC454192AFA56D8D973F4E98 carries the final bounded repair; the rejected proof remains immutable.",
       "allowed_resources": [
         "src/palari_company_os/store.py",
         "src/palari_company_os/governance_journal.py",
@@ -2997,7 +2997,7 @@
         "weaken proof freshness",
         "bypass human authority"
       ],
-      "acceptance_target": "Injected workspace, artifact, Git-head, and store-CAS drift writes no new attempt, receipt, or evidence; ordinary and refresh paths remain compatible; full, docs, and install verification pass.",
+      "acceptance_target": "Audit-only changes-requested exact-state candidate. Final cumulative acceptance belongs to child WORK-FCA33836DC454192AFA56D8D973F4E98 after fresh proof and review.",
       "verification_expectations": [
         "focused injected workspace and artifact race negatives",
         "positive refresh and ordinary reconciliation regressions",
@@ -3008,6 +3008,52 @@
       "required_approval_count": 1,
       "parent_work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
       "current_attempt": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312"
+    },
+    {
+      "id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "title": "Reject governance-path rename masking",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Make tracked-cleanliness observation report both sides of renames so a substantive deletion cannot be hidden by a canonical governance destination.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "docs/product/command-reference.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "Staged or unstaged renames cannot collapse a substantive source path into an ignored governance path; the injected bypass returns REFRESH_STATE_CHANGED and writes no attempt, receipt, or evidence; exact-state regressions and complete verification pass.",
+      "verification_expectations": [
+        "focused staged rename masking negative test",
+        "exact-state refresh regressions",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B"
     }
   ],
   "attempts": [
@@ -8681,6 +8727,14 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-16T12:04:17.935684Z"
+    },
+    {
+      "id": "REVIEW-EXACT-STATE-ARCHITECT-20260716-V3",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "reviewed_head": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T12:20:45.354642Z"
     }
   ],
   "human_decisions": [
