@@ -436,7 +436,8 @@
         "docs/product/security.md",
         "src/palari_company_os/approval_presentations.py",
         "tests/test_approval_presentations.py",
-        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "docs/product/testing-guide.md"
       ],
       "status": "active"
     },
@@ -3393,6 +3394,79 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-091915D43FD04B929A0E561722EC8BDF-9010C2A587E8"
+    },
+    {
+      "id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "title": "Make changes-requested claim refresh concurrency-safe",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Permit a bound changes-requested repair to start a new claim epoch after separately governed non-overlapping commits while retaining immutable predecessor proof and anti-laundering guarantees.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "parallel_policy": "coordinate",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A reviewed changes-requested work item can refresh proof from a new exact Git baseline only when intervening commits are descendants and do not touch its authority boundary; overlap, missing review binding, history rewrite, or subsequent unauthorized changes fail closed.",
+      "verification_expectations": [
+        "Focused claim epoch and autonomous advance tests pass, including non-overlap success and overlap/history/forgery/restart rejection.",
+        "Affected agent, security, documentation, schema, complete repository, and isolated installation checks pass."
+      ],
+      "required_approval_count": 1
     }
   ],
   "attempts": [
