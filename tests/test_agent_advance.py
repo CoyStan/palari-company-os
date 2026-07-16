@@ -861,6 +861,170 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
         self.assertIn("README.md", result["blockers"][0]["message"])
 
+    def test_explicit_refresh_rebinds_unchanged_artifact_and_requires_fresh_authority(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        previous_head, _evidence_id, _review_id = self._record_current_authority()
+        artifact_before = (self.temp_dir / "README.md").read_bytes()
+        (self.temp_dir / "RELATED.md").write_text(
+            "later repository context\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "RELATED.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        current_head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
+
+        without_refresh = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertEqual(without_refresh["status"], "blocked")
+        self.assertEqual(
+            without_refresh["blockers"][0]["code"],
+            "CURRENT_PROOF_INVALID",
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ) as runner:
+            refreshed = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(refreshed["status"], "review-required", refreshed)
+        self.assertEqual(runner.call_count, 3)
+        self.assertTrue(refreshed["refresh"]["artifacts_unchanged"])
+        self.assertFalse(refreshed["refresh"]["performed_human_authority"])
+        self.assertEqual(refreshed["refresh"]["previous_head"], previous_head)
+        self.assertEqual(refreshed["refresh"]["current_head"], current_head)
+        self.assertEqual((self.temp_dir / "README.md").read_bytes(), artifact_before)
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        self.assertEqual(attempt.head_sha, current_head)
+        self.assertEqual(attempt.changed_files, [])
+        self.assertEqual(work.status, "active")
+        self.assertFalse(
+            any(item.work_item_id == self.work_id for item in workspace.acceptance_records)
+        )
+        old_decision = next(
+            item
+            for item in workspace.human_decisions
+            if item.id == "HUMAN-DECISION-TEST-ADVANCE"
+        )
+        self.assertEqual(old_decision.reviewed_head, previous_head)
+        self.assertNotEqual(old_decision.reviewed_head, attempt.head_sha)
+
+    def test_explicit_refresh_rejects_changed_artifact_without_running_profiles(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        (self.temp_dir / "README.md").write_text(
+            "changed governed artifact\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "change artifact"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("unsafe refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_ARTIFACT_CHANGED")
+
+    def test_explicit_refresh_rejects_dirty_tracked_repository_context(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        (self.temp_dir / "RELATED.md").write_text("committed context\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "RELATED.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "add context"],
+            check=True,
+        )
+        (self.temp_dir / "RELATED.md").write_text("dirty context\n", encoding="utf-8")
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("dirty refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_DIRTY_WORKTREE")
+        self.assertIn("RELATED.md", result["blockers"][0]["message"])
+
     def test_later_negative_human_decision_blocks_terminalization(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",

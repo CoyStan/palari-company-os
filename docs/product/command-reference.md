@@ -535,7 +535,16 @@ exact-state call reuses current governed proof without duplicating records or
 rerunning profiles.
 Local verification-cache files are advisory: even a structurally valid cached
 pass is rerun before new evidence is created. `--refresh-verification` ignores
-the advisory record, including a prior failure, and reruns the profiles. This
+the advisory record, including a prior failure, and reruns the profiles. When
+later committed repository changes invalidate an otherwise intact completed
+proof, the same explicit flag can perform a no-write proof refresh: the old
+artifact bytes must still match their evidence, the tracked worktree must be
+clean, no execute claim may be active, and all authoritative profiles run
+again against current `HEAD`. The refresh creates a new attempt, receipt, and
+evidence binding, then stops for fresh independent review and human authority;
+it never reuses the prior decision. Changed artifact bytes fail closed and must
+return through an ordinary bounded execution flow.
+
 The command never records review or a human decision. Its only acceptance write
 is the deterministic record derived from an already-current human decision; it
 never performs an external write, push, merge, or deployment.
