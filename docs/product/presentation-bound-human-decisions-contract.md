@@ -13,26 +13,28 @@ user, perform an external effect, or let an agent invoke human authority.
 
 ## Completion Contract
 
-- [ ] **Canonical presentation artifact.** Outcome: every new Approval Pack
+- [x] **Canonical presentation artifact.** Outcome: every new Approval Pack
   exposes a strict, layout-independent `palari.approval-presentation.v1`
   artifact and SHA-256 digest covering the exact pack, per-item proof,
   boundaries, effects, available action, execution order, and current relevant
   decision context. Objective evidence: deterministic-byte and changed-byte
   tests. Verification: `python3 -m unittest -q
-  tests.test_approval_presentations`. Status: implementation in progress.
-  Exact committed proof: pending.
+  tests.test_approval_presentations`. Status: complete; 6 focused presentation
+  tests passed. Exact committed proof: `82636f4` (`approval_presentations.py`,
+  its validator integration, and `test_approval_presentations.py`).
 
-- [ ] **Decision-surface binding.** Outcome: `human-decision pack` requires the
+- [x] **Decision-surface binding.** Outcome: `human-decision pack` requires the
   exact presentation digest emitted by the Approval Inbox; missing, stale,
   malformed, or transplanted bindings fail closed. New pack-v2 decisions
   persist the schema, surface, digest, and one canonical artifact while legacy
   pack-v1 records remain readable. Objective evidence: CLI, validation,
   downgrade, transplant, and stale-context negative tests. Verification:
   `python3 -m unittest -q tests.test_approval_presentations
-  tests.test_approval_packs tests.test_validation`. Status: implementation in
-  progress. Exact committed proof: pending.
+  tests.test_approval_packs tests.test_validation`. Status: complete; the
+  presentation/pack suites passed 26 tests and the validation/CLI/agent packet
+  group passed 183 tests. Exact committed proof: `82636f4`.
 
-- [ ] **One-action convergence.** Outcome: one attributable pack action records
+- [x] **One-action convergence.** Outcome: one attributable pack action records
   item-granular decisions, derives acceptance only after current quorum, and
   terminalizes every authorized reversible-local member in the same journal
   transaction. No review, additional human authority, external effect, or
@@ -40,26 +42,31 @@ user, perform an external effect, or let an agent invoke human authority.
   single/multi-item, quorum, dependency, idempotence, and crash-boundary tests
   plus structured `palari.one-action-convergence.v1` output. Verification:
   `python3 -m unittest -q tests.test_approval_presentations
-  tests.test_approval_packs`. Status: implementation in progress. Exact
-  committed proof: pending.
+  tests.test_approval_packs`. Status: complete; the presentation/pack suites
+  passed 26 tests, including quorum refresh, terminalization, idempotence, and
+  crash retry coverage. Exact committed proof: `82636f4`.
 
-- [ ] **Operator clarity and honest limits.** Outcome: queue text/JSON and
+- [x] **Operator clarity and honest limits.** Outcome: queue text/JSON and
   handoff surfaces expose the exact presentation digest and one safe human
   command, while stating that the digest proves canonical artifact bytes—not
   browser rendering, reading, understanding, judgment, or cryptographic actor
   identity. Objective evidence: CLI/handoff tests and documentation checks.
   Verification: `python3 -m unittest -q tests.test_cli_smoke
   tests.test_agent_packets && ./bin/palari docs check --json`. Status:
-  implementation in progress. Exact committed proof: pending.
+  complete; documentation freshness passed 12/12 and the validation/CLI/agent
+  packet group passed 183 tests. Exact committed proof: `82636f4`.
 
-- [ ] **Compatibility and complete gate.** Outcome: historical workspaces and
+- [x] **Compatibility and complete gate.** Outcome: historical workspaces and
   Approval Pack v1 decisions still load; PCAW v1 remains unchanged; schema
   copies agree; complete and installed-package gates pass without a new runtime
   dependency. Objective evidence: affected tests, schema/fixture validation,
   PCAW conformance, complete verification, and isolated install smoke.
   Verification: `./scripts/verify.sh && ./scripts/install_smoke.sh && python3
-  spec/pcaw/v1/conformance.py -- ./bin/palari proof verify`. Status:
-  implementation in progress. Exact committed proof: pending.
+  spec/pcaw/v1/conformance.py -- ./bin/palari proof verify`. Status: complete;
+  772 tests across 44 modules, style, trusted-code check, and PCAW conformance
+  18/18 passed in 53.54 seconds; isolated install smoke passed in 11.76
+  seconds; schema copies are byte-identical; Ruff and mypy also passed. Exact
+  committed proof: `82636f4`.
 
 - [ ] **Independent exact-head acceptance.** Outcome: a reviewer distinct from
   the builder inspects the exact committed candidate, all substantive findings
