@@ -33,6 +33,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   exact proof/artifact freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
+- New Approval Pack v2 decisions bind the exact canonical presentation artifact
+  named by the human command. Relevant decision-context changes stale the old
+  presentation. One action may perform only the crash-safe local convergence
+  already authorized by current quorum; it cannot manufacture review, another
+  vote, external effects, or expanded authority. Historical pack v1 decisions
+  remain readable but are not presentation-bound.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
   pack-decision authority surface; Claude agent shells hard-deny it.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,

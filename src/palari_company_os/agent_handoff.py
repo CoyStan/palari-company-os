@@ -488,13 +488,16 @@ def _approval_pack_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]
         "inbox_command": inbox_command,
         "pack_id": pack["pack_id"] if pack else "",
         "pack_digest": pack["pack_digest"] if pack else "",
+        "presentation_digest": (
+            command.get("presentation_digest", "") if command is not None else ""
+        ),
         "item_state": item.get("state", "missing") if item else "missing",
         "reasons": item.get("reasons", []) if item else ["work item is not in the inbox"],
         "approve_eligible_command": (
             command["approve_eligible"] if command is not None and available else ""
         ),
         "next_safe_action": (
-            "A qualified human may run the exact approve-eligible command once."
+            "A qualified human may run the exact presentation-bound approve-eligible command once."
             if available
             else "Use the individual human-decision command for this non-batchable state."
         ),

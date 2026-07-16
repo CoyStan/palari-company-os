@@ -17,10 +17,14 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.approval_packs import (
     _batch_policy,
-    apply_pack_decision,
+    apply_pack_decision as _apply_pack_decision,
     build_approval_inbox,
     canonical_pack_bytes,
     evaluate_approval_pack,
+)
+from palari_company_os.approval_presentations import (
+    approval_presentation_digest,
+    build_approval_presentation,
 )
 from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.evidence_manifest import (
@@ -43,6 +47,55 @@ OUTPUT = "artifacts/overnight-result.txt"
 
 class InjectedCrash(RuntimeError):
     pass
+
+
+def apply_pack_decision(
+    workspace_path: str,
+    *,
+    pack_digest: str,
+    presentation_digest: str = "",
+    **kwargs: object,
+) -> dict[str, object]:
+    """Keep older tests concise while every production call stays presentation-bound."""
+
+    store = load_store(workspace_path)
+    existing = [
+        item
+        for item in store.data.get("human_decisions", [])
+        if item.get("approval_pack_digest") == pack_digest
+        and item.get("human_id") == kwargs.get("human_id")
+    ]
+    if not presentation_digest and existing:
+        presentation_digest = str(existing[0].get("approval_presentation_digest") or "")
+    if not presentation_digest:
+        workspace = Workspace.load(workspace_path)
+        inbox = build_approval_inbox(
+            workspace,
+            store.data,
+            selected_work_ids=kwargs.get("pack_members", ()),
+        )
+        pack = next(
+            (item for item in inbox["packs"] if item["pack_digest"] == pack_digest),
+            None,
+        )
+        if pack is None:
+            stored = [
+                item.get("approval_pack_manifest")
+                for item in store.data.get("human_decisions", [])
+                if item.get("approval_pack_digest") == pack_digest
+                and item.get("approval_pack_manifest")
+            ]
+            pack = stored[0] if stored else None
+        if pack is None:
+            raise AssertionError(f"test could not resolve approval pack {pack_digest}")
+        presentation = build_approval_presentation(workspace, pack)
+        presentation_digest = approval_presentation_digest(presentation, pack)
+    return _apply_pack_decision(
+        workspace_path,
+        pack_digest=pack_digest,
+        presentation_digest=presentation_digest,
+        **kwargs,
+    )
 
 
 class ApprovalPackTests(unittest.TestCase):
@@ -99,6 +152,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertIsNotNone(approval)
         self.assertTrue(approval["approval_pack"]["available"])
         self.assertEqual(approval["approval_pack"]["mode"], "approve-eligible")
+        self.assertTrue(approval["approval_pack"]["presentation_digest"].startswith("sha256:"))
         self.assertEqual(len(handoff["human_action_commands"]), 2)
         self.assertTrue(
             all(
@@ -109,6 +163,10 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertIn(
             "queue --approval-inbox --select WORK-001",
             handoff["next_allowed_commands"][0],
+        )
+        self.assertIn(
+            "--presentation-digest " + approval["approval_pack"]["presentation_digest"],
+            handoff["human_action_commands"][0]["command"],
         )
 
     def test_cli_exposes_inbox_detail_and_one_pack_decision_surface(self) -> None:
@@ -145,6 +203,8 @@ class ApprovalPackTests(unittest.TestCase):
                 "pack",
                 "--pack-digest",
                 inbox["packs"][0]["pack_digest"],
+                "--presentation-digest",
+                inbox["approval_commands"][0]["presentation_digest"],
                 "--human-id",
                 "HUMAN-PRODUCT",
                 "--approve-eligible",
@@ -462,10 +522,13 @@ class ApprovalPackTests(unittest.TestCase):
             data_path = make_ready_workspace(Path(directory), count=1)
             store = load_store(data_path)
             pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+            presentation = build_approval_presentation(Workspace.load(data_path), pack)
+            presented_digest = approval_presentation_digest(presentation, pack)
             with self.assertRaisesRegex(WorkspaceError, "distinct from builder and reviewer"):
                 apply_pack_decision(
                     str(data_path),
                     pack_digest=pack["pack_digest"],
+                    presentation_digest=presented_digest,
                     human_id="HUMAN-REVIEW",
                     approve_eligible=True,
                 )
@@ -477,6 +540,7 @@ class ApprovalPackTests(unittest.TestCase):
                 apply_pack_decision(
                     str(data_path),
                     pack_digest=pack["pack_digest"],
+                    presentation_digest=presented_digest,
                     human_id="HUMAN-PRODUCT",
                     approve_eligible=True,
                 )
@@ -620,11 +684,14 @@ class ApprovalPackTests(unittest.TestCase):
             with self.subTest(point=point), tempfile.TemporaryDirectory() as directory:
                 data_path = make_ready_workspace(Path(directory), count=1)
                 store = load_store(data_path)
-                pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+                inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+                pack = inbox["packs"][0]
+                presented_digest = inbox["approval_commands"][0]["presentation_digest"]
                 with self.assertRaisesRegex(InjectedCrash, point):
                     apply_pack_decision(
                         str(data_path),
                         pack_digest=pack["pack_digest"],
+                        presentation_digest=presented_digest,
                         human_id="HUMAN-PRODUCT",
                         approve_eligible=True,
                         reason="Crash boundary test.",
@@ -633,6 +700,7 @@ class ApprovalPackTests(unittest.TestCase):
                 retried = apply_pack_decision(
                     str(data_path),
                     pack_digest=pack["pack_digest"],
+                    presentation_digest=presented_digest,
                     human_id="HUMAN-PRODUCT",
                     approve_eligible=True,
                     reason="Crash boundary test.",

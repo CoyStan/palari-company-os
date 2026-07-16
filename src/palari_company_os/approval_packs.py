@@ -4,6 +4,12 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable, cast
 
+from .approval_presentations import (
+    DECISION_SURFACE,
+    PRESENTATION_SCHEMA_VERSION,
+    approval_presentation_digest,
+    build_approval_presentation,
+)
 from .evidence_manifest import verify_evidence
 from .errors import WorkspaceError
 from .governance_binding import (
@@ -28,9 +34,10 @@ from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
-PACK_SCHEMA_VERSION = "palari.approval-pack.v1"
+PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
+LEGACY_PACK_SCHEMA_VERSION = "palari.approval-pack.v1"
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
-DECISION_BINDING_VERSION = "palari.approval-pack-decision.v1"
+DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 TERMINAL_WORK_STATUSES = {"closed", "completed", "done"}
 APPROVAL_ACTIONS = {"approve", "reject", "defer"}
 BAD_DEPENDENCY_STATES = {
@@ -92,6 +99,7 @@ def build_approval_inbox(
         for group in sorted(grouped)
     ]
     evaluated = [evaluate_approval_pack(workspace, pack) for pack in packs]
+    presentations = [build_approval_presentation(workspace, pack) for pack in packs]
     for report in evaluated:
         for item in report["members"]:
             item["resolution"] = approval_resolution(item)
@@ -112,14 +120,17 @@ def build_approval_inbox(
         key = str(item["state"]).replace("-", "_")
         if key in counts:
             counts[key] += 1
-    approval_commands = [
-        {
-            "pack_id": pack["pack_id"],
-            "pack_digest": pack["pack_digest"],
-            "approve_eligible": _approval_command(pack),
-        }
-        for pack in packs
-    ]
+    approval_commands: list[dict[str, str]] = []
+    for pack, presentation in zip(packs, presentations, strict=True):
+        presentation_digest = approval_presentation_digest(presentation, pack)
+        approval_commands.append(
+            {
+                "pack_id": pack["pack_id"],
+                "pack_digest": pack["pack_digest"],
+                "presentation_digest": presentation_digest,
+                "approve_eligible": _approval_command(pack, presentation_digest),
+            }
+        )
     eligible_commands = [
         command
         for command, report in zip(approval_commands, evaluated, strict=True)
@@ -142,6 +153,7 @@ def build_approval_inbox(
             ),
         },
         "packs": packs,
+        "presentations": presentations,
         "evaluations": evaluated,
         "individual_items": individual_items,
         "interaction_measurement": approval_interaction_measurement(
@@ -152,10 +164,10 @@ def build_approval_inbox(
         "primary_action": approval_primary_action(eligible_commands, counts),
         "approval_commands": approval_commands,
         "actions": {
-            "approve_eligible": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve-eligible --json",
-            "approve_selected": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve WORK-ID --json",
-            "reject": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --reject WORK-ID --json",
-            "defer": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --defer WORK-ID --json",
+            "approve_eligible": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --approve-eligible --json",
+            "approve_selected": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --approve WORK-ID --json",
+            "reject": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --reject WORK-ID --json",
+            "defer": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --defer WORK-ID --json",
             "narrow": "palari queue --approval-inbox --select WORK-ID --json",
         },
         "security_limitations": _security_limitations(),
@@ -339,7 +351,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] != PACK_SCHEMA_VERSION:
+    if pack["schema_version"] not in {PACK_SCHEMA_VERSION, LEGACY_PACK_SCHEMA_VERSION}:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(
@@ -564,6 +576,7 @@ def apply_pack_decision(
     workspace_path: str,
     *,
     pack_digest: str,
+    presentation_digest: str,
     human_id: str,
     approve_eligible: bool = False,
     approve: Iterable[str] = (),
@@ -575,9 +588,13 @@ def apply_pack_decision(
     crash_hook: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     _require_digest(pack_digest, "pack_digest")
+    _require_digest(presentation_digest, "presentation_digest")
     request: dict[str, Any] = {
         "binding_version": DECISION_BINDING_VERSION,
         "pack_digest": pack_digest,
+        "presentation_schema_version": PRESENTATION_SCHEMA_VERSION,
+        "presentation_digest": presentation_digest,
+        "presentation_surface": DECISION_SURFACE,
         "human_id": human_id,
         "approve_eligible": bool(approve_eligible),
         "approve": sorted(set(approve)),
@@ -625,19 +642,44 @@ def apply_pack_decision(
     ]
     if existing:
         if all(record.get("approval_pack_request_digest") == request_digest for record in existing):
+            approved = sorted(
+                record["work_item_id"]
+                for record in existing
+                if record.get("approval_pack_action") == "approve"
+            )
+            replayed_executed = sorted(
+                record["work_item_id"]
+                for record in existing
+                if record.get("approval_pack_action") == "approve"
+                and _work_is_terminal(workspace, record["work_item_id"])
+            )
             return {
                 "schema_version": "palari.approval-pack-decision-result.v1",
                 "status": "already-applied",
                 "idempotent": True,
                 "pack_digest": pack_digest,
+                "presentation_digest": presentation_digest,
                 "request_digest": request_digest,
                 "decisions": sorted(record["id"] for record in existing),
-                "executed": sorted(
-                    record["work_item_id"]
-                    for record in existing
-                    if record.get("approval_pack_action") == "approve"
-                    and _work_is_terminal(workspace, record["work_item_id"])
-                ),
+                "executed": replayed_executed,
+                "convergence": {
+                    "schema_version": "palari.one-action-convergence.v1",
+                    "attributable_human_actions": 0,
+                    "performed_human_authority": False,
+                    "decision_records": sorted(record["id"] for record in existing),
+                    "acceptance_records": sorted(
+                        record.id
+                        for record in workspace.acceptance_records
+                        if record.work_item_id in replayed_executed
+                    ),
+                    "terminalized": replayed_executed,
+                    "remaining_parked": sorted(
+                        set(approved) - set(replayed_executed)
+                    ),
+                    "atomic_local_transaction": True,
+                    "performed_review": False,
+                    "performed_external_effects": False,
+                },
             }
         raise WorkspaceError(
             "approval pack already has a different decision from this human; refresh the pack"
@@ -655,6 +697,13 @@ def apply_pack_decision(
     if pack is None:
         raise WorkspaceError(
             "approval pack is missing or stale; rebuild the Approval Inbox and review the new digest"
+        )
+    presentation = build_approval_presentation(workspace, pack)
+    expected_presentation_digest = approval_presentation_digest(presentation, pack)
+    if presentation_digest != expected_presentation_digest:
+        raise WorkspaceError(
+            "approval presentation is missing or stale; rebuild the Approval Inbox and "
+            "use its exact --presentation-digest"
         )
     exact_member_ids = {str(member["id"]) for member in pack["members"]}
     requested_member_ids = set(request["pack_members"])
@@ -794,10 +843,15 @@ def apply_pack_decision(
             "approval_pack_subject_digest": member["subject_digest"],
             "approval_pack_request_digest": request_digest,
             "approval_pack_action": action,
+            "approval_presentation_schema_version": PRESENTATION_SCHEMA_VERSION,
+            "approval_presentation_digest": presentation_digest,
+            "approval_presentation_surface": DECISION_SURFACE,
             "timestamp": timestamp,
         }
         if not created and stored_pack is None:
             decision["approval_pack_manifest"] = deepcopy(pack)
+        if not created:
+            decision["approval_presentation"] = deepcopy(presentation)
         decisions.append(decision)
         created.append(decision)
 
@@ -821,6 +875,9 @@ def apply_pack_decision(
     workspace_after_decisions = validate_data(store.data_path, store.data)
     executed: list[str] = []
     work_history: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    acceptance_ids_before = {
+        str(item.get("id") or "") for item in store.data.get("acceptance_records", [])
+    }
     for member_id in pack["execution_order"]:
         if member_id not in approve_ids:
             continue
@@ -902,6 +959,7 @@ def apply_pack_decision(
         "idempotent": False,
         "pack_id": pack["pack_id"],
         "pack_digest": pack_digest,
+        "presentation_digest": presentation_digest,
         "request_digest": request_digest,
         "decisions": [item["id"] for item in created],
         "approved": sorted(approve_ids),
@@ -909,6 +967,24 @@ def apply_pack_decision(
         "deferred": sorted(defer_ids),
         "executed": executed,
         "parked": sorted((approve_ids | reject_ids | defer_ids) - set(executed)),
+        "convergence": {
+            "schema_version": "palari.one-action-convergence.v1",
+            "attributable_human_actions": 1,
+            "performed_human_authority": True,
+            "decision_records": [item["id"] for item in created],
+            "acceptance_records": sorted(
+                str(item.get("id") or "")
+                for item in store.data.get("acceptance_records", [])
+                if str(item.get("id") or "") not in acceptance_ids_before
+            ),
+            "terminalized": list(executed),
+            "remaining_parked": sorted(
+                (approve_ids | reject_ids | defer_ids) - set(executed)
+            ),
+            "atomic_local_transaction": True,
+            "performed_review": False,
+            "performed_external_effects": False,
+        },
         "journal_objects": objects,
         "security_limitations": _security_limitations(),
     }
@@ -1359,13 +1435,14 @@ def _security_limitations() -> list[str]:
     ]
 
 
-def _approval_command(pack: dict[str, Any]) -> str:
+def _approval_command(pack: dict[str, Any], presentation_digest: str) -> str:
     members = " ".join(
         f"--pack-member {member_id}" for member_id in pack["execution_order"]
     )
     return (
         "palari human-decision pack "
-        f"--pack-digest {pack['pack_digest']} --human-id HUMAN-ID "
+        f"--pack-digest {pack['pack_digest']} "
+        f"--presentation-digest {presentation_digest} --human-id HUMAN-ID "
         f"--approve-eligible {members} --json"
     )
 

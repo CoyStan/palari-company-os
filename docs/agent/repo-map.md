@@ -14,6 +14,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
+- `src/palari_company_os/approval_presentations.py`: strict, deterministic
+  human-decision projection, canonical bytes, and exact presentation digest.
 - `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
   and append-only human restoration.
 - `src/palari_company_os/workspace_read_models.py`: product-facing approval

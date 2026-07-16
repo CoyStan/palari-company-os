@@ -1418,6 +1418,11 @@ def _add_human_decision_parser(subparsers: Any) -> None:
         help="Record one attributable human action over an exact Approval Pack.",
     )
     pack.add_argument("--pack-digest", required=True, help="Exact canonical pack digest.")
+    pack.add_argument(
+        "--presentation-digest",
+        required=True,
+        help="Exact canonical decision-presentation digest shown by the Approval Inbox.",
+    )
     pack.add_argument("--human-id", required=True, help="Human recording the decision.")
     pack.add_argument(
         "--approve-eligible",

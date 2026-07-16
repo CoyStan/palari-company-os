@@ -69,7 +69,9 @@ command string.
 `--approval-inbox` compiles immutable, canonical Approval Packs from the
 current committed journal projection. JSON retains one subject, output,
 receipt, evidence, and review binding per member while grouping the operator
-summary and approval interaction. Every direct dependency also carries a
+summary and approval interaction. It also emits one strict canonical
+presentation artifact and digest per pack. The exact human command names both
+the pack and presentation digests. Every direct dependency also carries a
 recursive state digest over its current contract, proof, artifacts, and own
 dependencies. `--select` narrows the pack without changing work. Each JSON pack
 has an `approval_commands` entry containing its exact
@@ -103,27 +105,41 @@ exact pack digest, or a concise reason the pack cannot currently be compiled.
 ```bash
 ./bin/palari human-decision pack \
   --pack-digest sha256:... \
+  --presentation-digest sha256:... \
   --human-id HUMAN-ID \
   --approve-eligible \
   --pack-member WORK-1 \
   --pack-member WORK-2 \
   --reason "Morning review of the exact bundle" \
   --json
-./bin/palari human-decision pack --pack-digest sha256:... --human-id HUMAN-ID \
+./bin/palari human-decision pack --pack-digest sha256:... \
+  --presentation-digest sha256:... --human-id HUMAN-ID \
   --approve WORK-1 --reject WORK-2 --defer WORK-3 --json
 ```
 
 This is a human-only authority surface. One command records item-granular
-decisions over one exact immutable manifest. Local eligible actions execute in
-dependency order inside the same crash-safe journal transaction. Incomplete
-quorum remains parked. Changed subjects, artifacts, reviews, dependencies, or
-pack policies fail closed. A non-empty `--pack-member` selection must cover the
-exact reviewed manifest, and unfinished dependencies outside a narrowed pack
-remain visible blockers. A terminal dependency whose exact governed artifact
-changes also stales the narrowed pack before another quorum vote can execute.
-Approve, reject, and defer all require each work item's declared human approval
-capability. External, access-expanding, financial, legal, security, and
-irreversible actions remain individually gated.
+decisions over one exact immutable manifest and the exact canonical
+`palari.approval-presentation.v1` artifact emitted beside it. Copy both digests
+from the Approval Inbox; missing, altered, transplanted, or stale presentation
+bindings fail closed. Relevant prior decisions and their current authority
+state are part of the presentation, so each later quorum action must use a
+fresh surface. Local eligible actions execute in dependency order inside the
+same crash-safe journal transaction, and the result reports
+`palari.one-action-convergence.v1`; no later completion command is needed when
+current quorum is met. Incomplete quorum remains parked. Changed subjects,
+artifacts, reviews, dependencies, or pack policies fail closed. A non-empty
+`--pack-member` selection must cover the exact reviewed manifest, and unfinished
+dependencies outside a narrowed pack remain visible blockers. A terminal
+dependency whose exact governed artifact changes also stales the narrowed pack
+before another quorum vote can execute. Approve, reject, and defer all require
+each work item's declared human approval capability. External,
+access-expanding, financial, legal, security, and irreversible actions remain
+individually gated.
+
+The presentation digest proves the canonical artifact bytes, independent of
+browser layout and fonts. The bound CLI surface records that those bytes were
+made available to the action; it cannot prove what compromised software
+displayed or that a person read, understood, or made a sound decision.
 
 ## State
 

@@ -675,6 +675,10 @@
         "approval_pack_request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "approval_pack_action": { "type": "string", "enum": ["approve", "reject", "defer"] },
         "approval_pack_manifest": { "type": "object" },
+        "approval_presentation_schema_version": { "type": "string" },
+        "approval_presentation_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "approval_presentation_surface": { "type": "string" },
+        "approval_presentation": { "type": "object" },
         "timestamp": { "type": "string" }
       }
     },

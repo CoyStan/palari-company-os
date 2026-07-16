@@ -106,12 +106,21 @@ Palari may supply an independent advisory review, but only identities in
 behavior.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
-each member digest are persisted with the human decision, and current bytes,
-review, recursively bound dependency state, authority, and quorum are rechecked
+each member digest are persisted with the human decision. New pack-v2 actions
+also require and persist the digest of a strict canonical decision presentation
+covering the pack, proof, boundaries, effects, available actions, execution
+order, and relevant current decisions. Current bytes, review, recursively bound
+dependency state, authority, quorum, and presentation currency are rechecked
 before local execution. A terminal dependency's changed artifact stales a
-narrowed dependent pack. This prevents accidental replay or transplant inside
+narrowed dependent pack, and a later relevant decision makes the earlier
+presentation stale. This prevents accidental replay or transplant inside
 Palari, but it does not cryptographically authenticate a human against a
 hostile process running as the same OS user.
+
+The presentation digest proves canonical artifact bytes. The bound CLI surface
+supports the narrower claim that those bytes were made available to the
+decision action. Neither claim proves browser pixels under compromised
+software, human attention, understanding, or judgment.
 
 Checkpoint restoration is local state restoration, not external rollback.
 Sent messages, filings, payments, access changes, and provider effects cannot

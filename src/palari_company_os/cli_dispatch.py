@@ -968,6 +968,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 apply_pack_decision(
                     args.workspace,
                     pack_digest=args.pack_digest,
+                    presentation_digest=args.presentation_digest,
                     human_id=args.human_id,
                     approve_eligible=args.approve_eligible,
                     approve=args.approve,

@@ -78,6 +78,8 @@ This stage should strengthen local authority semantics without silently adding
 fields to PCAW v1. A future PCAW version may carry the property portably after
 its normative schema and privacy rules exist.
 
+Current work: `WORK-66351C3AD0334E78AFE962F06A0BF9CA`.
+
 ### 3. Boundary-Change Simulation
 
 Replay a proposed scope, capability, or authority-policy change against the
