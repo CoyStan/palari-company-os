@@ -2833,6 +2833,58 @@
         "bypass human authority"
       ],
       "id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
+      "title": "Superseded proof-refresh bootstrap",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "blocked",
+      "scope": "Superseded after its immutable Git witness correctly preserved a pre-contract baseline. No implementation acceptance is claimed; successor WORK-948A72CB8E4241B19B5D00FDD6B96AA4 carries the final bounded patch and proof.",
+      "acceptance_target": "Audit-only superseded bootstrap; implementation acceptance belongs exclusively to WORK-948A72CB8E4241B19B5D00FDD6B96AA4.",
+      "required_approval_count": 1
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "parent_work_item_id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
+      "parallel_policy": "independent",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_validation.py",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py",
+        "docs/product/command-reference.md"
+      ],
+      "verification_expectations": [
+        "focused refresh positive and unsafe-state negative tests",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "forbidden_actions": [
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
       "title": "Refresh stale accepted proof without rewriting artifacts",
       "goal": "GOAL-REPO-0001",
       "palari": "PALARI-STEWARD",
