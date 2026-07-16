@@ -2375,7 +2375,7 @@
       "workbench_id": "WORKBENCH-REPO-FOUNDATION",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Make work-item identity opaque and concurrency-safe; expose explicit dependency DAGs; and make isolated parallel agent sessions mechanical without granting merge, push, review, or acceptance authority.",
       "allowed_resources": [
         "docs/product/opaque-concurrent-work-contract.md",
@@ -2480,7 +2480,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Allow exact artifact evidence created in an isolated Git worktree to verify from another linked worktree or clone without weakening path, commit, or repository identity checks.",
       "allowed_resources": [
         "src/palari_company_os/evidence_manifest.py",
@@ -8786,6 +8786,36 @@
       "quorum_status": "met",
       "reason": "completion gate",
       "accepted_at": "2026-07-15T21:23:25.387273Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-HUMAN-FOUNDER",
+      "work_item_id": "WORK-AC8CE9E4197C4D57B6FA096F14F33A3F",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "d76e07647e4c05179acd875db4beedccd7873b3c",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-D76E07647E4C",
+      "review_reference": "REVIEW-AC8CE9E4-D76E076-FOUNDER",
+      "receipt_hash": "sha256:b4e2547c07767f428d5480923b998170c2ad10b9c8be25576bfcee28f2edd8e1",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "completion gate",
+      "accepted_at": "2026-07-16T00:24:25.539590Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-98F990192C4449B5BB8B21138D512222-HUMAN-FOUNDER",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "bcc17028e43655f7bafb3beb659ebabd8f3d222b",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-98F990192C4449B5BB8B21138D512222-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "review_reference": "REVIEW-98F99019-BCC1702-FOUNDER",
+      "receipt_hash": "sha256:c00daa2224a783945dbba78870d2aa7a44f78a04eb29422650f94e9e6d698cbd",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "completion gate",
+      "accepted_at": "2026-07-16T00:24:35.876356Z"
     }
   ]
 }
