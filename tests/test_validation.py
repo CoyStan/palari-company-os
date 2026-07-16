@@ -96,7 +96,9 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].current_attempt, "ATTEMPT-2")
         self.assertEqual(workspace.human_decisions[-1].status, "changes-requested")
 
-    def test_current_acceptance_cannot_be_carried_into_new_attempt(self) -> None:
+    def test_stale_acceptance_is_historical_and_does_not_carry_into_new_attempt(
+        self,
+    ) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
@@ -114,11 +116,16 @@ class WorkspaceValidationTests(unittest.TestCase):
         )
         raw["acceptance_records"] = []
 
-        with self.assertRaisesRegex(
-            WorkspaceError,
-            "evidence_reference is not for current attempt ATTEMPT-2",
-        ):
-            Workspace.from_raw(raw, FIXTURES)
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        from palari_company_os.read_models import detail
+
+        state = detail(workspace, "WORK-1")
+        self.assertEqual(workspace.human_decisions[0].status, "accepted")
+        self.assertEqual(state["work_item"]["current_attempt"], "ATTEMPT-2")
+        self.assertEqual(state["safety"]["approval_progress"], "0/1")
+        self.assertEqual(state["safety"]["acceptance_state"], "pending")
+        self.assertEqual(state["attention"], "needs-evidence")
 
     def test_nonterminal_acceptance_rejects_tampered_evidence_manifest(self) -> None:
         raw = json.loads(

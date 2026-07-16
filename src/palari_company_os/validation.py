@@ -757,6 +757,21 @@ def validate_workspace_contract(workspace: Any) -> None:
             )
         _validate_approval_pack_decision(human_decision)
         if _is_acceptance(human_decision):
+            latest_for_human = (
+                latest_human_decisions[
+                    (human_decision.work_item_id, human_decision.human_id)
+                ].id
+                == human_decision.id
+            )
+            decision_evidence = evidence_by_id.get(human_decision.evidence_reference)
+            work = work_by_id[human_decision.work_item_id]
+            references_current_attempt = bool(
+                not work.current_attempt
+                or (
+                    decision_evidence is not None
+                    and decision_evidence.attempt_id == work.current_attempt
+                )
+            )
             _validate_accepted_human_decision(
                 human_decision,
                 work_by_id,
@@ -764,12 +779,12 @@ def validate_workspace_contract(workspace: Any) -> None:
                 attempts_by_id,
                 evidence_by_id,
                 reviews_by_id,
-                require_current=(
-                    latest_human_decisions[
-                        (human_decision.work_item_id, human_decision.human_id)
-                    ].id
-                    == human_decision.id
-                ),
+                # An accepted decision remains immutable audit history after a
+                # new attempt becomes current. Current-binding checks apply
+                # only when the decision claims authority for that attempt;
+                # read models and the governance kernel count only exact
+                # current review/evidence bindings toward quorum.
+                require_current=latest_for_human and references_current_attempt,
             )
     _validate_human_decision_order(workspace.human_decisions)
     _validate_approval_pack_decision_sets(workspace)

@@ -545,6 +545,13 @@ evidence binding, then stops for fresh independent review and human authority;
 it never reuses the prior decision. Changed artifact bytes fail closed and must
 return through an ordinary bounded execution flow.
 
+Refresh diagnostics distinguish a changed governed artifact
+(`REFRESH_ARTIFACT_CHANGED`), dirty tracked context
+(`REFRESH_DIRTY_WORKTREE`), an active execution claim
+(`REFRESH_ACTIVE_CLAIM`), and concurrent state drift
+(`REFRESH_STATE_CHANGED`). These failures occur before proof records are
+written and retain the previous proof for inspection.
+
 The command never records review or a human decision. Its only acceptance write
 is the deterministic record derived from an already-current human decision; it
 never performs an external write, push, merge, or deployment.
