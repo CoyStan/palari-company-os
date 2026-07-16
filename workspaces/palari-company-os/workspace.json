@@ -2733,7 +2733,8 @@
         "palari docs check --json",
         "./scripts/verify.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7"
     }
   ],
   "attempts": [
