@@ -3397,7 +3397,7 @@
     },
     {
       "id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
-      "title": "Make changes-requested claim refresh concurrency-safe",
+      "title": "Make reviewed proof refresh concurrency-safe",
       "goal": "GOAL-REPO-0001",
       "palari": "PALARI-STEWARD",
       "workbench_id": "WORKBENCH-REPO-FOUNDATION",
@@ -3405,7 +3405,7 @@
       "risk": "R4",
       "intensity": "high",
       "status": "active",
-      "scope": "Permit a bound changes-requested repair to start a new claim epoch after separately governed non-overlapping commits while retaining immutable predecessor proof and anti-laundering guarantees.",
+      "scope": "Route a bound changes-requested stale proof through Palari's claimless exact-head refresh transaction after separately governed commits, without rotating the immutable claim baseline or absorbing unrelated paths.",
       "allowed_resources": [
         "src/palari_company_os/agent_runtime.py",
         "src/palari_company_os/agent_file_changes.py",
@@ -3461,7 +3461,7 @@
       "forbidden_actions": [
         "write outside the declared write paths"
       ],
-      "acceptance_target": "A reviewed changes-requested work item can refresh proof from a new exact Git baseline only when intervening commits are descendants and do not touch its authority boundary; overlap, missing review binding, history rewrite, or subsequent unauthorized changes fail closed.",
+      "acceptance_target": "A changes-requested item with unchanged governed outputs can preview and execute fresh exact-head proof after descendant non-overlapping commits; non-projection output overlap, missing review binding, dirty state, history rewrite, malformed proof, or an active claim fails closed, and old review and human authority are never reused.",
       "verification_expectations": [
         "Focused claim epoch and autonomous advance tests pass, including non-overlap success and overlap/history/forgery/restart rejection.",
         "Affected agent, security, documentation, schema, complete repository, and isolated installation checks pass."
