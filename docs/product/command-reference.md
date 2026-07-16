@@ -205,18 +205,25 @@ forbidden actions.
 ./bin/palari review guide WORK-0001
 ./bin/palari review guide WORK-0001 --json
 ./bin/palari review record REVIEW-0001 --work-item-id WORK-0001 --reviewed-head HEAD --reviewer HUMAN-MAINTAINER --verdict accept-ready
+./bin/palari agent brief WORK-0001 --as PALARI-REVIEWER --mode review --json
+./bin/palari review record REVIEW-0001-PALARI --work-item-id WORK-0001 --reviewed-head HEAD --reviewer PALARI-REVIEWER --verdict accept-ready --json
 ```
 
 `review guide` is read-only. It assembles the selected work item, workbench,
 Palari, attempt, evidence, receipt, changed files, suggested review focus,
-advisory reviewer candidates from the workbench humans, possible verdicts, and
-a neutral review-record command template. Each reviewer candidate also includes
-a ready-to-edit `review record` command with `VERDICT` and `REVIEW-ID`
-placeholders. It does not record a review verdict, approve work, mutate
-history, or replace human judgment.
+typed advisory reviewer candidates, possible verdicts, and a neutral
+review-record command template. Human candidates come from the workbench.
+Palari candidates must be distinct from the builder, linked to the work goal,
+and allowed for every selected source. Each candidate includes a ready-to-edit
+`review record` command with `VERDICT` and `REVIEW-ID` placeholders. A Palari
+verdict is advisory and never joins human quorum. The guide itself does not
+record a verdict, approve work, mutate history, or replace human judgment.
 
 `review record` is the explicit write path for a review verdict. Use it only
-after inspecting the evidence and receipt.
+after inspecting the evidence and receipt. Palari reviewers must first open the
+matching `--mode review` packet; self-review and unapproved-source review are
+rejected. Human-attributed review and every acceptance command remain
+human-only.
 
 ## Decision Guide
 
@@ -428,12 +435,13 @@ The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
 contract, proof/integration state, stop conditions, blockers, and safe next
 commands. Agents should treat this packet as their working boundary.
-`--mode review` compiles a read-only reviewer packet for work already waiting on
-review or marked receipt-ready. It includes review focus and compact
-attempt/evidence/receipt context, sets write paths to empty, and points to the
-review guide without recording a verdict.
-`agent next --mode review` treats `needs-review` and `receipt-ready` work as
-ready review candidates while leaving other states blocked.
+`--mode review` compiles a work-output-read-only reviewer packet for work
+already waiting on review or marked receipt-ready. It includes review focus and
+compact attempt/evidence/receipt context and sets write paths to empty. For a
+matching eligible Palari, the packet exposes exactly one advisory review-record
+action. `agent next --mode review` also permits a distinct Palari to supplement
+a positive review waiting on a different human acceptance identity; negative
+reviews and all other states remain blocked.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. For ready packets, it also

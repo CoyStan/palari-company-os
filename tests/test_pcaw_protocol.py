@@ -16,7 +16,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.governance_case import GovernanceCase
+from palari_company_os.governance_case import GovernanceCase, ReviewerAuthority
 from palari_company_os.pcaw_canonical import canonical_json_bytes, canonical_sha256
 from palari_company_os.pcaw_export import export_pcaw_statement
 from palari_company_os.pcaw_protocol import verify_pcaw_bytes, verify_pcaw_file
@@ -50,6 +50,33 @@ class PCAWProtocolTests(unittest.TestCase):
             "acceptance_currency",
             "journal_continuity",
         })
+
+    def test_typed_palari_reviewer_verifies_without_entering_human_authorities(self) -> None:
+        statement = json.loads(
+            (ACCEPTED_VECTOR / "statement.json").read_text(encoding="utf-8")
+        )
+        case = GovernanceCase.from_dict(statement["predicate"]["governance_case"])
+        case = replace(
+            case,
+            humans=tuple(item for item in case.humans if item.id != "PALARI-REVIEWER"),
+            reviewer_authorities=(ReviewerAuthority("PALARI-REVIEWER"),),
+        )
+        statement["predicate"]["governance_case"] = case.to_dict()
+        work_subject = next(
+            item for item in statement["subject"] if item["name"].startswith("urn:palari:")
+        )
+        work_subject["digest"]["sha256"] = canonical_sha256(case.to_dict()).removeprefix(
+            "sha256:"
+        )
+
+        report = verify_pcaw_bytes(
+            canonical_json_bytes(statement), subject_root=ACCEPTED_VECTOR
+        )
+
+        self.assertTrue(report["verified"])
+        self.assertTrue(report["acceptance_verified"])
+        self.assertEqual(report["verified_properties"]["independent_review"], "verified")
+        self.assertEqual(report["verified_properties"]["human_quorum"], "verified")
 
     def test_changed_artifact_fails_with_stable_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

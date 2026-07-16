@@ -178,6 +178,12 @@ reviewed members. External or irreversible effects remain individual. A
 combined review-and-accept mode is not available under the current policy:
 independent review and acceptance remain distinct roles.
 
+Independent review may be attributed to a declared Palari when that Palari is
+not the builder, is linked to the work goal, and is allowed to read every
+selected source. That verdict remains advisory. Palari reviewer identities are
+never human approval candidates and never satisfy human quorum; acceptance,
+rejection, and Approval Pack actions remain attributable human authority.
+
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
 work, it can derive a missing acceptance record from the latest qualified human
 decision. That record is projected before the complete gate and written in the

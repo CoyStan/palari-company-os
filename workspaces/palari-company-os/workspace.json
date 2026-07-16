@@ -110,10 +110,10 @@
       ],
       "id": "HUMAN-MAINTAINER",
       "name": "Codex Maintainer",
-      "role": "Software maintainer",
+      "role": "Legacy declared maintainer identity",
       "authority_level": "standard",
-      "availability": "active",
-      "capacity_signal": "Can implement and review repo-local changes; cannot self-accept founder authority"
+      "availability": "inactive",
+      "capacity_signal": "Historical records only; not available for new authority"
     }
   ],
   "palaris": [
@@ -185,6 +185,7 @@
         "SOURCE-REPO-ARCHITECTURE"
       ],
       "linked_goals": [
+        "GOAL-REPO-0001",
         "GOAL-REPO-0002"
       ],
       "id": "PALARI-ARCHITECT",
@@ -280,7 +281,8 @@
       "selected": true,
       "owner_human": "HUMAN-FOUNDER",
       "allowed_palaris": [
-        "PALARI-STEWARD"
+        "PALARI-STEWARD",
+        "PALARI-ARCHITECT"
       ],
       "data_class": "internal",
       "authority": "company_owned",
@@ -300,7 +302,8 @@
       "selected": true,
       "owner_human": "HUMAN-FOUNDER",
       "allowed_palaris": [
-        "PALARI-ARCHITECT"
+        "PALARI-ARCHITECT",
+        "PALARI-STEWARD"
       ],
       "data_class": "internal",
       "authority": "company_owned",
@@ -420,7 +423,9 @@
         "docs/product/authority-and-gates.md",
         "tests/test_agent_advance.py",
         "tests/test_approval_packs.py",
-        "tests/test_workspace_read_models.py"
+        "tests/test_workspace_read_models.py",
+        "src/palari_company_os",
+        "schemas"
       ],
       "status": "active"
     },
@@ -2735,6 +2740,52 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7"
+    },
+    {
+      "id": "WORK-AGENT-REVIEW-AUTHORITY",
+      "title": "Support independent Palari reviews with human-only acceptance",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Allow a distinct declared Palari to perform an advisory exact-proof review while preserving human-only acceptance, legacy human-review compatibility, and fail-closed builder/reviewer independence.",
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "spec/pcaw/v1",
+        "docs/product",
+        "schemas"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os",
+        "tests",
+        "spec/pcaw/v1",
+        "docs/product",
+        "schemas"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os",
+        "tests",
+        "spec/pcaw/v1",
+        "docs/product",
+        "schemas"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Review guides and bounded review packets expose typed Palari reviewers; only the matching non-builder Palari may record an agent verdict; PCAW verifies declared reviewer authority without treating agents as humans; human quorum remains human-only; the blueprint can receive a Steward review followed by one Founder decision.",
+      "verification_expectations": [
+        "python -m unittest tests.test_review_guides tests.test_transition_checks tests.test_validation tests.test_agent_packets tests.test_governance_kernel tests.test_pcaw_protocol",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 1
     }
   ],
   "attempts": [

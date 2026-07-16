@@ -786,7 +786,13 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
     if candidates:
         print("Reviewer candidates:")
         for candidate in candidates:
-            print(f"  - {candidate['id']} ({candidate['name']}): {candidate['reason']}")
+            identity_type = candidate.get("identity_type", "human")
+            print(
+                f"  - {candidate['id']} ({candidate['name']}, {identity_type}): "
+                f"{candidate['reason']}"
+            )
+            if candidate.get("review_packet_command"):
+                print(f"    packet: {candidate['review_packet_command']}")
             if candidate.get("review_record_command"):
                 print(f"    record: {candidate['review_record_command']}")
     print("Suggested verdicts:")

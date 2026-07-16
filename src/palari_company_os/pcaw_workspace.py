@@ -21,6 +21,7 @@ from .governance_case import (
     LegacyProofBinding,
     OutcomeSnapshot,
     ReceiptSnapshot,
+    ReviewerAuthority,
     ReviewSnapshot,
     SourceBoundary,
     WorkContract,
@@ -174,6 +175,11 @@ def governance_case_from_workspace(
         receipt=receipt_snapshot,
         evidence=evidence_snapshot,
         review=review_snapshot,
+        reviewer_authorities=tuple(
+            ReviewerAuthority(id=palari.id)
+            for palari in sorted(workspace.palaris, key=lambda item: item.id)
+            if review is not None and palari.id == review.reviewer
+        ),
         humans=tuple(
             HumanAuthority(
                 id=human.id,

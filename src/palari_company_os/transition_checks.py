@@ -270,10 +270,34 @@ def _check_review_record(
         return
     if _review(workspace, review_id) is not None and not context.get("allow_existing"):
         blockers.append(TransitionBlocker("REVIEW_EXISTS", f"review already exists: {review_id}"))
-    if workspace.human(reviewer_id) is None:
+    reviewer_human = workspace.human(reviewer_id)
+    reviewer_palari = workspace.palari(reviewer_id)
+    if reviewer_human is None and reviewer_palari is None:
         blockers.append(
-            TransitionBlocker("REVIEWER_MISSING", f"reviewer must be an existing human: {reviewer_id}")
+            TransitionBlocker(
+                "REVIEWER_MISSING",
+                f"reviewer must be an existing human or Palari: {reviewer_id}",
+            )
         )
+    if reviewer_palari is not None:
+        if work.goal and work.goal not in reviewer_palari.linked_goals:
+            blockers.append(
+                TransitionBlocker(
+                    "REVIEWER_GOAL_NOT_ALLOWED",
+                    f"Palari reviewer {reviewer_id} is not linked to goal {work.goal}",
+                )
+            )
+        for source_id in work.allowed_sources:
+            source = workspace.source(source_id)
+            if source is None:
+                continue
+            if source.allowed_palaris and reviewer_id not in source.allowed_palaris:
+                blockers.append(
+                    TransitionBlocker(
+                        "REVIEWER_SOURCE_NOT_ALLOWED",
+                        f"source {source_id} is not allowed for Palari reviewer {reviewer_id}",
+                    )
+                )
     current_attempt = current_attempt_for_work(work, workspace.attempts)
     if current_attempt is not None and current_attempt.actor == reviewer_id:
         blockers.append(
@@ -369,6 +393,10 @@ def _check_acceptance_prerequisites(
     if human is None:
         blockers.append(TransitionBlocker("HUMAN_MISSING", f"human not found: {human_id}"))
         return
+    if human.availability == "inactive":
+        blockers.append(
+            TransitionBlocker("HUMAN_INACTIVE", f"human {human_id} is inactive")
+        )
     if work.required_approval_capability and (
         work.required_approval_capability not in human.approval_capabilities
     ):

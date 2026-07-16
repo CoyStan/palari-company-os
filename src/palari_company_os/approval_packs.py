@@ -614,6 +614,8 @@ def apply_pack_decision(
     human = workspace.human(human_id)
     if human is None:
         raise WorkspaceError(f"approval pack human not found: {human_id}")
+    if human.availability == "inactive":
+        raise WorkspaceError(f"approval pack human is inactive: {human_id}")
 
     existing = [
         record
@@ -1269,9 +1271,10 @@ def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> i
         ):
             continue
         human = humans.get(decision.human_id)
+        if human is None or human.availability == "inactive":
+            continue
         if work.required_approval_capability and (
-            human is None
-            or work.required_approval_capability not in human.approval_capabilities
+            work.required_approval_capability not in human.approval_capabilities
         ):
             continue
         qualified.add(decision.human_id)
@@ -1279,6 +1282,8 @@ def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> i
 
 
 def _assert_pack_human_authority(work: Any, human: Any, human_id: str) -> None:
+    if human.availability == "inactive":
+        raise WorkspaceError(f"human {human_id} is inactive for {work.id}")
     if work.required_approval_capability and (
         work.required_approval_capability not in human.approval_capabilities
     ):

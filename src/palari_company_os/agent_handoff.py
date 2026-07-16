@@ -34,11 +34,30 @@ def build_agent_handoff(
     human_approval_handoff = (
         _human_approval_handoff(workspace, work_id) if human_approval_requested else None
     )
+    supplemental_review_required = False
+    if (
+        review_handoff is None
+        and human_approval_handoff is not None
+        and not human_approval_handoff.get("approval_candidates")
+    ):
+        current_reviewer = str(
+            human_approval_handoff.get("review", {}).get("reviewer") or ""
+        )
+        supplemental = _exclude_reviewer(
+            _review_handoff(workspace, work_id), current_reviewer
+        )
+        if any(
+            candidate.get("identity_type") == "palari"
+            for candidate in supplemental.get("reviewer_candidates", [])
+        ):
+            review_handoff = supplemental
+            supplemental_review_required = True
     human_action_commands = _human_action_commands(
         review_handoff,
         decision_handoff,
         human_approval_handoff,
     )
+    agent_action_commands = _agent_action_commands(review_handoff)
     return {
         "schema_version": "palari.agent_handoff.v1",
         "handoff_id": _handoff_id(work_id, palari_id, mode),
@@ -49,7 +68,11 @@ def build_agent_handoff(
         "status": finish.get("status", "blocked"),
         "handoff_available": bool(review_handoff or decision_handoff or human_approval_handoff),
         "handoff_types": _handoff_types(review_handoff, decision_handoff, human_approval_handoff),
-        "next_step_type": finish.get("next_step_type", "inspect"),
+        "next_step_type": (
+            "review-handoff"
+            if supplemental_review_required
+            else finish.get("next_step_type", "inspect")
+        ),
         "agent": finish.get("agent", {}),
         "work_item": finish.get("work_item", {}),
         "finish": _finish_summary(finish),
@@ -65,6 +88,8 @@ def build_agent_handoff(
         ),
         "human_action_commands": human_action_commands,
         "human_action_boundary": _human_action_boundary(human_action_commands),
+        "agent_action_commands": agent_action_commands,
+        "agent_action_boundary": _agent_action_boundary(agent_action_commands),
         "omitted_context": [
             {
                 "kind": "workspace_records",
@@ -115,6 +140,24 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "reviewer_candidates": guide.get("reviewer_candidates", []),
         "review_record_commands": guide.get("review_record_commands", []),
         "suggested_verdicts": guide.get("suggested_verdicts", []),
+    }
+
+
+def _exclude_reviewer(handoff: dict[str, Any], reviewer_id: str) -> dict[str, Any]:
+    if not reviewer_id:
+        return handoff
+    return {
+        **handoff,
+        "reviewer_candidates": [
+            item
+            for item in handoff.get("reviewer_candidates", [])
+            if item.get("id") != reviewer_id
+        ],
+        "review_record_commands": [
+            item
+            for item in handoff.get("review_record_commands", [])
+            if item.get("reviewer") != reviewer_id
+        ],
     }
 
 
@@ -289,6 +332,8 @@ def _human_action_commands(
     commands: list[dict[str, str]] = []
     if review_handoff is not None:
         for item in review_handoff.get("review_record_commands", []):
+            if item.get("identity_type") != "human":
+                continue
             commands.append(
                 {
                     "type": "review-record",
@@ -327,6 +372,32 @@ def _human_action_commands(
     return commands
 
 
+def _agent_action_commands(
+    review_handoff: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    if review_handoff is None:
+        return []
+    return [
+        {
+            "type": "palari-review-record",
+            "actor": str(item.get("reviewer", "")),
+            "command": str(item.get("command", "")),
+            "packet_command": str(
+                next(
+                    (
+                        candidate.get("review_packet_command", "")
+                        for candidate in review_handoff.get("reviewer_candidates", [])
+                        if candidate.get("id") == item.get("reviewer")
+                    ),
+                    "",
+                )
+            ),
+        }
+        for item in review_handoff.get("review_record_commands", [])
+        if item.get("identity_type") == "palari"
+    ]
+
+
 def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[str, Any]:
     return {
         "agent_may_execute": False,
@@ -337,6 +408,22 @@ def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[
             "Do not run human action commands.",
             "Do not claim to be the required human actor.",
             "Do not convert a recommendation into human review, decision, or acceptance.",
+        ],
+    }
+
+
+def _agent_action_boundary(agent_action_commands: list[dict[str, str]]) -> dict[str, Any]:
+    return {
+        "agent_may_execute": bool(agent_action_commands),
+        "agent_action_command_fields": ["agent_action_commands[].command"],
+        "count": len(agent_action_commands),
+        "must": [
+            "Open the named review packet before recording a verdict.",
+            "The packet actor must match the command actor.",
+        ],
+        "must_not": [
+            "Do not let the builder review its own attempt.",
+            "Do not convert a Palari verdict into human acceptance.",
         ],
     }
 
@@ -355,6 +442,8 @@ def _approval_candidates(
     candidates: list[dict[str, Any]] = []
     for human in workspace.humans:
         if human.id in excluded:
+            continue
+        if human.availability == "inactive":
             continue
         if required_capability and required_capability not in human.approval_capabilities:
             continue

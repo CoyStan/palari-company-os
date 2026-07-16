@@ -22,6 +22,7 @@ from palari_company_os.governance_case import (
     IntegrityObservations,
     LegacyProofBinding,
     ReceiptSnapshot,
+    ReviewerAuthority,
     ReviewSnapshot,
     SourceBoundary,
     WorkContract,
@@ -194,6 +195,55 @@ class GovernanceKernelTests(unittest.TestCase):
             all(item.status in {"verified", "not-required"} for item in result.properties)
         )
         self.assertEqual(result.errors, ())
+
+    def test_declared_palari_reviewer_verifies_without_becoming_human(self) -> None:
+        case = accepted_case()
+        review = replace(case.review, reviewer="PALARI-REVIEWER")
+        case = replace(
+            case,
+            review=review,
+            reviewer_authorities=(ReviewerAuthority("PALARI-REVIEWER"),),
+        )
+        review_digest = case.review_digest()
+        case = replace(
+            case,
+            human_decisions=(
+                replace(case.human_decisions[0], review_digest=review_digest),
+            ),
+            acceptance_records=(
+                replace(case.acceptance_records[0], review_digest=review_digest),
+            ),
+        )
+
+        result = evaluate_governance_case(case)
+        properties = {item.name: item for item in result.properties}
+
+        self.assertEqual(result.derived_state, "accepted")
+        self.assertEqual(properties["independent_review"].status, "verified")
+        self.assertEqual(properties["human_quorum"].status, "verified")
+
+    def test_palari_reviewer_cannot_satisfy_human_quorum(self) -> None:
+        case = accepted_case(claimed_state="human-decision-required")
+        review = replace(case.review, reviewer="PALARI-REVIEWER")
+        case = replace(
+            case,
+            review=review,
+            reviewer_authorities=(ReviewerAuthority("PALARI-REVIEWER"),),
+        )
+        agent_decision = replace(
+            case.human_decisions[0],
+            human_id="PALARI-REVIEWER",
+            review_digest=case.review_digest(),
+        )
+
+        result = evaluate_governance_case(
+            replace(case, human_decisions=(agent_decision,), acceptance_records=())
+        )
+
+        self.assertEqual(result.derived_state, "human-decision-required")
+        self.assertIn(
+            "PCAW_HUMAN_QUORUM_INCOMPLETE", {item.code for item in result.errors}
+        )
 
     def test_terminal_current_acceptance_derives_completed(self) -> None:
         result = evaluate_governance_case(accepted_case(claimed_state="completed", terminal=True))

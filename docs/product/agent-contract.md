@@ -71,11 +71,13 @@ The v1 loop is:
     handing off the local claim before completion.
 19. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
-For independent inspection work, use `--mode review` only after a work item is
-already in `needs-review` or `receipt-ready`. A review packet is read-only. It
-includes the review guide focus, attempt, evidence, receipt, suggested verdicts,
-and reviewer candidates, but it does not record a review verdict or mutate the
-workspace.
+For independent inspection work, use `--mode review` after a work item is in
+`needs-review` or `receipt-ready`. A distinct source-authorized Palari may also
+open a supplemental review packet when a positive human review is waiting on a
+different acceptance identity. The packet is read-only with respect to work
+outputs. It includes the review guide focus, attempt, evidence, receipt,
+suggested verdicts, and typed reviewer candidates. A matching Palari reviewer
+may record only its advisory verdict; it cannot create human acceptance.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 
@@ -359,13 +361,16 @@ a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
 decisions, receipts, evidence, claims, or history events. Handoff packets also
 include `human_action_boundary`, which marks every `human_action_commands`
-entry as human-only.
+entry as human-only. Eligible Palari review commands are instead listed under
+`agent_action_commands`, paired with the required review-packet command and an
+`agent_action_boundary`; they remain advisory and reviewer-specific.
 
-Review-mode `agent brief` packets may include ready-to-copy review record
-commands inside `review_context` because those are useful to the supervising
-human. They also include `human_action_boundary`, which states that the agent
-may quote or summarize those commands but must not execute them, claim to be the
-reviewer, or convert a recommendation into human acceptance.
+Review-mode `agent brief` packets separate `human_review_commands` from
+`agent_review_commands`. The human boundary still forbids an agent from running
+human-attributed review or decision commands. A distinct eligible Palari may
+run only the agent review command matching its packet identity. Builder
+self-review, missing goal linkage, unapproved sources, and any attempt to turn
+the advisory verdict into human quorum fail closed.
 
 `agent loop` is a compact read-only control surface over the same commands. It
 summarizes `brief`, `check`, `finish`, and handoff status, includes the exact

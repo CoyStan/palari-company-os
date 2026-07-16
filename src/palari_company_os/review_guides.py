@@ -16,6 +16,7 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
     review_focus = _review_focus(payload)
     reviewer_candidates = _reviewer_candidates(
         workspace,
+        work,
         payload.get("workbench"),
         work.get("required_approval_capability", ""),
         work_id,
@@ -50,6 +51,8 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "review_record_commands": [
             {
                 "reviewer": candidate["id"],
+                "identity_type": candidate["identity_type"],
+                "agent_may_execute": candidate["agent_may_execute"],
                 "command": candidate["review_record_command"],
             }
             for candidate in reviewer_candidates
@@ -70,6 +73,22 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
             }
         ],
     }
+
+
+def palari_reviewer_candidate(
+    workspace: Workspace, work_id: str, palari_id: str
+) -> dict[str, Any] | None:
+    """Return one eligible advisory Palari reviewer, if declared and bounded."""
+
+    guide = build_review_guide(workspace, work_id)
+    return next(
+        (
+            candidate
+            for candidate in guide["reviewer_candidates"]
+            if candidate["identity_type"] == "palari" and candidate["id"] == palari_id
+        ),
+        None,
+    )
 
 
 def _status(payload: dict[str, Any]) -> str:
@@ -165,6 +184,7 @@ def _review_focus(payload: dict[str, Any]) -> list[str]:
 
 def _reviewer_candidates(
     workspace: Workspace,
+    work: dict[str, Any],
     workbench: dict[str, Any] | None,
     required_capability: str,
     work_id: str,
@@ -173,6 +193,34 @@ def _reviewer_candidates(
 ) -> list[dict[str, Any]]:
     workbench_humans = set((workbench or {}).get("human_ids", []))
     candidates: list[dict[str, Any]] = []
+    for palari in workspace.palaris:
+        if palari.id == attempt_actor:
+            continue
+        if work.get("goal") and work["goal"] not in palari.linked_goals:
+            continue
+        if not _sources_allow_reviewer(workspace, work, palari.id):
+            continue
+        candidates.append(
+            {
+                "id": palari.id,
+                "name": palari.name,
+                "role": palari.role,
+                "identity_type": "palari",
+                "authority_level": "review-only",
+                "approval_capabilities": [],
+                "agent_may_execute": True,
+                "reason": (
+                    "Distinct Palari linked to the goal and allowed sources; "
+                    "its verdict is advisory and cannot satisfy human quorum."
+                ),
+                "review_packet_command": (
+                    f"palari agent brief {work_id} --as {palari.id} --mode review --json"
+                ),
+                "review_record_command": _review_record_command(
+                    work_id, evidence, palari.id
+                ),
+            }
+        )
     for human in workspace.humans:
         if human.id == attempt_actor:
             continue
@@ -187,13 +235,27 @@ def _reviewer_candidates(
                 "id": human.id,
                 "name": human.name,
                 "role": human.role,
+                "identity_type": "human",
                 "authority_level": human.authority_level,
                 "approval_capabilities": capabilities,
+                "agent_may_execute": False,
                 "reason": reason,
                 "review_record_command": _review_record_command(work_id, evidence, human.id),
             }
         )
     return sorted(candidates, key=_reviewer_sort_key)
+
+
+def _sources_allow_reviewer(
+    workspace: Workspace, work: dict[str, Any], reviewer_id: str
+) -> bool:
+    for source_id in work.get("allowed_sources", []):
+        source = workspace.source(str(source_id))
+        if source is None:
+            return False
+        if source.allowed_palaris and reviewer_id not in source.allowed_palaris:
+            return False
+    return True
 
 
 def _reviewer_reason(
@@ -213,6 +275,8 @@ def _reviewer_reason(
 def _reviewer_sort_key(candidate: dict[str, Any]) -> tuple[int, str]:
     capabilities = set(candidate["approval_capabilities"])
     score = 0
+    if candidate.get("identity_type") == "palari":
+        score -= 10
     if "technical-review" in capabilities:
         score -= 3
     if candidate["authority_level"] == "admin":

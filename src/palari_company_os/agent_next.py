@@ -7,11 +7,12 @@ from .agent_finish import build_agent_finish, enrich_blockers, resolution_summar
 from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
+from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
 
 
 AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready"}
+AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready", "needs-human-decision"}
 
 
 def build_agent_next(
@@ -101,7 +102,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         if item.attention == "closed":
             continue
         work = workspace.work_item(item.id)
-        if work is None or not _palari_can_see_work(workspace, work, palari_id):
+        if work is None or not _palari_can_see_work(workspace, work, palari_id, mode):
             continue
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
@@ -168,9 +169,13 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 ),
                 "handoff_guidance": handoff_guidance,
                 "next_step_type": (
-                    finish.get("next_step_type", item.next_step_type)
-                    if finish.get("status") == "converge-ready"
-                    else item.next_step_type
+                    "review-handoff"
+                    if can_start and mode == "review"
+                    else (
+                        finish.get("next_step_type", item.next_step_type)
+                        if finish.get("status") == "converge-ready"
+                        else item.next_step_type
+                    )
                 ),
                 "next_command": next_command,
                 "doctor_command": doctor_command,
@@ -308,7 +313,7 @@ def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[s
                     "code": "ATTENTION_NOT_REVIEWABLE",
                     "message": (
                         f"Current attention state is {item.attention}; review mode is for "
-                        "needs-review or receipt-ready work."
+                        "review-ready work or a positive review awaiting a distinct human."
                     ),
                 }
             )
@@ -342,7 +347,11 @@ def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
 
 
-def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
+def _palari_can_see_work(
+    workspace: Workspace, work: Any, palari_id: str, mode: str
+) -> bool:
+    if mode == "review":
+        return palari_reviewer_candidate(workspace, work.id, palari_id) is not None
     if work.palari == palari_id:
         return True
     if not work.workbench_id:
@@ -356,7 +365,10 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
         return [
             {
                 "code": "NO_ASSIGNED_WORK",
-                "message": "No visible work items are assigned to or workbench-allowed for this Palari.",
+                "message": (
+                    "No visible work items are assigned, workbench-allowed, or "
+                    "eligible for independent review by this Palari."
+                ),
                 "human_visible": True,
             }
         ]

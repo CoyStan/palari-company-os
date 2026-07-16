@@ -168,6 +168,12 @@ class HumanAuthority:
 
 
 @dataclass(frozen=True)
+class ReviewerAuthority:
+    id: str
+    kind: str = "palari"
+
+
+@dataclass(frozen=True)
 class HumanDecisionSnapshot:
     id: str
     work_item_id: str
@@ -244,6 +250,7 @@ class GovernanceCase:
     receipt: ReceiptSnapshot | None = None
     evidence: EvidenceSnapshot | None = None
     review: ReviewSnapshot | None = None
+    reviewer_authorities: tuple[ReviewerAuthority, ...] = ()
     humans: tuple[HumanAuthority, ...] = ()
     human_decisions: tuple[HumanDecisionSnapshot, ...] = ()
     acceptance_records: tuple[AcceptanceSnapshot, ...] = ()
@@ -262,6 +269,7 @@ class GovernanceCase:
             "receipt",
             "evidence",
             "review",
+            "reviewer_authorities",
             "humans",
             "human_decisions",
             "acceptance_records",
@@ -276,6 +284,7 @@ class GovernanceCase:
         for label, records in (
             ("dependencies", self.dependencies),
             ("sources", self.sources),
+            ("reviewer_authorities", self.reviewer_authorities),
             ("humans", self.humans),
             ("human_decisions", self.human_decisions),
             ("acceptance_records", self.acceptance_records),
@@ -283,40 +292,65 @@ class GovernanceCase:
             identifiers = [record.id for record in records]
             if len(identifiers) != len(set(identifiers)):
                 raise ValueError(f"{label} ids must be unique")
+        reviewer_ids = {record.id for record in self.reviewer_authorities}
+        human_ids = {record.id for record in self.humans}
+        if reviewer_ids & human_ids:
+            raise ValueError("reviewer authority ids must be distinct from human ids")
+        if any(record.kind != "palari" for record in self.reviewer_authorities):
+            raise ValueError("reviewer authority kind must be 'palari'")
         if len(self.open_decisions) != len(set(self.open_decisions)):
             raise ValueError("open_decisions ids must be unique")
 
     def to_dict(self) -> dict[str, Any]:
-        return _plain(self)
+        payload = _plain(self)
+        # reviewer_authorities is an additive PCAW v1 extension. Omitting an
+        # empty collection preserves canonical bytes and work-state digests for
+        # statements emitted before agent reviewers were supported.
+        if not self.reviewer_authorities:
+            payload.pop("reviewer_authorities", None)
+        return payload
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "GovernanceCase":
         if not isinstance(value, dict):
             raise ValueError("governance_case must be an object")
-        _exact_fields(value, cls.TOP_LEVEL_FIELDS, "governance_case")
-        schema_version = _string(value, "schema_version", "governance_case")
+        normalized = dict(value)
+        normalized.setdefault("reviewer_authorities", [])
+        _exact_fields(normalized, cls.TOP_LEVEL_FIELDS, "governance_case")
+        schema_version = _string(normalized, "schema_version", "governance_case")
         if schema_version != CASE_SCHEMA_VERSION:
             raise ValueError(f"unsupported governance case schema: {schema_version}")
         return cls(
             schema_version=schema_version,
-            claimed_state=_string(value, "claimed_state", "governance_case"),
-            contract=_record(WorkContract, value.get("contract"), "contract"),
-            dependencies=_records(DependencyState, value.get("dependencies"), "dependencies"),
-            open_decisions=_strings(value.get("open_decisions"), "open_decisions"),
-            sources=_records(SourceBoundary, value.get("sources"), "sources"),
-            attempt=_optional_record(AttemptSnapshot, value.get("attempt"), "attempt"),
-            receipt=_optional_record(ReceiptSnapshot, value.get("receipt"), "receipt"),
-            evidence=_optional_evidence(value.get("evidence")),
-            review=_optional_review(value.get("review")),
-            humans=_records(HumanAuthority, value.get("humans"), "humans"),
+            claimed_state=_string(normalized, "claimed_state", "governance_case"),
+            contract=_record(WorkContract, normalized.get("contract"), "contract"),
+            dependencies=_records(
+                DependencyState, normalized.get("dependencies"), "dependencies"
+            ),
+            open_decisions=_strings(normalized.get("open_decisions"), "open_decisions"),
+            sources=_records(SourceBoundary, normalized.get("sources"), "sources"),
+            attempt=_optional_record(AttemptSnapshot, normalized.get("attempt"), "attempt"),
+            receipt=_optional_record(ReceiptSnapshot, normalized.get("receipt"), "receipt"),
+            evidence=_optional_evidence(normalized.get("evidence")),
+            review=_optional_review(normalized.get("review")),
+            reviewer_authorities=_records(
+                ReviewerAuthority,
+                normalized.get("reviewer_authorities"),
+                "reviewer_authorities",
+            ),
+            humans=_records(HumanAuthority, normalized.get("humans"), "humans"),
             human_decisions=_records(
-                HumanDecisionSnapshot, value.get("human_decisions"), "human_decisions"
+                HumanDecisionSnapshot,
+                normalized.get("human_decisions"),
+                "human_decisions",
             ),
             acceptance_records=_records(
-                AcceptanceSnapshot, value.get("acceptance_records"), "acceptance_records"
+                AcceptanceSnapshot,
+                normalized.get("acceptance_records"),
+                "acceptance_records",
             ),
-            outcome=_optional_record(OutcomeSnapshot, value.get("outcome"), "outcome"),
-            observations=_observations(value.get("observations")),
+            outcome=_optional_record(OutcomeSnapshot, normalized.get("outcome"), "outcome"),
+            observations=_observations(normalized.get("observations")),
         )
 
     def contract_digest(self) -> str:
