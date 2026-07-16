@@ -2791,6 +2791,49 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2"
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "parallel_policy": "independent",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "tests/test_agent_advance.py"
+      ],
+      "verification_expectations": [
+        "focused accepted convergence and stale-proof tests",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "forbidden_actions": [
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
+      "title": "Converge accepted current proof without an execute claim",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Repair deterministic agent advance so an already accepted exact proof can terminalize before execution-claim preflight, while stale or changed proof still requires a fresh bounded attempt. Do not modify the accepted blueprint.",
+      "acceptance_target": "The unchanged accepted blueprint terminalizes automatically; claim requirements still fail closed for any state that needs new proof; focused negative tests and complete verification pass.",
+      "required_approval_count": 1
     }
   ],
   "attempts": [
