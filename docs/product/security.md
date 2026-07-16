@@ -37,7 +37,7 @@ Authority rules:
   the original head; coordinated rewrites of the claim and baseline fail.
 - Proof-only refresh does not reset or replace that baseline. It runs without a
   claim, requires exact descendant history with replacement objects disabled,
-  and inspects every path touched by the raw commit range. Separately governed
+  and compares every raw commit with every parent in the range. Separately governed
   commits may advance repository context, but touching a governed
   non-projection output blocks refresh even if a later commit restores identical
   bytes. The refreshed proof invalidates prior review and human authority.

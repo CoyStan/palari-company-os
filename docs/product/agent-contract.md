@@ -67,8 +67,9 @@ The v1 loop is:
     outputs are unchanged, `--refresh-verification --dry-run` previews a separate
     claimless refresh and the non-dry-run command reruns verification, records new
     exact-head proof, and stops for fresh independent review. Separately governed
-    descendant commits are context, not claimed work. A touched non-projection
-    output is rejected even when its bytes were later restored; an active claim,
+    descendant commits are context, not claimed work. Every commit is compared
+    with every parent, so a touched non-projection output is rejected even when
+    its bytes were later restored; an active claim,
     mismatched review head, dirty tracked state, or rewritten history also fails
     closed. The immutable claim-start baseline is never rotated by this path.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as

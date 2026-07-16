@@ -1732,17 +1732,51 @@ def _exact_committed_paths(
     base_sha: str,
     head_sha: str,
 ) -> list[str] | None:
-    return _exact_path_command(
-        root,
-        [
-            "log",
-            "--format=",
-            "--name-only",
-            "-z",
-            "--no-renames",
-            f"{base_sha}..{head_sha}",
-        ],
-    )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "rev-list",
+                "--reverse",
+                "--topo-order",
+                f"{base_sha}..{head_sha}",
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    commits = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not commits or not all(_exact_git_sha(commit) for commit in commits):
+        return None
+    paths: set[str] = set()
+    for commit in commits:
+        observed = _exact_path_command(
+            root,
+            [
+                "diff-tree",
+                "--root",
+                "-m",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                "-z",
+                "--no-renames",
+                commit,
+            ],
+        )
+        if observed is None:
+            return None
+        paths.update(observed)
+    return sorted(paths)
 
 
 def _exact_dirty_tracked_paths(root: str) -> list[str] | None:
@@ -2375,12 +2409,31 @@ def _recovery_timestamps_bound(
 
 
 def _git_commit_timestamp(preflight: dict[str, Any]) -> str:
-    from .agent_done import _git_value
-
-    raw = _git_value(
-        Path(str(preflight.get("git_root") or "")),
-        ["show", "-s", "--format=%ct", str(preflight.get("head_sha") or "")],
-    )
+    root = str(preflight.get("git_root") or "")
+    head_sha = str(preflight.get("head_sha") or "")
+    if not root or not _exact_git_sha(head_sha):
+        return ""
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "show",
+                "-s",
+                "--format=%ct",
+                head_sha,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    raw = result.stdout.strip() if result.returncode == 0 else ""
     try:
         timestamp = datetime.fromtimestamp(int(raw), timezone.utc)
     except (OverflowError, ValueError):

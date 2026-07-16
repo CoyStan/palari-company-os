@@ -1117,6 +1117,148 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertIn("README.md", result["blockers"][0]["message"])
 
+    def test_refresh_rejects_output_changed_only_by_two_merges_then_restored(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-TWO-MERGES")
+        original = (self.temp_dir / "README.md").read_bytes()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "record review"],
+            check=True,
+        )
+        main_branch = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "branch", "--show-current"], text=True
+        ).strip()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "-qb", "topic-one"],
+            check=True,
+        )
+        (self.temp_dir / "topic-one.txt").write_text("one\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "topic-one.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "topic one"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", main_branch],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "main-one.txt").write_text("main one\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "main-one.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "main one"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "topic-one",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "README.md").write_text(
+            "changed only by first merge\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "first merge"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "-qb", "topic-two"],
+            check=True,
+        )
+        (self.temp_dir / "topic-two.txt").write_text("two\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "topic-two.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "topic two"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", main_branch],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "main-two.txt").write_text("main two\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "main-two.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "main two"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "topic-two",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "README.md").write_bytes(original)
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "second merge"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("merge-overlap refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_OUTPUT_HISTORY_OVERLAP"
+        )
+        self.assertIn("README.md", result["blockers"][0]["message"])
+
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
