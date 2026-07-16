@@ -2905,8 +2905,8 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
-      "scope": "Bind proof reconciliation to the exact workspace digest, Git head, clean tracked state, and SHA-256 artifact digests verified by the caller; reject final-window workspace or artifact drift; preserve proof, journal, scope, and human-authority behavior.",
+      "status": "blocked",
+      "scope": "Superseded after two exact-head changes-requested reviews and immutable claim-cache witness preservation. Child WORK-2343053E948941AB9D5AD6465866A36B carries the final cumulative exact-state repair.",
       "allowed_resources": [
         "src/palari_company_os/store.py",
         "src/palari_company_os/governance_journal.py",
@@ -2940,7 +2940,7 @@
         "weaken proof freshness",
         "bypass human authority"
       ],
-      "acceptance_target": "A proof reconciliation cannot persist proof after workspace, Git-head, tracked-cleanliness, or artifact-digest drift between verification and reconciliation. Refresh returns REFRESH_STATE_CHANGED, ordinary advance returns state-changed, store CAS races use the same stable mapping, and no attempt, receipt, or evidence is written for an injected pre-reconciliation mismatch.",
+      "acceptance_target": "Audit-only changes-requested repair history. Final implementation acceptance belongs exclusively to child WORK-2343053E948941AB9D5AD6465866A36B.",
       "verification_expectations": [
         "focused injected workspace and artifact race negatives",
         "positive refresh and ordinary reconciliation regressions",
@@ -2951,6 +2951,62 @@
       "required_approval_count": 1,
       "parent_work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
       "current_attempt": "ATTEMPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9"
+    },
+    {
+      "id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "title": "Finalize exact-state proof reconciliation",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Carry verified workspace, Git head, substantive tracked cleanliness, and SHA-256 artifact state through final proof reconciliation, with stable fail-closed diagnostics for races.",
+      "allowed_resources": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "Injected workspace, artifact, Git-head, and store-CAS drift writes no new attempt, receipt, or evidence; ordinary and refresh paths remain compatible; full, docs, and install verification pass.",
+      "verification_expectations": [
+        "focused injected workspace and artifact race negatives",
+        "positive refresh and ordinary reconciliation regressions",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-C40EC756920849B59481E834D46E80F1"
     }
   ],
   "attempts": [
