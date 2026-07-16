@@ -931,8 +931,20 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(work)
         assert work is not None and work.current_attempt
         attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_attempt = next(
+            item for item in workspace.attempts if item.head_sha == previous_head
+        )
         self.assertEqual(attempt.head_sha, current_head)
         self.assertEqual(attempt.changed_files, [])
+        self.assertNotEqual(attempt.started_at, previous_attempt.started_at)
+        evidence = next(
+            item
+            for item in workspace.evidence_runs
+            if item.attempt_id == attempt.id
+        )
+        self.assertEqual(evidence.artifacts, ["README.md"])
+        self.assertEqual(evidence.base_ref, previous_head)
+        self.assertEqual(refreshed["stop_boundary"], "independent-review")
         self.assertEqual(work.status, "active")
         self.assertFalse(
             any(item.work_item_id == self.work_id for item in workspace.acceptance_records)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -1221,16 +1221,17 @@ def _refresh_stale_projection(
             "Governed state changed while current-head verification was running; inspect and retry.",
         )
 
-    proof_timestamp = _git_commit_timestamp(
+    commit_timestamp = _git_commit_timestamp(
         {"git_root": refresh["git_root"], "head_sha": refresh["head_sha"]}
     )
-    if not proof_timestamp:
+    if not commit_timestamp:
         return _resume_blocked(
             current,
             work.id,
             "REFRESH_HEAD_TIMESTAMP_MISSING",
             "The current Git commit timestamp is unavailable; proof refresh stopped safely.",
         )
+    proof_timestamp = _refresh_proof_timestamp(current, work.id, commit_timestamp)
     commands = [
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification_results
@@ -1305,6 +1306,7 @@ def _refresh_stale_projection(
         "can_advance": True,
         "would_mutate": True,
         "expected_state": "review-required",
+        "stop_boundary": "independent-review",
         "refresh": {
             "previous_head": refresh["proof_head"],
             "current_head": refresh["head_sha"],
@@ -1427,7 +1429,10 @@ def _stale_projection_refresh_context(
         }
     from .agent_done import _git_value
 
-    root_text = _git_value(Path(attempt.workspace_path or workspace_path), ["rev-parse", "--show-toplevel"])
+    root_text = _git_value(
+        Path(attempt.workspace_path or workspace_path),
+        ["rev-parse", "--show-toplevel"],
+    )
     if not root_text:
         return {
             "ok": False,
@@ -1454,6 +1459,59 @@ def _stale_projection_refresh_context(
         "artifacts": artifacts,
         "git_root": root_text,
     }
+
+
+def _refresh_proof_timestamp(
+    workspace: Workspace,
+    work_id: str,
+    commit_timestamp: str,
+) -> str:
+    """Return a deterministic timestamp strictly after existing work proof records."""
+
+    candidates: list[datetime] = []
+    for value in (commit_timestamp,):
+        parsed = _parse_proof_timestamp(value)
+        if parsed is not None:
+            candidates.append(parsed)
+    collections = (
+        workspace.attempts,
+        workspace.receipts,
+        workspace.evidence_runs,
+        workspace.review_verdicts,
+        workspace.human_decisions,
+        workspace.acceptance_records,
+    )
+    for records in collections:
+        for record in records:
+            if getattr(record, "work_item_id", "") != work_id:
+                continue
+            for field in ("updated_at", "started_at", "timestamp", "accepted_at"):
+                parsed = _parse_proof_timestamp(str(getattr(record, field, "") or ""))
+                if parsed is not None:
+                    candidates.append(parsed)
+    commit_instant = _parse_proof_timestamp(commit_timestamp)
+    if commit_instant is None:
+        return ""
+    latest_existing = max(candidates, default=commit_instant)
+    logical = max(commit_instant, latest_existing + timedelta(microseconds=1))
+    return logical.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
+        "+00:00", "Z"
+    )
+
+
+def _parse_proof_timestamp(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, ValueError):
+        return None
+    if parsed.utcoffset() is None:
+        return None
+    try:
+        return parsed.astimezone(timezone.utc)
+    except OverflowError:
+        return None
 
 
 def _resume_claim_packet(
