@@ -430,7 +430,8 @@
         "docs/product/portable-agent-session-contract-compiler-contract.md",
         "src/palari_company_os/agent_session_contract.py",
         "src/palari_company_os/agent_doctor.py",
-        "tests/test_agent_session_contract.py"
+        "tests/test_agent_session_contract.py",
+        "tests/test_review_guides.py"
       ],
       "status": "active"
     },
@@ -3091,6 +3092,7 @@
         "tests/test_agent_session_contract.py",
         "tests/test_agent_packets.py",
         "tests/test_git_hooks.py",
+        "tests/test_review_guides.py",
         "tests/fixtures/public_commands.txt",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
@@ -3117,6 +3119,7 @@
         "tests/test_agent_session_contract.py",
         "tests/test_agent_packets.py",
         "tests/test_git_hooks.py",
+        "tests/test_review_guides.py",
         "tests/fixtures/public_commands.txt",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
@@ -11524,6 +11527,28 @@
       "question": "Should scope expand for WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC?",
       "status": "decided",
       "context": "Reason: The complete gate proved that the existing review-mode Git-hook fixture manually rewrites an execute claim; exact session-contract binding correctly invalidates that synthetic state, so the test must construct a genuine review contract rather than weakening production validation.\nRequested write paths: tests/test_git_hooks.py",
+      "options": [
+        "approve scope expansion",
+        "reject scope expansion",
+        "split into new work"
+      ],
+      "tradeoffs": [
+        "Approving changes the declared work boundary.",
+        "Rejecting keeps the current attempt inside its packet.",
+        "Splitting preserves parallel safety for unrelated changes."
+      ],
+      "recommendation": "Do not expand scope until a human reviews the new boundary.",
+      "safe_default": "reject scope expansion",
+      "linked_goal": "GOAL-REPO-0001",
+      "linked_work": "WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC",
+      "linked_palari": "PALARI-STEWARD",
+      "result": "approve scope expansion"
+    },
+    {
+      "id": "DECISION-SCOPE-SESSION-CONTRACT-REVIEW-GUIDE-FIX-20260716",
+      "question": "Should scope expand for WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC?",
+      "status": "decided",
+      "context": "Reason: The exact committed complete gate exposed a pre-existing dogfood-state-dependent assertion: after any substantive commit stales old review heads, the test requires a review-handoff state that cannot exist until agent advance records proof, while agent advance itself requires that complete gate. The test must use the stable ACME fixture that already contains both blocked-start and review-handoff states.\nRequested write paths: tests/test_review_guides.py",
       "options": [
         "approve scope expansion",
         "reject scope expansion",
