@@ -2833,15 +2833,228 @@
         "bypass human authority"
       ],
       "id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
+      "title": "Superseded proof-refresh bootstrap",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "blocked",
+      "scope": "Superseded after its immutable Git witness correctly preserved a pre-contract baseline. No implementation acceptance is claimed; successor WORK-948A72CB8E4241B19B5D00FDD6B96AA4 carries the final bounded patch and proof.",
+      "acceptance_target": "Audit-only superseded bootstrap; implementation acceptance belongs exclusively to WORK-948A72CB8E4241B19B5D00FDD6B96AA4.",
+      "required_approval_count": 1
+    },
+    {
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "parent_work_item_id": "WORK-5BF2E8D96262462FB433B9AD6F90D2C7",
+      "parallel_policy": "independent",
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_validation.py",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py",
+        "docs/product/command-reference.md"
+      ],
+      "verification_expectations": [
+        "focused refresh positive and unsafe-state negative tests",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "forbidden_actions": [
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
       "title": "Refresh stale accepted proof without rewriting artifacts",
       "goal": "GOAL-REPO-0001",
       "palari": "PALARI-STEWARD",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
-      "scope": "Add explicit current-head proof refresh for unchanged governed artifacts and permit older exact-bound accepted decisions to remain as stale audit history when a new attempt becomes current. Rerun authoritative verification and stop at fresh review; never count old authority, rewrite the blueprint, or weaken current binding checks.",
-      "acceptance_target": "The unchanged blueprint receives new exact-head proof; the previous accepted decision remains attributable but contributes zero current quorum; fresh review and founder acceptance are required; changed artifacts, dirty state, mismatched bindings, and ordinary unclaimed execution remain fail closed.",
-      "required_approval_count": 1
+      "status": "blocked",
+      "scope": "Superseded after independent review reproduced a final-window workspace race. Its changes-requested proof remains immutable; child WORK-C40EC756920849B59481E834D46E80F1 carries the bounded repair.",
+      "acceptance_target": "Audit-only changes-requested candidate. Implementation acceptance belongs exclusively to child WORK-C40EC756920849B59481E834D46E80F1 after fresh proof and review.",
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30"
+    },
+    {
+      "id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "title": "Close proof-refresh transaction race",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "blocked",
+      "scope": "Superseded after two exact-head changes-requested reviews and immutable claim-cache witness preservation. Child WORK-2343053E948941AB9D5AD6465866A36B carries the final cumulative exact-state repair.",
+      "allowed_resources": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "Audit-only changes-requested repair history. Final implementation acceptance belongs exclusively to child WORK-2343053E948941AB9D5AD6465866A36B.",
+      "verification_expectations": [
+        "focused injected workspace and artifact race negatives",
+        "positive refresh and ordinary reconciliation regressions",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9"
+    },
+    {
+      "id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "title": "Finalize exact-state proof reconciliation",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "blocked",
+      "scope": "Superseded after exact-head review found staged rename masking in tracked cleanliness. Child WORK-FCA33836DC454192AFA56D8D973F4E98 carries the final bounded repair; the rejected proof remains immutable.",
+      "allowed_resources": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "Audit-only changes-requested exact-state candidate. Final cumulative acceptance belongs to child WORK-FCA33836DC454192AFA56D8D973F4E98 after fresh proof and review.",
+      "verification_expectations": [
+        "focused injected workspace and artifact race negatives",
+        "positive refresh and ordinary reconciliation regressions",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312"
+    },
+    {
+      "id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "title": "Reject governance-path rename masking",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "completed",
+      "scope": "Make tracked-cleanliness observation report both sides of renames so a substantive deletion cannot be hidden by a canonical governance destination.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "docs/product/command-reference.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "Staged or unstaged renames cannot collapse a substantive source path into an ignored governance path; the injected bypass returns REFRESH_STATE_CHANGED and writes no attempt, receipt, or evidence; exact-state regressions and complete verification pass.",
+      "verification_expectations": [
+        "focused staged rename masking negative test",
+        "exact-state refresh regressions",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779"
     }
   ],
   "attempts": [
@@ -5272,6 +5485,156 @@
         "schemas",
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/workspace.json"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30",
+      "work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/tmp/palari-proof-refresh-recovery",
+      "base_sha": "6cf2ff75752234edcf989a635b641e9a290a2874",
+      "allowed_paths": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_validation.py",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "started_at": "2026-07-16T11:38:01Z",
+      "head_sha": "d7716417ee30faf7979db4dd4c0472088f9e0438",
+      "commits": [
+        "d7716417ee30faf7979db4dd4c0472088f9e0438"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T11:38:01Z",
+      "changed_files": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py",
+        "docs/product/command-reference.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9",
+      "work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/tmp/palari-proof-refresh-recovery",
+      "base_sha": "423f4e57ea5ac19500537170c28de75299f53927",
+      "allowed_paths": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "started_at": "2026-07-16T11:56:11Z",
+      "head_sha": "bbff4f655ac9c0fcabf7e366444c1170a839c4cf",
+      "commits": [
+        "bbff4f655ac9c0fcabf7e366444c1170a839c4cf"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T11:56:11Z",
+      "changed_files": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/tmp/palari-final-proof-recovery",
+      "base_sha": "bff0d9d16f48875005473018dd63a0bb519de0b7",
+      "allowed_paths": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "started_at": "2026-07-16T12:14:43Z",
+      "head_sha": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "commits": [
+        "8a25bf7d631286d595ea4c9e878be2533ce2220f"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T12:14:43Z",
+      "changed_files": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/tmp/palari-final-proof-recovery",
+      "base_sha": "df268ef85d1137cdfadc5beb5c2d25d29a4e95a4",
+      "allowed_paths": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "docs/product/command-reference.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "started_at": "2026-07-16T12:23:23Z",
+      "head_sha": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "commits": [
+        "e6c238a37779e7512bb6b1d4ade287a64dd24d3f"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T12:23:23Z",
+      "changed_files": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
       ]
     }
   ],
@@ -7921,6 +8284,194 @@
         }
       ],
       "manifest_hash": "sha256:eadcdcf197f702500c2cdee6b3b03f40dfe047717ca80836a63b2315727ca2cd"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30",
+      "work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30",
+      "head_sha": "d7716417ee30faf7979db4dd4c0472088f9e0438",
+      "status": "passed",
+      "base_ref": "6cf2ff75752234edcf989a635b641e9a290a2874",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-0ACD599164B5A420 sha256:76962d3543c8abb883b9bb14c128e30a64e653ca6efefd320acd599164b5a420",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-6A04339E9100CB69 sha256:524dd7893df78974eebcc70748803bd788b01f337c35ebee6a04339e9100cb69",
+        "docs-check attestation VERIFY-DOCS-CHECK-821319F54BCEC4A0 sha256:95907497ca9bdcb6e1b597c1f863682fc1a97bc8567c239e821319f54bcec4a0"
+      ],
+      "artifacts": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py"
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T11:38:01Z",
+      "receipt_hash": "sha256:d3c5ce10a44011e32657dc94f0df957494630591ae8a1801cb2db399eadb5877",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:833870519f3ca40157d922c738a45c4a0ebf5d7b92bc763c63cbdc894e7dd117",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:272a59a247c5fbcad8cec7b00a56882c0ac333b2233aba18f43aaf16335a9cd1",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:19bf9f623bdbbbdb538ad6529950f37fa0928818bca3599e2a5b10cd856e9075",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:9b2071d88b1fafaa1aa2e711d6f6205c3a9df45ab2ebc906940d6dbd93ee8c50",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "sha256": "sha256:529e7073b76bf2c08a07c1f6aa1105756be70710c441d190a3d5f0d8c084d1c3",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:41aa8b2c507683bcf3eb97e4f49c41a514218eac5dee9c1923ebdc9565e9521e"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9",
+      "work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9",
+      "head_sha": "bbff4f655ac9c0fcabf7e366444c1170a839c4cf",
+      "status": "passed",
+      "base_ref": "423f4e57ea5ac19500537170c28de75299f53927",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-ACEAE4879B1E3F0E sha256:62974a83fe27121101b90b7768ee99fd3427289fb6d1cd4daceae4879b1e3f0e",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-8B73F75FE91A3AA1 sha256:be31c5499a5f1e93bd153d19c22af5226e3c3dd4b88664df8b73f75fe91a3aa1",
+        "docs-check attestation VERIFY-DOCS-CHECK-E0BDD5BFF4FAB574 sha256:041cab9488bf585872e19f7f69cd963bd3fa67223a18f000e0bdd5bff4fab574"
+      ],
+      "artifacts": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T11:56:11Z",
+      "receipt_hash": "sha256:b73884310eba75e1dcb60a77377a759c79e139f81cbb8e0807bd2d68b127f2da",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:137999a65209c874ce005445474ea05c5f336c5fc45ce3054810105fc82e6e75",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:2c32ed024bff47182821ffddb7e1ae7d58b6e705b74ba9994da8202c1654a452",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "sha256": "sha256:ce5fd9dd996ad0eea2dc25a17a5930486196bd113b311a1d3579b025e98fc7c9",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:6b2755604ed2a0756cff006746624394af8fd415e453057e7c9ecae2878517ad",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:06185e1804bf0bc80d2455894e142652806f196230662f6f48836224acff1dec"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "head_sha": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "status": "passed",
+      "base_ref": "bff0d9d16f48875005473018dd63a0bb519de0b7",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-A1F4562B3F0AD6B1 sha256:d5ab32002c8c37be1b0d9a991e47cb68f6a46879f1d79076a1f4562b3f0ad6b1",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-2FB758B00F3D928E sha256:7893d6a67a5689da34ed05fa9777bb10ead03a786af4a37b2fb758b00f3d928e",
+        "docs-check attestation VERIFY-DOCS-CHECK-06A20B427477C552 sha256:88550234fcf5f41ee2763554bc63b2e5465eb83c5d2e9ab206a20b427477c552"
+      ],
+      "artifacts": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:fec59998077c39d9f6e99d7b643481f267a94f96617a0316ac807ae6410db404",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:abffa0b6bfc7451c0b2b04690ea659f41b51fcf67d6c36e80591b3a7880d6563",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "sha256": "sha256:d3917cb55e4599e0e2d5974e1cdbc6b2a1b4e2ff24251101f44632078636d9bf",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:65611b49eb31f2971edbf185acee0fe4ff8bf898bf658bf52333307e0370f115",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:ea5118aa32b0ee6ebe359249226d14d421c7d0770f8f669d03566f12bd495e75",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T12:14:43Z",
+      "receipt_hash": "sha256:f3f9a9e159ecc15afd0f82f09c4b0f95df302e1bedce748d9d897c674f31289f",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:a6f5bae184f9d9129a86a69d49ce63971bc4cf8a223fffba20dcb2a2481d29c1"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "head_sha": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "status": "passed",
+      "base_ref": "df268ef85d1137cdfadc5beb5c2d25d29a4e95a4",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-74167A9A8569F289 sha256:748ab3c265b9a66a5496487abaf3f3474771fd9badf4f8d774167a9a8569f289",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-079C19E22F8A7E25 sha256:594b455a0343754cc129cf9a3b0214cbbbfbef579ed9ffad079c19e22f8a7e25",
+        "docs-check attestation VERIFY-DOCS-CHECK-210D54FECDF1737E sha256:3000844cb1c664f4cac1fdde34898377db5ab050d5cec1a9210d54fecdf1737e"
+      ],
+      "artifacts": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:a7207a8f95762f1db0bd3ce8bd3da8ea04c63d4f0c4a83444067124754e20ce3",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:2d15e91aca4df38cf34ebb15dfa45ee918c183ac2881e7195d03d5871d3f0758",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T12:23:23Z",
+      "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:57886d9ae6ced192c54f4d6f920627539a071f40253c537e5bf44c87ff670655"
     }
   ],
   "review_verdicts": [
@@ -8226,6 +8777,47 @@
       "receipt_hash": "sha256:b8a010155058830f09720a3a19be1e6c7d3c0899f209e3bac795eb96d14a7ee5",
       "work_contract_hash": "sha256:5e0d9dfdd3fac6ca9eb8796d0f33b88d4fdcd1611aff9d7e68795a13e37b4855",
       "proof_hash": "sha256:8540a0cd81797c8c42c2f5b6117543679ecdc1587238a40fe7efb80d0e3073fc"
+    },
+    {
+      "id": "REVIEW-PROOF-REFRESH-ARCHITECT-20260716-V1",
+      "work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
+      "reviewed_head": "d7716417ee30faf7979db4dd4c0472088f9e0438",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T11:46:51.624766Z"
+    },
+    {
+      "id": "REVIEW-PROOF-RACE-ARCHITECT-20260716-V2",
+      "work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "reviewed_head": "bbff4f655ac9c0fcabf7e366444c1170a839c4cf",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T12:04:17.935684Z"
+    },
+    {
+      "id": "REVIEW-EXACT-STATE-ARCHITECT-20260716-V3",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "reviewed_head": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T12:20:45.354642Z"
+    },
+    {
+      "id": "REVIEW-RENAME-MASKING-ARCHITECT-20260716-V4",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "reviewed_head": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T12:27:03.266253Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "attempt_hash": "sha256:333df3ac160fdc23945895bd202d084dea5844d1407e323f07a3c00302f1d522",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "evidence_manifest_hash": "sha256:57886d9ae6ced192c54f4d6f920627539a071f40253c537e5bf44c87ff670655",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40",
+      "work_contract_hash": "sha256:b9f425f7c23c195deaf1ce694f885459ddd8b50910f2773807aea44bdba6b9e5",
+      "proof_hash": "sha256:1392f4ab9dd44bb01d5dfbdb5bc52b9902c309182ebf807330171ec32ff99531"
     }
   ],
   "human_decisions": [
@@ -8410,6 +9002,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
       "review_reference": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V3",
       "timestamp": "2026-07-16T11:06:43.949401Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "review_reference": "REVIEW-RENAME-MASKING-ARCHITECT-20260716-V4",
+      "timestamp": "2026-07-16T12:58:23.440491Z"
     }
   ],
   "receipts": [
@@ -10517,6 +11122,126 @@
       "timestamp": "2026-07-16T10:54:42Z",
       "previous_receipt_hash": "sha256:463ad3d1b5861a4968152c20fa05cb38ae61dcf416b53fa1f682b9d44b692b26",
       "receipt_hash": "sha256:b8a010155058830f09720a3a19be1e6c7d3c0899f209e3bac795eb96d14a7ee5"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30",
+      "work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 5 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_agent_advance.py",
+        "tests/test_validation.py"
+      ],
+      "timestamp": "2026-07-16T11:38:01Z",
+      "receipt_hash": "sha256:d3c5ce10a44011e32657dc94f0df957494630591ae8a1801cb2db399eadb5877"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9",
+      "work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-C40EC756920849B59481E834D46E80F1-BBFF4F655AC9",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 4 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "timestamp": "2026-07-16T11:56:11Z",
+      "receipt_hash": "sha256:b73884310eba75e1dcb60a77377a759c79e139f81cbb8e0807bd2d68b127f2da"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 5 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "timestamp": "2026-07-16T12:14:43Z",
+      "receipt_hash": "sha256:f3f9a9e159ecc15afd0f82f09c4b0f95df302e1bedce748d9d897c674f31289f"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 2 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "timestamp": "2026-07-16T12:23:23Z",
+      "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40"
     }
   ],
   "decisions": [
@@ -10924,6 +11649,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T11:06:45.579033Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "review_reference": "REVIEW-RENAME-MASKING-ARCHITECT-20260716-V4",
+      "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-16T12:58:25.190991Z"
     }
   ]
 }

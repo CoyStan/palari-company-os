@@ -15,6 +15,93 @@ HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
 
 
+def git_artifact_state(
+    workspace_path: Path,
+    artifacts: list[str],
+    *,
+    governance_workspace_path: Path | None = None,
+) -> dict[str, Any]:
+    """Return the exact committed and tracked state used for proof binding."""
+
+    try:
+        root = workspace_path.expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        return {"head_sha": "", "clean": False, "artifact_hashes": []}
+    head_sha = _git_value(root, ["rev-parse", "HEAD"])
+    dirty_paths = _tracked_dirty_paths(root)
+    if dirty_paths is None:
+        return {"head_sha": head_sha, "clean": False, "artifact_hashes": []}
+    governance_root = governance_workspace_path or root
+    governance_paths = _governance_projection_paths(root, governance_root)
+    return {
+        "head_sha": head_sha,
+        "clean": not (set(dirty_paths) - governance_paths),
+        "artifact_hashes": artifact_hashes_at_root(root, artifacts),
+    }
+
+
+def artifact_hashes_at_root(
+    workspace_path: Path,
+    artifacts: list[str],
+) -> list[dict[str, str]]:
+    """Hash bounded artifact bytes under one canonical repository root."""
+
+    return _artifact_hashes(workspace_path, artifacts)
+
+
+def _tracked_dirty_paths(root: Path) -> list[str] | None:
+    paths: set[str] = set()
+    for arguments in (
+        ("diff", "--no-ext-diff", "--no-renames", "--name-only", "-z", "--"),
+        (
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-renames",
+            "--name-only",
+            "-z",
+            "--",
+        ),
+    ):
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(root), *arguments],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode != 0:
+            return None
+        try:
+            paths.update(
+                value for value in result.stdout.decode("utf-8").split("\0") if value
+            )
+        except UnicodeDecodeError:
+            return None
+    return sorted(paths)
+
+
+def _governance_projection_paths(root: Path, workspace_path: Path) -> set[str]:
+    data_path = workspace_path.expanduser().resolve()
+    if data_path.is_dir():
+        data_path /= "workspace.json"
+    candidates = {
+        data_path,
+        data_path.parent / ".palari" / "history.jsonl",
+        data_path.parent / ".palari" / "governance-journal.v1.jsonl",
+    }
+    paths: set[str] = set()
+    for candidate in candidates:
+        try:
+            paths.add(candidate.resolve().relative_to(root).as_posix())
+        except ValueError:
+            continue
+    return paths
+
+
 def stamp_evidence_record(
     record: dict[str, Any],
     workspace_path: Path,
