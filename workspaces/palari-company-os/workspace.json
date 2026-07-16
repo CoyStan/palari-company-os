@@ -441,7 +441,9 @@
       "source_ids": [
         "SOURCE-REPO-ARCHITECTURE"
       ],
-      "output_target_ids": [],
+      "output_target_ids": [
+        "docs/product/palari-blueprint.md"
+      ],
       "status": "active"
     }
   ],
@@ -2692,6 +2694,46 @@
       "acceptance_target": "Accepted current proof terminalizes automatically without a builder claim; repeated convergence is idempotent; governance-only commits do not stale proof; substantive post-proof changes, negative decisions, invalid evidence, loops, and iteration exhaustion fail closed; existing CLI/schema compatibility and full verification remain intact.",
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-F1D0A89C0E3D45D6B2C614FB1AE7E420-10DCA98AB5B2"
+    },
+    {
+      "id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "title": "Review and integrate Claude's Palari blueprint",
+      "goal": "GOAL-REPO-0002",
+      "palari": "PALARI-ARCHITECT",
+      "workbench_id": "WORKBENCH-REPO-ARCHITECTURE",
+      "dependency_ids": [],
+      "risk": "R3",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Review Claude branch claude/repo-evaluation-7s05hw line by line, merge its consolidated blueprint, correct stale or overstated technical, market, privacy, legal, and implementation claims, and keep proposals subordinate to canonical repository contracts.",
+      "allowed_resources": [
+        "README.md",
+        "AGENTS.md",
+        "docs/product",
+        "docs/agent",
+        "spec/pcaw/v1",
+        "docs/product/palari-blueprint.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-ARCHITECTURE"
+      ],
+      "output_targets": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "conflict_targets": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The exact Claude branch is integrated as reviewed history; the blueprint accurately distinguishes shipped PCAW v1 from proposed v2 work, states trust and privacy limits, uses current primary-source evidence, and passes documentation and complete repository verification.",
+      "verification_expectations": [
+        "git merge-base and exact branch-tip evidence",
+        "palari docs check --json",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 1
     }
   ],
   "attempts": [
@@ -4906,6 +4948,21 @@
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
       ]
+    },
+    {
+      "output_targets": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "actor": "PALARI-ARCHITECT",
+      "status": "active",
+      "branch": "codex/fixed-point-governance-convergence",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "cleanliness": "clean",
+      "result": "Review and integration in progress.",
+      "started_at": "2026-07-16T03:13:04.315134Z"
     }
   ],
   "evidence_runs": [
