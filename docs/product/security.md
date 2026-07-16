@@ -76,6 +76,14 @@ Authority rules:
   playbook-source authority changes are denied from agent shell commands.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
+- Proof creation necessarily mutates `workspace.json`, legacy history, and the
+  governance journal. When one of those projection files is itself a declared
+  artifact, verification reads its bytes from the evidence's exact Git commit
+  instead of the later live file, then independently requires the live journal
+  to replay to the current workspace. Missing commits or blobs, hash mismatch,
+  malformed chains, pending transactions, and projection divergence fail
+  closed. This exception does not apply to ordinary output artifacts, whose
+  current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
   values, UTC-normalization overflows, and equivalent-instant competitors fail

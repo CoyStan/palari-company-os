@@ -15,6 +15,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   working until an operator explicitly checkpoints them. Prepared and committed
   journal records bracket the atomic, fsynced workspace replacement; divergence,
   corruption, pending transactions, and continuity breaks remain visible.
+- Evidence for self-mutating governance projection files (`workspace.json`,
+  legacy history, and the governance journal) binds their bytes at the exact
+  evidence Git head. The live journal is verified separately against the
+  current workspace, so recording proof does not stale itself and journal
+  corruption or projection divergence still fails closed. Ordinary artifacts
+  remain bound to current filesystem bytes.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   Schema migration preserves record placement, detects concurrent changes to

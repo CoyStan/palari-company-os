@@ -3306,7 +3306,7 @@
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
       ],
-      "parallel_policy": "exclusive",
+      "parallel_policy": "coordinate",
       "forbidden_actions": [
         "write outside the declared write paths"
       ],
@@ -3316,7 +3316,82 @@
         "Repeated palari history --checkpoint is idempotent and does not add a second checkpoint transaction.",
         "palari validate and a read-only Approval Inbox smoke pass after checkpointing."
       ],
-      "required_approval_count": 0
+      "required_approval_count": 0,
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F"
+    },
+    {
+      "id": "WORK-091915D43FD04B929A0E561722EC8BDF",
+      "title": "Bind self-journal evidence to exact committed bytes",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Make review and evidence verification resolve the governance-journal artifact against the exact reviewed Git head while preserving live journal divergence detection and ordinary current-artifact checks.",
+      "allowed_resources": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_validation.py",
+        "tests/test_approval_packs.py",
+        "docs/product/security.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_validation.py",
+        "tests/test_approval_packs.py",
+        "docs/product/security.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_validation.py",
+        "tests/test_approval_packs.py",
+        "docs/product/security.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "coordinate",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A checkpoint work item can advance, append proof to its live journal, and record exact-head independent review without a false stale-artifact failure; changed committed journal bytes, an invalid live chain, or ordinary artifact drift still fail closed.",
+      "verification_expectations": [
+        "Focused evidence, agent advance, review, journal, and approval-inbox tests cover self-journal exact-head verification and negative divergence cases.",
+        "The previously blocked checkpoint review records successfully only after fresh exact proof under the repaired behavior.",
+        "Complete verification, install smoke, schema/docs checks, and independent exact-head review pass."
+      ],
+      "required_approval_count": 1
     }
   ],
   "attempts": [
@@ -6276,6 +6351,36 @@
         "tests/test_validation.py",
         "tests/test_cli_smoke.py",
         "tests/test_agent_packets.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "79e35fddd085d2be4ae477e2201476dd0be39325",
+      "allowed_paths": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "started_at": "2026-07-16T20:36:03Z",
+      "head_sha": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "commits": [
+        "9630b0dc907f805172aa67a75cf650f664134e84"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T20:36:03Z",
+      "changed_files": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "output_targets": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
       ]
@@ -9668,6 +9773,35 @@
       "receipt_hash": "sha256:169cd997a2b27f22b561b1059054dbca5c3898a36ba8eb8e8622d959ec7b66ba",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:7f5573665ac955e74293a6bc0a06439850b9163497297cc78e76c26ee8a9be17"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "head_sha": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "status": "passed",
+      "base_ref": "79e35fddd085d2be4ae477e2201476dd0be39325",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-F10DC61C3B1FDB8B sha256:3b45bcb8de245705901d94dc13154bd6a72561e2f7452ee8f10dc61c3b1fdb8b",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-31B360552E4893F3 sha256:3e28169ea6a0ef41b4208db70f16ac1334bff446d49c951c31b360552e4893f3",
+        "docs-check attestation VERIFY-DOCS-CHECK-68BFCCA8FAEE688D sha256:7d395921d4aa3955de6efb14478a71fce1cfa41a3ac70f6b68bfcca8faee688d"
+      ],
+      "artifacts": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+          "sha256": "sha256:2a9adc1844c3eeb710087dd35032fb978845da80bb0230b433686eba8de6218b",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T20:36:03Z",
+      "receipt_hash": "sha256:8e0351322354e666d493de0c7bec9775cd4a29863552ae8ad0d6def23ea27f96",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:137f7b6e4bdcfd7949ce8d81cce537e68a67179cedf4a79c60ae162dc06e7ed1"
     }
   ],
   "review_verdicts": [
@@ -12802,6 +12936,30 @@
       "timestamp": "2026-07-16T19:44:12Z",
       "previous_receipt_hash": "sha256:78521f239afc658832d9f74adf97273094bfeb743708701b3c1b6d54c8c69922",
       "receipt_hash": "sha256:169cd997a2b27f22b561b1059054dbca5c3898a36ba8eb8e8622d959ec7b66ba"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 1 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "timestamp": "2026-07-16T20:36:03Z",
+      "receipt_hash": "sha256:8e0351322354e666d493de0c7bec9775cd4a29863552ae8ad0d6def23ea27f96"
     }
   ],
   "decisions": [

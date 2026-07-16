@@ -32,6 +32,7 @@ from palari_company_os.authoring import (
     create_human_decision,
     create_record,
     reconcile_agent_proof,
+    update_record,
 )
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
@@ -40,6 +41,7 @@ from palari_company_os.evidence_manifest import (
     evidence_manifest_hash,
     git_artifact_state,
     receipt_hash,
+    verify_evidence,
 )
 from palari_company_os.governance_journal import (
     MutationMetadata,
@@ -522,6 +524,99 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
         self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
+
+    def test_self_mutating_governance_outputs_bind_commit_and_allow_review(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        report = verify_evidence(
+            Ws.load(self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(
+            report["exact_head_artifacts"],
+            [".palari/governance-journal.v1.jsonl"],
+        )
+        self.assertTrue(report["journal_continuity_ok"])
+        result = create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": "REVIEW-TEST-SELF-JOURNAL",
+                "work_item_id": self.work_id,
+                "reviewed_head": evidence.head_sha,
+                "reviewer": "PALARI-ARCHITECT",
+                "verdict": "accept-ready",
+                "findings": [],
+                "checks_inspected": ["exact committed projection and live journal"],
+                "residual_risks": [],
+            },
+            command="test exact-head self-journal review",
+            actor="PALARI-ARCHITECT",
+        )
+
+        self.assertEqual(result.action, "created")
+        self.assertTrue(verify_workspace_journal(self.temp_dir)["ok"])
+
+    def test_self_mutating_governance_output_rejects_forged_committed_hash(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        raw = deepcopy(load_store(self.temp_dir).data)
+        raw_evidence = next(
+            item for item in raw["evidence_runs"] if item["id"] == evidence.id
+        )
+        journal_hash = next(
+            item
+            for item in raw_evidence["artifact_hashes"]
+            if item["path"] == ".palari/governance-journal.v1.jsonl"
+        )
+        journal_hash["sha256"] = "sha256:" + "0" * 64
+        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
+        forged = Ws.from_raw(raw, self.temp_dir)
+
+        report = verify_evidence(
+            forged,
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["artifact_hashes_ok"])
+        self.assertFalse(report["manifest_hash_ok"])
+        self.assertTrue(report["journal_continuity_ok"])
+
+    def test_self_mutating_governance_output_rejects_invalid_live_journal(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        with journal.open("a", encoding="utf-8") as stream:
+            stream.write("{}\n")
+
+        report = verify_evidence(
+            Ws.load(self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["artifact_hashes_ok"])
+        self.assertFalse(report["journal_continuity_ok"])
+        with self.assertRaisesRegex(WorkspaceError, "complete exact proof"):
+            create_record(
+                str(self.temp_dir),
+                "review",
+                {
+                    "id": "REVIEW-TEST-INVALID-LIVE-JOURNAL",
+                    "work_item_id": self.work_id,
+                    "reviewed_head": evidence.head_sha,
+                    "reviewer": "PALARI-ARCHITECT",
+                    "verdict": "accept-ready",
+                    "findings": [],
+                    "checks_inspected": ["invalid live journal"],
+                    "residual_risks": [],
+                },
+                command="test invalid live journal rejection",
+                actor="PALARI-ARCHITECT",
+            )
 
     def test_changes_requested_repair_bypasses_rejected_projection_resume(self) -> None:
         with patch(
@@ -2347,6 +2442,98 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             automatic_convergence=False,
         )
         return head_sha, evidence.id, review_id
+
+    def _advance_with_projection_outputs(self):
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        projection_outputs = [
+            "README.md",
+            "workspace.json",
+            ".palari/history.jsonl",
+            ".palari/governance-journal.v1.jsonl",
+        ]
+        raw = load_store(self.temp_dir).data
+        workbench = next(
+            item
+            for item in raw["workbenches"]
+            if item["id"] == "WORKBENCH-REPO-FOUNDATION"
+        )
+        update_record(
+            str(self.temp_dir),
+            "workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            {
+                "output_target_ids": sorted(
+                    set(workbench["output_target_ids"]) | set(projection_outputs)
+                )
+            },
+            command="test permit self-mutating governance outputs",
+            actor="PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {
+                "allowed_resources": projection_outputs,
+                "output_targets": projection_outputs,
+            },
+            command="test declare self-mutating governance outputs",
+            actor="PALARI-STEWARD",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bind governance outputs"],
+            check=True,
+        )
+        start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        (self.temp_dir / "README.md").write_text(
+            "self-journal candidate\n",
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "self-journal candidate"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        workspace = Ws.load(self.temp_dir)
+        return next(
+            item for item in workspace.evidence_runs if item.work_item_id == self.work_id
+        )
 
     def _passing_attestation(self, _workspace, _root, profile, context, **_kwargs):
         key = cache_key(profile, context)
