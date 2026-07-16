@@ -2906,11 +2906,12 @@
       "risk": "R4",
       "intensity": "high",
       "status": "active",
-      "scope": "Bind proof reconciliation to the exact workspace state verified by the caller, fail closed on an injected final-window mutation, and preserve all existing proof, journal, scope, and human-authority behavior.",
+      "scope": "Bind proof reconciliation to the exact workspace digest, Git head, clean tracked state, and SHA-256 artifact digests verified by the caller; reject final-window workspace or artifact drift; preserve proof, journal, scope, and human-authority behavior.",
       "allowed_resources": [
         "src/palari_company_os/store.py",
         "src/palari_company_os/governance_journal.py",
         "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
         "src/palari_company_os/agent_advance.py",
         "src/palari_company_os/authoring.py",
         "tests/test_agent_advance.py",
@@ -2920,6 +2921,7 @@
         "SOURCE-REPO-FOUNDATION"
       ],
       "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
         "src/palari_company_os/agent_advance.py",
         "src/palari_company_os/authoring.py",
         "tests/test_agent_advance.py",
@@ -2938,9 +2940,10 @@
         "weaken proof freshness",
         "bypass human authority"
       ],
-      "acceptance_target": "A current-head proof refresh cannot record proof after any workspace mutation between verification and reconciliation; it returns REFRESH_STATE_CHANGED and writes no attempt, receipt, or evidence. Positive refresh and ordinary proof reconciliation remain compatible.",
+      "acceptance_target": "A proof reconciliation cannot persist proof after workspace, Git-head, tracked-cleanliness, or artifact-digest drift between verification and reconciliation. Refresh returns REFRESH_STATE_CHANGED, ordinary advance returns state-changed, store CAS races use the same stable mapping, and no attempt, receipt, or evidence is written for an injected pre-reconciliation mismatch.",
       "verification_expectations": [
-        "focused injected-race negative and proof-refresh regression tests",
+        "focused injected workspace and artifact race negatives",
+        "positive refresh and ordinary reconciliation regressions",
         "./bin/palari docs check --json",
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
@@ -8521,6 +8524,14 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-16T11:46:51.624766Z"
+    },
+    {
+      "id": "REVIEW-PROOF-RACE-ARCHITECT-20260716-V2",
+      "work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "reviewed_head": "bbff4f655ac9c0fcabf7e366444c1170a839c4cf",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T12:04:17.935684Z"
     }
   ],
   "human_decisions": [
