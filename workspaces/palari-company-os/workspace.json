@@ -3172,7 +3172,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Canonicalize the exact local Approval Pack decision presentation, bind every pack decision to its digest, fail closed when current proof or decision inputs differ, and preserve one attributable human action followed only by deterministic convergence.",
       "allowed_resources": [
         "docs/product/roadmap.md",
@@ -10260,6 +10260,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC-9AEA6030157C",
       "review_reference": "REVIEW-SESSION-CONTRACT-ARCHITECT-9AEA6030157C",
       "timestamp": "2026-07-16T18:06:17.656360Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-66351C3AD0334E78AFE962F06A0BF9CA-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "da0d0715e4df99097e54460dcf5d5b8e2961ef7f",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-DA0D0715E4DF",
+      "review_reference": "REVIEW-PRESENTATION-ARCHITECT-DA0D071-ACCEPT",
+      "timestamp": "2026-07-16T20:30:15.174019Z"
     }
   ],
   "receipts": [
@@ -13241,6 +13254,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T18:06:19.575389Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-HUMAN-FOUNDER",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "da0d0715e4df99097e54460dcf5d5b8e2961ef7f",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-66351C3AD0334E78AFE962F06A0BF9CA-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-DA0D0715E4DF",
+      "review_reference": "REVIEW-PRESENTATION-ARCHITECT-DA0D071-ACCEPT",
+      "receipt_hash": "sha256:169cd997a2b27f22b561b1059054dbca5c3898a36ba8eb8e8622d959ec7b66ba",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-16T20:30:17.126750Z"
     }
   ]
 }
