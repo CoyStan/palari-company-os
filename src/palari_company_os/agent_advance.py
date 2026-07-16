@@ -767,7 +767,6 @@ def _completed_projection(
     *,
     refresh_verification: bool = False,
 ) -> dict[str, Any] | None:
-    from .agent_done import _git_value
     from .governance_journal import (
         pending_workspace_journal_context,
         recover_workspace_journal_if_current,
