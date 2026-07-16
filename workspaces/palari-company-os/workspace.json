@@ -4956,13 +4956,25 @@
       "id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
       "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
       "actor": "PALARI-ARCHITECT",
-      "status": "active",
+      "status": "completed",
       "branch": "codex/fixed-point-governance-convergence",
       "workspace_path": "/home/quetza/palari-company-os",
       "model_or_worker": "gpt-5-codex",
       "cleanliness": "clean",
       "result": "Review and integration in progress.",
-      "started_at": "2026-07-16T03:13:04.315134Z"
+      "started_at": "2026-07-16T03:13:04.315134Z",
+      "base_sha": "682cfe91cc2e8356eb29a452fe289c925524f3fa",
+      "allowed_paths": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "head_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "commits": [
+        "5d0429177072a2fb571b690a63a8cba6c9186b4d"
+      ],
+      "updated_at": "2026-07-16T03:17:52.390719Z",
+      "changed_files": [
+        "docs/product/palari-blueprint.md"
+      ]
     }
   ],
   "evidence_runs": [
@@ -6951,6 +6963,123 @@
         }
       ],
       "manifest_hash": "sha256:e3d1a41253b04245828b890de286c346ed6715ac9b5feb16a038fac9392d35e1"
+    },
+    {
+      "commands": [
+        "./bin/palari --workspace workspaces/palari-company-os docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./scripts/pcaw_demo.sh"
+      ],
+      "artifacts": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "id": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "head_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "status": "failed",
+      "summary": "Superseded evidence attempt: abbreviated head and no canonical Git base produced a missing artifact; do not use. Use V4.",
+      "freshness": "stale",
+      "timestamp": "2026-07-16T03:15:24.384401Z",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/palari-blueprint.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        }
+      ],
+      "manifest_hash": "sha256:b433b13106165eec91667f1c38feadcfc1ed525b306446c604f85a01f3d7438d"
+    },
+    {
+      "commands": [
+        "./bin/palari --workspace workspaces/palari-company-os docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./scripts/pcaw_demo.sh"
+      ],
+      "artifacts": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "id": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V2",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "head_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "status": "failed",
+      "summary": "Superseded evidence attempt: no canonical Git base produced a missing artifact; do not use. Use V4.",
+      "freshness": "stale",
+      "timestamp": "2026-07-16T03:16:19.178186Z",
+      "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/palari-blueprint.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        }
+      ],
+      "manifest_hash": "sha256:19ca4449dd762229b0aea6e6441c4470e184bf813fd8d5ed0ae3f8f80a1408b6"
+    },
+    {
+      "commands": [
+        "./bin/palari --workspace workspaces/palari-company-os docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./scripts/pcaw_demo.sh"
+      ],
+      "artifacts": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "id": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V3",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "head_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "status": "failed",
+      "base_ref": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "summary": "Superseded evidence attempt: the attempt had not yet declared its allowed artifact path; artifact resolution failed closed. Use V4.",
+      "freshness": "stale",
+      "timestamp": "2026-07-16T03:16:46.978858Z",
+      "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/palari-blueprint.md",
+          "sha256": "sha256:missing",
+          "status": "missing"
+        }
+      ],
+      "manifest_hash": "sha256:fc8b62e7069196c8621a415635e87d63ef25e8d151bec7272decea07a1aa4f85"
+    },
+    {
+      "commands": [
+        "./bin/palari --workspace workspaces/palari-company-os docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh",
+        "./scripts/pcaw_demo.sh"
+      ],
+      "artifacts": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "id": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V4",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "head_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "status": "passed",
+      "base_ref": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "summary": "Claude branch 8da6d46 reviewed line by line and merged with claim-safety corrections; docs check passed 12/12, complete gate passed 732 tests across 42 modules and 18/18 PCAW vectors, wheel install smoke passed, and PCAW tamper demo rejected the changed artifact.",
+      "freshness": "current",
+      "timestamp": "2026-07-16T03:17:41.596576Z",
+      "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "docs/product/palari-blueprint.md",
+          "sha256": "sha256:f099519a253bf84f32cd2d3be9605690aebf30cc72051cabb3ff01c921e9b19b",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:d0144c0bc1e4c91c9177c8eb258533ea74f7aca1aa0f03b5bb23c98b7dcb99a3"
     }
   ],
   "review_verdicts": [
@@ -9202,6 +9331,32 @@
       ],
       "timestamp": "2026-07-16T02:19:00Z",
       "receipt_hash": "sha256:26cb5ec1854e41fec265c70f5018ffeafe543d977c71399e489f7b29586316f3"
+    },
+    {
+      "sources_used": [
+        "SOURCE-REPO-ARCHITECTURE"
+      ],
+      "actions_taken": [
+        "fetched exact Claude branch tip 8da6d46",
+        "reviewed all 1033 final blueprint lines",
+        "corrected technical privacy market legal and implementation overclaims",
+        "created verified two-parent merge commit 5d04291"
+      ],
+      "outputs_created": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "not_done": [
+        "did not push",
+        "did not claim human acceptance",
+        "did not implement PCAW v2 proposals",
+        "did not read or modify protected untracked paths"
+      ],
+      "id": "RECEIPT-0D2E36965F224C29A0647A7E95D867B7",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "actor": "PALARI-ARCHITECT",
+      "timestamp": "2026-07-16T03:16:05.891931Z",
+      "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2"
     }
   ],
   "decisions": [
