@@ -435,7 +435,8 @@
         "docs/product/presentation-bound-human-decisions-contract.md",
         "docs/product/security.md",
         "src/palari_company_os/approval_presentations.py",
-        "tests/test_approval_presentations.py"
+        "tests/test_approval_presentations.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
       ],
       "status": "active"
     },
@@ -3273,6 +3274,49 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-DA0D0715E4DF"
+    },
+    {
+      "id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "title": "Enable continuous governance journal in dogfood workspace",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [
+        "WORK-66351C3AD0334E78AFE962F06A0BF9CA"
+      ],
+      "risk": "R3",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Create an explicit from-checkpoint governance-journal boundary for the legacy dogfood workspace and prove replayable continuity plus Approval Inbox availability without claiming prior history was complete.",
+      "allowed_resources": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "exclusive",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "History verification reports a valid from-checkpoint chain whose replay digest matches the workspace, repeated checkpointing is idempotent, and Approval Inbox construction no longer fails for missing journal continuity.",
+      "verification_expectations": [
+        "palari history --verify reports chain_valid with from-checkpoint coverage and matching replay/current workspace digests.",
+        "Repeated palari history --checkpoint is idempotent and does not add a second checkpoint transaction.",
+        "palari validate and a read-only Approval Inbox smoke pass after checkpointing."
+      ],
+      "required_approval_count": 0
     }
   ],
   "attempts": [
