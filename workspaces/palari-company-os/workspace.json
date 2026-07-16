@@ -7627,6 +7627,23 @@
       "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
       "work_contract_hash": "sha256:3a0ba86cb5d6dd41838d7e5504a216109050b8fb1ffa63e5e5894bf0681111db",
       "proof_hash": "sha256:9c57caf58a47c93595562db8ed23c05793e805e469b0ee5d9b66e8aa61109087"
+    },
+    {
+      "id": "REVIEW-BLUEPRINT-20260716-STEWARD",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "reviewed_head": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "reviewer": "PALARI-STEWARD",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T04:07:26.196220Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_hash": "sha256:e5823ec66283f8cf44bf9f9a52727a05a482681fef63e689b8df57bbd33e15ac",
+      "evidence_reference": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V4",
+      "evidence_manifest_hash": "sha256:d0144c0bc1e4c91c9177c8eb258533ea74f7aca1aa0f03b5bb23c98b7dcb99a3",
+      "receipt_reference": "RECEIPT-0D2E36965F224C29A0647A7E95D867B7",
+      "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
+      "work_contract_hash": "sha256:3a0ba86cb5d6dd41838d7e5504a216109050b8fb1ffa63e5e5894bf0681111db",
+      "proof_hash": "sha256:e9cc68e2b023140f7ca07733643df4e418ffcc43cab2dc501329e6f14e000596"
     }
   ],
   "human_decisions": [
