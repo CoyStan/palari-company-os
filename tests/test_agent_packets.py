@@ -29,6 +29,7 @@ from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_runtime import release_agent, start_agent
+from palari_company_os.governance_binding import review_proof_hash
 from palari_company_os.onramp import quick_add_work
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -61,33 +62,25 @@ def _restore_blueprint_human_review_state(data: dict[str, object]) -> None:
     work_id = "WORK-0D2E36965F224C29A0647A7E95D867B7"
     work = next(item for item in data["work_items"] if item.get("id") == work_id)
     work["status"] = "active"
-    work["current_attempt"] = "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7"
-    data["attempts"] = [
-        item
-        for item in data["attempts"]
-        if item.get("work_item_id") != work_id
-        or item.get("id") == work["current_attempt"]
-    ]
-    data["receipts"] = [
-        item
-        for item in data["receipts"]
-        if item.get("work_item_id") != work_id
-        or item.get("attempt_id") == work["current_attempt"]
-    ]
-    data["evidence_runs"] = [
-        item
-        for item in data["evidence_runs"]
-        if item.get("work_item_id") != work_id
-        or item.get("attempt_id") == work["current_attempt"]
-    ]
+    current_review = max(
+        (
+            item
+            for item in data["review_verdicts"]
+            if item.get("work_item_id") == work_id
+            and item.get("reviewer") == "PALARI-STEWARD"
+        ),
+        key=lambda item: item["timestamp"],
+    )
+    human_review = dict(current_review)
+    human_review["id"] = "REVIEW-BLUEPRINT-TEST-HUMAN"
+    human_review["reviewer"] = "HUMAN-FOUNDER"
+    human_review["proof_hash"] = review_proof_hash(human_review)
     data["review_verdicts"] = [
         item
         for item in data["review_verdicts"]
-        if not (
-            item.get("work_item_id") == work_id
-            and item.get("reviewer") == "PALARI-STEWARD"
-        )
+        if item.get("work_item_id") != work_id
     ]
+    data["review_verdicts"].append(human_review)
     data["human_decisions"] = [
         item for item in data["human_decisions"] if item.get("work_item_id") != work_id
     ]
