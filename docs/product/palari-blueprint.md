@@ -1,7 +1,8 @@
 # The Palari Blueprint — Git, but for AI Work
 
 One file, everything: the thesis, the verified evidence, the protocol design,
-the strategy, and the implementation plan. Consolidated 2026-07-16; this
+the strategy, and the implementation plan. Consolidated 2026-07-16 and
+current against `main` at `0574b50` (opaque concurrent work items); this
 document supersedes the earlier `competitive-landscape.md` and
 `git-for-ai-work.md`. All market and technical claims were verified against
 primary sources on 2026-07-15/16 (§19); star counts and endpoint liveness
@@ -173,7 +174,7 @@ the receipt.
 ## 5. Where Palari stands today
 
 From the full code-level evaluation of this repository (2026-07-15): the
-engineering is real — 700 passing tests, zero runtime dependencies, a working
+engineering is real — 719 passing tests, zero runtime dependencies, a working
 offline demo, live hook enforcement (it blocked the evaluating agent's own
 out-of-contract command mid-evaluation), and unusually honest threat-model
 documentation. The weaknesses are equally real: the shell-parsing enforcement
@@ -211,6 +212,14 @@ reading suggests. Already shipped and tested:
   specify: *algorithm agility, key identity, revocation, threshold policy,
   custody, and verification time*. That sentence is the v2 requirements
   checklist, written before we knew we'd need it.
+- **Concurrent bounded work** (merged 2026-07-16, PR #13): opaque
+  collision-resistant work IDs, an explicit dependency DAG between work items
+  (missing/duplicate/self-referential/cyclic edges fail closed),
+  cross-worktree single-owner claim leases with compare-and-swap semantics,
+  `palari agent start --isolate` (deterministic branch + worktree per work
+  item), and worktree-portable evidence verification. Several agents can now
+  execute independent bounded work in parallel on one repository without
+  racing each other's claims.
 
 What v1 deliberately lacks — the v2 work: signatures and identity, proof of
 what was presented to the approver, trusted time, non-file subjects,
@@ -306,8 +315,11 @@ Ordered by leverage; independent of the v2 protocol work:
    Cursor `permissions.json`/`sandbox.json`). Hooks remain the evidence
    recorder and governance protector; the OS sandbox blocks. This retires
    the shell-parsing arms race.
-2. **Worktree isolation per work item** (`agent start --worktree`): binds the
-   boundary physically and matches the one pattern with mass adoption.
+2. **Worktree isolation per work item** — SHIPPED as
+   `palari agent start --isolate` (PR #13, 2026-07-16), with cross-worktree
+   single-owner leases and worktree-portable evidence on top of it. The
+   blueprint recommendation stands validated; remaining work is adoption in
+   the daily loop, not construction.
 3. **Push notifications for the approval inbox** — Approval Packs already
    exceed competitors' bulk-approval semantics; a webhook notifier for
    pending decisions closes the UX gap.
@@ -468,7 +480,11 @@ the same shape.
 statement digests: a revision receipt cites what it supersedes; dependent
 work cites prerequisites. The linear journal upgrades into git's actual
 structure — a content-addressed DAG — so verifying one receipt transitively
-pins its ancestry, and parallel workstreams merge verifiably.
+pins its ancestry, and parallel workstreams merge verifiably. The workspace
+already models the sibling concept since PR #13: work items carry an explicit
+fail-closed dependency DAG. WRP-6 lifts the same shape into the protocol
+layer, so receipt lineage should mirror those dependency edges where they
+exist.
 
 **Revocation and supersession.** The workspace model already implements the
 semantics — a later negative decision revokes an earlier approval,
