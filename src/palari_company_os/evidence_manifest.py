@@ -411,7 +411,10 @@ def _relocated_git_artifact_root(fallback: Path, attempt: Any) -> Path:
     head_sha = str(_field(attempt, "head_sha") or "")
     if len(head_sha) != 40 or any(character not in "0123456789abcdef" for character in head_sha):
         raise ValueError("attempt candidate commit is required for portable artifact proof")
-    resolved = _git_value(current_root, ["rev-parse", "--verify", f"{head_sha}^{{commit}}"])
+    resolved = _git_exact_object_value(
+        current_root,
+        ["rev-parse", "--verify", f"{head_sha}^{{commit}}"],
+    )
     if resolved != head_sha:
         raise ValueError("attempt candidate commit is unavailable in the current Git repository")
     return current_root

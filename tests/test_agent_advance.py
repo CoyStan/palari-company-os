@@ -39,6 +39,7 @@ from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.evidence_manifest import (
+    evidence_artifact_root,
     evidence_manifest_hash,
     git_artifact_state,
     receipt_hash,
@@ -674,6 +675,64 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertFalse(report["artifact_hashes_ok"])
         self.assertFalse(report["manifest_hash_ok"])
         self.assertTrue(report["journal_continuity_ok"])
+
+    def test_relocated_artifact_root_rejects_replace_only_candidate(self) -> None:
+        fake_head = "1" * 40
+        actual_head = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "update-ref",
+                f"refs/replace/{fake_head}",
+                actual_head,
+            ],
+            check=True,
+        )
+        ordinary = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{fake_head}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        raw = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "--no-replace-objects",
+                "rev-parse",
+                "--verify",
+                f"{fake_head}^{{commit}}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(ordinary, fake_head)
+        self.assertNotEqual(raw.returncode, 0)
+
+        with self.assertRaisesRegex(ValueError, "candidate commit is unavailable"):
+            evidence_artifact_root(
+                self.temp_dir,
+                "ATTEMPT-RELOCATED-REPLACE",
+                ["README.md"],
+                [
+                    {
+                        "id": "ATTEMPT-RELOCATED-REPLACE",
+                        "workspace_path": str(self.temp_dir / "missing-original-repo"),
+                        "allowed_paths": ["README.md"],
+                        "forbidden_paths": [],
+                        "head_sha": fake_head,
+                    }
+                ],
+            )
 
     def test_changes_requested_repair_bypasses_rejected_projection_resume(self) -> None:
         with patch(
