@@ -5772,7 +5772,32 @@
       "model_or_worker": "codex",
       "cleanliness": "dirty",
       "result": "Implemented and locally verified; awaiting exact candidate commit.",
-      "started_at": "2026-07-16T15:08:58.707749Z"
+      "started_at": "2026-07-16T15:08:58.707749Z",
+      "base_sha": "a4d0c8c33e2d1233e96b8453b5222220da706283",
+      "allowed_paths": [
+        "docs/product/roadmap.md",
+        "docs/product/portable-agent-session-contract-compiler-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "AGENTS.md",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_git_hooks.py",
+        "tests/test_review_guides.py",
+        "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ]
     }
   ],
   "evidence_runs": [
