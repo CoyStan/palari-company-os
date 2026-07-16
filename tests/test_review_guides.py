@@ -126,7 +126,13 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("--reviewer HUMAN-FOUNDER", result.stdout)
 
     def test_cli_agent_next_text_prints_start_blockers(self) -> None:
-        result = self.run_cli("agent", "next", "--as", "PALARI-STEWARD")
+        result = self.run_cli(
+            "agent",
+            "next",
+            "--as",
+            "PALARI-SOFIA",
+            workspace=ACME,
+        )
 
         self.assertIn("start blockers:", result.stdout)
         self.assertIn("ATTENTION_NOT_STARTABLE", result.stdout)
@@ -153,11 +159,15 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn(f"step: {top['candidate']['next_step_type']}", result.stdout)
         self.assertIn(payload["next_allowed_commands"][0], result.stdout)
 
-    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def run_cli(
+        self,
+        *args: str,
+        workspace: Path = DOGFOOD,
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(DOGFOOD), *args],
+            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(workspace), *args],
             cwd=REPO_ROOT,
             env=env,
             check=True,

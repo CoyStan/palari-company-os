@@ -215,9 +215,23 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
         if args.agent_command == "brief":
+            packet = build_agent_brief(
+                workspace,
+                args.work_id,
+                args.palari_id,
+                args.mode,
+            )
+            if args.session_contract:
+                from .agent_session_contract import compile_agent_session_contract
+
+                return CommandResult(
+                    "agent-session-contract",
+                    compile_agent_session_contract(packet),
+                    args.json,
+                )
             return CommandResult(
                 "agent-brief",
-                build_agent_brief(workspace, args.work_id, args.palari_id, args.mode),
+                packet,
                 args.json,
             )
         if args.agent_command == "start":

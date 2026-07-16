@@ -60,6 +60,16 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - `agent start --isolate` requires a committed work definition, creates or
   resumes a deterministic local branch/worktree, and grants no review,
   acceptance, merge, push, deploy, or external-write authority.
+- Every new ready claim binds a deterministic portable session contract stored
+  beneath `.palari/packets/session-contracts/`. The contract contains no
+  wall-clock compilation time or absolute local path, grants no authority by
+  itself, and labels host write/read/stop enforcement as adapter-required or
+  advisory unless a separately verified adapter provides it. Missing,
+  malformed, duplicate-key, digest-mismatched, path-mismatched, or
+  current-packet-mismatched contracts invalidate the claim. New claim schema v2
+  requires both binding fields, so removing both cannot fall back to legacy
+  handling. Historical claim schema v1 records without the additive binding
+  remain readable until restarted, when they are upgraded to v2.
 - Git integration readiness compares the exact attempt commit with a target in
   an isolated temporary clone. Divergent projections always require refreshed
   exact proof even when the simulated merge is clean.
