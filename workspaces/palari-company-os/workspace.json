@@ -2739,7 +2739,7 @@
         "./scripts/verify.sh"
       ],
       "required_approval_count": 1,
-      "current_attempt": "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7"
+      "current_attempt": "ATTEMPT-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212"
     },
     {
       "id": "WORK-AGENT-REVIEW-AUTHORITY",
@@ -5636,6 +5636,28 @@
         "src/palari_company_os/evidence_manifest.py",
         "tests/test_agent_advance.py"
       ]
+    },
+    {
+      "id": "ATTEMPT-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "actor": "PALARI-ARCHITECT",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "allowed_paths": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "started_at": "2026-07-16T13:04:28.000001Z",
+      "head_sha": "679ad13be212c8aa7cb5401b2761efddf7a622db",
+      "commits": [
+        "679ad13be212c8aa7cb5401b2761efddf7a622db"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T13:04:28.000001Z",
+      "changed_files": [],
+      "output_targets": [
+        "docs/product/palari-blueprint.md"
+      ]
     }
   ],
   "evidence_runs": [
@@ -8472,6 +8494,35 @@
       "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:57886d9ae6ced192c54f4d6f920627539a071f40253c537e5bf44c87ff670655"
+    },
+    {
+      "id": "EVIDENCE-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212",
+      "head_sha": "679ad13be212c8aa7cb5401b2761efddf7a622db",
+      "status": "passed",
+      "base_ref": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-720D589037E6A5D3 sha256:dd764b432b5b5a3116b15f36dd8153b413372d8c32502a08720d589037e6a5d3",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-697AEE1B9C609533 sha256:d33ed4e6721df51caad676b40a051019fd1b6c24a56563c8697aee1b9c609533",
+        "docs-check attestation VERIFY-DOCS-CHECK-CAF51CB6E371746F sha256:b0747c22c21ddd6a9761c4d24be9d05aededf45b35bae59ecaf51cb6e371746f"
+      ],
+      "artifacts": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/product/palari-blueprint.md",
+          "sha256": "sha256:f099519a253bf84f32cd2d3be9605690aebf30cc72051cabb3ff01c921e9b19b",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed for unchanged governed artifacts.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T13:04:28.000001Z",
+      "receipt_hash": "sha256:e3c8123b441244fd0f1f1bd723db1af75e94bd954903e598442e5f201ad267e2",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:8af9aabf0d90b2e1eda8baf9e61c3775b82482ca79e07e956f688a0621501629"
     }
   ],
   "review_verdicts": [
@@ -11242,6 +11293,30 @@
       ],
       "timestamp": "2026-07-16T12:23:23Z",
       "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40"
+    },
+    {
+      "id": "RECEIPT-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "attempt_id": "ATTEMPT-REFRESH-WORK-0D2E36965F224C29A0647A7E95D867B7-679AD13BE212",
+      "actor": "PALARI-ARCHITECT",
+      "sources_used": [
+        "SOURCE-REPO-ARCHITECTURE"
+      ],
+      "actions_taken": [
+        "Reverified 1 unchanged governed artifact(s) at current repository HEAD.",
+        "Reran the authoritative exact-state verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/palari-blueprint.md"
+      ],
+      "not_done": [
+        "No governed artifact bytes were changed.",
+        "No review, human decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [],
+      "timestamp": "2026-07-16T13:04:28.000001Z",
+      "previous_receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
+      "receipt_hash": "sha256:e3c8123b441244fd0f1f1bd723db1af75e94bd954903e598442e5f201ad267e2"
     }
   ],
   "decisions": [
