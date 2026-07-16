@@ -3006,7 +3006,8 @@
         "./scripts/install_smoke.sh"
       ],
       "required_approval_count": 1,
-      "parent_work_item_id": "WORK-C40EC756920849B59481E834D46E80F1"
+      "parent_work_item_id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312"
     }
   ],
   "attempts": [
@@ -5514,6 +5515,45 @@
         "tests/test_agent_advance.py"
       ],
       "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/tmp/palari-final-proof-recovery",
+      "base_sha": "bff0d9d16f48875005473018dd63a0bb519de0b7",
+      "allowed_paths": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "started_at": "2026-07-16T12:14:43Z",
+      "head_sha": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "commits": [
+        "8a25bf7d631286d595ea4c9e878be2533ce2220f"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T12:14:43Z",
+      "changed_files": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
         "src/palari_company_os/agent_advance.py",
         "src/palari_company_os/authoring.py",
         "tests/test_agent_advance.py",
@@ -8267,6 +8307,59 @@
         }
       ],
       "manifest_hash": "sha256:06185e1804bf0bc80d2455894e142652806f196230662f6f48836224acff1dec"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "head_sha": "8a25bf7d631286d595ea4c9e878be2533ce2220f",
+      "status": "passed",
+      "base_ref": "bff0d9d16f48875005473018dd63a0bb519de0b7",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-A1F4562B3F0AD6B1 sha256:d5ab32002c8c37be1b0d9a991e47cb68f6a46879f1d79076a1f4562b3f0ad6b1",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-2FB758B00F3D928E sha256:7893d6a67a5689da34ed05fa9777bb10ead03a786af4a37b2fb758b00f3d928e",
+        "docs-check attestation VERIFY-DOCS-CHECK-06A20B427477C552 sha256:88550234fcf5f41ee2763554bc63b2e5465eb83c5d2e9ab206a20b427477c552"
+      ],
+      "artifacts": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:fec59998077c39d9f6e99d7b643481f267a94f96617a0316ac807ae6410db404",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:abffa0b6bfc7451c0b2b04690ea659f41b51fcf67d6c36e80591b3a7880d6563",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "sha256": "sha256:d3917cb55e4599e0e2d5974e1cdbc6b2a1b4e2ff24251101f44632078636d9bf",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:65611b49eb31f2971edbf185acee0fe4ff8bf898bf658bf52333307e0370f115",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:ea5118aa32b0ee6ebe359249226d14d421c7d0770f8f669d03566f12bd495e75",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T12:14:43Z",
+      "receipt_hash": "sha256:f3f9a9e159ecc15afd0f82f09c4b0f95df302e1bedce748d9d897c674f31289f",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:a6f5bae184f9d9129a86a69d49ce63971bc4cf8a223fffba20dcb2a2481d29c1"
     }
   ],
   "review_verdicts": [
@@ -10941,6 +11034,38 @@
       ],
       "timestamp": "2026-07-16T11:56:11Z",
       "receipt_hash": "sha256:b73884310eba75e1dcb60a77377a759c79e139f81cbb8e0807bd2d68b127f2da"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2343053E948941AB9D5AD6465866A36B-8A25BF7D6312",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 5 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/command-reference.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_agent_advance.py"
+      ],
+      "timestamp": "2026-07-16T12:14:43Z",
+      "receipt_hash": "sha256:f3f9a9e159ecc15afd0f82f09c4b0f95df302e1bedce748d9d897c674f31289f"
     }
   ],
   "decisions": [
