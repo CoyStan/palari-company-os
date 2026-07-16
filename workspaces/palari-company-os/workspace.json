@@ -2890,11 +2890,63 @@
       "palari": "PALARI-STEWARD",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
-      "scope": "Add explicit current-head proof refresh for unchanged governed artifacts and permit older exact-bound accepted decisions to remain as stale audit history when a new attempt becomes current. Rerun authoritative verification and stop at fresh review; never count old authority, rewrite the blueprint, or weaken current binding checks.",
-      "acceptance_target": "The unchanged blueprint receives new exact-head proof; the previous accepted decision remains attributable but contributes zero current quorum; fresh review and founder acceptance are required; changed artifacts, dirty state, mismatched bindings, and ordinary unclaimed execution remain fail closed.",
+      "status": "blocked",
+      "scope": "Superseded after independent review reproduced a final-window workspace race. Its changes-requested proof remains immutable; child WORK-C40EC756920849B59481E834D46E80F1 carries the bounded repair.",
+      "acceptance_target": "Audit-only changes-requested candidate. Implementation acceptance belongs exclusively to child WORK-C40EC756920849B59481E834D46E80F1 after fresh proof and review.",
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-948A72CB8E4241B19B5D00FDD6B96AA4-D7716417EE30"
+    },
+    {
+      "id": "WORK-C40EC756920849B59481E834D46E80F1",
+      "title": "Close proof-refresh transaction race",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Bind proof reconciliation to the exact workspace state verified by the caller, fail closed on an injected final-window mutation, and preserve all existing proof, journal, scope, and human-authority behavior.",
+      "allowed_resources": [
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths",
+        "modify docs/product/palari-blueprint.md",
+        "weaken proof freshness",
+        "bypass human authority"
+      ],
+      "acceptance_target": "A current-head proof refresh cannot record proof after any workspace mutation between verification and reconciliation; it returns REFRESH_STATE_CHANGED and writes no attempt, receipt, or evidence. Positive refresh and ordinary proof reconciliation remain compatible.",
+      "verification_expectations": [
+        "focused injected-race negative and proof-refresh regression tests",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "parent_work_item_id": "WORK-948A72CB8E4241B19B5D00FDD6B96AA4"
     }
   ],
   "attempts": [
