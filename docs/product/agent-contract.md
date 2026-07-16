@@ -196,7 +196,8 @@ local Git witness for ready started work:
   authority binding, enforcement status, and limitations. Its identifier is
   derived from its canonical digest; repeated compilation of the same packet
   authority produces identical bytes.
-- `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
+- `.palari/claims/WORK-ID.json` stores claim schema v2, the Palari, mode, lease
+  expiry, packet id,
   context hash, portable-contract path and digest, and a hashed metadata-only
   Git dirty baseline for the active local claim. The baseline records
   path/status/stat metadata, never contents.
@@ -205,6 +206,10 @@ local Git witness for ready started work:
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
   local reflog entry provide a separate Git-backed witness. All four views must
   agree before claim authority or `agent done` attribution is accepted.
+  New v2 claims require both portable-contract binding fields. Historical v1
+  claims without those fields remain readable and upgrade on restart; the
+  schema marker is declared local state, not authentication against a hostile
+  same-user process.
 
 Implemented:
 

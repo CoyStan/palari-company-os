@@ -172,6 +172,7 @@ class AgentSessionContractTests(unittest.TestCase):
             path = workspace_file.parent / relative
             persisted = json.loads(path.read_text(encoding="utf-8"))
 
+            self.assertEqual(claim["schema_version"], "palari.agent_claim.v2")
             self.assertTrue(path.is_file())
             self.assertEqual(
                 persisted["contract_digest"],
@@ -224,6 +225,65 @@ class AgentSessionContractTests(unittest.TestCase):
                 message = str(owned["message"]).lower().replace("_", " ")
                 self.assertIn("session contract", message)
                 self.assertIn("agent start", str(owned["next_command"]))
+
+    def test_new_claim_cannot_drop_both_contract_binding_fields(self) -> None:
+        with self.temp_workspace_file() as workspace_file:
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            claim.pop("session_contract_path")
+            claim.pop("session_contract_digest")
+            claim_path = (
+                workspace_file.parent
+                / ".palari"
+                / "claims"
+                / "WORK-0003.json"
+            )
+            claim_path.write_text(json.dumps(claim), encoding="utf-8")
+
+            check = build_agent_check(
+                Workspace.load(workspace_file),
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+
+            owned = self._check(check, "CLAIM_OWNED")
+            self.assertEqual(owned["status"], "fail")
+            message = str(owned["message"]).lower().replace("_", " ")
+            self.assertIn("session contract", message)
+            self.assertIn("agent start", str(owned["next_command"]))
+
+    def test_legacy_v1_claim_without_contract_binding_remains_readable(self) -> None:
+        with self.temp_workspace_file() as workspace_file:
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            claim["schema_version"] = "palari.agent_claim.v1"
+            claim.pop("session_contract_path")
+            claim.pop("session_contract_digest")
+            claim_path = (
+                workspace_file.parent
+                / ".palari"
+                / "claims"
+                / "WORK-0003.json"
+            )
+            claim_path.write_text(json.dumps(claim), encoding="utf-8")
+
+            check = build_agent_check(
+                Workspace.load(workspace_file),
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+
+            self.assertEqual(self._check(check, "CLAIM_OWNED")["status"], "pass")
 
     def test_contract_path_traversal_and_symlink_escape_fail_claim_check(self) -> None:
         for mutation in ("traversal", "symlink"):

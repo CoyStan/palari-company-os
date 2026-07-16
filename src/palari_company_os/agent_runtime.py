@@ -24,7 +24,8 @@ from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, WorkspaceError
 
 
-CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
+CLAIM_SCHEMA_VERSION = "palari.agent_claim.v2"
+LEGACY_CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
 GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
 GIT_LEASE_VERSION = "palari.git_claim_lease.v1"
 PACKET_RUNTIME_STATE_FIELDS = {
@@ -700,7 +701,8 @@ def _read_persisted_baseline(path: Path, work_id: str) -> dict[str, Any] | None:
 
 
 def _validate_active_claim(claim: dict[str, Any]) -> str:
-    if claim.get("schema_version") != CLAIM_SCHEMA_VERSION:
+    schema_version = claim.get("schema_version")
+    if schema_version not in {CLAIM_SCHEMA_VERSION, LEGACY_CLAIM_SCHEMA_VERSION}:
         return f"unsupported schema_version {claim.get('schema_version', '') or '(missing)'}"
     for field in ("work_item", "claimed_by", "mode", "packet_id", "context_hash", "packet_path"):
         if not isinstance(claim.get(field), str) or not claim[field]:
@@ -721,7 +723,8 @@ def _validate_active_claim(claim: dict[str, Any]) -> str:
             return "git_baseline does not match git_baseline_hash"
     contract_path = claim.get("session_contract_path")
     contract_digest = claim.get("session_contract_digest")
-    if contract_path is not None or contract_digest is not None:
+    contract_required = schema_version == CLAIM_SCHEMA_VERSION
+    if contract_required or contract_path is not None or contract_digest is not None:
         if not isinstance(contract_path, str) or not contract_path:
             return "session_contract_path is missing"
         try:
@@ -813,9 +816,11 @@ def _persisted_session_contract_error(
     relative = claim.get("session_contract_path")
     digest = claim.get("session_contract_digest")
     if relative is None and digest is None:
-        # Claims created before session-contract v1 remain readable. Every new
-        # start writes both fields and therefore takes the strict path below.
-        return ""
+        if claim.get("schema_version") == LEGACY_CLAIM_SCHEMA_VERSION:
+            # Genuine v1 claims predate portable session-contract binding. A
+            # successful restart upgrades them to v2 and takes the strict path.
+            return ""
+        return "session contract binding is missing from a v2 claim"
     try:
         normalized = validate_workspace_path(str(relative or ""))
     except ValueError as exc:

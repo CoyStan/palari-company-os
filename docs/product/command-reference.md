@@ -415,8 +415,11 @@ packet under `.palari/packets/`, persists the canonical session contract under
 lease claim under `.palari/claims/`, and returns the packet with `start`
 metadata. Missing, malformed, duplicate-key, digest-mismatched, path-mismatched,
 or current-packet-mismatched contracts invalidate the claim with restart
-guidance. Historical claims without the additive contract fields remain
-readable until restarted. If the packet is blocked, `agent start` reports
+guidance. Every new claim uses schema v2 and requires both contract fields, so
+deleting both fails closed. Historical schema-v1 claims without the additive
+contract fields remain readable until restarted and upgraded. The local schema
+marker does not authenticate a claim against a hostile same-user process. If
+the packet is blocked, `agent start` reports
 blockers and writes nothing. `agent release` removes this Palari's local claim
 when work is abandoned or handed off.
 For Git worktrees, the claim also stores a hashed, metadata-only baseline of

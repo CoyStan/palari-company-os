@@ -40,7 +40,8 @@ proof. No checkbox is complete merely because code or prose exists.
   **Objective evidence:** negative tests mutate contract bytes, authority
   fields, paths, and packet scope and observe failed claim/check status.
   **Verification:** focused session-contract, runtime, and packet tests.
-  **Status:** in progress; implemented and verified, awaiting exact commit.
+  **Status:** in progress; the first exact-head review found and the repair now
+  closes a missing-field downgrade from new claims into legacy compatibility.
   **Exact committed proof:** pending exact commit.
 
 - [ ] **Outcome:** Report enforcement honestly so a portable declaration is
@@ -78,7 +79,18 @@ proof. No checkbox is complete merely because code or prose exists.
   **Objective evidence:** recorded commands, timing, exact head, and ACCEPT or
   repaired review history.
   **Verification:** repository-required verification stack.
-  **Status:** in progress; the uncommitted candidate passed 765 tests in
-  54.31 seconds and isolated install smoke in 12.66 seconds; exact-commit
-  reruns and independent review remain.
+  **Status:** in progress. Exact head
+  `f464a7420b6aaee69ab2cb089843046e88f7a6c1` passed the complete profile in
+  53.22 seconds, isolated install smoke in 11.76 seconds, and docs check in
+  0.24 seconds. Independent review correctly returned changes-requested; the
+  repair needs a new exact commit, proof run, and review.
   **Exact committed proof:** pending exact commit.
+
+## Independent Review History
+
+1. `f464a7420b6aaee69ab2cb089843046e88f7a6c1`: changes-requested in
+   `REVIEW-SESSION-CONTRACT-ARCHITECT-F464A7420B6A-REJECT`. A new claim could
+   lose both contract fields and be mistaken for a historical claim, and this
+   completion contract still contained pre-commit placeholders. Claim schema
+   v2 and this evidence refresh repair those findings; fresh exact-head review
+   remains required.
