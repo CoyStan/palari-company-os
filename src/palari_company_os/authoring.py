@@ -13,6 +13,10 @@ from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
 
 
+class ReconciliationStateChanged(WorkspaceError):
+    """The workspace no longer matches the proof plan verified by the caller."""
+
+
 COLLECTIONS = {
     "goal": "goals",
     "human": "humans",
@@ -663,6 +667,7 @@ def reconcile_agent_proof(
     changed_files: list[str],
     output_targets: list[str],
     proof_timestamp: str,
+    expected_workspace_digest: str,
     crash_hook: Any | None = None,
 ) -> dict[str, Any]:
     """Atomically create or resume the agent-owned proof projection.
@@ -673,9 +678,13 @@ def reconcile_agent_proof(
     workspace replacement and one governance-journal transaction.
     """
 
-    from .governance_journal import MutationMetadata
+    from .governance_journal import MutationMetadata, workspace_digest
 
     store = load_store(workspace_path)
+    if workspace_digest(store.data) != expected_workspace_digest:
+        raise ReconciliationStateChanged(
+            "workspace changed after the proof plan was verified"
+        )
     workspace = validate_data(store.data_path, store.data)
     work = workspace.work_item(work_id)
     if work is None:

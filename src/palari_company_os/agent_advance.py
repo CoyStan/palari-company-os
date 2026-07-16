@@ -10,7 +10,11 @@ from typing import Any, cast
 from .agent_done import _preflight
 from .agent_handoff import build_agent_handoff
 from .agent_runtime import claim_check, read_claim, read_claim_packet, release_agent
-from .authoring import complete_work, reconcile_agent_proof
+from .authoring import (
+    ReconciliationStateChanged,
+    complete_work,
+    reconcile_agent_proof,
+)
 from .evidence_manifest import verify_evidence
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
@@ -454,15 +458,25 @@ def agent_advance(
             "message": "Governed state changed during verification; inspect and retry safely.",
         }
 
-    proof_steps = _reconcile_proof(
-        current,
-        workspace_path,
-        work_id,
-        palari_id,
-        current_preflight,
-        verification_results,
-        summary,
-    )
+    try:
+        proof_steps = _reconcile_proof(
+            current,
+            workspace_path,
+            work_id,
+            palari_id,
+            current_preflight,
+            verification_results,
+            summary,
+            expected_workspace_digest=str(current_facts["workspace_digest"]),
+        )
+    except ReconciliationStateChanged:
+        return {
+            **payload,
+            "status": "state-changed",
+            "would_mutate": False,
+            "verification": verification_results,
+            "message": "Governed state changed before proof reconciliation; inspect and retry safely.",
+        }
     final_workspace = Workspace.load(workspace_path)
     work = final_workspace.work_item(work_id)
     if work is None:
@@ -651,6 +665,8 @@ def _reconcile_proof(
     preflight: dict[str, Any],
     verification: list[dict[str, Any]],
     summary: str,
+    *,
+    expected_workspace_digest: str,
 ) -> list[dict[str, str]]:
     work = workspace.work_item(work_id)
     if work is None:
@@ -717,6 +733,7 @@ def _reconcile_proof(
         changed_files=list(preflight["changed_files"]),
         output_targets=list(work.output_targets),
         proof_timestamp=proof_timestamp,
+        expected_workspace_digest=expected_workspace_digest,
     )
     return list(result["steps"])
 
@@ -986,13 +1003,22 @@ def _completed_projection(
     if convergence["status"] == "blocked":
         code = str(convergence.get("code") or "CURRENT_PROOF_INVALID")
         if code == "CURRENT_PROOF_INVALID" and refresh_verification:
-            return _refresh_stale_projection(
-                workspace,
-                workspace_path,
-                work,
-                palari_id,
-                convergence,
-            )
+            try:
+                return _refresh_stale_projection(
+                    workspace,
+                    workspace_path,
+                    work,
+                    palari_id,
+                    convergence,
+                )
+            except ReconciliationStateChanged:
+                latest = Workspace.load(workspace_path)
+                return _resume_blocked(
+                    latest,
+                    work.id,
+                    "REFRESH_STATE_CHANGED",
+                    "Governed state changed before the proof transaction began; inspect and retry.",
+                )
         if code == "TRANSITION_REJECTED":
             code = "ACCEPTED_COMPLETION_INVALID"
         return _resume_blocked(
@@ -1288,6 +1314,7 @@ def _refresh_stale_projection(
         changed_files=[],
         output_targets=list(refresh["artifacts"]),
         proof_timestamp=proof_timestamp,
+        expected_workspace_digest=str(refresh["workspace_digest"]),
     )
     final_workspace = Workspace.load(workspace_path)
     handoff = build_agent_handoff(final_workspace, work.id, palari_id, "execute")

@@ -54,6 +54,7 @@ from palari_company_os.governance_convergence import (
     converge_work_item,
     run_fixed_point,
 )
+from palari_company_os.store import load_store
 from palari_company_os.verification_attestations import (
     VerificationContext,
     VerificationProfile,
@@ -957,6 +958,107 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(old_decision.reviewed_head, previous_head)
         self.assertNotEqual(old_decision.reviewed_head, attempt.head_sha)
 
+    def test_explicit_refresh_rejects_workspace_race_before_reconciliation(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        (self.temp_dir / "RELATED.md").write_text(
+            "later repository context\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "RELATED.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        before = Ws.load(self.temp_dir)
+        before_attempts = {
+            item.id for item in before.attempts if item.work_item_id == self.work_id
+        }
+        before_receipts = {
+            item.id for item in before.receipts if item.work_item_id == self.work_id
+        }
+        before_evidence = {
+            item.id for item in before.evidence_runs if item.work_item_id == self.work_id
+        }
+
+        def mutate_then_reconcile(*args, **kwargs):
+            create_record(
+                str(self.temp_dir),
+                "work",
+                {
+                    "id": "WORK-CONCURRENT-REFRESH-RACE",
+                    "title": "Concurrent workspace mutation",
+                    "palari": "PALARI-STEWARD",
+                    "goal": "GOAL-REPO-0001",
+                    "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                    "risk": "R1",
+                    "intensity": "light",
+                    "required_approval_count": 0,
+                    "scope": "Prove refresh detects final-window state drift",
+                    "acceptance_target": "The unrelated mutation remains visible",
+                    "status": "active",
+                    "allowed_resources": ["README.md"],
+                    "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                    "output_targets": ["README.md"],
+                    "forbidden_actions": ["deploy"],
+                    "verification_expectations": ["affected verification"],
+                },
+                command="test concurrent refresh mutation",
+                actor="PALARI-STEWARD",
+            )
+            return reconcile_agent_proof(*args, **kwargs)
+
+        with (
+            patch(
+                "palari_company_os.agent_advance.run_or_reuse",
+                side_effect=self._passing_attestation,
+            ),
+            patch(
+                "palari_company_os.agent_advance.reconcile_agent_proof",
+                side_effect=mutate_then_reconcile,
+            ),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_STATE_CHANGED")
+        after = Ws.load(self.temp_dir)
+        self.assertIsNotNone(after.work_item("WORK-CONCURRENT-REFRESH-RACE"))
+        self.assertEqual(
+            before_attempts,
+            {item.id for item in after.attempts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_receipts,
+            {item.id for item in after.receipts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_evidence,
+            {item.id for item in after.evidence_runs if item.work_item_id == self.work_id},
+        )
+
     def test_explicit_refresh_rejects_changed_artifact_without_running_profiles(
         self,
     ) -> None:
@@ -1761,6 +1863,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 proof_timestamp=_git_commit_timestamp(
                     {"git_root": str(self.temp_dir), "head_sha": head}
                 ),
+                expected_workspace_digest=workspace_digest(
+                    load_store(self.temp_dir).data
+                ),
             )
 
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
@@ -1841,6 +1946,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 output_targets=["README.md"],
                 proof_timestamp=_git_commit_timestamp(
                     {"git_root": str(self.temp_dir), "head_sha": head}
+                ),
+                expected_workspace_digest=workspace_digest(
+                    load_store(self.temp_dir).data
                 ),
                 crash_hook=crash_hook,
             )
