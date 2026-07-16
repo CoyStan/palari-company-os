@@ -3018,7 +3018,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Make tracked-cleanliness observation report both sides of renames so a substantive deletion cannot be hidden by a canonical governance destination.",
       "allowed_resources": [
         "src/palari_company_os/agent_advance.py",
@@ -9002,6 +9002,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
       "review_reference": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V3",
       "timestamp": "2026-07-16T11:06:43.949401Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "review_reference": "REVIEW-RENAME-MASKING-ARCHITECT-20260716-V4",
+      "timestamp": "2026-07-16T12:58:23.440491Z"
     }
   ],
   "receipts": [
@@ -11636,6 +11649,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T11:06:45.579033Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER",
+      "work_item_id": "WORK-FCA33836DC454192AFA56D8D973F4E98",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "e6c238a37779e7512bb6b1d4ade287a64dd24d3f",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-FCA33836DC454192AFA56D8D973F4E98-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779",
+      "review_reference": "REVIEW-RENAME-MASKING-ARCHITECT-20260716-V4",
+      "receipt_hash": "sha256:4afbee042f233e674f886e4c8c981d73142e43d5ea6dfc0cfc3835a5397cbf40",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-16T12:58:25.190991Z"
     }
   ]
 }
