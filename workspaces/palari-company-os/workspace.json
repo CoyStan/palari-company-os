@@ -8158,6 +8158,23 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-16T10:51:56.787437Z"
+    },
+    {
+      "id": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V3",
+      "work_item_id": "WORK-AGENT-REVIEW-AUTHORITY",
+      "reviewed_head": "107f48b7ebb2b1172590bd73674ff377029b790b",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T11:01:29.901171Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
+      "attempt_hash": "sha256:49ad1094faae91485d34bad4b04bdabd4b9c96ffb9a84fe8304fb58ecd80627a",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
+      "evidence_manifest_hash": "sha256:eadcdcf197f702500c2cdee6b3b03f40dfe047717ca80836a63b2315727ca2cd",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
+      "receipt_hash": "sha256:b8a010155058830f09720a3a19be1e6c7d3c0899f209e3bac795eb96d14a7ee5",
+      "work_contract_hash": "sha256:5e0d9dfdd3fac6ca9eb8796d0f33b88d4fdcd1611aff9d7e68795a13e37b4855",
+      "proof_hash": "sha256:8540a0cd81797c8c42c2f5b6117543679ecdc1587238a40fe7efb80d0e3073fc"
     }
   ],
   "human_decisions": [
