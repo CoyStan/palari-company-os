@@ -75,7 +75,12 @@ dependencies. `--select` narrows the pack without changing work. Each JSON pack
 has an `approval_commands` entry containing its exact
 digest and every required `--pack-member`; copying that command cannot silently
 expand a narrowed selection. Parked, blocked, stale, and non-batchable items
-remain unexecuted.
+remain unexecuted. `primary_action` states how many attributable human actions
+are actually available, while each evaluated item carries a `resolution`
+class and owner. `approval_modes` distinguishes automatic reconciliation,
+approve-eligible, approve-selected, individual-effect, and unavailable modes.
+The combined `review-and-accept` mode is explicitly unavailable in the current
+policy because review and acceptance remain attributable to distinct actors.
 
 ## Detail
 
@@ -321,8 +326,11 @@ decision, no scope-overlap warning, and a valid exact evidence/receipt/review
 binding. New accept-ready reviews receive that binding automatically and become
 immutable; substantive changes require a new review record.
 It records both a human decision and an acceptance record. `work complete` keeps
-the terminal status gate and records a missing acceptance record from the latest
-qualified human decision when needed.
+the terminal status gate. When a current qualified human decision already
+exists, it projects the derived acceptance record in memory, runs the complete
+gate against that projection, and writes acceptance plus terminal state only if
+the whole transition passes. Missing, stale, contradictory, or insufficient
+authority therefore leaves the workspace unchanged.
 
 ## Agent Packets
 
@@ -472,8 +480,11 @@ work item is complete.
 identifies a human review or decision step. It returns the compact finish
 summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
-workspace. `agent next` and receipt-ready `agent finish` prefer this command
-before lower-level direct guide commands.
+workspace. For an eligible local approval with valid journal continuity, it
+exposes the exact one-action Approval Pack command. Legacy or non-batchable
+states retain an individual human-decision fallback. It excludes the current
+builder and reviewer from approval candidates. `agent next` and receipt-ready
+`agent finish` prefer this command before lower-level direct guide commands.
 
 `agent doctor` is read-only and explains why one work item is or is not safe for
 an agent right now. It summarizes packet readiness, completion checks, missing
@@ -501,13 +512,17 @@ profiles (never work-item prose), and binds passing results to the exact head,
 profile, source state, interpreter, and platform. It then rechecks the plan and
 commits attempt, receipt, evidence, and closeout as one journaled workspace
 transaction. R1/light/0 work may complete; higher-risk work releases its claim
-and stops with an independent-review handoff. A repeated exact-state call
+and stops with an independent-review handoff. After a separate current review
+and qualified human decision exist, a repeated call verifies the exact artifact
+bytes, derives any missing acceptance record, and completes terminal bookkeeping
+without recording or impersonating human authority. A repeated exact-state call
 reuses current governed proof without duplicating records or rerunning profiles.
 Local verification-cache files are advisory: even a structurally valid cached
 pass is rerun before new evidence is created. `--refresh-verification` ignores
 the advisory record, including a prior failure, and reruns the profiles. This
-command never records review, human decision, acceptance, an external write,
-push, merge, or deployment.
+The command never records review or a human decision. Its only acceptance write
+is the deterministic record derived from an already-current human decision; it
+never performs an external write, push, merge, or deployment.
 
 `git install` writes a Palari-managed pre-commit hook into `.git/hooks/pre-commit`
 that checks staged files against active claim write boundaries. If any staged

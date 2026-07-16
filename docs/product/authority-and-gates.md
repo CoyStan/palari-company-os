@@ -172,10 +172,19 @@ own proof references and exact member/subject digest. The governance kernel
 counts `approval-pack` decisions under the same capability, reviewer
 independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.
+The Approval Inbox names its available approval modes. The normal
+`approve-eligible` mode is one exact attributable action over independently
+reviewed members. External or irreversible effects remain individual. A
+combined review-and-accept mode is not available under the current policy:
+independent review and acceptance remain distinct roles.
 
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
-work, it records a missing acceptance record from the latest qualified human
-decision so completion is auditable instead of being only a status change.
+work, it can derive a missing acceptance record from the latest qualified human
+decision. That record is projected before the complete gate and written in the
+same successful mutation as terminal state, so invalid or stale authority does
+not leave a partial acceptance behind. `agent advance` may invoke this
+mechanical transition after authority exists; it does not create the review or
+human decision.
 Generic record updates cannot set terminal work state, rewrite attempt trust
 fields, or mutate an exact-bound review.
 

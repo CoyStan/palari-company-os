@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent_checks import build_agent_check
-from .agent_finish import build_agent_finish
+from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
 from .agent_handoff import build_agent_handoff
 from .agent_packets import build_agent_brief
 from .workspace import Workspace
@@ -34,6 +34,14 @@ def build_agent_loop(
     if handoff:
         stages.append(_handoff_stage(work_id, palari_id, mode, handoff))
 
+    terminal = finish.get("next_step_type") == "closed"
+    combined_blockers = enrich_blockers(
+        _dedupe_dicts(
+            list(brief.get("blockers", [])) + list(check.get("blockers", []))
+        )
+    )
+    if terminal:
+        stages = [_terminal_stage(work_id)]
     payload: dict[str, Any] = {
         "schema_version": "palari.agent_loop.v1",
         "loop_id": _loop_id(work_id, palari_id, mode),
@@ -51,9 +59,8 @@ def build_agent_loop(
         "finish_id": finish.get("finish_id", ""),
         "commands": _commands(work_id, palari_id, mode, include_handoff=bool(handoff)),
         "stages": stages,
-        "blockers": _dedupe_dicts(
-            list(brief.get("blockers", [])) + list(check.get("blockers", []))
-        ),
+        "blockers": [] if terminal else combined_blockers,
+        "resolution_summary": resolution_summary(combined_blockers, terminal=terminal),
         "missing_requirements": finish.get("missing_requirements", []),
         "completed_requirements": finish.get("completed_requirements", []),
         "next_allowed_commands": _next_allowed_commands(finish, handoff),
@@ -69,6 +76,16 @@ def build_agent_loop(
         payload["handoff_types"] = handoff.get("handoff_types", [])
         payload["human_action_boundary"] = handoff.get("human_action_boundary", {})
     return payload
+
+
+def _terminal_stage(work_id: str) -> dict[str, Any]:
+    return {
+        "name": "terminal",
+        "command": f"palari detail {work_id} --json",
+        "status": "closed",
+        "ok": True,
+        "message": "Work is terminal; inspect its immutable records when needed.",
+    }
 
 
 def _brief_stage(
@@ -160,6 +177,8 @@ def _loop_status(
     finish: dict[str, Any],
     handoff: dict[str, Any] | None,
 ) -> str:
+    if finish.get("next_step_type") == "closed":
+        return "closed"
     if finish.get("can_finish"):
         return "ready-to-report"
     if handoff and handoff.get("handoff_available"):

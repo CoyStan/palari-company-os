@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_finish import build_agent_finish
+from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
 from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
@@ -32,13 +32,13 @@ def build_agent_next(
             "ready_count": 0,
             "blocked_count": 0,
             "candidates": [],
-            "blockers": [
+            "blockers": enrich_blockers([
                 {
                     "code": "MISSING_PALARI",
                     "message": f"Palari not found: {palari_id}",
                     "human_visible": True,
                 }
-            ],
+            ]),
             "next_allowed_commands": ["palari queue --json", "palari validate --json"],
             "omitted_context": [_omitted_context(workspace)],
         }
@@ -64,7 +64,7 @@ def build_agent_next(
         "ready_count": ready_count,
         "blocked_count": blocked_count,
         "candidates": selected,
-        "blockers": [] if ready_count else _no_ready_blockers(candidates),
+        "blockers": [] if ready_count else enrich_blockers(_no_ready_blockers(candidates)),
         "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
         "omitted_context": [_omitted_context(workspace)],
     }
@@ -111,6 +111,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         start_blockers = _start_blockers(item, packet, mode)
         if claim_blocker is not None:
             start_blockers.insert(0, claim_blocker)
+        start_blockers = enrich_blockers(start_blockers)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
@@ -118,7 +119,11 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         handoff_guidance = finish.get("handoff_guidance", [])
         finish_commands = (
             finish.get("next_allowed_commands", [])
-            if "HUMAN_DECISION_REQUIRED" in blocker_codes and not handoff_guidance
+            if (
+                finish.get("status") == "converge-ready"
+                or "HUMAN_DECISION_REQUIRED" in blocker_codes
+            )
+            and not handoff_guidance
             else []
         )
         next_command = _candidate_next_command(
@@ -157,8 +162,16 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "blocker_codes": blocker_codes,
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
+                "resolution_summary": finish.get(
+                    "resolution_summary",
+                    resolution_summary(start_blockers),
+                ),
                 "handoff_guidance": handoff_guidance,
-                "next_step_type": item.next_step_type,
+                "next_step_type": (
+                    finish.get("next_step_type", item.next_step_type)
+                    if finish.get("status") == "converge-ready"
+                    else item.next_step_type
+                ),
                 "next_command": next_command,
                 "doctor_command": doctor_command,
                 "loop_command": loop_command,

@@ -50,7 +50,9 @@ The v1 loop is:
     WORK-ID --as PALARI-ID --dry-run --json` to inspect the deterministic plan,
     then run it without `--dry-run`. It derives changed paths and the exact head,
     runs bound verification, records proof atomically, releases the claim, and
-    stops at review or human authority. It does not exercise that authority.
+    stops at review or human authority. Once those separate records exist, a
+    later call performs only deterministic acceptance projection and terminal
+    bookkeeping. It never records the review or human decision itself.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and
@@ -133,6 +135,13 @@ requires it.
 `status: blocked` means the agent must not perform the work. It may run only the
 commands listed in `next_allowed_commands`, or report the blockers to a human.
 
+Finish, loop, next, handoff, and Approval Inbox JSON classify the resolver as
+`automatic-reconciliation`, `agent-action`, `independent-review`,
+`human-authority`, `external-state`, or `terminal`. A human-looking blocker is
+not retained after the required authority already exists: current post-decision
+bookkeeping reports `converge-ready` and points back to `agent advance`.
+Completed work reports `closed` with no remediation blocker.
+
 Common blocker codes include:
 
 - `MISSING_PALARI`
@@ -210,7 +219,8 @@ Implemented:
 - claim-start commit-range proof for `agent done`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
 - deterministic claim-range planning and atomic proof reconciliation through
-  `agent advance`, with governed exact-proof reuse and an authority stop
+  `agent advance`, with governed exact-proof reuse, an authority stop, and
+  deterministic post-decision terminalization
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets

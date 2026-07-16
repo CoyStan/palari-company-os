@@ -297,13 +297,14 @@ def complete_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
-    assert_work_completion_ready(workspace, work_id, actor=actor)
+    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
+    projected_workspace = validate_data(store.data_path, store.data)
+    assert_work_completion_ready(projected_workspace, work_id, actor=actor)
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
     before = deepcopy(work)
     work["status"] = status
-    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
     workspace = write_store(store)
     append_history_event(
         store.data_path,

@@ -12,7 +12,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/governance_journal.py`: replayable prepare/commit
   journal, checkpoints, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
-  item evaluation, risk policy, and exact human pack decisions.
+  item/resolution evaluation, approval modes, risk policy, and exact human pack
+  decisions.
 - `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
   and append-only human restoration.
 - `src/palari_company_os/workspace_read_models.py`: product-facing approval
@@ -51,12 +52,15 @@ When adding a command, update parser, dispatch, output, tests, and
   observation, start-time dirty baselines, and packet write-boundary checks.
 - `src/palari_company_os/agent_checks.py`: packet compliance checks.
 - `src/palari_company_os/agent_next.py`: candidate discovery.
-- `src/palari_company_os/agent_finish.py`: completion guidance.
-- `src/palari_company_os/agent_handoff.py`: read-only human handoff packets.
+- `src/palari_company_os/agent_finish.py`: completion guidance and resolver
+  classification.
+- `src/palari_company_os/agent_handoff.py`: read-only human handoff packets and
+  exact Approval Pack routing when eligible.
 - `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
 - `src/palari_company_os/agent_loop.py`: compact loop summary.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
-  deterministic proof reconciler that stops at authority boundaries.
+  deterministic proof reconciler that stops at authority boundaries and
+  terminalizes mechanically after current authority exists.
 - `src/palari_company_os/verification_attestations.py`: exact-state,
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for

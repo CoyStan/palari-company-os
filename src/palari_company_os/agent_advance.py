@@ -968,6 +968,60 @@ def _completed_projection(
         and work.intensity == "light"
         and work.required_approval_count == 0
     )
+    if not low_risk:
+        from .read_models import detail
+
+        work_detail = detail(workspace, work_id)
+        acceptance_state = str(
+            work_detail.get("safety", {}).get("acceptance_state") or ""
+        )
+        if acceptance_state in {"ready-to-record", "accepted"}:
+            try:
+                complete_work(
+                    str(workspace_path),
+                    work_id,
+                    "completed",
+                    command="agent advance",
+                    actor=palari_id,
+                )
+            except WorkspaceError as exc:
+                return _resume_blocked(
+                    workspace,
+                    work_id,
+                    "ACCEPTED_COMPLETION_INVALID",
+                    "A human acceptance exists, but deterministic completion is "
+                    f"not currently safe: {exc}",
+                )
+            proof_steps.append(
+                {
+                    "step": "lifecycle-complete",
+                    "status": "completed-from-current-human-decision",
+                }
+            )
+            workspace = Workspace.load(workspace_path)
+            _release_claim_if_owned(
+                workspace,
+                workspace_path,
+                work_id,
+                palari_id,
+                proof_steps,
+            )
+            return {
+                "schema_version": SCHEMA_VERSION,
+                "status": "completed",
+                "work_item": work_id,
+                "workspace": workspace.name,
+                "can_advance": True,
+                "would_mutate": True,
+                "expected_state": "completed",
+                "authority_source": "preexisting-current-human-decision",
+                "performed_human_authority": False,
+                "proof_steps": proof_steps,
+                "message": (
+                    f"Work item {work_id} used its current human decision and "
+                    "was deterministically completed."
+                ),
+            }
     if low_risk:
         preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
         if not preflight["ok"]:

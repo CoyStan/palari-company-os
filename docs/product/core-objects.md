@@ -165,6 +165,12 @@ does not reduce dependency freshness. Expected in-pack completion remains
 stable; later dependency mutation stales the pack. Pack approval cannot widen
 any member boundary.
 
+Inbox evaluation adds non-authoritative resolution metadata: the current
+state, resolver class and owner, approval mode, and next safe action. A primary
+action summarizes the eligible batch while keeping blocked, stale, and
+non-batchable exceptions visible. These read models reduce ceremony; they do
+not grant authority or alter the canonical pack manifest.
+
 ## Governed Checkpoint
 
 Every committed governance-journal projection is a content-addressed

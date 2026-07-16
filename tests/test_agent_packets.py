@@ -956,10 +956,38 @@ class AgentPacketTests(unittest.TestCase):
         self.assertTrue(result["handoff_ready"])
         self.assertEqual(result["handoff_guidance"][0]["code"], "HUMAN_APPROVAL_HANDOFF")
         self.assertEqual(
+            result["resolution_summary"]["primary_class"],
+            "human-authority",
+        )
+        self.assertTrue(result["resolution_summary"]["human_attention_required"])
+        self.assertEqual(
             result["next_allowed_commands"][0],
             "palari detail WORK-0001 --json",
         )
         self.assertNotIn("palari human-decision record", "\n".join(result["next_allowed_commands"]))
+
+    def test_terminal_work_is_closed_not_blocked_in_finish_and_loop(self) -> None:
+        workspace = Workspace.load(DOGFOOD)
+
+        finish = build_agent_finish(
+            workspace,
+            "WORK-REPO-0027",
+            "PALARI-STEWARD",
+        )
+        loop = build_agent_loop(
+            workspace,
+            "WORK-REPO-0027",
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(finish["status"], "closed")
+        self.assertTrue(finish["can_finish"])
+        self.assertEqual(finish["blockers"], [])
+        self.assertEqual(finish["resolution_summary"]["primary_class"], "terminal")
+        self.assertEqual(loop["status"], "closed")
+        self.assertEqual(loop["blockers"], [])
+        self.assertEqual([stage["name"] for stage in loop["stages"]], ["terminal"])
+        self.assertTrue(loop["stages"][0]["ok"])
 
     def test_agent_finish_waiting_for_review_prioritizes_review_handoff(self) -> None:
         workspace = Workspace.load(DOGFOOD)

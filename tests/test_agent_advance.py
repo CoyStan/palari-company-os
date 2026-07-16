@@ -22,9 +22,15 @@ from palari_company_os.agent_advance import (
     agent_advance_dry_run,
     plan_advance,
 )
+from palari_company_os.agent_finish import build_agent_finish
+from palari_company_os.agent_next import build_agent_next
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.agent_runtime import release_agent
-from palari_company_os.authoring import create_record, reconcile_agent_proof
+from palari_company_os.authoring import (
+    create_human_decision,
+    create_record,
+    reconcile_agent_proof,
+)
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
@@ -418,6 +424,208 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             (len(resumed.attempts), len(resumed.receipts), len(resumed.evidence_runs)),
         )
         self.assertFalse(second["would_mutate"])
+
+    def test_completed_proof_resume_rejects_changed_artifact_bytes(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        (self.temp_dir / "README.md").write_text(
+            "changed after exact proof\n",
+            encoding="utf-8",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
+        self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
+
+    def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        before = Ws.load(self.temp_dir)
+        authority_counts = (
+            len(before.review_verdicts),
+            len(before.human_decisions),
+        )
+        finish = build_agent_finish(
+            before,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertEqual(finish["status"], "converge-ready")
+        self.assertEqual(finish["next_step_type"], "automatic-reconciliation")
+        self.assertEqual(
+            finish["resolution_summary"]["primary_class"],
+            "automatic-reconciliation",
+        )
+        self.assertIn("agent advance", finish["next_allowed_commands"][0])
+        candidate = next(
+            item
+            for item in build_agent_next(
+                before,
+                "PALARI-STEWARD",
+                limit=20,
+            )["candidates"]
+            if item["work_item_id"] == self.work_id
+        )
+        self.assertEqual(candidate["next_step_type"], "automatic-reconciliation")
+        self.assertIn("agent advance", candidate["next_command"])
+
+        completed = agent_advance(
+            before,
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(completed["status"], "completed", completed)
+        self.assertEqual(
+            completed["authority_source"],
+            "preexisting-current-human-decision",
+        )
+        self.assertFalse(completed["performed_human_authority"])
+        after = Ws.load(self.temp_dir)
+        self.assertEqual(after.work_item(self.work_id).status, "completed")
+        self.assertEqual(
+            authority_counts,
+            (len(after.review_verdicts), len(after.human_decisions)),
+        )
+        self.assertTrue(
+            any(record.work_item_id == self.work_id for record in after.acceptance_records)
+        )
+
+        repeated = agent_advance(
+            after,
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertEqual(repeated["status"], "completed")
+        self.assertFalse(repeated["would_mutate"])
+
+    def test_later_negative_human_decision_blocks_terminalization(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        head_sha, evidence_id, review_id = self._record_current_authority()
+        create_human_decision(
+            str(self.temp_dir),
+            {
+                "id": "HUMAN-DECISION-TEST-ADVANCE-REVOKED",
+                "work_item_id": self.work_id,
+                "human_id": "HUMAN-FOUNDER",
+                "reviewed_head": head_sha,
+                "decision": "changes-requested",
+                "status": "changes-requested",
+                "acceptance_mode": "human",
+                "quorum_status": "not-met",
+                "evidence_reference": evidence_id,
+                "review_reference": review_id,
+            },
+            command="test human revocation",
+            actor="HUMAN-FOUNDER",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertNotEqual(result["status"], "completed")
+        workspace = Ws.load(self.temp_dir)
+        self.assertEqual(workspace.work_item(self.work_id).status, "active")
+        self.assertFalse(
+            any(
+                record.work_item_id == self.work_id
+                for record in workspace.acceptance_records
+            )
+        )
+
+    def test_failed_terminal_projection_leaves_no_partial_acceptance(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        create_record(
+            str(self.temp_dir),
+            "decision",
+            {
+                "id": "DECISION-TEST-ADVANCE-OPEN",
+                "question": "May this exact work complete?",
+                "status": "open",
+                "options": ["yes", "no"],
+                "tradeoffs": ["Completion is blocked while this remains open."],
+                "recommendation": "Resolve explicitly.",
+                "safe_default": "no",
+                "required_human": "HUMAN-FOUNDER",
+                "linked_work": self.work_id,
+            },
+            command="test open decision",
+            actor="HUMAN-FOUNDER",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(
+            result["blockers"][0]["code"],
+            "ACCEPTED_COMPLETION_INVALID",
+        )
+        workspace = Ws.load(self.temp_dir)
+        self.assertEqual(workspace.work_item(self.work_id).status, "active")
+        self.assertFalse(
+            any(
+                record.work_item_id == self.work_id
+                for record in workspace.acceptance_records
+            )
+        )
 
     def test_dry_run_never_executes_verification_or_mutates(self) -> None:
         before = (self.temp_dir / "workspace.json").read_bytes()
@@ -1242,6 +1450,56 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"][0]["code"], "PENDING_TRANSACTION_MISMATCH")
         self.assertEqual(before_journal, journal.read_bytes())
+
+    def _record_current_authority(self) -> tuple[str, str, str]:
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(
+            item for item in workspace.attempts if item.id == work.current_attempt
+        )
+        head_sha = attempt.head_sha or attempt.commits[-1]
+        evidence = next(
+            item
+            for item in workspace.evidence_runs
+            if item.work_item_id == self.work_id and item.attempt_id == attempt.id
+        )
+        review_id = "REVIEW-TEST-ADVANCE"
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": review_id,
+                "work_item_id": self.work_id,
+                "reviewed_head": head_sha,
+                "reviewer": "HUMAN-MAINTAINER",
+                "verdict": "accept-ready",
+                "findings": [],
+                "checks_inspected": ["exact deterministic advance proof"],
+                "residual_risks": [],
+            },
+            command="test independent review",
+            actor="HUMAN-MAINTAINER",
+        )
+        create_human_decision(
+            str(self.temp_dir),
+            {
+                "id": "HUMAN-DECISION-TEST-ADVANCE",
+                "work_item_id": self.work_id,
+                "human_id": "HUMAN-FOUNDER",
+                "reviewed_head": head_sha,
+                "decision": "accepted",
+                "status": "accepted",
+                "acceptance_mode": "human",
+                "quorum_status": "met",
+                "evidence_reference": evidence.id,
+                "review_reference": review_id,
+            },
+            command="test human acceptance",
+            actor="HUMAN-FOUNDER",
+        )
+        return head_sha, evidence.id, review_id
 
     def _passing_attestation(self, _workspace, _root, profile, context, **_kwargs):
         key = cache_key(profile, context)
