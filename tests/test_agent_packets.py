@@ -61,6 +61,25 @@ def _restore_blueprint_human_review_state(data: dict[str, object]) -> None:
     work_id = "WORK-0D2E36965F224C29A0647A7E95D867B7"
     work = next(item for item in data["work_items"] if item.get("id") == work_id)
     work["status"] = "active"
+    work["current_attempt"] = "ATTEMPT-0D2E36965F224C29A0647A7E95D867B7"
+    data["attempts"] = [
+        item
+        for item in data["attempts"]
+        if item.get("work_item_id") != work_id
+        or item.get("id") == work["current_attempt"]
+    ]
+    data["receipts"] = [
+        item
+        for item in data["receipts"]
+        if item.get("work_item_id") != work_id
+        or item.get("attempt_id") == work["current_attempt"]
+    ]
+    data["evidence_runs"] = [
+        item
+        for item in data["evidence_runs"]
+        if item.get("work_item_id") != work_id
+        or item.get("attempt_id") == work["current_attempt"]
+    ]
     data["review_verdicts"] = [
         item
         for item in data["review_verdicts"]
@@ -1178,43 +1197,13 @@ class AgentPacketTests(unittest.TestCase):
         source = json.loads((DOGFOOD / "workspace.json").read_text(encoding="utf-8"))
         work_id = "WORK-0D2E36965F224C29A0647A7E95D867B7"
         work = next(item for item in source["work_items"] if item["id"] == work_id)
-        review = next(
-            item
-            for item in source["review_verdicts"]
-            if item["work_item_id"] == work_id and item["reviewer"] == "PALARI-STEWARD"
-        )
-        decision = next(
-            item
-            for item in source["human_decisions"]
-            if item["work_item_id"] == work_id and item["decision"] == "accepted"
-        )
-        receipt = next(
-            item for item in source["receipts"] if item["work_item_id"] == work_id
-        )
-        source["acceptance_records"] = [
-            item
-            for item in source["acceptance_records"]
-            if item.get("work_item_id") != work_id
-        ]
-        source["acceptance_records"].append(
-            {
-                "id": f"ACCEPTANCE-{work_id}-HUMAN-FOUNDER",
-                "work_item_id": work_id,
-                "human_id": "HUMAN-FOUNDER",
-                "reviewed_head": review["reviewed_head"],
-                "status": "accepted",
-                "decision_id": decision["id"],
-                "evidence_reference": decision["evidence_reference"],
-                "review_reference": review["id"],
-                "receipt_hash": receipt["receipt_hash"],
-                "authority_profile": "team-safe",
-                "quorum_status": "met",
-                "reason": "test terminal projection",
-                "accepted_at": decision["timestamp"],
-            }
-        )
-        work["status"] = "completed"
-        Workspace.from_raw(source, DOGFOOD)
+        terminal = Workspace.from_raw(source, DOGFOOD)
+        terminal_work = terminal.work_item(work_id)
+
+        self.assertIsNotNone(terminal_work)
+        assert terminal_work is not None
+        self.assertEqual(work["status"], "completed")
+        self.assertEqual(terminal_work.status, "completed")
 
         _restore_blueprint_human_review_state(source)
         restored = Workspace.from_raw(source, DOGFOOD)
