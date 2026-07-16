@@ -260,6 +260,14 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             message=str(exc),
         )
     digest = workspace_digest(store.data)
+    if digest is None:
+        return ConvergenceObservation(
+            digest="",
+            status="blocked",
+            boundary="error",
+            code="WORKSPACE_DIGEST_UNAVAILABLE",
+            message="The workspace projection cannot be hashed safely.",
+        )
     work = workspace.work_item(work_id)
     if work is None:
         return ConvergenceObservation(

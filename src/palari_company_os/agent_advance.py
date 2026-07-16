@@ -169,8 +169,16 @@ def agent_advance_dry_run(
             "attempt_id": (
                 attempt.get("id", "") if attempt_current and isinstance(attempt, dict) else ""
             ),
-            "receipt_id": receipt.get("id", "") if receipt_current else "",
-            "evidence_id": evidence.get("id", "") if evidence_current else "",
+            "receipt_id": (
+                receipt.get("id", "")
+                if receipt_current and isinstance(receipt, dict)
+                else ""
+            ),
+            "evidence_id": (
+                evidence.get("id", "")
+                if evidence_current and isinstance(evidence, dict)
+                else ""
+            ),
             "attempt_current": attempt_current,
             "attempt_bound": attempt_current,
             "receipt_current": receipt_current,
