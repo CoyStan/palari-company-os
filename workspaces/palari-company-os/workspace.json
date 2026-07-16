@@ -3271,7 +3271,8 @@
         "Evidence, review, artifact, scope, policy, selection, presentation, and request changes invalidate the exact human action; crash retry remains idempotent.",
         "Schema fixtures, docs, complete repository verification, isolated installation smoke, and PCAW v1 conformance remain passing."
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C"
     }
   ],
   "attempts": [
@@ -6041,6 +6042,101 @@
         "tests/test_git_hooks.py",
         "tests/test_review_guides.py",
         "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "8128e6f2326f3de4507318eab58077385a1c2934",
+      "allowed_paths": [
+        "docs/product/roadmap.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_approval_presentations.py",
+        "tests/test_approval_packs.py",
+        "tests/test_validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_agent_packets.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "started_at": "2026-07-16T19:28:52Z",
+      "head_sha": "835a031fde6cb80bd970547b4d068388b4145501",
+      "commits": [
+        "835a031fde6cb80bd970547b4d068388b4145501"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T19:28:52Z",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "output_targets": [
+        "docs/product/roadmap.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_approval_presentations.py",
+        "tests/test_approval_packs.py",
+        "tests/test_validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_agent_packets.py",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
       ]
@@ -9147,6 +9243,149 @@
       "receipt_hash": "sha256:3a6f2ab3e75a3aa49aaad903092d906af42692227e58e353aa1eece501afe273",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:64a89e9b0eb9364a3c14c4bc2445d74e2cc4e77544b4e0cee46c5b3cc1e4ea26"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C",
+      "head_sha": "835a031fde6cb80bd970547b4d068388b4145501",
+      "status": "passed",
+      "base_ref": "8128e6f2326f3de4507318eab58077385a1c2934",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-1EFBCE4F5505197A sha256:e0f67d48d3bf3ac670396f4a5b2f40225031267e0d3e62e31efbce4f5505197a",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-2FF27CA58CEF6D4E sha256:ae86af3a22341b14d5109828b9ee45776d6a5b94d7786b2d2ff27ca58cef6d4e",
+        "docs-check attestation VERIFY-DOCS-CHECK-A9FF951948C48A2B sha256:1e3ad66ea2d7aa8c423c0cfa7a6a5a4609c733311ed67a98a9ff951948c48a2b"
+      ],
+      "artifacts": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:fd18425d2e29c1429bce6ef8da5e008f48ddd12018e9fa920482d948cee1e174",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:23dd059e170cc542d8316173cc65a00ffa3b586b41d1367dd2ebccaf367faef1",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/authority-and-gates.md",
+          "sha256": "sha256:8c3f2016a4fcc5250a9858ee0bcd33615b0c2017f633c281b415b8310e11fd23",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:a6be7ae0a120db166d69c198e3a0b3f0693b90bd2644e8bc5e62d0a22d5bfff0",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/presentation-bound-human-decisions-contract.md",
+          "sha256": "sha256:f3d6342e7c78f0f7be5e9144aa2c1b68470c9536bc1519e94ebddea3807f715f",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/roadmap.md",
+          "sha256": "sha256:26b8b78040d130cd3f7b73d57eb49bd0ad0cc24291e48588b577c5799939c79b",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "sha256": "sha256:487cc9892480563909c580684b66370f18ba0e4e0441ea44f59d2b115bd8c157",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:4fa9399dee9d06b7f8f0b01ea110766cfaf893815af40961ddcf25b330fb2c3a",
+          "status": "present"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:fa188bf788968cf515bc4619f610b78fce609799fd05a64af3b7fda1f68f08c5",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_handoff.py",
+          "sha256": "sha256:200d0f7c46a248789d95d6865791e7f31c8d1006703f4f01ce5b944f13676ae9",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/approval_packs.py",
+          "sha256": "sha256:bdb2d877b50e3db32f55c8d98d0d0851978ee07d8ae6a6318dd89c860d197965",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/approval_presentations.py",
+          "sha256": "sha256:e8586d8cdc5f9b42660cdc96a82ef0ddbd7f6d54a7d97e5f758b10f02377b872",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:2607729eb39670380ebd2fedc23dad1c7d7932af438757671f16d37db1442905",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "sha256": "sha256:4d4c1234f8cb3fafe0d7eb555af6170738c5e62090985e5a2697d3693fa6b347",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:660bd95d5c4089eed70debc64d375b5a62a9bec0e3a95d9ba8dcec374dc68120",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/data/schemas/workspace.schema.json",
+          "sha256": "sha256:fa188bf788968cf515bc4619f610b78fce609799fd05a64af3b7fda1f68f08c5",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "sha256": "sha256:7add7fc69ae657eccb3c49bcd3f1c9ad8d13f97d5b564b6788638d68dba9f624",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:3fd00f5f1e8ca4f29091e5e73557f04d9ea031f341aca45d91316b92253417a9",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "sha256": "sha256:951054a174f45643f347b532dd58ae2e4d197f423fbb5542d01ea02537f93018",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_presentations.py",
+          "sha256": "sha256:29f77b44f3d157c1a05a01d4b8c6cde1371e26186767cb61d137dd115b6d7543",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T19:28:52Z",
+      "receipt_hash": "sha256:78521f239afc658832d9f74adf97273094bfeb743708701b3c1b6d54c8c69922",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:14b76c0124514140a80d4aaff0310d1260a974d55468ceaaaa75efeccf452744"
     }
   ],
   "review_verdicts": [
@@ -9535,6 +9774,14 @@
       "receipt_hash": "sha256:3a6f2ab3e75a3aa49aaad903092d906af42692227e58e353aa1eece501afe273",
       "work_contract_hash": "sha256:28aa44f27410c0c39f3c5ff67edf6b41870014ba89749e40e5b5b070b54f1cfc",
       "proof_hash": "sha256:e95dca5b8a272b2470c45d30ce02dd1cd4f14af1d9a6612792f9d4c867f2f046"
+    },
+    {
+      "id": "REVIEW-PRESENTATION-ARCHITECT-835A031-REJECT",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "reviewed_head": "835a031fde6cb80bd970547b4d068388b4145501",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T19:35:41.401262Z"
     }
   ],
   "human_decisions": [
@@ -12118,6 +12365,68 @@
       "timestamp": "2026-07-16T15:59:25Z",
       "previous_receipt_hash": "sha256:5e010cd5d412c62155c567129c4d8c854fbbabda3996d92550a607685fc815bb",
       "receipt_hash": "sha256:3a6f2ab3e75a3aa49aaad903092d906af42692227e58e353aa1eece501afe273"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C",
+      "work_item_id": "WORK-66351C3AD0334E78AFE962F06A0BF9CA",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-835A031FDE6C",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 20 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/roadmap.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/approval_presentations.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py"
+      ],
+      "timestamp": "2026-07-16T19:28:52Z",
+      "receipt_hash": "sha256:78521f239afc658832d9f74adf97273094bfeb743708701b3c1b6d54c8c69922"
     }
   ],
   "decisions": [

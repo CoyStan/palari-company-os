@@ -11,17 +11,31 @@ from .workspace import Workspace
 
 PRESENTATION_SCHEMA_VERSION = "palari.approval-presentation.v1"
 DECISION_SURFACE = "palari.human-decision-pack.v1"
+DECISION_STATES = {
+    "approved",
+    "blocked",
+    "deferred",
+    "eligible",
+    "executed",
+    "non-batchable",
+    "rejected",
+    "stale",
+}
+APPROVABLE_STATES = {"approved", "eligible"}
 
 
 def build_approval_presentation(
     workspace: Workspace,
     pack: dict[str, Any],
+    evaluation: dict[str, Any],
 ) -> dict[str, Any]:
     """Compile the exact layout-independent artifact offered for a pack decision."""
 
+    decision_states = _evaluation_states(evaluation, pack)
     members: list[dict[str, Any]] = []
     for member in pack.get("members", []):
         projected = deepcopy(member)
+        projected["decision_state"] = decision_states[str(member.get("id") or "")]
         projected["decision_context"] = _decision_context(workspace, member)
         members.append(projected)
     presentation = {
@@ -31,12 +45,7 @@ def build_approval_presentation(
             "pack_id": pack.get("pack_id", ""),
             "pack_digest": pack.get("pack_digest", ""),
         },
-        "action": {
-            "available": ["approve", "approve-eligible", "defer", "reject"],
-            "primary": "approve-eligible",
-            "execution_order": deepcopy(pack.get("execution_order", [])),
-            "local_convergence": "atomic-when-authorized",
-        },
+        "action": _action_context(pack, members),
         "summary": deepcopy(pack.get("cumulative_effect_summary", {})),
         "members": members,
         "external_effects": deepcopy(pack.get("external_effects", [])),
@@ -87,14 +96,6 @@ def validate_approval_presentation(
         "pack_digest": pack.get("pack_digest"),
     }:
         raise WorkspaceError("approval presentation is bound to a different pack")
-    expected_action = {
-        "available": ["approve", "approve-eligible", "defer", "reject"],
-        "primary": "approve-eligible",
-        "execution_order": pack.get("execution_order"),
-        "local_convergence": "atomic-when-authorized",
-    }
-    if presentation["action"] != expected_action:
-        raise WorkspaceError("approval presentation action context is stale or malformed")
     if presentation["summary"] != pack.get("cumulative_effect_summary"):
         raise WorkspaceError("approval presentation summary differs from its pack")
     if presentation["external_effects"] != pack.get("external_effects"):
@@ -112,11 +113,97 @@ def validate_approval_presentation(
         if not isinstance(source, dict) or not isinstance(presented, dict):
             raise WorkspaceError("approval presentation member must be an object")
         context = presented.get("decision_context")
+        decision_state = presented.get("decision_state")
         projected = deepcopy(presented)
         projected.pop("decision_context", None)
+        projected.pop("decision_state", None)
         if projected != source:
             raise WorkspaceError("approval presentation member differs from its exact pack member")
         _validate_decision_context(context, str(source.get("id") or ""))
+        _validate_decision_state(decision_state, str(source.get("id") or ""))
+    if presentation["action"] != _action_context(pack, presented_members):
+        raise WorkspaceError("approval presentation action context is stale or malformed")
+
+
+def _evaluation_states(
+    evaluation: dict[str, Any],
+    pack: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    if not isinstance(evaluation, dict):
+        raise WorkspaceError("approval presentation evaluation must be an object")
+    if evaluation.get("pack_id") != pack.get("pack_id") or evaluation.get(
+        "pack_digest"
+    ) != pack.get("pack_digest"):
+        raise WorkspaceError("approval presentation evaluation is bound to a different pack")
+    evaluated_members = evaluation.get("members")
+    if not isinstance(evaluated_members, list):
+        raise WorkspaceError("approval presentation evaluation members must be an array")
+    if [item.get("id") for item in evaluated_members if isinstance(item, dict)] != pack.get(
+        "execution_order"
+    ):
+        raise WorkspaceError(
+            "approval presentation evaluation must cover the exact execution order"
+        )
+    states: dict[str, dict[str, Any]] = {}
+    for item in evaluated_members:
+        if not isinstance(item, dict):
+            raise WorkspaceError("approval presentation evaluation member must be an object")
+        member_id = str(item.get("id") or "")
+        state = {
+            "state": item.get("state"),
+            "reasons": deepcopy(item.get("reasons")),
+            "next_safe_action": item.get("next_safe_action"),
+        }
+        _validate_decision_state(state, member_id)
+        states[member_id] = state
+    return states
+
+
+def _action_context(
+    pack: dict[str, Any],
+    presented_members: list[dict[str, Any]],
+) -> dict[str, Any]:
+    states = [
+        str(member.get("decision_state", {}).get("state") or "")
+        for member in presented_members
+        if isinstance(member, dict)
+    ]
+    approvable = any(state in APPROVABLE_STATES for state in states)
+    decidable = any(state != "stale" for state in states)
+    available: list[str] = []
+    if approvable:
+        available.extend(["approve", "approve-eligible"])
+    if decidable:
+        available.extend(["defer", "reject"])
+    return {
+        "available": available,
+        "primary": "approve-eligible" if approvable else "inspect-exceptions",
+        "execution_order": deepcopy(pack.get("execution_order", [])),
+        "local_convergence": "atomic-when-authorized",
+    }
+
+
+def _validate_decision_state(value: Any, member_id: str) -> None:
+    expected_fields = {"state", "reasons", "next_safe_action"}
+    if not isinstance(value, dict) or set(value) != expected_fields:
+        raise WorkspaceError(
+            f"approval presentation member {member_id} has malformed decision state"
+        )
+    if value["state"] not in DECISION_STATES:
+        raise WorkspaceError(
+            f"approval presentation member {member_id} has unsupported decision state"
+        )
+    reasons = value["reasons"]
+    if not isinstance(reasons, list) or any(
+        not isinstance(reason, str) or not reason for reason in reasons
+    ):
+        raise WorkspaceError(
+            f"approval presentation member {member_id} decision reasons must be strings"
+        )
+    if not isinstance(value["next_safe_action"], str) or not value["next_safe_action"]:
+        raise WorkspaceError(
+            f"approval presentation member {member_id} lacks a next safe action"
+        )
 
 
 def _decision_context(workspace: Workspace, member: dict[str, Any]) -> list[dict[str, str]]:

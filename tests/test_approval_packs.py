@@ -88,7 +88,11 @@ def apply_pack_decision(
             pack = stored[0] if stored else None
         if pack is None:
             raise AssertionError(f"test could not resolve approval pack {pack_digest}")
-        presentation = build_approval_presentation(workspace, pack)
+        presentation = build_approval_presentation(
+            workspace,
+            pack,
+            evaluate_approval_pack(workspace, pack),
+        )
         presentation_digest = approval_presentation_digest(presentation, pack)
     return _apply_pack_decision(
         workspace_path,
@@ -522,7 +526,12 @@ class ApprovalPackTests(unittest.TestCase):
             data_path = make_ready_workspace(Path(directory), count=1)
             store = load_store(data_path)
             pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
-            presentation = build_approval_presentation(Workspace.load(data_path), pack)
+            workspace = Workspace.load(data_path)
+            presentation = build_approval_presentation(
+                workspace,
+                pack,
+                evaluate_approval_pack(workspace, pack),
+            )
             presented_digest = approval_presentation_digest(presentation, pack)
             with self.assertRaisesRegex(WorkspaceError, "distinct from builder and reviewer"):
                 apply_pack_decision(
@@ -721,6 +730,7 @@ def make_ready_workspace(
     dependencies: dict[str, list[str]] | None = None,
     approvals: int = 1,
     distinct_outputs: bool = False,
+    scope: str = "Prepare one bounded local draft without external effects.",
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -778,7 +788,7 @@ def make_ready_workspace(
                 "risk": "R2",
                 "intensity": "standard",
                 "status": "in-review",
-                "scope": "Prepare one bounded local draft without external effects.",
+                "scope": scope,
                 "allowed_resources": [output_path],
                 "allowed_actions": ["write local draft"],
                 "output_targets": [output_path],

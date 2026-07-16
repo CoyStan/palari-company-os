@@ -16,7 +16,7 @@ from palari_company_os.approval_presentations import (
     canonical_presentation_bytes,
 )
 from palari_company_os.pcaw_canonical import canonical_sha256
-from palari_company_os.store import load_store
+from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 from tests.test_approval_packs import OUTPUT, make_ready_workspace
 
@@ -100,6 +100,36 @@ class ApprovalPresentationTests(unittest.TestCase):
         self.assertTrue(
             all(item.get("approval_presentation_digest") for item in final.data["human_decisions"])
         )
+
+    def test_blocked_and_non_batchable_presentations_do_not_offer_approval(self) -> None:
+        cases = (
+            ("blocked", {}),
+            ("non-batchable", {"scope": "Approve a legal filing."}),
+        )
+        for expected_state, options in cases:
+            with self.subTest(state=expected_state), tempfile.TemporaryDirectory() as directory:
+                data_path = make_ready_workspace(Path(directory), count=1, **options)
+                if expected_state == "blocked":
+                    changed = load_store(data_path)
+                    changed.data["review_verdicts"] = []
+                    write_store(changed)
+                store = load_store(data_path)
+                inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+                presentation = inbox["presentations"][0]
+
+                self.assertEqual(
+                    presentation["members"][0]["decision_state"]["state"],
+                    expected_state,
+                )
+                self.assertEqual(
+                    presentation["action"]["available"],
+                    ["defer", "reject"],
+                )
+                self.assertEqual(
+                    presentation["action"]["primary"],
+                    "inspect-exceptions",
+                )
+                self.assertFalse(inbox["primary_action"]["available"])
 
     def test_pack_v2_decision_cannot_downgrade_or_transplant_its_presentation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

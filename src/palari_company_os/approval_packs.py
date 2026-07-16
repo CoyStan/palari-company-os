@@ -99,7 +99,10 @@ def build_approval_inbox(
         for group in sorted(grouped)
     ]
     evaluated = [evaluate_approval_pack(workspace, pack) for pack in packs]
-    presentations = [build_approval_presentation(workspace, pack) for pack in packs]
+    presentations = [
+        build_approval_presentation(workspace, pack, report)
+        for pack, report in zip(packs, evaluated, strict=True)
+    ]
     for report in evaluated:
         for item in report["members"]:
             item["resolution"] = approval_resolution(item)
@@ -698,7 +701,8 @@ def apply_pack_decision(
         raise WorkspaceError(
             "approval pack is missing or stale; rebuild the Approval Inbox and review the new digest"
         )
-    presentation = build_approval_presentation(workspace, pack)
+    evaluation = evaluate_approval_pack(workspace, pack)
+    presentation = build_approval_presentation(workspace, pack, evaluation)
     expected_presentation_digest = approval_presentation_digest(presentation, pack)
     if presentation_digest != expected_presentation_digest:
         raise WorkspaceError(
@@ -714,7 +718,6 @@ def apply_pack_decision(
         )
     if stored_pack is None and pack["base"]["workspace_digest"] != workspace_digest(store.data):
         raise WorkspaceError("approval pack base workspace digest is stale")
-    evaluation = evaluate_approval_pack(workspace, pack)
     states = {item["id"]: item for item in evaluation["members"]}
     member_ids = set(states)
 
