@@ -3328,7 +3328,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Make review and evidence verification resolve the governance-journal artifact against the exact reviewed Git head while preserving live journal divergence detection and ordinary current-artifact checks.",
       "allowed_resources": [
         "src/palari_company_os/evidence_manifest.py",
@@ -10829,6 +10829,32 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-66351C3AD0334E78AFE962F06A0BF9CA-DA0D0715E4DF",
       "review_reference": "REVIEW-PRESENTATION-ARCHITECT-DA0D071-ACCEPT",
       "timestamp": "2026-07-16T20:30:15.174019Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "review_reference": "REVIEW-DOGFOOD-CHECKPOINT-ARCHITECT-9630B0D-ACCEPT",
+      "timestamp": "2026-07-16T21:41:49.128777Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-091915D43FD04B929A0E561722EC8BDF-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-091915D43FD04B929A0E561722EC8BDF",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "9010c2a587e8fc5ca5992d735d2dde6bc9b522fa",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-091915D43FD04B929A0E561722EC8BDF-9010C2A587E8",
+      "review_reference": "REVIEW-JOURNAL-REPAIR-ARCHITECT-9010C2A-ACCEPT",
+      "timestamp": "2026-07-16T21:42:14.829451Z"
     }
   ],
   "receipts": [
@@ -13947,6 +13973,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T20:30:17.126750Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-091915D43FD04B929A0E561722EC8BDF-HUMAN-FOUNDER",
+      "work_item_id": "WORK-091915D43FD04B929A0E561722EC8BDF",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "9010c2a587e8fc5ca5992d735d2dde6bc9b522fa",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-091915D43FD04B929A0E561722EC8BDF-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-091915D43FD04B929A0E561722EC8BDF-9010C2A587E8",
+      "review_reference": "REVIEW-JOURNAL-REPAIR-ARCHITECT-9010C2A-ACCEPT",
+      "receipt_hash": "sha256:7715de76c8ba9fe948cd14dd5bff5fe47ee0927b49da3c26552b2736d8003e0e",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-16T21:42:33.929971Z"
     }
   ]
 }
