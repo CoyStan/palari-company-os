@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -256,11 +257,12 @@ def evidence_artifact_root(
 ) -> Path:
     """Return the bounded root used to resolve an evidence artifact list.
 
-    A workspace file may live below the repository governed by an attempt. In
-    that case artifact paths can be resolved from the attempt's recorded
-    workspace root only when the workspace itself is inside that root and every
-    artifact is inside the attempt's explicit allowed-path boundary. Legacy or
-    incomplete attempts retain the workspace-local behavior.
+    A workspace file may live below the repository governed by an attempt. The
+    recorded absolute root is used while it still contains the workspace. When
+    proof moves to another linked worktree or clone, the current Git root is
+    accepted only when it contains the exact recorded candidate commit. Every
+    artifact must still stay inside the attempt's explicit allowed-path
+    boundary. Legacy or incomplete attempts retain workspace-local behavior.
     """
 
     fallback = Path(workspace_path).expanduser().resolve()
@@ -291,11 +293,56 @@ def evidence_artifact_root(
         if not candidate.is_dir():
             raise ValueError("attempt workspace_path is not a directory")
         fallback.relative_to(candidate)
-    except (OSError, RuntimeError) as exc:
-        raise ValueError("attempt workspace_path cannot be resolved safely") from exc
+        return candidate
+    except (OSError, RuntimeError, ValueError):
+        return _relocated_git_artifact_root(fallback, attempt)
+
+
+def _relocated_git_artifact_root(fallback: Path, attempt: Any) -> Path:
+    current_root = _git_root(fallback)
+    if current_root is None:
+        raise ValueError(
+            "workspace is not contained by attempt workspace_path and no portable Git root "
+            "is available"
+        )
+    try:
+        fallback.relative_to(current_root)
     except ValueError as exc:
-        raise ValueError("workspace is not contained by attempt workspace_path") from exc
-    return candidate
+        raise ValueError("workspace is not contained by its current Git root") from exc
+
+    head_sha = str(_field(attempt, "head_sha") or "")
+    if len(head_sha) != 40 or any(character not in "0123456789abcdef" for character in head_sha):
+        raise ValueError("attempt candidate commit is required for portable artifact proof")
+    resolved = _git_value(current_root, ["rev-parse", "--verify", f"{head_sha}^{{commit}}"])
+    if resolved != head_sha:
+        raise ValueError("attempt candidate commit is unavailable in the current Git repository")
+    return current_root
+
+
+def _git_root(path: Path) -> Path | None:
+    value = _git_value(path, ["rev-parse", "--show-toplevel"])
+    if not value:
+        return None
+    try:
+        root = Path(value).resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    return root if root.is_dir() else None
+
+
+def _git_value(path: Path, arguments: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(path), *arguments],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def evidence_artifact_hashes(

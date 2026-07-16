@@ -412,6 +412,7 @@ class Workspace:
             self.work_items,
             "parent_work_item_id",
         )
+        _ensure_dependency_graph_has_no_cycles(self.work_items)
 
         for source_record in self.sources:
             if source_record.owner_human:
@@ -867,6 +868,40 @@ def _ensure_parent_graph_has_no_cycles(
             if record is None:
                 break
             current = getattr(record, parent_field)
+
+
+def _ensure_dependency_graph_has_no_cycles(records: Iterable[object]) -> None:
+    by_id = {getattr(record, "id"): record for record in records}
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(record_id: str) -> None:
+        if record_id in visited:
+            return
+        if record_id in visiting:
+            start = visiting.index(record_id)
+            cycle = " -> ".join([*visiting[start:], record_id])
+            raise WorkspaceError(f"work_items dependency graph contains a cycle: {cycle}")
+
+        record = by_id[record_id]
+        dependency_ids = list(getattr(record, "dependency_ids"))
+        if len(dependency_ids) != len(set(dependency_ids)):
+            raise WorkspaceError(
+                f"work_items.{record_id}.dependency_ids contains a duplicate id"
+            )
+        if record_id in dependency_ids:
+            raise WorkspaceError(
+                f"work_items.{record_id}.dependency_ids cannot reference itself"
+            )
+
+        visiting.append(record_id)
+        for dependency_id in dependency_ids:
+            visit(dependency_id)
+        visiting.pop()
+        visited.add(record_id)
+
+    for record_id in by_id:
+        visit(record_id)
 
 
 def _validate_workbench_boundary(workspace: Workspace, work: WorkItem) -> None:

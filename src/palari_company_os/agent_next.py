@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent_finish import build_agent_finish
-from .agent_packets import build_agent_brief
+from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
+from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
 from .workspace import Workspace
 
@@ -92,6 +93,10 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
 
 def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
+    leases = git_lease_statuses(
+        workspace.path,
+        [work.id for work in workspace.work_items],
+    )
     for rank, item in enumerate(queue_items(workspace), start=1):
         if item.attention == "closed":
             continue
@@ -100,8 +105,12 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             continue
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
-        can_start = _can_start_agent_work(item, packet, mode)
+        lease = leases[work.id]
+        claim_blocker = _claim_start_blocker(lease)
+        can_start = _can_start_agent_work(item, packet, mode) and claim_blocker is None
         start_blockers = _start_blockers(item, packet, mode)
+        if claim_blocker is not None:
+            start_blockers.insert(0, claim_blocker)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
@@ -125,6 +134,13 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             {
                 "queue_rank": rank,
                 "work_item_id": work.id,
+                "dependency_ids": list(work.dependency_ids),
+                "blocked_by_dependency_ids": [
+                    dependency.id
+                    for dependency in _work_dependencies(workspace, work.dependency_ids)
+                    if dependency.status not in TERMINAL_WORK_STATUSES
+                ],
+                "claim": lease,
                 "title": work.title,
                 "risk": work.risk,
                 "intensity": work.intensity,
@@ -163,6 +179,34 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
             }
         )
     return candidates
+
+
+def _work_dependencies(workspace: Workspace, dependency_ids: list[str]) -> list[Any]:
+    return [
+        dependency
+        for dependency_id in dependency_ids
+        if (dependency := workspace.work_item(dependency_id)) is not None
+    ]
+
+
+def _claim_start_blocker(lease: dict[str, Any]) -> dict[str, str] | None:
+    if lease.get("status") == "invalid":
+        return {
+            "code": "CLAIM_COORDINATION_INVALID",
+            "message": (
+                f"Cross-worktree claim state is invalid: "
+                f"{lease.get('message', 'inspect the Git lease')}"
+            ),
+        }
+    if lease.get("active") and not lease.get("current_workspace"):
+        return {
+            "code": "WORK_ALREADY_CLAIMED",
+            "message": (
+                f"Work is already claimed by {lease.get('claimed_by', 'another Palari')} "
+                f"in another Git worktree until {lease.get('lease_expires_at', 'lease expiry')}."
+            ),
+        }
+    return None
 
 
 def _candidate_next_command(

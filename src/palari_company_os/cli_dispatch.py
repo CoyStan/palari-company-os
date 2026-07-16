@@ -221,6 +221,21 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
         if args.agent_command == "start":
+            if args.isolate:
+                from .agent_isolation import start_isolated_agent
+
+                return CommandResult(
+                    "agent-start",
+                    start_isolated_agent(
+                        args.workspace,
+                        args.work_id,
+                        args.palari_id,
+                        args.mode,
+                        lease_minutes=args.lease_minutes,
+                        base_ref=args.base_ref,
+                    ),
+                    args.json,
+                )
             return CommandResult(
                 "agent-start",
                 start_agent(
@@ -368,6 +383,18 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 sys.exit(1)
             return CommandResult("git-pre-commit", result, args.json)
         if args.git_command == "status":
+            if args.work_id:
+                from .agent_isolation import git_integration_readiness
+
+                return CommandResult(
+                    "git-readiness",
+                    git_integration_readiness(
+                        args.workspace,
+                        args.work_id,
+                        target_ref=args.target_ref,
+                    ),
+                    args.json,
+                )
             return CommandResult(
                 "git-status",
                 git_hook_status(args.project_dir or Path.cwd(), args.workspace),
@@ -877,6 +904,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 verify=args.verify,
                 work_id=args.work_id,
                 approvals=args.approvals,
+                dependencies=args.dependencies,
+                parallel_policy=args.parallel_policy,
             ),
             args.json,
         )

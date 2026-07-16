@@ -309,6 +309,16 @@ def _add_agent_parser(subparsers: Any) -> None:
         default=30,
         help="Claim lease length in minutes.",
     )
+    start.add_argument(
+        "--isolate",
+        action="store_true",
+        help="Create or resume a dedicated local Git worktree before claiming.",
+    )
+    start.add_argument(
+        "--base-ref",
+        default="HEAD",
+        help="Committed Git ref used as the isolated worktree base.",
+    )
     start.add_argument("--json", action="store_true", help="Emit JSON.")
     release = nested.add_parser(
         "release",
@@ -521,6 +531,16 @@ def _add_git_parser(subparsers: Any) -> None:
         "--project-dir",
         default="",
         help="Project root. Defaults to the current directory.",
+    )
+    status.add_argument(
+        "--work-id",
+        default="",
+        help="Assess this work item against --target-ref instead of listing hooks.",
+    )
+    status.add_argument(
+        "--target-ref",
+        default="main",
+        help="Local target revision used with --work-id. Defaults to main.",
     )
     status.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -1249,7 +1269,21 @@ def _add_work_parser(subparsers: Any) -> None:
         "--id",
         dest="work_id",
         default="",
-        help="Explicit work id. Defaults to the next WORK-NNNN.",
+        help="Explicit work id. Defaults to a collision-resistant opaque id.",
+    )
+    add.add_argument(
+        "--depends-on",
+        dest="dependencies",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Explicit prerequisite work item id (repeatable).",
+    )
+    add.add_argument(
+        "--parallel-policy",
+        choices=("independent", "coordinate", "exclusive"),
+        default="independent",
+        help="Coordination policy for overlapping active work.",
     )
     add.add_argument("--approvals", type=int, default=0, help="Required approval count.")
     add.add_argument("--json", action="store_true", help="Emit JSON.")

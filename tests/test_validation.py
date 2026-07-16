@@ -232,6 +232,37 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             self.modified_example_workspace(missing_dependency)
 
+    def test_duplicate_dependency_fails_closed(self) -> None:
+        def duplicate_dependency(data: dict[str, object]) -> None:
+            data["work_items"][6]["dependency_ids"] = ["WORK-0003", "WORK-0003"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "dependency_ids contains a duplicate id",
+        ):
+            self.modified_example_workspace(duplicate_dependency)
+
+    def test_self_dependency_fails_closed(self) -> None:
+        def self_dependency(data: dict[str, object]) -> None:
+            data["work_items"][2]["dependency_ids"] = ["WORK-0003"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "dependency_ids cannot reference itself",
+        ):
+            self.modified_example_workspace(self_dependency)
+
+    def test_dependency_cycle_fails_closed(self) -> None:
+        def dependency_cycle(data: dict[str, object]) -> None:
+            data["work_items"][2]["dependency_ids"] = ["WORK-0007"]
+            data["work_items"][6]["dependency_ids"] = ["WORK-0003"]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "dependency graph contains a cycle: WORK-0003 -> WORK-0007 -> WORK-0003",
+        ):
+            self.modified_example_workspace(dependency_cycle)
+
     def test_work_item_source_outside_workbench_boundary_fails_closed(self) -> None:
         def outside_source(data: dict[str, object]) -> None:
             data["sources"].append(

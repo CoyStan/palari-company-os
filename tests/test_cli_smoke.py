@@ -16,6 +16,41 @@ SPLIT_WORKSPACE = REPO_ROOT / "tests" / "fixtures" / "workspaces" / "split-works
 
 
 class CliSmokeTests(unittest.TestCase):
+    def test_work_add_cli_uses_opaque_ids_and_explicit_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            project.mkdir()
+            initialized = self.run_json("init", str(project), "--json")
+            self.assertTrue(initialized["valid"])
+            first = self.run_json(
+                "--workspace",
+                str(project),
+                "work",
+                "add",
+                "First independent task",
+                "--write",
+                "docs/first.md",
+                "--json",
+            )
+            first_id = first["work_item"]["id"]
+            self.assertRegex(first_id, r"^WORK-[0-9A-F]{32}$")
+            second = self.run_json(
+                "--workspace",
+                str(project),
+                "work",
+                "add",
+                "Dependent task",
+                "--write",
+                "docs/second.md",
+                "--depends-on",
+                first_id,
+                "--parallel-policy",
+                "coordinate",
+                "--json",
+            )
+            self.assertEqual(second["work_item"]["dependency_ids"], [first_id])
+            self.assertEqual(second["work_item"]["parallel_policy"], "coordinate")
+
     def test_core_workspace_json_commands_return_structured_payloads(self) -> None:
         validate = self.run_json("validate", "--json")
         dogfood_validate = self.run_json(

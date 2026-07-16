@@ -26,6 +26,9 @@ The v1 loop is:
 1. Run `palari agent next --as PALARI-ID --json` to discover safe candidates.
 2. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json` to preview scope.
 3. Run `palari agent start WORK-ID --as PALARI-ID --mode execute --json` to persist the packet and claim the work.
+   When parallel sessions need independent checkouts and the work definition is
+   committed, add `--isolate`; Palari creates or resumes the deterministic local
+   worktree and returns its resume command.
 4. Continue only if the packet returns `status: ready`.
 5. Read and write only the packet's allowed paths and sources.
 6. Stop if the packet is blocked or a stop condition is reached.
@@ -183,6 +186,7 @@ Implemented:
 - `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
+- `palari agent start WORK-ID --as PALARI-ID --mode execute --isolate --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
@@ -216,6 +220,9 @@ Implemented:
 - packet context hash
 - receipt `context_packet` and `context_hash` fields
 - direct work, goal, workbench, source, dependency, proof, and integration state
+- opaque default work identity whose value carries no execution-order meaning
+- repository-shared compare-and-swap claim leases across linked Git worktrees
+- optional deterministic isolated branches/worktrees for concurrent sessions
 
 Not implemented yet:
 
@@ -370,3 +377,11 @@ the out-of-boundary changes are reverted or the boundary is expanded by a human.
 `palari git status` shows whether the hook is installed and lists active claims
 with their allowed write paths. `palari git pre-commit` is the check command the
 hook calls; it can also be run manually before committing.
+
+The same local Git repository holds expiring claim leases under
+`refs/palari/leases/`. They prevent two linked worktrees from treating the same
+work item as actively owned while allowing unrelated work items to proceed.
+They are local coordination records, not identity authentication or human
+authority. `palari git status --work-id WORK-ID --target-ref REF` separately checks
+the exact governed candidate against a current target and requires renewed
+proof after any divergent merge projection.

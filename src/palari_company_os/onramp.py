@@ -22,13 +22,13 @@ from .authoring import create_record, update_record
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
 from .validation import COLLECTION_FILE_KEYS
+from .work_identity import generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
 
 HUMAN_ID = "HUMAN-FOUNDER"
 GOAL_ID = "GOAL-0001"
 WORKBENCH_ID = "WORKBENCH-MAIN"
 SOURCE_ID = "SOURCE-REPO"
-_WORK_ID_RE = re.compile(r"^WORK-(\d+)$")
 
 
 def initialize_starter_workspace(
@@ -166,6 +166,8 @@ def quick_add_work(
     verify: list[str] | None = None,
     work_id: str = "",
     approvals: int = 0,
+    dependencies: list[str] | None = None,
+    parallel_policy: str = "independent",
 ) -> dict[str, Any]:
     """Create one agent-startable work item from a title and its write paths."""
     clean_title = title.strip()
@@ -180,7 +182,21 @@ def quick_add_work(
     palari = _resolve_default(store.data, "palaris", palari_id, "--as")
     goal = _resolve_default(store.data, "goals", goal_id, "--goal")
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
-    resolved_id = work_id.strip() or _next_work_id(store.data)
+    resolved_id = work_id.strip() or generate_work_id(
+        _collection_ids(store.data, "work_items")
+    )
+    dependency_ids = _normalized_ids(dependencies or [], "--depends-on")
+    if parallel_policy not in {"independent", "coordinate", "exclusive"}:
+        raise WorkspaceError(
+            f"--parallel-policy must be independent, coordinate, or exclusive: "
+            f"{parallel_policy}"
+        )
+    known_work_ids = set(_collection_ids(store.data, "work_items"))
+    for dependency_id in dependency_ids:
+        if dependency_id == resolved_id:
+            raise WorkspaceError(f"--depends-on cannot reference the new work item {resolved_id}")
+        if dependency_id not in known_work_ids:
+            raise WorkspaceError(f"--depends-on references unknown work item {dependency_id}")
 
     allowed_sources: list[str] = []
     workbench_outputs_added: list[str] = []
@@ -211,6 +227,7 @@ def quick_add_work(
         "goal": goal,
         "palari": palari,
         "workbench_id": workbench,
+        "dependency_ids": dependency_ids,
         "risk": risk,
         "intensity": intensity,
         "status": "active",
@@ -219,7 +236,7 @@ def quick_add_work(
         "allowed_sources": allowed_sources,
         "output_targets": write_paths,
         "conflict_targets": write_paths,
-        "parallel_policy": "independent",
+        "parallel_policy": parallel_policy,
         "forbidden_actions": ["write outside the declared write paths"],
         "acceptance_target": (
             acceptance_target.strip() or "Declared outputs exist and verification passes."
@@ -331,10 +348,13 @@ def _find_record(data: dict[str, Any], collection: str, record_id: str) -> dict[
     return None
 
 
-def _next_work_id(data: dict[str, Any]) -> str:
-    highest = 0
-    for record_id in _collection_ids(data, "work_items"):
-        match = _WORK_ID_RE.match(record_id)
-        if match:
-            highest = max(highest, int(match.group(1)))
-    return f"WORK-{highest + 1:04d}"
+def _normalized_ids(values: list[str], flag: str) -> list[str]:
+    normalized: list[str] = []
+    for raw in values:
+        value = raw.strip()
+        if not value:
+            raise WorkspaceError(f"{flag} requires a non-empty work item id")
+        if value in normalized:
+            raise WorkspaceError(f"{flag} repeats work item {value}")
+        normalized.append(value)
+    return normalized
