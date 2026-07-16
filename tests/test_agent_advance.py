@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_advance import (
+    _completed_projection,
     _git_commit_timestamp,
     agent_advance,
     agent_advance_dry_run,
@@ -516,6 +517,70 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
         self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
 
+    def test_changes_requested_repair_bypasses_rejected_projection_resume(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        original = Ws.load(self.temp_dir)
+        work = original.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in original.attempts if item.id == work.current_attempt)
+        original_head = attempt.head_sha or attempt.commits[-1]
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": "REVIEW-TEST-ADVANCE-CHANGES",
+                "work_item_id": self.work_id,
+                "reviewed_head": original_head,
+                "reviewer": "PALARI-ARCHITECT",
+                "verdict": "changes-requested",
+                "findings": [],
+                "checks_inspected": ["exact deterministic advance proof"],
+                "residual_risks": [],
+            },
+            command="test independent review",
+            actor="PALARI-ARCHITECT",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "record review"],
+            check=True,
+        )
+        start = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(start["start"]["status"], "claimed")
+        (self.temp_dir / "README.md").write_text("repaired\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "repair finding"],
+            check=True,
+        )
+        resumed = _completed_projection(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertIsNone(resumed)
+
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
@@ -618,10 +683,10 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "id": "REVIEW-AUTO-CONVERGE",
                 "work_item_id": self.work_id,
                 "reviewed_head": attempt.head_sha,
-                "reviewer": "HUMAN-MAINTAINER",
+                "reviewer": "PALARI-ARCHITECT",
                 "verdict": "accept-ready",
             },
-            actor="HUMAN-MAINTAINER",
+            actor="PALARI-ARCHITECT",
         )
 
         result = create_human_decision(
@@ -683,10 +748,10 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "id": "REVIEW-OBSERVATION-FAILURE",
                 "work_item_id": self.work_id,
                 "reviewed_head": attempt.head_sha,
-                "reviewer": "HUMAN-MAINTAINER",
+                "reviewer": "PALARI-ARCHITECT",
                 "verdict": "accept-ready",
             },
-            actor="HUMAN-MAINTAINER",
+            actor="PALARI-ARCHITECT",
         )
 
         with patch(
@@ -1730,14 +1795,14 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "id": review_id,
                 "work_item_id": self.work_id,
                 "reviewed_head": head_sha,
-                "reviewer": "HUMAN-MAINTAINER",
+                "reviewer": "PALARI-ARCHITECT",
                 "verdict": "accept-ready",
                 "findings": [],
                 "checks_inspected": ["exact deterministic advance proof"],
                 "residual_risks": [],
             },
             command="test independent review",
-            actor="HUMAN-MAINTAINER",
+            actor="PALARI-ARCHITECT",
         )
         create_human_decision(
             str(self.temp_dir),

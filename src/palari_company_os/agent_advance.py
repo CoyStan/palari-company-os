@@ -917,6 +917,13 @@ def _completed_projection(
             "message": f"Work item {work_id} is already completed.",
             "steps": [{"step": "resume", "status": "already-completed"}],
         }
+    if _changes_requested_repair_candidate(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    ):
+        return None
     convergence = converge_work_item(
         workspace_path,
         work_id,
@@ -1676,6 +1683,35 @@ def _select_attempt(
                 return current
     expected_id = _proof_id("ATTEMPT-ADVANCE", work_id, head_sha)
     return next((item for item in workspace.attempts if item.id == expected_id), None)
+
+
+def _changes_requested_repair_candidate(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+) -> bool:
+    reviews = [
+        item for item in workspace.review_verdicts if item.work_item_id == work.id
+    ]
+    if not reviews or not work.current_attempt:
+        return False
+    latest = max(reviews, key=record_time_key)
+    if latest.verdict != "changes-requested":
+        return False
+    attempt = next(
+        (item for item in workspace.attempts if item.id == work.current_attempt),
+        None,
+    )
+    if attempt is None or attempt.actor != palari_id:
+        return False
+    attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
+    if not attempt_head or latest.reviewed_head != attempt_head:
+        return False
+    from .agent_done import _git_value
+
+    current_head = _git_value(workspace_path, ["rev-parse", "HEAD"])
+    return bool(current_head and current_head != attempt_head)
 
 
 def _governed_artifacts(paths: list[str]) -> list[str]:
