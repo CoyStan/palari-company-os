@@ -3466,7 +3466,8 @@
         "Focused claim epoch and autonomous advance tests pass, including non-overlap success and overlap/history/forgery/restart rejection.",
         "Affected agent, security, documentation, schema, complete repository, and isolated installation checks pass."
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3"
     }
   ],
   "attempts": [
@@ -6626,6 +6627,64 @@
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3",
+      "work_item_id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "2c711baa3626cfd81b3015c991e2d5b07a67380d",
+      "allowed_paths": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "started_at": "2026-07-16T22:09:30Z",
+      "head_sha": "4a21cfadc4b30e594b8bc128f5e60490fb162931",
+      "commits": [
+        "4a21cfadc4b30e594b8bc128f5e60490fb162931"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T22:09:30Z",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "src/palari_company_os/agent_advance.py",
+        "tests/test_agent_advance.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_packets.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_done.py",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
       ]
     }
   ],
@@ -10204,6 +10263,71 @@
       "receipt_hash": "sha256:7715de76c8ba9fe948cd14dd5bff5fe47ee0927b49da3c26552b2736d8003e0e",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:e201d53bc9cffef43353b7b3e7b85e199e5fefbf01f4f071ae61dce99b4c07bd"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3",
+      "work_item_id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3",
+      "head_sha": "4a21cfadc4b30e594b8bc128f5e60490fb162931",
+      "status": "passed",
+      "base_ref": "2c711baa3626cfd81b3015c991e2d5b07a67380d",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-EB6111DC83EE365E sha256:d2c93030740c674b2e9e167c6abd61fbf9531abc67b5cd89eb6111dc83ee365e",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-425C7CFC399DD886 sha256:75e535fb18eebc0e65725727de935f32bf4f7227d2180d5b425c7cfc399dd886",
+        "docs-check attestation VERIFY-DOCS-CHECK-7F4C72447060D708 sha256:10b2421e13cb30a2d9a67babd45a30636c08ce2b80e34d877f4c72447060d708"
+      ],
+      "artifacts": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "src/palari_company_os/agent_advance.py",
+        "tests/test_agent_advance.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:71fe94787c6fb4d0cb5a140a88ea9d4b6ee2d0c3b1224a50e94401042f7e5c4f",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:de91bf0f99b57bc06fd2757b7c132262e03e6f20ba9bde0e34ddbeb81a11a12d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:58927e86732c6631fb2fb0178cd36c380fcdb44e4a6d253ecbaeff0a1d05d3f3",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/testing-guide.md",
+          "sha256": "sha256:576b1228c83096dd7433a02da5fc23958c59a16a0322c2c178fe40b547112c14",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:3845b6905a7fe5f115f89f8caec8161dcdb73667572560c1dce0f009527ad721",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:32c14c6301983d92f26aee2071f84c91e2593a039cbe442962a7d99eb49367f7",
+          "status": "present"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+          "sha256": "sha256:ec8f895349375bc746050fdc11441ca65bf1c9a2f00bda2451739cefc39394d2",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T22:09:30Z",
+      "receipt_hash": "sha256:e7770fcd8a6d186c12b0501a944be48fa3b4570ebb5c7873170af9d06170b617",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:d4e42f51584e19199e7242f4844636bdd9df48b1386b26797ce69f657e7f763b"
     }
   ],
   "review_verdicts": [
@@ -13544,6 +13668,42 @@
       "timestamp": "2026-07-16T21:10:44Z",
       "previous_receipt_hash": "sha256:b2db3968f4c9ab5efb162a07c8e08f2755c94fabe15e3e0eaad82b408eec8693",
       "receipt_hash": "sha256:7715de76c8ba9fe948cd14dd5bff5fe47ee0927b49da3c26552b2736d8003e0e"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3",
+      "work_item_id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-4A21CFADC4B3",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 7 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "src/palari_company_os/agent_advance.py",
+        "tests/test_agent_advance.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/testing-guide.md",
+        "src/palari_company_os/agent_advance.py",
+        "tests/test_agent_advance.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "timestamp": "2026-07-16T22:09:30Z",
+      "receipt_hash": "sha256:e7770fcd8a6d186c12b0501a944be48fa3b4570ebb5c7873170af9d06170b617"
     }
   ],
   "decisions": [
