@@ -2803,8 +2803,12 @@
         "src/palari_company_os/agent_finish.py",
         "src/palari_company_os/governance_convergence.py",
         "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/validation.py",
         "tests/test_agent_advance.py",
         "tests/test_governance_kernel.py",
+        "tests/test_validation.py",
         "docs/product/agent-contract.md",
         "docs/product/command-reference.md",
         "workspaces/palari-company-os/workspace.json",
@@ -2812,7 +2816,9 @@
       ],
       "output_targets": [
         "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/validation.py",
         "tests/test_agent_advance.py",
+        "tests/test_validation.py",
         "docs/product/command-reference.md"
       ],
       "verification_expectations": [
@@ -2833,8 +2839,8 @@
       "risk": "R4",
       "intensity": "high",
       "status": "active",
-      "scope": "Extend deterministic agent advance so --refresh-verification can create a new exact-head proof for unchanged governed artifacts after later substantive repository changes. Require clean current bytes, rerun authoritative verification, and stop at fresh independent review; never reuse the old human decision or modify the accepted blueprint.",
-      "acceptance_target": "The unchanged blueprint receives new exact-head attempt, receipt, and evidence records after complete verification; old review and human authority remain stale; fresh review and founder acceptance are required; ordinary claim and proof-freshness gates remain fail closed.",
+      "scope": "Add explicit current-head proof refresh for unchanged governed artifacts and permit older exact-bound accepted decisions to remain as stale audit history when a new attempt becomes current. Rerun authoritative verification and stop at fresh review; never count old authority, rewrite the blueprint, or weaken current binding checks.",
+      "acceptance_target": "The unchanged blueprint receives new exact-head proof; the previous accepted decision remains attributable but contributes zero current quorum; fresh review and founder acceptance are required; changed artifacts, dirty state, mismatched bindings, and ordinary unclaimed execution remain fail closed.",
       "required_approval_count": 1
     }
   ],
