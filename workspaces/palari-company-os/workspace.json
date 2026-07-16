@@ -6531,6 +6531,40 @@
       "receipt_hash": "sha256:20d5215fbc592aad40995923a0e03a986eb3de2299607c198da2a3fb17d327a8",
       "work_contract_hash": "sha256:9fc6706f04dd36f7915d7d7dd8106e66787de3735d20fa5fde329f6d24bedc3c",
       "proof_hash": "sha256:17b1bb8bc0d351b126a256e5ae01bdee56ffe085082068f754eab516eb442753"
+    },
+    {
+      "id": "REVIEW-AC8CE9E4-D76E076-FOUNDER",
+      "work_item_id": "WORK-AC8CE9E4197C4D57B6FA096F14F33A3F",
+      "reviewed_head": "d76e07647e4c05179acd875db4beedccd7873b3c",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T00:16:50.322694Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-D76E07647E4C",
+      "attempt_hash": "sha256:0dfe53b0036a851749adea8d4bb0ce018e85cafaaa1e8192d8c2b0897de73a13",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-D76E07647E4C",
+      "evidence_manifest_hash": "sha256:dfac7aea4e882d4a22b310624a89be317ecc0afe08d36185a5ec0d875318803c",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-AC8CE9E4197C4D57B6FA096F14F33A3F-D76E07647E4C",
+      "receipt_hash": "sha256:b4e2547c07767f428d5480923b998170c2ad10b9c8be25576bfcee28f2edd8e1",
+      "work_contract_hash": "sha256:c187bfd484471926ab5dcb79ae04f199c2f31e145bbc3c711d6c7a4a511fe210",
+      "proof_hash": "sha256:e6229df40346376942bac81c4b73c30d78467a94a9b3cea57b717c685bb137b2"
+    },
+    {
+      "id": "REVIEW-98F99019-BCC1702-FOUNDER",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "reviewed_head": "bcc17028e43655f7bafb3beb659ebabd8f3d222b",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T00:17:10.786246Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "attempt_hash": "sha256:4bf53c416df49929f3bf71113334fbc45a945b84a602830e2e7db2f6994b12cd",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "evidence_manifest_hash": "sha256:6a1f3aeb0b54142483560ef75539afcc9f07b9dc2d549d829f6d333cedd8a49e",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "receipt_hash": "sha256:c00daa2224a783945dbba78870d2aa7a44f78a04eb29422650f94e9e6d698cbd",
+      "work_contract_hash": "sha256:d6dcd5c729ba94cfc05640585aa875ff8f8364fee784073af256288889635ffb",
+      "proof_hash": "sha256:e14d9428e64d7fbec7f60a64284989fb42e5c7da1028b1fac6de7eb67a7e38b0"
     }
   ],
   "human_decisions": [
