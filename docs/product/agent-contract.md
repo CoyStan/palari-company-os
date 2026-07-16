@@ -63,6 +63,14 @@ The v1 loop is:
     records the review or human decision itself. Later Git commits preserve proof
     currency only when every committed and dirty tracked path is governance
     projection data; any substantive repository change fails closed.
+    When a bound changes-requested review identifies stale proof whose governed
+    outputs are unchanged, `--refresh-verification --dry-run` previews a separate
+    claimless refresh and the non-dry-run command reruns verification, records new
+    exact-head proof, and stops for fresh independent review. Separately governed
+    descendant commits are context, not claimed work. A touched non-projection
+    output is rejected even when its bytes were later restored; an active claim,
+    mismatched review head, dirty tracked state, or rewritten history also fails
+    closed. The immutable claim-start baseline is never rotated by this path.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and

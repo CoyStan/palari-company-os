@@ -810,6 +810,313 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertIsNone(resumed)
 
+    def test_changes_requested_refresh_previews_and_rebinds_without_claim(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-CHANGES")
+        (self.temp_dir / "RELATED.md").write_text(
+            "separately governed context\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "review and context"],
+            check=True,
+        )
+        current_head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        preview = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(preview["status"], "planned", preview)
+        self.assertFalse(preview["would_mutate"])
+        self.assertEqual(preview["refresh"]["previous_head"], previous_head)
+        self.assertEqual(preview["refresh"]["current_head"], current_head)
+        after_preview = Ws.load(self.temp_dir)
+        self.assertEqual(after_preview.work_item(self.work_id).current_attempt, attempt.id)
+        self.assertFalse(
+            any(
+                item.id.startswith("ATTEMPT-REFRESH-")
+                for item in after_preview.attempts
+                if item.work_item_id == self.work_id
+            )
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            refreshed = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(refreshed["status"], "review-required", refreshed)
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+        current = Ws.load(self.temp_dir)
+        current_work = current.work_item(self.work_id)
+        self.assertIsNotNone(current_work)
+        assert current_work is not None and current_work.current_attempt
+        refreshed_attempt = next(
+            item for item in current.attempts if item.id == current_work.current_attempt
+        )
+        self.assertEqual(refreshed_attempt.head_sha, current_head)
+        stale_review = next(
+            item for item in current.review_verdicts if item.id == "REVIEW-REFRESH-CHANGES"
+        )
+        self.assertEqual(stale_review.reviewed_head, previous_head)
+        self.assertNotEqual(stale_review.reviewed_head, refreshed_attempt.head_sha)
+
+    def test_changes_requested_refresh_rejects_active_claim(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-ACTIVE-CLAIM")
+        (self.temp_dir / "RELATED.md").write_text("later context\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_ACTIVE_CLAIM")
+
+    def test_changes_requested_refresh_rebinds_self_mutating_projection_outputs(
+        self,
+    ) -> None:
+        self._advance_with_projection_outputs()
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-PROJECTION")
+        (self.temp_dir / "RELATED.md").write_text(
+            "separately governed context\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later projection"],
+            check=True,
+        )
+        current_head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "review-required", result)
+        refreshed = Ws.load(self.temp_dir)
+        refreshed_work = refreshed.work_item(self.work_id)
+        assert refreshed_work is not None and refreshed_work.current_attempt
+        refreshed_attempt = next(
+            item for item in refreshed.attempts if item.id == refreshed_work.current_attempt
+        )
+        self.assertEqual(refreshed_attempt.head_sha, current_head)
+        evidence = next(
+            item
+            for item in refreshed.evidence_runs
+            if item.attempt_id == refreshed_attempt.id
+        )
+        self.assertEqual(
+            set(evidence.artifacts),
+            {
+                "README.md",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            },
+        )
+
+    def test_changes_requested_refresh_rejects_mismatched_review_head(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_changes_requested("f" * 40, "REVIEW-REFRESH-WRONG-HEAD")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bad review binding"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
+        )
+
+    def test_changes_requested_refresh_rejects_rewritten_history(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-REWRITTEN")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "--orphan", "rewritten"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "rewritten history"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertFalse(result["can_advance"])
+
+    def test_refresh_rejects_restored_output_history_overlap(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        previous_head, _evidence_id, _review_id = self._record_current_authority()
+        self._record_changes_requested(
+            previous_head,
+            "REVIEW-REFRESH-RESTORED-OUTPUT",
+        )
+        artifact = (self.temp_dir / "README.md").read_bytes()
+        (self.temp_dir / "README.md").write_text("temporary changed bytes\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "touch output"],
+            check=True,
+        )
+        (self.temp_dir / "README.md").write_bytes(artifact)
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "restore output"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("overlapping refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_OUTPUT_HISTORY_OVERLAP"
+        )
+        self.assertIn("README.md", result["blockers"][0]["message"])
+
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
@@ -2558,6 +2865,24 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             automatic_convergence=False,
         )
         return head_sha, evidence.id, review_id
+
+    def _record_changes_requested(self, head_sha: str, review_id: str) -> None:
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": review_id,
+                "work_item_id": self.work_id,
+                "reviewed_head": head_sha,
+                "reviewer": "PALARI-ARCHITECT",
+                "verdict": "changes-requested",
+                "findings": [],
+                "checks_inspected": ["exact reviewed proof head"],
+                "residual_risks": [],
+            },
+            command="test independent changes requested",
+            actor="PALARI-ARCHITECT",
+        )
 
     def _advance_with_projection_outputs(self):
         release_agent(

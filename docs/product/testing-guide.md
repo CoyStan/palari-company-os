@@ -87,6 +87,9 @@ The test suite covers:
 - write refusal for split workspaces
 - in-place split-workspace migration with stale-proof invalidation
 - coordinated claim/packet/baseline rehash rejection and Git witness history
+- claimless changes-requested proof refresh preview and execution, including
+  self-mutating workspace/history/journal outputs; active-claim, mismatched-review,
+  changed-then-restored output, dirty-state, and exact-history rejection
 - agent-shell denial for human-only and packet-authority commands, dynamic
   shell/Git-global-option approval, composed-command masking, helper-launching
   config/environment options, post-release workspace-truth protection, and

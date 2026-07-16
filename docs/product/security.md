@@ -35,6 +35,12 @@ Authority rules:
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
   the original head; coordinated rewrites of the claim and baseline fail.
+- Proof-only refresh does not reset or replace that baseline. It runs without a
+  claim, requires exact descendant history with replacement objects disabled,
+  and inspects every path touched by the raw commit range. Separately governed
+  commits may advance repository context, but touching a governed
+  non-projection output blocks refresh even if a later commit restores identical
+  bytes. The refreshed proof invalidates prior review and human authority.
 - `agent advance` applies that same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
   argument vectors rather than workspace prose. Run records bind the head,

@@ -105,6 +105,14 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   paths are governance projection data. The driver must never create the review
   or human decision, and cycle, no-progress, or iteration-limit states fail
   closed.
+- Explicit exact-head proof refresh is claimless. A current changes-requested
+  review may route unchanged outputs through that transaction after separately
+  governed descendant commits; dry-run previews it without verification or
+  mutation. The complete raw commit path range is inspected with Git replacement
+  objects disabled. Any non-projection output touch, even if later restored,
+  active claim, mismatched review head, dirty tracked state, or divergent history
+  fails closed. Refresh creates new attempt, receipt, and evidence only; prior
+  review and human authority never carry forward.
 - Blockers expose stable resolver metadata. Current authority followed only by
   mechanical bookkeeping is automatic reconciliation; terminal work is closed,
   not a blocker; external, review, and human boundaries remain distinct.
