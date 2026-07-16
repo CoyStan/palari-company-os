@@ -452,7 +452,70 @@ manifests to media files (and its spec covers PDFs); nobody has applied that
 pattern to work records — treat C2PA as the design analogy that proves the
 pattern scales, not as a competitor.
 
-## 10. Adoption strategy
+## 10. The liability engine: why labs and insurers want this to exist
+
+The strongest demand for this protocol may come from parties who never run a
+single Palari command.
+
+**The allocation already exists on paper; the evidence does not.** Every
+provider's terms say the user is responsible for reviewing outputs.
+Professional-responsibility rules already agree: bar guidance treats
+generative AI like nonlawyer assistance the attorney must supervise, and when
+AI-hallucinated citations reached a court, the sanctions fell on the lawyer,
+not the model provider. Medicine, engineering, and accounting run on the same
+rule — the professional answers for the work product. What is missing at AI
+velocity is not the allocation of responsibility but the **evidence
+infrastructure that makes the allocation provable**. A terms-of-service
+disclaimer is weak protection when nobody can show whether a specific output
+was meaningfully reviewed. A signed receipt with a presentation digest shows
+it exactly: this human, under this contract, was shown this evidence, and
+signed.
+
+**Receipts do not transfer liability; they make the existing line crisp.**
+Liability for model defects — a defective model, a misrepresented capability —
+stays with the provider and cannot be contracted away. What the receipt
+separates cleanly is the layer above: supervision and acceptance, which
+provably rest with the professional who signed. Today every incident smears
+those two layers together; both sides want the line crisp, because the fight
+about where it falls is more expensive than either side's share of it.
+
+**Neutrality is a legal requirement, not a positioning choice.** A
+liability-relevant record system run by an interested party is worthless as
+evidence — no court credits the fox's ledger of the henhouse. The record
+layer must be free, open, and verifiable without trusting any provider,
+operator, or Palari itself. The labs have already shown they will back
+neutral formats they cannot own (agent-trace, jointly supported by Anthropic,
+OpenAI, and Google); a neutral receipt protocol is the same move one layer
+up, where the stakes are legal rather than attributional.
+
+**The precedent is the professional engineer's stamp.** Society already
+solved "one accountable human answers for work they did not personally
+perform": the PE stamps the drawings, and the stamp is what makes bridges
+buildable and insurable. A Palari receipt is the PE stamp for AI work, with
+cryptographic teeth — the same social function, made verifiable offline by
+strangers decades later.
+
+**Insurers are the adoption engine.** Professional liability carriers must
+price AI-assisted work today with no underwriting data and no defense
+evidence. Receipts supply both: proof that a firm reviews what it signs, and
+litigation-grade evidence of meaningful supervision. A carrier that discounts
+premiums for receipt-governed AI work creates a forcing function stronger
+than any developer marketing — the mechanism that spread seatbelts,
+sprinklers, and secure-by-default IT. This also sharpens the design-partner
+search: a malpractice carrier or a firm's general counsel may be a better
+first partner than any single clinic or firm.
+
+**Claim-language rules (bind the marketing to these).** Never claim the
+protocol "removes" or "shields from" liability — it is not legally true, and
+the buyers who matter (general counsel, insurers, regulators) will spot the
+overclaim in one sentence and discount everything else. The receipt is
+evidence in both directions: it protects the professional who genuinely
+reviewed and exposes the one who rubber-stamped a thousand approvals in an
+hour. That double edge is the honest product. The approved phrasing is:
+*clean, provable allocation of responsibility — protection for the diligent,
+by construction.*
+
+## 11. Adoption strategy
 
 1. **Verifier first.** The free, trivially installable artifact is `verify` —
    run it in CI, run it in an audit, exit 0 or 1. Producers follow verifiers,
@@ -462,9 +525,10 @@ pattern scales, not as a competitor.
    demo. Code is not the biggest market, but it is the market where the first
    thousand users already run agents all day.
 3. **One design partner in a regulated niche** — a clinic, a law firm, an
-   accounting practice drowning in AI-assist documentation duties. Their
-   auditor becomes the requirements document. Worth more than ten thousand
-   stars, and it shapes WRP-9 before it is built.
+   accounting practice drowning in AI-assist documentation duties, or (per
+   §10) a professional liability carrier or general counsel. Their auditor
+   becomes the requirements document. Worth more than ten thousand stars, and
+   it shapes WRP-9 before it is built.
 4. **Second implementation, early** (WRP-8). The moment another codebase
    passes the conformance corpus, this stops being a feature of Palari and
    starts being a protocol.
@@ -480,7 +544,7 @@ identity binding against corporate IdPs, compliance report packs, and the
 supervision surfaces. Let's Encrypt and Sigstore prove the shape; GitHub
 proves the ceiling.
 
-## 11. Naming and positioning rules
+## 12. Naming and positioning rules
 
 - The sentence is **"Git, but for AI work."** It is load-bearing: it names the
   object (permanent verifiable record), the architecture (content-addressed,
@@ -495,7 +559,7 @@ proves the ceiling.
   protocol for signed receipts of AI-executed work — what was done, what the
   human saw, and who signed it, verifiable offline forever.*
 
-## 12. Risks
+## 13. Risks
 
 - **Platforms ship native signed session logs.** Anthropic, OpenAI, and Google
   jointly backing agent-trace shows appetite for shared formats. Mitigation:
@@ -512,7 +576,7 @@ proves the ceiling.
   compliance-driven buyers. Keep the developer wedge free and frictionless;
   aim the commercial layer at the people who must evidence their AI work.
 
-## 13. The hospital vignette (the north star, end to end)
+## 14. The hospital vignette (the north star, end to end)
 
 An AI drafts a discharge summary under a work contract: allowed sources, one
 allowed output. Palari records the attempt, runs the evidence checks, and
@@ -532,7 +596,7 @@ the hospital's IT department, the AI vendor, or us.
 That is the product. Work at AI speed, accountability at cryptographic
 strength, and a record that outlives everyone's memory of the ticket.
 
-## 14. Glossary (plain language)
+## 15. Glossary (plain language)
 
 | Term | Plain meaning |
 | --- | --- |
@@ -547,7 +611,7 @@ strength, and a record that outlives everyone's memory of the ticket.
 | Transparency log | An append-only, hash-chained record; nothing can be inserted, removed, or backdated invisibly. |
 | Receipt | One signed, canonical statement binding contract, evidence, presented view, decision, and signer. |
 
-## 15. Primary sources
+## 16. Primary sources
 
 - PCAW v1: `spec/pcaw/v1/README.md` (this repository)
 - DSSE: github.com/secure-systems-lab/dsse (envelope.md, protocol.md)
