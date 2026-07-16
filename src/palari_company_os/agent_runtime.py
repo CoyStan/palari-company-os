@@ -12,7 +12,13 @@ from uuid import uuid4
 
 from .agent_file_changes import capture_git_baseline
 from .agent_packets import build_agent_brief
+from .agent_session_contract import (
+    compile_agent_session_contract,
+    session_contract_error,
+    session_contract_summary,
+)
 from .path_policy import resolve_workspace_path, validate_workspace_path
+from .pcaw_canonical import CanonicalJSONError, strict_json_loads
 from .store import workspace_file_path
 from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, WorkspaceError
@@ -66,9 +72,11 @@ def start_agent(
     )
 
     data_path = workspace_file_path(workspace_path)
+    session_contract = compile_agent_session_contract(packet)
     now = _timestamp()
     expires = _timestamp_after(minutes=max(1, lease_minutes))
     packet_path = _packet_path(data_path, packet["packet_id"])
+    contract_path = _session_contract_path(data_path, session_contract["contract_id"])
     claim_path = _claim_path(data_path, work_id)
     baseline_path = _baseline_path(data_path, work_id)
     lock_path = _acquire_claim_lock(data_path, work_id)
@@ -96,6 +104,16 @@ def start_agent(
             if packet_error:
                 raise WorkspaceError(
                     f"work {work_id} active claim packet is invalid: {packet_error}"
+                )
+            contract_error = _persisted_session_contract_error(
+                data_path,
+                existing,
+                existing_packet,
+            )
+            if contract_error:
+                raise WorkspaceError(
+                    f"work {work_id} active claim session contract is invalid: "
+                    f"{contract_error}"
                 )
             if _packet_authority_hash(existing_packet) != _packet_authority_hash(packet):
                 raise WorkspaceError(
@@ -146,6 +164,8 @@ def start_agent(
             "context_hash": packet["context_hash"],
             "workspace_file_hash": _file_hash(data_path),
             "packet_path": _runtime_relative(data_path, packet_path),
+            "session_contract_path": _runtime_relative(data_path, contract_path),
+            "session_contract_digest": session_contract["contract_digest"],
             "git_baseline": git_baseline,
             "git_baseline_hash": _git_baseline_hash(git_baseline),
             "git_baseline_path": _runtime_relative(data_path, baseline_path),
@@ -156,6 +176,7 @@ def start_agent(
         claim.update(acquired_lease)
 
         _write_json(packet_path, packet)
+        _write_json(contract_path, session_contract)
         _write_json(claim_path, claim)
     except Exception:
         if acquired_lease is not None:
@@ -172,6 +193,8 @@ def start_agent(
         "would_mutate": True,
         "claim": claim,
         "packet_path": _runtime_relative(data_path, packet_path),
+        "session_contract_path": _runtime_relative(data_path, contract_path),
+        "session_contract": session_contract_summary(session_contract),
         "claim_path": _runtime_relative(data_path, claim_path),
     }
     return packet
@@ -366,6 +389,13 @@ def claim_integrity_error(
     lease_error = _git_lease_error(claim)
     if lease_error:
         return lease_error
+    try:
+        packet = _read_claim_packet(data_path, claim)
+    except (ValueError, WorkspaceError) as exc:
+        return str(exc)
+    contract_error = _persisted_session_contract_error(data_path, claim, packet)
+    if contract_error:
+        return contract_error
     return ""
 
 
@@ -573,6 +603,13 @@ def _packet_path(data_path: Path, packet_id: str) -> Path:
     return _runtime_path(data_path, f".palari/packets/{_safe_file_id(packet_id)}.json")
 
 
+def _session_contract_path(data_path: Path, contract_id: str) -> Path:
+    return _runtime_path(
+        data_path,
+        f".palari/packets/session-contracts/{_safe_file_id(contract_id)}.json",
+    )
+
+
 def _claim_path(data_path: Path, work_id: str) -> Path:
     return _runtime_path(data_path, f".palari/claims/{_safe_file_id(work_id)}.json")
 
@@ -682,6 +719,21 @@ def _validate_active_claim(claim: dict[str, Any]) -> str:
         declared_hash = claim.get("git_baseline_hash")
         if not isinstance(declared_hash, str) or declared_hash != _git_baseline_hash(baseline):
             return "git_baseline does not match git_baseline_hash"
+    contract_path = claim.get("session_contract_path")
+    contract_digest = claim.get("session_contract_digest")
+    if contract_path is not None or contract_digest is not None:
+        if not isinstance(contract_path, str) or not contract_path:
+            return "session_contract_path is missing"
+        try:
+            normalized = validate_workspace_path(contract_path)
+        except ValueError as exc:
+            return f"session_contract_path is unsafe: {exc}"
+        if normalized != contract_path or not contract_path.startswith(
+            ".palari/packets/session-contracts/"
+        ):
+            return "session_contract_path must be under .palari/packets/session-contracts"
+        if not _valid_sha256(contract_digest):
+            return "session_contract_digest is missing or malformed"
     return ""
 
 
@@ -737,7 +789,10 @@ def _persisted_packet_error(data_path: Path, claim: dict[str, Any]) -> str:
         packet = _read_claim_packet(data_path, claim)
     except (ValueError, WorkspaceError) as exc:
         return str(exc)
-    return _validate_claim_packet(claim, packet)
+    packet_error = _validate_claim_packet(claim, packet)
+    if packet_error:
+        return packet_error
+    return _persisted_session_contract_error(data_path, claim, packet)
 
 
 def _read_claim_packet(data_path: Path, claim: dict[str, Any]) -> dict[str, Any]:
@@ -748,6 +803,46 @@ def _read_claim_packet(data_path: Path, claim: dict[str, Any]) -> dict[str, Any]
         data_path.parent, packet_relative, require_exists=True
     )
     return _read_json_object(packet_path, "packet")
+
+
+def _persisted_session_contract_error(
+    data_path: Path,
+    claim: dict[str, Any],
+    packet: dict[str, Any],
+) -> str:
+    relative = claim.get("session_contract_path")
+    digest = claim.get("session_contract_digest")
+    if relative is None and digest is None:
+        # Claims created before session-contract v1 remain readable. Every new
+        # start writes both fields and therefore takes the strict path below.
+        return ""
+    try:
+        normalized = validate_workspace_path(str(relative or ""))
+    except ValueError as exc:
+        return f"session contract path is unsafe: {exc}"
+    if normalized != relative or not normalized.startswith(
+        ".palari/packets/session-contracts/"
+    ):
+        return "session contract path must be under .palari/packets/session-contracts"
+    try:
+        path = resolve_workspace_path(data_path.parent, normalized, require_exists=True)
+        value = strict_json_loads(path.read_bytes())
+    except (OSError, ValueError, CanonicalJSONError) as exc:
+        return f"cannot read strict session contract: {exc}"
+    if not isinstance(value, dict):
+        return "session contract must contain a JSON object"
+    if value.get("contract_digest") != digest:
+        return "session contract digest differs from the claim"
+    error = session_contract_error(value, expected_packet=packet)
+    if error:
+        return f"session contract is invalid: {error}"
+    expected_path = _runtime_relative(
+        data_path,
+        _session_contract_path(data_path, str(value.get("contract_id") or "")),
+    )
+    if normalized != expected_path:
+        return "session contract path does not match contract_id"
+    return ""
 
 
 def _packet_context_hash(packet: dict[str, Any]) -> str:

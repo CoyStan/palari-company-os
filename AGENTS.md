@@ -12,6 +12,7 @@ command for a known work item:
 palari agent next --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json
 palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 palari agent doctor WORK-ID --as PALARI-ID --mode execute --json
@@ -26,8 +27,13 @@ command strings.
 
 `agent brief` is a read-only preview. `agent start` is the operational entry
 point for ready execution work: it persists the packet under `.palari/packets/`
-and writes a local claim under `.palari/claims/`. If the packet is blocked,
-`agent start` reports the blockers and does not write a claim.
+and its deterministic portable session contract under
+`.palari/packets/session-contracts/`, then writes a digest-bound local claim
+under `.palari/claims/`. If the packet is blocked, `agent start` reports the
+blockers and does not write a claim. Add `--session-contract` to `agent brief`
+to inspect the provider-neutral contract without claiming work. The portable
+contract declares boundaries; it does not install a host sandbox or grant
+execution authority.
 
 Use `--mode review` only when work is already waiting for review or is
 receipt-ready. Review packets are read-only: they include review focus,

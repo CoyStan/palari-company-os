@@ -364,6 +364,7 @@ JSON-RPC MCP messages to stdout.
 ./bin/palari agent next --all --json
 ./bin/palari agent next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --session-contract --json
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --isolate --json
@@ -401,12 +402,23 @@ read-only and does not claim or assign work.
 
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 It is a read-only preview and returns either `status: ready` or
-`status: blocked`.
+`status: blocked`. Add `--session-contract` to emit a deterministic,
+provider-neutral projection instead of the full packet. The projection contains
+the exact packet binding, scope, selected source/capability metadata,
+obligations, blockers, safe commands, enforcement-property statuses, and
+security limitations. It omits compilation time, absolute local paths, source
+contents, and provider payloads. A ready projection still grants no execution
+authority; an active matching claim is required.
 `agent start` is the execution entry point for ready work. It persists the exact
-packet under `.palari/packets/`, records a local lease claim under
-`.palari/claims/`, and returns the same packet with `start` metadata. If the
-packet is blocked, `agent start` reports blockers and writes nothing. `agent
-release` removes this Palari's local claim when work is abandoned or handed off.
+packet under `.palari/packets/`, persists the canonical session contract under
+`.palari/packets/session-contracts/`, records its path and digest in the local
+lease claim under `.palari/claims/`, and returns the packet with `start`
+metadata. Missing, malformed, duplicate-key, digest-mismatched, path-mismatched,
+or current-packet-mismatched contracts invalidate the claim with restart
+guidance. Historical claims without the additive contract fields remain
+readable until restarted. If the packet is blocked, `agent start` reports
+blockers and writes nothing. `agent release` removes this Palari's local claim
+when work is abandoned or handed off.
 For Git worktrees, the claim also stores a hashed, metadata-only baseline of
 already-dirty paths. It does not read their contents. The ignored baseline
 companion persists when a claim is released and reused when that work item is
@@ -435,6 +447,11 @@ The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
 contract, proof/integration state, stop conditions, blockers, and safe next
 commands. Agents should treat this packet as their working boundary.
+The portable session contract does not configure or launch an agent harness.
+Its `portable-declaration-v1` enforcement profile labels Palari transition
+gates separately from properties that need a host adapter. File writes and
+stop-time checks are `adapter-required`; read scope is `advisory`. A future
+adapter must not promote either status unless its native controls are proven.
 `--mode review` compiles a work-output-read-only reviewer packet for work
 already waiting on review or marked receipt-ready. It includes review focus and
 compact attempt/evidence/receipt context and sets write paths to empty. For a

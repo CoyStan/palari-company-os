@@ -13,6 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.agent_session_contract import compile_agent_session_contract
 from palari_company_os.git_hooks import (
     git_hook_status,
     install_git_hook,
@@ -275,8 +276,26 @@ class GitHooksTests(unittest.TestCase):
         packet = json.loads(packet_path.read_text(encoding="utf-8"))
         claim["mode"] = "review"
         packet["mode"] = "review"
+        packet["allowed_paths"]["write"] = []
         packet["context_hash"] = _packet_hash(packet)
         claim["context_hash"] = packet["context_hash"]
+        contract = compile_agent_session_contract(packet)
+        contract_path = (
+            self.workspace_path
+            / ".palari"
+            / "packets"
+            / "session-contracts"
+            / f"{contract['contract_id']}.json"
+        )
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+        contract_path.write_text(
+            json.dumps(contract, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        claim["session_contract_path"] = contract_path.relative_to(
+            self.workspace_path
+        ).as_posix()
+        claim["session_contract_digest"] = contract["contract_digest"]
         claim_path.write_text(json.dumps(claim), encoding="utf-8")
         packet_path.write_text(json.dumps(packet), encoding="utf-8")
         (Path(self._tmp) / "README.md").write_text("review edit\n", encoding="utf-8")

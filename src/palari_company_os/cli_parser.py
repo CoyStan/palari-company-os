@@ -295,6 +295,11 @@ def _add_agent_parser(subparsers: Any) -> None:
     brief.add_argument("work_id")
     brief.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     brief.add_argument("--mode", default="execute", help="Packet mode.")
+    brief.add_argument(
+        "--session-contract",
+        action="store_true",
+        help="Emit the deterministic provider-neutral session contract instead of the packet.",
+    )
     brief.add_argument("--json", action="store_true", help="Emit JSON.")
     start = nested.add_parser(
         "start",

@@ -12,14 +12,17 @@ Agent work should start with one packet command:
 ```bash
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json
 palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
 `palari agent brief` is a read-only preview. `palari agent start` is the
 operational entry point for ready execution work: it persists the exact packet
-the agent received and records a local lease claim. Blocked packets remain
-read-only and are not claimed.
+the agent received, persists its deterministic portable session contract, and
+records a digest-bound local lease claim. Blocked packets remain read-only and
+are not claimed. `agent brief --session-contract` emits the portable contract
+instead of the full packet without writing runtime state.
 
 The v1 loop is:
 
@@ -188,9 +191,15 @@ runtime writes packet/claim audit state and, when Git has a committed head, a
 local Git witness for ready started work:
 
 - `.palari/packets/PACKET-...json` stores the exact bounded packet.
+- `.palari/packets/session-contracts/SESSION-CONTRACT-...json` stores the
+  deterministic provider-neutral projection of packet scope, obligations,
+  authority binding, enforcement status, and limitations. Its identifier is
+  derived from its canonical digest; repeated compilation of the same packet
+  authority produces identical bytes.
 - `.palari/claims/WORK-ID.json` stores the Palari, mode, lease expiry, packet id,
-  context hash, and a hashed metadata-only Git dirty baseline for the active
-  local claim. The baseline records path/status/stat metadata, never contents.
+  context hash, portable-contract path and digest, and a hashed metadata-only
+  Git dirty baseline for the active local claim. The baseline records
+  path/status/stat metadata, never contents.
   Its `.baseline` companion survives claim release/restart for the same work
   item so an agent cannot reclassify its own later changes as pre-existing.
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
@@ -203,6 +212,7 @@ Implemented:
 - `palari agent next --all --json`
 - `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
+- `palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --isolate --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
@@ -223,6 +233,8 @@ Implemented:
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - local packet persistence and local claim leases
+- deterministic portable session-contract compilation, inspection, persistence,
+  and claim binding
 - optional changed-file boundary checks
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
 - claim-start commit-range proof for `agent done`, preserved across release and
@@ -247,6 +259,8 @@ Not implemented yet:
 
 - packet expansion
 - review/planning/repair modes
+- portable host installation or native sandbox adapters beyond the existing
+  separately documented Claude hook integration
 - live connector execution
 - memory providers or vector search
 

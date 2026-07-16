@@ -51,12 +51,53 @@ def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Start: {start.get('status', 'unknown')}")
     if start.get("packet_path"):
         print(f"Packet file: {start['packet_path']}")
+    if start.get("session_contract_path"):
+        print(f"Session contract: {start['session_contract_path']}")
+        summary = start.get("session_contract") or {}
+        print(f"Contract digest: {summary.get('contract_digest', '')}")
+        print(
+            "Enforcement: "
+            f"{summary.get('enforcement_profile', 'unknown')} "
+            f"(adapter: {summary.get('host_adapter', 'none')})"
+        )
     if start.get("claim_path"):
         print(f"Claim file: {start['claim_path']}")
     claim = start.get("claim") or {}
     if claim:
         print(f"Claimed by: {claim.get('claimed_by', '')}")
         print(f"Lease expires: {claim.get('lease_expires_at', '')}")
+
+
+def print_agent_session_contract(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    body = payload.get("contract") or {}
+    binding = body.get("packet_binding") or {}
+    identity = body.get("identity") or {}
+    work = identity.get("work_item") or {}
+    enforcement = body.get("enforcement") or {}
+    print(f"Portable session contract: {payload.get('contract_id', '')}")
+    print(f"Status: {payload.get('status', 'blocked')}")
+    print(f"Digest: {payload.get('contract_digest', '')}")
+    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
+    print(f"Packet: {binding.get('packet_id', '')}")
+    print("Grants authority: no (an active matching claim is required)")
+    print(
+        "Enforcement: "
+        f"{enforcement.get('profile', 'unknown')} "
+        f"(adapter: {enforcement.get('adapter', 'none')})"
+    )
+    properties = enforcement.get("properties") or []
+    if properties:
+        print("Properties:")
+        for item in properties:
+            print(f"  - {item.get('id', '')} [{item.get('status', '')}]")
+    limitations = body.get("security_limitations") or []
+    if limitations:
+        print("Security limitations:")
+        for item in limitations:
+            print(f"  - {item}")
 
 
 def print_agent_release(payload: dict[str, Any], as_json: bool) -> None:

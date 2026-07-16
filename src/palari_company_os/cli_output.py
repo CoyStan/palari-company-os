@@ -14,6 +14,7 @@ from .cli_output_agent import (
     print_agent_next,
     print_agent_next_all,
     print_agent_release,
+    print_agent_session_contract,
     print_agent_start,
 )
 from .cli_dispatch import CommandResult
@@ -147,6 +148,10 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-start":
         print_agent_start(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-session-contract":
+        print_agent_session_contract(result.payload, result.as_json)
         return
 
     if result.kind == "agent-release":

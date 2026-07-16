@@ -425,7 +425,12 @@
         "tests/test_approval_packs.py",
         "tests/test_workspace_read_models.py",
         "src/palari_company_os",
-        "schemas"
+        "schemas",
+        "docs/product/roadmap.md",
+        "docs/product/portable-agent-session-contract-compiler-contract.md",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/agent_doctor.py",
+        "tests/test_agent_session_contract.py"
       ],
       "status": "active"
     },
@@ -3055,6 +3060,101 @@
       "required_approval_count": 1,
       "parent_work_item_id": "WORK-2343053E948941AB9D5AD6465866A36B",
       "current_attempt": "ATTEMPT-ADVANCE-WORK-FCA33836DC454192AFA56D8D973F4E98-E6C238A37779"
+    },
+    {
+      "id": "WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC",
+      "title": "Compile portable agent session contracts",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Record the approved blueprint execution sequence and compile each bounded Palari packet into a deterministic, portable, fail-closed agent session contract without granting new authority.",
+      "allowed_resources": [
+        "docs/product/roadmap.md",
+        "docs/product/portable-agent-session-contract-compiler-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "AGENTS.md",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_git_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "docs/product/roadmap.md",
+        "docs/product/portable-agent-session-contract-compiler-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "AGENTS.md",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_git_hooks.py",
+        "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "docs/product/roadmap.md",
+        "docs/product/portable-agent-session-contract-compiler-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "AGENTS.md",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/fixtures/public_commands.txt",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "coordinate",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A stable portable session-contract command and start-time persisted binding expose exact scope, obligations, authority digest, enforcement status, and honest limitations; tampering and stale authority fail closed; existing Claude and CLI behavior remains compatible.",
+      "verification_expectations": [
+        "Focused session-contract, packet, runtime, and CLI tests pass.",
+        "Traversal, tamper, stale-authority, blocked-packet, and unsupported-enforcement cases fail closed.",
+        "Documentation, schema/fixture validation, complete repository verification, and isolated installation smoke pass."
+      ],
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-DDDCF6BD8DB248CFA51B68FC6CC167BC-CANDIDATE"
     }
   ],
   "attempts": [
@@ -5658,6 +5758,18 @@
       "output_targets": [
         "docs/product/palari-blueprint.md"
       ]
+    },
+    {
+      "id": "ATTEMPT-DDDCF6BD8DB248CFA51B68FC6CC167BC-CANDIDATE",
+      "work_item_id": "WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/portable-agent-session-contract-compiler",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "codex",
+      "cleanliness": "dirty",
+      "result": "Implemented and locally verified; awaiting exact candidate commit.",
+      "started_at": "2026-07-16T15:08:58.707749Z"
     }
   ],
   "evidence_runs": [
@@ -11404,6 +11516,28 @@
       "safe_default": "reject scope expansion",
       "linked_goal": "GOAL-REPO-0001",
       "linked_work": "WORK-REPO-0027",
+      "linked_palari": "PALARI-STEWARD",
+      "result": "approve scope expansion"
+    },
+    {
+      "id": "DECISION-SCOPE-SESSION-CONTRACT-GIT-HOOK-TEST-20260716",
+      "question": "Should scope expand for WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC?",
+      "status": "decided",
+      "context": "Reason: The complete gate proved that the existing review-mode Git-hook fixture manually rewrites an execute claim; exact session-contract binding correctly invalidates that synthetic state, so the test must construct a genuine review contract rather than weakening production validation.\nRequested write paths: tests/test_git_hooks.py",
+      "options": [
+        "approve scope expansion",
+        "reject scope expansion",
+        "split into new work"
+      ],
+      "tradeoffs": [
+        "Approving changes the declared work boundary.",
+        "Rejecting keeps the current attempt inside its packet.",
+        "Splitting preserves parallel safety for unrelated changes."
+      ],
+      "recommendation": "Do not expand scope until a human reviews the new boundary.",
+      "safe_default": "reject scope expansion",
+      "linked_goal": "GOAL-REPO-0001",
+      "linked_work": "WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC",
       "linked_palari": "PALARI-STEWARD",
       "result": "approve scope expansion"
     }

@@ -45,6 +45,9 @@ When adding a command, update parser, dispatch, output, tests, and
 ## Agent Runtime
 
 - `src/palari_company_os/agent_packets.py`: `agent brief` packet contract.
+- `src/palari_company_os/agent_session_contract.py`: pure deterministic
+  provider-neutral session-contract projection, strict validation, digest, and
+  honest enforcement profile.
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
   exact-target integration readiness, and non-authority diagnostics.
