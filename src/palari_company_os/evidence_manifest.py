@@ -52,8 +52,16 @@ def artifact_hashes_at_root(
 def _tracked_dirty_paths(root: Path) -> list[str] | None:
     paths: set[str] = set()
     for arguments in (
-        ("diff", "--no-ext-diff", "--name-only", "-z", "--"),
-        ("diff", "--cached", "--no-ext-diff", "--name-only", "-z", "--"),
+        ("diff", "--no-ext-diff", "--no-renames", "--name-only", "-z", "--"),
+        (
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-renames",
+            "--name-only",
+            "-z",
+            "--",
+        ),
     ):
         try:
             result = subprocess.run(

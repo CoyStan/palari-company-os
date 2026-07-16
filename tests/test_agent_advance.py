@@ -1144,6 +1144,103 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             {item.id for item in after.evidence_runs if item.work_item_id == self.work_id},
         )
 
+    def test_explicit_refresh_rejects_rename_into_governance_path(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        (self.temp_dir / "RELATED.md").write_text(
+            "later repository context\n",
+            encoding="utf-8",
+        )
+        (self.temp_dir / "VALUABLE.md").write_text(
+            "substantive tracked state\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "RELATED.md",
+                "VALUABLE.md",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        before = Ws.load(self.temp_dir)
+        before_attempts = {
+            item.id for item in before.attempts if item.work_item_id == self.work_id
+        }
+        before_receipts = {
+            item.id for item in before.receipts if item.work_item_id == self.work_id
+        }
+        before_evidence = {
+            item.id for item in before.evidence_runs if item.work_item_id == self.work_id
+        }
+
+        def rename_then_reconcile(*args, **kwargs):
+            (self.temp_dir / ".palari" / "governance-journal.v1.jsonl").unlink()
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(self.temp_dir),
+                    "mv",
+                    "VALUABLE.md",
+                    ".palari/governance-journal.v1.jsonl",
+                ],
+                check=True,
+            )
+            return reconcile_agent_proof(*args, **kwargs)
+
+        with (
+            patch(
+                "palari_company_os.agent_advance.run_or_reuse",
+                side_effect=self._passing_attestation,
+            ),
+            patch(
+                "palari_company_os.agent_advance.reconcile_agent_proof",
+                side_effect=rename_then_reconcile,
+            ),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_STATE_CHANGED")
+        after = Ws.load(self.temp_dir)
+        self.assertEqual(
+            before_attempts,
+            {item.id for item in after.attempts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_receipts,
+            {item.id for item in after.receipts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_evidence,
+            {item.id for item in after.evidence_runs if item.work_item_id == self.work_id},
+        )
+
     def test_ordinary_reconciliation_maps_workspace_cas_race_to_state_changed(
         self,
     ) -> None:
