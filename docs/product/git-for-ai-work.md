@@ -322,13 +322,156 @@ receipt digests (append-only by review policy, hash-chained by construction).
 That entry is the permanent "this existed, then" record: the token that lives
 forever, without any blockchain.
 
-## 7. Implementation plan (written for a coding agent)
+**Receipt lineage (Merkle DAG).** Receipts gain an optional
+`parent_receipts` list of statement digests: a revision receipt cites the
+receipt it supersedes; dependent work cites prerequisite receipts. This
+upgrades the linear journal into git's actual structure — a content-addressed
+DAG — so verifying one receipt transitively pins its ancestry, and parallel
+workstreams merge verifiably instead of racing for one chain.
+
+### 6.6 Design lessons carried from git and its sibling protocols
+
+Since the positioning is "Git, but for AI work", hold the protocol to the
+properties that actually made git unkillable, and learn from the protocols
+that lived and died around it:
+
+- **The format is the product; implementations are guests.** Git the C
+  program is one of many (JGit, gitoxide, go-git, Dulwich, isomorphic-git)
+  because the bytes are the spec. PCAW receipts must verify in 2056 with
+  whatever runs then. WRP-8's independent verifier is this property made
+  testable.
+- **Plumbing vs. porcelain.** Git keeps low-level, forever-stable, scriptable
+  commands (`hash-object`, `cat-file`) separate from friendly UX. GitHub and
+  every IDE exist because plumbing was stable. Palari exposes `canonicalize`,
+  `digest`, envelope, and single-proof verification as stable plumbing under
+  the CLI porcelain, so other people's tools can script the protocol.
+- **The SHA-1 lesson: agility before you need it.** Git hardcoded SHA-1 in
+  2005; the SHA-256 migration has taken 15+ years and is unfinished. v2 must
+  specify the dual-digest transition procedure for introducing a successor
+  algorithm — not merely reject unknown ones (WRP-7).
+- **Correctness first, efficiency later.** Git shipped loose objects and
+  added packfiles years later without changing semantics. Receipt storage
+  efficiency is deliberately out of scope until the format is settled.
+- **Certificate Transparency: logs earn trust by being watched.** CT's
+  append-only logs work because independent monitors audit them — and CT won
+  adoption because browsers *required* it. Design the shared log for
+  third-party monitors from day one, and note the adoption analogue: the
+  forcing function in §11 (insurers, regulators), not developer enthusiasm.
+- **TUF: assume key compromise, survive it.** The Update Framework's role
+  separation, signature thresholds, rotation, and compromise-recovery design
+  is the strongest prior art for the signer-registry and threshold-policy
+  questions WRP-7 must answer. Crib it; do not invent.
+- **JWT/JOSE: the ergonomics won, the flaws were forever.** JWT conquered the
+  world on developer ergonomics, then bled for a decade from envelope design
+  flaws (`alg: none`). DSSE exists because its authors studied those wounds —
+  the reason it is the right envelope, and a warning that envelope mistakes
+  cannot be patched later.
+- **PGP: cryptographic soundness does not survive bad identity UX.** The web
+  of trust failed socially. Identity must ride the organization's existing
+  login (OIDC / Sigstore), never user-managed key ceremonies.
+- **OpenTimestamps: a second, cert-free anchor.** Aggregates hashes into
+  Bitcoin blocks via Merkle trees — verifiable forever without any timestamp
+  authority's certificate chain surviving. A candidate second anchoring
+  backend beside RFC 3161 for the longest-horizon receipts.
+- **eIDAS: statutory weight is available.** EU-qualified electronic
+  signatures carry a legal presumption of validity. If a signing backend can
+  meet qualified-signature requirements, receipts gain evidentiary force in
+  the EU by statute rather than by argument — future work, named in §10.
+
+## 7. Beyond code: documents, spreadsheets, and forms
+
+Code was the incubator because git-shaped tooling already existed there. The
+protocol's real market is the knowledge work that has no git at all. Three
+principles carry receipts across, then a worked example.
+
+**1. The snapshot principle.** Git never versions a live file; it commits a
+snapshot. Live cloud documents (Google Docs, Sheets, Office online) have no
+stable bytes to digest — a Drive revision ID is a pointer into a mutable
+service, not a proof. A receipt therefore binds to a **content-addressed
+snapshot taken at decision time**: the exported bytes (PDF, `.docx`, `.xlsx`,
+CSV) become the subject, and their digest is what the human's signature
+covers. The snapshot is the commit. For spreadsheets, digest both the file
+bytes and a canonical values export (CSV), so a verifier can distinguish "the
+numbers changed" from "the formatting changed."
+
+**2. The field map is the diff.** A line diff is meaningless for a form or a
+structured document. The knowledge-work analog is a **field map** in the
+predicate: field → filled value → source subject digest (and locator). "What
+was done" becomes "which fields were filled, with what values, derived from
+which source documents." The field map is itself canonical bytes with a
+digest, so evidence checks (arithmetic, cross-field rules, eligibility
+tables) can bind to it exactly.
+
+**3. The case is the work item.** One person's matter — one tax return, one
+discharge, one filing — is one work item. Sources are that person's
+documents; the boundary is the named forms and fields the agent may fill;
+evidence is the validation suite; the presentation is the review screen; the
+decision is the signature. The entire existing lifecycle maps one-to-one; no
+new concepts are needed, only new subject types (§6.5, WRP-6, WRP-10).
+
+### Worked example: the international-student tax product
+
+The concrete case this section is designed against: an app where AI helps
+international students complete their tax filings (e.g. a US federal
+nonresident return plus its required attachments), where an estimated 80–90%
+of cases are mechanically simple form completion.
+
+The flow, in protocol terms:
+
+1. The student uploads source documents (wage statements, treaty forms,
+   immigration documents). Each becomes a digested input subject. The work
+   contract names exactly which forms and fields the AI may fill.
+2. The AI extracts values and completes the forms. The field map records
+   every filled field with its value and the digest of the source document it
+   came from. Validation evidence runs: arithmetic checks, cross-field
+   consistency, treaty-table lookups.
+3. The student sees the review screen: each filled field beside its source.
+   That rendered view is digested — the presentation digest. The student
+   approves; the signature covers the receipt binding contract, sources,
+   field map, evidence, presented view, and the completed PDF's digest.
+4. The receipt is anchored and logged. The student keeps the completed
+   return *and* the receipt; the operator keeps only digests.
+
+Why this case is protocol-perfect and not merely protocol-compatible:
+
+- **The liability structure demands it.** Consumer tax software operates on
+  the self-preparation model: the taxpayer is the preparer and attests to the
+  return. The receipt is the missing evidence layer for exactly that
+  attestation — proof the student was shown each extracted value and its
+  source and approved it. It protects the operator ("the AI filed it wrong"
+  meets the record of what was shown and signed), and protects the student
+  (a good-faith diligence record, with sources, if the return is questioned).
+  This is §11 in miniature.
+- **The risk tiers already fit.** The 80–90% simple cases are light-gate work
+  (self-approval with full evidence); flagged cases — treaty edge cases,
+  multiple states, unusual income — escalate to a credentialed human
+  reviewer whose signature lands on the same receipt shape at a stricter
+  gate. Palari's intensity/risk model maps without modification.
+- **Privacy is by construction.** Receipts carry digests, never wage or
+  immigration data — retainable and shareable with an auditor without
+  exposing the underlying documents (§9's caveats still apply and are stated
+  on every receipt).
+- **It is the first product built on the protocol rather than a feature of
+  this repository** — the design-partner requirement (§12) satisfied
+  first-party: the app's real cases force WRP-6 and WRP-10's requirements
+  before any external partner is needed.
+
+One honest design obligation carries over from §1: at consumer scale, the
+approval click is the weakest link. The presentation digest proves what was
+shown, never what was read (§9). The review UX must therefore be designed
+for meaningful assent — per-field confirmation for consequential values
+rather than one global "approve" — because the receipt will faithfully
+record whichever standard of review the product actually implements.
+
+## 8. Implementation plan (written for a coding agent)
 
 Ground rules for every work item: Python stdlib only (external tools invoked
 as subprocesses: `ssh-keygen`, `openssl`, `cosign`); fail closed on anything
 ambiguous; every new failure mode gets a stable diagnostic code; conformance
 vectors land in the same work item as the feature; v1 behavior is never
-modified — v2 is additive. Each item below is sized to be one bounded work
+modified — v2 is additive. Per §6.6, new primitives are exposed as stable
+plumbing (canonicalize, digest, envelope, verify-one) beneath the porcelain
+CLI, and their CLI contracts are frozen once shipped. Each item below is sized to be one bounded work
 item with its own boundary, evidence, and review.
 
 **WRP-1 — DSSE envelope module.**
@@ -374,19 +517,25 @@ warning.
 Acceptance: request/verify round trip mocked in tests (no network in test
 suite); tampered-token rejection; documented endpoint list.
 
-**WRP-6 — Abstract subject classes.**
+**WRP-6 — Abstract subject classes and receipt lineage.**
 Extend subject roles beyond `work-state`/`output-artifact` with typed
 content-addressed subjects; update statement schema and path-safety rules
-(non-file subjects have no path, only digests).
-Acceptance: schema vectors for each new role; unknown role rejection; v1
-statements still verify byte-identically.
+(non-file subjects have no path, only digests). Add the optional
+`parent_receipts` statement-digest list (§6.5) so receipts form a verifiable
+DAG.
+Acceptance: schema vectors for each new role; unknown role rejection;
+lineage round trip (child receipt pins parent digest, tampered parent
+rejected); v1 statements still verify byte-identically.
 
 **WRP-7 — spec/pcaw/v2 + conformance corpus.**
 `spec/pcaw/v2/README.md` in the exact normative style of v1, answering the
 reserved checklist (algorithm agility, key identity, revocation, threshold
 policy, custody, verification time); conformance vectors for signed, unsigned,
 tampered, revoked, and threshold cases; the v1 black-box runner extended to
-v2.
+v2. Two design constraints from §6.6: the digest-agility section MUST define
+the dual-digest transition procedure for a successor algorithm (the git SHA-1
+lesson), and the threshold/role/rotation design MUST be derived from TUF's
+model rather than invented.
 Acceptance: `conformance.py -- ./bin/palari proof verify` passes the full v2
 manifest; every new diagnostic code pinned in the manifest.
 
@@ -400,14 +549,26 @@ Acceptance: the independent verifier passes the corpus with zero shared code.
 **WRP-9 — Sigstore backend + shared log (after design-partner input).**
 `signing_sigstore.py` subprocess wrappers (`cosign sign-blob/verify-blob
 --bundle`), private-Rekor deployment notes, and the receipt-digest publication
-command. Deliberately last: it is the piece whose requirements a real
+command. Deliberately late: it is the piece whose requirements a real
 regulated design partner should shape.
+
+**WRP-10 — Knowledge-work predicate: snapshots and field maps.**
+The §7 extensions: snapshot subjects (exported-bytes digesting for live
+documents, dual file-bytes + canonical-values digests for spreadsheets) and
+the canonical field-map structure (field → value → source subject digest →
+locator) with its own digest bound into the predicate and coverable by
+evidence checks.
+Acceptance: field-map canonicalization vectors; a change to one filled value
+changes the field-map digest; a snapshot subject with no path verifies;
+evidence bound to a stale field map fails closed
+(`PCAW_FIELD_MAP_STALE`).
 
 Dependency order: WRP-1 → WRP-2 → WRP-3 form the critical path; WRP-4 and
 WRP-5 are independent after WRP-1; WRP-6 and WRP-7 close the spec; WRP-8
-proves it; WRP-9 follows the first external conversation.
+proves it; WRP-10 (which depends on WRP-6) unlocks the knowledge-work
+products of §7; WRP-9 follows the first external conversation.
 
-## 8. What a receipt does NOT prove (keep this section forever)
+## 9. What a receipt does NOT prove (keep this section forever)
 
 Extending the v1 non-guarantees honestly, in the same fail-closed spirit:
 
@@ -427,7 +588,7 @@ Extending the v1 non-guarantees honestly, in the same fail-closed spirit:
 - Trusted timestamps prove existed-no-later-than; they do not prove
   existed-no-earlier-than.
 
-## 9. Regulatory tailwinds (stated precisely, because everyone misquotes them)
+## 10. Regulatory tailwinds (stated precisely, because everyone misquotes them)
 
 - **EU AI Act.** Article 12 requires high-risk AI systems to technically allow
   automatic event logging; Article 19 (providers) and Article 26(6)
@@ -446,13 +607,18 @@ Extending the v1 non-guarantees honestly, in the same fail-closed spirit:
 - **Design fit.** Digest-only receipts are retainable and exportable in these
   regimes precisely because they carry no protected content — privacy by
   construction, not by policy.
+- **eIDAS (future work).** EU-qualified electronic signatures carry a
+  statutory presumption of validity. A signing backend meeting
+  qualified-signature requirements would give receipts evidentiary force in
+  the EU by statute; named here so the v2 spec's custody section keeps the
+  door open.
 
 Adjacent prior art worth naming in conversations: C2PA binds signed provenance
 manifests to media files (and its spec covers PDFs); nobody has applied that
 pattern to work records — treat C2PA as the design analogy that proves the
 pattern scales, not as a competitor.
 
-## 10. The liability engine: why labs and insurers want this to exist
+## 11. The liability engine: why labs and insurers want this to exist
 
 The strongest demand for this protocol may come from parties who never run a
 single Palari command.
@@ -515,7 +681,7 @@ hour. That double edge is the honest product. The approved phrasing is:
 *clean, provable allocation of responsibility — protection for the diligent,
 by construction.*
 
-## 11. Adoption strategy
+## 12. Adoption strategy
 
 1. **Verifier first.** The free, trivially installable artifact is `verify` —
    run it in CI, run it in an audit, exit 0 or 1. Producers follow verifiers,
@@ -526,7 +692,7 @@ by construction.*
    thousand users already run agents all day.
 3. **One design partner in a regulated niche** — a clinic, a law firm, an
    accounting practice drowning in AI-assist documentation duties, or (per
-   §10) a professional liability carrier or general counsel. Their auditor
+   §11) a professional liability carrier or general counsel. Their auditor
    becomes the requirements document. Worth more than ten thousand stars, and
    it shapes WRP-9 before it is built.
 4. **Second implementation, early** (WRP-8). The moment another codebase
@@ -544,7 +710,7 @@ identity binding against corporate IdPs, compliance report packs, and the
 supervision surfaces. Let's Encrypt and Sigstore prove the shape; GitHub
 proves the ceiling.
 
-## 12. Naming and positioning rules
+## 13. Naming and positioning rules
 
 - The sentence is **"Git, but for AI work."** It is load-bearing: it names the
   object (permanent verifiable record), the architecture (content-addressed,
@@ -559,7 +725,7 @@ proves the ceiling.
   protocol for signed receipts of AI-executed work — what was done, what the
   human saw, and who signed it, verifiable offline forever.*
 
-## 13. Risks
+## 14. Risks
 
 - **Platforms ship native signed session logs.** Anthropic, OpenAI, and Google
   jointly backing agent-trace shows appetite for shared formats. Mitigation:
@@ -576,7 +742,7 @@ proves the ceiling.
   compliance-driven buyers. Keep the developer wedge free and frictionless;
   aim the commercial layer at the people who must evidence their AI work.
 
-## 14. The hospital vignette (the north star, end to end)
+## 15. The hospital vignette (the north star, end to end)
 
 An AI drafts a discharge summary under a work contract: allowed sources, one
 allowed output. Palari records the attempt, runs the evidence checks, and
@@ -596,7 +762,7 @@ the hospital's IT department, the AI vendor, or us.
 That is the product. Work at AI speed, accountability at cryptographic
 strength, and a record that outlives everyone's memory of the ticket.
 
-## 15. Glossary (plain language)
+## 16. Glossary (plain language)
 
 | Term | Plain meaning |
 | --- | --- |
@@ -610,8 +776,10 @@ strength, and a record that outlives everyone's memory of the ticket.
 | RFC 3161 token | A third party's signed statement that a given fingerprint existed no later than a given time. |
 | Transparency log | An append-only, hash-chained record; nothing can be inserted, removed, or backdated invisibly. |
 | Receipt | One signed, canonical statement binding contract, evidence, presented view, decision, and signer. |
+| Snapshot | The exported bytes of a live document at decision time — the thing a receipt actually signs (the commit, for knowledge work). |
+| Field map | The knowledge-work diff: which fields were filled, with what values, from which digested sources. |
 
-## 16. Primary sources
+## 17. Primary sources
 
 - PCAW v1: `spec/pcaw/v1/README.md` (this repository)
 - DSSE: github.com/secure-systems-lab/dsse (envelope.md, protocol.md)
@@ -623,4 +791,8 @@ strength, and a record that outlives everyone's memory of the ticket.
 - EU AI Act Articles 12, 19, 26, 113: artificialintelligenceact.eu
 - HIPAA: 45 CFR 164.312(b), 164.316(b)(2)(i) (law.cornell.edu)
 - C2PA specification 2.4: spec.c2pa.org
+- Certificate Transparency: rfc-editor.org/rfc/rfc6962
+- The Update Framework: theupdateframework.io
+- OpenTimestamps: opentimestamps.org
+- eIDAS (Regulation 910/2014, amended 2024/1183): eur-lex.europa.eu
 - Market claims: [Competitive Landscape](competitive-landscape.md)
