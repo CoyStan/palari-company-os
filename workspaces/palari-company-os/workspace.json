@@ -2750,7 +2750,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Allow a distinct declared Palari to perform an advisory exact-proof review while preserving human-only acceptance, legacy human-review compatibility, and fail-closed builder/reviewer independence.",
       "allowed_resources": [
         "src/palari_company_os",
@@ -8346,6 +8346,19 @@
       "evidence_reference": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V4",
       "review_reference": "REVIEW-BLUEPRINT-20260716-STEWARD",
       "timestamp": "2026-07-16T10:23:43.643739Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-AGENT-REVIEW-AUTHORITY-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-AGENT-REVIEW-AUTHORITY",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "107f48b7ebb2b1172590bd73674ff377029b790b",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
+      "review_reference": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V3",
+      "timestamp": "2026-07-16T11:06:43.949401Z"
     }
   ],
   "receipts": [
@@ -10845,6 +10858,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T02:50:49.310508Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-AGENT-REVIEW-AUTHORITY-HUMAN-FOUNDER",
+      "work_item_id": "WORK-AGENT-REVIEW-AUTHORITY",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "107f48b7ebb2b1172590bd73674ff377029b790b",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-AGENT-REVIEW-AUTHORITY-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AGENT-REVIEW-AUTHORITY-107F48B7EBB2",
+      "review_reference": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V3",
+      "receipt_hash": "sha256:b8a010155058830f09720a3a19be1e6c7d3c0899f209e3bac795eb96d14a7ee5",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-16T11:06:45.579033Z"
     }
   ]
 }
