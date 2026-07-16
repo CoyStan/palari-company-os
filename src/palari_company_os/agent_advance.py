@@ -110,6 +110,26 @@ def agent_advance_dry_run(
         isinstance(evidence, dict)
         and evidence.get("status") == "passed"
         and evidence.get("head_sha") == head_sha
+        and evidence.get("id") == _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
+    )
+    attempt_head = ""
+    attempt_status = ""
+    if isinstance(attempt, dict):
+        attempt_head = str(attempt.get("head_sha") or "")
+        commits = attempt.get("commits")
+        if not attempt_head and isinstance(commits, list) and commits:
+            attempt_head = str(commits[-1] or "")
+        attempt_status = str(attempt.get("status") or "")
+    attempt_current = bool(
+        isinstance(attempt, dict)
+        and (
+            attempt_status not in {"complete", "completed"}
+            or attempt_head == head_sha
+        )
+    )
+    receipt_current = bool(
+        isinstance(receipt, dict)
+        and receipt.get("id") == _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     )
     facts = {
         "actor": palari_id,
@@ -142,17 +162,19 @@ def agent_advance_dry_run(
             "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
         },
         "proof": {
-            "attempt_id": attempt.get("id", "") if isinstance(attempt, dict) else "",
-            "receipt_id": receipt.get("id", "") if isinstance(receipt, dict) else "",
-            "evidence_id": evidence.get("id", "") if isinstance(evidence, dict) else "",
-            "attempt_current": isinstance(attempt, dict),
-            "attempt_bound": isinstance(attempt, dict),
-            "receipt_current": isinstance(receipt, dict),
+            "attempt_id": (
+                attempt.get("id", "") if attempt_current and isinstance(attempt, dict) else ""
+            ),
+            "receipt_id": receipt.get("id", "") if receipt_current else "",
+            "evidence_id": evidence.get("id", "") if evidence_current else "",
+            "attempt_current": attempt_current,
+            "attempt_bound": attempt_current,
+            "receipt_current": receipt_current,
             "evidence_current": evidence_current,
             "attempt_closed": bool(
-                isinstance(attempt, dict)
-                and attempt.get("status") in {"complete", "completed"}
-                and attempt.get("head_sha") == head_sha
+                attempt_current
+                and attempt_status in {"complete", "completed"}
+                and attempt_head == head_sha
             ),
         },
         "verification_profiles": [

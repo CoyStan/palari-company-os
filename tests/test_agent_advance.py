@@ -572,6 +572,18 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ["git", "-C", str(self.temp_dir), "commit", "-qm", "repair finding"],
             check=True,
         )
+        dry_run = agent_advance_dry_run(
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertIsNotNone(dry_run)
+        assert dry_run is not None
+        steps = {item["step"]: item["status"] for item in dry_run["steps"]}
+        self.assertEqual(steps["attempt-record"], "create")
+        self.assertEqual(steps["work-attempt-bind"], "create")
+        self.assertEqual(steps["receipt-record"], "create")
+        self.assertEqual(steps["evidence-record"], "create")
         resumed = _completed_projection(
             Ws.load(self.temp_dir),
             self.temp_dir,
