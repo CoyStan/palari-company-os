@@ -76,8 +76,13 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and atomically reconciles attempt, receipt, evidence, and closeout records.
   It may complete R1/light/0 work; higher-risk work stops at independent review.
   After a current separate review and qualified human decision already exist,
-  it may derive the acceptance record and terminalize the work mechanically.
-  It must never create the review or human decision.
+  the shared bounded fixed-point driver may derive the acceptance record and
+  terminalize the work mechanically. Authority-producing functions invoke that
+  driver immediately; `agent advance` remains an idempotent recovery surface.
+  Later Git state is reusable only when post-proof committed and dirty tracked
+  paths are governance projection data. The driver must never create the review
+  or human decision, and cycle, no-progress, or iteration-limit states fail
+  closed.
 - Blockers expose stable resolver metadata. Current authority followed only by
   mechanical bookkeeping is automatic reconciliation; terminal work is closed,
   not a blocker; external, review, and human boundaries remain distinct.

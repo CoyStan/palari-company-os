@@ -325,12 +325,15 @@ evidence, fresh accept-ready review, qualified human authority, no open linked
 decision, no scope-overlap warning, and a valid exact evidence/receipt/review
 binding. New accept-ready reviews receive that binding automatically and become
 immutable; substantive changes require a new review record.
-It records both a human decision and an acceptance record. `work complete` keeps
-the terminal status gate. When a current qualified human decision already
+It records both a human decision and an acceptance record, then invokes the
+bounded deterministic convergence driver. When the exact proof remains current,
+`work accept` therefore normally reaches terminal state in the same human
+action. `work complete` remains as an idempotent compatibility and recovery
+surface for the same terminal gate. When a current qualified human decision
 exists, it projects the derived acceptance record in memory, runs the complete
 gate against that projection, and writes acceptance plus terminal state only if
 the whole transition passes. Missing, stale, contradictory, or insufficient
-authority therefore leaves the workspace unchanged.
+authority never produces terminal work.
 
 ## Agent Packets
 
@@ -513,10 +516,15 @@ profile, source state, interpreter, and platform. It then rechecks the plan and
 commits attempt, receipt, evidence, and closeout as one journaled workspace
 transaction. R1/light/0 work may complete; higher-risk work releases its claim
 and stops with an independent-review handoff. After a separate current review
-and qualified human decision exist, a repeated call verifies the exact artifact
-bytes, derives any missing acceptance record, and completes terminal bookkeeping
-without recording or impersonating human authority. A repeated exact-state call
-reuses current governed proof without duplicating records or rerunning profiles.
+and qualified human decision exist, the authority-producing function normally
+invokes the same fixed-point driver immediately. A later `agent advance` remains
+an idempotent recovery surface: it verifies the exact artifact bytes, derives
+any missing acceptance record, and completes terminal bookkeeping without
+recording or impersonating human authority. Proof remains current across later
+commits only when every intervening committed or dirty tracked path is workspace
+governance projection; any substantive repository path fails closed. A repeated
+exact-state call reuses current governed proof without duplicating records or
+rerunning profiles.
 Local verification-cache files are advisory: even a structurally valid cached
 pass is rerun before new evidence is created. `--refresh-verification` ignores
 the advisory record, including a prior failure, and reruns the profiles. This

@@ -2639,6 +2639,58 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-397A2E4DC50B47B098A008DBA2E9A32E-73D9D5F47FF8"
+    },
+    {
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/store.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_completion.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_completion.py",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "forbidden_actions": [
+        "external-write",
+        "manufacture-human-authority",
+        "weaken-proof-binding",
+        "autonomous-merge",
+        "push",
+        "deploy"
+      ],
+      "id": "WORK-F1D0A89C0E3D45D6B2C614FB1AE7E420",
+      "title": "Reach deterministic governance fixed points",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "proposed",
+      "scope": "Add a bounded deterministic convergence driver that applies only already-authorized lifecycle transitions, tolerates governance-only proof commits, and stops at review, human authority, external state, terminal state, or a fail-closed error.",
+      "acceptance_target": "Accepted current proof terminalizes automatically without a builder claim; repeated convergence is idempotent; governance-only commits do not stale proof; substantive post-proof changes, negative decisions, invalid evidence, loops, and iteration exhaustion fail closed; existing CLI/schema compatibility and full verification remain intact.",
+      "required_approval_count": 1
     }
   ],
   "attempts": [

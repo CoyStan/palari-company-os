@@ -61,6 +61,9 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
   deterministic proof reconciler that stops at authority boundaries and
   terminalizes mechanically after current authority exists.
+- `src/palari_company_os/governance_convergence.py`: bounded fixed-point driver,
+  proof-relative governance-projection check, and automatic terminalization
+  using only authority that already exists.
 - `src/palari_company_os/verification_attestations.py`: exact-state,
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for

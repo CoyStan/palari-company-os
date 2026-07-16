@@ -185,6 +185,13 @@ same successful mutation as terminal state, so invalid or stale authority does
 not leave a partial acceptance behind. `agent advance` may invoke this
 mechanical transition after authority exists; it does not create the review or
 human decision.
+Accepted human-decision and work-accept authoring functions invoke a shared,
+bounded fixed-point driver after recording the human action. The driver applies
+only the already-authorized completion transition, detects cycles and
+no-progress, and stops at review, human authority, external state, iteration
+exhaustion, or an error. A failed automatic transition does not erase the human
+record; it returns an actionable safe stop and creates no partial derived
+acceptance or terminal state.
 Generic record updates cannot set terminal work state, rewrite attempt trust
 fields, or mutate an exact-bound review.
 

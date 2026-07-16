@@ -52,7 +52,14 @@ The v1 loop is:
     runs bound verification, records proof atomically, releases the claim, and
     stops at review or human authority. Once those separate records exist, a
     later call performs only deterministic acceptance projection and terminal
-    bookkeeping. It never records the review or human decision itself.
+    bookkeeping. Authority-producing authoring functions also invoke the same
+    bounded fixed-point driver after a qualified accepted decision is recorded,
+    so already-authorized bookkeeping normally finishes in that human action.
+    The driver detects cycles, no-progress transitions, and iteration exhaustion;
+    it stops at review, human authority, external state, or an error and never
+    records the review or human decision itself. Later Git commits preserve proof
+    currency only when every committed and dirty tracked path is governance
+    projection data; any substantive repository change fails closed.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and

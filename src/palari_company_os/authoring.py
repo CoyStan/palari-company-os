@@ -237,6 +237,7 @@ def update_human_decision(
     *,
     command: str = "",
     actor: str = "",
+    automatic_convergence: bool = True,
 ) -> MutationResult:
     updates = dict(updates)
     if set(updates) & {"decision", "status"} and "timestamp" not in updates:
@@ -284,7 +285,17 @@ def update_human_decision(
         before=before,
         after=record,
     )
-    return MutationResult("updated", "human_decisions", record_id, workspace.name)
+    result = MutationResult("updated", "human_decisions", record_id, workspace.name)
+    if automatic_convergence and (
+        merged.get("decision") in {"accepted", "approved"}
+        or merged.get("status") in {"accepted", "approved"}
+    ):
+        return _with_automatic_convergence(
+            result,
+            workspace_path,
+            str(merged.get("work_item_id") or ""),
+        )
+    return result
 
 
 def complete_work(
@@ -297,6 +308,11 @@ def complete_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
+    current = workspace.work_item(work_id)
+    if current is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    if current.status in {"completed", "closed", "done"}:
+        return MutationResult("completed", "work_items", work_id, workspace.name)
     _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
     projected_workspace = validate_data(store.data_path, store.data)
     assert_work_completion_ready(projected_workspace, work_id, actor=actor)
@@ -423,6 +439,7 @@ def create_human_decision(
     *,
     command: str = "",
     actor: str = "",
+    automatic_convergence: bool = True,
 ) -> MutationResult:
     record = dict(record)
     if not record.get("timestamp"):
@@ -452,14 +469,17 @@ def create_human_decision(
         command=command or "human-decision record",
         actor=actor,
     )
-    workspace = validate_data(load_store(workspace_path).data_path, load_store(workspace_path).data)
-    item = next(item for item in queue_items(workspace) if item.id == work_id)
+    if automatic_convergence and decision in {"accepted", "approved"}:
+        result = _with_automatic_convergence(result, workspace_path, work_id)
+    current_store = load_store(workspace_path)
+    workspace = validate_data(current_store.data_path, current_store.data)
+    item = next((item for item in queue_items(workspace) if item.id == work_id), None)
     return MutationResult(
         result.action,
         result.collection,
         result.record_id,
         result.workspace,
-        next_action=item.next_action,
+        next_action=result.next_action or (item.next_action if item is not None else ""),
     )
 
 
@@ -551,7 +571,11 @@ def accept_work(
         before=None,
         after=acceptance,
     )
-    return MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name)
+    return _with_automatic_convergence(
+        MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name),
+        workspace_path,
+        work_id,
+    )
 
 
 def closeout_attempt(
@@ -1127,6 +1151,42 @@ def _ensure_acceptance_record_for_completion(
             "reason": actor or "completion gate",
             "accepted_at": _timestamp(),
         }
+    )
+
+
+def _with_automatic_convergence(
+    result: MutationResult,
+    workspace_path: str,
+    work_id: str,
+) -> MutationResult:
+    if not work_id:
+        return result
+    from .governance_convergence import converge_work_item
+
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    work = workspace.work_item(work_id)
+    actor = work.palari if work is not None else ""
+    convergence = converge_work_item(workspace_path, work_id, actor=actor)
+    status = str(convergence.get("status") or "")
+    if status == "completed":
+        next_action = (
+            f"Work item {work_id} completed automatically from current proof "
+            "and recorded human authority."
+        )
+    elif status == "blocked":
+        next_action = (
+            "Human authority was recorded; automatic reconciliation stopped safely: "
+            + str(convergence.get("message") or "inspect the current work state")
+        )
+    else:
+        next_action = ""
+    return MutationResult(
+        result.action,
+        result.collection,
+        result.record_id,
+        result.workspace,
+        next_action=next_action,
     )
 
 

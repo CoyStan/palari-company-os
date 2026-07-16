@@ -48,6 +48,11 @@ from palari_company_os.governance_journal import (
     verify_workspace_journal,
     workspace_digest,
 )
+from palari_company_os.governance_convergence import (
+    ConvergenceObservation,
+    converge_work_item,
+    run_fixed_point,
+)
 from palari_company_os.verification_attestations import (
     VerificationContext,
     VerificationProfile,
@@ -156,6 +161,64 @@ class AdvancePlannerTests(unittest.TestCase):
             ],
             "workspace_digest": "sha256:workspace",
         }
+
+
+class FixedPointDriverTests(unittest.TestCase):
+    def test_repeated_state_and_action_cycle_fails_closed(self) -> None:
+        digests = ["sha256:a", "sha256:b", "sha256:a"]
+        position = {"value": 0}
+
+        def observe() -> ConvergenceObservation:
+            return ConvergenceObservation(
+                digest=digests[position["value"]],
+                status="ready",
+                boundary="automatic-reconciliation",
+                message="ready",
+                action="step",
+            )
+
+        def apply(_action: str) -> None:
+            position["value"] = min(position["value"] + 1, len(digests) - 1)
+
+        result = run_fixed_point(observe, apply)
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["code"], "CONVERGENCE_CYCLE")
+
+    def test_no_progress_fails_closed(self) -> None:
+        observation = ConvergenceObservation(
+            digest="sha256:same",
+            status="ready",
+            boundary="automatic-reconciliation",
+            message="ready",
+            action="complete-work",
+        )
+
+        result = run_fixed_point(lambda: observation, lambda _action: None)
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["code"], "CONVERGENCE_NO_PROGRESS")
+
+    def test_iteration_limit_fails_closed(self) -> None:
+        counter = {"value": 0}
+
+        def observe() -> ConvergenceObservation:
+            return ConvergenceObservation(
+                digest=f"sha256:{counter['value']}",
+                status="ready",
+                boundary="automatic-reconciliation",
+                message="ready",
+                action="another-step",
+            )
+
+        def apply(_action: str) -> None:
+            counter["value"] += 1
+
+        result = run_fixed_point(observe, apply, max_steps=2)
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["code"], "CONVERGENCE_ITERATION_LIMIT")
+        self.assertEqual(len(result["steps"]), 2)
 
 
 class VerificationAttestationTests(unittest.TestCase):
@@ -526,6 +589,200 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(repeated["status"], "completed")
         self.assertFalse(repeated["would_mutate"])
+
+    def test_human_decision_function_converges_without_an_agent_claim(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        evidence = next(
+            item
+            for item in workspace.evidence_runs
+            if item.work_item_id == self.work_id and item.attempt_id == attempt.id
+        )
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": "REVIEW-AUTO-CONVERGE",
+                "work_item_id": self.work_id,
+                "reviewed_head": attempt.head_sha,
+                "reviewer": "HUMAN-MAINTAINER",
+                "verdict": "accept-ready",
+            },
+            actor="HUMAN-MAINTAINER",
+        )
+
+        result = create_human_decision(
+            str(self.temp_dir),
+            {
+                "id": "HUMAN-DECISION-AUTO-CONVERGE",
+                "work_item_id": self.work_id,
+                "human_id": "HUMAN-FOUNDER",
+                "reviewed_head": attempt.head_sha,
+                "decision": "accepted",
+                "status": "accepted",
+                "acceptance_mode": "human",
+                "quorum_status": "met",
+                "evidence_reference": evidence.id,
+                "review_reference": "REVIEW-AUTO-CONVERGE",
+            },
+            actor="HUMAN-FOUNDER",
+        )
+
+        self.assertIn("completed automatically", result.next_action)
+        completed = Ws.load(self.temp_dir)
+        self.assertEqual(completed.work_item(self.work_id).status, "completed")
+        self.assertTrue(
+            any(item.work_item_id == self.work_id for item in completed.acceptance_records)
+        )
+        repeated = converge_work_item(
+            self.temp_dir,
+            self.work_id,
+            actor="PALARI-STEWARD",
+        )
+        self.assertEqual(repeated["status"], "completed")
+        self.assertFalse(repeated["would_mutate"])
+
+    def test_reconciliation_observation_failure_preserves_human_decision(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        evidence = next(
+            item
+            for item in workspace.evidence_runs
+            if item.work_item_id == self.work_id and item.attempt_id == attempt.id
+        )
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": "REVIEW-OBSERVATION-FAILURE",
+                "work_item_id": self.work_id,
+                "reviewed_head": attempt.head_sha,
+                "reviewer": "HUMAN-MAINTAINER",
+                "verdict": "accept-ready",
+            },
+            actor="HUMAN-MAINTAINER",
+        )
+
+        with patch(
+            "palari_company_os.governance_convergence.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["git"], 5),
+        ):
+            result = create_human_decision(
+                str(self.temp_dir),
+                {
+                    "id": "HUMAN-DECISION-OBSERVATION-FAILURE",
+                    "work_item_id": self.work_id,
+                    "human_id": "HUMAN-FOUNDER",
+                    "reviewed_head": attempt.head_sha,
+                    "decision": "accepted",
+                    "status": "accepted",
+                    "acceptance_mode": "human",
+                    "quorum_status": "met",
+                    "evidence_reference": evidence.id,
+                    "review_reference": "REVIEW-OBSERVATION-FAILURE",
+                },
+                actor="HUMAN-FOUNDER",
+            )
+
+        self.assertIn("stopped safely", result.next_action)
+        after = Ws.load(self.temp_dir)
+        self.assertEqual(after.work_item(self.work_id).status, "active")
+        self.assertTrue(
+            any(
+                item.id == "HUMAN-DECISION-OBSERVATION-FAILURE"
+                for item in after.human_decisions
+            )
+        )
+
+    def test_governance_only_commits_preserve_current_proof(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "workspace.json"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "record governance proof"],
+            check=True,
+        )
+
+        completed = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(completed["status"], "completed", completed)
+        self.assertTrue(completed["convergence"]["proof"]["committed_paths"])
+        self.assertEqual(
+            completed["convergence"]["proof"]["substantive_paths"],
+            [],
+        )
+
+    def test_substantive_commit_after_proof_blocks_convergence(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        (self.temp_dir / "README.md").write_text("substantive later change\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "substantive later change"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
+        self.assertIn("README.md", result["blockers"][0]["message"])
 
     def test_later_negative_human_decision_blocks_terminalization(self) -> None:
         with patch(
@@ -1498,6 +1755,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             },
             command="test human acceptance",
             actor="HUMAN-FOUNDER",
+            automatic_convergence=False,
         )
         return head_sha, evidence.id, review_id
 
