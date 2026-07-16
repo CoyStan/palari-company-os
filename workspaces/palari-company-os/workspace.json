@@ -7644,6 +7644,14 @@
       "receipt_hash": "sha256:445584d1ed6bfd420591eb8a0304e6c0af927b8fcc400b198d4b8d52c57161f2",
       "work_contract_hash": "sha256:3a0ba86cb5d6dd41838d7e5504a216109050b8fb1ffa63e5e5894bf0681111db",
       "proof_hash": "sha256:e9cc68e2b023140f7ca07733643df4e418ffcc43cab2dc501329e6f14e000596"
+    },
+    {
+      "id": "REVIEW-AGENT-AUTHORITY-ARCHITECT-20260716-V1",
+      "work_item_id": "WORK-AGENT-REVIEW-AUTHORITY",
+      "reviewed_head": "805669ea72a3cc5e66da651150df78717db1a26f",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T10:31:34.195521Z"
     }
   ],
   "human_decisions": [

@@ -279,6 +279,13 @@ def _check_review_record(
                 f"reviewer must be an existing human or Palari: {reviewer_id}",
             )
         )
+    if reviewer_human is not None and reviewer_human.availability == "inactive":
+        blockers.append(
+            TransitionBlocker(
+                "HUMAN_INACTIVE",
+                f"human reviewer {reviewer_id} is inactive",
+            )
+        )
     if reviewer_palari is not None:
         if work.goal and work.goal not in reviewer_palari.linked_goals:
             blockers.append(

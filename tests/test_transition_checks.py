@@ -99,6 +99,27 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "REVIEWER_MISSING")
 
+    def test_review_record_rejects_inactive_human_reviewer(self) -> None:
+        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        founder = next(item for item in raw["humans"] if item["id"] == "HUMAN-FOUNDER")
+        founder["availability"] = "inactive"
+        workspace = Workspace.from_raw(raw, WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "review_record",
+            "REVIEW-INACTIVE-HUMAN",
+            actor="HUMAN-FOUNDER",
+            context={
+                "work_item_id": "WORK-0003",
+                "reviewed_head": "def5678",
+                "verdict": "changes-requested",
+            },
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in result.blockers})
+
     def test_review_record_allows_distinct_source_authorized_palari(self) -> None:
         raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         for source in raw["sources"]:

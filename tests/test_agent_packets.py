@@ -57,6 +57,21 @@ def _authorize_alfred_for_beta_sources(data: dict[str, object]) -> None:
             source["allowed_palaris"].append("PALARI-ALFRED")
 
 
+def _restore_blueprint_human_review_state(data: dict[str, object]) -> None:
+    work_id = "WORK-0D2E36965F224C29A0647A7E95D867B7"
+    data["review_verdicts"] = [
+        item
+        for item in data["review_verdicts"]
+        if not (
+            item.get("work_item_id") == work_id
+            and item.get("reviewer") == "PALARI-STEWARD"
+        )
+    ]
+    data["human_decisions"] = [
+        item for item in data["human_decisions"] if item.get("work_item_id") != work_id
+    ]
+
+
 class AgentPacketTests(unittest.TestCase):
     def test_git_lease_coordinates_claims_across_linked_worktrees(self) -> None:
         with self.git_workspace() as workspace_file:
@@ -1126,7 +1141,9 @@ class AgentPacketTests(unittest.TestCase):
     def test_handoff_exposes_palari_rereview_when_human_reviewer_exhausts_acceptors(
         self,
     ) -> None:
-        workspace = Workspace.load(DOGFOOD)
+        workspace = self.modified_dogfood_workspace(
+            _restore_blueprint_human_review_state
+        )
 
         result = build_agent_handoff(
             workspace,
@@ -1413,7 +1430,9 @@ class AgentPacketTests(unittest.TestCase):
         )
 
     def test_distinct_palari_can_supplement_positive_human_review(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
+        workspace = self.modified_dogfood_workspace(
+            _restore_blueprint_human_review_state
+        )
 
         packet = build_agent_brief(
             workspace,
@@ -2239,6 +2258,11 @@ class AgentPacketTests(unittest.TestCase):
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
         mutate(source)
         return Workspace.from_raw(source, WORKSPACE)
+
+    def modified_dogfood_workspace(self, mutate: object) -> Workspace:
+        source = json.loads((DOGFOOD / "workspace.json").read_text(encoding="utf-8"))
+        mutate(source)
+        return Workspace.from_raw(source, DOGFOOD)
 
     @contextmanager
     def temp_workspace_file(self, source_workspace: Path) -> Iterator[Path]:
