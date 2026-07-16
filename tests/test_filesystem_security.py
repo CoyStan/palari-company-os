@@ -157,6 +157,99 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
                     [attempt],
                 )
 
+    def test_attempt_artifact_root_relocates_to_exact_clone(self) -> None:
+        with tempfile.TemporaryDirectory() as source_name, tempfile.TemporaryDirectory() as clone_name:
+            source = Path(source_name)
+            clone = Path(clone_name)
+            self._init_repo(source)
+            artifact = source / "artifacts" / "result.txt"
+            artifact.parent.mkdir()
+            artifact.write_text("exact proof\n", encoding="utf-8")
+            nested = source / "workspaces" / "dogfood"
+            nested.mkdir(parents=True)
+            (nested / "workspace.json").write_text("{}\n", encoding="utf-8")
+            self._git(source, "add", "-A")
+            self._git(source, "commit", "-qm", "candidate")
+            head = self._git_output(source, "rev-parse", "HEAD")
+            subprocess.run(
+                ["git", "clone", "-q", str(source), str(clone)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                workspace_path=str(source),
+                head_sha=head,
+                allowed_paths=["artifacts/result.txt"],
+                forbidden_paths=[],
+            )
+
+            relocated = evidence_artifact_root(
+                clone / "workspaces" / "dogfood",
+                "ATTEMPT-1",
+                ["artifacts/result.txt"],
+                [attempt],
+            )
+            hashes = evidence_artifact_hashes(
+                clone / "workspaces" / "dogfood",
+                "ATTEMPT-1",
+                ["artifacts/result.txt"],
+                [attempt],
+            )
+
+            self.assertEqual(relocated, clone.resolve())
+            self.assertEqual(hashes[0]["status"], "present")
+            (clone / "artifacts" / "result.txt").write_text(
+                "tampered after relocation\n", encoding="utf-8"
+            )
+            tampered = evidence_artifact_hashes(
+                clone / "workspaces" / "dogfood",
+                "ATTEMPT-1",
+                ["artifacts/result.txt"],
+                [attempt],
+            )
+            self.assertNotEqual(tampered[0]["sha256"], hashes[0]["sha256"])
+
+    def test_attempt_artifact_root_rejects_unrelated_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as source_name, tempfile.TemporaryDirectory() as other_name:
+            source = Path(source_name)
+            other = Path(other_name)
+            self._init_repo(source)
+            (source / "result.txt").write_text("same bytes\n", encoding="utf-8")
+            self._git(source, "add", "result.txt")
+            self._git(source, "commit", "-qm", "source")
+            source_head = self._git_output(source, "rev-parse", "HEAD")
+
+            self._init_repo(other)
+            (other / "result.txt").write_text("same bytes\n", encoding="utf-8")
+            nested = other / "workspaces" / "dogfood"
+            nested.mkdir(parents=True)
+            self._git(other, "add", "-A")
+            self._git(other, "commit", "-qm", "other")
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                workspace_path=str(source),
+                head_sha=source_head,
+                allowed_paths=["result.txt"],
+                forbidden_paths=[],
+            )
+
+            with self.assertRaisesRegex(ValueError, "candidate commit is unavailable"):
+                evidence_artifact_root(
+                    nested,
+                    "ATTEMPT-1",
+                    ["result.txt"],
+                    [attempt],
+                )
+            hashes = evidence_artifact_hashes(
+                nested,
+                "ATTEMPT-1",
+                ["result.txt"],
+                [attempt],
+            )
+            self.assertEqual(hashes[0]["status"], "unsafe")
+
     def test_attempt_forbidden_artifact_is_never_read_from_fallback_root(self) -> None:
         with tempfile.TemporaryDirectory() as root_name:
             root = Path(root_name)
@@ -189,6 +282,30 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
                     }
                 ],
             )
+
+    def _init_repo(self, root: Path) -> None:
+        self._git(root, "init", "-q")
+        self._git(root, "config", "user.email", "test@example.com")
+        self._git(root, "config", "user.name", "Test")
+
+    def _git(self, root: Path, *args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+
+    def _git_output(self, root: Path, *args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, "LC_ALL": "C"},
+        ).stdout.strip()
 
 
 class FileChangeObservationTests(unittest.TestCase):
