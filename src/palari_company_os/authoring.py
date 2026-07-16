@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .history import append_history_event
@@ -11,6 +12,41 @@ from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
+
+
+class ReconciliationStateChanged(WorkspaceError):
+    """The workspace no longer matches the proof plan verified by the caller."""
+
+
+_WORKSPACE_CAS_MESSAGES = {
+    "workspace file appeared before write; retry command",
+    "workspace file was removed before write; retry command",
+    "workspace changed since it was loaded; retry command",
+}
+
+
+def _assert_reconciliation_git_state(
+    proof_root: str,
+    governance_workspace_path: str,
+    artifacts: list[str],
+    expected_git_head: str,
+    expected_artifact_hashes: list[dict[str, str]],
+) -> None:
+    from .evidence_manifest import git_artifact_state
+
+    artifact_state = git_artifact_state(
+        Path(proof_root),
+        artifacts,
+        governance_workspace_path=Path(governance_workspace_path),
+    )
+    if (
+        artifact_state["head_sha"] != expected_git_head
+        or not artifact_state["clean"]
+        or artifact_state["artifact_hashes"] != expected_artifact_hashes
+    ):
+        raise ReconciliationStateChanged(
+            "Git head, tracked cleanliness, or artifact bytes changed after verification"
+        )
 
 
 COLLECTIONS = {
@@ -237,6 +273,7 @@ def update_human_decision(
     *,
     command: str = "",
     actor: str = "",
+    automatic_convergence: bool = True,
 ) -> MutationResult:
     updates = dict(updates)
     if set(updates) & {"decision", "status"} and "timestamp" not in updates:
@@ -284,7 +321,17 @@ def update_human_decision(
         before=before,
         after=record,
     )
-    return MutationResult("updated", "human_decisions", record_id, workspace.name)
+    result = MutationResult("updated", "human_decisions", record_id, workspace.name)
+    if automatic_convergence and (
+        merged.get("decision") in {"accepted", "approved"}
+        or merged.get("status") in {"accepted", "approved"}
+    ):
+        return _with_automatic_convergence(
+            result,
+            workspace_path,
+            str(merged.get("work_item_id") or ""),
+        )
+    return result
 
 
 def complete_work(
@@ -297,13 +344,19 @@ def complete_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
-    assert_work_completion_ready(workspace, work_id, actor=actor)
+    current = workspace.work_item(work_id)
+    if current is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    if current.status in {"completed", "closed", "done"}:
+        return MutationResult("completed", "work_items", work_id, workspace.name)
+    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
+    projected_workspace = validate_data(store.data_path, store.data)
+    assert_work_completion_ready(projected_workspace, work_id, actor=actor)
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
     before = deepcopy(work)
     work["status"] = status
-    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
     workspace = write_store(store)
     append_history_event(
         store.data_path,
@@ -422,6 +475,7 @@ def create_human_decision(
     *,
     command: str = "",
     actor: str = "",
+    automatic_convergence: bool = True,
 ) -> MutationResult:
     record = dict(record)
     if not record.get("timestamp"):
@@ -451,14 +505,17 @@ def create_human_decision(
         command=command or "human-decision record",
         actor=actor,
     )
-    workspace = validate_data(load_store(workspace_path).data_path, load_store(workspace_path).data)
-    item = next(item for item in queue_items(workspace) if item.id == work_id)
+    if automatic_convergence and decision in {"accepted", "approved"}:
+        result = _with_automatic_convergence(result, workspace_path, work_id)
+    current_store = load_store(workspace_path)
+    workspace = validate_data(current_store.data_path, current_store.data)
+    item = next((item for item in queue_items(workspace) if item.id == work_id), None)
     return MutationResult(
         result.action,
         result.collection,
         result.record_id,
         result.workspace,
-        next_action=item.next_action,
+        next_action=result.next_action or (item.next_action if item is not None else ""),
     )
 
 
@@ -550,7 +607,11 @@ def accept_work(
         before=None,
         after=acceptance,
     )
-    return MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name)
+    return _with_automatic_convergence(
+        MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name),
+        workspace_path,
+        work_id,
+    )
 
 
 def closeout_attempt(
@@ -638,6 +699,9 @@ def reconcile_agent_proof(
     changed_files: list[str],
     output_targets: list[str],
     proof_timestamp: str,
+    expected_workspace_digest: str,
+    expected_git_head: str,
+    expected_artifact_hashes: list[dict[str, str]],
     crash_hook: Any | None = None,
 ) -> dict[str, Any]:
     """Atomically create or resume the agent-owned proof projection.
@@ -648,9 +712,26 @@ def reconcile_agent_proof(
     workspace replacement and one governance-journal transaction.
     """
 
-    from .governance_journal import MutationMetadata
+    from .governance_journal import MutationMetadata, workspace_digest
 
     store = load_store(workspace_path)
+    if workspace_digest(store.data) != expected_workspace_digest:
+        raise ReconciliationStateChanged(
+            "workspace changed after the proof plan was verified"
+        )
+    artifacts = list(evidence_record.get("artifacts") or [])
+    proof_root = str(attempt_record.get("workspace_path") or workspace_path)
+    _assert_reconciliation_git_state(
+        proof_root,
+        workspace_path,
+        artifacts,
+        expected_git_head,
+        expected_artifact_hashes,
+    )
+    if evidence_record.get("artifact_hashes") != expected_artifact_hashes:
+        raise ReconciliationStateChanged(
+            "evidence artifact hashes do not match the verified proof plan"
+        )
     workspace = validate_data(store.data_path, store.data)
     work = workspace.work_item(work_id)
     if work is None:
@@ -802,7 +883,21 @@ def reconcile_agent_proof(
             reason="receipt-action:"
             + str((receipt.get("actions_taken") or [""])[0]),
         )
-        workspace = write_store(store, metadata=metadata, crash_hook=crash_hook)
+        _assert_reconciliation_git_state(
+            proof_root,
+            workspace_path,
+            artifacts,
+            expected_git_head,
+            expected_artifact_hashes,
+        )
+        try:
+            workspace = write_store(store, metadata=metadata, crash_hook=crash_hook)
+        except WorkspaceError as exc:
+            if str(exc) in _WORKSPACE_CAS_MESSAGES:
+                raise ReconciliationStateChanged(
+                    "workspace changed before the proof transaction acquired its writer lock"
+                ) from exc
+            raise
         append_history_event(
             store.data_path,
             schema_version=workspace.schema_version,
@@ -1126,6 +1221,42 @@ def _ensure_acceptance_record_for_completion(
             "reason": actor or "completion gate",
             "accepted_at": _timestamp(),
         }
+    )
+
+
+def _with_automatic_convergence(
+    result: MutationResult,
+    workspace_path: str,
+    work_id: str,
+) -> MutationResult:
+    if not work_id:
+        return result
+    from .governance_convergence import converge_work_item
+
+    store = load_store(workspace_path)
+    workspace = validate_data(store.data_path, store.data)
+    work = workspace.work_item(work_id)
+    actor = work.palari if work is not None else ""
+    convergence = converge_work_item(workspace_path, work_id, actor=actor)
+    status = str(convergence.get("status") or "")
+    if status == "completed":
+        next_action = (
+            f"Work item {work_id} completed automatically from current proof "
+            "and recorded human authority."
+        )
+    elif status == "blocked":
+        next_action = (
+            "Human authority was recorded; automatic reconciliation stopped safely: "
+            + str(convergence.get("message") or "inspect the current work state")
+        )
+    else:
+        next_action = ""
+    return MutationResult(
+        result.action,
+        result.collection,
+        result.record_id,
+        result.workspace,
+        next_action=next_action,
     )
 
 

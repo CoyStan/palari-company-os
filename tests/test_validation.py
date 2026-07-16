@@ -96,7 +96,9 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.work_items[0].current_attempt, "ATTEMPT-2")
         self.assertEqual(workspace.human_decisions[-1].status, "changes-requested")
 
-    def test_current_acceptance_cannot_be_carried_into_new_attempt(self) -> None:
+    def test_stale_acceptance_is_historical_and_does_not_carry_into_new_attempt(
+        self,
+    ) -> None:
         raw = json.loads(
             (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
         )
@@ -114,11 +116,16 @@ class WorkspaceValidationTests(unittest.TestCase):
         )
         raw["acceptance_records"] = []
 
-        with self.assertRaisesRegex(
-            WorkspaceError,
-            "evidence_reference is not for current attempt ATTEMPT-2",
-        ):
-            Workspace.from_raw(raw, FIXTURES)
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        from palari_company_os.read_models import detail
+
+        state = detail(workspace, "WORK-1")
+        self.assertEqual(workspace.human_decisions[0].status, "accepted")
+        self.assertEqual(state["work_item"]["current_attempt"], "ATTEMPT-2")
+        self.assertEqual(state["safety"]["approval_progress"], "0/1")
+        self.assertEqual(state["safety"]["acceptance_state"], "pending")
+        self.assertEqual(state["attention"], "needs-evidence")
 
     def test_nonterminal_acceptance_rejects_tampered_evidence_manifest(self) -> None:
         raw = json.loads(
@@ -919,6 +926,52 @@ class WorkspaceValidationTests(unittest.TestCase):
             WorkspaceError,
             "reviewer must be independent from attempt actor HUMAN-PRODUCT",
         ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_distinct_declared_palari_may_review_but_not_join_human_quorum(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["palaris"].append(
+            {
+                "id": "PALARI-REVIEWER",
+                "name": "Independent Reviewer",
+                "role": "Advisory reviewer",
+                "owner_human": "HUMAN-PRODUCT",
+                "linked_goals": ["GOAL-1"],
+            }
+        )
+        review = raw["review_verdicts"][0]
+        review["reviewer"] = "PALARI-REVIEWER"
+        review["proof_hash"] = review_proof_hash(review)
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(workspace.review_verdicts[0].reviewer, "PALARI-REVIEWER")
+        self.assertEqual(workspace.human_decisions[0].human_id, "HUMAN-PRODUCT")
+
+    def test_palari_reviewer_must_be_linked_to_work_goal(self) -> None:
+        from palari_company_os.governance_binding import review_proof_hash
+
+        raw = json.loads(
+            (FIXTURES / "valid-accepted-completed-work.json").read_text(encoding="utf-8")
+        )
+        raw["palaris"].append(
+            {
+                "id": "PALARI-REVIEWER",
+                "name": "Unassigned Reviewer",
+                "role": "Advisory reviewer",
+                "owner_human": "HUMAN-PRODUCT",
+                "linked_goals": [],
+            }
+        )
+        review = raw["review_verdicts"][0]
+        review["reviewer"] = "PALARI-REVIEWER"
+        review["proof_hash"] = review_proof_hash(review)
+
+        with self.assertRaisesRegex(WorkspaceError, "is not linked to goal GOAL-1"):
             Workspace.from_raw(raw, FIXTURES)
 
     def test_acceptance_record_cannot_reference_negative_decision(self) -> None:

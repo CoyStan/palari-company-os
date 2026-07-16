@@ -280,7 +280,10 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         if candidates:
             print("  reviewer candidates:")
             for candidate in candidates:
-                print(f"    - {candidate['id']} ({candidate['name']})")
+                print(
+                    f"    - {candidate['id']} ({candidate['name']}, "
+                    f"{candidate.get('identity_type', 'human')})"
+                )
         record_commands = review.get("review_record_commands", [])
         if record_commands:
             print("  review record commands:")
@@ -335,6 +338,13 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         for item in human_commands:
             detail = f" ({item.get('result', item.get('actor', ''))})"
             print(f"  - {item['type']}{detail}: {item['command']}")
+    agent_commands = payload.get("agent_action_commands", [])
+    if agent_commands:
+        print("Agent review actions (advisory only):")
+        for item in agent_commands:
+            if item.get("packet_command"):
+                print(f"  - packet: {item['packet_command']}")
+            print(f"    record as {item['actor']}: {item['command']}")
 
 
 def print_agent_loop(payload: dict[str, Any], as_json: bool) -> None:

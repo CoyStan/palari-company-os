@@ -50,7 +50,16 @@ The v1 loop is:
     WORK-ID --as PALARI-ID --dry-run --json` to inspect the deterministic plan,
     then run it without `--dry-run`. It derives changed paths and the exact head,
     runs bound verification, records proof atomically, releases the claim, and
-    stops at review or human authority. It does not exercise that authority.
+    stops at review or human authority. Once those separate records exist, a
+    later call performs only deterministic acceptance projection and terminal
+    bookkeeping. Authority-producing authoring functions also invoke the same
+    bounded fixed-point driver after a qualified accepted decision is recorded,
+    so already-authorized bookkeeping normally finishes in that human action.
+    The driver detects cycles, no-progress transitions, and iteration exhaustion;
+    it stops at review, human authority, external state, or an error and never
+    records the review or human decision itself. Later Git commits preserve proof
+    currency only when every committed and dirty tracked path is governance
+    projection data; any substantive repository change fails closed.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and
@@ -62,11 +71,13 @@ The v1 loop is:
     handing off the local claim before completion.
 19. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
 
-For independent inspection work, use `--mode review` only after a work item is
-already in `needs-review` or `receipt-ready`. A review packet is read-only. It
-includes the review guide focus, attempt, evidence, receipt, suggested verdicts,
-and reviewer candidates, but it does not record a review verdict or mutate the
-workspace.
+For independent inspection work, use `--mode review` after a work item is in
+`needs-review` or `receipt-ready`. A distinct source-authorized Palari may also
+open a supplemental review packet when a positive human review is waiting on a
+different acceptance identity. The packet is read-only with respect to work
+outputs. It includes the review guide focus, attempt, evidence, receipt,
+suggested verdicts, and typed reviewer candidates. A matching Palari reviewer
+may record only its advisory verdict; it cannot create human acceptance.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 
@@ -132,6 +143,13 @@ requires it.
 
 `status: blocked` means the agent must not perform the work. It may run only the
 commands listed in `next_allowed_commands`, or report the blockers to a human.
+
+Finish, loop, next, handoff, and Approval Inbox JSON classify the resolver as
+`automatic-reconciliation`, `agent-action`, `independent-review`,
+`human-authority`, `external-state`, or `terminal`. A human-looking blocker is
+not retained after the required authority already exists: current post-decision
+bookkeeping reports `converge-ready` and points back to `agent advance`.
+Completed work reports `closed` with no remediation blocker.
 
 Common blocker codes include:
 
@@ -210,7 +228,8 @@ Implemented:
 - claim-start commit-range proof for `agent done`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
 - deterministic claim-range planning and atomic proof reconciliation through
-  `agent advance`, with governed exact-proof reuse and an authority stop
+  `agent advance`, with governed exact-proof reuse, an authority stop, and
+  deterministic post-decision terminalization
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff packets
@@ -342,13 +361,16 @@ a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
 decisions, receipts, evidence, claims, or history events. Handoff packets also
 include `human_action_boundary`, which marks every `human_action_commands`
-entry as human-only.
+entry as human-only. Eligible Palari review commands are instead listed under
+`agent_action_commands`, paired with the required review-packet command and an
+`agent_action_boundary`; they remain advisory and reviewer-specific.
 
-Review-mode `agent brief` packets may include ready-to-copy review record
-commands inside `review_context` because those are useful to the supervising
-human. They also include `human_action_boundary`, which states that the agent
-may quote or summarize those commands but must not execute them, claim to be the
-reviewer, or convert a recommendation into human acceptance.
+Review-mode `agent brief` packets separate `human_review_commands` from
+`agent_review_commands`. The human boundary still forbids an agent from running
+human-attributed review or decision commands. A distinct eligible Palari may
+run only the agent review command matching its packet identity. Builder
+self-review, missing goal linkage, unapproved sources, and any attempt to turn
+the advisory verdict into human quorum fail closed.
 
 `agent loop` is a compact read-only control surface over the same commands. It
 summarizes `brief`, `check`, `finish`, and handoff status, includes the exact

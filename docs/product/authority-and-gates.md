@@ -172,10 +172,32 @@ own proof references and exact member/subject digest. The governance kernel
 counts `approval-pack` decisions under the same capability, reviewer
 independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.
+The Approval Inbox names its available approval modes. The normal
+`approve-eligible` mode is one exact attributable action over independently
+reviewed members. External or irreversible effects remain individual. A
+combined review-and-accept mode is not available under the current policy:
+independent review and acceptance remain distinct roles.
+
+Independent review may be attributed to a declared Palari when that Palari is
+not the builder, is linked to the work goal, and is allowed to read every
+selected source. That verdict remains advisory. Palari reviewer identities are
+never human approval candidates and never satisfy human quorum; acceptance,
+rejection, and Approval Pack actions remain attributable human authority.
 
 `palari work complete` keeps the terminal status gate. For non-receipt-ready
-work, it records a missing acceptance record from the latest qualified human
-decision so completion is auditable instead of being only a status change.
+work, it can derive a missing acceptance record from the latest qualified human
+decision. That record is projected before the complete gate and written in the
+same successful mutation as terminal state, so invalid or stale authority does
+not leave a partial acceptance behind. `agent advance` may invoke this
+mechanical transition after authority exists; it does not create the review or
+human decision.
+Accepted human-decision and work-accept authoring functions invoke a shared,
+bounded fixed-point driver after recording the human action. The driver applies
+only the already-authorized completion transition, detects cycles and
+no-progress, and stops at review, human authority, external state, iteration
+exhaustion, or an error. A failed automatic transition does not erase the human
+record; it returns an actionable safe stop and creates no partial derived
+acceptance or terminal state.
 Generic record updates cannot set terminal work state, rewrite attempt trust
 fields, or mutate an exact-bound review.
 

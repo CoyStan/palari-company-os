@@ -8,7 +8,8 @@ from .agent_finish import build_agent_finish
 from .decision_guides import build_decision_guide
 from .read_models import detail
 from .review_guides import build_review_guide
-from .workspace import Workspace
+from .workspace import Workspace, WorkspaceError
+from .workspace_read_models import approval_inbox
 
 
 def build_agent_handoff(
@@ -33,11 +34,30 @@ def build_agent_handoff(
     human_approval_handoff = (
         _human_approval_handoff(workspace, work_id) if human_approval_requested else None
     )
+    supplemental_review_required = False
+    if (
+        review_handoff is None
+        and human_approval_handoff is not None
+        and not human_approval_handoff.get("approval_candidates")
+    ):
+        current_reviewer = str(
+            human_approval_handoff.get("review", {}).get("reviewer") or ""
+        )
+        supplemental = _exclude_reviewer(
+            _review_handoff(workspace, work_id), current_reviewer
+        )
+        if any(
+            candidate.get("identity_type") == "palari"
+            for candidate in supplemental.get("reviewer_candidates", [])
+        ):
+            review_handoff = supplemental
+            supplemental_review_required = True
     human_action_commands = _human_action_commands(
         review_handoff,
         decision_handoff,
         human_approval_handoff,
     )
+    agent_action_commands = _agent_action_commands(review_handoff)
     return {
         "schema_version": "palari.agent_handoff.v1",
         "handoff_id": _handoff_id(work_id, palari_id, mode),
@@ -48,13 +68,18 @@ def build_agent_handoff(
         "status": finish.get("status", "blocked"),
         "handoff_available": bool(review_handoff or decision_handoff or human_approval_handoff),
         "handoff_types": _handoff_types(review_handoff, decision_handoff, human_approval_handoff),
-        "next_step_type": finish.get("next_step_type", "inspect"),
+        "next_step_type": (
+            "review-handoff"
+            if supplemental_review_required
+            else finish.get("next_step_type", "inspect")
+        ),
         "agent": finish.get("agent", {}),
         "work_item": finish.get("work_item", {}),
         "finish": _finish_summary(finish),
         "review_handoff": review_handoff,
         "decision_handoff": decision_handoff,
         "human_approval_handoff": human_approval_handoff,
+        "resolution_summary": finish.get("resolution_summary", {}),
         "next_allowed_commands": _agent_safe_commands(
             finish,
             review_handoff,
@@ -63,6 +88,8 @@ def build_agent_handoff(
         ),
         "human_action_commands": human_action_commands,
         "human_action_boundary": _human_action_boundary(human_action_commands),
+        "agent_action_commands": agent_action_commands,
+        "agent_action_boundary": _agent_action_boundary(agent_action_commands),
         "omitted_context": [
             {
                 "kind": "workspace_records",
@@ -116,6 +143,24 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     }
 
 
+def _exclude_reviewer(handoff: dict[str, Any], reviewer_id: str) -> dict[str, Any]:
+    if not reviewer_id:
+        return handoff
+    return {
+        **handoff,
+        "reviewer_candidates": [
+            item
+            for item in handoff.get("reviewer_candidates", [])
+            if item.get("id") != reviewer_id
+        ],
+        "review_record_commands": [
+            item
+            for item in handoff.get("review_record_commands", [])
+            if item.get("reviewer") != reviewer_id
+        ],
+    }
+
+
 def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     guide = build_decision_guide(workspace, work_id)
     return {
@@ -158,12 +203,26 @@ def _human_approval_handoff(workspace: Workspace, work_id: str) -> dict[str, Any
     review = payload.get("review") or {}
     attempt = payload.get("attempt") or {}
     required_capability = work.get("required_approval_capability", "")
-    candidates = _approval_candidates(workspace, required_capability)
+    excluded_actors = {
+        str(attempt.get("actor") or ""),
+        str(review.get("reviewer") or ""),
+    }
+    candidates = _approval_candidates(
+        workspace,
+        required_capability,
+        excluded_actors=excluded_actors,
+    )
     reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or _attempt_head(attempt)
+    approval_pack = _approval_pack_handoff(workspace, work_id)
+    command = (
+        str(approval_pack["inbox_command"])
+        if approval_pack.get("available")
+        else f"palari detail {work_id} --json"
+    )
     return {
         "schema_version": "palari.human_approval_handoff.v1",
         "guide_id": f"HUMAN-APPROVAL-{_safe_id(work_id)}-V1",
-        "command": f"palari detail {work_id} --json",
+        "command": command,
         "status": payload.get("attention", ""),
         "attention": payload.get("attention", ""),
         "why": payload.get("why", ""),
@@ -189,6 +248,7 @@ def _human_approval_handoff(workspace: Workspace, work_id: str) -> dict[str, Any
         "attempt": _pick(attempt, ["id", "actor", "status", "result"]),
         "approval_candidates": candidates,
         "approval_focus": _approval_focus(payload),
+        "approval_pack": approval_pack,
         "human_decision_record_commands": _human_decision_record_commands(
             work_id,
             candidates,
@@ -214,6 +274,7 @@ def _finish_summary(finish: dict[str, Any]) -> dict[str, Any]:
         "missing_requirements": finish.get("missing_requirements", []),
         "completed_requirements": finish.get("completed_requirements", []),
         "blockers": finish.get("blockers", []),
+        "resolution_summary": finish.get("resolution_summary", {}),
     }
 
 
@@ -271,6 +332,8 @@ def _human_action_commands(
     commands: list[dict[str, str]] = []
     if review_handoff is not None:
         for item in review_handoff.get("review_record_commands", []):
+            if item.get("identity_type") != "human":
+                continue
             commands.append(
                 {
                     "type": "review-record",
@@ -289,16 +352,50 @@ def _human_action_commands(
                 }
             )
     if human_approval_handoff is not None:
-        for item in human_approval_handoff.get("human_decision_record_commands", []):
+        approval_pack = human_approval_handoff.get("approval_pack", {})
+        pack_commands = _pack_human_commands(
+            approval_pack,
+            human_approval_handoff.get("approval_candidates", []),
+        )
+        source = pack_commands or human_approval_handoff.get(
+            "human_decision_record_commands", []
+        )
+        for item in source:
             commands.append(
                 {
-                    "type": "human-approval-record",
+                    "type": item.get("type", "human-approval-record"),
                     "actor": item.get("human_id", ""),
                     "result": item.get("decision", ""),
                     "command": item.get("command", ""),
                 }
             )
     return commands
+
+
+def _agent_action_commands(
+    review_handoff: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    if review_handoff is None:
+        return []
+    return [
+        {
+            "type": "palari-review-record",
+            "actor": str(item.get("reviewer", "")),
+            "command": str(item.get("command", "")),
+            "packet_command": str(
+                next(
+                    (
+                        candidate.get("review_packet_command", "")
+                        for candidate in review_handoff.get("reviewer_candidates", [])
+                        if candidate.get("id") == item.get("reviewer")
+                    ),
+                    "",
+                )
+            ),
+        }
+        for item in review_handoff.get("review_record_commands", [])
+        if item.get("identity_type") == "palari"
+    ]
 
 
 def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[str, Any]:
@@ -315,13 +412,39 @@ def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[
     }
 
 
+def _agent_action_boundary(agent_action_commands: list[dict[str, str]]) -> dict[str, Any]:
+    return {
+        "agent_may_execute": bool(agent_action_commands),
+        "agent_action_command_fields": ["agent_action_commands[].command"],
+        "count": len(agent_action_commands),
+        "must": [
+            "Open the named review packet before recording a verdict.",
+            "The packet actor must match the command actor.",
+        ],
+        "must_not": [
+            "Do not let the builder review its own attempt.",
+            "Do not convert a Palari verdict into human acceptance.",
+        ],
+    }
+
+
 def _pick(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
     return {key: payload[key] for key in keys if key in payload}
 
 
-def _approval_candidates(workspace: Workspace, required_capability: str) -> list[dict[str, Any]]:
+def _approval_candidates(
+    workspace: Workspace,
+    required_capability: str,
+    *,
+    excluded_actors: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    excluded = excluded_actors or set()
     candidates: list[dict[str, Any]] = []
     for human in workspace.humans:
+        if human.id in excluded:
+            continue
+        if human.availability == "inactive":
+            continue
         if required_capability and required_capability not in human.approval_capabilities:
             continue
         candidates.append(
@@ -334,6 +457,66 @@ def _approval_candidates(workspace: Workspace, required_capability: str) -> list
             }
         )
     return candidates
+
+
+def _approval_pack_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
+    inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
+    try:
+        inbox = approval_inbox(workspace, selected_work_ids=(work_id,))
+    except WorkspaceError as exc:
+        return {
+            "available": False,
+            "work_item_id": work_id,
+            "mode": "individual-human-decision",
+            "reason": str(exc),
+            "next_safe_action": (
+                "Use the exact individual human-decision command, or establish "
+                "journal continuity before rebuilding an Approval Pack."
+            ),
+        }
+    item = next(
+        (candidate for candidate in inbox["individual_items"] if candidate["id"] == work_id),
+        None,
+    )
+    pack = inbox["packs"][0] if inbox["packs"] else None
+    command = inbox["approval_commands"][0] if inbox["approval_commands"] else None
+    available = bool(item and pack and command and item.get("state") == "eligible")
+    return {
+        "available": available,
+        "work_item_id": work_id,
+        "mode": "approve-eligible" if available else "individual-human-decision",
+        "inbox_command": inbox_command,
+        "pack_id": pack["pack_id"] if pack else "",
+        "pack_digest": pack["pack_digest"] if pack else "",
+        "item_state": item.get("state", "missing") if item else "missing",
+        "reasons": item.get("reasons", []) if item else ["work item is not in the inbox"],
+        "approve_eligible_command": (
+            command["approve_eligible"] if command is not None and available else ""
+        ),
+        "next_safe_action": (
+            "A qualified human may run the exact approve-eligible command once."
+            if available
+            else "Use the individual human-decision command for this non-batchable state."
+        ),
+    }
+
+
+def _pack_human_commands(
+    approval_pack: dict[str, Any],
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    command = str(approval_pack.get("approve_eligible_command") or "")
+    if not approval_pack.get("available") or not command:
+        return []
+    return [
+        {
+            "type": "approval-pack",
+            "human_id": str(candidate["id"]),
+            "decision": "approve-eligible",
+            "command": command.replace("HUMAN-ID", quote(str(candidate["id"]))),
+        }
+        for candidate in candidates
+    ]
 
 
 def _approval_focus(payload: dict[str, Any]) -> list[str]:

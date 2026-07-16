@@ -92,6 +92,9 @@ def build_approval_inbox(
         for group in sorted(grouped)
     ]
     evaluated = [evaluate_approval_pack(workspace, pack) for pack in packs]
+    for report in evaluated:
+        for item in report["members"]:
+            item["resolution"] = approval_resolution(item)
     individual_items = [item for report in evaluated for item in report["members"]]
     counts: dict[str, int] = {
         "packs": len(packs),
@@ -109,6 +112,19 @@ def build_approval_inbox(
         key = str(item["state"]).replace("-", "_")
         if key in counts:
             counts[key] += 1
+    approval_commands = [
+        {
+            "pack_id": pack["pack_id"],
+            "pack_digest": pack["pack_digest"],
+            "approve_eligible": _approval_command(pack),
+        }
+        for pack in packs
+    ]
+    eligible_commands = [
+        command
+        for command, report in zip(approval_commands, evaluated, strict=True)
+        if any(item["state"] == "eligible" for item in report["members"])
+    ]
     return {
         "schema_version": INBOX_SCHEMA_VERSION,
         "workspace": workspace.name,
@@ -132,14 +148,9 @@ def build_approval_inbox(
             packs,
             individual_items,
         ),
-        "approval_commands": [
-            {
-                "pack_id": pack["pack_id"],
-                "pack_digest": pack["pack_digest"],
-                "approve_eligible": _approval_command(pack),
-            }
-            for pack in packs
-        ],
+        "approval_modes": approval_modes(counts, len(eligible_commands)),
+        "primary_action": approval_primary_action(eligible_commands, counts),
+        "approval_commands": approval_commands,
         "actions": {
             "approve_eligible": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve-eligible --json",
             "approve_selected": "palari human-decision pack --pack-digest DIGEST --human-id HUMAN-ID --approve WORK-ID --json",
@@ -148,6 +159,136 @@ def build_approval_inbox(
             "narrow": "palari queue --approval-inbox --select WORK-ID --json",
         },
         "security_limitations": _security_limitations(),
+    }
+
+
+def approval_modes(
+    counts: dict[str, int],
+    approval_actions: int,
+) -> list[dict[str, Any]]:
+    """Describe available authority surfaces without granting that authority."""
+
+    return [
+        {
+            "id": "automatic-reconciliation",
+            "label": "Automatic",
+            "available": True,
+            "human_actions": 0,
+            "authority": "none",
+            "use_when": "The remaining transition is deterministic and already authorized.",
+        },
+        {
+            "id": "approve-eligible",
+            "label": "Approve eligible",
+            "available": approval_actions > 0,
+            "human_actions": approval_actions,
+            "authority": "qualified-human",
+            "use_when": "Every selected local member has current independent proof.",
+        },
+        {
+            "id": "approve-selected",
+            "label": "Approve selected",
+            "available": approval_actions > 0,
+            "human_actions": approval_actions,
+            "authority": "qualified-human",
+            "use_when": "A human wants a narrower exact subset of one current pack.",
+        },
+        {
+            "id": "individual-effect",
+            "label": "Individual effect",
+            "available": counts.get("non_batchable", 0) > 0,
+            "human_actions": counts.get("non_batchable", 0),
+            "authority": "qualified-human",
+            "use_when": "Policy marks an effect external, irreversible, or too risky to batch.",
+        },
+        {
+            "id": "review-and-accept",
+            "label": "Review and accept",
+            "available": False,
+            "human_actions": 0,
+            "authority": "not-implemented",
+            "use_when": (
+                "Unavailable in this policy version: independent review and acceptance "
+                "must remain attributable to distinct actors."
+            ),
+        },
+    ]
+
+
+def approval_primary_action(
+    approval_commands: list[dict[str, str]],
+    counts: dict[str, int],
+) -> dict[str, Any]:
+    actions = len(approval_commands)
+    return {
+        "mode": "approve-eligible" if actions else "inspect-exceptions",
+        "available": bool(actions),
+        "eligible_items": counts.get("eligible", 0),
+        "human_actions": actions,
+        "commands": [item["approve_eligible"] for item in approval_commands],
+        "exceptions": {
+            "blocked": counts.get("blocked", 0),
+            "stale": counts.get("stale", 0),
+            "non_batchable": counts.get("non_batchable", 0),
+        },
+        "next_safe_action": (
+            "Review the exact pack digest and run one listed command as a qualified human."
+            if actions
+            else "Resolve the item-level exceptions; no aggregate approval is available."
+        ),
+    }
+
+
+def approval_resolution(item: dict[str, Any]) -> dict[str, Any]:
+    """Classify the next resolver for an evaluated pack member."""
+
+    state = str(item.get("state") or "")
+    reasons = " ".join(str(reason).lower() for reason in item.get("reasons", []))
+    if state in {"executed", "approved", "rejected", "deferred"}:
+        resolution_class, owner, automatic, mode = "terminal", "none", True, "none"
+    elif state == "eligible":
+        resolution_class, owner, automatic, mode = (
+            "human-authority",
+            "human",
+            False,
+            "approve-eligible",
+        )
+    elif state == "non-batchable":
+        resolution_class, owner, automatic, mode = (
+            "human-authority",
+            "human",
+            False,
+            "individual-effect",
+        )
+    elif "review" in reasons or "reviewer" in reasons:
+        resolution_class, owner, automatic, mode = (
+            "independent-review",
+            "reviewer",
+            False,
+            "independent-review",
+        )
+    elif state == "stale" or any(
+        token in reasons for token in ("evidence", "receipt", "proof", "subject digest")
+    ):
+        resolution_class, owner, automatic, mode = (
+            "automatic-reconciliation",
+            "system",
+            True,
+            "refresh-proof",
+        )
+    else:
+        resolution_class, owner, automatic, mode = (
+            "agent-action",
+            "agent",
+            False,
+            "resolve-dependency",
+        )
+    return {
+        "class": resolution_class,
+        "owner": owner,
+        "automatic": automatic,
+        "approval_mode": mode,
+        "next_safe_action": str(item.get("next_safe_action") or ""),
     }
 
 
@@ -473,6 +614,8 @@ def apply_pack_decision(
     human = workspace.human(human_id)
     if human is None:
         raise WorkspaceError(f"approval pack human not found: {human_id}")
+    if human.availability == "inactive":
+        raise WorkspaceError(f"approval pack human is inactive: {human_id}")
 
     existing = [
         record
@@ -1128,9 +1271,10 @@ def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> i
         ):
             continue
         human = humans.get(decision.human_id)
+        if human is None or human.availability == "inactive":
+            continue
         if work.required_approval_capability and (
-            human is None
-            or work.required_approval_capability not in human.approval_capabilities
+            work.required_approval_capability not in human.approval_capabilities
         ):
             continue
         qualified.add(decision.human_id)
@@ -1138,6 +1282,8 @@ def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> i
 
 
 def _assert_pack_human_authority(work: Any, human: Any, human_id: str) -> None:
+    if human.availability == "inactive":
+        raise WorkspaceError(f"human {human_id} is inactive for {work.id}")
     if work.required_approval_capability and (
         work.required_approval_capability not in human.approval_capabilities
     ):

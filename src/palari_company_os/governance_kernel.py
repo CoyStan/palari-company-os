@@ -487,13 +487,14 @@ def _review_property(
             "Obtain a fresh independent accept-ready review.",
         )
     humans = {human.id: human for human in case.humans}
-    if review.reviewer not in humans:
+    reviewer_authorities = {authority.id for authority in case.reviewer_authorities}
+    if review.reviewer not in humans and review.reviewer not in reviewer_authorities:
         _error(
             errors,
             "PCAW_REVIEWER_UNKNOWN",
             "$.review.reviewer",
-            "reviewer is not a declared human",
-            "Include the reviewer authority record.",
+            "reviewer is not a declared human or reviewer authority",
+            "Include the human or Palari reviewer authority record.",
         )
     if case.attempt is not None and review.reviewer == case.attempt.actor:
         _error(
@@ -501,7 +502,7 @@ def _review_property(
             "PCAW_REVIEWER_NOT_INDEPENDENT",
             "$.review.reviewer",
             "reviewer is also the attempt actor",
-            "Assign a distinct human reviewer.",
+            "Assign a distinct human or Palari reviewer.",
         )
     expected = {
         "work_item_id": case.contract.id,
@@ -538,7 +539,10 @@ def _review_property(
         errors,
     )
     status = "failed" if len(errors) != before else "verified"
-    return PropertyResult("independent_review", status, ("$.review", "$.humans"))
+    authority_path = (
+        "$.humans" if review.reviewer in humans else "$.reviewer_authorities"
+    )
+    return PropertyResult("independent_review", status, ("$.review", authority_path))
 
 
 def _quorum_property(

@@ -46,6 +46,22 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertFalse(unqualified.ok)
         self.assertEqual(unqualified.blockers[0].code, "HUMAN_LACKS_CAPABILITY")
 
+    def test_inactive_human_cannot_create_new_acceptance(self) -> None:
+        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        founder = next(item for item in raw["humans"] if item["id"] == "HUMAN-FOUNDER")
+        founder["availability"] = "inactive"
+        workspace = Workspace.from_raw(raw, WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "work_accept",
+            "WORK-0001",
+            actor="HUMAN-FOUNDER",
+            context={"reviewed_head": "abc1234"},
+        )
+
+        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in result.blockers})
+
     def test_review_record_transition_blocks_accept_ready_without_evidence(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
@@ -65,7 +81,7 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
         self.assertIn("agent doctor", result.blockers[0].next_command)
 
-    def test_review_record_requires_existing_human_reviewer(self) -> None:
+    def test_review_record_requires_existing_reviewer_authority(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
         result = check_transition(
@@ -82,6 +98,68 @@ class TransitionCheckTests(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "REVIEWER_MISSING")
+
+    def test_review_record_rejects_inactive_human_reviewer(self) -> None:
+        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        founder = next(item for item in raw["humans"] if item["id"] == "HUMAN-FOUNDER")
+        founder["availability"] = "inactive"
+        workspace = Workspace.from_raw(raw, WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "review_record",
+            "REVIEW-INACTIVE-HUMAN",
+            actor="HUMAN-FOUNDER",
+            context={
+                "work_item_id": "WORK-0003",
+                "reviewed_head": "def5678",
+                "verdict": "changes-requested",
+            },
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in result.blockers})
+
+    def test_review_record_allows_distinct_source_authorized_palari(self) -> None:
+        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        for source in raw["sources"]:
+            if source["id"] in {"SOURCE-0001", "SOURCE-0002"}:
+                source["allowed_palaris"].append("PALARI-ALFRED")
+        workspace = Workspace.from_raw(raw, WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "review_record",
+            "REVIEW-PALARI",
+            actor="PALARI-ALFRED",
+            context={
+                "work_item_id": "WORK-0007",
+                "reviewed_head": "abc1234",
+                "verdict": "changes-requested",
+            },
+        )
+
+        self.assertTrue(result.ok)
+
+    def test_review_record_rejects_palari_without_source_access(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        result = check_transition(
+            workspace,
+            "review_record",
+            "REVIEW-PALARI-DENIED",
+            actor="PALARI-ALFRED",
+            context={
+                "work_item_id": "WORK-0007",
+                "reviewed_head": "abc1234",
+                "verdict": "changes-requested",
+            },
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIn(
+            "REVIEWER_SOURCE_NOT_ALLOWED", {blocker.code for blocker in result.blockers}
+        )
 
     def test_evidence_record_transition_blocks_wrong_attempt_head(self) -> None:
         workspace = Workspace.load(WORKSPACE)

@@ -99,6 +99,12 @@ process running as the same OS user from rewriting local governance files and
 exporting a new statement. Signing, key custody, revocation, and protected
 identity are deferred to a versioned future protocol.
 
+PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
+Palari may supply an independent advisory review, but only identities in
+`humans` can contribute human decisions or quorum. Legacy statements without
+`reviewer_authorities` retain their original canonical bytes and verification
+behavior.
+
 Approval Packs use the same declared-identity limitation. A canonical pack and
 each member digest are persisted with the human decision, and current bytes,
 review, recursively bound dependency state, authority, and quorum are rechecked

@@ -22,6 +22,7 @@ from palari_company_os.approval_packs import (
     canonical_pack_bytes,
     evaluate_approval_pack,
 )
+from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
@@ -60,6 +61,11 @@ class ApprovalPackTests(unittest.TestCase):
                     measurement["commands_or_clicks"],
                     {"individual_approval_baseline": count, "approval_pack": 1},
                 )
+                self.assertEqual(inbox["primary_action"]["mode"], "approve-eligible")
+                self.assertEqual(inbox["primary_action"]["human_actions"], 1)
+                modes = {item["id"]: item for item in inbox["approval_modes"]}
+                self.assertTrue(modes["approve-eligible"]["available"])
+                self.assertFalse(modes["review-and-accept"]["available"])
 
     def test_incomplete_member_remains_visible_as_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -73,6 +79,37 @@ class ApprovalPackTests(unittest.TestCase):
 
         self.assertEqual(inbox["counts"]["blocked"], 1)
         self.assertEqual(inbox["evaluations"][0]["members"][0]["state"], "blocked")
+        self.assertEqual(
+            inbox["evaluations"][0]["members"][0]["resolution"]["class"],
+            "independent-review",
+        )
+        self.assertFalse(inbox["primary_action"]["available"])
+
+    def test_agent_handoff_exposes_one_pack_action_when_continuity_is_valid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+
+            handoff = build_agent_handoff(
+                Workspace.load(data_path),
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+
+        approval = handoff["human_approval_handoff"]
+        self.assertIsNotNone(approval)
+        self.assertTrue(approval["approval_pack"]["available"])
+        self.assertEqual(approval["approval_pack"]["mode"], "approve-eligible")
+        self.assertEqual(len(handoff["human_action_commands"]), 2)
+        self.assertTrue(
+            all(
+                item["type"] == "approval-pack"
+                for item in handoff["human_action_commands"]
+            )
+        )
+        self.assertIn(
+            "queue --approval-inbox --select WORK-001",
+            handoff["next_allowed_commands"][0],
+        )
 
     def test_cli_exposes_inbox_detail_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -85,6 +122,14 @@ class ApprovalPackTests(unittest.TestCase):
                 "--select",
                 "WORK-001",
                 "--json",
+            )
+            rendered_inbox = run_text(
+                "--workspace",
+                str(data_path),
+                "queue",
+                "--approval-inbox",
+                "--select",
+                "WORK-001",
             )
             detail = run_json(
                 "--workspace",
@@ -111,6 +156,8 @@ class ApprovalPackTests(unittest.TestCase):
             )
 
         self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v1")
+        self.assertIn("Primary action: approve-eligible", rendered_inbox)
+        self.assertIn("resolver: human-authority / human", rendered_inbox)
         self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
         self.assertTrue(detail["approval_pack"]["available"])
         self.assertEqual(decision["executed"], ["WORK-001"])
@@ -784,6 +831,21 @@ def run_json(*args: str) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise AssertionError(payload)
     return payload
+
+
+def run_text(*args: str) -> str:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(REPO_ROOT / "src")
+    return subprocess.run(
+        [sys.executable, "-S", "-m", "palari_company_os", *args],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+    ).stdout
 
 
 if __name__ == "__main__":

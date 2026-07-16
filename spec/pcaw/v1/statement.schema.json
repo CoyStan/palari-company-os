@@ -154,6 +154,10 @@
             { "$ref": "#/$defs/review_snapshot" }
           ]
         },
+        "reviewer_authorities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewer_authority" }
+        },
         "humans": {
           "type": "array",
           "items": { "$ref": "#/$defs/human_authority" }
@@ -477,6 +481,15 @@
       "properties": {
         "id": { "$ref": "#/$defs/nonempty_string" },
         "approval_capabilities": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "reviewer_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonempty_string" },
+        "kind": { "const": "palari" }
       }
     },
     "human_decision_snapshot": {

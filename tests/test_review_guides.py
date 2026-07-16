@@ -34,12 +34,16 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertIn("src/palari_company_os/workspace.py", payload["attempt"]["changed_files"])
         self.assertEqual(payload["receipt"]["id"], "RECEIPT-REPO-0003")
         self.assertIn("Confirm forbidden actions", " ".join(payload["review_focus"]))
-        self.assertEqual(payload["reviewer_candidates"][0]["id"], "HUMAN-MAINTAINER")
-        self.assertIn("technical-review", payload["reviewer_candidates"][0]["approval_capabilities"])
-        self.assertIn("--reviewer HUMAN-MAINTAINER", payload["reviewer_candidates"][0]["review_record_command"])
-        self.assertEqual(payload["review_record_commands"][0]["reviewer"], "HUMAN-MAINTAINER")
+        candidates = {item["id"]: item for item in payload["reviewer_candidates"]}
+        self.assertEqual(payload["reviewer_candidates"][0]["id"], "PALARI-ARCHITECT")
+        self.assertEqual(candidates["PALARI-ARCHITECT"]["identity_type"], "palari")
+        self.assertTrue(candidates["PALARI-ARCHITECT"]["agent_may_execute"])
+        self.assertEqual(candidates["HUMAN-FOUNDER"]["identity_type"], "human")
+        self.assertFalse(candidates["HUMAN-FOUNDER"]["agent_may_execute"])
+        self.assertNotIn("HUMAN-MAINTAINER", candidates)
+        self.assertEqual(payload["review_record_commands"][0]["reviewer"], "PALARI-ARCHITECT")
         self.assertIn("--verdict VERDICT", payload["review_record_commands"][0]["command"])
-        self.assertIn("separate from acceptance", payload["reviewer_candidates"][1]["reason"])
+        self.assertIn("separate from acceptance", candidates["HUMAN-FOUNDER"]["reason"])
         self.assertIn("--verdict VERDICT", payload["review_record_command_template"])
 
     def test_review_guide_reports_missing_evidence(self) -> None:
@@ -115,10 +119,11 @@ class ReviewGuideTests(unittest.TestCase):
         result = self.run_cli("review", "guide", "WORK-REPO-0006")
 
         self.assertIn("Reviewer candidates:", result.stdout)
-        self.assertIn("HUMAN-MAINTAINER", result.stdout)
-        self.assertIn("technical-review capability", result.stdout)
+        self.assertIn("PALARI-ARCHITECT", result.stdout)
+        self.assertIn("HUMAN-FOUNDER", result.stdout)
+        self.assertNotIn("HUMAN-MAINTAINER", result.stdout)
         self.assertIn("record: palari review record REVIEW-ID", result.stdout)
-        self.assertIn("--reviewer HUMAN-MAINTAINER", result.stdout)
+        self.assertIn("--reviewer HUMAN-FOUNDER", result.stdout)
 
     def test_cli_agent_next_text_prints_start_blockers(self) -> None:
         result = self.run_cli("agent", "next", "--as", "PALARI-STEWARD")

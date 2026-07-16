@@ -555,6 +555,7 @@ def validate_workspace_contract(workspace: Any) -> None:
     reviews_by_id = {review.id: review for review in workspace.review_verdicts}
     work_by_id = {work.id: work for work in workspace.work_items}
     humans_by_id = {human.id: human for human in workspace.humans}
+    palaris_by_id = {palari.id: palari for palari in workspace.palaris}
     sources_by_id = {source.id: source for source in workspace.sources}
     integrations_by_id = {integration.id: integration for integration in workspace.integrations}
     integration_plans_by_id = {plan.id: plan for plan in workspace.integration_plans}
@@ -647,12 +648,26 @@ def validate_workspace_contract(workspace: Any) -> None:
         _require_allowed_value(
             "review_verdicts", review.id, "verdict", review.verdict, REVIEW_VERDICTS
         )
-        if review.reviewer not in humans_by_id:
+        if review.reviewer not in humans_by_id and review.reviewer not in palaris_by_id:
             raise WorkspaceError(
-                f"review_verdicts.{review.id}.reviewer references missing human "
+                f"review_verdicts.{review.id}.reviewer references missing human or Palari "
                 f"{review.reviewer}"
             )
         work = work_by_id[review.work_item_id]
+        reviewer_palari = palaris_by_id.get(review.reviewer)
+        if reviewer_palari is not None:
+            if work.goal and work.goal not in reviewer_palari.linked_goals:
+                raise WorkspaceError(
+                    f"review_verdicts.{review.id}.reviewer Palari {review.reviewer} "
+                    f"is not linked to goal {work.goal}"
+                )
+            for source_id in work.allowed_sources:
+                source = sources_by_id[source_id]
+                if source.allowed_palaris and review.reviewer not in source.allowed_palaris:
+                    raise WorkspaceError(
+                        f"review_verdicts.{review.id}.reviewer Palari {review.reviewer} "
+                        f"is not allowed for source {source_id}"
+                    )
         attempt = attempts_by_id.get(review.attempt_id or work.current_attempt)
         if attempt is not None and review.reviewer == attempt.actor:
             raise WorkspaceError(
@@ -742,6 +757,21 @@ def validate_workspace_contract(workspace: Any) -> None:
             )
         _validate_approval_pack_decision(human_decision)
         if _is_acceptance(human_decision):
+            latest_for_human = (
+                latest_human_decisions[
+                    (human_decision.work_item_id, human_decision.human_id)
+                ].id
+                == human_decision.id
+            )
+            decision_evidence = evidence_by_id.get(human_decision.evidence_reference)
+            work = work_by_id[human_decision.work_item_id]
+            references_current_attempt = bool(
+                not work.current_attempt
+                or (
+                    decision_evidence is not None
+                    and decision_evidence.attempt_id == work.current_attempt
+                )
+            )
             _validate_accepted_human_decision(
                 human_decision,
                 work_by_id,
@@ -749,12 +779,12 @@ def validate_workspace_contract(workspace: Any) -> None:
                 attempts_by_id,
                 evidence_by_id,
                 reviews_by_id,
-                require_current=(
-                    latest_human_decisions[
-                        (human_decision.work_item_id, human_decision.human_id)
-                    ].id
-                    == human_decision.id
-                ),
+                # An accepted decision remains immutable audit history after a
+                # new attempt becomes current. Current-binding checks apply
+                # only when the decision claims authority for that attempt;
+                # read models and the governance kernel count only exact
+                # current review/evidence bindings toward quorum.
+                require_current=latest_for_human and references_current_attempt,
             )
     _validate_human_decision_order(workspace.human_decisions)
     _validate_approval_pack_decision_sets(workspace)

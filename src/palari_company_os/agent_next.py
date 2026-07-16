@@ -3,15 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_finish import build_agent_finish
+from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
 from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
+from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
 
 
 AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready"}
+AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready", "needs-human-decision"}
 
 
 def build_agent_next(
@@ -32,13 +33,13 @@ def build_agent_next(
             "ready_count": 0,
             "blocked_count": 0,
             "candidates": [],
-            "blockers": [
+            "blockers": enrich_blockers([
                 {
                     "code": "MISSING_PALARI",
                     "message": f"Palari not found: {palari_id}",
                     "human_visible": True,
                 }
-            ],
+            ]),
             "next_allowed_commands": ["palari queue --json", "palari validate --json"],
             "omitted_context": [_omitted_context(workspace)],
         }
@@ -64,7 +65,7 @@ def build_agent_next(
         "ready_count": ready_count,
         "blocked_count": blocked_count,
         "candidates": selected,
-        "blockers": [] if ready_count else _no_ready_blockers(candidates),
+        "blockers": [] if ready_count else enrich_blockers(_no_ready_blockers(candidates)),
         "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
         "omitted_context": [_omitted_context(workspace)],
     }
@@ -101,7 +102,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         if item.attention == "closed":
             continue
         work = workspace.work_item(item.id)
-        if work is None or not _palari_can_see_work(workspace, work, palari_id):
+        if work is None or not _palari_can_see_work(workspace, work, palari_id, mode):
             continue
         packet = build_agent_brief(workspace, work.id, palari_id, mode)
         blockers = packet.get("blockers", [])
@@ -111,6 +112,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         start_blockers = _start_blockers(item, packet, mode)
         if claim_blocker is not None:
             start_blockers.insert(0, claim_blocker)
+        start_blockers = enrich_blockers(start_blockers)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
@@ -118,7 +120,11 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
         handoff_guidance = finish.get("handoff_guidance", [])
         finish_commands = (
             finish.get("next_allowed_commands", [])
-            if "HUMAN_DECISION_REQUIRED" in blocker_codes and not handoff_guidance
+            if (
+                finish.get("status") == "converge-ready"
+                or "HUMAN_DECISION_REQUIRED" in blocker_codes
+            )
+            and not handoff_guidance
             else []
         )
         next_command = _candidate_next_command(
@@ -157,8 +163,20 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "blocker_codes": blocker_codes,
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
+                "resolution_summary": finish.get(
+                    "resolution_summary",
+                    resolution_summary(start_blockers),
+                ),
                 "handoff_guidance": handoff_guidance,
-                "next_step_type": item.next_step_type,
+                "next_step_type": (
+                    "review-handoff"
+                    if can_start and mode == "review"
+                    else (
+                        finish.get("next_step_type", item.next_step_type)
+                        if finish.get("status") == "converge-ready"
+                        else item.next_step_type
+                    )
+                ),
                 "next_command": next_command,
                 "doctor_command": doctor_command,
                 "loop_command": loop_command,
@@ -295,7 +313,7 @@ def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[s
                     "code": "ATTENTION_NOT_REVIEWABLE",
                     "message": (
                         f"Current attention state is {item.attention}; review mode is for "
-                        "needs-review or receipt-ready work."
+                        "review-ready work or a positive review awaiting a distinct human."
                     ),
                 }
             )
@@ -329,7 +347,11 @@ def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
 
 
-def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
+def _palari_can_see_work(
+    workspace: Workspace, work: Any, palari_id: str, mode: str
+) -> bool:
+    if mode == "review":
+        return palari_reviewer_candidate(workspace, work.id, palari_id) is not None
     if work.palari == palari_id:
         return True
     if not work.workbench_id:
@@ -343,7 +365,10 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
         return [
             {
                 "code": "NO_ASSIGNED_WORK",
-                "message": "No visible work items are assigned to or workbench-allowed for this Palari.",
+                "message": (
+                    "No visible work items are assigned, workbench-allowed, or "
+                    "eligible for independent review by this Palari."
+                ),
                 "human_visible": True,
             }
         ]

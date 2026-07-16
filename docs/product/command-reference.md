@@ -75,7 +75,12 @@ dependencies. `--select` narrows the pack without changing work. Each JSON pack
 has an `approval_commands` entry containing its exact
 digest and every required `--pack-member`; copying that command cannot silently
 expand a narrowed selection. Parked, blocked, stale, and non-batchable items
-remain unexecuted.
+remain unexecuted. `primary_action` states how many attributable human actions
+are actually available, while each evaluated item carries a `resolution`
+class and owner. `approval_modes` distinguishes automatic reconciliation,
+approve-eligible, approve-selected, individual-effect, and unavailable modes.
+The combined `review-and-accept` mode is explicitly unavailable in the current
+policy because review and acceptance remain attributable to distinct actors.
 
 ## Detail
 
@@ -200,18 +205,25 @@ forbidden actions.
 ./bin/palari review guide WORK-0001
 ./bin/palari review guide WORK-0001 --json
 ./bin/palari review record REVIEW-0001 --work-item-id WORK-0001 --reviewed-head HEAD --reviewer HUMAN-MAINTAINER --verdict accept-ready
+./bin/palari agent brief WORK-0001 --as PALARI-REVIEWER --mode review --json
+./bin/palari review record REVIEW-0001-PALARI --work-item-id WORK-0001 --reviewed-head HEAD --reviewer PALARI-REVIEWER --verdict accept-ready --json
 ```
 
 `review guide` is read-only. It assembles the selected work item, workbench,
 Palari, attempt, evidence, receipt, changed files, suggested review focus,
-advisory reviewer candidates from the workbench humans, possible verdicts, and
-a neutral review-record command template. Each reviewer candidate also includes
-a ready-to-edit `review record` command with `VERDICT` and `REVIEW-ID`
-placeholders. It does not record a review verdict, approve work, mutate
-history, or replace human judgment.
+typed advisory reviewer candidates, possible verdicts, and a neutral
+review-record command template. Human candidates come from the workbench.
+Palari candidates must be distinct from the builder, linked to the work goal,
+and allowed for every selected source. Each candidate includes a ready-to-edit
+`review record` command with `VERDICT` and `REVIEW-ID` placeholders. A Palari
+verdict is advisory and never joins human quorum. The guide itself does not
+record a verdict, approve work, mutate history, or replace human judgment.
 
 `review record` is the explicit write path for a review verdict. Use it only
-after inspecting the evidence and receipt.
+after inspecting the evidence and receipt. Palari reviewers must first open the
+matching `--mode review` packet; self-review and unapproved-source review are
+rejected. Human-attributed review and every acceptance command remain
+human-only.
 
 ## Decision Guide
 
@@ -320,9 +332,15 @@ evidence, fresh accept-ready review, qualified human authority, no open linked
 decision, no scope-overlap warning, and a valid exact evidence/receipt/review
 binding. New accept-ready reviews receive that binding automatically and become
 immutable; substantive changes require a new review record.
-It records both a human decision and an acceptance record. `work complete` keeps
-the terminal status gate and records a missing acceptance record from the latest
-qualified human decision when needed.
+It records both a human decision and an acceptance record, then invokes the
+bounded deterministic convergence driver. When the exact proof remains current,
+`work accept` therefore normally reaches terminal state in the same human
+action. `work complete` remains as an idempotent compatibility and recovery
+surface for the same terminal gate. When a current qualified human decision
+exists, it projects the derived acceptance record in memory, runs the complete
+gate against that projection, and writes acceptance plus terminal state only if
+the whole transition passes. Missing, stale, contradictory, or insufficient
+authority never produces terminal work.
 
 ## Agent Packets
 
@@ -417,12 +435,13 @@ The packet includes the acting Palari, work objective, goal/workbench context,
 allowed paths, allowed sources, forbidden actions, required output, completion
 contract, proof/integration state, stop conditions, blockers, and safe next
 commands. Agents should treat this packet as their working boundary.
-`--mode review` compiles a read-only reviewer packet for work already waiting on
-review or marked receipt-ready. It includes review focus and compact
-attempt/evidence/receipt context, sets write paths to empty, and points to the
-review guide without recording a verdict.
-`agent next --mode review` treats `needs-review` and `receipt-ready` work as
-ready review candidates while leaving other states blocked.
+`--mode review` compiles a work-output-read-only reviewer packet for work
+already waiting on review or marked receipt-ready. It includes review focus and
+compact attempt/evidence/receipt context and sets write paths to empty. For a
+matching eligible Palari, the packet exposes exactly one advisory review-record
+action. `agent next --mode review` also permits a distinct Palari to supplement
+a positive review waiting on a different human acceptance identity; negative
+reviews and all other states remain blocked.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. For ready packets, it also
@@ -472,8 +491,11 @@ work item is complete.
 identifies a human review or decision step. It returns the compact finish
 summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
-workspace. `agent next` and receipt-ready `agent finish` prefer this command
-before lower-level direct guide commands.
+workspace. For an eligible local approval with valid journal continuity, it
+exposes the exact one-action Approval Pack command. Legacy or non-batchable
+states retain an individual human-decision fallback. It excludes the current
+builder and reviewer from approval candidates. `agent next` and receipt-ready
+`agent finish` prefer this command before lower-level direct guide commands.
 
 `agent doctor` is read-only and explains why one work item is or is not safe for
 an agent right now. It summarizes packet readiness, completion checks, missing
@@ -501,13 +523,42 @@ profiles (never work-item prose), and binds passing results to the exact head,
 profile, source state, interpreter, and platform. It then rechecks the plan and
 commits attempt, receipt, evidence, and closeout as one journaled workspace
 transaction. R1/light/0 work may complete; higher-risk work releases its claim
-and stops with an independent-review handoff. A repeated exact-state call
-reuses current governed proof without duplicating records or rerunning profiles.
+and stops with an independent-review handoff. After a separate current review
+and qualified human decision exist, the authority-producing function normally
+invokes the same fixed-point driver immediately. A later `agent advance` remains
+an idempotent recovery surface: it verifies the exact artifact bytes, derives
+any missing acceptance record, and completes terminal bookkeeping without
+recording or impersonating human authority. Proof remains current across later
+commits only when every intervening committed or dirty tracked path is workspace
+governance projection; any substantive repository path fails closed. A repeated
+exact-state call reuses current governed proof without duplicating records or
+rerunning profiles.
 Local verification-cache files are advisory: even a structurally valid cached
 pass is rerun before new evidence is created. `--refresh-verification` ignores
-the advisory record, including a prior failure, and reruns the profiles. This
-command never records review, human decision, acceptance, an external write,
-push, merge, or deployment.
+the advisory record, including a prior failure, and reruns the profiles. When
+later committed repository changes invalidate an otherwise intact completed
+proof, the same explicit flag can perform a no-write proof refresh: the old
+artifact bytes must still match their evidence, the tracked worktree must be
+clean, no execute claim may be active, and all authoritative profiles run
+again against current `HEAD`. The refresh creates a new attempt, receipt, and
+evidence binding, then stops for fresh independent review and human authority;
+it never reuses the prior decision. Changed artifact bytes fail closed and must
+return through an ordinary bounded execution flow.
+
+Refresh diagnostics distinguish a changed governed artifact
+(`REFRESH_ARTIFACT_CHANGED`), dirty tracked context
+(`REFRESH_DIRTY_WORKTREE`), an active execution claim
+(`REFRESH_ACTIVE_CLAIM`), and concurrent state drift
+(`REFRESH_STATE_CHANGED`). The final reconciliation also asserts the exact
+workspace digest, Git head, clean tracked state, and SHA-256 artifact hashes
+that were verified before it starts its locked transaction. A workspace
+compare-and-swap rejection uses the same state-changed diagnostic. These
+failures occur before proof records are written and retain the previous proof
+for inspection.
+
+The command never records review or a human decision. Its only acceptance write
+is the deterministic record derived from an already-current human decision; it
+never performs an external write, push, merge, or deployment.
 
 `git install` writes a Palari-managed pre-commit hook into `.git/hooks/pre-commit`
 that checks staged files against active claim write boundaries. If any staged

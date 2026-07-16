@@ -786,7 +786,13 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
     if candidates:
         print("Reviewer candidates:")
         for candidate in candidates:
-            print(f"  - {candidate['id']} ({candidate['name']}): {candidate['reason']}")
+            identity_type = candidate.get("identity_type", "human")
+            print(
+                f"  - {candidate['id']} ({candidate['name']}, {identity_type}): "
+                f"{candidate['reason']}"
+            )
+            if candidate.get("review_packet_command"):
+                print(f"    packet: {candidate['review_packet_command']}")
             if candidate.get("review_record_command"):
                 print(f"    record: {candidate['review_record_command']}")
     print("Suggested verdicts:")
@@ -1009,6 +1015,15 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         f"Reversible local: {payload['groups']['safe_reversible']} | "
         f"external or irreversible: {payload['groups']['external_or_irreversible']}"
     )
+    primary = payload.get("primary_action", {})
+    if primary.get("available"):
+        print(
+            f"Primary action: {primary['mode']} | "
+            f"{primary['eligible_items']} eligible item(s) | "
+            f"{primary['human_actions']} human action(s)"
+        )
+    else:
+        print("Primary action: inspect exceptions; no aggregate approval is available")
     for pack, evaluation in zip(payload["packs"], payload["evaluations"], strict=True):
         summary = pack["cumulative_effect_summary"]
         print("")
@@ -1025,12 +1040,22 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
                 f"  {item['id']}: {item['state']} | {item['reversibility']} | "
                 f"dependencies {dependencies}"
             )
+            resolution = item.get("resolution", {})
+            if resolution:
+                print(
+                    f"    resolver: {resolution['class']} / {resolution['owner']} | "
+                    f"mode {resolution['approval_mode']}"
+                )
             for reason in item["reasons"]:
                 print(f"    reason: {reason}")
-        print(
-            "  approve: "
-            + commands.get(pack["pack_digest"], payload["actions"]["approve_eligible"])
+        command = commands.get(pack["pack_digest"])
+        has_eligible = any(
+            item.get("state") == "eligible" for item in evaluation["members"]
         )
+        if command and has_eligible:
+            print("  approve: " + command)
+        else:
+            print("  approve: unavailable; resolve the listed exceptions")
     print("")
     print("Parked is not approved. Exact evidence remains item-level.")
 

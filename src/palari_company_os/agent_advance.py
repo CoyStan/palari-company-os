@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -10,9 +10,14 @@ from typing import Any, cast
 from .agent_done import _preflight
 from .agent_handoff import build_agent_handoff
 from .agent_runtime import claim_check, read_claim, read_claim_packet, release_agent
-from .authoring import complete_work, reconcile_agent_proof
-from .evidence_manifest import verify_evidence
+from .authoring import (
+    ReconciliationStateChanged,
+    complete_work,
+    reconcile_agent_proof,
+)
+from .evidence_manifest import git_artifact_state, verify_evidence
 from .governance_journal import workspace_digest
+from .governance_convergence import converge_work_item
 from .record_order import record_time_key
 from .store import load_store
 from .verification_attestations import (
@@ -109,6 +114,26 @@ def agent_advance_dry_run(
         isinstance(evidence, dict)
         and evidence.get("status") == "passed"
         and evidence.get("head_sha") == head_sha
+        and evidence.get("id") == _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
+    )
+    attempt_head = ""
+    attempt_status = ""
+    if isinstance(attempt, dict):
+        attempt_head = str(attempt.get("head_sha") or "")
+        commits = attempt.get("commits")
+        if not attempt_head and isinstance(commits, list) and commits:
+            attempt_head = str(commits[-1] or "")
+        attempt_status = str(attempt.get("status") or "")
+    attempt_current = bool(
+        isinstance(attempt, dict)
+        and (
+            attempt_status not in {"complete", "completed"}
+            or attempt_head == head_sha
+        )
+    )
+    receipt_current = bool(
+        isinstance(receipt, dict)
+        and receipt.get("id") == _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     )
     facts = {
         "actor": palari_id,
@@ -141,17 +166,27 @@ def agent_advance_dry_run(
             "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
         },
         "proof": {
-            "attempt_id": attempt.get("id", "") if isinstance(attempt, dict) else "",
-            "receipt_id": receipt.get("id", "") if isinstance(receipt, dict) else "",
-            "evidence_id": evidence.get("id", "") if isinstance(evidence, dict) else "",
-            "attempt_current": isinstance(attempt, dict),
-            "attempt_bound": isinstance(attempt, dict),
-            "receipt_current": isinstance(receipt, dict),
+            "attempt_id": (
+                attempt.get("id", "") if attempt_current and isinstance(attempt, dict) else ""
+            ),
+            "receipt_id": (
+                receipt.get("id", "")
+                if receipt_current and isinstance(receipt, dict)
+                else ""
+            ),
+            "evidence_id": (
+                evidence.get("id", "")
+                if evidence_current and isinstance(evidence, dict)
+                else ""
+            ),
+            "attempt_current": attempt_current,
+            "attempt_bound": attempt_current,
+            "receipt_current": receipt_current,
             "evidence_current": evidence_current,
             "attempt_closed": bool(
-                isinstance(attempt, dict)
-                and attempt.get("status") in {"complete", "completed"}
-                and attempt.get("head_sha") == head_sha
+                attempt_current
+                and attempt_status in {"complete", "completed"}
+                and attempt_head == head_sha
             ),
         },
         "verification_profiles": [
@@ -319,6 +354,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
             "scope_ok": git.get("scope_ok"),
             "outputs_ok": git.get("outputs_ok"),
             "preflight_error": git.get("preflight_error", ""),
+            "artifact_hashes": git.get("artifact_hashes", []),
         },
         "workspace_digest": facts.get("workspace_digest", ""),
         "proof": proof,
@@ -353,7 +389,13 @@ def agent_advance(
 ) -> dict[str, Any]:
     workspace_path = Path(workspace_path)
     if not dry_run:
-        resumed = _completed_projection(workspace, workspace_path, work_id, palari_id)
+        resumed = _completed_projection(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+            refresh_verification=refresh_verification,
+        )
         if resumed is not None:
             return resumed
     if summary.strip():
@@ -425,15 +467,29 @@ def agent_advance(
             "message": "Governed state changed during verification; inspect and retry safely.",
         }
 
-    proof_steps = _reconcile_proof(
-        current,
-        workspace_path,
-        work_id,
-        palari_id,
-        current_preflight,
-        verification_results,
-        summary,
-    )
+    try:
+        proof_steps = _reconcile_proof(
+            current,
+            workspace_path,
+            work_id,
+            palari_id,
+            current_preflight,
+            verification_results,
+            summary,
+            expected_workspace_digest=str(current_facts["workspace_digest"]),
+            expected_git_head=str(current_facts["git"]["head_sha"]),
+            expected_artifact_hashes=list(
+                current_facts["git"]["artifact_hashes"]
+            ),
+        )
+    except ReconciliationStateChanged:
+        return {
+            **payload,
+            "status": "state-changed",
+            "would_mutate": False,
+            "verification": verification_results,
+            "message": "Governed state changed before proof reconciliation; inspect and retry safely.",
+        }
     final_workspace = Workspace.load(workspace_path)
     work = final_workspace.work_item(work_id)
     if work is None:
@@ -540,6 +596,12 @@ def _collect_facts(
         packet=packet,
     )
     changed = list(preflight.get("changed_files", []))
+    artifacts = _governed_artifacts(changed)
+    artifact_state = git_artifact_state(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        artifacts,
+        governance_workspace_path=workspace_path,
+    )
     profiles = verification_profiles(work.risk, changed)
     base_sha = str(preflight.get("base_sha") or claim.get("git_baseline", {}).get("head_sha") or "")
     head_sha = str(preflight.get("head_sha") or "")
@@ -586,11 +648,16 @@ def _collect_facts(
         "git": {
             "base_sha": base_sha,
             "head_sha": head_sha,
-            "clean": bool(preflight.get("ok")),
+            "clean": bool(
+                preflight.get("ok")
+                and artifact_state["clean"]
+                and artifact_state["head_sha"] == head_sha
+            ),
             "changed_files": changed,
             "scope_ok": bool(preflight.get("ok")),
             "outputs_ok": bool(preflight.get("ok")),
             "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
+            "artifact_hashes": artifact_state["artifact_hashes"],
         },
         "proof": {
             "attempt_id": attempt.id if attempt else "",
@@ -622,6 +689,10 @@ def _reconcile_proof(
     preflight: dict[str, Any],
     verification: list[dict[str, Any]],
     summary: str,
+    *,
+    expected_workspace_digest: str,
+    expected_git_head: str,
+    expected_artifact_hashes: list[dict[str, str]],
 ) -> list[dict[str, str]]:
     work = workspace.work_item(work_id)
     if work is None:
@@ -681,6 +752,7 @@ def _reconcile_proof(
             "base_ref": preflight["base_sha"],
             "commands": commands,
             "artifacts": artifacts,
+            "artifact_hashes": expected_artifact_hashes,
             "summary": f"{len(verification)} exact-state verification profile(s) passed.",
             "freshness": "exact-head",
         },
@@ -688,6 +760,9 @@ def _reconcile_proof(
         changed_files=list(preflight["changed_files"]),
         output_targets=list(work.output_targets),
         proof_timestamp=proof_timestamp,
+        expected_workspace_digest=expected_workspace_digest,
+        expected_git_head=expected_git_head,
+        expected_artifact_hashes=expected_artifact_hashes,
     )
     return list(result["steps"])
 
@@ -697,8 +772,9 @@ def _completed_projection(
     workspace_path: Path,
     work_id: str,
     palari_id: str,
+    *,
+    refresh_verification: bool = False,
 ) -> dict[str, Any] | None:
-    from .agent_done import _git_value
     from .governance_journal import (
         pending_workspace_journal_context,
         recover_workspace_journal_if_current,
@@ -916,6 +992,69 @@ def _completed_projection(
             "message": f"Work item {work_id} is already completed.",
             "steps": [{"step": "resume", "status": "already-completed"}],
         }
+    if _changes_requested_repair_candidate(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    ):
+        return None
+    convergence = converge_work_item(
+        workspace_path,
+        work_id,
+        actor=palari_id,
+    )
+    if convergence["status"] == "completed":
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "status": "completed",
+            "work_item": work_id,
+            "workspace": workspace.name,
+            "can_advance": True,
+            "would_mutate": bool(convergence["would_mutate"]),
+            "expected_state": "completed",
+            "authority_source": "preexisting-current-human-decision",
+            "performed_human_authority": False,
+            "proof_steps": [
+                {
+                    "step": item["action"],
+                    "status": item["status"],
+                }
+                for item in convergence["steps"]
+            ],
+            "convergence": convergence,
+            "message": (
+                f"Work item {work_id} used its current human decision and "
+                "was deterministically completed."
+            ),
+        }
+    if convergence["status"] == "blocked":
+        code = str(convergence.get("code") or "CURRENT_PROOF_INVALID")
+        if code == "CURRENT_PROOF_INVALID" and refresh_verification:
+            try:
+                return _refresh_stale_projection(
+                    workspace,
+                    workspace_path,
+                    work,
+                    palari_id,
+                    convergence,
+                )
+            except ReconciliationStateChanged:
+                latest = Workspace.load(workspace_path)
+                return _resume_blocked(
+                    latest,
+                    work.id,
+                    "REFRESH_STATE_CHANGED",
+                    "Governed state changed before the proof transaction began; inspect and retry.",
+                )
+        if code == "TRANSITION_REJECTED":
+            code = "ACCEPTED_COMPLETION_INVALID"
+        return _resume_blocked(
+            workspace,
+            work_id,
+            code,
+            str(convergence.get("message") or "Automatic reconciliation failed closed."),
+        )
     if not work.current_attempt:
         return None
     attempt = next(
@@ -931,11 +1070,8 @@ def _completed_projection(
             "ATTEMPT_ACTOR_MISMATCH",
             "The current proof attempt belongs to a different Palari.",
         )
-    root = Path(attempt.workspace_path) if attempt.workspace_path else workspace_path
-    head_sha = _git_value(root, ["rev-parse", "HEAD"])
     attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
-    if not head_sha or attempt_head != head_sha:
-        return None
+    head_sha = attempt_head
     evidence = next(
         (
             item
@@ -1023,6 +1159,419 @@ def _completed_projection(
         "handoff": handoff,
         "message": f"Work item {work_id} already has current exact proof.",
     }
+
+
+def _refresh_stale_projection(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+    convergence: dict[str, Any],
+) -> dict[str, Any]:
+    """Rebind unchanged outputs to current HEAD after later repository changes.
+
+    This is deliberately a no-write recovery path for governed artifacts. It
+    does not reuse prior review or human authority: the new attempt becomes the
+    current proof and the caller stops at an independent-review handoff.
+    """
+
+    refresh = _stale_projection_refresh_context(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+        convergence,
+    )
+    if not refresh["ok"]:
+        return _resume_blocked(
+            workspace,
+            work.id,
+            str(refresh["code"]),
+            str(refresh["message"]),
+        )
+
+    profiles = verification_profiles(work.risk, refresh["committed_paths"])
+    context = default_context(
+        head_sha=refresh["head_sha"],
+        base_sha=refresh["proof_head"],
+        changed_paths=refresh["committed_paths"],
+        cleanliness="clean",
+    )
+    verification_results: list[dict[str, Any]] = []
+    for profile in profiles:
+        result = run_or_reuse(
+            workspace_path,
+            refresh["git_root"],
+            profile,
+            context,
+            refresh=True,
+        )
+        attestation = result["attestation"]
+        verification_results.append(
+            {
+                "profile_id": profile.id,
+                "attestation_id": attestation["attestation_id"],
+                "cache_key": attestation["cache_key"],
+                "cache_hit": result["cache_hit"],
+                "status": attestation["status"],
+                "duration_ms": attestation["duration_ms"],
+                "stdout_digest": attestation["stdout_digest"],
+                "stderr_digest": attestation["stderr_digest"],
+            }
+        )
+        if attestation["status"] != "passed":
+            return {
+                "schema_version": SCHEMA_VERSION,
+                "status": "verification-failed",
+                "work_item": work.id,
+                "workspace": workspace.name,
+                "can_advance": False,
+                "would_mutate": False,
+                "expected_state": "review-required",
+                "verification": verification_results,
+                "message": f"Verification profile {profile.id} did not pass.",
+                "output_tail": result.get("stdout_tail", ""),
+                "error_tail": result.get("stderr_tail", ""),
+            }
+
+    current = Workspace.load(workspace_path)
+    current_work = current.work_item(work.id)
+    if current_work is None:
+        return _resume_blocked(
+            current,
+            work.id,
+            "REFRESH_STATE_CHANGED",
+            "The work item disappeared during proof refresh.",
+        )
+    current_convergence = converge_work_item(
+        workspace_path,
+        work.id,
+        actor=palari_id,
+    )
+    rechecked = _stale_projection_refresh_context(
+        current,
+        workspace_path,
+        current_work,
+        palari_id,
+        current_convergence,
+    )
+    stable_fields = (
+        "workspace_digest",
+        "attempt_id",
+        "evidence_id",
+        "proof_head",
+        "head_sha",
+        "committed_paths",
+        "artifacts",
+        "artifact_hashes",
+        "git_root",
+    )
+    if not rechecked["ok"] or any(
+        rechecked.get(field) != refresh.get(field) for field in stable_fields
+    ):
+        return _resume_blocked(
+            current,
+            work.id,
+            "REFRESH_STATE_CHANGED",
+            "Governed state changed while current-head verification was running; inspect and retry.",
+        )
+
+    commit_timestamp = _git_commit_timestamp(
+        {"git_root": refresh["git_root"], "head_sha": refresh["head_sha"]}
+    )
+    if not commit_timestamp:
+        return _resume_blocked(
+            current,
+            work.id,
+            "REFRESH_HEAD_TIMESTAMP_MISSING",
+            "The current Git commit timestamp is unavailable; proof refresh stopped safely.",
+        )
+    proof_timestamp = _refresh_proof_timestamp(current, work.id, commit_timestamp)
+    commands = [
+        f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
+        for item in verification_results
+    ]
+    attempt_id = _proof_id("ATTEMPT-REFRESH", work.id, refresh["head_sha"])
+    receipt_id = _proof_id("RECEIPT-REFRESH", work.id, refresh["head_sha"])
+    evidence_id = _proof_id("EVIDENCE-REFRESH", work.id, refresh["head_sha"])
+    reconciled = reconcile_agent_proof(
+        str(workspace_path),
+        work_id=work.id,
+        palari_id=palari_id,
+        attempt_record={
+            "id": attempt_id,
+            "work_item_id": work.id,
+            "actor": palari_id,
+            "status": "active",
+            "workspace_path": refresh["git_root"],
+            "base_sha": refresh["proof_head"],
+            "allowed_paths": list(refresh["artifacts"]),
+        },
+        receipt_record={
+            "id": receipt_id,
+            "work_item_id": work.id,
+            "attempt_id": attempt_id,
+            "actor": palari_id,
+            "sources_used": list(work.allowed_sources),
+            "actions_taken": [
+                f"Reverified {len(refresh['artifacts'])} unchanged governed artifact(s) at current repository HEAD.",
+                "Reran the authoritative exact-state verification profiles.",
+            ],
+            "outputs_created": list(refresh["artifacts"]),
+            "not_done": [
+                "No governed artifact bytes were changed.",
+                "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
+            ],
+            "undo_refs": [],
+        },
+        evidence_record={
+            "id": evidence_id,
+            "work_item_id": work.id,
+            "attempt_id": attempt_id,
+            "head_sha": refresh["head_sha"],
+            "status": "passed",
+            "base_ref": refresh["proof_head"],
+            "commands": commands,
+            "artifacts": list(refresh["artifacts"]),
+            "artifact_hashes": list(refresh["artifact_hashes"]),
+            "summary": (
+                f"{len(verification_results)} exact-state verification profile(s) "
+                "passed for unchanged governed artifacts."
+            ),
+            "freshness": "exact-head",
+        },
+        head_sha=refresh["head_sha"],
+        changed_files=[],
+        output_targets=list(refresh["artifacts"]),
+        proof_timestamp=proof_timestamp,
+        expected_workspace_digest=str(refresh["workspace_digest"]),
+        expected_git_head=str(refresh["head_sha"]),
+        expected_artifact_hashes=list(refresh["artifact_hashes"]),
+    )
+    final_workspace = Workspace.load(workspace_path)
+    handoff = build_agent_handoff(final_workspace, work.id, palari_id, "execute")
+    proof_steps = list(reconciled["steps"])
+    proof_steps.append(
+        {
+            "step": "review-handoff",
+            "status": "ready" if handoff.get("review_handoff") else "blocked",
+        }
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "review-required" if handoff.get("review_handoff") else "proof-recorded",
+        "work_item": work.id,
+        "workspace": final_workspace.name,
+        "can_advance": True,
+        "would_mutate": True,
+        "expected_state": "review-required",
+        "stop_boundary": "independent-review",
+        "refresh": {
+            "previous_head": refresh["proof_head"],
+            "current_head": refresh["head_sha"],
+            "artifacts_unchanged": True,
+            "performed_human_authority": False,
+        },
+        "verification": verification_results,
+        "proof_steps": proof_steps,
+        "handoff": handoff,
+        "message": (
+            f"Work item {work.id} has refreshed exact-head proof and requires "
+            "fresh independent review."
+        ),
+    }
+
+
+def _stale_projection_refresh_context(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+    convergence: dict[str, Any],
+) -> dict[str, Any]:
+    if convergence.get("status") != "blocked" or convergence.get("code") != "CURRENT_PROOF_INVALID":
+        return {
+            "ok": False,
+            "code": "REFRESH_NOT_APPLICABLE",
+            "message": "Proof refresh is available only for an invalidated completed proof.",
+        }
+    if work.palari != palari_id:
+        return {
+            "ok": False,
+            "code": "ACTOR_NOT_ASSIGNED",
+            "message": "Only the Palari assigned to this work may refresh its proof.",
+        }
+    if read_claim(workspace_path, work.id) is not None:
+        return {
+            "ok": False,
+            "code": "REFRESH_ACTIVE_CLAIM",
+            "message": "Release the active execute claim before starting a read-only proof refresh.",
+        }
+    if not work.current_attempt:
+        return {
+            "ok": False,
+            "code": "REFRESH_ATTEMPT_MISSING",
+            "message": "The work item has no completed proof attempt to refresh.",
+        }
+    attempt = next(
+        (item for item in workspace.attempts if item.id == work.current_attempt),
+        None,
+    )
+    if attempt is None or attempt.status not in {"complete", "completed"}:
+        return {
+            "ok": False,
+            "code": "REFRESH_ATTEMPT_INCOMPLETE",
+            "message": "The current proof attempt is not complete.",
+        }
+    if attempt.actor != palari_id:
+        return {
+            "ok": False,
+            "code": "ATTEMPT_ACTOR_MISMATCH",
+            "message": "The current proof attempt belongs to a different Palari.",
+        }
+    proof_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
+    evidence = next(
+        (
+            item
+            for item in reversed(workspace.evidence_runs)
+            if item.work_item_id == work.id
+            and item.attempt_id == attempt.id
+            and item.head_sha == proof_head
+            and item.status == "passed"
+        ),
+        None,
+    )
+    if evidence is None:
+        return {
+            "ok": False,
+            "code": "REFRESH_EVIDENCE_MISSING",
+            "message": "The completed attempt has no passing exact-head evidence to refresh.",
+        }
+    verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+    if not verification["ok"]:
+        detail = "; ".join(str(item) for item in verification.get("errors", [])[:3])
+        return {
+            "ok": False,
+            "code": "REFRESH_ARTIFACT_CHANGED",
+            "message": (
+                "The governed artifact bytes no longer match the previous evidence"
+                + (f": {detail}" if detail else ".")
+            ),
+        }
+    projection = convergence.get("proof")
+    if not isinstance(projection, dict):
+        return {
+            "ok": False,
+            "code": "REFRESH_PROJECTION_MISSING",
+            "message": "The invalidated proof has no inspectable Git projection.",
+        }
+    if projection.get("proof_head") != proof_head:
+        return {
+            "ok": False,
+            "code": "REFRESH_PROJECTION_MISMATCH",
+            "message": "The invalidated Git projection does not bind the current proof attempt.",
+        }
+    dirty = list(projection.get("dirty_tracked_paths") or [])
+    if dirty:
+        return {
+            "ok": False,
+            "code": "REFRESH_DIRTY_WORKTREE",
+            "message": "Proof refresh requires a clean tracked worktree: " + ", ".join(dirty),
+        }
+    head_sha = str(projection.get("current_head") or "")
+    committed_paths = sorted(set(projection.get("committed_paths") or []))
+    if not head_sha or head_sha == proof_head or not committed_paths:
+        return {
+            "ok": False,
+            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
+            "message": "No later committed repository state is available for proof refresh.",
+        }
+    from .agent_done import _git_value
+
+    root_text = _git_value(
+        Path(attempt.workspace_path or workspace_path),
+        ["rev-parse", "--show-toplevel"],
+    )
+    if not root_text:
+        return {
+            "ok": False,
+            "code": "REFRESH_REPOSITORY_UNAVAILABLE",
+            "message": "The proof workspace is not inside a readable Git repository.",
+        }
+    artifacts = sorted(set(work.output_targets))
+    if not artifacts:
+        return {
+            "ok": False,
+            "code": "REFRESH_ARTIFACT_MISSING",
+            "message": "The work item has no governed output target to refresh.",
+        }
+    return {
+        "ok": True,
+        "code": "",
+        "message": "Unchanged governed artifacts may be reverified at current HEAD.",
+        "workspace_digest": workspace_digest(load_store(workspace_path).data),
+        "attempt_id": attempt.id,
+        "evidence_id": evidence.id,
+        "proof_head": proof_head,
+        "head_sha": head_sha,
+        "committed_paths": committed_paths,
+        "artifacts": artifacts,
+        "artifact_hashes": verification["computed_artifact_hashes"],
+        "git_root": root_text,
+    }
+
+
+def _refresh_proof_timestamp(
+    workspace: Workspace,
+    work_id: str,
+    commit_timestamp: str,
+) -> str:
+    """Return a deterministic timestamp strictly after existing work proof records."""
+
+    candidates: list[datetime] = []
+    for value in (commit_timestamp,):
+        parsed = _parse_proof_timestamp(value)
+        if parsed is not None:
+            candidates.append(parsed)
+    collections = (
+        workspace.attempts,
+        workspace.receipts,
+        workspace.evidence_runs,
+        workspace.review_verdicts,
+        workspace.human_decisions,
+        workspace.acceptance_records,
+    )
+    for records in collections:
+        for record in records:
+            if getattr(record, "work_item_id", "") != work_id:
+                continue
+            for field in ("updated_at", "started_at", "timestamp", "accepted_at"):
+                parsed = _parse_proof_timestamp(str(getattr(record, field, "") or ""))
+                if parsed is not None:
+                    candidates.append(parsed)
+    commit_instant = _parse_proof_timestamp(commit_timestamp)
+    if commit_instant is None:
+        return ""
+    latest_existing = max(candidates, default=commit_instant)
+    logical = max(commit_instant, latest_existing + timedelta(microseconds=1))
+    return logical.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
+        "+00:00", "Z"
+    )
+
+
+def _parse_proof_timestamp(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, ValueError):
+        return None
+    if parsed.utcoffset() is None:
+        return None
+    try:
+        return parsed.astimezone(timezone.utc)
+    except OverflowError:
+        return None
 
 
 def _resume_claim_packet(
@@ -1639,6 +2188,35 @@ def _select_attempt(
                 return current
     expected_id = _proof_id("ATTEMPT-ADVANCE", work_id, head_sha)
     return next((item for item in workspace.attempts if item.id == expected_id), None)
+
+
+def _changes_requested_repair_candidate(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+) -> bool:
+    reviews = [
+        item for item in workspace.review_verdicts if item.work_item_id == work.id
+    ]
+    if not reviews or not work.current_attempt:
+        return False
+    latest = max(reviews, key=record_time_key)
+    if latest.verdict != "changes-requested":
+        return False
+    attempt = next(
+        (item for item in workspace.attempts if item.id == work.current_attempt),
+        None,
+    )
+    if attempt is None or attempt.actor != palari_id:
+        return False
+    attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
+    if not attempt_head or latest.reviewed_head != attempt_head:
+        return False
+    from .agent_done import _git_value
+
+    current_head = _git_value(workspace_path, ["rev-parse", "HEAD"])
+    return bool(current_head and current_head != attempt_head)
 
 
 def _governed_artifacts(paths: list[str]) -> list[str]:

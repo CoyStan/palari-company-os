@@ -27,7 +27,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Human authority is explicit. Agents do not silently inherit approval power.
 - Human decisions, reviews, receipts, evidence, and outcomes are separate
   records with separate meanings.
-- Approval Packs compress one human review interaction, never item evidence.
+- Approval Packs compress one human approval interaction, never independent
+  review or item evidence.
   Pack and member digests are exact; recursive dependency bindings retain
   exact proof/artifact freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
@@ -74,6 +75,17 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   runs only built-in shell-free verification profiles, rechecks the exact plan,
   and atomically reconciles attempt, receipt, evidence, and closeout records.
   It may complete R1/light/0 work; higher-risk work stops at independent review.
+  After a current separate review and qualified human decision already exist,
+  the shared bounded fixed-point driver may derive the acceptance record and
+  terminalize the work mechanically. Authority-producing functions invoke that
+  driver immediately; `agent advance` remains an idempotent recovery surface.
+  Later Git state is reusable only when post-proof committed and dirty tracked
+  paths are governance projection data. The driver must never create the review
+  or human decision, and cycle, no-progress, or iteration-limit states fail
+  closed.
+- Blockers expose stable resolver metadata. Current authority followed only by
+  mechanical bookkeeping is automatic reconciliation; terminal work is closed,
+  not a blocker; external, review, and human boundaries remain distinct.
 - Verification cache files are advisory diagnostics, never proof authority.
   They bind exact state and malformed or contradictory records fail closed, but
   a structurally valid cached pass is still rerun. Only exact proof already
