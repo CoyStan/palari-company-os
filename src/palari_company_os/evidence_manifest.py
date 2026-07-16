@@ -443,6 +443,23 @@ def _git_value(path: Path, arguments: list[str]) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def _git_exact_object_value(path: Path, arguments: list[str]) -> str:
+    """Read raw Git identity without allowing local replacement objects."""
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(path), "--no-replace-objects", *arguments],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def evidence_artifact_hashes(
     workspace_path: Path,
     attempt_id: str,
@@ -548,7 +565,10 @@ def _git_artifact_hashes_at_head(
         git_root is None
         or len(head_sha) != 40
         or any(character not in "0123456789abcdef" for character in head_sha)
-        or _git_value(git_root, ["rev-parse", "--verify", f"{head_sha}^{{commit}}"])
+        or _git_exact_object_value(
+            git_root,
+            ["rev-parse", "--verify", f"{head_sha}^{{commit}}"],
+        )
         != head_sha
     ):
         return [
@@ -572,7 +592,15 @@ def _git_artifact_hashes_at_head(
             continue
         try:
             result = subprocess.run(
-                ["git", "-C", str(git_root), "cat-file", "blob", f"{head_sha}:{git_path}"],
+                [
+                    "git",
+                    "-C",
+                    str(git_root),
+                    "--no-replace-objects",
+                    "cat-file",
+                    "blob",
+                    f"{head_sha}:{git_path}",
+                ],
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

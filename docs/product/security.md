@@ -81,9 +81,9 @@ Authority rules:
   artifact, verification reads its bytes from the evidence's exact Git commit
   instead of the later live file, then independently requires the live journal
   to replay to the current workspace. Missing commits or blobs, hash mismatch,
-  malformed chains, pending transactions, and projection divergence fail
-  closed. This exception does not apply to ordinary output artifacts, whose
-  current bytes must still match their evidence hashes.
+  local Git replacement objects, malformed chains, pending transactions, and
+  projection divergence fail closed. This exception does not apply to ordinary
+  output artifacts, whose current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
   values, UTC-normalization overflows, and equivalent-instant competitors fail

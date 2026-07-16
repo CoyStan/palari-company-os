@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import io
 import shutil
@@ -617,6 +618,62 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 command="test invalid live journal rejection",
                 actor="PALARI-ARCHITECT",
             )
+
+    def test_self_mutating_governance_output_rejects_git_replace_substitution(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        replacement = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{evidence.head_sha}^^"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "replace", evidence.head_sha, replacement],
+            check=True,
+        )
+        object_spec = f"{evidence.head_sha}:.palari/governance-journal.v1.jsonl"
+        substituted = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "cat-file", "blob", object_spec],
+            check=True,
+            capture_output=True,
+        ).stdout
+        original = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "--no-replace-objects",
+                "cat-file",
+                "blob",
+                object_spec,
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+        self.assertNotEqual(substituted, original)
+
+        raw = deepcopy(load_store(self.temp_dir).data)
+        raw_evidence = next(
+            item for item in raw["evidence_runs"] if item["id"] == evidence.id
+        )
+        journal_hash = next(
+            item
+            for item in raw_evidence["artifact_hashes"]
+            if item["path"] == ".palari/governance-journal.v1.jsonl"
+        )
+        journal_hash["sha256"] = "sha256:" + hashlib.sha256(substituted).hexdigest()
+        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
+
+        report = verify_evidence(
+            Ws.from_raw(raw, self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["artifact_hashes_ok"])
+        self.assertFalse(report["manifest_hash_ok"])
+        self.assertTrue(report["journal_continuity_ok"])
 
     def test_changes_requested_repair_bypasses_rejected_projection_resume(self) -> None:
         with patch(

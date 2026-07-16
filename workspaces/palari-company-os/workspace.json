@@ -10342,6 +10342,14 @@
       "receipt_hash": "sha256:8e0351322354e666d493de0c7bec9775cd4a29863552ae8ad0d6def23ea27f96",
       "work_contract_hash": "sha256:6b6dd610ecec741bf125754a904794556debba85040825da648d04bc71d26af4",
       "proof_hash": "sha256:c2073113d169db74205515e9c7b813c486a92f63530842753b1f1d4244ccc276"
+    },
+    {
+      "id": "REVIEW-JOURNAL-REPAIR-ARCHITECT-6E6DC91-REJECT",
+      "work_item_id": "WORK-091915D43FD04B929A0E561722EC8BDF",
+      "reviewed_head": "6e6dc9123ff51ba1791b4bcd986f641f9f517afc",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T21:01:23.114319Z"
     }
   ],
   "human_decisions": [
