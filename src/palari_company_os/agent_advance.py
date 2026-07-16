@@ -15,7 +15,7 @@ from .authoring import (
     complete_work,
     reconcile_agent_proof,
 )
-from .evidence_manifest import verify_evidence
+from .evidence_manifest import git_artifact_state, verify_evidence
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
 from .record_order import record_time_key
@@ -346,6 +346,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
             "scope_ok": git.get("scope_ok"),
             "outputs_ok": git.get("outputs_ok"),
             "preflight_error": git.get("preflight_error", ""),
+            "artifact_hashes": git.get("artifact_hashes", []),
         },
         "workspace_digest": facts.get("workspace_digest", ""),
         "proof": proof,
@@ -468,6 +469,10 @@ def agent_advance(
             verification_results,
             summary,
             expected_workspace_digest=str(current_facts["workspace_digest"]),
+            expected_git_head=str(current_facts["git"]["head_sha"]),
+            expected_artifact_hashes=list(
+                current_facts["git"]["artifact_hashes"]
+            ),
         )
     except ReconciliationStateChanged:
         return {
@@ -583,6 +588,12 @@ def _collect_facts(
         packet=packet,
     )
     changed = list(preflight.get("changed_files", []))
+    artifacts = _governed_artifacts(changed)
+    artifact_state = git_artifact_state(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        artifacts,
+        governance_workspace_path=workspace_path,
+    )
     profiles = verification_profiles(work.risk, changed)
     base_sha = str(preflight.get("base_sha") or claim.get("git_baseline", {}).get("head_sha") or "")
     head_sha = str(preflight.get("head_sha") or "")
@@ -629,11 +640,16 @@ def _collect_facts(
         "git": {
             "base_sha": base_sha,
             "head_sha": head_sha,
-            "clean": bool(preflight.get("ok")),
+            "clean": bool(
+                preflight.get("ok")
+                and artifact_state["clean"]
+                and artifact_state["head_sha"] == head_sha
+            ),
             "changed_files": changed,
             "scope_ok": bool(preflight.get("ok")),
             "outputs_ok": bool(preflight.get("ok")),
             "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
+            "artifact_hashes": artifact_state["artifact_hashes"],
         },
         "proof": {
             "attempt_id": attempt.id if attempt else "",
@@ -667,6 +683,8 @@ def _reconcile_proof(
     summary: str,
     *,
     expected_workspace_digest: str,
+    expected_git_head: str,
+    expected_artifact_hashes: list[dict[str, str]],
 ) -> list[dict[str, str]]:
     work = workspace.work_item(work_id)
     if work is None:
@@ -726,6 +744,7 @@ def _reconcile_proof(
             "base_ref": preflight["base_sha"],
             "commands": commands,
             "artifacts": artifacts,
+            "artifact_hashes": expected_artifact_hashes,
             "summary": f"{len(verification)} exact-state verification profile(s) passed.",
             "freshness": "exact-head",
         },
@@ -734,6 +753,8 @@ def _reconcile_proof(
         output_targets=list(work.output_targets),
         proof_timestamp=proof_timestamp,
         expected_workspace_digest=expected_workspace_digest,
+        expected_git_head=expected_git_head,
+        expected_artifact_hashes=expected_artifact_hashes,
     )
     return list(result["steps"])
 
@@ -1235,6 +1256,7 @@ def _refresh_stale_projection(
         "head_sha",
         "committed_paths",
         "artifacts",
+        "artifact_hashes",
         "git_root",
     )
     if not rechecked["ok"] or any(
@@ -1304,6 +1326,7 @@ def _refresh_stale_projection(
             "base_ref": refresh["proof_head"],
             "commands": commands,
             "artifacts": list(refresh["artifacts"]),
+            "artifact_hashes": list(refresh["artifact_hashes"]),
             "summary": (
                 f"{len(verification_results)} exact-state verification profile(s) "
                 "passed for unchanged governed artifacts."
@@ -1315,6 +1338,8 @@ def _refresh_stale_projection(
         output_targets=list(refresh["artifacts"]),
         proof_timestamp=proof_timestamp,
         expected_workspace_digest=str(refresh["workspace_digest"]),
+        expected_git_head=str(refresh["head_sha"]),
+        expected_artifact_hashes=list(refresh["artifact_hashes"]),
     )
     final_workspace = Workspace.load(workspace_path)
     handoff = build_agent_handoff(final_workspace, work.id, palari_id, "execute")
@@ -1484,6 +1509,7 @@ def _stale_projection_refresh_context(
         "head_sha": head_sha,
         "committed_paths": committed_paths,
         "artifacts": artifacts,
+        "artifact_hashes": verification["computed_artifact_hashes"],
         "git_root": root_text,
     }
 

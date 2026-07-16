@@ -28,6 +28,7 @@ from palari_company_os.agent_next import build_agent_next
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.agent_runtime import release_agent
 from palari_company_os.authoring import (
+    ReconciliationStateChanged,
     create_human_decision,
     create_record,
     reconcile_agent_proof,
@@ -35,7 +36,11 @@ from palari_company_os.authoring import (
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
-from palari_company_os.evidence_manifest import evidence_manifest_hash, receipt_hash
+from palari_company_os.evidence_manifest import (
+    evidence_manifest_hash,
+    git_artifact_state,
+    receipt_hash,
+)
 from palari_company_os.governance_journal import (
     MutationMetadata,
     _transaction_id,
@@ -1059,6 +1064,121 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             {item.id for item in after.evidence_runs if item.work_item_id == self.work_id},
         )
 
+    def test_explicit_refresh_rejects_artifact_race_before_reconciliation(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        (self.temp_dir / "RELATED.md").write_text(
+            "later repository context\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-u"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "RELATED.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        before = Ws.load(self.temp_dir)
+        before_attempts = {
+            item.id for item in before.attempts if item.work_item_id == self.work_id
+        }
+        before_receipts = {
+            item.id for item in before.receipts if item.work_item_id == self.work_id
+        }
+        before_evidence = {
+            item.id for item in before.evidence_runs if item.work_item_id == self.work_id
+        }
+
+        def mutate_then_reconcile(*args, **kwargs):
+            (self.temp_dir / "README.md").write_text(
+                "tracked artifact drift after verification\n",
+                encoding="utf-8",
+            )
+            return reconcile_agent_proof(*args, **kwargs)
+
+        with (
+            patch(
+                "palari_company_os.agent_advance.run_or_reuse",
+                side_effect=self._passing_attestation,
+            ),
+            patch(
+                "palari_company_os.agent_advance.reconcile_agent_proof",
+                side_effect=mutate_then_reconcile,
+            ),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_STATE_CHANGED")
+        after = Ws.load(self.temp_dir)
+        self.assertEqual(
+            before_attempts,
+            {item.id for item in after.attempts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_receipts,
+            {item.id for item in after.receipts if item.work_item_id == self.work_id},
+        )
+        self.assertEqual(
+            before_evidence,
+            {item.id for item in after.evidence_runs if item.work_item_id == self.work_id},
+        )
+
+    def test_ordinary_reconciliation_maps_workspace_cas_race_to_state_changed(
+        self,
+    ) -> None:
+        before = Ws.load(self.temp_dir)
+        with (
+            patch(
+                "palari_company_os.agent_advance.run_or_reuse",
+                side_effect=self._passing_attestation,
+            ),
+            patch(
+                "palari_company_os.authoring.write_store",
+                side_effect=WorkspaceError(
+                    "workspace changed since it was loaded; retry command"
+                ),
+            ),
+        ):
+            result = agent_advance(
+                before,
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "state-changed", result)
+        after = Ws.load(self.temp_dir)
+        self.assertFalse(
+            any(item.work_item_id == self.work_id for item in after.attempts)
+        )
+        self.assertFalse(
+            any(item.work_item_id == self.work_id for item in after.receipts)
+        )
+        self.assertFalse(
+            any(item.work_item_id == self.work_id for item in after.evidence_runs)
+        )
+
     def test_explicit_refresh_rejects_changed_artifact_without_running_profiles(
         self,
     ) -> None:
@@ -1816,7 +1936,11 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         (self.temp_dir / "README.md").unlink()
         before = (self.temp_dir / "workspace.json").read_bytes()
 
-        with self.assertRaisesRegex(WorkspaceError, "manifest verification failed"):
+        expected_state = git_artifact_state(self.temp_dir, ["README.md"])
+        with self.assertRaisesRegex(
+            ReconciliationStateChanged,
+            "tracked cleanliness",
+        ):
             reconcile_agent_proof(
                 str(self.temp_dir),
                 work_id=self.work_id,
@@ -1854,6 +1978,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                         "docs-check attestation VERIFY-DOCS-CHECK-TEST sha256:" + "3" * 64,
                     ],
                     "artifacts": ["README.md"],
+                    "artifact_hashes": expected_state["artifact_hashes"],
                     "summary": "This must fail before mutation.",
                     "freshness": "exact-head",
                 },
@@ -1866,6 +1991,8 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 expected_workspace_digest=workspace_digest(
                     load_store(self.temp_dir).data
                 ),
+                expected_git_head=head,
+                expected_artifact_hashes=expected_state["artifact_hashes"],
             )
 
         self.assertEqual(before, (self.temp_dir / "workspace.json").read_bytes())
@@ -1894,6 +2021,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             key = cache_key(profile, context)
             attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
             commands.append(f"{profile.id} attestation {attestation_id} {key}")
+        expected_state = git_artifact_state(self.temp_dir, ["README.md"])
 
         def crash_hook(current: str) -> None:
             if current == point:
@@ -1938,6 +2066,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "base_ref": base_sha,
                     "commands": commands,
                     "artifacts": ["README.md"],
+                    "artifact_hashes": expected_state["artifact_hashes"],
                     "summary": "3 exact-state verification profile(s) passed.",
                     "freshness": "exact-head",
                 },
@@ -1950,6 +2079,8 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 expected_workspace_digest=workspace_digest(
                     load_store(self.temp_dir).data
                 ),
+                expected_git_head=head,
+                expected_artifact_hashes=expected_state["artifact_hashes"],
                 crash_hook=crash_hook,
             )
 
