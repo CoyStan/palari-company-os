@@ -7802,6 +7802,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-F1D0A89C0E3D45D6B2C614FB1AE7E420-10DCA98AB5B2",
       "review_reference": "REVIEW-FIXED-POINT-10DCA98",
       "timestamp": "2026-07-16T02:50:47.832383Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-0D2E36965F224C29A0647A7E95D867B7-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-0D2E36965F224C29A0647A7E95D867B7",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "5d0429177072a2fb571b690a63a8cba6c9186b4d",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-0D2E36965F224C29A0647A7E95D867B7-V4",
+      "review_reference": "REVIEW-BLUEPRINT-20260716-STEWARD",
+      "timestamp": "2026-07-16T10:23:43.643739Z"
     }
   ],
   "receipts": [
