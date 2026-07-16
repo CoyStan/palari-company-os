@@ -2517,7 +2517,8 @@
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436"
     }
   ],
   "attempts": [
@@ -4546,6 +4547,40 @@
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl"
       ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/.palari-worktrees/palari-company-os/f54af2f6e4f39ec0",
+      "base_sha": "f3c23b8d80831f354c2a4dc029f64b8e8e07e672",
+      "allowed_paths": [
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_isolation.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_agent_packets.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "started_at": "2026-07-16T00:02:15Z",
+      "head_sha": "bcc17028e43655f7bafb3beb659ebabd8f3d222b",
+      "commits": [
+        "bcc17028e43655f7bafb3beb659ebabd8f3d222b"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-16T00:02:15Z",
+      "changed_files": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_filesystem_security.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_agent_packets.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ]
     }
   ],
   "evidence_runs": [
@@ -6291,6 +6326,41 @@
         }
       ],
       "manifest_hash": "sha256:dfac7aea4e882d4a22b310624a89be317ecc0afe08d36185a5ec0d875318803c"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "head_sha": "bcc17028e43655f7bafb3beb659ebabd8f3d222b",
+      "status": "passed",
+      "base_ref": "f3c23b8d80831f354c2a4dc029f64b8e8e07e672",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-EEA40F106F22347B sha256:d78a499e556eaf0827260f6c715578268682a95a0e1ca305eea40f106f22347b",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-29988AD4F8BE7B40 sha256:b6687ebf69a23b414fe44d8619f2f5470afb08d9454f899129988ad4f8be7b40",
+        "docs-check attestation VERIFY-DOCS-CHECK-599938CD94B7C7D0 sha256:35f8bce63aed38ffacdd08e12f0bf2f33da12a3b3c2c1718599938cd94b7c7d0"
+      ],
+      "artifacts": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_filesystem_security.py"
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-16T00:02:15Z",
+      "receipt_hash": "sha256:c00daa2224a783945dbba78870d2aa7a44f78a04eb29422650f94e9e6d698cbd",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:1d43a0c30f556f37cf5d19fcc6dc17288521d8d87e5c466550e956780332160f",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_filesystem_security.py",
+          "sha256": "sha256:e433d3d26e2775a23c223169d930647ec401f9e88da5fc2ca0911f384f900bdb",
+          "status": "present"
+        }
+      ],
+      "manifest_hash": "sha256:6a1f3aeb0b54142483560ef75539afcc9f07b9dc2d549d829f6d333cedd8a49e"
     }
   ],
   "review_verdicts": [
@@ -8298,6 +8368,32 @@
       ],
       "timestamp": "2026-07-15T23:41:54Z",
       "receipt_hash": "sha256:b4e2547c07767f428d5480923b998170c2ad10b9c8be25576bfcee28f2edd8e1"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "work_item_id": "WORK-98F990192C4449B5BB8B21138D512222",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-98F990192C4449B5BB8B21138D512222-BCC17028E436",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 2 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_filesystem_security.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "src/palari_company_os/evidence_manifest.py",
+        "tests/test_filesystem_security.py"
+      ],
+      "timestamp": "2026-07-16T00:02:15Z",
+      "receipt_hash": "sha256:c00daa2224a783945dbba78870d2aa7a44f78a04eb29422650f94e9e6d698cbd"
     }
   ],
   "decisions": [
