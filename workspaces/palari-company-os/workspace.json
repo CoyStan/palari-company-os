@@ -10593,6 +10593,14 @@
       "receipt_hash": "sha256:7715de76c8ba9fe948cd14dd5bff5fe47ee0927b49da3c26552b2736d8003e0e",
       "work_contract_hash": "sha256:ea6a3dc27a809a51880b1dbe01341cb46ee38830f15c1b1072a1af76bcd34d43",
       "proof_hash": "sha256:b6ce84e9c08b4b4ce97d151ccc4509b9b1bdb58234285068c58a47be3fcbe734"
+    },
+    {
+      "id": "REVIEW-DOGFOOD-CHECKPOINT-REFRESH-ARCHITECT-194AC98-CHANGES",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "reviewed_head": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-16T21:48:58.854727Z"
     }
   ],
   "human_decisions": [
