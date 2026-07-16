@@ -10215,6 +10215,23 @@
       "receipt_hash": "sha256:169cd997a2b27f22b561b1059054dbca5c3898a36ba8eb8e8622d959ec7b66ba",
       "work_contract_hash": "sha256:70faf70f34ed7076a96e0700eed64039395003e5b81885420c8b1389f192d490",
       "proof_hash": "sha256:1b0835583e1627108ccfe84cde67934bf90b50b0cd72b8c8363b960455b1fc6a"
+    },
+    {
+      "id": "REVIEW-DOGFOOD-CHECKPOINT-ARCHITECT-9630B0D-ACCEPT",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "reviewed_head": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-16T20:52:56.694701Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "attempt_hash": "sha256:1edfb90282cc3af53dd1366b93d4c11c95cd29c4e354167ea4314c8388051629",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "evidence_manifest_hash": "sha256:137f7b6e4bdcfd7949ce8d81cce537e68a67179cedf4a79c60ae162dc06e7ed1",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F",
+      "receipt_hash": "sha256:8e0351322354e666d493de0c7bec9775cd4a29863552ae8ad0d6def23ea27f96",
+      "work_contract_hash": "sha256:6b6dd610ecec741bf125754a904794556debba85040825da648d04bc71d26af4",
+      "proof_hash": "sha256:c2073113d169db74205515e9c7b813c486a92f63530842753b1f1d4244ccc276"
     }
   ],
   "human_decisions": [
