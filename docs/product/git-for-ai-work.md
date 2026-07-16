@@ -67,6 +67,8 @@ stores. What is novel is the statement they attest to.
    bytes; anyone with the public key verifies it. Identity binding — proving
    the key belongs to a real person in a real organization — comes from the
    organization's existing login system, not from key files on laptops.
+   Concretely: an OIDC login mints a short-lived signing certificate bound to
+   the authenticated identity claim (the Sigstore pattern; §6.2).
 4. **Append-only logs.** Each entry's hash chains to the previous one, so
    nothing can be inserted, backdated, or removed without visibly breaking the
    chain. This answers "since when?" and "can it quietly disappear?".
@@ -85,7 +87,7 @@ Illustrative shape (the normative shape lives in the spec; see §5):
   "_type": "https://in-toto.io/Statement/v1",
   "subject": [
     {"name": "work-state", "digest": {"sha256": "…"}},
-    {"name": "discharge-summary-4412.md", "digest": {"sha256": "…"}}
+    {"name": "output-artifact-01", "digest": {"sha256": "…"}}
   ],
   "predicateType": "https://palari.dev/pcaw/v2",
   "predicate": {
@@ -99,7 +101,7 @@ Illustrative shape (the normative shape lives in the spec; see §5):
       "human_decisions": "…who decided what, in what order…"
     },
     "subject_roles": {"work-state": "work-state",
-                      "discharge-summary-4412.md": "output-artifact"},
+                      "output-artifact-01": "output-artifact"},
     "security_limitations": ["…the honest non-claims, machine-readable…"]
   }
 }
@@ -124,6 +126,11 @@ Field-by-field, the receipt answers:
 Design invariant carried from v1: **digests, never content**. A receipt must
 remain safe to retain, export, and show an auditor in a domain where the
 underlying data (patient records, privileged filings) must not travel with it.
+v2 extends the rule to names: filenames are metadata, and metadata leaks
+("discharge-summary-4412.pdf" in a receipt is itself a disclosure). In
+regulated contexts subject names MUST be pseudonymous role labels or digest
+prefixes; the mapping from pseudonym to real artifact lives with the operator,
+outside the receipt.
 
 ## 4. Why this wins: the verified market picture
 
@@ -273,16 +280,45 @@ identities public. Regulated deployments use a private Sigstore stack (the
 `sigstore/scaffold` Helm chart deploys Rekor + Fulcio + Trillian in-house).
 Both backends are invoked as subprocesses — the stdlib-only rule holds.
 
+**The trust topology, answered rather than gestured at.** Identity binding
+raises three questions the protocol must answer explicitly:
+
+- *Who operates the certificate authority?* Backend A: nobody — trust is the
+  org's reviewable `allowed_signers` registry, governed like any other file.
+  Backend B: the org's own Fulcio (private stack) rooted in its IdP, or the
+  public Sigstore CA when signer identities may be public.
+- *What is the revocation story?* Backend A: KRLs plus `valid-before` windows
+  in the registry, checked at verification time. Backend B: certificates live
+  minutes, so key revocation is largely moot; identity revocation is the
+  IdP's account lifecycle, which the org already operates.
+- *What does "without trusting Palari" mean if Palari runs the log?* It means
+  Palari MUST NOT be the only holder of anything. Verification never calls a
+  Palari service; logs are org-run or public, never Palari-only; and log
+  operators are kept honest by **published witness heads** — the log's
+  current head hash signed and published somewhere the operator cannot
+  rewrite (a public log, another org's log, or simply a git repository
+  others clone). The acceptable topologies are: per-org log with published
+  witness heads, public transparency log, or user-run log. "Palari hosts
+  your log" is a convenience tier, valid only because the witness heads make
+  the host verifiable rather than trusted.
+
 ### 6.3 Presentation digest: proof of what the approver saw
 
 The highest-value, least-built field in the industry. When an approval is
 requested, Palari renders the evidence view (the Approval Pack content), emits
 it as canonical bytes, digests it, and binds that digest into both the human
 decision record and the receipt predicate. The claim upgrades from "she
-approved the work" to "she approved the work **having been shown exactly
+approved the work" to "she approved the work **having been presented exactly
 this**." Approval Packs already bind exact evidence to exact decisions; this
 adds one canonical rendering step and one digest field. No verified competitor
 records this.
+
+Precision requirement, binding on every description of this field: the digest
+proves what was **presented** — the bytes rendered available to the approver —
+not what was read or understood. Attention is out of scope for v2. That is
+still a categorical improvement over a bare signature, and auditors will find
+the gap in minutes if the language overclaims; precision here is credibility
+everywhere else.
 
 ### 6.4 Trusted time: RFC 3161 anchoring
 
@@ -329,6 +365,20 @@ upgrades the linear journal into git's actual structure — a content-addressed
 DAG — so verifying one receipt transitively pins its ancestry, and parallel
 workstreams merge verifiably instead of racing for one chain.
 
+**Revocation, supersession, and the two guarantees.** The workspace model
+already implements the semantics — a later negative decision revokes an
+earlier approval, and contradictory records fail closed. The protocol must
+lift them into statements: a **revocation/supersession statement** citing the
+revoked receipt's digest, signed under the same authority rules, logged like
+any receipt. Without it, a revoked acceptance verifies "valid forever." This
+exposes a real tension the spec must state plainly rather than paper over:
+**offline verification proves validity-at-signing** — the receipt was
+well-formed, signed, and consistent when made; **freshness** — is this still
+the latest decision, or was it superseded? — **requires a log query**. Two
+different guarantees. A verifier report MUST name which one it is giving
+(`validity: verified-offline`, `currency: not-checked | current-as-of-log`),
+and marketing MUST NOT promise the second while delivering the first.
+
 ### 6.6 Design lessons carried from git and its sibling protocols
 
 Since the positioning is "Git, but for AI work", hold the protocol to the
@@ -348,7 +398,13 @@ that lived and died around it:
 - **The SHA-1 lesson: agility before you need it.** Git hardcoded SHA-1 in
   2005; the SHA-256 migration has taken 15+ years and is unfinished. v2 must
   specify the dual-digest transition procedure for introducing a successor
-  algorithm — not merely reject unknown ones (WRP-7).
+  algorithm — not merely reject unknown ones (WRP-7). "Verifiable forever"
+  additionally requires an **algorithm-suite identifier** on every envelope
+  and a **re-anchoring procedure**: before a suite weakens, existing receipts
+  are re-timestamped (RFC 3161 or fresh log witness heads) under a current
+  suite, preserving the proof-of-existence chain across algorithm
+  generations. One field and a paragraph now; a migration crisis avoided
+  later.
 - **Correctness first, efficiency later.** Git shipped loose objects and
   added packfiles years later without changing semantics. Receipt storage
   efficiency is deliberately out of scope until the format is settled.
@@ -407,7 +463,7 @@ discharge, one filing — is one work item. Sources are that person's
 documents; the boundary is the named forms and fields the agent may fill;
 evidence is the validation suite; the presentation is the review screen; the
 decision is the signature. The entire existing lifecycle maps one-to-one; no
-new concepts are needed, only new subject types (§6.5, WRP-6, WRP-10).
+new concepts are needed, only new subject types (§6.5, WRP-6, WRP-11).
 
 ### Worked example: the international-student tax product
 
@@ -453,7 +509,7 @@ Why this case is protocol-perfect and not merely protocol-compatible:
   on every receipt).
 - **It is the first product built on the protocol rather than a feature of
   this repository** — the design-partner requirement (§12) satisfied
-  first-party: the app's real cases force WRP-6 and WRP-10's requirements
+  first-party: the app's real cases force WRP-6 and WRP-11's requirements
   before any external partner is needed.
 
 One honest design obligation carries over from §1: at consumer scale, the
@@ -532,10 +588,14 @@ rejected); v1 statements still verify byte-identically.
 reserved checklist (algorithm agility, key identity, revocation, threshold
 policy, custody, verification time); conformance vectors for signed, unsigned,
 tampered, revoked, and threshold cases; the v1 black-box runner extended to
-v2. Two design constraints from §6.6: the digest-agility section MUST define
-the dual-digest transition procedure for a successor algorithm (the git SHA-1
-lesson), and the threshold/role/rotation design MUST be derived from TUF's
-model rather than invented.
+v2. Four design constraints from §6.5–6.6: the digest-agility section MUST
+define the algorithm-suite identifier, the dual-digest transition procedure,
+and the re-anchoring story (the git SHA-1 lesson); the threshold/role/rotation
+design MUST be derived from TUF's model rather than invented; the
+revocation/supersession statement type MUST be specified with the same
+authority rules as receipts; and the report MUST separate the two guarantees
+(validity-at-signing offline vs. currency via log query) as distinct typed
+fields.
 Acceptance: `conformance.py -- ./bin/palari proof verify` passes the full v2
 manifest; every new diagnostic code pinned in the manifest.
 
@@ -552,7 +612,18 @@ Acceptance: the independent verifier passes the corpus with zero shared code.
 command. Deliberately late: it is the piece whose requirements a real
 regulated design partner should shape.
 
-**WRP-10 — Knowledge-work predicate: snapshots and field maps.**
+**WRP-10 — The demo wedge: drop-a-receipt verifier page.**
+A single static HTML page (no server, no upload — verification runs
+in-browser via WebCrypto) where anyone drops a receipt bundle and sees the
+three checks go green: digests match, signature verifies, anchor intact.
+Plus the README hero: emit a signed receipt from this repository's own
+workflow, verify it on the page. The blocked-write demo carried the current
+repo; this demo carries the protocol.
+Acceptance: page is fully self-contained (works from `file://`); a tampered
+byte flips the relevant check red with the stable diagnostic code; linked
+from the README next to a `palari proof verify` one-liner.
+
+**WRP-11 — Knowledge-work predicate: snapshots and field maps.**
 The §7 extensions: snapshot subjects (exported-bytes digesting for live
 documents, dual file-bytes + canonical-values digests for spreadsheets) and
 the canonical field-map structure (field → value → source subject digest →
@@ -565,8 +636,9 @@ evidence bound to a stale field map fails closed
 
 Dependency order: WRP-1 → WRP-2 → WRP-3 form the critical path; WRP-4 and
 WRP-5 are independent after WRP-1; WRP-6 and WRP-7 close the spec; WRP-8
-proves it; WRP-10 (which depends on WRP-6) unlocks the knowledge-work
-products of §7; WRP-9 follows the first external conversation.
+proves it; WRP-10 ships the public demo as soon as WRP-3 exists; WRP-11
+(which depends on WRP-6) unlocks the knowledge-work products of §7; WRP-9
+follows the first external conversation.
 
 ## 9. What a receipt does NOT prove (keep this section forever)
 
@@ -587,6 +659,10 @@ Extending the v1 non-guarantees honestly, in the same fail-closed spirit:
   carries.
 - Trusted timestamps prove existed-no-later-than; they do not prove
   existed-no-earlier-than.
+- Offline verification proves validity-at-signing. Whether a receipt is still
+  the latest word — not superseded or revoked — is a separate guarantee that
+  requires querying a log (§6.5). Reports state each separately; neither is
+  ever implied by the other.
 
 ## 10. Regulatory tailwinds (stated precisely, because everyone misquotes them)
 
@@ -682,6 +758,13 @@ hour. That double edge is the honest product. The approved phrasing is:
 by construction.*
 
 ## 12. Adoption strategy
+
+The wedge, concretely: the **first emitter** is this repository's CLI (it
+already produces receipts) plus the Claude Code hook layer; the **first
+verifier** is `palari proof verify receipt.json` plus the static
+drop-a-receipt page (WRP-10) where anyone sees the three checks go green.
+That pair is the README hero — the blocked-write demo carried this repo, and
+this demo carries the protocol.
 
 1. **Verifier first.** The free, trivially installable artifact is `verify` —
    run it in CI, run it in an audit, exit 0 or 1. Producers follow verifiers,
