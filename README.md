@@ -129,8 +129,8 @@ Implemented now:
 - deterministic next-safe selection and claiming through `agent start --next`
 - one deterministic `agent advance` convergence path that stops at independent
   review, exact human authority, external effects, or concrete blockers
-- durable `agent park` interruptions that record a blocked attempt and next
-  safe action before releasing the owned claim
+- durable `agent release --reason ... --next-action ...` interruptions that
+  record a blocked attempt and next safe action before releasing the owned claim
 - file-change boundary checks for `agent check --changed` and `--git-diff`
 - explicit create, modify, and delete path intents; declared deletion is checked
   as an exact absent-path tombstone instead of being mistaken for a missing file
@@ -282,7 +282,7 @@ Most days have three short journeys.
 If work is interrupted before proof is ready, park it durably:
 
 ```bash
-palari agent park WORK-ID --as PALARI-CLAUDE \
+palari agent release WORK-ID --as PALARI-CLAUDE \
   --reason "Waiting for product direction" \
   --next-action "Ask the founder to choose the final wording" --json
 ```
@@ -337,7 +337,7 @@ goal -> workbench -> selected sources -> work item -> attempt
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent advance WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent park WORK-0003 --as PALARI-SOFIA \
+./bin/palari agent release WORK-0003 --as PALARI-SOFIA \
   --reason "Paused" --next-action "Resume from the recorded blocker" --json
 
 # Lightweight process guidance

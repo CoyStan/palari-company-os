@@ -418,7 +418,7 @@ JSON-RPC MCP messages to stdout.
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/output.md --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --git-diff --json
 ./bin/palari agent release WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent park WORK-0003 --as PALARI-SOFIA --reason "Blocked on product choice" --next-action "Ask the founder to choose A or B" --json
+./bin/palari agent release WORK-0003 --as PALARI-SOFIA --reason "Blocked on product choice" --next-action "Ask the founder to choose A or B" --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
@@ -477,14 +477,16 @@ marker does not authenticate a claim against a hostile same-user process. If
 the packet is blocked, `agent start` reports
 blockers and writes nothing. `agent release` removes this Palari's local claim
 when work is abandoned or handed off.
-`agent park` is the durable interruption path for an owned execute claim. In
-one journaled workspace mutation it records a blocked attempt, the reason, the
-exact next safe action, and packet/Git/digest/change observations, then releases
-the claim. It creates no receipt, evidence, review, decision, acceptance,
-outcome, or convergence authority. If execution stops after persistence but
-before release, rerunning the exact command resumes release without duplicating
-the parking record; changed reason, action, claim, packet, or repository state
-fails closed. Parking requires an already active, writable governance journal.
+`agent release` with both `--reason` and `--next-action` is the durable
+interruption path for an owned execute claim. In one journaled workspace
+mutation it records a blocked attempt, the reason, the exact next safe action,
+and packet/Git/digest/change observations, then releases the claim. Bare
+`agent release` keeps its compatible claim-only behavior. Durable release
+creates no receipt, evidence, review, decision, acceptance, outcome, or
+convergence authority. If execution stops after persistence but before release,
+rerunning the exact command resumes release without duplicating the parking
+record; changed reason, action, claim, packet, or repository state fails closed.
+Durable release requires an already active, writable governance journal.
 A legacy workspace without one fails before mutation and returns the exact
 one-command `history --checkpoint` activation action; Palari does not silently
 claim that earlier history was continuous.

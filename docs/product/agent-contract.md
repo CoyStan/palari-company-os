@@ -63,7 +63,7 @@ authority never carry forward.
 If execution must stop before proof is ready, run:
 
 ```bash
-palari agent park WORK-ID --as PALARI-ID \
+palari agent release WORK-ID --as PALARI-ID \
   --reason "Why work stopped" --next-action "The next safe step" --json
 ```
 
@@ -236,7 +236,7 @@ Implemented:
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
 - `palari agent release WORK-ID --as PALARI-ID --json`
-- `palari agent park WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`
+- `palari agent release WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`

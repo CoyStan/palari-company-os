@@ -40,7 +40,7 @@ PROOF_COLLECTIONS = (
 
 
 class OperatorJourneyTests(unittest.TestCase):
-    def test_agent_park_cli_is_concise_by_default_and_exact_in_json(self) -> None:
+    def test_durable_release_cli_is_concise_by_default_and_exact_in_json(self) -> None:
         with self.git_workspace() as workspace_file:
             start_agent(
                 Workspace.load(workspace_file),
@@ -51,7 +51,7 @@ class OperatorJourneyTests(unittest.TestCase):
             result = self.run_cli(
                 workspace_file,
                 "agent",
-                "park",
+                "release",
                 WORK_ID,
                 "--as",
                 PALARI_ID,
@@ -83,7 +83,7 @@ class OperatorJourneyTests(unittest.TestCase):
             result = self.run_cli(
                 workspace_file,
                 "agent",
-                "park",
+                "release",
                 WORK_ID,
                 "--as",
                 PALARI_ID,

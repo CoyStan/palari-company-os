@@ -66,7 +66,7 @@ When execution stops before proof is ready, preserve that fact before releasing
 ownership:
 
 ```bash
-palari agent park WORK-ID --as PALARI-ID \
+palari agent release WORK-ID --as PALARI-ID \
   --reason "Waiting for product direction" \
   --next-action "Ask the founder to choose the final wording" --json
 ```

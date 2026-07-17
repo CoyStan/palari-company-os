@@ -24,7 +24,7 @@ never creates the review or human decision. If work must stop before proof is
 ready, preserve the interruption before releasing ownership:
 
 ```bash
-palari agent park WORK-ID --as PALARI-ID \
+palari agent release WORK-ID --as PALARI-ID \
   --reason "Why work stopped" --next-action "The next safe step" --json
 ```
 
@@ -60,7 +60,8 @@ execution authority.
 
 `agent start --next` uses the same deterministic eligibility and packet rules
 as `agent next` plus explicit `agent start`; it does not broaden scope.
-`agent park` first records a blocked attempt, the reason, repository
+`agent release` with `--reason` and `--next-action` first records a blocked
+attempt, the reason, repository
 observation, and next safe action in governed state, then releases the owned
 execute claim. It creates no receipt, evidence, review, decision, acceptance,
 outcome, or convergence authority. It requires a writable governance journal;
@@ -114,8 +115,8 @@ Follow the packet:
   them for a supervisor but must not run them yourself
 - run `palari agent release WORK-ID --as PALARI-ID --json` when abandoning or
   handing off a local claim
-- prefer `agent park` over bare `release` when an interruption and its next
-  action must remain durable
+- add both `--reason` and `--next-action` to `agent release` when an
+  interruption and its next action must remain durable
 
 Never:
 

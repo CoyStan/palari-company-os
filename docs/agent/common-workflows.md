@@ -19,8 +19,8 @@ Use `work add --write PATH` for the compatible presence-required contract. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final
 mutation class matters; do not mix exact intents with `--write`.
 
-If execution is interrupted before proof is ready, run `palari agent park
-WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Parking
+If execution is interrupted before proof is ready, run `palari agent release
+WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Durable release
 records blocked state and the next action before releasing the claim; it does
 not create proof or authority. It requires a writable governance journal; a
 legacy workspace must first run the exact returned `history --checkpoint`

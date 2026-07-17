@@ -326,24 +326,17 @@ def _add_agent_parser(subparsers: Any) -> None:
     )
     release.add_argument("work_id")
     release.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
-    release.add_argument("--json", action="store_true", help="Emit JSON.")
-    park = nested.add_parser(
-        "park",
-        help="Durably record why owned work stopped, then release its claim.",
-    )
-    park.add_argument("work_id")
-    park.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
-    park.add_argument(
+    release.add_argument(
         "--reason",
-        required=True,
-        help="Concise reason the work cannot safely continue.",
+        default="",
+        help="Durably park the work with this reason before releasing its claim.",
     )
-    park.add_argument(
+    release.add_argument(
         "--next-action",
-        required=True,
-        help="Exact safe action that can unblock or resume the work.",
+        default="",
+        help="Exact safe action for resuming parked work; requires --reason.",
     )
-    park.add_argument("--json", action="store_true", help="Emit JSON.")
+    release.add_argument("--json", action="store_true", help="Emit JSON.")
     check = nested.add_parser(
         "check",
         help="Check whether one work item currently satisfies its agent packet contract.",

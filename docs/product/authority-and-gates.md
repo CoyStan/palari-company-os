@@ -121,7 +121,7 @@ workspace records.
 
 The shared agent directive compiler is an advisory state-to-action projection.
 It may identify the next owner and safe command, but it does not perform a
-trusted transition. `agent start --next`, `agent advance`, and `agent park`
+trusted transition. `agent start --next`, `agent advance`, and durable `agent release`
 still pass through the existing start, proof, journal, scope, and claim gates;
 none may manufacture an independent review or human decision.
 

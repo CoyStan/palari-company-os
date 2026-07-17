@@ -112,7 +112,7 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   journal-verification witness across aggregate read views. The pure directive
   compiler classifies the next owner/action; transition gates remain the sole
   mutation authority.
-- `agent park` durably records one claim-bound blocked attempt, exact state
+- `agent release` with reason and next action durably records one claim-bound blocked attempt, exact state
   bindings, reason, observation, and next safe action before claim release.
   Exact crash retry is idempotent. It never creates receipt, evidence, review,
   human decision, acceptance, outcome, or convergence records. It requires an

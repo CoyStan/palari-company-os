@@ -201,9 +201,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
             if fast_plan is not None:
                 return CommandResult("agent-done", fast_plan, args.json)
-        if args.agent_command == "park":
+        if args.agent_command == "release" and (args.reason or args.next_action):
             from .agent_parking import park_agent
 
+            if not args.reason or not args.next_action:
+                raise WorkspaceError(
+                    "durable agent release requires both --reason and --next-action"
+                )
             return CommandResult(
                 "agent-park",
                 park_agent(

@@ -79,9 +79,9 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
 
 - [ ] **Deletion and parking are first-class**
   - Required outcome: declared create/modify/delete intent is enforced against
-    exact Git state; a deletion is proof, not a missing output. `agent park`
-    durably records why work stopped and its next safe action before releasing
-    the claim, and repeated recovery is safe.
+    exact Git state; a deletion is proof, not a missing output. Durable
+    `agent release --reason ... --next-action ...` records why work stopped and
+    its next safe action before releasing the claim, and repeated recovery is safe.
   - Objective evidence: legacy presence-required behavior is unchanged;
     traversal, symlink, undeclared deletion, fake tombstone, foreign claim,
     interrupted park, and retry cases fail closed or recover safely.

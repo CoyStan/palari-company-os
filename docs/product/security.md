@@ -73,7 +73,7 @@ Authority rules:
   traversal, symlink escape, duplicate or prefix-overlapping intents, and
   undeclared changes fail closed. Legacy work without path intents keeps its
   presence-required output semantics.
-- `agent park` is claim-bound interruption state, not completion. It records a
+- durable `agent release` is claim-bound interruption state, not completion. It records a
   blocked attempt, packet/head/workspace bindings, observed boundary changes,
   a human-readable reason, and one next safe action in a journaled mutation
   before releasing the owned execute claim. Crash retry is idempotent only for

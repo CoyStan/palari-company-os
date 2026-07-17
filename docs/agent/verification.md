@@ -37,7 +37,7 @@ proof and never replace the complete profile.
 
 For operator-loop changes, verify all three journeys: initialize/add/start-next,
 advance to independent review, and approval-inbox presentation to one exact
-human action. Include `agent park` success, foreign/malformed/missing claim,
+human action. Include durable `agent release` success, foreign/malformed/missing claim,
 interrupted-release retry, and changed-state rejection. Record interaction
 counts separately from test-process time.
 

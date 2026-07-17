@@ -733,7 +733,7 @@ def _parking_metadata(
     reason: str,
 ) -> MutationMetadata:
     return MutationMetadata(
-        command="agent park",
+        command="agent release",
         actor=palari_id,
         action="parked",
         timestamp=utc_timestamp(),
