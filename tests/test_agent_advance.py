@@ -609,6 +609,131 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertFalse(second["would_mutate"])
 
+    def test_committed_preclaim_projection_is_separate_from_work_output(self) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {"scope": "Updated through a governed pre-claim control-plane action."},
+            command="test governed scope update",
+            actor="HUMAN-FOUNDER",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
+            check=True,
+        )
+
+        started = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        snapshot = started["start"]["claim"]["governance_projection_snapshot"]
+        self.assertEqual(
+            snapshot["changed_paths"],
+            [
+                ".palari/governance-journal.v1.jsonl",
+                ".palari/history.jsonl",
+                "workspace.json",
+            ],
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+        )
+
+        self.assertEqual(result["status"], "planned", result)
+        preflight = result["preflight"]
+        self.assertEqual(
+            [item["path"] for item in preflight["verified_governance_projection_changes"]],
+            [
+                ".palari/governance-journal.v1.jsonl",
+                ".palari/history.jsonl",
+                "workspace.json",
+            ],
+        )
+        self.assertNotIn("workspace.json", preflight["changed_files"])
+        self.assertIn("README.md", preflight["changed_files"])
+
+    def test_preclaim_projection_tamper_after_claim_fails_closed(self) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {"scope": "Updated through a governed pre-claim control-plane action."},
+            command="test governed scope update",
+            actor="HUMAN-FOUNDER",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
+            check=True,
+        )
+        start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal.write_bytes(journal.read_bytes() + b"{}\n")
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertIn(
+            "governance projection changed after claim start",
+            result["preflight"]["message"],
+        )
+
     def test_delete_intent_records_and_reverifies_core_tombstone(self) -> None:
         self._restart_with_path_intent("delete")
         (self.temp_dir / "README.md").unlink()

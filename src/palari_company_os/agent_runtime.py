@@ -28,7 +28,9 @@ from .workspace import Workspace, WorkspaceError
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v2"
 LEGACY_CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
 GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
-GIT_LEASE_VERSION = "palari.git_claim_lease.v1"
+GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
+LEGACY_GIT_LEASE_VERSION = "palari.git_claim_lease.v1"
+PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v1"
 PACKET_RUNTIME_STATE_FIELDS = {
     "blockers",
     "completion_contract",
@@ -156,6 +158,18 @@ def start_agent(
             git_witness_ref = str(persisted_baseline.get("git_witness_ref") or "")
 
         claim_session = str((existing or {}).get("claim_session") or uuid4().hex)
+        projection_snapshot = (existing or {}).get("governance_projection_snapshot")
+        if projection_snapshot is None and existing is None:
+            projection_snapshot = _capture_governance_projection_snapshot(
+                data_path,
+                git_baseline,
+                packet,
+            )
+        projection_snapshot_digest = (
+            _governance_projection_snapshot_digest(projection_snapshot)
+            if isinstance(projection_snapshot, dict)
+            else ""
+        )
         acquired_lease = _claim_git_lease(
             work_id,
             palari_id,
@@ -164,7 +178,21 @@ def start_agent(
             claim_session,
             data_path,
             git_baseline,
+            projection_snapshot_digest,
         )
+
+        if isinstance(projection_snapshot, dict):
+            snapshot_error = governance_projection_snapshot_error(
+                data_path,
+                git_baseline,
+                projection_snapshot,
+                require_worktree_match=True,
+            )
+            if snapshot_error:
+                raise WorkspaceError(
+                    "governance projection changed while the claim was starting: "
+                    + snapshot_error
+                )
 
         # A competing worktree must win the repository-shared lease before it
         # can create any durable local baseline or shared witness.  Capturing a
@@ -196,7 +224,12 @@ def start_agent(
             "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
             "git_witness_ref": git_witness_ref,
             "claim_session": claim_session,
+            "governance_projection_snapshot": projection_snapshot,
+            "governance_projection_snapshot_digest": projection_snapshot_digest,
         }
+        if projection_snapshot is None:
+            claim.pop("governance_projection_snapshot")
+            claim.pop("governance_projection_snapshot_digest")
         claim.update(acquired_lease)
 
         _write_json(packet_path, packet)
@@ -630,6 +663,16 @@ def claim_integrity_error(
     witness_error = _git_witness_error(work_id, persisted)
     if witness_error:
         return witness_error
+    projection_snapshot = claim.get("governance_projection_snapshot")
+    if isinstance(projection_snapshot, dict):
+        snapshot_error = governance_projection_snapshot_error(
+            data_path,
+            persisted["git_baseline"],
+            projection_snapshot,
+            require_worktree_match=False,
+        )
+        if snapshot_error:
+            return snapshot_error
     lease_error = _git_lease_error(claim, allow_missing=allow_released_lease)
     if lease_error:
         return lease_error
@@ -960,6 +1003,15 @@ def _validate_active_claim(claim: dict[str, Any]) -> str:
     workspace_file_hash = claim.get("workspace_file_hash")
     if workspace_file_hash is not None and not _valid_sha256(workspace_file_hash):
         return "workspace_file_hash is malformed"
+    projection_snapshot = claim.get("governance_projection_snapshot")
+    projection_digest = claim.get("governance_projection_snapshot_digest")
+    if projection_snapshot is not None or projection_digest:
+        if not isinstance(projection_snapshot, dict):
+            return "governance_projection_snapshot must be an object"
+        if not isinstance(projection_digest, str) or not _valid_sha256(projection_digest):
+            return "governance_projection_snapshot_digest is malformed"
+        if _governance_projection_snapshot_digest(projection_snapshot) != projection_digest:
+            return "governance projection snapshot does not match its digest"
     baseline = claim.get("git_baseline")
     if baseline is not None:
         if not isinstance(baseline, dict):
@@ -1153,6 +1205,292 @@ def _git_witness_ref(work_id: str) -> str:
     return f"refs/palari/claims/{safe}-{digest}"
 
 
+def _capture_governance_projection_snapshot(
+    data_path: Path,
+    baseline: dict[str, Any],
+    packet: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Bind the claim epoch to the exact local governance projection.
+
+    The immutable Git baseline remains the proof origin.  This second snapshot
+    only distinguishes already-committed Palari control-plane projection from
+    product output; it never grants those paths to the packet.
+    """
+
+    root_text = str(baseline.get("git_root") or "")
+    base_sha = str(baseline.get("head_sha") or "")
+    session_head = _git_output(root_text, ["rev-parse", "HEAD"])
+    if not root_text or not _exact_git_sha(base_sha) or not _exact_git_sha(session_head):
+        return None
+    root = Path(root_text).resolve()
+    try:
+        relative_data = data_path.resolve().relative_to(root).as_posix()
+    except (OSError, ValueError) as exc:
+        raise WorkspaceError(
+            f"workspace projection escapes the claim Git repository: {exc}"
+        ) from exc
+    projection_paths = _governance_projection_paths(relative_data)
+    if not _git_ancestor(root_text, base_sha, session_head):
+        raise WorkspaceError(
+            "claim session head does not descend from the immutable proof baseline"
+        )
+    touched = _git_range_paths(root_text, base_sha, session_head, projection_paths)
+    if touched is None:
+        raise WorkspaceError("cannot inspect governance projection commit history")
+    if not touched:
+        return None
+    required = packet.get("required_output") or {}
+    outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
+    if any(
+        any(_runtime_path_matches(path, str(target)) for target in outputs if isinstance(target, str))
+        for path in touched
+    ):
+        return None
+
+    files: list[dict[str, str]] = []
+    for path in projection_paths:
+        payload = _git_blob_bytes(root_text, session_head, path)
+        if payload is None:
+            return None
+        baseline_payload = _git_blob_bytes(root_text, base_sha, path)
+        if baseline_payload is None:
+            return None
+        if (
+            path in touched
+            and path.endswith(("/.palari/history.jsonl", "/.palari/governance-journal.v1.jsonl"))
+            and baseline_payload is not None
+            and not payload.startswith(baseline_payload)
+        ):
+            raise WorkspaceError(
+                f"governance projection path {path} is not an append-only extension of its baseline"
+            )
+        files.append(
+            {
+                "path": path,
+                "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+                "classification": (
+                    "legacy-audit-companion"
+                    if path.endswith("/.palari/history.jsonl")
+                    else "governance-projection"
+                ),
+            }
+        )
+
+    snapshot: dict[str, Any] = {
+        "schema_version": PROJECTION_SNAPSHOT_VERSION,
+        "base_sha": base_sha,
+        "session_start_head": session_head,
+        "changed_paths": sorted(touched),
+        "files": files,
+        "journal_verification": {},
+    }
+    if touched:
+        from .governance_journal import verify_workspace_journal
+
+        report = verify_workspace_journal(data_path.parent)
+        continuity = report.get("continuity") or {}
+        if (
+            not report.get("ok")
+            or report.get("status") != "valid"
+            or not report.get("chain_valid")
+            or report.get("pending") is not None
+            or report.get("current_workspace_digest")
+            != report.get("replay_workspace_digest")
+            or not continuity.get("historical_continuity")
+            or continuity.get("break_sequences")
+        ):
+            raise WorkspaceError(
+                "governance projection cannot be classified because journal continuity is not exact"
+            )
+        snapshot["journal_verification"] = {
+            key: report.get(key)
+            for key in (
+                "status",
+                "chain_valid",
+                "head_record_digest",
+                "current_workspace_digest",
+                "replay_workspace_digest",
+                "record_count",
+                "committed_transactions",
+            )
+        }
+    error = governance_projection_snapshot_error(
+        data_path,
+        baseline,
+        snapshot,
+        require_worktree_match=True,
+    )
+    if error:
+        return None
+    return snapshot
+
+
+def governance_projection_snapshot_error(
+    data_path: Path,
+    baseline: dict[str, Any],
+    snapshot: dict[str, Any],
+    *,
+    require_worktree_match: bool,
+) -> str:
+    """Return a fail-closed error for an invalid or stale claim snapshot."""
+
+    if snapshot.get("schema_version") != PROJECTION_SNAPSHOT_VERSION:
+        return "governance projection snapshot has an unsupported schema"
+    root_text = str(baseline.get("git_root") or "")
+    base_sha = str(baseline.get("head_sha") or "")
+    session_head = str(snapshot.get("session_start_head") or "")
+    if snapshot.get("base_sha") != base_sha:
+        return "governance projection snapshot uses a different proof baseline"
+    if not root_text or not _exact_git_sha(base_sha) or not _exact_git_sha(session_head):
+        return "governance projection snapshot has incomplete Git identity"
+    if not _git_ancestor(root_text, base_sha, session_head):
+        return "governance projection snapshot head is not a baseline descendant"
+    try:
+        root = Path(root_text).resolve()
+        relative_data = data_path.resolve().relative_to(root).as_posix()
+    except (OSError, ValueError):
+        return "workspace projection escapes the claim Git repository"
+    projection_paths = _governance_projection_paths(relative_data)
+    files = snapshot.get("files")
+    if not isinstance(files, list) or len(files) != len(projection_paths):
+        return "governance projection snapshot file manifest is incomplete"
+    manifest: dict[str, dict[str, Any]] = {}
+    for item in files:
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+            return "governance projection snapshot file manifest is malformed"
+        path = item["path"]
+        if path in manifest or path not in projection_paths:
+            return "governance projection snapshot file manifest has an unexpected path"
+        digest = item.get("sha256")
+        if not isinstance(digest, str) or not _valid_sha256(digest):
+            return f"governance projection snapshot digest is malformed for {path}"
+        manifest[path] = item
+    if set(manifest) != set(projection_paths):
+        return "governance projection snapshot file manifest does not match exact paths"
+    touched = _git_range_paths(root_text, base_sha, session_head, projection_paths)
+    declared = snapshot.get("changed_paths")
+    if touched is None or not isinstance(declared, list) or sorted(declared) != sorted(touched):
+        return "governance projection snapshot changed-path history is not exact"
+    for path in projection_paths:
+        payload = _git_blob_bytes(root_text, session_head, path)
+        if payload is None:
+            return f"governance projection snapshot Git blob is unreadable for {path}"
+        digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+        if manifest[path].get("sha256") != digest:
+            return f"governance projection snapshot Git digest differs for {path}"
+        if not require_worktree_match:
+            continue
+        candidate = root / path
+        try:
+            if candidate.is_symlink() or not candidate.is_file():
+                return f"governance projection worktree path is unsafe for {path}"
+            current = candidate.read_bytes()
+        except OSError as exc:
+            return f"cannot read governance projection worktree path {path}: {exc}"
+        if hashlib.sha256(current).hexdigest() != digest.removeprefix("sha256:"):
+            return f"governance projection changed after claim start: {path}"
+    return ""
+
+
+def _governance_projection_snapshot_digest(snapshot: dict[str, Any]) -> str:
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _governance_projection_paths(relative_data: str) -> list[str]:
+    parent = Path(relative_data).parent.as_posix()
+    prefix = "" if parent == "." else parent + "/"
+    return [
+        relative_data,
+        f"{prefix}.palari/history.jsonl",
+        f"{prefix}.palari/governance-journal.v1.jsonl",
+    ]
+
+
+def _runtime_path_matches(path: str, target: str) -> bool:
+    normalized_target = target.rstrip("/")
+    return path == normalized_target or path.startswith(normalized_target + "/")
+
+
+def _exact_git_sha(value: str) -> bool:
+    return len(value) == 40 and all(char in "0123456789abcdef" for char in value)
+
+
+def _git_ancestor(root: str, base_sha: str, head_sha: str) -> bool:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "merge-base",
+                "--is-ancestor",
+                base_sha,
+                head_sha,
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def _git_range_paths(
+    root: str,
+    base_sha: str,
+    head_sha: str,
+    candidates: list[str],
+) -> list[str] | None:
+    if base_sha == head_sha:
+        return []
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "log",
+                "--format=",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                f"{base_sha}..{head_sha}",
+                "--",
+                *candidates,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    allowed = set(candidates)
+    paths = {os.fsdecode(item) for item in result.stdout.split(b"\0") if item}
+    return sorted(path for path in paths if path in allowed)
+
+
+def _git_blob_bytes(root: str, revision: str, path: str) -> bytes | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", root, "--no-replace-objects", "show", f"{revision}:{path}"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
 def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:
     root = str(baseline.get("git_root") or "")
     head = str(baseline.get("head_sha") or "")
@@ -1242,6 +1580,7 @@ def _claim_git_lease(
     session_id: str,
     data_path: Path,
     baseline: dict[str, Any],
+    projection_snapshot_digest: str = "",
 ) -> dict[str, str]:
     root = str(baseline.get("git_root") or "")
     head = str(baseline.get("head_sha") or "")
@@ -1257,7 +1596,11 @@ def _claim_git_lease(
             f"{foreign_claim['lease_expires_at']}"
         )
     record = {
-        "schema_version": GIT_LEASE_VERSION,
+        "schema_version": (
+            GIT_LEASE_VERSION
+            if projection_snapshot_digest
+            else LEGACY_GIT_LEASE_VERSION
+        ),
         "work_item": work_id,
         "claimed_by": palari_id,
         "mode": mode,
@@ -1265,6 +1608,8 @@ def _claim_git_lease(
         "workspace_fingerprint": _workspace_fingerprint(data_path),
         "lease_expires_at": expires,
     }
+    if projection_snapshot_digest:
+        record["governance_projection_snapshot_digest"] = projection_snapshot_digest
     lease_oid = ""
     for _ in range(4):
         current_oid = _git_output(root, ["rev-parse", "--verify", lease_ref])
@@ -1301,17 +1646,22 @@ def _claim_git_lease(
             text=True,
         )
         if result.returncode == 0:
-            return {
+            acquired = {
                 "work_item": work_id,
                 "claimed_by": palari_id,
                 "mode": mode,
                 "claim_session": session_id,
                 "lease_expires_at": expires,
-                "git_lease_version": GIT_LEASE_VERSION,
+                "git_lease_version": record["schema_version"],
                 "git_lease_ref": lease_ref,
                 "git_lease_oid": lease_oid,
                 "workspace_fingerprint": record["workspace_fingerprint"],
             }
+            if projection_snapshot_digest:
+                acquired["governance_projection_snapshot_digest"] = (
+                    projection_snapshot_digest
+                )
+            return acquired
     raise ClaimContentionError(
         work_id,
         f"work {work_id} claim changed concurrently; retry safely",
@@ -1424,6 +1774,10 @@ def _release_git_lease(
         "workspace_fingerprint": claim.get("workspace_fingerprint"),
         "lease_expires_at": claim.get("lease_expires_at"),
     }
+    if claim.get("governance_projection_snapshot_digest"):
+        expected["governance_projection_snapshot_digest"] = claim.get(
+            "governance_projection_snapshot_digest"
+        )
     if any(record.get(field) != value for field, value in expected.items()):
         if strict:
             raise WorkspaceError(
@@ -1460,7 +1814,10 @@ def _git_lease_error(
         return ""
     if not all(isinstance(value, str) and value for value in values):
         return "Git claim lease metadata is incomplete"
-    if claim["git_lease_version"] != GIT_LEASE_VERSION:
+    if claim["git_lease_version"] not in {
+        GIT_LEASE_VERSION,
+        LEGACY_GIT_LEASE_VERSION,
+    }:
         return "Git claim lease version is unsupported"
     work_id = str(claim.get("work_item") or "")
     if claim["git_lease_ref"] != _git_lease_ref(work_id):
@@ -1487,6 +1844,10 @@ def _git_lease_error(
         "workspace_fingerprint": claim.get("workspace_fingerprint"),
         "lease_expires_at": claim.get("lease_expires_at"),
     }
+    if claim.get("governance_projection_snapshot_digest"):
+        expected["governance_projection_snapshot_digest"] = claim.get(
+            "governance_projection_snapshot_digest"
+        )
     for field, value in expected.items():
         if (
             field == "mode"
@@ -1548,11 +1909,18 @@ def _read_git_lease(
         "workspace_fingerprint",
         "lease_expires_at",
     }
-    if not isinstance(value, dict) or set(value) != required:
+    if not isinstance(value, dict):
+        raise WorkspaceError(f"Git claim lease {lease_ref} has an invalid contract")
+    schema_version = value.get("schema_version")
+    if schema_version == GIT_LEASE_VERSION:
+        required.add("governance_projection_snapshot_digest")
+    elif schema_version != LEGACY_GIT_LEASE_VERSION:
+        raise WorkspaceError(f"Git claim lease {lease_ref} has an invalid contract")
+    if set(value) != required:
         raise WorkspaceError(f"Git claim lease {lease_ref} has an invalid contract")
     if not all(isinstance(value[field], str) and value[field] for field in required):
         raise WorkspaceError(f"Git claim lease {lease_ref} has missing values")
-    if value["schema_version"] != GIT_LEASE_VERSION or value["work_item"] != work_id:
+    if value["work_item"] != work_id:
         raise WorkspaceError(f"Git claim lease {lease_ref} identifies different work")
     if value["mode"] not in {"execute", "review"}:
         raise WorkspaceError(f"Git claim lease {lease_ref} has an invalid mode")

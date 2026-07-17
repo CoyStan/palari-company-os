@@ -11,7 +11,13 @@ from typing import Any, cast
 
 from .agent_done import _preflight
 from .agent_handoff import build_agent_handoff
-from .agent_runtime import claim_check, read_claim, read_claim_packet, release_agent
+from .agent_runtime import (
+    claim_check,
+    governance_projection_snapshot_error,
+    read_claim,
+    read_claim_packet,
+    release_agent,
+)
 from .authoring import (
     ReconciliationStateChanged,
     complete_work,
@@ -94,7 +100,7 @@ def agent_advance_dry_run(
         "execute",
         str(packet.get("context_hash") or ""),
     )
-    preflight = _preflight(
+    preflight = _projection_bound_preflight(
         cast(Workspace, SimpleNamespace(path=data_path.parent)),
         workspace_path,
         work_id,
@@ -617,7 +623,7 @@ def _collect_facts(
         "execute",
         str(packet.get("context_hash") or ""),
     )
-    preflight = _preflight(
+    preflight = _projection_bound_preflight(
         workspace,
         workspace_path,
         work_id,
@@ -729,6 +735,212 @@ def _collect_facts(
         "workspace_digest": workspace_digest(load_store(workspace_path).data),
     }
     return facts, profiles, context, preflight
+
+
+def _projection_bound_preflight(
+    workspace: Workspace,
+    workspace_path: Path | str,
+    work_id: str,
+    palari_id: str,
+    declared_changed: list[str] | None,
+    *,
+    packet: dict[str, Any],
+    allow_current_proof_projection: bool = False,
+) -> dict[str, Any]:
+    """Separate lease-bound Palari projection from agent-authored output.
+
+    The augmented packet exists only for this proof inspection.  Persisted
+    packet authority and hook write boundaries never receive these paths.
+    """
+
+    claim = read_claim(workspace_path, work_id) or {}
+    snapshot = claim.get("governance_projection_snapshot")
+    baseline = claim.get("git_baseline")
+    if not isinstance(snapshot, dict) or not isinstance(baseline, dict):
+        return _preflight(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+            declared_changed,
+            packet=packet,
+            allow_current_proof_projection=allow_current_proof_projection,
+        )
+    data_path = workspace_file_path(workspace_path)
+    snapshot_error = governance_projection_snapshot_error(
+        data_path,
+        baseline,
+        snapshot,
+        require_worktree_match=not allow_current_proof_projection,
+    )
+    if snapshot_error:
+        return _projection_preflight_blocked(snapshot_error)
+    root_text = str(baseline.get("git_root") or "")
+    root = Path(root_text)
+    session_head = str(snapshot.get("session_start_head") or "")
+    current_head = _exact_head(root_text)
+    if not current_head or not _exact_git_descendant(root_text, session_head, current_head):
+        return _projection_preflight_blocked(
+            "current Git HEAD does not descend from the governance projection snapshot"
+        )
+    projection_paths = _projection_artifact_paths(Path(workspace_path), root)
+    if projection_paths is None:
+        return _projection_preflight_blocked(
+            "governance projection paths escape the Git repository boundary"
+        )
+    later_paths = _exact_committed_paths(root_text, session_head, current_head)
+    if later_paths is None:
+        return _projection_preflight_blocked(
+            "post-claim commit history is unreadable"
+        )
+    later_projection = sorted(set(later_paths) & projection_paths)
+    if later_projection:
+        return _projection_preflight_blocked(
+            "governance projection changed in a post-claim commit: "
+            + ", ".join(later_projection)
+        )
+    classified = sorted(
+        path
+        for path in snapshot.get("changed_paths", [])
+        if isinstance(path, str) and path in projection_paths
+    )
+    if not classified:
+        return _preflight(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+            declared_changed,
+            packet=packet,
+            allow_current_proof_projection=allow_current_proof_projection,
+        )
+    required = packet.get("required_output") or {}
+    outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
+    governed_projection = [
+        path
+        for path in classified
+        if any(
+            isinstance(target, str) and path_allowed(path, [target])
+            for target in outputs
+        )
+    ]
+    if governed_projection:
+        return _preflight(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+            declared_changed,
+            packet=packet,
+            allow_current_proof_projection=allow_current_proof_projection,
+        )
+    if allow_current_proof_projection:
+        from .governance_journal import verify_workspace_journal
+
+        journal = verify_workspace_journal(Path(workspace_path))
+        continuity = journal.get("continuity") or {}
+        if (
+            not journal.get("ok")
+            or journal.get("status") != "valid"
+            or not journal.get("chain_valid")
+            or journal.get("pending") is not None
+            or journal.get("current_workspace_digest")
+            != journal.get("replay_workspace_digest")
+            or not continuity.get("historical_continuity")
+            or continuity.get("break_sequences")
+        ):
+            return _projection_preflight_blocked(
+                "current proof projection does not have exact journal continuity"
+            )
+    allowed = packet.get("allowed_paths") or {}
+    augmented_packet = {
+        **packet,
+        "allowed_paths": {
+            **allowed,
+            "write": sorted(
+                set(
+                    path
+                    for path in allowed.get("write", [])
+                    if isinstance(path, str)
+                )
+                | set(classified)
+            ),
+        },
+    }
+    result = _preflight(
+        workspace,
+        workspace_path,
+        work_id,
+        palari_id,
+        declared_changed,
+        packet=augmented_packet,
+        allow_current_proof_projection=allow_current_proof_projection,
+    )
+    if not result.get("ok"):
+        return result
+    proof_range = list(result.get("changed_files") or [])
+    effective = sorted(path for path in proof_range if path not in classified)
+    if not effective:
+        return _projection_preflight_blocked(
+            "no agent-authored committed change remains after control-plane classification"
+        )
+    manifest = {
+        item.get("path"): item
+        for item in snapshot.get("files", [])
+        if isinstance(item, dict)
+    }
+    verified = [
+        {
+            "path": path,
+            "classification": str(
+                (manifest.get(path) or {}).get("classification")
+                or "governance-projection"
+            ),
+            "session_start_head": session_head,
+        }
+        for path in classified
+    ]
+    return {
+        **result,
+        "message": (
+            "Active claim, clean worktree, exact claim-start range, write boundary, "
+            "and lease-bound governance projection verified."
+        ),
+        "changed_files": effective,
+        "proof_range_changed_files": proof_range,
+        "verified_governance_projection_changes": verified,
+        "governance_projection_snapshot_digest": claim.get(
+            "governance_projection_snapshot_digest", ""
+        ),
+    }
+
+
+def _projection_preflight_blocked(message: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "message": message,
+        "git_root": "",
+        "base_sha": "",
+        "head_sha": "",
+        "changed_files": [],
+        "verified_governance_projection_changes": [],
+    }
+
+
+def _exact_head(root: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", root, "--no-replace-objects", "rev-parse", "HEAD"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and _exact_git_sha(value) else ""
 
 
 def _reconcile_proof(
@@ -1781,6 +1993,8 @@ def _exact_committed_paths(
     base_sha: str,
     head_sha: str,
 ) -> list[str] | None:
+    if base_sha == head_sha and _exact_git_sha(base_sha):
+        return []
     try:
         result = subprocess.run(
             [
@@ -2713,7 +2927,7 @@ def _resume_preflight(
             "head_sha": "",
             "changed_files": [],
         }
-    preflight = _preflight(
+    preflight = _projection_bound_preflight(
         workspace,
         workspace_path,
         work.id,
