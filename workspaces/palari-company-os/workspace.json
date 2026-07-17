@@ -3318,7 +3318,7 @@
         "palari validate and a read-only Approval Inbox smoke pass after checkpointing."
       ],
       "required_approval_count": 0,
-      "current_attempt": "ATTEMPT-ADVANCE-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-9630B0DC907F"
+      "current_attempt": "ATTEMPT-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86"
     },
     {
       "id": "WORK-091915D43FD04B929A0E561722EC8BDF",
@@ -6743,6 +6743,32 @@
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ]
+    },
+    {
+      "id": "ATTEMPT-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "allowed_paths": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "started_at": "2026-07-17T06:43:57.000001Z",
+      "head_sha": "e7b4791a7f8686151e658844f65d9267a7b3fa1d",
+      "commits": [
+        "e7b4791a7f8686151e658844f65d9267a7b3fa1d"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-17T06:43:57.000001Z",
+      "changed_files": [],
+      "output_targets": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
       ]
     }
   ],
@@ -10451,6 +10477,47 @@
       "receipt_hash": "sha256:1a908489abd786033180f0c53a215d67de681897c44ea36cb5b9c97acc548ef5",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:570908496740316d44bf25a9334b817253eba042bd86716753296b0a0eb981b2"
+    },
+    {
+      "id": "EVIDENCE-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "attempt_id": "ATTEMPT-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86",
+      "head_sha": "e7b4791a7f8686151e658844f65d9267a7b3fa1d",
+      "status": "passed",
+      "base_ref": "9630b0dc907f805172aa67a75cf650f664134e84",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-31EC2A8E2F0F6402 sha256:968c46180368f6447a2951a24d15add896c66e18981d200931ec2a8e2f0f6402",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-A06CFB7AC52B54CD sha256:2b0cbc85e8051fd61198f694a086ea14d9cf0fd9f8573c61a06cfb7ac52b54cd",
+        "docs-check attestation VERIFY-DOCS-CHECK-4058CF13E41E9284 sha256:31a12c750ac506055619b64e36431e4895f2b726319e2b594058cf13e41e9284"
+      ],
+      "artifacts": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+          "sha256": "sha256:15db775ccf39ef8e1bac1f9e9b1fff570f21b7e1873ee1efee9baa003a952703",
+          "status": "present"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/history.jsonl",
+          "sha256": "sha256:2c92e08b205db78814fa46b74be2987d0a286707c777eef8a6935b54045e84f8",
+          "status": "present"
+        },
+        {
+          "path": "workspaces/palari-company-os/workspace.json",
+          "sha256": "sha256:686e40d5d168c0aec3ba9956770086aa54262c17d45cb59320bbc22dcee49ee0",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed for unchanged governed artifacts.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-17T06:43:57.000001Z",
+      "receipt_hash": "sha256:ab12e5276854278d4e0e7edc2248dc260f7789ec5290deaafcc2c6b73639a398",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:40378b765c17872a15b39697476154c993afae165a9994605a2cf9a6522a8649"
     }
   ],
   "review_verdicts": [
@@ -13902,6 +13969,32 @@
       "timestamp": "2026-07-16T22:21:08Z",
       "previous_receipt_hash": "sha256:e7770fcd8a6d186c12b0501a944be48fa3b4570ebb5c7873170af9d06170b617",
       "receipt_hash": "sha256:1a908489abd786033180f0c53a215d67de681897c44ea36cb5b9c97acc548ef5"
+    },
+    {
+      "id": "RECEIPT-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "attempt_id": "ATTEMPT-REFRESH-WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5-E7B4791A7F86",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Reverified 3 unchanged governed artifact(s) at current repository HEAD.",
+        "Reran the authoritative exact-state verification profiles."
+      ],
+      "outputs_created": [
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "not_done": [
+        "No governed artifact bytes were changed.",
+        "No review, human decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [],
+      "timestamp": "2026-07-17T06:43:57.000001Z",
+      "previous_receipt_hash": "sha256:8e0351322354e666d493de0c7bec9775cd4a29863552ae8ad0d6def23ea27f96",
+      "receipt_hash": "sha256:ab12e5276854278d4e0e7edc2248dc260f7789ec5290deaafcc2c6b73639a398"
     }
   ],
   "decisions": [
