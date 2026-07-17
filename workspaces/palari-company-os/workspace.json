@@ -11427,6 +11427,14 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-17T07:23:49.872090Z"
+    },
+    {
+      "id": "REVIEW-PROJECTION-NARRATION-ARCHITECT-AC013AB-CHANGES",
+      "work_item_id": "WORK-AA4EBA9EE93F46A1982A4E03FA7A2D8D",
+      "reviewed_head": "ac013ab5a24770b00fdee22195785da1b3c2392e",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-17T07:35:24.129163Z"
     }
   ],
   "human_decisions": [
