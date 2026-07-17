@@ -3404,7 +3404,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Route a bound changes-requested stale proof through Palari's claimless exact-head refresh transaction after separately governed commits, without rotating the immutable claim baseline or absorbing unrelated paths.",
       "allowed_resources": [
         "src/palari_company_os/agent_runtime.py",
@@ -11209,6 +11209,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-091915D43FD04B929A0E561722EC8BDF-9010C2A587E8",
       "review_reference": "REVIEW-JOURNAL-REPAIR-ARCHITECT-9010C2A-ACCEPT",
       "timestamp": "2026-07-16T21:42:14.829451Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-A8900CC385B240039865B8BA3D3B32CF-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "fb02ded083d5741b4eb4cfddc5a9a91f35ff8e66",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-FB02DED083D5",
+      "review_reference": "REVIEW-SAFE-REFRESH-FINAL-ARCHITECT-FB02DED-ACCEPT",
+      "timestamp": "2026-07-17T03:51:34.878715Z"
     }
   ],
   "receipts": [
@@ -14415,6 +14428,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-16T21:42:33.929971Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-HUMAN-FOUNDER",
+      "work_item_id": "WORK-A8900CC385B240039865B8BA3D3B32CF",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "fb02ded083d5741b4eb4cfddc5a9a91f35ff8e66",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-A8900CC385B240039865B8BA3D3B32CF-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-A8900CC385B240039865B8BA3D3B32CF-FB02DED083D5",
+      "review_reference": "REVIEW-SAFE-REFRESH-FINAL-ARCHITECT-FB02DED-ACCEPT",
+      "receipt_hash": "sha256:1a908489abd786033180f0c53a215d67de681897c44ea36cb5b9c97acc548ef5",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-17T03:52:07.836501Z"
     }
   ]
 }
