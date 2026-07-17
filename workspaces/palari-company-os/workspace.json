@@ -7331,6 +7331,31 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
       ]
+    },
+    {
+      "allowed_paths": [
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/governance_convergence.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_governance_completion.py",
+        "tests/test_one_action_convergence.py",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/security.md"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_kernel.py",
+        "tests/test_governance_kernel.py"
+      ],
+      "id": "ATTEMPT-437003B620774C2E99C44668EE402C26-4B96A7E",
+      "work_item_id": "WORK-437003B620774C2E99C44668EE402C26",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/presentation-bound-human-decisions",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "cleanliness": "clean",
+      "started_at": "2026-07-17T09:05:26.371261Z"
     }
   ],
   "evidence_runs": [
