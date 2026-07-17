@@ -437,7 +437,8 @@
         "src/palari_company_os/approval_presentations.py",
         "tests/test_approval_presentations.py",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
-        "docs/product/testing-guide.md"
+        "docs/product/testing-guide.md",
+        "spec/pcaw/v1/trusted-code.json"
       ],
       "status": "active"
     },
@@ -3824,6 +3825,101 @@
       "acceptance_target": "One all-agent queue operation performs exactly one full governance-journal read; three current dogfood agent-next runs stay below ten seconds; current handoff behavior is asserted from deterministic proof state; dashboard, decision-guide, and workspace read-model tests remain meaningful after legitimate dogfood decisions; all previously failing focused tests, complete verification, install smoke, docs, and PCAW conformance pass.",
       "required_approval_count": 0,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-4E434990123E4E938E5B584C33E33BC7-904B1AD245BE"
+    },
+    {
+      "id": "WORK-7B5E9C2A6FAD4E87B16943F8C7D0A251",
+      "title": "Collapse approval handoff journal verification to one scan",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R3",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Thread one filesystem-witnessed request-local journal verification through human-approval handoff, Approval Pack construction, evidence binding, and dependency recursion so an exact handoff scans the governance journal once without weakening stale, corrupt, pending, divergent, or presentation-binding rejection.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_governance_journal.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "spec/pcaw/v1/trusted-code.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_governance_journal.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "spec/pcaw/v1/trusted-code.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_governance_journal.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "spec/pcaw/v1/trusted-code.json",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "parallel_policy": "coordinate",
+      "forbidden_actions": [
+        "weaken journal validation",
+        "persist trusted verification cache",
+        "cache evidence across requests",
+        "raise timeouts to hide latency",
+        "weaken approval or presentation bindings",
+        "external write",
+        "push",
+        "merge",
+        "deploy"
+      ],
+      "acceptance_target": "A real eligible dogfood human-approval handoff performs exactly one governance-journal read and completes below ten seconds; output and pack digests remain identical; changed witnesses force fresh verification; corrupt, pending, divergent, stale-evidence, stale-review, dependency, and presentation mismatches fail closed; affected tests, complete verification within the 86.77-second budget, docs, conformance, and install smoke pass.",
+      "verification_expectations": [
+        "Focused handoff and Approval Pack tests pass with exactly one journal read",
+        "Three real dogfood handoffs complete below ten seconds",
+        "Complete verification is at most 86.77 seconds and install smoke passes"
+      ],
+      "required_approval_count": 0,
+      "parent_work_item_id": "WORK-437003B620774C2E99C44668EE402C26"
     }
   ],
   "attempts": [
@@ -7663,6 +7759,33 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
       ]
+    },
+    {
+      "allowed_paths": [
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_governance_journal.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "spec/pcaw/v1/trusted-code.json"
+      ],
+      "id": "ATTEMPT-7B5E9C2A6FAD4E87B16943F8C7D0A251-HANDOFF",
+      "work_item_id": "WORK-7B5E9C2A6FAD4E87B16943F8C7D0A251",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/presentation-bound-human-decisions",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "started_at": "2026-07-17T12:26:14.020448Z"
     }
   ],
   "evidence_runs": [
