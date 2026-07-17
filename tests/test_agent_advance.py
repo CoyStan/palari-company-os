@@ -996,6 +996,13 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             rebound_by_path["workspace.json"]["previous_status"],
             "not-recorded",
         )
+        self.assertTrue(
+            all(
+                item["transition"] == "rebound"
+                and item["current_status"] == "present"
+                for item in rebound_by_path.values()
+            )
+        )
         self.assertEqual(
             planned["refresh"]["proof_projection_mutates_after_evidence"],
             expected_projections,
@@ -1086,6 +1093,89 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
 
         self.assertIsNone(transition)
+
+    def test_refresh_transition_reports_uniform_projection_records(self) -> None:
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            [".palari/history.jsonl", "workspace.json"],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "sha256": "sha256:" + "1" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+            ],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "sha256": "sha256:" + "3" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+            ],
+        )
+
+        self.assertIsNotNone(transition)
+        assert transition is not None
+        self.assertEqual(
+            transition["projection_artifacts_unchanged"],
+            [
+                {
+                    "path": "workspace.json",
+                    "transition": "unchanged",
+                    "previous_sha256": "sha256:" + "2" * 64,
+                    "previous_status": "present",
+                    "current_sha256": "sha256:" + "2" * 64,
+                    "current_status": "present",
+                }
+            ],
+        )
+        self.assertEqual(
+            transition["projection_artifacts_rebound"],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "transition": "rebound",
+                    "previous_sha256": "sha256:" + "1" * 64,
+                    "previous_status": "present",
+                    "current_sha256": "sha256:" + "3" * 64,
+                    "current_status": "present",
+                }
+            ],
+        )
+
+    def test_refresh_transition_rejects_malformed_hash_or_status(self) -> None:
+        valid = {
+            "path": "workspace.json",
+            "sha256": "sha256:" + "1" * 64,
+            "status": "present",
+        }
+        malformed = (
+            {**valid, "sha256": "sha256:short"},
+            {**valid, "status": "unknown"},
+            {key: value for key, value in valid.items() if key != "status"},
+        )
+
+        for item in malformed:
+            with self.subTest(item=item):
+                transition = _refresh_artifact_transition(
+                    self.temp_dir,
+                    self.temp_dir,
+                    ["workspace.json"],
+                    [valid],
+                    [item],
+                )
+                self.assertIsNone(transition)
 
     def test_changes_requested_refresh_rejects_mismatched_review_head(self) -> None:
         with patch(

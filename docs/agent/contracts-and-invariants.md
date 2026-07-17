@@ -110,8 +110,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   separately governed descendant commits; dry-run previews it without
   verification or mutation. Self-mutating workspace, history, and journal
   projections are classified separately: their previous and current exact Git
-  hashes are reported as unchanged or rebound, and the receipt discloses that
-  recording proof mutates those projections after the evidence head. Every raw
+  hashes and statuses are reported in one uniform record as unchanged or
+  rebound; malformed digests or statuses fail closed. A missing legacy
+  projection hash is explicit `not-recorded`, never inferred. The receipt
+  discloses that recording proof mutates those projections after the evidence
+  head. Every raw
   commit is compared with every parent, with Git replacement objects disabled.
   Any non-projection output touch, even if later restored, active claim,
   mismatched review head, dirty tracked state, or divergent history fails closed.

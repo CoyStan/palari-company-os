@@ -42,7 +42,9 @@ Authority rules:
   non-projection output blocks refresh even if a later commit restores identical
   bytes. Self-mutating projection artifacts may evolve through legitimate
   governance transactions, but refresh reports their previous/current exact Git
-  hashes as rebound rather than calling them byte-unchanged. It also discloses
+  hashes and statuses in uniform unchanged/rebound records rather than calling
+  them byte-unchanged. Missing legacy projection hashes are explicit and
+  malformed hash/status records fail closed. Refresh also discloses
   that recording refreshed proof mutates those projections after the evidence
   head. The refreshed proof invalidates prior review and human authority.
 - `agent advance` applies that same exact-range proof to every risk tier. Its

@@ -1330,10 +1330,11 @@ def _refresh_stale_projection(
     ]
     transition = refresh["artifact_transition"]
     ordinary_artifacts = list(transition["ordinary_artifacts_unchanged"])
-    projection_rebounds = list(transition["projection_artifacts_rebound"])
+    projection_records = list(transition["projection_artifacts_unchanged"]) + list(
+        transition["projection_artifacts_rebound"]
+    )
     projection_artifacts = sorted(
-        list(transition["projection_artifacts_unchanged"])
-        + [str(item["path"]) for item in projection_rebounds]
+        str(item["path"]) for item in projection_records
     )
     actions_taken: list[str] = []
     if ordinary_artifacts:
@@ -1923,18 +1924,25 @@ def _refresh_artifact_transition(
     if projection_paths is None:
         return None
 
-    def hash_map(items: list[dict[str, Any]]) -> dict[str, str] | None:
-        result: dict[str, str] = {}
+    def hash_map(
+        items: list[dict[str, Any]],
+    ) -> dict[str, dict[str, str]] | None:
+        result: dict[str, dict[str, str]] = {}
         for item in items:
             if not isinstance(item, dict):
                 return None
             path = item.get("path")
             digest = item.get("sha256")
-            if not isinstance(path, str) or not isinstance(digest, str):
+            status = item.get("status")
+            if (
+                not isinstance(path, str)
+                or not _exact_sha256_digest(digest)
+                or status != "present"
+            ):
                 return None
             if path in result or path not in artifacts:
                 return None
-            result[path] = digest
+            result[path] = {"sha256": digest, "status": status}
         return result
 
     previous = hash_map(previous_hashes)
@@ -1948,31 +1956,34 @@ def _refresh_artifact_transition(
         return None
 
     ordinary_unchanged: list[str] = []
-    projection_unchanged: list[str] = []
+    projection_unchanged: list[dict[str, str]] = []
     projection_rebound: list[dict[str, str]] = []
     for path in artifacts:
         if path not in projection_paths:
-            if previous[path] != current[path]:
+            if previous[path]["sha256"] != current[path]["sha256"]:
                 return None
             ordinary_unchanged.append(path)
             continue
-        previous_digest = previous.get(path, "")
-        if previous_digest and previous_digest == current[path]:
-            projection_unchanged.append(path)
+        previous_item = previous.get(path)
+        previous_digest = previous_item["sha256"] if previous_item else ""
+        unchanged = bool(
+            previous_item and previous_digest == current[path]["sha256"]
+        )
+        projection_record = {
+            "path": path,
+            "transition": "unchanged" if unchanged else "rebound",
+            "previous_sha256": previous_digest,
+            "previous_status": "present" if previous_item else "not-recorded",
+            "current_sha256": current[path]["sha256"],
+            "current_status": current[path]["status"],
+        }
+        if unchanged:
+            projection_unchanged.append(projection_record)
         else:
-            projection_rebound.append(
-                {
-                    "path": path,
-                    "previous_sha256": previous_digest,
-                    "previous_status": (
-                        "recorded" if previous_digest else "not-recorded"
-                    ),
-                    "current_sha256": current[path],
-                }
-            )
-    proof_projection_paths = sorted(projection_unchanged + [
-        item["path"] for item in projection_rebound
-    ])
+            projection_rebound.append(projection_record)
+    proof_projection_paths = sorted(
+        item["path"] for item in projection_unchanged + projection_rebound
+    )
     return {
         # Compatibility field: true only when every governed artifact is
         # byte-identical across the proof-head transition.
@@ -1996,6 +2007,15 @@ def _refresh_plan_message(transition: dict[str, Any]) -> str:
     return (
         "Current governed outputs are byte-unchanged and can be reverified at the "
         "exact current head; fresh independent review will still be required."
+    )
+
+
+def _exact_sha256_digest(value: Any) -> bool:
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        return False
+    digest = value.removeprefix("sha256:")
+    return len(digest) == 64 and all(
+        character in "0123456789abcdef" for character in digest
     )
 
 

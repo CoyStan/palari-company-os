@@ -69,8 +69,10 @@ The v1 loop is:
     verification, records new exact-head proof, and stops for fresh independent
     review. Self-mutating workspace, history, and journal artifacts are not
     described as immutable: structured output lists ordinary unchanged paths,
-    projection paths rebound with previous/current hashes, and projection paths
-    that proof recording will mutate after the evidence head. Separately governed
+    uniform per-projection records with previous/current hashes and statuses plus
+    an unchanged or rebound transition, and projection paths that proof recording
+    will mutate after the evidence head. Missing legacy projection hashes are
+    `not-recorded`; malformed hashes or statuses fail closed. Separately governed
     descendant commits are context, not claimed work. Every commit is compared
     with every parent, so a touched non-projection output is rejected even when
     its bytes were later restored; an active claim,

@@ -89,8 +89,9 @@ The test suite covers:
 - coordinated claim/packet/baseline rehash rejection and Git witness history
 - claimless changes-requested proof refresh preview and execution, including
   truthful ordinary-unchanged versus self-mutating-projection rebound status,
-  previous/current projection hashes, and post-evidence projection-mutation
-  disclosure; active-claim, missing ordinary hash, mismatched-review,
+  uniform previous/current projection hashes and statuses, legacy not-recorded
+  projection hashes, malformed transition inputs, and post-evidence
+  projection-mutation disclosure; active-claim, missing ordinary hash, mismatched-review,
   changed-then-restored output (including merge-only changes), dirty-state, and
   exact-history rejection
 - agent-shell denial for human-only and packet-authority commands, dynamic
