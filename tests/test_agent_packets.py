@@ -28,6 +28,7 @@ from palari_company_os.agent_isolation import (
 )
 from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
+from palari_company_os import governance_journal
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_runtime import release_agent, start_agent
 from palari_company_os.evidence_manifest import evidence_manifest_hash
@@ -779,10 +780,16 @@ class AgentPacketTests(unittest.TestCase):
     def test_agent_next_all_rolls_up_all_palaris(self) -> None:
         workspace = Workspace.load(DOGFOOD)
 
-        with patch(
-            "palari_company_os.agent_next.queue_items",
-            wraps=queue_items,
-        ) as build_queue:
+        with (
+            patch(
+                "palari_company_os.agent_next.queue_items",
+                wraps=queue_items,
+            ) as build_queue,
+            patch(
+                "palari_company_os.governance_journal._read_records",
+                wraps=governance_journal._read_records,
+            ) as read_journal,
+        ):
             result = build_agent_next_all(workspace)
         agent_ids = {agent["agent"]["id"] for agent in result["agents"]}
         candidates = [
@@ -804,6 +811,7 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
         self.assertEqual(build_queue.call_count, 1)
+        self.assertEqual(read_journal.call_count, 1)
         if not candidates:
             self.assertIsNone(result["top_candidate"])
             self.assertEqual(result["status"], "no-ready-work")

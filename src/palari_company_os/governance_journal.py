@@ -145,28 +145,28 @@ class _JournalState:
 class JournalVerificationContext:
     """Reuse one exact journal verification inside a bounded read operation.
 
-    The context is intentionally in-memory and caller-owned.  Reuse is allowed
-    only while the workspace and journal bytes retain the exact SHA-256
-    fingerprint observed by the prior verification.
+    The context is intentionally in-memory and caller-owned. Reuse is allowed
+    only while the workspace and journal retain the filesystem change witness
+    observed by the prior exact verification.
     """
 
     _data_path: Path | None = None
-    _fingerprint: tuple[str, str] | None = None
+    _witness: tuple[tuple[Any, ...], tuple[Any, ...]] | None = None
     _report: dict[str, Any] | None = None
 
     def verify(self, workspace_path: Path | str) -> dict[str, Any]:
         data_path = _workspace_data_path(workspace_path)
-        fingerprint = _verification_fingerprint(data_path)
+        witness = _verification_witness(data_path)
         if (
             self._data_path == data_path
-            and self._fingerprint == fingerprint
+            and self._witness == witness
             and self._report is not None
         ):
             return deepcopy(self._report)
 
-        before = fingerprint
+        before = witness
         report = verify_workspace_journal(workspace_path)
-        after = _verification_fingerprint(data_path)
+        after = _verification_witness(data_path)
         if before != after:
             report = _operator_report(
                 _error_report(
@@ -179,7 +179,7 @@ class JournalVerificationContext:
                 )
             )
         self._data_path = data_path
-        self._fingerprint = after
+        self._witness = after
         self._report = deepcopy(report)
         return report
 
@@ -1511,21 +1511,28 @@ def _workspace_data_path(workspace_path: Path | str) -> Path:
     return path / "workspace.json" if path.is_dir() else path
 
 
-def _verification_fingerprint(data_path: Path) -> tuple[str, str]:
+def _verification_witness(
+    data_path: Path,
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
     return (
-        _file_sha256(data_path),
-        _file_sha256(journal_file_path(data_path)),
+        _file_witness(data_path),
+        _file_witness(journal_file_path(data_path)),
     )
 
 
-def _file_sha256(path: Path) -> str:
-    if not path.exists():
-        return "missing"
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return f"{HASH_PREFIX}{digest.hexdigest()}"
+def _file_witness(path: Path) -> tuple[Any, ...]:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return ("missing",)
+    return (
+        "present",
+        stat.st_dev,
+        stat.st_ino,
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+    )
 
 
 def _operator_report(report: dict[str, Any]) -> dict[str, Any]:
