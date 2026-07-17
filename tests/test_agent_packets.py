@@ -11,6 +11,7 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -32,6 +33,7 @@ from palari_company_os.agent_runtime import release_agent, start_agent
 from palari_company_os.evidence_manifest import evidence_manifest_hash
 from palari_company_os.governance_binding import current_review_binding, review_proof_hash
 from palari_company_os.onramp import quick_add_work
+from palari_company_os.read_models import queue_items
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -777,7 +779,11 @@ class AgentPacketTests(unittest.TestCase):
     def test_agent_next_all_rolls_up_all_palaris(self) -> None:
         workspace = Workspace.load(DOGFOOD)
 
-        result = build_agent_next_all(workspace)
+        with patch(
+            "palari_company_os.agent_next.queue_items",
+            wraps=queue_items,
+        ) as build_queue:
+            result = build_agent_next_all(workspace)
         agent_ids = {agent["agent"]["id"] for agent in result["agents"]}
         candidates = [
             {"agent": agent["agent"], "candidate": candidate}
@@ -797,6 +803,7 @@ class AgentPacketTests(unittest.TestCase):
             sum(agent["blocked_count"] for agent in result["agents"]),
         )
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
+        self.assertEqual(build_queue.call_count, 1)
         if not candidates:
             self.assertIsNone(result["top_candidate"])
             self.assertEqual(result["status"], "no-ready-work")

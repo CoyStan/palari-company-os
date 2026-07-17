@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, TypeVar
 
 from .governance_binding import current_review_binding_errors
+from .governance_journal import JournalVerificationContext
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
 from .record_order import record_time_key as _record_time_key
@@ -97,6 +98,7 @@ class _ReadContext:
     active_parallel: list[dict[str, Any]]
     active_attempts_by_work: dict[str, list[dict[str, Any]]]
     coordination_warnings: list[dict[str, Any]]
+    journal_verification: JournalVerificationContext
     warning_messages_by_work: dict[str, list[str]] = field(default_factory=dict)
 
 
@@ -280,6 +282,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         active_parallel=active_parallel,
         active_attempts_by_work=active_attempts_by_work,
         coordination_warnings=coordination,
+        journal_verification=JournalVerificationContext(),
         warning_messages_by_work=warning_messages_by_work,
     )
 
@@ -637,7 +640,11 @@ def _review_state(workspace: Workspace, work: Any, context: _ReadContext) -> str
         return "missing"
     if review.reviewed_head != evidence.head_sha:
         return "stale"
-    if review.verdict == "accept-ready" and current_review_binding_errors(workspace, review):
+    if review.verdict == "accept-ready" and current_review_binding_errors(
+        workspace,
+        review,
+        journal_context=context.journal_verification,
+    ):
         return "stale"
     return review.verdict
 
@@ -673,7 +680,11 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
     if (
         review
         and review.verdict == "accept-ready"
-        and not current_review_binding_errors(workspace, review)
+        and not current_review_binding_errors(
+            workspace,
+            review,
+            journal_context=context.journal_verification,
+        )
         and _approval_quorum_met(work, review, context)
     ):
         return "ready"
@@ -685,7 +696,12 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
 def _approval_progress(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     review = context.latest_review_by_work.get(work.id)
     if review is None or (
-        review.verdict == "accept-ready" and current_review_binding_errors(workspace, review)
+        review.verdict == "accept-ready"
+        and current_review_binding_errors(
+            workspace,
+            review,
+            journal_context=context.journal_verification,
+        )
     ):
         return f"0/{work.required_approval_count}"
     count = _qualified_approval_count(work, review, context)
@@ -698,7 +714,11 @@ def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) ->
         if acceptance.status != "accepted":
             return acceptance.status
         review = context.latest_review_by_work.get(work.id)
-        if review is None or current_review_binding_errors(workspace, review):
+        if review is None or current_review_binding_errors(
+            workspace,
+            review,
+            journal_context=context.journal_verification,
+        ):
             return "stale"
         latest_for_human = _latest_decisions_by_human(work, review, context).get(
             acceptance.human_id
@@ -718,7 +738,11 @@ def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) ->
     if (
         review
         and review.verdict == "accept-ready"
-        and not current_review_binding_errors(workspace, review)
+        and not current_review_binding_errors(
+            workspace,
+            review,
+            journal_context=context.journal_verification,
+        )
         and _approval_quorum_met(work, review, context)
     ):
         return "ready-to-record"

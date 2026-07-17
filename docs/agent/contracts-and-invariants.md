@@ -21,6 +21,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   current workspace, so recording proof does not stale itself and journal
   corruption or projection divergence still fails closed. Ordinary artifacts
   remain bound to current filesystem bytes.
+- One bounded read-model operation may reuse a journal-verification result only
+  through an in-memory request context and only while SHA-256 fingerprints of
+  both `workspace.json` and the journal remain exact. Byte changes force fresh
+  verification; persistent advisory caches never become acceptance authority.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   Schema migration preserves record placement, detects concurrent changes to

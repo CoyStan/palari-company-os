@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .governance_journal import JournalVerificationContext
 from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
@@ -170,6 +171,7 @@ def verify_evidence(
     evidence_id: str,
     *,
     require_output_coverage: bool | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     evidence = next((item for item in workspace.evidence_runs if item.id == evidence_id), None)
     if evidence is None:
@@ -232,9 +234,12 @@ def verify_evidence(
     journal_verification: dict[str, Any] | None = None
     journal_continuity_ok = True
     if exact_head_artifacts:
-        from .governance_journal import verify_workspace_journal
+        if journal_context is None:
+            from .governance_journal import verify_workspace_journal
 
-        journal_verification = verify_workspace_journal(workspace.path)
+            journal_verification = verify_workspace_journal(workspace.path)
+        else:
+            journal_verification = journal_context.verify(workspace.path)
         journal_continuity_ok = bool(journal_verification["ok"])
     ok = (
         status_ok

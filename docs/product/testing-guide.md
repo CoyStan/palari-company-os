@@ -35,6 +35,18 @@ selection. If an affected path has no safe mapping, the command runs the full
 unit suite. These profiles are iteration tools only; final acceptance still
 requires the complete profile.
 
+Read-model performance checks should time the real CLI against the dogfood
+workspace. `agent next --json` derives both Palari queues in one operation and
+must not rescan an unchanged governance journal per work item or per Palari.
+The request-local reuse path is covered by same-size, same-mtime tamper tests;
+changed bytes force a fresh fail-closed verification. A representative timing
+command is:
+
+```bash
+/usr/bin/time -p ./bin/palari \
+  --workspace workspaces/palari-company-os agent next --json >/dev/null
+```
+
 The package install smoke command is:
 
 ```bash
