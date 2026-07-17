@@ -11768,6 +11768,14 @@
       "receipt_hash": "sha256:28cf7955e3664983780e1b15d41d397eae8d4ff81145a13d90a6f2f5ae72027a",
       "work_contract_hash": "sha256:1dcf317cb4f7c1a05f3e688a7cafe27520f1123a7171b74f1a0febbc1de61a84",
       "proof_hash": "sha256:2cc177ea82cd2f77b12fb1d2a42ce6fe546b6306093200e1351fa3edc2253634"
+    },
+    {
+      "id": "REVIEW-JOURNAL-PERF-ARCHITECT-D457C05-CHANGES",
+      "work_item_id": "WORK-9120A9D378054BC7A696AC33A51236B1",
+      "reviewed_head": "d457c059c41278abcd32a848af2cc6327fc96621",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-17T08:33:08.735352Z"
     }
   ],
   "human_decisions": [
