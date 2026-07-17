@@ -81,6 +81,31 @@ user, perform an external effect, or let an agent invoke human authority.
   repaired in `c9da7e4`. Fresh exact-head review is pending. Exact committed
   proof: the rejection record is committed in `c9da7e4`; acceptance pending.
 
+## Follow-up Repair Contract
+
+Work item: `WORK-437003B620774C2E99C44668EE402C26`
+
+- [x] **Explicit decisions remain exact-bound when numeric quorum is zero.**
+  Outcome: zero means that no numeric quorum is required; it no longer causes
+  the kernel to discard an explicit human decision referenced by acceptance.
+  Current proof bindings, declared-human qualification, ordering,
+  contradiction, and later-revocation checks still fail closed. Objective
+  evidence: three zero-quorum kernel regressions plus the existing governance
+  completion suite. Verification: `python3 -m unittest -q
+  tests.test_governance_kernel tests.test_governance_completion`. Status:
+  complete; 25 tests passed, and an in-memory projection of the recorded
+  journal-performance decision derived fully verified `completed` state.
+  Exact committed proof: `466f672`.
+
+- [ ] **Repair verification and independent acceptance.** Outcome: affected,
+  complete, installed-package, documentation, and exact-head independent
+  review gates pass before the R4 repair is accepted. Objective evidence:
+  deterministic verification records and a fresh review bound to the final
+  candidate. Verification: `./scripts/verify.sh`,
+  `./scripts/install_smoke.sh`, `./bin/palari docs check --json`, and the work
+  item's review handoff. Status: pending complete verification and fresh
+  review. Exact committed proof: pending.
+
 ## Explicit Non-Claims
 
 - A presentation digest proves the canonical artifact bytes only.

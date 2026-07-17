@@ -22,6 +22,10 @@ Authority rules:
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a later negative decision revokes an earlier
   approval, while contradictory or ambiguous records fail closed.
+- A zero numeric quorum means no quorum is required; it does not make an
+  explicit decision optional once an acceptance references that decision.
+  Such acceptance still requires the current exact review/evidence binding and
+  a declared human, and a later rejection revokes it.
 - Bound reviews are immutable, and generic update commands cannot rewrite
   terminal work or attempt trust fields. Their aggregate hash covers reviewer
   identity, verdict, findings, inspected checks, residual risks, and timestamp.
