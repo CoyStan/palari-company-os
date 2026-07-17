@@ -346,6 +346,27 @@ def _blocked_start_entry(next_payload: dict[str, Any]) -> dict[str, Any]:
         "",
     )
     if not isinstance(candidate, dict):
+        missing_identity = next(
+            (
+                blocker
+                for blocker in next_payload.get("blockers", [])
+                if blocker.get("code") == "MISSING_PALARI"
+            ),
+            None,
+        )
+        if missing_identity is not None:
+            command = "palari agent next --json"
+            return {
+                "safe": False,
+                "state": "identity-required",
+                "owner": "operator",
+                "explanation": (
+                    f"{missing_identity.get('message', 'Palari identity is not declared')}. "
+                    "Choose an existing declared Palari; authority is never auto-assigned."
+                ),
+                "next_action": command,
+                "next_command": command,
+            }
         return {
             "safe": False,
             "state": "empty",
@@ -457,29 +478,6 @@ def release_agent(
     }
 
 
-_RELEASE_BINDING_FIELDS = (
-    "schema_version",
-    "work_item",
-    "claimed_by",
-    "mode",
-    "claim_session",
-    "packet_id",
-    "packet_path",
-    "context_hash",
-    "session_contract_path",
-    "session_contract_digest",
-    "git_baseline_hash",
-    "git_baseline_path",
-    "git_witness_version",
-    "git_witness_ref",
-    "git_lease_version",
-    "git_lease_ref",
-    "git_lease_oid",
-    "workspace_fingerprint",
-    "lease_expires_at",
-)
-
-
 def _assert_release_claim_unchanged(
     work_id: str,
     current: dict[str, Any],
@@ -487,8 +485,9 @@ def _assert_release_claim_unchanged(
 ) -> None:
     changed = [
         field
-        for field in _RELEASE_BINDING_FIELDS
-        if current.get(field) != expected.get(field)
+        for field in sorted(set(current) | set(expected))
+        if (field in current) != (field in expected)
+        or current.get(field) != expected.get(field)
     ]
     if changed:
         raise WorkspaceError(

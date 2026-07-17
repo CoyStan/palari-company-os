@@ -8,6 +8,25 @@ from .cli_output_utils import (
 )
 
 
+_READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
+    "palari agent brief ",
+    "palari agent check ",
+    "palari agent doctor ",
+    "palari agent finish ",
+    "palari agent handoff ",
+    "palari agent loop ",
+    "palari decision guide ",
+    "palari detail ",
+    "palari docs check",
+    "palari evidence verify ",
+    "palari history verify",
+    "palari queue ",
+    "palari review guide ",
+    "palari scope ",
+    "palari validate",
+)
+
+
 def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -307,7 +326,7 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         f"State: {payload.get('status', 'unknown')} / "
         f"{payload.get('next_step_type', 'inspect')}"
     )
-    print("Safe: yes (read-only; no verdict or human authority is recorded)")
+    print("Safe: yes (next action is read-only; no authority is recorded)")
     print(f"Owner: {_handoff_owner(payload)}")
     print(f"Why: {_handoff_explanation(payload)}")
     print(f"Next: {_handoff_next_action(payload)}")
@@ -392,23 +411,25 @@ def _handoff_next_action(payload: dict[str, Any]) -> str:
     decision = payload.get("decision_handoff") or {}
     approval = payload.get("human_approval_handoff") or {}
     if review and (step == "review-handoff" or not (decision or approval)):
-        return str(review.get("command") or _first_command(payload))
+        return _read_only_handoff_action(payload, str(review.get("command") or ""))
     if decision:
-        return str(decision.get("command") or _first_command(payload))
+        return _read_only_handoff_action(payload, str(decision.get("command") or ""))
     if approval:
-        return str(approval.get("command") or _first_command(payload))
-    command = _first_command(payload)
-    if command:
-        return command
+        return _read_only_handoff_action(payload, str(approval.get("command") or ""))
+    return _read_only_handoff_action(payload)
+
+
+def _read_only_handoff_action(
+    payload: dict[str, Any],
+    preferred: str = "",
+) -> str:
+    commands = [preferred, *payload.get("next_allowed_commands", [])]
+    for value in commands:
+        command = str(value or "")
+        if command.startswith(_READ_ONLY_HANDOFF_COMMAND_PREFIXES):
+            return command
     work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
     return f"palari detail {work_id} --json"
-
-
-def _first_command(payload: dict[str, Any]) -> str:
-    return next(
-        (str(item) for item in payload.get("next_allowed_commands", []) if item),
-        "",
-    )
 
 
 def _one_line(value: Any, *, limit: int = 180) -> str:

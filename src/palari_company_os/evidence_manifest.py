@@ -970,7 +970,7 @@ def _verify_evidence_path_intents(
             evidence_head,
             object_format,
         )
-        if transition:
+        if transition == "verified":
             report["checks"].append(
                 {"path": path, "intent": intent, "status": "verified"}
             )
@@ -978,11 +978,20 @@ def _verify_evidence_path_intents(
         report["checks"].append(
             {"path": path, "intent": intent, "status": "invalid"}
         )
+        unreadable = transition == "unreadable"
         report["errors"].append(
             _path_intent_error(
-                "PATH_INTENT_MISMATCH",
-                f"Git ancestry does not prove {intent} for {path}",
-                "Make the declared mutation from the claimed base and regenerate evidence.",
+                "PATH_INTENT_GIT_UNREADABLE" if unreadable else "PATH_INTENT_MISMATCH",
+                (
+                    f"Git tree state is unreadable for {path}"
+                    if unreadable
+                    else f"Git ancestry does not prove {intent} for {path}"
+                ),
+                (
+                    "Restore the exact readable Git objects and verify again."
+                    if unreadable
+                    else "Make the declared mutation from the claimed base and regenerate evidence."
+                ),
                 path=path,
             )
         )
@@ -1071,8 +1080,10 @@ def git_deletion_tombstone(
         git_path = resolved_path.relative_to(git_root).as_posix()
     except ValueError:
         return None
-    previous = _git_tree_entry(git_root, base_head, git_path)
-    current = _git_tree_entry(git_root, candidate_head, git_path)
+    previous_readable, previous = _git_tree_entry(git_root, base_head, git_path)
+    current_readable, current = _git_tree_entry(git_root, candidate_head, git_path)
+    if not previous_readable or not current_readable:
+        return None
     if previous is None or current is not None:
         return None
     mode, object_type, oid = previous
@@ -1160,29 +1171,34 @@ def _git_path_intent_transition(
     base_head: str,
     candidate_head: str,
     object_format: str,
-) -> bool:
+) -> str:
     try:
         resolved_path = resolve_workspace_path(artifact_root, path)
         git_path = resolved_path.relative_to(git_root).as_posix()
     except ValueError:
-        return False
-    previous = _git_tree_entry(git_root, base_head, git_path)
-    current = _git_tree_entry(git_root, candidate_head, git_path)
+        return "mismatch"
+    previous_readable, previous = _git_tree_entry(git_root, base_head, git_path)
+    current_readable, current = _git_tree_entry(git_root, candidate_head, git_path)
+    if not previous_readable or not current_readable:
+        return "unreadable"
     regular_previous = _regular_git_blob(previous, object_format)
     regular_current = _regular_git_blob(current, object_format)
     if intent == "create":
-        return previous is None and regular_current
+        satisfied = previous is None and regular_current
+        return "verified" if satisfied else "mismatch"
     if intent == "modify":
-        return (
+        satisfied = (
             regular_previous
             and regular_current
             and previous is not None
             and current is not None
             and (previous[0], previous[2]) != (current[0], current[2])
         )
+        return "verified" if satisfied else "mismatch"
     if intent == "delete":
-        return regular_previous and current is None
-    return False
+        satisfied = regular_previous and current is None
+        return "verified" if satisfied else "mismatch"
+    return "mismatch"
 
 
 def _regular_git_blob(entry: tuple[str, str, str] | None, object_format: str) -> bool:
@@ -1198,9 +1214,13 @@ def _regular_git_blob(entry: tuple[str, str, str] | None, object_format: str) ->
     )
 
 
-def _git_tree_entry(root: Path, commit: str, path: str) -> tuple[str, str, str] | None:
+def _git_tree_entry(
+    root: Path,
+    commit: str,
+    path: str,
+) -> tuple[bool, tuple[str, str, str] | None]:
     if not commit or not path:
-        return None
+        return False, None
     try:
         result = subprocess.run(
             [
@@ -1220,23 +1240,25 @@ def _git_tree_entry(root: Path, commit: str, path: str) -> tuple[str, str, str] 
             timeout=10,
         )
     except (OSError, ValueError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0 or not result.stdout:
-        return None
+        return False, None
+    if result.returncode != 0:
+        return False, None
+    if not result.stdout:
+        return True, None
     entries = [item for item in result.stdout.split(b"\0") if item]
     if len(entries) != 1 or b"\t" not in entries[0]:
-        return None
+        return False, None
     metadata, raw_path = entries[0].split(b"\t", 1)
     try:
         decoded_path = raw_path.decode("utf-8", "strict")
         parts = metadata.decode("ascii", "strict").split()
     except UnicodeDecodeError:
-        return None
+        return False, None
     if decoded_path != path:
-        return None
+        return False, None
     if len(parts) != 3:
-        return None
-    return parts[0], parts[1], parts[2]
+        return False, None
+    return True, (parts[0], parts[1], parts[2])
 
 
 def _previous_receipt_hash(record: dict[str, Any], existing_receipts: list[dict[str, Any]]) -> str:

@@ -42,6 +42,7 @@ from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.evidence_manifest import (
+    _git_tree_entry,
     evidence_artifact_root,
     evidence_manifest_hash,
     git_artifact_state,
@@ -792,6 +793,87 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             report["computed_artifact_hashes"][0]["status"],
             "invalid-deletion",
         )
+
+    def test_delete_evidence_rejects_unreadable_candidate_tree(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        workspace = Ws.load(self.temp_dir)
+        evidence = next(
+            item
+            for item in workspace.evidence_runs
+            if item.work_item_id == self.work_id
+        )
+        readable_base = (True, ("100644", "blob", "a" * 40))
+        with patch(
+            "palari_company_os.evidence_manifest._git_tree_entry",
+            side_effect=[readable_base, (False, None)],
+        ):
+            report = verify_evidence(
+                workspace,
+                evidence.id,
+                require_output_coverage=True,
+            )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["path_intents_ok"])
+        self.assertIn(
+            "PATH_INTENT_GIT_UNREADABLE",
+            {
+                item["code"]
+                for item in report["path_intent_verification"]["errors"]
+            },
+        )
+        self.assertEqual(
+            report["computed_artifact_hashes"][0]["status"],
+            "invalid-deletion",
+        )
+
+    def test_git_tree_entry_distinguishes_absence_from_read_errors(self) -> None:
+        with patch(
+            "palari_company_os.evidence_manifest.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("git", 10),
+        ):
+            self.assertEqual(
+                _git_tree_entry(self.temp_dir, "a" * 40, "README.md"),
+                (False, None),
+            )
+        for result in (
+            Mock(returncode=2, stdout=b"", stderr=b"failure"),
+            Mock(returncode=0, stdout=b"malformed\0", stderr=b""),
+        ):
+            with self.subTest(returncode=result.returncode, stdout=result.stdout):
+                with patch(
+                    "palari_company_os.evidence_manifest.subprocess.run",
+                    return_value=result,
+                ):
+                    self.assertEqual(
+                        _git_tree_entry(self.temp_dir, "a" * 40, "README.md"),
+                        (False, None),
+                    )
+        with patch(
+            "palari_company_os.evidence_manifest.subprocess.run",
+            return_value=Mock(returncode=0, stdout=b"", stderr=b""),
+        ):
+            self.assertEqual(
+                _git_tree_entry(self.temp_dir, "a" * 40, "README.md"),
+                (True, None),
+            )
 
     def test_authoritative_evidence_rejects_create_and_modify_mismatch(self) -> None:
         self._restart_with_path_intent("modify")

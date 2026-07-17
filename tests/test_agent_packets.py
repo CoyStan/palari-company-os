@@ -415,6 +415,39 @@ class AgentPacketTests(unittest.TestCase):
             ).stdout.strip()
             self.assertEqual(active_oid, replacement_oid)
 
+    def test_release_preserves_any_replacement_claim_field_change(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim_path = root / ".palari/claims/WORK-0003.json"
+            replacement_bytes: list[bytes] = []
+
+            def replace_after_lease_release(claim: dict[str, object]) -> None:
+                replacement = dict(claim)
+                replacement["workspace_file_hash"] = f"sha256:{'f' * 64}"
+                claim_path.write_text(json.dumps(replacement), encoding="utf-8")
+                replacement_bytes.append(claim_path.read_bytes())
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "workspace_file_hash",
+            ):
+                release_agent(
+                    Workspace.load(workspace_file),
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                    _after_lease_release=replace_after_lease_release,
+                )
+
+            self.assertTrue(claim_path.is_file())
+            self.assertEqual(claim_path.read_bytes(), replacement_bytes[0])
+
     def test_registered_worktree_scan_blocks_a_legacy_claim_without_shared_ref(self) -> None:
         with self.git_workspace() as workspace_file:
             root = workspace_file.parent
@@ -1724,11 +1757,30 @@ class AgentPacketTests(unittest.TestCase):
         lines = result.stdout.splitlines()
         self.assertEqual(len(lines), 7)
         self.assertIn("State: handoff-ready / review-handoff", lines)
-        self.assertIn("Safe: yes (read-only; no verdict or human authority is recorded)", lines)
+        self.assertIn("Safe: yes (next action is read-only; no authority is recorded)", lines)
         self.assertTrue(any(line.startswith("Owner: independent reviewer") for line in lines))
         self.assertIn("Next: palari review guide WORK-REPO-0006 --json", lines)
         self.assertIn("Proof and alternatives: rerun with --json.", lines)
         self.assertNotIn("review record", result.stdout)
+
+    def test_cli_agent_handoff_blocked_state_never_suggests_mutation(self) -> None:
+        result = self.run_cli(
+            "--workspace",
+            str(WORKSPACE),
+            "agent",
+            "handoff",
+            "WORK-0003",
+            "--as",
+            "PALARI-SOFIA",
+        )
+
+        lines = result.stdout.splitlines()
+        self.assertEqual(len(lines), 7)
+        self.assertIn("Safe: yes (next action is read-only; no authority is recorded)", lines)
+        next_line = next(line for line in lines if line.startswith("Next: "))
+        self.assertEqual(next_line, "Next: palari scope WORK-0003 --json")
+        self.assertNotIn(" agent start ", next_line)
+        self.assertNotIn(" agent advance ", next_line)
 
     def test_agent_handoff_progressive_disclosure_covers_each_owner(self) -> None:
         base = {
@@ -1779,7 +1831,7 @@ class AgentPacketTests(unittest.TestCase):
             (
                 base,
                 "agent",
-                "palari agent advance WORK-OPAQUE --json",
+                "palari detail WORK-OPAQUE --json",
             ),
             (
                 {
@@ -1803,6 +1855,10 @@ class AgentPacketTests(unittest.TestCase):
                 self.assertIn(f"Owner: {owner}", lines)
                 self.assertIn(f"Next: {command}", lines)
                 self.assertNotIn("palari review record", output.getvalue())
+                next_line = next(line for line in lines if line.startswith("Next: "))
+                self.assertNotIn(" agent start ", next_line)
+                self.assertNotIn(" agent advance ", next_line)
+                self.assertNotIn(" record ", next_line)
 
         output = io.StringIO()
         with redirect_stdout(output):
@@ -1816,6 +1872,25 @@ class AgentPacketTests(unittest.TestCase):
         self.assertIn("palari agent start --next --as PALARI-AGENT --json", readme)
         self.assertIn("palari agent advance WORK-RETURNED-BY-START", readme)
         self.assertIn("Do not infer a sequential work ID", readme)
+
+    def test_quickstart_uses_provider_neutral_opaque_id_journey(self) -> None:
+        quickstart = (REPO_ROOT / "docs/product/quickstart.md").read_text(
+            encoding="utf-8"
+        )
+        journey = quickstart.split("## Optional Host Hooks", 1)[0]
+
+        commands = (
+            "palari init --palari Agent --json",
+            'palari work add "Clean up launch notes" --write docs/notes.md --json',
+            "palari agent start --next --as PALARI-AGENT --json",
+            "palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json",
+        )
+        positions = [journey.index(command) for command in commands]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn("palari claude install", journey)
+        self.assertNotIn("agent start WORK-0001", journey)
+        self.assertIn("Do not infer IDs such as `WORK-0001`", journey)
+        self.assertIn("does not\nassign an identity or grant new authority", quickstart)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -2224,6 +2299,22 @@ class AgentPacketTests(unittest.TestCase):
                     entry["next_command"],
                     "palari agent handoff WORK-OPAQUE --json",
                 )
+
+    def test_agent_start_next_exposes_undeclared_identity_without_assigning_it(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        for identity in ("HUMAN-FOUNDER", "PALARI-REVIEWER", "NOT-DECLARED"):
+            with self.subTest(identity=identity):
+                result = start_next_agent(workspace, WORKSPACE, identity)
+
+                self.assertEqual(result["status"], "no-ready-work")
+                self.assertEqual(result["entry"]["state"], "identity-required")
+                self.assertEqual(result["entry"]["owner"], "operator")
+                self.assertIn("never auto-assigned", result["entry"]["explanation"])
+                self.assertEqual(
+                    result["entry"]["next_command"],
+                    "palari agent next --json",
+                )
+                self.assertEqual(result["start"]["status"], "not-started")
 
     def test_agent_start_next_skips_one_atomic_claim_race(self) -> None:
         workspace = Workspace.load(WORKSPACE)

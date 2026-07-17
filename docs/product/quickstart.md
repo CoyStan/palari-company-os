@@ -31,41 +31,55 @@ allowed: docs/product/company-os.md
 
 That is the main idea: the AI partner can work, but Palari checks the boundary.
 
-## Open The Live Local Desk
+## Govern Your First Change
+
+The ordinary path is provider-neutral. Initialize one named agent identity, add
+one bounded item, and let Palari select and claim the next safe item:
+
+```bash
+cd your-project
+palari init --palari Agent --json
+palari work add "Clean up launch notes" --write docs/notes.md --json
+palari agent start --next --as PALARI-AGENT --json
+```
+
+`init` creates a starter workspace and reports the declared Palari identity;
+`--palari Agent` produces `PALARI-AGENT` in this example. `work add` returns a
+collision-resistant opaque work ID. `start --next` selects one eligible item,
+persists its packet and portable session contract, and claims it. It does not
+assign an identity or grant new authority: `--as` must name the Palari already
+declared by `init`.
+
+The agent follows the returned packet, changes only its allowed paths, runs the
+declared checks, and commits the bounded change. It then uses the opaque
+`WORK-...` ID returned by `start` to converge all deterministic proof steps:
+
+```bash
+palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
+```
+
+Do not infer IDs such as `WORK-0001`, and do not wait for another work item's
+number. Unrelated opaque work IDs can be claimed and completed in parallel.
+`advance` stops at the first genuine independent-review, human-authority,
+external-effect, or safety boundary; it never manufactures that judgment.
+
+## Optional Host Hooks
+
+Palari's packet, claim, scope, proof, review, and authority flow does not require
+a provider adapter. Claude Code users may additionally run `palari claude
+install` to deny out-of-boundary writes through host hooks. The hooks strengthen
+runtime enforcement, but they are optional and do not replace Palari's
+provider-neutral governance checks. See [Claude Code
+Integration](claude-code-integration.md).
+
+## Optional Local Desk
 
 ```bash
 ./bin/palari serve --as HUMAN-FOUNDER
 ```
 
-This starts a local browser UI for the example workspace. It shows what needs
-human attention, the allowed boundary, recent activity, and the receipt for the
-selected work. It binds to `127.0.0.1` by default and writes through the same
-local files as the CLI.
-
-## Adopt It In Your Own Repo
-
-Three commands take an existing project from nothing to an enforced write
-boundary for Claude Code:
-
-```bash
-cd your-project
-palari init
-palari work add "Clean up launch notes" --write docs/notes.md
-palari claude install
-```
-
-`init` creates a starter workspace (you, one AI partner, one goal, one work
-area, the repo as a source). `work add` turns a title and its write paths into
-a bounded work item. `claude install` wires Claude Code hooks so writes
-outside that boundary are denied before they happen — see
-[Claude Code Integration](claude-code-integration.md).
-
-The agent then claims and works the item:
-
-```bash
-palari agent start WORK-0001 --as PALARI-CLAUDE --mode execute --json
-palari agent check WORK-0001 --as PALARI-CLAUDE --mode execute --git-diff --json
-```
+This local supervision view is optional; it is not part of the provider-neutral
+adoption or proof path.
 
 ## Verify The Repo
 
