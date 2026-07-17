@@ -7427,6 +7427,38 @@
       "model_or_worker": "gpt-5-codex",
       "cleanliness": "clean",
       "started_at": "2026-07-17T09:05:26.371261Z"
+    },
+    {
+      "allowed_paths": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_handoff.py",
+        "tests/test_agent_packets.py",
+        "tests/test_dashboard.py",
+        "tests/test_decision_guides.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_governance_journal.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md"
+      ],
+      "output_targets": [
+        "src/palari_company_os/read_models.py",
+        "tests/test_agent_packets.py",
+        "tests/test_dashboard.py",
+        "tests/test_decision_guides.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "id": "ATTEMPT-4E434990123E4E938E5B584C33E33BC7-21A72EE",
+      "work_item_id": "WORK-4E434990123E4E938E5B584C33E33BC7",
+      "actor": "PALARI-STEWARD",
+      "status": "active",
+      "branch": "codex/presentation-bound-human-decisions",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "model_or_worker": "gpt-5-codex",
+      "cleanliness": "clean",
+      "started_at": "2026-07-17T09:29:02.768890Z"
     }
   ],
   "evidence_runs": [
