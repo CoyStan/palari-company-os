@@ -116,7 +116,8 @@ Work item: `WORK-437003B620774C2E99C44668EE402C26`
   profiling attributes the remaining cost primarily to repeated dashboard
   projections, which the founder explicitly deferred on 2026-07-17 to finish
   this bounded task without weakening correctness. Exact committed proof:
-  pending candidate commit.
+  implementation and test evidence commit `59d7518`; final exact-head review is
+  recorded separately.
 
 - [ ] **Repair verification and independent acceptance.** Outcome: affected,
   complete, installed-package, documentation, and exact-head independent
