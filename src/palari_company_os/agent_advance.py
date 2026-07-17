@@ -1329,50 +1329,7 @@ def _refresh_stale_projection(
         for item in verification_results
     ]
     transition = refresh["artifact_transition"]
-    ordinary_artifacts = list(transition["ordinary_artifacts_unchanged"])
-    projection_records = list(transition["projection_artifacts_unchanged"]) + list(
-        transition["projection_artifacts_rebound"]
-    )
-    projection_artifacts = sorted(
-        str(item["path"]) for item in projection_records
-    )
-    actions_taken: list[str] = []
-    if ordinary_artifacts:
-        actions_taken.append(
-            f"Reverified {len(ordinary_artifacts)} ordinary governed artifact(s) "
-            "as byte-unchanged at current repository HEAD."
-        )
-    if projection_artifacts:
-        actions_taken.append(
-            f"Rebound {len(projection_artifacts)} allowlisted self-mutating "
-            "governance projection artifact(s) to exact current-HEAD Git bytes."
-        )
-    actions_taken.append("Reran the authoritative exact-state verification profiles.")
-    not_done = [
-        "No non-projection governed artifact bytes were changed.",
-        "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
-    ]
-    if projection_artifacts:
-        not_done.insert(
-            1,
-            "Recording refreshed proof mutates the allowlisted governance projection "
-            "files after the evidence head; evidence remains bound to their exact "
-            "pre-projection Git bytes.",
-        )
-    summary_parts = [
-        f"{len(verification_results)} exact-state verification profile(s) passed"
-    ]
-    if ordinary_artifacts:
-        summary_parts.append(
-            f"{len(ordinary_artifacts)} ordinary artifact(s) remained byte-unchanged"
-        )
-    if projection_artifacts:
-        summary_parts.append(
-            f"{len(projection_artifacts)} self-mutating governance projection "
-            "artifact(s) were rebound to exact current-HEAD Git bytes; recording "
-            "the proof mutates those projection files after the evidence head"
-        )
-    evidence_summary = "; ".join(summary_parts) + "."
+    narration = _refresh_proof_narration(len(verification_results), transition)
     attempt_id = _proof_id("ATTEMPT-REFRESH", work.id, refresh["head_sha"])
     receipt_id = _proof_id("RECEIPT-REFRESH", work.id, refresh["head_sha"])
     evidence_id = _proof_id("EVIDENCE-REFRESH", work.id, refresh["head_sha"])
@@ -1395,9 +1352,9 @@ def _refresh_stale_projection(
             "attempt_id": attempt_id,
             "actor": palari_id,
             "sources_used": list(work.allowed_sources),
-            "actions_taken": actions_taken,
+            "actions_taken": narration["actions_taken"],
             "outputs_created": list(refresh["artifacts"]),
-            "not_done": not_done,
+            "not_done": narration["not_done"],
             "undo_refs": [],
         },
         evidence_record={
@@ -1410,7 +1367,7 @@ def _refresh_stale_projection(
             "commands": commands,
             "artifacts": list(refresh["artifacts"]),
             "artifact_hashes": list(refresh["artifact_hashes"]),
-            "summary": evidence_summary,
+            "summary": narration["evidence_summary"],
             "freshness": "exact-head",
         },
         head_sha=refresh["head_sha"],
@@ -2012,6 +1969,73 @@ def _refresh_plan_message(transition: dict[str, Any]) -> str:
         "Current governed outputs are byte-unchanged and can be reverified at the "
         "exact current head; fresh independent review will still be required."
     )
+
+
+def _refresh_proof_narration(
+    verification_count: int,
+    transition: dict[str, Any],
+) -> dict[str, Any]:
+    ordinary_artifacts = list(transition["ordinary_artifacts_unchanged"])
+    projection_unchanged = list(transition["projection_artifacts_unchanged"])
+    projection_rebound = list(transition["projection_artifacts_rebound"])
+    projection_artifacts = projection_unchanged + projection_rebound
+
+    actions_taken: list[str] = []
+    if ordinary_artifacts:
+        actions_taken.append(
+            f"Reverified {len(ordinary_artifacts)} ordinary governed artifact(s) "
+            "as byte-unchanged at current repository HEAD."
+        )
+    if projection_unchanged:
+        actions_taken.append(
+            f"Confirmed {len(projection_unchanged)} allowlisted self-mutating "
+            "governance projection artifact(s) retained identical exact Git bytes."
+        )
+    if projection_rebound:
+        actions_taken.append(
+            f"Rebound {len(projection_rebound)} allowlisted self-mutating governance "
+            "projection artifact(s) to exact current-HEAD Git bytes."
+        )
+    actions_taken.append("Reran the authoritative exact-state verification profiles.")
+
+    not_done = [
+        "No non-projection governed artifact bytes were changed.",
+        "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
+    ]
+    if projection_artifacts:
+        not_done.insert(
+            1,
+            "Recording refreshed proof mutates the allowlisted governance projection "
+            "files after the evidence head; evidence remains bound to their exact "
+            "pre-projection Git bytes.",
+        )
+
+    summary_parts = [
+        f"{verification_count} exact-state verification profile(s) passed"
+    ]
+    if ordinary_artifacts:
+        summary_parts.append(
+            f"{len(ordinary_artifacts)} ordinary artifact(s) remained byte-unchanged"
+        )
+    if projection_unchanged:
+        summary_parts.append(
+            f"{len(projection_unchanged)} self-mutating governance projection "
+            "artifact(s) retained identical exact Git bytes"
+        )
+    if projection_rebound:
+        summary_parts.append(
+            f"{len(projection_rebound)} self-mutating governance projection "
+            "artifact(s) were rebound to exact current-HEAD Git bytes"
+        )
+    if projection_artifacts:
+        summary_parts.append(
+            "recording the proof mutates those projection files after the evidence head"
+        )
+    return {
+        "actions_taken": actions_taken,
+        "not_done": not_done,
+        "evidence_summary": "; ".join(summary_parts) + ".",
+    }
 
 
 def _exact_sha256_digest(value: Any) -> bool:

@@ -21,6 +21,7 @@ from palari_company_os.agent_advance import (
     _completed_projection,
     _git_commit_timestamp,
     _refresh_artifact_transition,
+    _refresh_proof_narration,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -1188,6 +1189,46 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(transition["projection_artifacts_rebound"], [])
         self.assertTrue(transition["artifacts_unchanged"])
+
+    def test_refresh_proof_narration_preserves_projection_transitions(self) -> None:
+        record = {
+            "previous_sha256": "sha256:" + "1" * 64,
+            "previous_status": "present",
+            "current_sha256": "sha256:" + "1" * 64,
+            "current_status": "present",
+        }
+        narration = _refresh_proof_narration(
+            3,
+            {
+                "ordinary_artifacts_unchanged": [],
+                "projection_artifacts_unchanged": [
+                    {"path": "workspace.json", "transition": "unchanged", **record},
+                    {
+                        "path": ".palari/history.jsonl",
+                        "transition": "unchanged",
+                        **record,
+                    },
+                ],
+                "projection_artifacts_rebound": [
+                    {
+                        "path": ".palari/governance-journal.v1.jsonl",
+                        "transition": "rebound",
+                        **record,
+                        "current_sha256": "sha256:" + "2" * 64,
+                    }
+                ],
+            },
+        )
+
+        actions = " ".join(narration["actions_taken"])
+        self.assertIn("Confirmed 2", actions)
+        self.assertIn("Rebound 1", actions)
+        self.assertNotIn("Rebound 3", actions)
+        self.assertIn("2 self-mutating governance projection", narration["evidence_summary"])
+        self.assertIn("retained identical exact Git bytes", narration["evidence_summary"])
+        self.assertIn("1 self-mutating governance projection", narration["evidence_summary"])
+        self.assertIn("were rebound", narration["evidence_summary"])
+        self.assertIn("after the evidence head", narration["evidence_summary"])
 
     def test_refresh_transition_rejects_malformed_hash_or_status(self) -> None:
         valid = {
