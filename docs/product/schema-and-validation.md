@@ -43,8 +43,8 @@ Collection file paths must be workspace-relative. Absolute paths and paths that
 contain `..` fail closed. Each collection file contains a JSON array of records
 for the collection named in the manifest.
 
-Read-only commands such as `validate`, `queue`, `detail`, `state`, and
-`dashboard` can read split workspaces. Authoring and lifecycle write commands
+Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
+split workspaces. Authoring and lifecycle write commands
 currently refuse split workspaces with a clear error instead of silently
 collapsing or corrupting collection files. Schema migration is the narrow
 exception: it validates the consolidated records, preserves each record's root
@@ -146,7 +146,12 @@ Validation checks:
 - pack-bound human decisions require a complete exact pack/member/subject/
   request binding, one retained canonical manifest per pack, and an action
   consistent with decision and status; copied or incomplete member bindings
-  fail closed
+  fail closed. New pack-v2 decisions additionally require the supported
+  presentation schema and surface, an exact presentation digest, and exactly
+  one retained canonical artifact per presentation. The artifact must project
+  its exact pack members and current relevant decision context; missing,
+  downgraded, malformed, or transplanted presentation bindings fail closed,
+  while historical pack-v1 decisions remain readable
 - accepted human decisions are made by a human with the required approval
   capability
 - acceptance records reference fresh passing evidence, fresh accept-ready

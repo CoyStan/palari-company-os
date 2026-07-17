@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.governance_journal import (
+    JournalVerificationContext,
     JournalError,
     MutationMetadata,
     append_record_fsync,
@@ -35,6 +37,44 @@ TIMESTAMP = "2026-07-14T12:00:00Z"
 
 
 class GovernanceJournalTests(unittest.TestCase):
+    def test_request_local_verification_reuses_only_exact_unchanged_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = root / "workspace.json"
+            initial = workspace("Initial")
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            journal_path = journal_file_path(data_path)
+            context = JournalVerificationContext()
+
+            with patch(
+                "palari_company_os.governance_journal.verify_workspace_journal",
+                wraps=verify_workspace_journal,
+            ) as verify:
+                first = context.verify(root)
+                second = context.verify(root)
+                original = journal_path.read_text(encoding="utf-8")
+                stat = journal_path.stat()
+                tampered = original.replace(
+                    '"record_type":"prepare"',
+                    '"record_type":"commitx"',
+                    1,
+                )
+                self.assertEqual(len(tampered), len(original))
+                journal_path.write_text(tampered, encoding="utf-8")
+                os.utime(journal_path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+                third = context.verify(root)
+
+            self.assertTrue(first["ok"])
+            self.assertEqual(second, first)
+            self.assertFalse(third["ok"])
+            self.assertEqual(verify.call_count, 2)
+
     def test_initial_checkpoint_and_mutation_replay_exact_projection(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

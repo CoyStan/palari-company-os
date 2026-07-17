@@ -15,6 +15,20 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   working until an operator explicitly checkpoints them. Prepared and committed
   journal records bracket the atomic, fsynced workspace replacement; divergence,
   corruption, pending transactions, and continuity breaks remain visible.
+- Evidence for self-mutating governance projection files (`workspace.json`,
+  legacy history, and the governance journal) binds their bytes at the exact
+  evidence Git head. The live journal is verified separately against the
+  current workspace, so recording proof does not stale itself and journal
+  corruption or projection divergence still fails closed. Ordinary artifacts
+  remain bound to current filesystem bytes.
+- One bounded read-model operation may reuse a journal-verification result only
+  through an in-memory request context. The full scan verifies record and
+  workspace SHA-256 bindings once; filesystem identity, size, modification,
+  and change-time witnesses must then remain stable. A changed witness forces
+  fresh verification; persistent advisory caches never become authority.
+  Nested queue, handoff, Approval Pack, evidence, review-binding, and dependency
+  projection calls must share that operation context rather than replaying the
+  same unchanged journal independently.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   Schema migration preserves record placement, detects concurrent changes to
@@ -33,6 +47,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   exact proof/artifact freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
+- New Approval Pack v2 decisions bind the exact canonical presentation artifact
+  named by the human command. Relevant decision-context changes stale the old
+  presentation. One action may perform only the crash-safe local convergence
+  already authorized by current quorum; it cannot manufacture review, another
+  vote, external effects, or expanded authority. Historical pack v1 decisions
+  remain readable but are not presentation-bound.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
   pack-decision authority surface; Claude agent shells hard-deny it.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
@@ -93,6 +113,21 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   paths are governance projection data. The driver must never create the review
   or human decision, and cycle, no-progress, or iteration-limit states fail
   closed.
+- Explicit exact-head proof refresh is claimless. A current changes-requested
+  review may route byte-unchanged ordinary outputs through that transaction after
+  separately governed descendant commits; dry-run previews it without
+  verification or mutation. Self-mutating workspace, history, and journal
+  projections are classified separately: their previous and current exact Git
+  hashes and statuses are reported in one uniform record as unchanged or
+  rebound; malformed digests or statuses fail closed. A missing legacy
+  projection hash is explicit `not-recorded`, never inferred. The receipt
+  discloses that recording proof mutates those projections after the evidence
+  head. Every raw
+  commit is compared with every parent, with Git replacement objects disabled.
+  Any non-projection output touch, even if later restored, active claim,
+  mismatched review head, dirty tracked state, or divergent history fails closed.
+  Refresh creates new attempt, receipt, and evidence only; prior review and human
+  authority never carry forward.
 - Blockers expose stable resolver metadata. Current authority followed only by
   mechanical bookkeeping is automatic reconciliation; terminal work is closed,
   not a blocker; external, review, and human boundaries remain distinct.

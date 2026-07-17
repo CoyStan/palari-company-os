@@ -579,7 +579,7 @@ class PreToolUseTests(unittest.TestCase):
         unsafe = _pre_tool_use(
             self.workspace,
             "Bash",
-            {"command": "palari dashboard --out /tmp/palari-dashboard.html"},
+            {"command": "palari unclassified-command --output /tmp/result"},
             self.repo,
         )
         safe = _pre_tool_use(

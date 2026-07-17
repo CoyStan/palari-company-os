@@ -749,15 +749,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
         return CommandResult("history", read_history(args.workspace, args.limit), args.json)
 
-    if args.command == "dashboard":
-        from .dashboard import generate_dashboard
-
-        return CommandResult(
-            "dashboard",
-            generate_dashboard(args.workspace, args.out),
-            args.json,
-        )
-
     if args.command == "desktop-prototype":
         from .desktop_prototype import generate_desktop_prototype
 
@@ -968,6 +959,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 apply_pack_decision(
                     args.workspace,
                     pack_digest=args.pack_digest,
+                    presentation_digest=args.presentation_digest,
                     human_id=args.human_id,
                     approve_eligible=args.approve_eligible,
                     approve=args.approve,

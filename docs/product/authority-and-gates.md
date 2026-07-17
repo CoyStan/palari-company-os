@@ -167,9 +167,13 @@ requires its matching acceptance record.
 
 `palari human-decision pack` is an additional human-only acceptance surface,
 not an agent shortcut. It binds one attributable action to an immutable pack
-and derives one decision record per selected member. Each decision retains its
-own proof references and exact member/subject digest. The governance kernel
-counts `approval-pack` decisions under the same capability, reviewer
+and its canonical presentation artifact, then derives one decision record per
+selected member. Each new pack-v2 decision retains its own proof references,
+exact member/subject digest, presentation schema/surface/digest, and one
+canonical presentation artifact per action. Historical pack-v1 decisions stay
+readable but cannot be silently upgraded or mistaken for presentation-bound
+authority. The governance kernel counts `approval-pack` decisions under the
+same capability, reviewer
 independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.
 The Approval Inbox names its available approval modes. The normal
@@ -177,6 +181,12 @@ The Approval Inbox names its available approval modes. The normal
 reviewed members. External or irreversible effects remain individual. A
 combined review-and-accept mode is not available under the current policy:
 independent review and acceptance remain distinct roles.
+
+The human command both records authority and performs only the deterministic
+local reconciliation that authority already permits. Acceptance derivation and
+terminal state share its crash-safe journal transaction; missing quorum stays
+parked, and no review, additional vote, external effect, or expanded authority
+is manufactured.
 
 Independent review may be attributed to a declared Palari when that Palari is
 not the builder, is linked to the work goal, and is allowed to read every

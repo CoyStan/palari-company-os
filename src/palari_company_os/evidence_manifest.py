@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .governance_journal import JournalVerificationContext
 from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
@@ -13,6 +14,8 @@ from .workspace import Workspace, WorkspaceError
 
 HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
+GOVERNANCE_HISTORY_RELATIVE_PATH = ".palari/history.jsonl"
+GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
 
 
 def git_artifact_state(
@@ -168,6 +171,7 @@ def verify_evidence(
     evidence_id: str,
     *,
     require_output_coverage: bool | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     evidence = next((item for item in workspace.evidence_runs if item.id == evidence_id), None)
     if evidence is None:
@@ -191,11 +195,9 @@ def verify_evidence(
         "freshness": evidence.freshness,
         "timestamp": evidence.timestamp,
     }
-    recomputed_artifacts = evidence_artifact_hashes(
-        workspace.path,
-        evidence.attempt_id,
-        evidence.artifacts,
-        getattr(workspace, "attempts", []),
+    recomputed_artifacts, exact_head_artifacts = _verification_artifact_hashes(
+        workspace,
+        evidence,
     )
     recomputed_record = dict(record)
     recomputed_record["artifact_hashes"] = recomputed_artifacts
@@ -229,10 +231,21 @@ def verify_evidence(
         else require_output_coverage
     )
     status_ok = evidence.status == "passed"
+    journal_verification: dict[str, Any] | None = None
+    journal_continuity_ok = True
+    if exact_head_artifacts:
+        if journal_context is None:
+            from .governance_journal import verify_workspace_journal
+
+            journal_verification = verify_workspace_journal(workspace.path)
+        else:
+            journal_verification = journal_context.verify(workspace.path)
+        journal_continuity_ok = bool(journal_verification["ok"])
     ok = (
         status_ok
         and artifact_ok
         and manifest_ok
+        and journal_continuity_ok
         and output_binding_version_ok
         and (output_coverage_ok or not coverage_required)
         and all(item["ok"] for item in receipt_checks)
@@ -248,6 +261,9 @@ def verify_evidence(
         "computed_manifest_hash": recomputed_manifest,
         "declared_artifact_hashes": _sorted_artifact_hashes(evidence.artifact_hashes),
         "computed_artifact_hashes": recomputed_artifacts,
+        "exact_head_artifacts": exact_head_artifacts,
+        "journal_continuity_ok": journal_continuity_ok,
+        "journal_verification": journal_verification,
         "status_ok": status_ok,
         "output_binding_version": output_binding_version,
         "output_binding_version_ok": output_binding_version_ok,
@@ -400,7 +416,10 @@ def _relocated_git_artifact_root(fallback: Path, attempt: Any) -> Path:
     head_sha = str(_field(attempt, "head_sha") or "")
     if len(head_sha) != 40 or any(character not in "0123456789abcdef" for character in head_sha):
         raise ValueError("attempt candidate commit is required for portable artifact proof")
-    resolved = _git_value(current_root, ["rev-parse", "--verify", f"{head_sha}^{{commit}}"])
+    resolved = _git_exact_object_value(
+        current_root,
+        ["rev-parse", "--verify", f"{head_sha}^{{commit}}"],
+    )
     if resolved != head_sha:
         raise ValueError("attempt candidate commit is unavailable in the current Git repository")
     return current_root
@@ -432,6 +451,23 @@ def _git_value(path: Path, arguments: list[str]) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def _git_exact_object_value(path: Path, arguments: list[str]) -> str:
+    """Read raw Git identity without allowing local replacement objects."""
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(path), "--no-replace-objects", *arguments],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def evidence_artifact_hashes(
     workspace_path: Path,
     attempt_id: str,
@@ -446,6 +482,150 @@ def evidence_artifact_hashes(
             for artifact in sorted(artifacts)
         ]
     return _artifact_hashes(root, artifacts)
+
+
+def _verification_artifact_hashes(
+    workspace: Workspace,
+    evidence: Any,
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Recompute proof bytes without creating a self-referential journal gate.
+
+    Ordinary artifacts remain bound to current filesystem bytes. The workspace
+    projection files that deterministically record proof creation are instead
+    read from the evidence's exact Git commit; requiring their live bytes would
+    make every successful proof append invalidate itself. Callers separately
+    require the live journal to replay to the current workspace projection.
+    """
+
+    artifacts = list(evidence.artifacts)
+    attempts = getattr(workspace, "attempts", [])
+    try:
+        root = evidence_artifact_root(
+            workspace.path,
+            evidence.attempt_id,
+            artifacts,
+            attempts,
+        )
+    except ValueError:
+        return (
+            [
+                {"path": artifact, "sha256": f"{HASH_PREFIX}unsafe", "status": "unsafe"}
+                for artifact in sorted(artifacts)
+            ],
+            [],
+        )
+
+    exact_head_artifacts = _governance_projection_artifacts(
+        root,
+        workspace.path,
+        artifacts,
+    )
+    current_artifacts = [
+        artifact for artifact in artifacts if artifact not in exact_head_artifacts
+    ]
+    hashes = _artifact_hashes(root, current_artifacts)
+    hashes.extend(
+        _git_artifact_hashes_at_head(
+            root,
+            exact_head_artifacts,
+            str(evidence.head_sha or ""),
+        )
+    )
+    return sorted(hashes, key=lambda item: item["path"]), exact_head_artifacts
+
+
+def _governance_projection_artifacts(
+    artifact_root: Path,
+    workspace_path: Path,
+    artifacts: list[str],
+) -> list[str]:
+    data_path = Path(workspace_path).expanduser().resolve(strict=False)
+    if data_path.is_dir():
+        data_path /= "workspace.json"
+    journal_path = data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH
+    if not journal_path.exists():
+        return []
+    projection_paths = {
+        data_path,
+        data_path.parent / GOVERNANCE_HISTORY_RELATIVE_PATH,
+        journal_path,
+    }
+    matches: list[str] = []
+    for artifact in artifacts:
+        try:
+            artifact_path = resolve_workspace_path(artifact_root, artifact)
+        except ValueError:
+            continue
+        if artifact_path in projection_paths:
+            matches.append(artifact)
+    return sorted(matches)
+
+
+def _git_artifact_hashes_at_head(
+    artifact_root: Path,
+    artifacts: list[str],
+    head_sha: str,
+) -> list[dict[str, str]]:
+    if not artifacts:
+        return []
+    git_root = _git_root(artifact_root)
+    if (
+        git_root is None
+        or len(head_sha) != 40
+        or any(character not in "0123456789abcdef" for character in head_sha)
+        or _git_exact_object_value(
+            git_root,
+            ["rev-parse", "--verify", f"{head_sha}^{{commit}}"],
+        )
+        != head_sha
+    ):
+        return [
+            {
+                "path": artifact,
+                "sha256": f"{HASH_PREFIX}unavailable",
+                "status": "unavailable",
+            }
+            for artifact in sorted(artifacts)
+        ]
+
+    hashes: list[dict[str, str]] = []
+    for artifact in artifacts:
+        try:
+            artifact_path = resolve_workspace_path(artifact_root, artifact)
+            git_path = artifact_path.relative_to(git_root).as_posix()
+        except ValueError:
+            hashes.append(
+                {"path": artifact, "sha256": f"{HASH_PREFIX}unsafe", "status": "unsafe"}
+            )
+            continue
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(git_root),
+                    "--no-replace-objects",
+                    "cat-file",
+                    "blob",
+                    f"{head_sha}:{git_path}",
+                ],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        if result is None or result.returncode != 0:
+            hashes.append(
+                {"path": artifact, "sha256": f"{HASH_PREFIX}missing", "status": "missing"}
+            )
+            continue
+        digest = hashlib.sha256(result.stdout).hexdigest()
+        hashes.append(
+            {"path": artifact, "sha256": f"{HASH_PREFIX}{digest}", "status": "present"}
+        )
+    return sorted(hashes, key=lambda item: item["path"])
 
 
 def _artifact_hashes(workspace_path: Path, artifacts: list[str]) -> list[dict[str, str]]:

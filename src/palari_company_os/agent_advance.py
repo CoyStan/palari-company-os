@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,8 +20,9 @@ from .authoring import (
 from .evidence_manifest import git_artifact_state, verify_evidence
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
+from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
-from .store import load_store
+from .store import load_store, workspace_file_path
 from .verification_attestations import (
     VerificationContext,
     VerificationProfile,
@@ -388,6 +391,15 @@ def agent_advance(
     refresh_verification: bool = False,
 ) -> dict[str, Any]:
     workspace_path = Path(workspace_path)
+    if dry_run and refresh_verification:
+        refresh_plan = _changes_requested_refresh_plan(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+        )
+        if refresh_plan is not None:
+            return refresh_plan
     if not dry_run:
         resumed = _completed_projection(
             workspace,
@@ -992,12 +1004,45 @@ def _completed_projection(
             "message": f"Work item {work_id} is already completed.",
             "steps": [{"step": "resume", "status": "already-completed"}],
         }
+    refresh_binding = _changes_requested_refresh_binding(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    )
+    if (
+        refresh_verification
+        and refresh_binding["applicable"]
+        and not refresh_binding["ok"]
+    ):
+        return _resume_blocked(
+            workspace,
+            work_id,
+            "REFRESH_REVIEW_BINDING_INVALID",
+            str(refresh_binding["message"]),
+        )
+    if refresh_verification and refresh_binding["applicable"]:
+        try:
+            return _refresh_stale_projection(
+                workspace,
+                workspace_path,
+                work,
+                palari_id,
+            )
+        except ReconciliationStateChanged:
+            latest = Workspace.load(workspace_path)
+            return _resume_blocked(
+                latest,
+                work.id,
+                "REFRESH_STATE_CHANGED",
+                "Governed state changed before the proof transaction began; inspect and retry.",
+            )
     if _changes_requested_repair_candidate(
         workspace,
         workspace_path,
         work,
         palari_id,
-    ):
+    ) and not refresh_verification:
         return None
     convergence = converge_work_item(
         workspace_path,
@@ -1037,7 +1082,6 @@ def _completed_projection(
                     workspace_path,
                     work,
                     palari_id,
-                    convergence,
                 )
             except ReconciliationStateChanged:
                 latest = Workspace.load(workspace_path)
@@ -1166,7 +1210,6 @@ def _refresh_stale_projection(
     workspace_path: Path,
     work: Any,
     palari_id: str,
-    convergence: dict[str, Any],
 ) -> dict[str, Any]:
     """Rebind unchanged outputs to current HEAD after later repository changes.
 
@@ -1180,7 +1223,6 @@ def _refresh_stale_projection(
         workspace_path,
         work,
         palari_id,
-        convergence,
     )
     if not refresh["ok"]:
         return _resume_blocked(
@@ -1243,17 +1285,11 @@ def _refresh_stale_projection(
             "REFRESH_STATE_CHANGED",
             "The work item disappeared during proof refresh.",
         )
-    current_convergence = converge_work_item(
-        workspace_path,
-        work.id,
-        actor=palari_id,
-    )
     rechecked = _stale_projection_refresh_context(
         current,
         workspace_path,
         current_work,
         palari_id,
-        current_convergence,
     )
     stable_fields = (
         "workspace_digest",
@@ -1264,6 +1300,7 @@ def _refresh_stale_projection(
         "committed_paths",
         "artifacts",
         "artifact_hashes",
+        "artifact_transition",
         "git_root",
     )
     if not rechecked["ok"] or any(
@@ -1291,6 +1328,8 @@ def _refresh_stale_projection(
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification_results
     ]
+    transition = refresh["artifact_transition"]
+    narration = _refresh_proof_narration(len(verification_results), transition)
     attempt_id = _proof_id("ATTEMPT-REFRESH", work.id, refresh["head_sha"])
     receipt_id = _proof_id("RECEIPT-REFRESH", work.id, refresh["head_sha"])
     evidence_id = _proof_id("EVIDENCE-REFRESH", work.id, refresh["head_sha"])
@@ -1313,15 +1352,9 @@ def _refresh_stale_projection(
             "attempt_id": attempt_id,
             "actor": palari_id,
             "sources_used": list(work.allowed_sources),
-            "actions_taken": [
-                f"Reverified {len(refresh['artifacts'])} unchanged governed artifact(s) at current repository HEAD.",
-                "Reran the authoritative exact-state verification profiles.",
-            ],
+            "actions_taken": narration["actions_taken"],
             "outputs_created": list(refresh["artifacts"]),
-            "not_done": [
-                "No governed artifact bytes were changed.",
-                "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
-            ],
+            "not_done": narration["not_done"],
             "undo_refs": [],
         },
         evidence_record={
@@ -1334,10 +1367,7 @@ def _refresh_stale_projection(
             "commands": commands,
             "artifacts": list(refresh["artifacts"]),
             "artifact_hashes": list(refresh["artifact_hashes"]),
-            "summary": (
-                f"{len(verification_results)} exact-state verification profile(s) "
-                "passed for unchanged governed artifacts."
-            ),
+            "summary": narration["evidence_summary"],
             "freshness": "exact-head",
         },
         head_sha=refresh["head_sha"],
@@ -1369,7 +1399,7 @@ def _refresh_stale_projection(
         "refresh": {
             "previous_head": refresh["proof_head"],
             "current_head": refresh["head_sha"],
-            "artifacts_unchanged": True,
+            **transition,
             "performed_human_authority": False,
         },
         "verification": verification_results,
@@ -1382,19 +1412,113 @@ def _refresh_stale_projection(
     }
 
 
+def _changes_requested_refresh_plan(
+    workspace: Workspace,
+    workspace_path: Path,
+    work_id: str,
+    palari_id: str,
+) -> dict[str, Any] | None:
+    """Preview a claimless reviewed proof refresh without running verification."""
+
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"work not found: {work_id}")
+    binding = _changes_requested_refresh_binding(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    )
+    if not binding["applicable"]:
+        return None
+    if not binding["ok"]:
+        return _refresh_plan_blocked(
+            workspace,
+            work_id,
+            "REFRESH_REVIEW_BINDING_INVALID",
+            str(binding["message"]),
+        )
+    refresh = _stale_projection_refresh_context(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    )
+    if not refresh["ok"]:
+        return _refresh_plan_blocked(
+            workspace,
+            work_id,
+            str(refresh["code"]),
+            str(refresh["message"]),
+        )
+    profiles = verification_profiles(work.risk, refresh["committed_paths"])
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "planned",
+        "work_item": work_id,
+        "workspace": workspace.name,
+        "can_advance": True,
+        "dry_run": True,
+        "would_mutate": False,
+        "expected_state": "review-required",
+        "stop_boundary": "independent-review",
+        "refresh": {
+            "previous_head": refresh["proof_head"],
+            "current_head": refresh["head_sha"],
+            **refresh["artifact_transition"],
+            "performed_human_authority": False,
+        },
+        "steps": [
+            {
+                "step": "verify",
+                "profile_id": profile.id,
+                "status": "required",
+            }
+            for profile in profiles
+        ]
+        + [
+            {"step": "proof-refresh", "status": "required"},
+            {"step": "review-handoff", "status": "required"},
+        ],
+        "message": _refresh_plan_message(refresh["artifact_transition"]),
+    }
+
+
+def _refresh_plan_blocked(
+    workspace: Workspace,
+    work_id: str,
+    code: str,
+    message: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "blocked",
+        "work_item": work_id,
+        "workspace": workspace.name,
+        "can_advance": False,
+        "dry_run": True,
+        "would_mutate": False,
+        "expected_state": "review-required",
+        "blockers": [
+            {
+                "code": code,
+                "message": message,
+                "next_safe_action": (
+                    "Release any active claim, preserve the reviewed outputs, and inspect "
+                    "the exact review and Git history before retrying."
+                ),
+            }
+        ],
+        "steps": [],
+    }
+
+
 def _stale_projection_refresh_context(
     workspace: Workspace,
     workspace_path: Path,
     work: Any,
     palari_id: str,
-    convergence: dict[str, Any],
 ) -> dict[str, Any]:
-    if convergence.get("status") != "blocked" or convergence.get("code") != "CURRENT_PROOF_INVALID":
-        return {
-            "ok": False,
-            "code": "REFRESH_NOT_APPLICABLE",
-            "message": "Proof refresh is available only for an invalidated completed proof.",
-        }
     if work.palari != palari_id:
         return {
             "ok": False,
@@ -1458,34 +1582,6 @@ def _stale_projection_refresh_context(
                 + (f": {detail}" if detail else ".")
             ),
         }
-    projection = convergence.get("proof")
-    if not isinstance(projection, dict):
-        return {
-            "ok": False,
-            "code": "REFRESH_PROJECTION_MISSING",
-            "message": "The invalidated proof has no inspectable Git projection.",
-        }
-    if projection.get("proof_head") != proof_head:
-        return {
-            "ok": False,
-            "code": "REFRESH_PROJECTION_MISMATCH",
-            "message": "The invalidated Git projection does not bind the current proof attempt.",
-        }
-    dirty = list(projection.get("dirty_tracked_paths") or [])
-    if dirty:
-        return {
-            "ok": False,
-            "code": "REFRESH_DIRTY_WORKTREE",
-            "message": "Proof refresh requires a clean tracked worktree: " + ", ".join(dirty),
-        }
-    head_sha = str(projection.get("current_head") or "")
-    committed_paths = sorted(set(projection.get("committed_paths") or []))
-    if not head_sha or head_sha == proof_head or not committed_paths:
-        return {
-            "ok": False,
-            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
-            "message": "No later committed repository state is available for proof refresh.",
-        }
     from .agent_done import _git_value
 
     root_text = _git_value(
@@ -1498,6 +1594,47 @@ def _stale_projection_refresh_context(
             "code": "REFRESH_REPOSITORY_UNAVAILABLE",
             "message": "The proof workspace is not inside a readable Git repository.",
         }
+    head_sha = _git_value(Path(root_text), ["rev-parse", "HEAD"])
+    if not head_sha or head_sha == proof_head:
+        return {
+            "ok": False,
+            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
+            "message": "No later committed repository state is available for proof refresh.",
+        }
+    if not _exact_git_descendant(root_text, proof_head, head_sha):
+        return {
+            "ok": False,
+            "code": "REFRESH_HISTORY_DIVERGED",
+            "message": (
+                "The current Git head is not an exact descendant of the reviewed proof head."
+            ),
+        }
+    dirty = _exact_dirty_tracked_paths(root_text)
+    if dirty is None:
+        return {
+            "ok": False,
+            "code": "REFRESH_DIRTY_STATE_UNREADABLE",
+            "message": "The tracked worktree state could not be inspected safely.",
+        }
+    if dirty:
+        return {
+            "ok": False,
+            "code": "REFRESH_DIRTY_WORKTREE",
+            "message": "Proof refresh requires a clean tracked worktree: " + ", ".join(dirty),
+        }
+    committed_paths = _exact_committed_paths(root_text, proof_head, head_sha)
+    if committed_paths is None:
+        return {
+            "ok": False,
+            "code": "REFRESH_HISTORY_UNREADABLE",
+            "message": "The complete exact commit path range could not be inspected safely.",
+        }
+    if not committed_paths:
+        return {
+            "ok": False,
+            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
+            "message": "No later committed repository state is available for proof refresh.",
+        }
     artifacts = sorted(set(work.output_targets))
     if not artifacts:
         return {
@@ -1505,10 +1642,57 @@ def _stale_projection_refresh_context(
             "code": "REFRESH_ARTIFACT_MISSING",
             "message": "The work item has no governed output target to refresh.",
         }
+    overlap = _non_projection_output_overlap(
+        workspace_path,
+        Path(root_text),
+        committed_paths,
+        artifacts,
+    )
+    if overlap:
+        return {
+            "ok": False,
+            "code": "REFRESH_OUTPUT_HISTORY_OVERLAP",
+            "message": (
+                "A governed output was touched after the reviewed proof head: "
+                + ", ".join(overlap)
+            ),
+        }
+    artifact_state = git_artifact_state(
+        Path(root_text),
+        artifacts,
+        governance_workspace_path=workspace_path,
+    )
+    if (
+        not artifact_state.get("clean")
+        or artifact_state.get("head_sha") != head_sha
+    ):
+        return {
+            "ok": False,
+            "code": "REFRESH_ARTIFACT_STATE_CHANGED",
+            "message": (
+                "Current governed artifact bytes could not be bound to the exact refresh head."
+            ),
+        }
+    artifact_transition = _refresh_artifact_transition(
+        workspace_path,
+        Path(root_text),
+        artifacts,
+        evidence.artifact_hashes,
+        artifact_state["artifact_hashes"],
+    )
+    if artifact_transition is None:
+        return {
+            "ok": False,
+            "code": "REFRESH_ARTIFACT_STATE_CHANGED",
+            "message": (
+                "Previous and current governed artifact hashes could not be "
+                "classified safely for exact-head refresh."
+            ),
+        }
     return {
         "ok": True,
         "code": "",
-        "message": "Unchanged governed artifacts may be reverified at current HEAD.",
+        "message": _refresh_plan_message(artifact_transition),
         "workspace_digest": workspace_digest(load_store(workspace_path).data),
         "attempt_id": attempt.id,
         "evidence_id": evidence.id,
@@ -1516,9 +1700,351 @@ def _stale_projection_refresh_context(
         "head_sha": head_sha,
         "committed_paths": committed_paths,
         "artifacts": artifacts,
-        "artifact_hashes": verification["computed_artifact_hashes"],
+        "artifact_hashes": artifact_state["artifact_hashes"],
+        "artifact_transition": artifact_transition,
         "git_root": root_text,
     }
+
+
+def _exact_git_descendant(root: str, base_sha: str, head_sha: str) -> bool:
+    if not all(_exact_git_sha(value) for value in (base_sha, head_sha)):
+        return False
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "merge-base",
+                "--is-ancestor",
+                base_sha,
+                head_sha,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def _exact_git_sha(value: str) -> bool:
+    return len(value) == 40 and all(char in "0123456789abcdef" for char in value)
+
+
+def _exact_committed_paths(
+    root: str,
+    base_sha: str,
+    head_sha: str,
+) -> list[str] | None:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "rev-list",
+                "--reverse",
+                "--topo-order",
+                f"{base_sha}..{head_sha}",
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    commits = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not commits or not all(_exact_git_sha(commit) for commit in commits):
+        return None
+    paths: set[str] = set()
+    for commit in commits:
+        observed = _exact_path_command(
+            root,
+            [
+                "diff-tree",
+                "--root",
+                "-m",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                "-z",
+                "--no-renames",
+                commit,
+            ],
+        )
+        if observed is None:
+            return None
+        paths.update(observed)
+    return sorted(paths)
+
+
+def _exact_dirty_tracked_paths(root: str) -> list[str] | None:
+    paths: set[str] = set()
+    for arguments in (
+        ["diff", "--name-only", "-z", "--no-renames"],
+        ["diff", "--cached", "--name-only", "-z", "--no-renames"],
+    ):
+        observed = _exact_path_command(root, arguments)
+        if observed is None:
+            return None
+        paths.update(observed)
+    return sorted(paths)
+
+
+def _exact_path_command(root: str, arguments: list[str]) -> list[str] | None:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                *arguments,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    paths: set[str] = set()
+    for field in result.stdout.split(b"\0"):
+        if not field:
+            continue
+        path = os.fsdecode(field)
+        try:
+            normalized = validate_workspace_path(path)
+        except ValueError:
+            return None
+        if normalized != path:
+            return None
+        paths.add(path)
+    return sorted(paths)
+
+
+def _non_projection_output_overlap(
+    workspace_path: Path,
+    git_root: Path,
+    committed_paths: list[str],
+    output_targets: list[str],
+) -> list[str]:
+    projection_paths = _projection_artifact_paths(workspace_path, git_root)
+    if projection_paths is None:
+        return sorted(set(committed_paths))
+    return sorted(
+        {
+            path
+            for path in committed_paths
+            if path not in projection_paths
+            and any(path_allowed(path, [target]) for target in output_targets)
+        }
+    )
+
+
+def _projection_artifact_paths(
+    workspace_path: Path,
+    git_root: Path,
+) -> set[str] | None:
+    try:
+        data_path = workspace_file_path(workspace_path).resolve()
+        relative_data = data_path.relative_to(git_root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
+    base = relative_data.removesuffix("workspace.json")
+    return {
+        relative_data,
+        f"{base}.palari/history.jsonl",
+        f"{base}.palari/governance-journal.v1.jsonl",
+    }
+
+
+def _refresh_artifact_transition(
+    workspace_path: Path,
+    git_root: Path,
+    artifacts: list[str],
+    previous_hashes: list[dict[str, Any]],
+    current_hashes: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    projection_paths = _projection_artifact_paths(workspace_path, git_root)
+    if projection_paths is None:
+        return None
+
+    def hash_map(
+        items: list[dict[str, Any]],
+    ) -> dict[str, dict[str, str]] | None:
+        result: dict[str, dict[str, str]] = {}
+        for item in items:
+            if not isinstance(item, dict):
+                return None
+            path = item.get("path")
+            digest = item.get("sha256")
+            status = item.get("status")
+            if (
+                not isinstance(path, str)
+                or not _exact_sha256_digest(digest)
+                or status != "present"
+            ):
+                return None
+            if path in result or path not in artifacts:
+                return None
+            result[path] = {"sha256": digest, "status": status}
+        return result
+
+    previous = hash_map(previous_hashes)
+    current = hash_map(current_hashes)
+    if previous is None or current is None:
+        return None
+    if set(current) != set(artifacts):
+        return None
+    missing_previous = set(artifacts) - set(previous)
+    if missing_previous - projection_paths:
+        return None
+
+    ordinary_unchanged: list[str] = []
+    projection_unchanged: list[dict[str, str]] = []
+    projection_rebound: list[dict[str, str]] = []
+    for path in artifacts:
+        if path not in projection_paths:
+            if previous[path]["sha256"] != current[path]["sha256"]:
+                return None
+            ordinary_unchanged.append(path)
+            continue
+        previous_item = previous.get(path)
+        previous_digest = previous_item["sha256"] if previous_item else ""
+        unchanged = bool(
+            previous_item and previous_digest == current[path]["sha256"]
+        )
+        projection_record = {
+            "path": path,
+            "transition": "unchanged" if unchanged else "rebound",
+            "previous_sha256": previous_digest,
+            "previous_status": "present" if previous_item else "not-recorded",
+            "current_sha256": current[path]["sha256"],
+            "current_status": current[path]["status"],
+        }
+        if unchanged:
+            projection_unchanged.append(projection_record)
+        else:
+            projection_rebound.append(projection_record)
+    proof_projection_paths = sorted(
+        item["path"] for item in projection_unchanged + projection_rebound
+    )
+    return {
+        # Compatibility field: true only when every governed artifact is
+        # byte-identical across the proof-head transition.
+        "artifacts_unchanged": not projection_rebound,
+        "ordinary_artifacts_unchanged": sorted(ordinary_unchanged),
+        "projection_artifacts_unchanged": sorted(
+            projection_unchanged, key=lambda item: item["path"]
+        ),
+        "projection_artifacts_rebound": sorted(
+            projection_rebound, key=lambda item: item["path"]
+        ),
+        "proof_projection_mutates_after_evidence": proof_projection_paths,
+    }
+
+
+def _refresh_plan_message(transition: dict[str, Any]) -> str:
+    projection_paths = transition.get("proof_projection_mutates_after_evidence", [])
+    if projection_paths:
+        return (
+            "Ordinary governed outputs are byte-unchanged; allowlisted self-mutating "
+            "governance projections can be rebound to exact current-HEAD Git bytes. "
+            "Recording refreshed proof will mutate those projection files after the "
+            "evidence head, and fresh independent review will still be required."
+        )
+    return (
+        "Current governed outputs are byte-unchanged and can be reverified at the "
+        "exact current head; fresh independent review will still be required."
+    )
+
+
+def _refresh_proof_narration(
+    verification_count: int,
+    transition: dict[str, Any],
+) -> dict[str, Any]:
+    ordinary_artifacts = list(transition["ordinary_artifacts_unchanged"])
+    projection_unchanged = list(transition["projection_artifacts_unchanged"])
+    projection_rebound = list(transition["projection_artifacts_rebound"])
+    projection_artifacts = projection_unchanged + projection_rebound
+
+    actions_taken: list[str] = []
+    if ordinary_artifacts:
+        actions_taken.append(
+            f"Reverified {len(ordinary_artifacts)} ordinary governed artifact(s) "
+            "as byte-unchanged at current repository HEAD."
+        )
+    if projection_unchanged:
+        actions_taken.append(
+            f"Confirmed {len(projection_unchanged)} allowlisted self-mutating "
+            "governance projection artifact(s) retained identical exact Git bytes."
+        )
+    if projection_rebound:
+        actions_taken.append(
+            f"Rebound {len(projection_rebound)} allowlisted self-mutating governance "
+            "projection artifact(s) to exact current-HEAD Git bytes."
+        )
+    actions_taken.append("Reran the authoritative exact-state verification profiles.")
+
+    not_done = [
+        "No non-projection governed artifact bytes were changed.",
+        "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
+    ]
+    if projection_artifacts:
+        not_done.insert(
+            1,
+            "Recording refreshed proof mutates the allowlisted governance projection "
+            "files after the evidence head; evidence remains bound to their exact "
+            "pre-projection Git bytes.",
+        )
+
+    summary_parts = [
+        f"{verification_count} exact-state verification profile(s) passed"
+    ]
+    if ordinary_artifacts:
+        summary_parts.append(
+            f"{len(ordinary_artifacts)} ordinary artifact(s) remained byte-unchanged"
+        )
+    if projection_unchanged:
+        summary_parts.append(
+            f"{len(projection_unchanged)} self-mutating governance projection "
+            "artifact(s) retained identical exact Git bytes"
+        )
+    if projection_rebound:
+        summary_parts.append(
+            f"{len(projection_rebound)} self-mutating governance projection "
+            "artifact(s) were rebound to exact current-HEAD Git bytes"
+        )
+    if projection_artifacts:
+        summary_parts.append(
+            "recording the proof mutates those projection files after the evidence head"
+        )
+    return {
+        "actions_taken": actions_taken,
+        "not_done": not_done,
+        "evidence_summary": "; ".join(summary_parts) + ".",
+    }
+
+
+def _exact_sha256_digest(value: Any) -> bool:
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        return False
+    digest = value.removeprefix("sha256:")
+    return len(digest) == 64 and all(
+        character in "0123456789abcdef" for character in digest
+    )
 
 
 def _refresh_proof_timestamp(
@@ -2077,12 +2603,31 @@ def _recovery_timestamps_bound(
 
 
 def _git_commit_timestamp(preflight: dict[str, Any]) -> str:
-    from .agent_done import _git_value
-
-    raw = _git_value(
-        Path(str(preflight.get("git_root") or "")),
-        ["show", "-s", "--format=%ct", str(preflight.get("head_sha") or "")],
-    )
+    root = str(preflight.get("git_root") or "")
+    head_sha = str(preflight.get("head_sha") or "")
+    if not root or not _exact_git_sha(head_sha):
+        return ""
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "--no-replace-objects",
+                "show",
+                "-s",
+                "--format=%ct",
+                head_sha,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    raw = result.stdout.strip() if result.returncode == 0 else ""
     try:
         timestamp = datetime.fromtimestamp(int(raw), timezone.utc)
     except (OverflowError, ValueError):
@@ -2196,27 +2741,73 @@ def _changes_requested_repair_candidate(
     work: Any,
     palari_id: str,
 ) -> bool:
+    binding = _changes_requested_refresh_binding(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+    )
+    return bool(binding["applicable"] and binding["ok"] and binding["later_head"])
+
+
+def _changes_requested_refresh_binding(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+) -> dict[str, Any]:
     reviews = [
         item for item in workspace.review_verdicts if item.work_item_id == work.id
     ]
-    if not reviews or not work.current_attempt:
-        return False
+    if not reviews:
+        return {"applicable": False, "ok": False, "later_head": False, "message": ""}
     latest = max(reviews, key=record_time_key)
     if latest.verdict != "changes-requested":
-        return False
+        return {"applicable": False, "ok": False, "later_head": False, "message": ""}
+    if not work.current_attempt:
+        return {
+            "applicable": True,
+            "ok": False,
+            "later_head": False,
+            "message": "The changes-requested review has no current attempt binding.",
+        }
     attempt = next(
         (item for item in workspace.attempts if item.id == work.current_attempt),
         None,
     )
     if attempt is None or attempt.actor != palari_id:
-        return False
+        return {
+            "applicable": True,
+            "ok": False,
+            "later_head": False,
+            "message": (
+                "The changes-requested review does not bind a current attempt owned by "
+                "the assigned Palari."
+            ),
+        }
     attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
     if not attempt_head or latest.reviewed_head != attempt_head:
-        return False
+        return {
+            "applicable": True,
+            "ok": False,
+            "later_head": False,
+            "message": (
+                "The changes-requested review head does not match the current attempt head."
+            ),
+        }
     from .agent_done import _git_value
 
     current_head = _git_value(workspace_path, ["rev-parse", "HEAD"])
-    return bool(current_head and current_head != attempt_head)
+    return {
+        "applicable": True,
+        "ok": bool(current_head),
+        "later_head": bool(current_head and current_head != attempt_head),
+        "message": (
+            ""
+            if current_head
+            else "The current Git head is unavailable for changes-requested refresh."
+        ),
+    }
 
 
 def _governed_artifacts(paths: list[str]) -> list[str]:

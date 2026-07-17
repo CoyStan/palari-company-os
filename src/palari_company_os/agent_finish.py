@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent_checks import build_agent_check
+from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -46,8 +47,16 @@ def build_agent_finish(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
-    check = build_agent_check(workspace, work_id, palari_id, mode)
+    check = build_agent_check(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=journal_context,
+    )
     failed_required = [
         item
         for item in check.get("checks", [])
@@ -255,7 +264,7 @@ def review_prerequisites_met(check: dict[str, Any]) -> bool:
 
 def _linked_decision_command(workspace: Workspace, work_id: str) -> str | None:
     for decision in workspace.decisions:
-        if decision.linked_work == work_id:
+        if decision.linked_work == work_id and decision.status == "open":
             return f"palari decision guide {decision.id} --json"
     return None
 

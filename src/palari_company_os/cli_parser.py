@@ -195,17 +195,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
-    dashboard_parser = subparsers.add_parser(
-        "dashboard",
-        help="Generate a read-only static dashboard.",
-    )
-    dashboard_parser.add_argument(
-        "--out",
-        required=True,
-        help="Output directory for generated dashboard files.",
-    )
-    dashboard_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
     desktop_prototype_parser = subparsers.add_parser(
         "desktop-prototype",
         help="Generate a static Palari Desktop shell prototype with demo data.",
@@ -1418,6 +1407,11 @@ def _add_human_decision_parser(subparsers: Any) -> None:
         help="Record one attributable human action over an exact Approval Pack.",
     )
     pack.add_argument("--pack-digest", required=True, help="Exact canonical pack digest.")
+    pack.add_argument(
+        "--presentation-digest",
+        required=True,
+        help="Exact canonical decision-presentation digest shown by the Approval Inbox.",
+    )
     pack.add_argument("--human-id", required=True, help="Human recording the decision.")
     pack.add_argument(
         "--approve-eligible",

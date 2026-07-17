@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import io
 import shutil
@@ -19,6 +20,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_advance import (
     _completed_projection,
     _git_commit_timestamp,
+    _refresh_artifact_transition,
+    _refresh_proof_narration,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -32,14 +35,17 @@ from palari_company_os.authoring import (
     create_human_decision,
     create_record,
     reconcile_agent_proof,
+    update_record,
 )
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_output_agent import print_agent_done
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.evidence_manifest import (
+    evidence_artifact_root,
     evidence_manifest_hash,
     git_artifact_state,
     receipt_hash,
+    verify_evidence,
 )
 from palari_company_os.governance_journal import (
     MutationMetadata,
@@ -523,6 +529,213 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
         self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
 
+    def test_self_mutating_governance_outputs_bind_commit_and_allow_review(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        report = verify_evidence(
+            Ws.load(self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(
+            report["exact_head_artifacts"],
+            [".palari/governance-journal.v1.jsonl"],
+        )
+        self.assertTrue(report["journal_continuity_ok"])
+        result = create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": "REVIEW-TEST-SELF-JOURNAL",
+                "work_item_id": self.work_id,
+                "reviewed_head": evidence.head_sha,
+                "reviewer": "PALARI-ARCHITECT",
+                "verdict": "accept-ready",
+                "findings": [],
+                "checks_inspected": ["exact committed projection and live journal"],
+                "residual_risks": [],
+            },
+            command="test exact-head self-journal review",
+            actor="PALARI-ARCHITECT",
+        )
+
+        self.assertEqual(result.action, "created")
+        self.assertTrue(verify_workspace_journal(self.temp_dir)["ok"])
+
+    def test_self_mutating_governance_output_rejects_forged_committed_hash(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        raw = deepcopy(load_store(self.temp_dir).data)
+        raw_evidence = next(
+            item for item in raw["evidence_runs"] if item["id"] == evidence.id
+        )
+        journal_hash = next(
+            item
+            for item in raw_evidence["artifact_hashes"]
+            if item["path"] == ".palari/governance-journal.v1.jsonl"
+        )
+        journal_hash["sha256"] = "sha256:" + "0" * 64
+        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
+        forged = Ws.from_raw(raw, self.temp_dir)
+
+        report = verify_evidence(
+            forged,
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["artifact_hashes_ok"])
+        self.assertFalse(report["manifest_hash_ok"])
+        self.assertTrue(report["journal_continuity_ok"])
+
+    def test_self_mutating_governance_output_rejects_invalid_live_journal(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        with journal.open("a", encoding="utf-8") as stream:
+            stream.write("{}\n")
+
+        report = verify_evidence(
+            Ws.load(self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["artifact_hashes_ok"])
+        self.assertFalse(report["journal_continuity_ok"])
+        with self.assertRaisesRegex(WorkspaceError, "complete exact proof"):
+            create_record(
+                str(self.temp_dir),
+                "review",
+                {
+                    "id": "REVIEW-TEST-INVALID-LIVE-JOURNAL",
+                    "work_item_id": self.work_id,
+                    "reviewed_head": evidence.head_sha,
+                    "reviewer": "PALARI-ARCHITECT",
+                    "verdict": "accept-ready",
+                    "findings": [],
+                    "checks_inspected": ["invalid live journal"],
+                    "residual_risks": [],
+                },
+                command="test invalid live journal rejection",
+                actor="PALARI-ARCHITECT",
+            )
+
+    def test_self_mutating_governance_output_rejects_git_replace_substitution(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        replacement = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{evidence.head_sha}^^"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "replace", evidence.head_sha, replacement],
+            check=True,
+        )
+        object_spec = f"{evidence.head_sha}:.palari/governance-journal.v1.jsonl"
+        substituted = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "cat-file", "blob", object_spec],
+            check=True,
+            capture_output=True,
+        ).stdout
+        original = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "--no-replace-objects",
+                "cat-file",
+                "blob",
+                object_spec,
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+        self.assertNotEqual(substituted, original)
+
+        raw = deepcopy(load_store(self.temp_dir).data)
+        raw_evidence = next(
+            item for item in raw["evidence_runs"] if item["id"] == evidence.id
+        )
+        journal_hash = next(
+            item
+            for item in raw_evidence["artifact_hashes"]
+            if item["path"] == ".palari/governance-journal.v1.jsonl"
+        )
+        journal_hash["sha256"] = "sha256:" + hashlib.sha256(substituted).hexdigest()
+        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
+
+        report = verify_evidence(
+            Ws.from_raw(raw, self.temp_dir),
+            evidence.id,
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["artifact_hashes_ok"])
+        self.assertFalse(report["manifest_hash_ok"])
+        self.assertTrue(report["journal_continuity_ok"])
+
+    def test_relocated_artifact_root_rejects_replace_only_candidate(self) -> None:
+        fake_head = "1" * 40
+        actual_head = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "update-ref",
+                f"refs/replace/{fake_head}",
+                actual_head,
+            ],
+            check=True,
+        )
+        ordinary = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{fake_head}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        raw = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "--no-replace-objects",
+                "rev-parse",
+                "--verify",
+                f"{fake_head}^{{commit}}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(ordinary, fake_head)
+        self.assertNotEqual(raw.returncode, 0)
+
+        with self.assertRaisesRegex(ValueError, "candidate commit is unavailable"):
+            evidence_artifact_root(
+                self.temp_dir,
+                "ATTEMPT-RELOCATED-REPLACE",
+                ["README.md"],
+                [
+                    {
+                        "id": "ATTEMPT-RELOCATED-REPLACE",
+                        "workspace_path": str(self.temp_dir / "missing-original-repo"),
+                        "allowed_paths": ["README.md"],
+                        "forbidden_paths": [],
+                        "head_sha": fake_head,
+                    }
+                ],
+            )
+
     def test_changes_requested_repair_bypasses_rejected_projection_resume(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
@@ -598,6 +811,713 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
 
         self.assertIsNone(resumed)
+
+    def test_changes_requested_refresh_previews_and_rebinds_without_claim(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-CHANGES")
+        (self.temp_dir / "RELATED.md").write_text(
+            "separately governed context\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "review and context"],
+            check=True,
+        )
+        current_head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        preview = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(preview["status"], "planned", preview)
+        self.assertFalse(preview["would_mutate"])
+        self.assertEqual(preview["refresh"]["previous_head"], previous_head)
+        self.assertEqual(preview["refresh"]["current_head"], current_head)
+        after_preview = Ws.load(self.temp_dir)
+        self.assertEqual(after_preview.work_item(self.work_id).current_attempt, attempt.id)
+        self.assertFalse(
+            any(
+                item.id.startswith("ATTEMPT-REFRESH-")
+                for item in after_preview.attempts
+                if item.work_item_id == self.work_id
+            )
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            refreshed = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(refreshed["status"], "review-required", refreshed)
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+        current = Ws.load(self.temp_dir)
+        current_work = current.work_item(self.work_id)
+        self.assertIsNotNone(current_work)
+        assert current_work is not None and current_work.current_attempt
+        refreshed_attempt = next(
+            item for item in current.attempts if item.id == current_work.current_attempt
+        )
+        self.assertEqual(refreshed_attempt.head_sha, current_head)
+        stale_review = next(
+            item for item in current.review_verdicts if item.id == "REVIEW-REFRESH-CHANGES"
+        )
+        self.assertEqual(stale_review.reviewed_head, previous_head)
+        self.assertNotEqual(stale_review.reviewed_head, refreshed_attempt.head_sha)
+
+    def test_changes_requested_refresh_rejects_active_claim(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-ACTIVE-CLAIM")
+        (self.temp_dir / "RELATED.md").write_text("later context\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later context"],
+            check=True,
+        )
+        start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "REFRESH_ACTIVE_CLAIM")
+
+    def test_changes_requested_refresh_rebinds_self_mutating_projection_outputs(
+        self,
+    ) -> None:
+        self._advance_with_projection_outputs()
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-PROJECTION")
+        (self.temp_dir / "RELATED.md").write_text(
+            "separately governed context\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later projection"],
+            check=True,
+        )
+        current_head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        planned = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+        self.assertEqual(planned["status"], "planned", planned)
+        self.assertFalse(planned["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            planned["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        expected_projections = [
+            ".palari/governance-journal.v1.jsonl",
+            ".palari/history.jsonl",
+            "workspace.json",
+        ]
+        self.assertEqual(
+            [
+                item["path"]
+                for item in planned["refresh"]["projection_artifacts_rebound"]
+            ],
+            expected_projections,
+        )
+        rebound_by_path = {
+            item["path"]: item
+            for item in planned["refresh"]["projection_artifacts_rebound"]
+        }
+        self.assertEqual(
+            rebound_by_path[".palari/history.jsonl"]["previous_status"],
+            "not-recorded",
+        )
+        self.assertEqual(
+            rebound_by_path["workspace.json"]["previous_status"],
+            "not-recorded",
+        )
+        self.assertTrue(
+            all(
+                item["transition"] == "rebound"
+                and item["current_status"] == "present"
+                for item in rebound_by_path.values()
+            )
+        )
+        self.assertEqual(
+            planned["refresh"]["proof_projection_mutates_after_evidence"],
+            expected_projections,
+        )
+        self.assertIn("mutate those projection files after the evidence head", planned["message"])
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "review-required", result)
+        self.assertFalse(result["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            result["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        self.assertEqual(
+            [
+                item["path"]
+                for item in result["refresh"]["projection_artifacts_rebound"]
+            ],
+            expected_projections,
+        )
+        refreshed = Ws.load(self.temp_dir)
+        refreshed_work = refreshed.work_item(self.work_id)
+        assert refreshed_work is not None and refreshed_work.current_attempt
+        refreshed_attempt = next(
+            item for item in refreshed.attempts if item.id == refreshed_work.current_attempt
+        )
+        self.assertEqual(refreshed_attempt.head_sha, current_head)
+        evidence = next(
+            item
+            for item in refreshed.evidence_runs
+            if item.attempt_id == refreshed_attempt.id
+        )
+        self.assertEqual(
+            set(evidence.artifacts),
+            {
+                "README.md",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            },
+        )
+        receipt = next(
+            item
+            for item in refreshed.receipts
+            if item.attempt_id == refreshed_attempt.id
+        )
+        narration = " ".join(receipt.actions_taken + receipt.not_done)
+        self.assertIn("self-mutating governance projection", narration)
+        self.assertIn("after the evidence head", narration)
+        self.assertNotIn("unchanged governed artifact", narration)
+        self.assertIn("were rebound to exact current-HEAD Git bytes", evidence.summary)
+        self.assertIn("after the evidence head", evidence.summary)
+
+    def test_refresh_transition_rejects_missing_ordinary_artifact_hash(self) -> None:
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            ["README.md", "workspace.json"],
+            [
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "1" * 64,
+                    "status": "present",
+                }
+            ],
+            [
+                {
+                    "path": "README.md",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "3" * 64,
+                    "status": "present",
+                },
+            ],
+        )
+
+        self.assertIsNone(transition)
+
+    def test_refresh_transition_reports_uniform_projection_records(self) -> None:
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            [".palari/history.jsonl", "workspace.json"],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "sha256": "sha256:" + "1" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+            ],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "sha256": "sha256:" + "3" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+            ],
+        )
+
+        self.assertIsNotNone(transition)
+        assert transition is not None
+        self.assertEqual(
+            transition["projection_artifacts_unchanged"],
+            [
+                {
+                    "path": "workspace.json",
+                    "transition": "unchanged",
+                    "previous_sha256": "sha256:" + "2" * 64,
+                    "previous_status": "present",
+                    "current_sha256": "sha256:" + "2" * 64,
+                    "current_status": "present",
+                }
+            ],
+        )
+        self.assertEqual(
+            transition["projection_artifacts_rebound"],
+            [
+                {
+                    "path": ".palari/history.jsonl",
+                    "transition": "rebound",
+                    "previous_sha256": "sha256:" + "1" * 64,
+                    "previous_status": "present",
+                    "current_sha256": "sha256:" + "3" * 64,
+                    "current_status": "present",
+                }
+            ],
+        )
+
+    def test_refresh_transition_sorts_three_unchanged_projection_records(self) -> None:
+        paths = [
+            ".palari/governance-journal.v1.jsonl",
+            ".palari/history.jsonl",
+            "workspace.json",
+        ]
+        hashes = [
+            {
+                "path": path,
+                "sha256": "sha256:" + str(index) * 64,
+                "status": "present",
+            }
+            for index, path in enumerate(reversed(paths), start=1)
+        ]
+
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            list(reversed(paths)),
+            hashes,
+            hashes,
+        )
+
+        self.assertIsNotNone(transition)
+        assert transition is not None
+        self.assertEqual(
+            [
+                item["path"]
+                for item in transition["projection_artifacts_unchanged"]
+            ],
+            paths,
+        )
+        self.assertEqual(transition["projection_artifacts_rebound"], [])
+        self.assertTrue(transition["artifacts_unchanged"])
+
+    def test_refresh_proof_narration_preserves_projection_transitions(self) -> None:
+        record = {
+            "previous_sha256": "sha256:" + "1" * 64,
+            "previous_status": "present",
+            "current_sha256": "sha256:" + "1" * 64,
+            "current_status": "present",
+        }
+        narration = _refresh_proof_narration(
+            3,
+            {
+                "ordinary_artifacts_unchanged": [],
+                "projection_artifacts_unchanged": [
+                    {"path": "workspace.json", "transition": "unchanged", **record},
+                    {
+                        "path": ".palari/history.jsonl",
+                        "transition": "unchanged",
+                        **record,
+                    },
+                ],
+                "projection_artifacts_rebound": [
+                    {
+                        "path": ".palari/governance-journal.v1.jsonl",
+                        "transition": "rebound",
+                        **record,
+                        "current_sha256": "sha256:" + "2" * 64,
+                    }
+                ],
+            },
+        )
+
+        actions = " ".join(narration["actions_taken"])
+        self.assertIn("Confirmed 2", actions)
+        self.assertIn("Rebound 1", actions)
+        self.assertNotIn("Rebound 3", actions)
+        self.assertIn("2 self-mutating governance projection", narration["evidence_summary"])
+        self.assertIn("retained identical exact Git bytes", narration["evidence_summary"])
+        self.assertIn("1 self-mutating governance projection", narration["evidence_summary"])
+        self.assertIn("were rebound", narration["evidence_summary"])
+        self.assertIn("after the evidence head", narration["evidence_summary"])
+
+    def test_refresh_transition_rejects_malformed_hash_or_status(self) -> None:
+        valid = {
+            "path": "workspace.json",
+            "sha256": "sha256:" + "1" * 64,
+            "status": "present",
+        }
+        malformed = (
+            {**valid, "sha256": "sha256:short"},
+            {**valid, "status": "unknown"},
+            {key: value for key, value in valid.items() if key != "status"},
+        )
+
+        for item in malformed:
+            with self.subTest(item=item):
+                transition = _refresh_artifact_transition(
+                    self.temp_dir,
+                    self.temp_dir,
+                    ["workspace.json"],
+                    [valid],
+                    [item],
+                )
+                self.assertIsNone(transition)
+
+    def test_changes_requested_refresh_rejects_mismatched_review_head(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_changes_requested("f" * 40, "REVIEW-REFRESH-WRONG-HEAD")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bad review binding"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
+        )
+
+    def test_changes_requested_refresh_rejects_rewritten_history(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-REWRITTEN")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "--orphan", "rewritten"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "rewritten history"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertFalse(result["can_advance"])
+
+    def test_refresh_rejects_restored_output_history_overlap(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        previous_head, _evidence_id, _review_id = self._record_current_authority()
+        self._record_changes_requested(
+            previous_head,
+            "REVIEW-REFRESH-RESTORED-OUTPUT",
+        )
+        artifact = (self.temp_dir / "README.md").read_bytes()
+        (self.temp_dir / "README.md").write_text("temporary changed bytes\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "touch output"],
+            check=True,
+        )
+        (self.temp_dir / "README.md").write_bytes(artifact)
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "restore output"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("overlapping refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_OUTPUT_HISTORY_OVERLAP"
+        )
+        self.assertIn("README.md", result["blockers"][0]["message"])
+
+    def test_refresh_rejects_output_changed_only_by_two_merges_then_restored(
+        self,
+    ) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-TWO-MERGES")
+        original = (self.temp_dir / "README.md").read_bytes()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "record review"],
+            check=True,
+        )
+        main_branch = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "branch", "--show-current"], text=True
+        ).strip()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "-qb", "topic-one"],
+            check=True,
+        )
+        (self.temp_dir / "topic-one.txt").write_text("one\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "topic-one.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "topic one"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", main_branch],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "main-one.txt").write_text("main one\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "main-one.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "main one"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "topic-one",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "README.md").write_text(
+            "changed only by first merge\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "first merge"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", "-qb", "topic-two"],
+            check=True,
+        )
+        (self.temp_dir / "topic-two.txt").write_text("two\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "topic-two.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "topic two"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "checkout", main_branch],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "main-two.txt").write_text("main two\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "main-two.txt"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "main two"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "topic-two",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (self.temp_dir / "README.md").write_bytes(original)
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "second merge"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=AssertionError("merge-overlap refresh ran verification"),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                refresh_verification=True,
+            )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"], "REFRESH_OUTPUT_HISTORY_OVERLAP"
+        )
+        self.assertIn("README.md", result["blockers"][0]["message"])
 
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
         with patch(
@@ -928,6 +1848,15 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(refreshed["status"], "review-required", refreshed)
         self.assertEqual(runner.call_count, 3)
         self.assertTrue(refreshed["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            refreshed["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        self.assertEqual(
+            refreshed["refresh"]["projection_artifacts_rebound"], []
+        )
+        self.assertEqual(
+            refreshed["refresh"]["proof_projection_mutates_after_evidence"], []
+        )
         self.assertFalse(refreshed["refresh"]["performed_human_authority"])
         self.assertEqual(refreshed["refresh"]["previous_head"], previous_head)
         self.assertEqual(refreshed["refresh"]["current_head"], current_head)
@@ -2347,6 +3276,116 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             automatic_convergence=False,
         )
         return head_sha, evidence.id, review_id
+
+    def _record_changes_requested(self, head_sha: str, review_id: str) -> None:
+        create_record(
+            str(self.temp_dir),
+            "review",
+            {
+                "id": review_id,
+                "work_item_id": self.work_id,
+                "reviewed_head": head_sha,
+                "reviewer": "PALARI-ARCHITECT",
+                "verdict": "changes-requested",
+                "findings": [],
+                "checks_inspected": ["exact reviewed proof head"],
+                "residual_risks": [],
+            },
+            command="test independent changes requested",
+            actor="PALARI-ARCHITECT",
+        )
+
+    def _advance_with_projection_outputs(self):
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        projection_outputs = [
+            "README.md",
+            "workspace.json",
+            ".palari/history.jsonl",
+            ".palari/governance-journal.v1.jsonl",
+        ]
+        raw = load_store(self.temp_dir).data
+        workbench = next(
+            item
+            for item in raw["workbenches"]
+            if item["id"] == "WORKBENCH-REPO-FOUNDATION"
+        )
+        update_record(
+            str(self.temp_dir),
+            "workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            {
+                "output_target_ids": sorted(
+                    set(workbench["output_target_ids"]) | set(projection_outputs)
+                )
+            },
+            command="test permit self-mutating governance outputs",
+            actor="PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {
+                "allowed_resources": projection_outputs,
+                "output_targets": projection_outputs,
+            },
+            command="test declare self-mutating governance outputs",
+            actor="PALARI-STEWARD",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bind governance outputs"],
+            check=True,
+        )
+        start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        (self.temp_dir / "README.md").write_text(
+            "self-journal candidate\n",
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "self-journal candidate"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        workspace = Ws.load(self.temp_dir)
+        return next(
+            item for item in workspace.evidence_runs if item.work_item_id == self.work_id
+        )
 
     def _passing_attestation(self, _workspace, _root, profile, context, **_kwargs):
         key = cache_key(profile, context)

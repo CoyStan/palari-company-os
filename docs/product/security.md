@@ -22,6 +22,10 @@ Authority rules:
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a later negative decision revokes an earlier
   approval, while contradictory or ambiguous records fail closed.
+- A zero numeric quorum means no quorum is required; it does not make an
+  explicit decision optional once an acceptance references that decision.
+  Such acceptance still requires the current exact review/evidence binding and
+  a declared human, and a later rejection revokes it.
 - Bound reviews are immutable, and generic update commands cannot rewrite
   terminal work or attempt trust fields. Their aggregate hash covers reviewer
   identity, verdict, findings, inspected checks, residual risks, and timestamp.
@@ -35,6 +39,18 @@ Authority rules:
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
   the original head; coordinated rewrites of the claim and baseline fail.
+- Proof-only refresh does not reset or replace that baseline. It runs without a
+  claim, requires exact descendant history with replacement objects disabled,
+  and compares every raw commit with every parent in the range. Separately governed
+  commits may advance repository context, but touching a governed
+  non-projection output blocks refresh even if a later commit restores identical
+  bytes. Self-mutating projection artifacts may evolve through legitimate
+  governance transactions, but refresh reports their previous/current exact Git
+  hashes and statuses in uniform unchanged/rebound records rather than calling
+  them byte-unchanged. Missing legacy projection hashes are explicit and
+  malformed hash/status records fail closed. Refresh also discloses
+  that recording refreshed proof mutates those projections after the evidence
+  head. The refreshed proof invalidates prior review and human authority.
 - `agent advance` applies that same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
   argument vectors rather than workspace prose. Run records bind the head,
@@ -76,6 +92,14 @@ Authority rules:
   playbook-source authority changes are denied from agent shell commands.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
+- Proof creation necessarily mutates `workspace.json`, legacy history, and the
+  governance journal. When one of those projection files is itself a declared
+  artifact, verification reads its bytes from the evidence's exact Git commit
+  instead of the later live file, then independently requires the live journal
+  to replay to the current workspace. Missing commits or blobs, hash mismatch,
+  local Git replacement objects, malformed chains, pending transactions, and
+  projection divergence fail closed. This exception does not apply to ordinary
+  output artifacts, whose current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
   values, UTC-normalization overflows, and equivalent-instant competitors fail
@@ -106,12 +130,21 @@ Palari may supply an independent advisory review, but only identities in
 behavior.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
-each member digest are persisted with the human decision, and current bytes,
-review, recursively bound dependency state, authority, and quorum are rechecked
+each member digest are persisted with the human decision. New pack-v2 actions
+also require and persist the digest of a strict canonical decision presentation
+covering the pack, proof, boundaries, effects, available actions, execution
+order, and relevant current decisions. Current bytes, review, recursively bound
+dependency state, authority, quorum, and presentation currency are rechecked
 before local execution. A terminal dependency's changed artifact stales a
-narrowed dependent pack. This prevents accidental replay or transplant inside
+narrowed dependent pack, and a later relevant decision makes the earlier
+presentation stale. This prevents accidental replay or transplant inside
 Palari, but it does not cryptographically authenticate a human against a
 hostile process running as the same OS user.
+
+The presentation digest proves canonical artifact bytes. The bound CLI surface
+supports the narrower claim that those bytes were made available to the
+decision action. Neither claim proves browser pixels under compromised
+software, human attention, understanding, or judgment.
 
 Checkpoint restoration is local state restoration, not external rollback.
 Sent messages, filings, payments, access changes, and provider effects cannot

@@ -24,6 +24,14 @@ repository milestones, not a production Company OS release.
 
 ### Changed
 
+- Retired the bundled static `dashboard` command, generator, screenshots, and
+  publication path. Structured CLI read models and the local Mission Control
+  and desktop prototype surfaces remain available; invoking `dashboard` now
+  fails as an unknown command. This is an intentional pre-1.0 CLI break. The
+  deletion removes 2,525 implementation/dedicated-test lines and 500,133 bytes
+  of screenshots; the authoritative gate measured 76.25 seconds versus the
+  immediately preceding 93.75-second dogfood baseline (contextual timing, not
+  a performance guarantee).
 - Advanced the workspace contract to schema v2. `palari migrate` now blocks
   legacy unbound accept-ready reviews, revokes dependent acceptance, reopens
   affected governed terminal work, and normalizes human-decision ordering

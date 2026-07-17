@@ -259,7 +259,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn("PLAN-SMOKE", json.dumps(history))
         self.assertIn("canceled", json.dumps(history))
 
-    def test_scope_history_and_generated_html_smokes(self) -> None:
+    def test_scope_history_and_desktop_prototype_smokes(self) -> None:
         allowed = self.run_json(
             "scope", "WORK-0001", "--changed", "examples/acme-company-os/workspace.json", "--json"
         )
@@ -278,43 +278,40 @@ class CliSmokeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            dashboard = self.run_json(
-                "--workspace",
-                str(ACME),
-                "dashboard",
-                "--out",
-                str(output / "dashboard-acme"),
-                "--json",
-            )
-            dogfood_dashboard = self.run_json(
-                "--workspace",
-                str(DOGFOOD),
-                "dashboard",
-                "--out",
-                str(output / "dashboard-dogfood"),
-                "--json",
-            )
             prototype = self.run_json(
                 "desktop-prototype", "--out", str(output / "desktop-prototype"), "--json"
             )
-            acme_html = Path(dashboard["index_path"]).read_text(encoding="utf-8")
-            dogfood_html = Path(dogfood_dashboard["index_path"]).read_text(encoding="utf-8")
             prototype_html = Path(prototype["index_path"]).read_text(encoding="utf-8")
 
-        for marker in (
-            'data-tab-panel="queue"',
-            'data-tab-panel="work"',
-            'data-tab-panel="trust"',
-            'data-tab-panel="history"',
-            'data-tab-panel="authority"',
-            "palari agent finish WORK-0007 --as PALARI-SOFIA",
-            "RECEIPT-0001",
-        ):
-            self.assertIn(marker, acme_html)
-        self.assertIn("RECEIPT-REPO-0001", dogfood_html)
         self.assertIn("Palari Desktop Shell Prototype", prototype_html)
         self.assertIn("External writes", prototype_html)
         self.assertIn('data-mobile-target="chat"', prototype_html)
+
+    def test_retired_dashboard_command_is_rejected(self) -> None:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-S",
+                "-m",
+                "palari_company_os",
+                "dashboard",
+                "--out",
+                "/tmp/retired-dashboard",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("invalid choice: 'dashboard'", result.stderr)
 
     def run_json(self, *args: str) -> dict[str, object]:
         result = self.run_cli(*args)

@@ -550,13 +550,18 @@ def _quorum_property(
     review_result: PropertyResult,
     errors: list[Diagnostic],
 ) -> tuple[PropertyResult, dict[str, HumanDecisionSnapshot], set[str]]:
-    if case.contract.required_approval_count == 0:
-        return (
-            PropertyResult("human_quorum", "not-required", ("$.contract.required_approval_count",)),
-            {},
-            set(),
-        )
+    required_count = case.contract.required_approval_count
     if review_result.status != "verified" or case.review is None:
+        if required_count == 0:
+            return (
+                PropertyResult(
+                    "human_quorum",
+                    "not-required",
+                    ("$.contract.required_approval_count",),
+                ),
+                {},
+                set(),
+            )
         return PropertyResult("human_quorum", "failed"), {}, set()
     before = len(errors)
     current: dict[str, HumanDecisionSnapshot] = {}
@@ -606,12 +611,11 @@ def _quorum_property(
             )
         if not _decision_is_approval(decision):
             continue
-        if (
-            decision.reviewed_head != case.review.reviewed_head
-            or decision.review_id != case.review.id
-            or decision.evidence_id != (case.evidence.id if case.evidence else "")
-            or decision.review_digest != review_digest
-            or decision.evidence_digest != evidence_digest
+        if not _decision_matches_current_proof(
+            case,
+            decision,
+            review_digest=review_digest,
+            evidence_digest=evidence_digest,
         ):
             continue
         human = humans.get(decision.human_id)
@@ -622,15 +626,20 @@ def _quorum_property(
             continue
         _require_order(case.review.timestamp, decision.timestamp, "$.human_decisions", errors)
         qualified.add(decision.human_id)
-    if len(qualified) < case.contract.required_approval_count:
+    if len(qualified) < required_count:
         _error(
             errors,
             "PCAW_HUMAN_QUORUM_INCOMPLETE",
             "$.human_decisions",
-            f"qualified human quorum is {len(qualified)}/{case.contract.required_approval_count}",
+            f"qualified human quorum is {len(qualified)}/{required_count}",
             "Collect current decisions from qualified humans.",
         )
-    status = "failed" if len(errors) != before else "verified"
+    if len(errors) != before:
+        status = "failed"
+    elif required_count == 0:
+        status = "not-required"
+    else:
+        status = "verified"
     return (
         PropertyResult("human_quorum", status, ("$.human_decisions", "$.humans")),
         current,
@@ -716,10 +725,15 @@ def _acceptance_property(
             "acceptance does not reference the current approving decision",
             "Record acceptance from a current qualified decision.",
         )
-    elif (
-        case.contract.required_approval_count > 0
-        and acceptance.human_id not in qualified_humans
-    ):
+    elif not _decision_matches_current_proof(case, decision):
+        _error(
+            errors,
+            "PCAW_ACCEPTANCE_DECISION_STALE",
+            "$.acceptance_records.decision_id",
+            "acceptance decision does not match the current exact proof",
+            "Record acceptance from a current qualified decision.",
+        )
+    elif acceptance.human_id not in qualified_humans:
         _error(
             errors,
             "PCAW_ACCEPTANCE_HUMAN_UNQUALIFIED",
@@ -854,6 +868,25 @@ def _decision_is_approval(decision: HumanDecisionSnapshot) -> bool:
         decision.decision in APPROVAL_VALUES
         and decision.status in APPROVAL_VALUES
         and decision.acceptance_mode in {"human", "approval-pack"}
+    )
+
+
+def _decision_matches_current_proof(
+    case: GovernanceCase,
+    decision: HumanDecisionSnapshot,
+    *,
+    review_digest: str | None = None,
+    evidence_digest: str | None = None,
+) -> bool:
+    review = case.review
+    if review is None:
+        return False
+    return (
+        decision.reviewed_head == review.reviewed_head
+        and decision.review_id == review.id
+        and decision.evidence_id == (case.evidence.id if case.evidence else "")
+        and decision.review_digest == (review_digest or case.review_digest())
+        and decision.evidence_digest == (evidence_digest or case.evidence_digest())
     )
 
 

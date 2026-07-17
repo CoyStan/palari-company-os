@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 from .evidence_manifest import receipt_hash, verify_evidence
+from .governance_journal import JournalVerificationContext
 from .workspace import current_attempt_for_work, latest_for_work
 
 
@@ -19,6 +20,7 @@ def current_review_binding(
     work_id: str,
     *,
     require_output_coverage: bool | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """Return the exact current proof binding and fail-closed eligibility errors."""
     work = workspace.work_item(work_id)
@@ -54,6 +56,7 @@ def current_review_binding(
                 evidence,
                 receipt,
                 require_output_coverage=require_output_coverage,
+                journal_context=journal_context,
             )
         )
     if receipt is not None:
@@ -125,6 +128,7 @@ def current_review_binding_errors(
     review: Any,
     *,
     require_output_coverage: bool | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> list[str]:
     """Require a structurally sound review to match the current proof and contract."""
     errors = review_binding_integrity_errors(workspace, review)
@@ -132,6 +136,7 @@ def current_review_binding_errors(
         workspace,
         review.work_item_id,
         require_output_coverage=require_output_coverage,
+        journal_context=journal_context,
     )
     errors.extend(current_errors)
     if binding:
@@ -257,6 +262,7 @@ def _evidence_errors(
     receipt: Any | None,
     *,
     require_output_coverage: bool | None,
+    journal_context: JournalVerificationContext | None,
 ) -> list[str]:
     errors: list[str] = []
     if evidence.status != "passed":
@@ -276,6 +282,7 @@ def _evidence_errors(
             workspace,
             evidence.id,
             require_output_coverage=require_output_coverage,
+            journal_context=journal_context,
         )
         if not verification["ok"]:
             errors.append(f"evidence {evidence.id} manifest verification failed")

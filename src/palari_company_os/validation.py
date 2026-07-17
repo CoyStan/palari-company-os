@@ -336,6 +336,10 @@ ALLOWED_RECORD_FIELDS = {
         "approval_pack_request_digest",
         "approval_pack_action",
         "approval_pack_manifest",
+        "approval_presentation_schema_version",
+        "approval_presentation_digest",
+        "approval_presentation_surface",
+        "approval_presentation",
         "timestamp",
     },
     "acceptance_records": {
@@ -2063,6 +2067,39 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
         raise WorkspaceError(
             f"human_decisions.{decision.id} action contradicts decision or status"
         )
+    presentation_fields = {
+        "approval_presentation_schema_version": decision.approval_presentation_schema_version,
+        "approval_presentation_digest": decision.approval_presentation_digest,
+        "approval_presentation_surface": decision.approval_presentation_surface,
+    }
+    presentation_present = {
+        key for key, value in presentation_fields.items() if value
+    }
+    if not presentation_present:
+        if decision.approval_presentation:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.approval_presentation requires presentation binding"
+            )
+        return
+    if presentation_present != set(presentation_fields):
+        missing = ", ".join(sorted(set(presentation_fields) - presentation_present))
+        raise WorkspaceError(
+            f"human_decisions.{decision.id} has incomplete approval-presentation binding: {missing}"
+        )
+    from .approval_presentations import DECISION_SURFACE, PRESENTATION_SCHEMA_VERSION
+
+    if decision.approval_presentation_schema_version != PRESENTATION_SCHEMA_VERSION:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.approval_presentation_schema_version is unsupported"
+        )
+    if decision.approval_presentation_surface != DECISION_SURFACE:
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.approval_presentation_surface is unsupported"
+        )
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", decision.approval_presentation_digest):
+        raise WorkspaceError(
+            f"human_decisions.{decision.id}.approval_presentation_digest must be a sha256 digest"
+        )
 
 
 def _validate_approval_pack_decision_sets(workspace: Any) -> None:
@@ -2094,6 +2131,46 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions approval pack {pack_digest} manifest digest does not match"
             )
+        if manifest.get("schema_version") == "palari.approval-pack.v2":
+            unbound = [
+                decision.id
+                for decision in bound
+                if not decision.approval_presentation_digest
+            ]
+            if unbound:
+                raise WorkspaceError(
+                    "human_decisions approval pack v2 requires presentation binding: "
+                    + ", ".join(sorted(unbound))
+                )
+        presentation_groups: dict[str, list[HumanDecision]] = {}
+        for decision in bound:
+            if decision.approval_presentation_digest:
+                presentation_groups.setdefault(
+                    decision.approval_presentation_digest, []
+                ).append(decision)
+        from .approval_presentations import (
+            approval_presentation_digest,
+            validate_approval_presentation,
+        )
+
+        for presentation_digest, presented_decisions in presentation_groups.items():
+            presentations = [
+                decision.approval_presentation
+                for decision in presented_decisions
+                if decision.approval_presentation
+            ]
+            if len(presentations) != 1:
+                raise WorkspaceError(
+                    "human_decisions approval presentation "
+                    f"{presentation_digest} must retain exactly one canonical artifact"
+                )
+            presentation = presentations[0]
+            validate_approval_presentation(presentation, manifest)
+            if approval_presentation_digest(presentation, manifest) != presentation_digest:
+                raise WorkspaceError(
+                    "human_decisions approval presentation "
+                    f"{presentation_digest} digest does not match"
+                )
         members = {member["id"]: member for member in manifest["members"]}
         for decision in bound:
             member = members.get(decision.work_item_id)

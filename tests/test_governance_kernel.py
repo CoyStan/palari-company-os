@@ -167,6 +167,32 @@ def accepted_case(*, claimed_state: str = "accepted", terminal: bool = False) ->
     )
 
 
+def accepted_zero_quorum_case() -> GovernanceCase:
+    case = accepted_case()
+    case = replace(
+        case,
+        contract=replace(
+            case.contract,
+            required_approval_count=0,
+            required_approval_capability="",
+        ),
+    )
+    case = replace(
+        case,
+        review=replace(case.review, contract_digest=case.contract_digest()),
+    )
+    review_digest = case.review_digest()
+    return replace(
+        case,
+        human_decisions=(
+            replace(case.human_decisions[0], review_digest=review_digest),
+        ),
+        acceptance_records=(
+            replace(case.acceptance_records[0], review_digest=review_digest),
+        ),
+    )
+
+
 class GovernanceCaseTests(unittest.TestCase):
     def test_case_round_trip_is_exact_and_rejects_unknown_fields(self) -> None:
         case = accepted_case()

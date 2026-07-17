@@ -141,6 +141,49 @@ class _JournalState:
     continuity_breaks: list[int]
 
 
+@dataclass
+class JournalVerificationContext:
+    """Reuse one exact journal verification inside a bounded read operation.
+
+    The context is intentionally in-memory and caller-owned. Reuse is allowed
+    only while the workspace and journal retain the filesystem change witness
+    observed by the prior exact verification.
+    """
+
+    _data_path: Path | None = None
+    _witness: tuple[tuple[Any, ...], tuple[Any, ...]] | None = None
+    _report: dict[str, Any] | None = None
+
+    def verify(self, workspace_path: Path | str) -> dict[str, Any]:
+        data_path = _workspace_data_path(workspace_path)
+        witness = _verification_witness(data_path)
+        if (
+            self._data_path == data_path
+            and self._witness == witness
+            and self._report is not None
+        ):
+            return deepcopy(self._report)
+
+        before = witness
+        report = verify_workspace_journal(workspace_path)
+        after = _verification_witness(data_path)
+        if before != after:
+            report = _operator_report(
+                _error_report(
+                    data_path,
+                    JournalError(
+                        "JOURNAL_CHANGED_DURING_VERIFICATION",
+                        "workspace or journal bytes changed during verification",
+                        next_action="Retry the read against one stable exact state.",
+                    ),
+                )
+            )
+        self._data_path = data_path
+        self._witness = after
+        self._report = deepcopy(report)
+        return report
+
+
 def journal_file_path(data_path: Path | str) -> Path:
     workspace_file = Path(data_path).expanduser()
     if not workspace_file.is_absolute():
@@ -1466,6 +1509,30 @@ def _load_workspace_data(data_path: Path | str) -> dict[str, Any] | None:
 def _workspace_data_path(workspace_path: Path | str) -> Path:
     path = Path(workspace_path).expanduser().resolve(strict=False)
     return path / "workspace.json" if path.is_dir() else path
+
+
+def _verification_witness(
+    data_path: Path,
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    return (
+        _file_witness(data_path),
+        _file_witness(journal_file_path(data_path)),
+    )
+
+
+def _file_witness(path: Path) -> tuple[Any, ...]:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return ("missing",)
+    return (
+        "present",
+        stat.st_dev,
+        stat.st_ino,
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+    )
 
 
 def _operator_report(report: dict[str, Any]) -> dict[str, Any]:

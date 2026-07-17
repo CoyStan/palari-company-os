@@ -1,7 +1,8 @@
 # Agent Contract
 
 Palari Company OS is primarily an operating contract for AI agents. Humans use
-the dashboard, receipts, blockers, and approval records to supervise work.
+structured read models, Mission Control, receipts, blockers, and approval
+records to supervise work.
 Agents use the CLI to discover one bounded task, receive context, act inside
 scope, and stop when human authority is required.
 
@@ -63,6 +64,21 @@ The v1 loop is:
     records the review or human decision itself. Later Git commits preserve proof
     currency only when every committed and dirty tracked path is governance
     projection data; any substantive repository change fails closed.
+    When a bound changes-requested review identifies stale proof whose ordinary
+    governed outputs are byte-unchanged, `--refresh-verification --dry-run`
+    previews a separate claimless refresh and the non-dry-run command reruns
+    verification, records new exact-head proof, and stops for fresh independent
+    review. Self-mutating workspace, history, and journal artifacts are not
+    described as immutable: structured output lists ordinary unchanged paths,
+    uniform per-projection records with previous/current hashes and statuses plus
+    an unchanged or rebound transition, and projection paths that proof recording
+    will mutate after the evidence head. Missing legacy projection hashes are
+    `not-recorded`; malformed hashes or statuses fail closed. Separately governed
+    descendant commits are context, not claimed work. Every commit is compared
+    with every parent, so a touched non-projection output is rejected even when
+    its bytes were later restored; an active claim,
+    mismatched review head, dirty tracked state, or rewritten history also fails
+    closed. The immutable claim-start baseline is never rotated by this path.
 16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
     PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
     completes the work item in one step. It requires a clean worktree and

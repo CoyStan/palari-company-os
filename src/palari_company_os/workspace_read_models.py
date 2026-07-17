@@ -4,6 +4,7 @@ from typing import Any, Iterable
 
 from .approval_packs import build_approval_inbox
 from .errors import WorkspaceError
+from .governance_journal import JournalVerificationContext
 from .store import load_store
 from .workspace import Workspace
 
@@ -12,6 +13,7 @@ def approval_inbox(
     workspace: Workspace,
     *,
     selected_work_ids: Iterable[str] = (),
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     """Compile the product-facing Approval Inbox from committed workspace truth."""
 
@@ -20,14 +22,24 @@ def approval_inbox(
         workspace,
         store.data,
         selected_work_ids=selected_work_ids,
+        journal_context=journal_context,
     )
 
 
-def approval_detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
+def approval_detail(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
     """Return one concise item-level approval view without weakening queue availability."""
 
     try:
-        inbox = approval_inbox(workspace, selected_work_ids=(work_id,))
+        inbox = approval_inbox(
+            workspace,
+            selected_work_ids=(work_id,),
+            journal_context=journal_context,
+        )
     except WorkspaceError as exc:
         return {
             "available": False,

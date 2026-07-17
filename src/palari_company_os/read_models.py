@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, TypeVar
 
 from .governance_binding import current_review_binding_errors
+from .governance_journal import JournalVerificationContext
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
 from .record_order import record_time_key as _record_time_key
@@ -97,7 +98,9 @@ class _ReadContext:
     active_parallel: list[dict[str, Any]]
     active_attempts_by_work: dict[str, list[dict[str, Any]]]
     coordination_warnings: list[dict[str, Any]]
+    journal_verification: JournalVerificationContext
     warning_messages_by_work: dict[str, list[str]] = field(default_factory=dict)
+    review_binding_errors: dict[str, list[str]] = field(default_factory=dict)
 
 
 ATTENTION_PRIORITY = {
@@ -115,8 +118,12 @@ ATTENTION_PRIORITY = {
 INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
 
 
-def queue_items(workspace: Workspace) -> list[QueueItem]:
-    context = _read_context(workspace)
+def queue_items(
+    workspace: Workspace,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> list[QueueItem]:
+    context = _read_context(workspace, journal_context=journal_context)
     items = [_queue_item(workspace, work, context) for work in workspace.work_items]
     return sorted(items, key=lambda item: (ATTENTION_PRIORITY.get(item.attention, 99), item.id))
 
@@ -129,8 +136,13 @@ def coordination_warnings(workspace: Workspace) -> list[dict[str, Any]]:
     return _read_context(workspace).coordination_warnings
 
 
-def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
-    context = _read_context(workspace)
+def detail(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
+    context = _read_context(workspace, journal_context=journal_context)
     work = context.work_by_id.get(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
@@ -224,7 +236,11 @@ def _external_ref(work: Any) -> dict[str, str] | None:
     }
 
 
-def _read_context(workspace: Workspace) -> _ReadContext:
+def _read_context(
+    workspace: Workspace,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> _ReadContext:
     goals_by_id = {goal.id: goal for goal in workspace.goals}
     palaris_by_id = {palari.id: palari for palari in workspace.palaris}
     humans_by_id = {human.id: human for human in workspace.humans}
@@ -280,6 +296,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         active_parallel=active_parallel,
         active_attempts_by_work=active_attempts_by_work,
         coordination_warnings=coordination,
+        journal_verification=journal_context or JournalVerificationContext(),
         warning_messages_by_work=warning_messages_by_work,
     )
 
@@ -491,7 +508,7 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Review {review.id} requires human judgment.",
             "Resolve the human decision before continuing.",
         )
-    binding_errors = current_review_binding_errors(workspace, review)
+    binding_errors = _current_review_errors(workspace, review, context)
     if binding_errors:
         return (
             "needs-review",
@@ -637,7 +654,9 @@ def _review_state(workspace: Workspace, work: Any, context: _ReadContext) -> str
         return "missing"
     if review.reviewed_head != evidence.head_sha:
         return "stale"
-    if review.verdict == "accept-ready" and current_review_binding_errors(workspace, review):
+    if review.verdict == "accept-ready" and _current_review_errors(
+        workspace, review, context
+    ):
         return "stale"
     return review.verdict
 
@@ -673,7 +692,7 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
     if (
         review
         and review.verdict == "accept-ready"
-        and not current_review_binding_errors(workspace, review)
+        and not _current_review_errors(workspace, review, context)
         and _approval_quorum_met(work, review, context)
     ):
         return "ready"
@@ -685,7 +704,8 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
 def _approval_progress(workspace: Workspace, work: Any, context: _ReadContext) -> str:
     review = context.latest_review_by_work.get(work.id)
     if review is None or (
-        review.verdict == "accept-ready" and current_review_binding_errors(workspace, review)
+        review.verdict == "accept-ready"
+        and _current_review_errors(workspace, review, context)
     ):
         return f"0/{work.required_approval_count}"
     count = _qualified_approval_count(work, review, context)
@@ -698,7 +718,7 @@ def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) ->
         if acceptance.status != "accepted":
             return acceptance.status
         review = context.latest_review_by_work.get(work.id)
-        if review is None or current_review_binding_errors(workspace, review):
+        if review is None or _current_review_errors(workspace, review, context):
             return "stale"
         latest_for_human = _latest_decisions_by_human(work, review, context).get(
             acceptance.human_id
@@ -718,7 +738,7 @@ def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) ->
     if (
         review
         and review.verdict == "accept-ready"
-        and not current_review_binding_errors(workspace, review)
+        and not _current_review_errors(workspace, review, context)
         and _approval_quorum_met(work, review, context)
     ):
         return "ready-to-record"
@@ -732,6 +752,22 @@ def _authority_state(workspace: Workspace, work: Any) -> str:
 
     result = authority_check(workspace, work.id, "team-safe")
     return "ok" if result["ok"] else "needs-adjustment"
+
+
+def _current_review_errors(
+    workspace: Workspace,
+    review: Any,
+    context: _ReadContext,
+) -> list[str]:
+    cached = context.review_binding_errors.get(review.id)
+    if cached is None:
+        cached = current_review_binding_errors(
+            workspace,
+            review,
+            journal_context=context.journal_verification,
+        )
+        context.review_binding_errors[review.id] = cached
+    return cached
 
 
 def _approval_quorum_met(work: Any, review: Any, context: _ReadContext) -> bool:

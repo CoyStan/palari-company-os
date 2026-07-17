@@ -781,6 +781,10 @@ class HumanDecision:
     approval_pack_request_digest: str = ""
     approval_pack_action: str = ""
     approval_pack_manifest: Record = field(default_factory=dict)
+    approval_presentation_schema_version: str = ""
+    approval_presentation_digest: str = ""
+    approval_presentation_surface: str = ""
+    approval_presentation: Record = field(default_factory=dict)
     timestamp: str = ""
 
     @classmethod
@@ -803,6 +807,12 @@ class HumanDecision:
             approval_pack_request_digest=_string(record, "approval_pack_request_digest"),
             approval_pack_action=_string(record, "approval_pack_action"),
             approval_pack_manifest=_mapping(record, "approval_pack_manifest"),
+            approval_presentation_schema_version=_string(
+                record, "approval_presentation_schema_version"
+            ),
+            approval_presentation_digest=_string(record, "approval_presentation_digest"),
+            approval_presentation_surface=_string(record, "approval_presentation_surface"),
+            approval_presentation=_mapping(record, "approval_presentation"),
             timestamp=_string(record, "timestamp"),
         )
 

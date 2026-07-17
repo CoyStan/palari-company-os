@@ -15,8 +15,8 @@ It runs:
 - style checks with `scripts/check_style.py`
 - Python compilation
 - JSON validity checks for example workspaces and schemas
-- CLI smoke checks for core read models, agent packets, playbooks, dashboard,
-  desktop prototype, documentation, integrations, and the demo
+- CLI smoke checks for core read models, agent packets, playbooks, desktop
+  prototype, documentation, integrations, and the demo
 - validation and read-model smokes for the repo dogfood and split-workspace
   fixtures
 
@@ -34,6 +34,24 @@ Add `--list` to a focused or affected command to print its deterministic test
 selection. If an affected path has no safe mapping, the command runs the full
 unit suite. These profiles are iteration tools only; final acceptance still
 requires the complete profile.
+
+Read-model performance checks should time the real CLI against the dogfood
+workspace. `agent next --json` derives both Palari queues in one operation and
+must not rescan an unchanged governance journal per work item or per Palari.
+An eligible human-approval `agent handoff` must likewise reuse one verification
+through nested evidence, review-binding, Approval Pack, and dependency
+projection calls rather than replaying the journal for each member.
+The request-local reuse path is covered by same-size, same-mtime tamper tests;
+changed bytes force a fresh fail-closed verification. A representative timing
+pair is:
+
+```bash
+/usr/bin/time -p ./bin/palari \
+  --workspace workspaces/palari-company-os agent next --json >/dev/null
+/usr/bin/time -p ./bin/palari \
+  --workspace workspaces/palari-company-os \
+  agent handoff WORK-ID --as PALARI-ID --json >/dev/null
+```
 
 The package install smoke command is:
 
@@ -87,6 +105,13 @@ The test suite covers:
 - write refusal for split workspaces
 - in-place split-workspace migration with stale-proof invalidation
 - coordinated claim/packet/baseline rehash rejection and Git witness history
+- claimless changes-requested proof refresh preview and execution, including
+  truthful ordinary-unchanged versus self-mutating-projection rebound status,
+  uniform previous/current projection hashes and statuses, legacy not-recorded
+  projection hashes, malformed transition inputs, and post-evidence
+  projection-mutation disclosure; active-claim, missing ordinary hash, mismatched-review,
+  changed-then-restored output (including merge-only changes), dirty-state, and
+  exact-history rejection
 - agent-shell denial for human-only and packet-authority commands, dynamic
   shell/Git-global-option approval, composed-command masking, helper-launching
   config/environment options, post-release workspace-truth protection, and

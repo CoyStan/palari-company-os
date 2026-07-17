@@ -153,7 +153,7 @@ It should include:
 - schema and validation locations
 - examples and dogfood workspace locations
 - test organization
-- dashboard/prototype locations
+- Mission Control/prototype locations
 - docs that must be updated for common changes
 
 #### `docs/agent/contracts-and-invariants.md`
@@ -199,7 +199,7 @@ It should include:
 - focused test patterns
 - install smoke
 - JSON smoke expectations
-- when browser/dashboard verification matters
+- when browser/prototype verification matters
 - how to report skipped checks honestly
 
 #### `docs/agent/documentation-freshness.md`

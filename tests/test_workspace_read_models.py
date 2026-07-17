@@ -8,11 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.maintainer import status as maintainer_status
+from palari_company_os.governance_journal import JournalVerificationContext
 from palari_company_os.read_models import (
     active_parallel_work,
     coordination_warnings,
@@ -21,6 +23,7 @@ from palari_company_os.read_models import (
 )
 from palari_company_os.scope import check_scope
 from palari_company_os.workspace import Workspace
+from palari_company_os.workspace_read_models import approval_inbox
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
@@ -29,6 +32,28 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 
 class WorkspaceReadModelTests(unittest.TestCase):
+    def test_approval_inbox_forwards_caller_owned_journal_context(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        context = JournalVerificationContext()
+        expected = {"schema_version": "test.approval-inbox"}
+
+        with patch(
+            "palari_company_os.workspace_read_models.build_approval_inbox",
+            return_value=expected,
+        ) as build:
+            result = approval_inbox(
+                workspace,
+                selected_work_ids=("WORK-0001",),
+                journal_context=context,
+            )
+
+        self.assertEqual(result, expected)
+        self.assertIs(build.call_args.kwargs["journal_context"], context)
+        self.assertEqual(
+            build.call_args.kwargs["selected_work_ids"],
+            ("WORK-0001",),
+        )
+
     def test_example_workspace_loads(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         self.assertEqual(workspace.name, "Acme Company OS Example")
@@ -57,20 +82,6 @@ class WorkspaceReadModelTests(unittest.TestCase):
         workspace = Workspace.load(DOGFOOD_WORKSPACE)
         queue = {item.id: item for item in queue_items(workspace)}
 
-        self.assertEqual(queue["WORK-REPO-0005"].attention, "needs-human-decision")
-        self.assertEqual(queue["WORK-REPO-0005"].next_step_type, "human-decision")
-        self.assertEqual(
-            queue["WORK-REPO-0005"].next_commands[0],
-            "palari decision guide DECISION-REPO-0001 --json",
-        )
-        self.assertEqual(
-            queue["WORK-REPO-0005"].agent_handoff_command,
-            "palari agent handoff WORK-REPO-0005 --as PALARI-ARCHITECT --json",
-        )
-        self.assertEqual(
-            queue["WORK-REPO-0005"].agent_loop_command,
-            "palari agent loop WORK-REPO-0005 --as PALARI-ARCHITECT --json",
-        )
         self.assertEqual(queue["WORK-REPO-0003"].attention, "needs-review")
         self.assertEqual(queue["WORK-REPO-0003"].review_state, "missing")
         self.assertFalse(queue["WORK-REPO-0003"].ai_safe_to_proceed)
@@ -117,6 +128,8 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertFalse(by_id["WORK-0001"].ai_safe_to_proceed)
         self.assertIn("keep low-risk work light", by_id["WORK-0001"].learning_signal)
         self.assertEqual(by_id["WORK-0002"].attention, "needs-human-decision")
+        self.assertEqual(by_id["WORK-0002"].next_step_type, "human-decision")
+        self.assertFalse(by_id["WORK-0002"].ai_safe_to_proceed)
         self.assertIn("DECISION-0001", by_id["WORK-0002"].why)
         self.assertEqual(
             by_id["WORK-0002"].next_commands[0],
@@ -124,6 +137,14 @@ class WorkspaceReadModelTests(unittest.TestCase):
         )
         self.assertEqual(by_id["WORK-0002"].recommended_intensity, "high")
         self.assertEqual(by_id["WORK-0002"].approval_progress, "0/2")
+        self.assertEqual(
+            by_id["WORK-0002"].agent_handoff_command,
+            "palari agent handoff WORK-0002 --as PALARI-ALFRED --json",
+        )
+        self.assertEqual(
+            by_id["WORK-0002"].agent_loop_command,
+            "palari agent loop WORK-0002 --as PALARI-ALFRED --json",
+        )
         self.assertEqual(by_id["WORK-0003"].attention, "needs-evidence")
         self.assertEqual(by_id["WORK-0003"].next_step_type, "check-active-proof")
         self.assertTrue(by_id["WORK-0003"].ai_safe_to_proceed)

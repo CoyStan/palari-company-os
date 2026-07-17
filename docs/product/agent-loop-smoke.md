@@ -74,18 +74,6 @@ Expected result:
   `human_action_commands` are for a human supervisor only. An agent may quote
   or summarize them, but must not run them.
 
-## Dashboard Visibility
-
-Generate the dashboard when you need a human-facing snapshot of the same
-handoff state:
-
-```bash
-./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-company-dashboard-smoke
-```
-
-The dashboard should show agent-safe handoff bridges separately from human-only
-review or decision actions.
-
 ## Done Means
 
 An agent may report done only when:

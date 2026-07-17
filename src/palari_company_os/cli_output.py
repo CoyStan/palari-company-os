@@ -305,10 +305,6 @@ def print_result(result: CommandResult) -> None:
             print_history_restoration(result.payload)
         return
 
-    if result.kind == "dashboard":
-        print_dashboard(result.payload, result.as_json)
-        return
-
     if result.kind == "desktop-prototype":
         print_desktop_prototype(result.payload, result.as_json)
         return
@@ -621,22 +617,6 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
     print("Major command groups:")
     print("  " + ", ".join(payload["major_command_groups"]))
-
-
-def print_dashboard(result: Any, as_json: bool) -> None:
-    payload = {
-        "workspace": result.workspace,
-        "output_dir": result.output_dir,
-        "index_path": result.index_path,
-        "assets": result.assets,
-    }
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Dashboard generated: {result.index_path}")
-    print(f"Workspace: {result.workspace}")
-    for asset in result.assets:
-        print(f"Asset: {asset}")
 
 
 def print_desktop_prototype(result: Any, as_json: bool) -> None:
@@ -1007,7 +987,7 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
 def print_approval_inbox(payload: dict[str, Any]) -> None:
     counts = payload["counts"]
     commands = {
-        item["pack_digest"]: item["approve_eligible"]
+        item["pack_digest"]: item
         for item in payload.get("approval_commands", [])
     }
     print(f"Approval Inbox: {payload['workspace']}")
@@ -1029,20 +1009,30 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         )
     else:
         print("Primary action: inspect exceptions; no aggregate approval is available")
-    for pack, evaluation in zip(payload["packs"], payload["evaluations"], strict=True):
-        summary = pack["cumulative_effect_summary"]
+    for pack, presentation, evaluation in zip(
+        payload["packs"],
+        payload.get("presentations", []),
+        payload["evaluations"],
+        strict=True,
+    ):
+        summary = presentation["summary"]
         print("")
         print(f"{pack['pack_id']} {pack['pack_digest']}")
+        command = commands.get(pack["pack_digest"], {})
+        print(f"  Presentation: {command.get('presentation_digest', 'unavailable')}")
         print(
             f"  {summary['items']} items; {summary['batchable']} batchable; "
             f"{summary['external_or_irreversible']} external/irreversible"
         )
         if pack["external_effects"]:
             print(f"  EXTERNAL EFFECTS: {', '.join(pack['external_effects'])}")
-        for item in evaluation["members"]:
+        for item, presented in zip(
+            evaluation["members"], presentation["members"], strict=True
+        ):
             dependencies = ", ".join(item["dependencies"]) or "none"
             print(
-                f"  {item['id']}: {item['state']} | {item['reversibility']} | "
+                f"  {item['id']}: {presented['title']} | {item['state']} | "
+                f"{item['reversibility']} | "
                 f"dependencies {dependencies}"
             )
             resolution = item.get("resolution", {})
@@ -1053,12 +1043,11 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
                 )
             for reason in item["reasons"]:
                 print(f"    reason: {reason}")
-        command = commands.get(pack["pack_digest"])
         has_eligible = any(
             item.get("state") == "eligible" for item in evaluation["members"]
         )
         if command and has_eligible:
-            print("  approve: " + command)
+            print("  approve: " + str(command["approve_eligible"]))
         else:
             print("  approve: unavailable; resolve the listed exceptions")
     print("")
@@ -1068,6 +1057,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
 def print_approval_pack_decision(payload: dict[str, Any]) -> None:
     print(f"Approval Pack decision: {payload['status']}")
     print(f"Pack: {payload['pack_digest']}")
+    print(f"Presentation: {payload.get('presentation_digest', 'legacy-unbound')}")
     print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
     if payload.get("approved"):
         print(f"Approved: {', '.join(payload['approved'])}")
@@ -1079,6 +1069,13 @@ def print_approval_pack_decision(payload: dict[str, Any]) -> None:
         print(f"Executed locally: {', '.join(payload['executed'])}")
     if payload.get("parked"):
         print(f"Still parked: {', '.join(payload['parked'])}")
+    convergence = payload.get("convergence", {})
+    if convergence:
+        print(
+            "One-action convergence: "
+            f"{len(convergence.get('terminalized', []))} terminalized; "
+            f"{len(convergence.get('remaining_parked', []))} parked"
+        )
 
 
 def print_detail(payload: dict[str, Any]) -> None:

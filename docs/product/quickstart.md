@@ -101,21 +101,6 @@ This path is blocked:
 ./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed deploy/production.yml --json
 ```
 
-## Export The Static Dashboard
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
-```
-
-Then open:
-
-```text
-/tmp/palari-company-dashboard/index.html
-```
-
-Use the static dashboard when you want a read-only artifact to share or publish.
-Use `palari serve` when you want clickable local supervision.
-
 ## Next Reading
 
 - [Glossary](glossary.md) for the short version of every Palari noun.
