@@ -11014,6 +11014,14 @@
       "receipt_hash": "sha256:1a908489abd786033180f0c53a215d67de681897c44ea36cb5b9c97acc548ef5",
       "work_contract_hash": "sha256:c8e4ffa7060327db9f17a9bea29238a6b4c99c056a786d712d05a71c907d4daf",
       "proof_hash": "sha256:9eeb457129bb4b55089d682e4cc757c57d0a1397554e23f54fd9efbdf5eb29e1"
+    },
+    {
+      "id": "REVIEW-CHECKPOINT-REFRESH-ARCHITECT-E7B4791-CHANGES",
+      "work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "reviewed_head": "e7b4791a7f8686151e658844f65d9267a7b3fa1d",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-17T06:51:51.342616Z"
     }
   ],
   "human_decisions": [
