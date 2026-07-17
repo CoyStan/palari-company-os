@@ -118,8 +118,12 @@ ATTENTION_PRIORITY = {
 INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
 
 
-def queue_items(workspace: Workspace) -> list[QueueItem]:
-    context = _read_context(workspace)
+def queue_items(
+    workspace: Workspace,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> list[QueueItem]:
+    context = _read_context(workspace, journal_context=journal_context)
     items = [_queue_item(workspace, work, context) for work in workspace.work_items]
     return sorted(items, key=lambda item: (ATTENTION_PRIORITY.get(item.attention, 99), item.id))
 
@@ -132,8 +136,13 @@ def coordination_warnings(workspace: Workspace) -> list[dict[str, Any]]:
     return _read_context(workspace).coordination_warnings
 
 
-def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
-    context = _read_context(workspace)
+def detail(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
+    context = _read_context(workspace, journal_context=journal_context)
     work = context.work_by_id.get(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
@@ -227,7 +236,11 @@ def _external_ref(work: Any) -> dict[str, str] | None:
     }
 
 
-def _read_context(workspace: Workspace) -> _ReadContext:
+def _read_context(
+    workspace: Workspace,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> _ReadContext:
     goals_by_id = {goal.id: goal for goal in workspace.goals}
     palaris_by_id = {palari.id: palari for palari in workspace.palaris}
     humans_by_id = {human.id: human for human in workspace.humans}
@@ -283,7 +296,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         active_parallel=active_parallel,
         active_attempts_by_work=active_attempts_by_work,
         coordination_warnings=coordination,
-        journal_verification=JournalVerificationContext(),
+        journal_verification=journal_context or JournalVerificationContext(),
         warning_messages_by_work=warning_messages_by_work,
     )
 
@@ -495,7 +508,7 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Review {review.id} requires human judgment.",
             "Resolve the human decision before continuing.",
         )
-    binding_errors = current_review_binding_errors(workspace, review)
+    binding_errors = _current_review_errors(workspace, review, context)
     if binding_errors:
         return (
             "needs-review",

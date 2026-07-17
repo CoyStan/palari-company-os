@@ -6,6 +6,7 @@ from typing import Any
 from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
 from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
 from .agent_runtime import git_lease_statuses
+from .governance_journal import JournalVerificationContext
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
@@ -21,7 +22,13 @@ def build_agent_next(
     mode: str = "execute",
     limit: int = 5,
 ) -> dict[str, Any]:
-    return _build_agent_next(workspace, palari_id, mode, limit)
+    return _build_agent_next(
+        workspace,
+        palari_id,
+        mode,
+        limit,
+        journal_context=JournalVerificationContext(),
+    )
 
 
 def _build_agent_next(
@@ -32,6 +39,7 @@ def _build_agent_next(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
@@ -62,6 +70,7 @@ def _build_agent_next(
         mode or "execute",
         queue=queue,
         leases=leases,
+        journal_context=journal_context,
     )
     ordered = sorted(candidates, key=lambda item: (not item["can_start"], item["queue_rank"]))
     safe_limit = max(1, limit)
@@ -90,7 +99,8 @@ def _build_agent_next(
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
-    queue = queue_items(workspace)
+    journal_context = JournalVerificationContext()
+    queue = queue_items(workspace, journal_context=journal_context)
     leases = git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
@@ -103,6 +113,7 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
             limit,
             queue=queue,
             leases=leases,
+            journal_context=journal_context,
         )
         for palari in workspace.palaris
     ]
@@ -132,20 +143,32 @@ def _candidates(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
+    journal_context: JournalVerificationContext | None = None,
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     lease_statuses = leases or git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
     )
-    queue_records = queue if queue is not None else queue_items(workspace)
+    operation_journal = journal_context or JournalVerificationContext()
+    queue_records = (
+        queue
+        if queue is not None
+        else queue_items(workspace, journal_context=operation_journal)
+    )
     for rank, item in enumerate(queue_records, start=1):
         if item.attention == "closed":
             continue
         work = workspace.work_item(item.id)
         if work is None or not _palari_can_see_work(workspace, work, palari_id, mode):
             continue
-        packet = build_agent_brief(workspace, work.id, palari_id, mode)
+        packet = build_agent_brief(
+            workspace,
+            work.id,
+            palari_id,
+            mode,
+            journal_context=operation_journal,
+        )
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)
@@ -157,7 +180,13 @@ def _candidates(
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
-        finish = build_agent_finish(workspace, work.id, palari_id, mode)
+        finish = build_agent_finish(
+            workspace,
+            work.id,
+            palari_id,
+            mode,
+            journal_context=operation_journal,
+        )
         handoff_guidance = finish.get("handoff_guidance", [])
         finish_commands = (
             finish.get("next_allowed_commands", [])

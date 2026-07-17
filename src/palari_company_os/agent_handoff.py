@@ -193,7 +193,10 @@ def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
 
 def _has_linked_decision(workspace: Workspace, work_id: str) -> bool:
-    return any(decision.linked_work == work_id for decision in workspace.decisions)
+    return any(
+        decision.linked_work == work_id and decision.status == "open"
+        for decision in workspace.decisions
+    )
 
 
 def _human_approval_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:

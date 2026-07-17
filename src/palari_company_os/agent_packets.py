@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
@@ -21,6 +22,8 @@ def build_agent_brief(
     work_id: str,
     palari_id: str,
     mode: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     mode = mode or "execute"
     created_at = _timestamp()
@@ -47,7 +50,7 @@ def build_agent_brief(
     if work is None or palari is None or mode not in SUPPORTED_MODES:
         return _finalize_packet(packet, blockers)
 
-    work_detail = detail(workspace, work.id)
+    work_detail = detail(workspace, work.id, journal_context=journal_context)
     review_context = _review_context(workspace, work.id, mode)
     blockers.extend(
         _work_blockers(workspace, work_detail, palari_id, mode, review_context)

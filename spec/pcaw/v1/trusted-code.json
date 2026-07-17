@@ -31,8 +31,8 @@
         "typing"
       ],
       "path": "src/palari_company_os/governance_kernel.py",
-      "sha256": "5cddf12c59bcd7e76bc42392adddae148735428d47e9fc92792591e8f3eb9f9c",
-      "source_lines": 946
+      "sha256": "6d17ca64f181712da902efd3eb11a431e4f793cbd325c445fc085f427419cf3a",
+      "source_lines": 979
     },
     {
       "direct_external_dependencies": [],
@@ -86,5 +86,5 @@
   ],
   "runtime_dependencies": [],
   "schema_version": "pcaw.trusted_code.v1",
-  "total_source_lines": 2372
+  "total_source_lines": 2405
 }
