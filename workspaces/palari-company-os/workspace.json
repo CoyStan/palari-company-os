@@ -4324,7 +4324,7 @@
         "./scripts/install_smoke.sh"
       ],
       "required_approval_count": 1,
-      "current_attempt": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-9AD22E472955"
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894"
     }
   ],
   "attempts": [
@@ -8269,6 +8269,196 @@
       ],
       "cleanliness": "clean",
       "updated_at": "2026-07-17T17:34:15Z",
+      "changed_files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/read_model_commands.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/workspace_init.py",
+        "src/palari_company_os/claude_hooks.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_operator_journeys.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_onramp.py",
+        "tests/test_approval_packs.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/fixtures/public_commands.txt",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/security.md",
+        "docs/product/schema-and-validation.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md",
+        "README.md",
+        "docs/product/quickstart.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894",
+      "work_item_id": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-dashboard-retirement",
+      "base_sha": "c528f2aa39227ad4bcdc269540446fe73f0d42d9",
+      "allowed_paths": [
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_checks.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/governance_convergence.py",
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/read_model_commands.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/workspace_init.py",
+        "src/palari_company_os/claude_hooks.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_operator_journeys.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_onramp.py",
+        "tests/test_approval_packs.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/fixtures/public_commands.txt",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/security.md",
+        "docs/product/schema-and-validation.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md",
+        "README.md",
+        "docs/product/quickstart.md"
+      ],
+      "started_at": "2026-07-17T18:55:15Z",
+      "head_sha": "d875d37a9894c007da489b8a4b199e7eef6af6aa",
+      "commits": [
+        "d875d37a9894c007da489b8a4b199e7eef6af6aa"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-17T18:55:15Z",
       "changed_files": [
         "AGENTS.md",
         "README.md",
@@ -13068,6 +13258,311 @@
       "receipt_hash": "sha256:10114448659ccfe0f69976b29cd25b92a59ccf52651e8fe03049aeacea9fc5c6",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:db734e6115260d26b844f2db77c7e6ce78223eee1cbd425e04bb862caaf70892"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894",
+      "work_item_id": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894",
+      "head_sha": "d875d37a9894c007da489b8a4b199e7eef6af6aa",
+      "status": "passed",
+      "base_ref": "c528f2aa39227ad4bcdc269540446fe73f0d42d9",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-85DA74821D132E29 sha256:7b9b557f3ad4178b8d18332c3b352e0a9c33cdd9ddd157d285da74821d132e29",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-2C829DE4591D9AD3 sha256:44b2335d0725ec98a6fc1b27ff9c31fb2bdbdf39c8108fc02c829de4591d9ad3",
+        "docs-check attestation VERIFY-DOCS-CHECK-3EE345F2D895CB00 sha256:2aa0e6c9029eca5a7ed95a05d249e66bba77fdfa286b6e5e3ee345f2d895cb00"
+      ],
+      "artifacts": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "sha256:e5a948fb4899cf9e55c5453e8c642f8878f711a33bfdb3640748e61eaad080d3",
+          "status": "present"
+        },
+        {
+          "path": "README.md",
+          "sha256": "sha256:fc70e03e244daf5a3aab92a8cc278c484d2914f8a2bcba94892a1d0e8c2fe076",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:8216a42de8d66fe14807166876991f3ed90c41c88bb98c9315ea658da1d29625",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:30938766db6596e60e78db2cb5ff9921ac2996010691a50dbd037074abe96268",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:2407538c92d26372dd7275d67e669c571a4a16ec649d3274ab0277cca89fd2af",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/verification.md",
+          "sha256": "sha256:448c23b8c31e1138dd95cf16b0b0300118978298879e6d864e34747fb5f8618b",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:4f71fa96cb474c951e4f75138c840c5971932fd6ca77e4d14237152db5491cd7",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/authority-and-gates.md",
+          "sha256": "sha256:0c6d80aa54eb932c369aaa3a29e622b2da3369afd856eec078aa909d3eea49e2",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:87d65c3f612765b9f285d69a750cbab96759a4c8ad9db692d4dc2ade267198c4",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/invisible-operator-loop-contract.md",
+          "sha256": "sha256:c7d8be63993a6521b9c7f20a8f99f6491f554a3ffa620d31daca05346c70e8b0",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "sha256": "sha256:18ccd8f4eee4f630e03f74dda51a55e62323596b6921c039c8514d2979f8ca4b",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/quickstart.md",
+          "sha256": "sha256:8f50ef149d36b7c312183603b05d8516e3735b23a5d9d0e8142cf7cef180dd0f",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "sha256": "sha256:716e45e06ae1a5306b2a192a99b32bac9f6505b3301feea0c5023f977113cc4c",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:b80057bc080fbb502c4ef2ea7f650949dd1fde580a991de36b73f5b53d7ce772",
+          "status": "present"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:c9d6a34f23bdbd2d0a13bfd0e517ebeb203b5a3f27d1b1d3af3233a0775ee96c",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:1c86d6a8eb60bc3b8ac728d1ee1ea11db9f54dc62b42916dbaba00818a3c9623",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_directive.py",
+          "sha256": "sha256:050ac5eda8848a9cd7210c402b07c5010a38ae9d692a2a77fe6ee7d5b9d3c1a6",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_doctor.py",
+          "sha256": "sha256:7b0f8147b230ebc75677d63dfc2ec414ea3035e58d25882171e37e904191ff62",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_file_changes.py",
+          "sha256": "sha256:81aa4db62596209061baf97c803cb8f2d340538d3e5b8d3218b1663c52009809",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_finish.py",
+          "sha256": "sha256:012863d8333a6b40c446385ac065b4e9426ea46e35985b25c8a4cdc69e946e25",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_handoff.py",
+          "sha256": "sha256:f13eafb91e10d0cd708fa1d81adbb2417cb49e7b69f042e0235953e7e6fdb9e4",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_loop.py",
+          "sha256": "sha256:4bce08c6efe9dfb033c58ff01665caa2f972ea9889ea1fc01dafa1ca505c2c8a",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_next.py",
+          "sha256": "sha256:c525eede43fa59648371a86ef93f635006ec9e4df8e82e88361c7af0e950480d",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_operation.py",
+          "sha256": "sha256:494679f009b87b78636a686afccb76eae35d98e56dff5d3f5f963759a3146c52",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_packets.py",
+          "sha256": "sha256:565947b29eeee04a9f0dd6d21f69b7d8b2259e6c0b7ded40cd653f0e7bb47d11",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "sha256": "sha256:b1606eefacc1da8fe15cb60bc74931786eb47b3533c9a70c2ff9b7e38ff6b2d8",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:ec75342ce5242907c53de2e5d3a619c4bdcc3039bdd91fdfd73263f48493f83f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:b72dd0fe75c2c2cca0e0e12144b3e628f1160b6a71c8e3c44c975213df681c0e",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "sha256": "sha256:07baf04a20a792a0fa78aa112717019fb43d149b8bbcc2aa45194318e064557f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_agent.py",
+          "sha256": "sha256:a79f483851d7cb7c021bf446fb4a9e7c8dd29b58f2ff3f072b492e30d562479e",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:0af94e928012bc0577f1a1e6674dc4950d14f1254d4dd4a50aefe245e6920a4e",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/data/schemas/workspace.schema.json",
+          "sha256": "sha256:c9d6a34f23bdbd2d0a13bfd0e517ebeb203b5a3f27d1b1d3af3233a0775ee96c",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:a4f45a7aeefafb01ad7234ab59d5aede11c1546d4bf766fd06246605950a0de3",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/governance_binding.py",
+          "sha256": "sha256:fe5c08685e4abf53a991882db22df75a33e08f2449a12f5dd943de7499a73d0f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "sha256": "sha256:285811985e4e0e0425ca630f08ab602ed443fe6e6401e04090d68a8eb787fb24",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "sha256": "sha256:dd8528022d1cb3d20978d46bc4ce0186be316ac48f0ae12ab5496544e4bd7d77",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:e7809c6d0e18c71ebaa3711690cc31d5538f61b1e5820ede57af15528b0dc4b7",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/public_commands.txt",
+          "sha256": "sha256:8c48d465e7ae158196f1c0255d7628771fc9782abfd4ff9de6fdd44474430562",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:7231d07d1e3c7a7e3af90ef176adc3da1dc32a860eca70703b408ff8bd76f379",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_file_changes.py",
+          "sha256": "sha256:3c7adbd7f8f6301a423c58d6b14f8d0ab563149673f2dfec1519ebaa9cddf7e6",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_packets.py",
+          "sha256": "sha256:4a9b38223270003acf19f3574e639d08979faabcb985311053d795833016f8b7",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "sha256": "sha256:27cc972f638376a3bd1fe98017f7c354cc6071e59ba7377c927d65c43200ea13",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "sha256": "sha256:97f2874a530724647bee5b5a35e72ab22286a6351c4f1a1805ce7167821c2a7a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_operator_journeys.py",
+          "sha256": "sha256:88fac4fd0926a523ff9c7d2f79980130a3a3640aa6ba7fd5a54deb7f15e440c9",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_public_surface.py",
+          "sha256": "sha256:12420aa6d8f6f74a169f025388e9d73aa8fde9300cd4800504763be03573020e",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "sha256": "sha256:98504d62308758e2d9a945500ab66330a4da331aef680ed789306c10f5b7f030",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_workspace_read_models.py",
+          "sha256": "sha256:4b1d7dc1432e71dd0365c9f55ce9a80a604a2e1c7e639b8b61179ed58f16f6bc",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-17T18:55:15Z",
+      "receipt_hash": "sha256:1c9fb2db5efc795b2f0e4b793920883b21548209131b77a7dce4f193fce551a4",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:3b9c2f6db0f2154412f6873ac5ef0ca8a7fd46d951b3123cfc70000f0c697ffc"
     }
   ],
   "review_verdicts": [
@@ -13663,6 +14158,14 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-17T18:46:41.181043Z"
+    },
+    {
+      "id": "REVIEW-AUTHORITY-CONTINUITY-ARCHITECT-D875D37",
+      "work_item_id": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
+      "reviewed_head": "d875d37a9894c007da489b8a4b199e7eef6af6aa",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-17T19:02:53.041832Z"
     }
   ],
   "human_decisions": [
@@ -17129,6 +17632,123 @@
       ],
       "timestamp": "2026-07-17T17:34:15Z",
       "receipt_hash": "sha256:10114448659ccfe0f69976b29cd25b92a59ccf52651e8fe03049aeacea9fc5c6"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894",
+      "work_item_id": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 47 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/verification.md",
+        "docs/product/agent-contract.md",
+        "docs/product/authority-and-gates.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_directive.py",
+        "src/palari_company_os/agent_doctor.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_finish.py",
+        "src/palari_company_os/agent_handoff.py",
+        "src/palari_company_os/agent_loop.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_operation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/public_commands.txt",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_approval_packs.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_public_surface.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py"
+      ],
+      "timestamp": "2026-07-17T18:55:15Z",
+      "previous_receipt_hash": "sha256:10114448659ccfe0f69976b29cd25b92a59ccf52651e8fe03049aeacea9fc5c6",
+      "receipt_hash": "sha256:1c9fb2db5efc795b2f0e4b793920883b21548209131b77a7dce4f193fce551a4"
     }
   ],
   "decisions": [
