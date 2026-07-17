@@ -3796,7 +3796,7 @@
       "palari": "PALARI-STEWARD",
       "risk": "R3",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Restore the complete repository gate under the current legitimate dogfood state: propagate one request-local journal verification through every read-model evidence path, keep agent-next below ten seconds, and replace brittle fixed dogfood-state assertions with deterministic state-derived or isolated-fixture assertions without weakening lifecycle or authority behavior.",
       "acceptance_target": "One all-agent queue operation performs exactly one full governance-journal read; three current dogfood agent-next runs stay below ten seconds; current handoff behavior is asserted from deterministic proof state; dashboard, decision-guide, and workspace read-model tests remain meaningful after legitimate dogfood decisions; all previously failing focused tests, complete verification, install smoke, docs, and PCAW conformance pass.",
       "required_approval_count": 0,
@@ -12690,6 +12690,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-9120A9D378054BC7A696AC33A51236B1-CA1A0835A22D",
       "review_reference": "REVIEW-JOURNAL-PERF-FINAL-ARCHITECT-CA1A083-ACCEPT",
       "timestamp": "2026-07-17T08:49:28.905524Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-4E434990123E4E938E5B584C33E33BC7-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-4E434990123E4E938E5B584C33E33BC7",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "904b1ad245be251f687a36dd0c865abcd02c35b7",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-4E434990123E4E938E5B584C33E33BC7-904B1AD245BE",
+      "review_reference": "REVIEW-HERMETIC-GATE-ARCHITECT-904B1AD-ACCEPT",
+      "timestamp": "2026-07-17T10:48:01.205142Z"
     }
   ],
   "receipts": [
@@ -16227,6 +16240,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-17T07:58:19.584277Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-4E434990123E4E938E5B584C33E33BC7-HUMAN-FOUNDER",
+      "work_item_id": "WORK-4E434990123E4E938E5B584C33E33BC7",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "904b1ad245be251f687a36dd0c865abcd02c35b7",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-4E434990123E4E938E5B584C33E33BC7-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-4E434990123E4E938E5B584C33E33BC7-904B1AD245BE",
+      "review_reference": "REVIEW-HERMETIC-GATE-ARCHITECT-904B1AD-ACCEPT",
+      "receipt_hash": "sha256:836c18afbba00193bfe5a8d4f4f3f8a59c3a610793c8fe757e23e1435252c942",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-17T10:48:35.511880Z"
     }
   ]
 }
