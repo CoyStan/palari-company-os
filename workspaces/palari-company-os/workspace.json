@@ -3527,6 +3527,73 @@
       "acceptance_target": "Refresh plans, receipts, evidence summaries, and structured JSON distinguish ordinary artifacts unchanged from projection artifacts rebound; projection-only refresh never claims byte immutability, exact hashes and journal continuity remain required, positive and negative tests pass, and the checkpoint receives fresh truthful proof and independent review.",
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-AA4EBA9EE93F46A1982A4E03FA7A2D8D-D2194F1065CB"
+    },
+    {
+      "parent_work_item_id": "WORK-0CE1AD9B5A3A460EA3FC4EDF94A6C1D5",
+      "parallel_policy": "coordinate",
+      "dependency_ids": [
+        "WORK-AA4EBA9EE93F46A1982A4E03FA7A2D8D"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_review_guides.py",
+        "tests/test_agent_packets.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_completion.py",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_review_guides.py",
+        "tests/test_agent_packets.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_completion.py",
+        "docs/product/testing-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "forbidden_actions": [
+        "weaken journal validation",
+        "persist trusted verification cache",
+        "perform human review",
+        "record human decision",
+        "external write",
+        "push",
+        "merge",
+        "deploy"
+      ],
+      "verification_expectations": [
+        "Focused read-model and journal corruption tests pass",
+        "Agent next all completes below ten seconds in three consecutive dogfood runs",
+        "Complete verification and isolated install smoke pass"
+      ],
+      "id": "WORK-9120A9D378054BC7A696AC33A51236B1",
+      "title": "Eliminate repeated journal verification in read models",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R3",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Make one read-model operation verify an unchanged governance journal at most once, reuse only an explicitly passed request-local result, preserve exact journal/workspace freshness and fail-closed corruption behavior, and remove the agent-next timeout without persistent trusted caches.",
+      "acceptance_target": "On the dogfood workspace, agent next all completes below 10 seconds in three consecutive runs; queue/detail/review binding remain semantically equivalent; one operation performs at most one full journal scan; mutated, truncated, forked, or workspace-divergent journals still fail closed; focused and complete verification pass.",
+      "required_approval_count": 0
     }
   ],
   "attempts": [
