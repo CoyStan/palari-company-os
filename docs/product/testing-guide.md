@@ -15,8 +15,8 @@ It runs:
 - style checks with `scripts/check_style.py`
 - Python compilation
 - JSON validity checks for example workspaces and schemas
-- CLI smoke checks for core read models, agent packets, playbooks, dashboard,
-  desktop prototype, documentation, integrations, and the demo
+- CLI smoke checks for core read models, agent packets, playbooks, desktop
+  prototype, documentation, integrations, and the demo
 - validation and read-model smokes for the repo dogfood and split-workspace
   fixtures
 

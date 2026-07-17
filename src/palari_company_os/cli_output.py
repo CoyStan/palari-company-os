@@ -305,10 +305,6 @@ def print_result(result: CommandResult) -> None:
             print_history_restoration(result.payload)
         return
 
-    if result.kind == "dashboard":
-        print_dashboard(result.payload, result.as_json)
-        return
-
     if result.kind == "desktop-prototype":
         print_desktop_prototype(result.payload, result.as_json)
         return
@@ -621,22 +617,6 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
     print("Major command groups:")
     print("  " + ", ".join(payload["major_command_groups"]))
-
-
-def print_dashboard(result: Any, as_json: bool) -> None:
-    payload = {
-        "workspace": result.workspace,
-        "output_dir": result.output_dir,
-        "index_path": result.index_path,
-        "assets": result.assets,
-    }
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Dashboard generated: {result.index_path}")
-    print(f"Workspace: {result.workspace}")
-    for asset in result.assets:
-        print(f"Asset: {asset}")
 
 
 def print_desktop_prototype(result: Any, as_json: bool) -> None:

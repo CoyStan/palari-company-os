@@ -83,19 +83,7 @@ Open one piece of work:
 ./bin/palari --workspace /tmp/palari-company-os-demo detail WORK-0001
 ```
 
-Generate a static dashboard you can open in a browser:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
-```
-
-Then open:
-
-```text
-/tmp/palari-company-dashboard/index.html
-```
-
-If you want a more app-like prototype, generate the desktop shell:
+If you want an app-like visual prototype, generate the desktop shell:
 
 ```bash
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
@@ -108,8 +96,8 @@ Then open:
 ```
 
 Nothing here calls live providers or writes outside the local files you point it
-at. These commands are for seeing the model, the dashboard, the prototype, and
-the agent contract.
+at. These commands are for seeing the model, the prototype, and the agent
+contract.
 
 ---
 
@@ -537,13 +525,13 @@ keeps the two things separate.
 ## Workshop-Friendly Demo Flow
 
 For a live workshop or a quick project walkthrough, Palari works best when the
-dashboard comes first and the schema stays in the background.
+bounded work and its evidence come first and the schema stays in the background.
 
 ### Five-minute version
 
 A short demo can stay visual:
 
-1. Open the dashboard or desktop prototype on the work map.
+1. Open the queue, one work detail, or the desktop prototype.
 2. Pick one task and inspect what the AI is allowed to read.
 3. Compare that with what it is not allowed to touch.
 4. Open the compact `agent brief` packet the agent would receive.
@@ -572,7 +560,7 @@ This is a v0.1 local CLI. Here is what is real:
 
 - dependency-light Python CLI (no external packages needed)
 - strict local workspace validation
-- queue, detail, state, history, dashboard, and desktop prototype views
+- queue, detail, state, history, Mission Control, and desktop prototype views
 - agent packets for bounded AI work, with local packet persistence and claims
 - source and receipt trust records
 - dry-run integration planning and cancelable outbox records (no live calls)

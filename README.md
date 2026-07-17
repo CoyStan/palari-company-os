@@ -53,8 +53,6 @@ Then open the live local supervision desk:
 `serve` is local only by default. It lets you click through work that needs
 human attention while the files remain the source of truth.
 
-Live demo: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
-
 To adopt it in your own repo, three commands give Claude Code an enforced
 write boundary:
 
@@ -114,7 +112,7 @@ Implemented now:
 - strict workspace schema and validation
 - goals, humans, Palaris, workbenches, sources, work items, attempts, receipts,
   evidence, reviews, human decisions, outcomes, and history
-- queue, detail, state, history, dashboard, and desktop prototype views
+- queue, detail, state, history, Mission Control, and desktop prototype views
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - file-change boundary checks for `agent check --changed` and `--git-diff`
@@ -203,18 +201,6 @@ Or prepare the demo workspace and open the same live view in one command:
 
 ```bash
 ./bin/palari demo --serve
-```
-
-Generate a static dashboard for sharing, publishing, or GitHub Pages:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
-```
-
-Then open:
-
-```text
-/tmp/palari-company-dashboard/index.html
 ```
 
 Generate the standalone desktop prototype:
@@ -333,8 +319,7 @@ goal -> workbench -> selected sources -> work item -> attempt
 ./bin/palari docs map
 ./bin/palari docs init --dry-run --json
 
-# Static visual surfaces
-./bin/palari dashboard --out /tmp/palari-company-dashboard
+# Visual supervision and prototypes
 ./bin/palari serve --as HUMAN-FOUNDER
 ./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
 ./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
@@ -425,8 +410,8 @@ GitHub Actions runs the core checks on Python 3.10 and 3.12.
   they are not a replacement for governance evidence.
 - **Risk changes intensity.** Low-risk local work can stay light. Higher-risk
   work still requires stronger proof and human decisions.
-- **Read models do not mutate authority.** Queue, detail, state, dashboard, and
-  prototypes are derived from workspace data.
+- **Read models do not mutate authority.** Queue, detail, state, Mission
+  Control, and prototypes are derived from workspace data.
 - **Ordinary software maintenance wins.** The repo should stay simple,
   inspectable, dependency-light, and easy for humans and agents to work on.
 

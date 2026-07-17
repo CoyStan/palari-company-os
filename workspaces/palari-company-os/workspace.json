@@ -454,7 +454,8 @@
         "docs/product/agent-loop-smoke.md",
         "docs/product/agent-ready-repo-documentation.md",
         "docs/product/quickstart.md",
-        "docs/showcase/ai-work-vignettes.md"
+        "docs/showcase/ai-work-vignettes.md",
+        "docs/assets"
       ],
       "status": "active"
     },
@@ -3953,10 +3954,6 @@
         ".github/workflows/pages.yml",
         "CHANGELOG.md",
         "README.md",
-        "docs/assets/palari-dashboard-dark-desktop.png",
-        "docs/assets/palari-dashboard-dark-mobile.png",
-        "docs/assets/palari-dashboard-light-desktop.png",
-        "docs/assets/palari-dashboard-light-mobile.png",
         "docs/product/agent-contract.md",
         "docs/product/agent-loop-smoke.md",
         "docs/product/agent-ready-repo-documentation.md",
@@ -3980,6 +3977,7 @@
         "tests/test_dashboard.py",
         "tests/test_docs.py",
         "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
         "tests/test_workflows.py",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
         "workspaces/palari-company-os/.palari/history.jsonl",
@@ -3992,10 +3990,6 @@
         ".github/workflows/pages.yml",
         "CHANGELOG.md",
         "README.md",
-        "docs/assets/palari-dashboard-dark-desktop.png",
-        "docs/assets/palari-dashboard-dark-mobile.png",
-        "docs/assets/palari-dashboard-light-desktop.png",
-        "docs/assets/palari-dashboard-light-mobile.png",
         "docs/product/agent-contract.md",
         "docs/product/agent-loop-smoke.md",
         "docs/product/agent-ready-repo-documentation.md",
@@ -4007,18 +4001,18 @@
         "docs/showcase/ai-work-vignettes.md",
         "scripts/make_demo_assets.sh",
         "scripts/verify.sh",
+        "src/palari_company_os",
         "src/palari_company_os/cli_dispatch.py",
         "src/palari_company_os/cli_output.py",
         "src/palari_company_os/cli_parser.py",
-        "src/palari_company_os/dashboard.py",
-        "src/palari_company_os/dashboard_assets.py",
         "src/palari_company_os/repo_docs.py",
+        "tests",
         "tests/fixtures/public_commands.txt",
         "tests/test_claude_hooks.py",
         "tests/test_cli_smoke.py",
-        "tests/test_dashboard.py",
         "tests/test_docs.py",
         "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
         "tests/test_workflows.py",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
         "workspaces/palari-company-os/.palari/history.jsonl",
@@ -4028,10 +4022,6 @@
         ".github/workflows/pages.yml",
         "CHANGELOG.md",
         "README.md",
-        "docs/assets/palari-dashboard-dark-desktop.png",
-        "docs/assets/palari-dashboard-dark-mobile.png",
-        "docs/assets/palari-dashboard-light-desktop.png",
-        "docs/assets/palari-dashboard-light-mobile.png",
         "docs/product/agent-contract.md",
         "docs/product/agent-loop-smoke.md",
         "docs/product/agent-ready-repo-documentation.md",
@@ -4055,6 +4045,7 @@
         "tests/test_dashboard.py",
         "tests/test_docs.py",
         "tests/test_public_surface.py",
+        "tests/test_transition_checks.py",
         "tests/test_workflows.py",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
         "workspaces/palari-company-os/.palari/history.jsonl",
@@ -4070,6 +4061,39 @@
         "Public commands, docs, examples, workflows, and demo scripts contain no active dashboard dependency",
         "Focused removal tests and one authoritative complete gate pass",
         "Isolated installation rejects the retired command and preserves core JSON commands"
+      ],
+      "required_approval_count": 0
+    },
+    {
+      "id": "WORK-E76CBE4C4D9B48619E09D51083249B2B",
+      "title": "Delete retired dashboard screenshots",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Delete the four unused static dashboard screenshots without changing any retained visual surface.",
+      "allowed_resources": [
+        "docs/assets"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "docs/assets"
+      ],
+      "conflict_targets": [
+        "docs/assets"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The four palari-dashboard PNG files are absent and documentation tests pass; no other asset changes.",
+      "verification_expectations": [
+        "Documentation asset tests pass"
       ],
       "required_approval_count": 0
     }

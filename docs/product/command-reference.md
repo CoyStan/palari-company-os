@@ -610,7 +610,7 @@ waiting on review or a human decision, they also expose `agent_handoff_command`
 so an AI agent can bridge to the same context without mutating the workspace.
 Queue, state, and detail JSON also expose `agent_loop_command` as a compact
 agent orientation helper for the selected work item.
-Detail and dashboard agent command blocks add review-mode packet/check commands
+Detail agent command blocks add review-mode packet/check commands
 when the selected work item is in a review handoff state.
 
 ## Git Integration Readiness
@@ -983,29 +983,6 @@ Important boundaries:
 `palari demo --serve` prepares the throwaway demo workspace, runs the blocked
 write scenario, and opens the same local UI against that demo state.
 
-## Dashboard
-
-```bash
-./bin/palari dashboard --out /tmp/palari-company-dashboard
-./bin/palari --workspace workspaces/palari-company-os dashboard --out /tmp/palari-dogfood-dashboard --json
-```
-
-Generates the static export/share format with local `index.html`, `styles.css`,
-and `app.js` files. The dashboard reads `workspace.json` and
-`.palari/history.jsonl`; it does not mutate the workspace, run broker actions,
-connect external providers, or require a web server.
-
-The first dashboard has five sections:
-
-- Queue: attention counts, work cards, trust/evidence/review state, next action
-- Work: lifecycle lanes and expandable work detail
-- Trust: selected sources and human-facing receipts
-- History: append-only event timeline
-- Authority: humans, Palaris, open decisions, and human blockers
-
-Dashboard agent handoff commands are read-only bridges. The UI labels them as
-agent-safe and keeps human review or decision actions human-only.
-
 ## Desktop Prototype
 
 ```bash
@@ -1126,8 +1103,8 @@ This file is intentionally ignored by git.
 ```
 
 Runs unit tests, Python compilation, JSON validity checks, and CLI smoke checks
-for queue, detail, state, validate, scope, maintainer status, playbooks,
-dashboard generation, and the desktop prototype generator.
+for queue, detail, state, validate, scope, maintainer status, playbooks, and the
+desktop prototype generator.
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs the same command
 on pushes to `main` and on pull requests.

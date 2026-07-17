@@ -35,7 +35,6 @@ MAJOR_COMMAND_GROUPS = [
     "review",
     "decision",
     "lifecycle",
-    "dashboard",
     "desktop-prototype",
 ]
 

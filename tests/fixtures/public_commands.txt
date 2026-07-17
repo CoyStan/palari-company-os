@@ -69,7 +69,6 @@ palari mcp
 palari mcp serve
 palari migrate
 palari history
-palari dashboard
 palari desktop-prototype
 palari desktop-serve
 palari serve

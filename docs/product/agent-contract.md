@@ -1,7 +1,8 @@
 # Agent Contract
 
 Palari Company OS is primarily an operating contract for AI agents. Humans use
-the dashboard, receipts, blockers, and approval records to supervise work.
+structured read models, Mission Control, receipts, blockers, and approval
+records to supervise work.
 Agents use the CLI to discover one bounded task, receive context, act inside
 scope, and stop when human authority is required.
 

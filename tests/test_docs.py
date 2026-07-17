@@ -34,7 +34,6 @@ class DocumentationTests(unittest.TestCase):
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
         self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
-        self.assertIn("https://coystan.github.io/palari-company-os/", readme)
         for late_noun in (
             "workbench",
             "work item",
@@ -48,10 +47,6 @@ class DocumentationTests(unittest.TestCase):
     def test_demo_assets_are_committed_and_regeneratable(self) -> None:
         for asset in (
             "palari-blocked-terminal.png",
-            "palari-dashboard-light-desktop.png",
-            "palari-dashboard-dark-desktop.png",
-            "palari-dashboard-light-mobile.png",
-            "palari-dashboard-dark-mobile.png",
         ):
             with self.subTest(asset=asset):
                 path = REPO_ROOT / "docs" / "assets" / asset
