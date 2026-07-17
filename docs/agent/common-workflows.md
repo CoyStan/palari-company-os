@@ -3,6 +3,31 @@
 Use these as short recipes, not ceremony. The current work item and agent packet
 remain the assignment boundary.
 
+## Operate Ordinary Bounded Work
+
+1. Initialize once with `palari init`, add bounded work with `palari work add`,
+   then let the assigned Palari run `palari agent start --next --as PALARI-ID
+   --json`.
+2. Work only inside the returned packet, commit the bounded result, and run
+   `palari agent advance WORK-ID --as PALARI-ID --json`.
+3. Stop at the returned independent-review, human, external, or blocker
+   boundary. Review remains a separate attributable act.
+4. A qualified human uses `palari queue --approval-inbox --json`, inspects the
+   exact presentation, and runs only its emitted bound action.
+
+Use `work add --write PATH` for the compatible presence-required contract. Use
+repeatable `--create`, `--modify`, and `--delete` instead when the exact final
+mutation class matters; do not mix exact intents with `--write`.
+
+If execution is interrupted before proof is ready, run `palari agent park
+WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Parking
+records blocked state and the next action before releasing the claim; it does
+not create proof or authority. It requires a writable governance journal; a
+legacy workspace must first run the exact returned `history --checkpoint`
+action. Use `next`, `brief`, explicit `start`, `check`,
+`finish`, `handoff`, `doctor`, and `loop` as compatible inspection and recovery
+surfaces rather than mandatory ceremony.
+
 ## Add Or Change A CLI Command
 
 1. Update `src/palari_company_os/cli_parser.py`.

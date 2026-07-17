@@ -150,6 +150,7 @@ ALLOWED_RECORD_FIELDS = {
         "allowed_sources",
         "allowed_actions",
         "output_targets",
+        "path_intents",
         "forbidden_actions",
         "acceptance_target",
         "verification_expectations",
@@ -615,6 +616,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             work.parallel_policy,
             PARALLEL_POLICIES,
         )
+        _validate_path_intents(work)
 
     for integration in workspace.integrations:
         _validate_integration(integration)
@@ -646,7 +648,7 @@ def validate_workspace_contract(workspace: Any) -> None:
                 f"evidence_runs.{evidence.id}.attempt_id references attempt "
                 f"{attempt.id} for different work item {attempt.work_item_id}"
             )
-        _validate_evidence_manifest_shape(evidence)
+        _validate_evidence_manifest_shape(evidence, work_by_id[evidence.work_item_id])
 
     for review in workspace.review_verdicts:
         _require_allowed_value(
@@ -1345,6 +1347,53 @@ def _validate_attempt_boundaries(
         )
 
 
+def _validate_path_intents(work: WorkItem) -> None:
+    """Validate the additive exact-path mutation contract.
+
+    Legacy work items omit ``path_intents`` and retain their existing
+    output-target semantics. Once the field is present, every entry is an
+    exact canonical path with one unambiguous final-state intent.
+    """
+
+    seen: set[str] = set()
+    boundaries = _write_boundaries(work)
+    for index, item in enumerate(work.path_intents):
+        label = f"work_items.{work.id}.path_intents[{index}]"
+        unknown = sorted(set(item) - {"path", "intent"})
+        if unknown:
+            raise WorkspaceError(f"{label} has unknown field(s): {', '.join(unknown)}")
+        path = item.get("path")
+        intent = item.get("intent")
+        if not isinstance(path, str) or not path:
+            raise WorkspaceError(f"{label}.path must be a non-empty string")
+        if intent not in {"create", "modify", "delete"}:
+            raise WorkspaceError(
+                f"{label}.intent has unsupported value {intent!r}; "
+                "expected one of: create, delete, modify"
+            )
+        try:
+            normalized = validate_workspace_path(path)
+        except ValueError as exc:
+            raise WorkspaceError(f"{label}.path contains unsafe path {path}: {exc}") from exc
+        if normalized != path:
+            raise WorkspaceError(f"{label}.path is not in canonical repository form: {path}")
+        if path in seen:
+            raise WorkspaceError(
+                f"work_items.{work.id}.path_intents contains duplicate path: {path}"
+            )
+        seen.add(path)
+        for other in seen - {path}:
+            if path_allowed(path, [other]) or path_allowed(other, [path]):
+                raise WorkspaceError(
+                    f"work_items.{work.id}.path_intents paths overlap by prefix: "
+                    f"{other}, {path}"
+                )
+        if not boundaries or not path_allowed(path, boundaries):
+            raise WorkspaceError(
+                f"{label}.path includes path outside declared boundaries: {path}"
+            )
+
+
 def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
     write_boundaries = _write_boundaries(work)
     for output in receipt.outputs_created:
@@ -1894,10 +1943,18 @@ def _validate_receipt(
         )
 
 
-def _validate_evidence_manifest_shape(evidence: EvidenceRun) -> None:
+def _validate_evidence_manifest_shape(evidence: EvidenceRun, work: WorkItem) -> None:
+    delete_paths = {
+        str(item.get("path"))
+        for item in work.path_intents
+        if isinstance(item, dict)
+        and item.get("intent") == "delete"
+        and isinstance(item.get("path"), str)
+    }
     for artifact_hash in evidence.artifact_hashes:
         path = artifact_hash.get("path")
         digest = artifact_hash.get("sha256")
+        status = artifact_hash.get("status")
         if not isinstance(path, str) or not path:
             raise WorkspaceError(
                 f"evidence_runs.{evidence.id}.artifact_hashes items require path"
@@ -1905,6 +1962,27 @@ def _validate_evidence_manifest_shape(evidence: EvidenceRun) -> None:
         if not isinstance(digest, str) or not digest.startswith("sha256:"):
             raise WorkspaceError(
                 f"evidence_runs.{evidence.id}.artifact_hashes.{path} requires sha256 digest"
+            )
+        if status == "absent":
+            if digest != "sha256:absent":
+                raise WorkspaceError(
+                    f"evidence_runs.{evidence.id}.artifact_hashes.{path} absent tombstone "
+                    "requires sha256:absent"
+                )
+            if path not in delete_paths:
+                raise WorkspaceError(
+                    f"evidence_runs.{evidence.id}.artifact_hashes.{path} claims absence "
+                    "without a matching delete path intent"
+                )
+            if path not in evidence.artifacts:
+                raise WorkspaceError(
+                    f"evidence_runs.{evidence.id}.artifact_hashes.{path} tombstone "
+                    "must be declared as an artifact"
+                )
+        elif digest == "sha256:absent":
+            raise WorkspaceError(
+                f"evidence_runs.{evidence.id}.artifact_hashes.{path} sha256:absent "
+                "requires absent status"
             )
         try:
             validate_workspace_path(path)

@@ -349,6 +349,7 @@ class WorkItem:
     allowed_sources: list[str] = field(default_factory=list)
     allowed_actions: list[str] = field(default_factory=list)
     output_targets: list[str] = field(default_factory=list)
+    path_intents: list[Record] = field(default_factory=list)
     forbidden_actions: list[str] = field(default_factory=list)
     acceptance_target: str = ""
     verification_expectations: list[str] = field(default_factory=list)
@@ -382,6 +383,7 @@ class WorkItem:
             allowed_sources=_strings(record, "allowed_sources"),
             allowed_actions=_strings(record, "allowed_actions"),
             output_targets=_strings(record, "output_targets"),
+            path_intents=_records(record, "path_intents"),
             forbidden_actions=_strings(record, "forbidden_actions"),
             acceptance_target=_string(record, "acceptance_target"),
             verification_expectations=_strings(record, "verification_expectations"),

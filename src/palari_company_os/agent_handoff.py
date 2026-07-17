@@ -5,6 +5,7 @@ from shlex import quote
 from typing import Any
 
 from .agent_finish import build_agent_finish
+from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
 from .governance_journal import JournalVerificationContext
 from .read_models import detail
@@ -20,14 +21,28 @@ def build_agent_handoff(
     mode: str = "execute",
     *,
     journal_context: JournalVerificationContext | None = None,
+    operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    operation_journal = journal_context or JournalVerificationContext()
+    operation_journal = (
+        operation.journal_context
+        if operation is not None
+        else journal_context or JournalVerificationContext()
+    )
+    operation_state = ensure_agent_operation(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=operation_journal,
+        operation=operation,
+    )
     finish = build_agent_finish(
         workspace,
         work_id,
         palari_id,
         mode,
         journal_context=operation_journal,
+        operation=operation_state,
     )
     guidance_codes = {item.get("code", "") for item in finish.get("handoff_guidance", [])}
     has_linked_decision = _has_linked_decision(workspace, work_id)

@@ -10,7 +10,7 @@ secrets, or bypasses human authority.
 ```bash
 palari init
 palari work add "Clean up launch notes" --write docs/notes.md
-palari claude install
+palari agent start --next --as PALARI-CLAUDE --json
 ```
 
 `init` creates a starter workspace in an existing project: one human (named
@@ -33,6 +33,28 @@ coordination. Missing, repeated, self-referential, and cyclic dependencies fail
 closed. Pass `--as`, `--goal`,
 `--workbench`, `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`,
 `--id`, or `--approvals` to override.
+
+`--write PATH` remains the compatible presence-required form. For exact
+mutation work, use repeatable `--create PATH`, `--modify PATH`, and
+`--delete PATH` instead:
+
+```bash
+palari work add "Replace obsolete guidance" \
+  --create docs/new.md --modify docs/current.md --delete docs/obsolete.md
+```
+
+Exact intents cannot be combined with `--write`, and one path cannot carry two
+intents. The packet requires create/modify targets to exist as regular files in
+the matching Git change class. A delete target must be absent and must appear
+as deleted across the claim base-to-candidate Git history; its evidence uses an
+explicit absent tombstone.
+
+The command returned by `work add` is `agent start --next`: it selects exactly
+one currently safe item using the same queue and packet policy, persists its
+portable contract, and claims it. Existing `agent next`, `brief`, and explicit
+`start WORK-ID` commands remain the inspectable compatibility surfaces.
+`palari claude install` is optional host enforcement for Claude Code, not part
+of repository activation or a requirement for other agent providers.
 
 ## Workspace Init
 
@@ -83,6 +105,13 @@ class and owner. `approval_modes` distinguishes automatic reconciliation,
 approve-eligible, approve-selected, individual-effect, and unavailable modes.
 The combined `review-and-accept` mode is explicitly unavailable in the current
 policy because review and acceptance remain attributable to distinct actors.
+
+The normal human journey is one read and at most one authority action: open
+`queue --approval-inbox --json`, inspect the selected presentation and its
+proof, then run exactly the emitted `human-decision pack` command. The inbox
+does not collapse independent review into acceptance. If a state is stale,
+blocked, non-batchable, externally effectful, or missing quorum, it remains
+parked with an owner and next safe action instead of receiving a weaker command.
 
 ## Detail
 
@@ -382,12 +411,14 @@ JSON-RPC MCP messages to stdout.
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --session-contract --json
 ./bin/palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json
+./bin/palari agent start --next --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --isolate --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/output.md --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --git-diff --json
 ./bin/palari agent release WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent park WORK-0003 --as PALARI-SOFIA --reason "Blocked on product choice" --next-action "Ask the founder to choose A or B" --json
 ./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent handoff WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
@@ -416,6 +447,14 @@ summarizes brief/check/finish/handoff status without replacing the concrete
 rank is presentation only and never substitutes for a dependency edge. It is
 read-only and does not claim or assign work.
 
+`agent start --next` is the normal one-command entry. It evaluates the same
+ordered candidates, selects the first `can_start` item, then calls the existing
+packet/session-contract/claim path for that exact work id. No ready item returns
+`status: no-ready-work`, one explanation, and the next safe read action without
+writing a claim. Supplying both `WORK-ID` and `--next`, supplying neither, or
+combining `--next` with `--isolate` fails closed. Use explicit
+`start WORK-ID --isolate` when checkout isolation is required.
+
 `agent brief` compiles one bounded, context-window-safe packet for an AI agent.
 It is a read-only preview and returns either `status: ready` or
 `status: blocked`. Add `--session-contract` to emit a deterministic,
@@ -438,6 +477,17 @@ marker does not authenticate a claim against a hostile same-user process. If
 the packet is blocked, `agent start` reports
 blockers and writes nothing. `agent release` removes this Palari's local claim
 when work is abandoned or handed off.
+`agent park` is the durable interruption path for an owned execute claim. In
+one journaled workspace mutation it records a blocked attempt, the reason, the
+exact next safe action, and packet/Git/digest/change observations, then releases
+the claim. It creates no receipt, evidence, review, decision, acceptance,
+outcome, or convergence authority. If execution stops after persistence but
+before release, rerunning the exact command resumes release without duplicating
+the parking record; changed reason, action, claim, packet, or repository state
+fails closed. Parking requires an already active, writable governance journal.
+A legacy workspace without one fails before mutation and returns the exact
+one-command `history --checkpoint` activation action; Palari does not silently
+claim that earlier history was continuous.
 For Git worktrees, the claim also stores a hashed, metadata-only baseline of
 already-dirty paths. It does not read their contents. The ignored baseline
 companion persists when a claim is released and reused when that work item is
@@ -503,6 +553,15 @@ Unchanged paths captured as dirty before `agent start` are reported separately
 as `preexisting_unchanged_files` and are not attributed to the agent. A new,
 changed, malformed, or baseline-mismatched path fails closed. Path checks use
 canonical repository paths and reject traversal and symlink escape.
+
+When a work item declares `path_intents`, each exact path has one final-state
+intent: `create`, `modify`, or `delete`. Create and modify require a regular
+file and the matching Git change class. Delete requires the exact path to be
+absent and Git to report its deletion, so a declared tombstone satisfies the
+contract instead of becoming a false missing-output error. Duplicate,
+overlapping, unsafe, symlinked, undeclared, or mismatched paths fail closed.
+Work items that omit `path_intents` retain the historical presence-required
+output contract.
 
 Agent subcommands that receive `--json` return machine-readable failures on
 workspace or command errors instead of plain text. The error payload includes
@@ -906,6 +965,14 @@ than hides, a legitimate continuity break after a manual edit. `--recover`
 idempotently resolves a prepared transaction when the on-disk projection makes
 the safe result unambiguous.
 
+The v1 journal is append-only JSONL and complete verification remains linear in
+the journal size. Request-local operation contexts reuse one verified scan
+while the file identity and size/time witnesses remain unchanged, but no
+persistent cache may authorize governance. On the current roughly 40 MB
+dogfood journal a full scan can still take several seconds and hundreds of MB
+of peak memory; journaled mutations may require more than one scan. This is a
+known performance limit, not a reason to skip continuity checks.
+
 `--checkpoints` lists every committed journal projection by content digest.
 `--restore` requires a declared human and reason, then appends a restoration
 transition whose projection exactly matches the selected digest. It never
@@ -932,6 +999,11 @@ safe regular file beneath the subject root. Statement-only verification checks
 the work-state binding and governance consistency but never reports full or
 acceptance verification. A rejected proof exits 1 and returns stable structured
 diagnostics; usage or operational errors exit 2.
+
+PCAW v1 verifies named artifact bytes and governance consistency, but it does
+not carry a portable deletion-history proof. Workspace `delete` tombstones are
+enforced locally against exact Git state; exporting them as a protocol
+guarantee requires a future versioned PCAW extension.
 
 ## Receipts
 

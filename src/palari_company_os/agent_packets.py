@@ -451,9 +451,14 @@ def _allowed_paths(work: dict[str, Any], mode: str) -> dict[str, list[str]]:
             "read": list(work.get("allowed_resources", [])),
             "write": [],
         }
+    path_intents = _path_intents(work)
     return {
         "read": list(work.get("allowed_resources", [])),
-        "write": list(work.get("output_targets", []) or work.get("allowed_resources", [])),
+        "write": (
+            [item["path"] for item in path_intents]
+            if path_intents
+            else list(work.get("output_targets", []) or work.get("allowed_resources", []))
+        ),
     }
 
 
@@ -481,13 +486,35 @@ def _required_output(work: dict[str, Any], mode: str) -> dict[str, Any]:
                 "perform external writes",
             ],
         }
-    return {
-        "output_targets": list(work.get("output_targets", [])),
+    path_intents = _path_intents(work)
+    required = {
+        "output_targets": (
+            [item["path"] for item in path_intents if item["intent"] != "delete"]
+            if path_intents
+            else list(work.get("output_targets", []))
+        ),
         "fallback_write_paths": list(work.get("allowed_resources", [])),
         "acceptance_target": work.get("acceptance_target", ""),
         "verification_expectations": list(work.get("verification_expectations", [])),
         "must_not": list(work.get("forbidden_actions", [])),
     }
+    if path_intents:
+        required["path_intents"] = path_intents
+    return required
+
+
+def _path_intents(work: dict[str, Any]) -> list[dict[str, str]]:
+    value = work.get("path_intents", [])
+    if not isinstance(value, list):
+        return []
+    return [
+        {"path": str(item["path"]), "intent": str(item["intent"])}
+        for item in value
+        if isinstance(item, dict)
+        and isinstance(item.get("path"), str)
+        and item.get("path")
+        and item.get("intent") in {"create", "modify", "delete"}
+    ]
 
 
 def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, Any]:

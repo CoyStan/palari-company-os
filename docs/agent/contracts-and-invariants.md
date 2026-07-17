@@ -34,7 +34,14 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   Schema migration preserves record placement, detects concurrent changes to
   every participating file, and advances the root version last.
 - Collection file paths must be workspace-relative and must not contain `..`.
+- Declared `path_intents` are exact, normalized, duplicate-free, and
+  prefix-disjoint. Create/modify require the intended regular-file Git state;
+  delete requires an absent exact path plus an observed Git deletion. Legacy
+  work without intents retains its presence-required output behavior.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
+- Governance-journal verification is linear in the append-only JSONL history.
+  Request-local reuse may remove duplicate scans only while filesystem witnesses
+  remain unchanged; no persistent cache may authorize a transition.
 
 ## Authority
 
@@ -74,6 +81,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and a dedicated local Git ref/reflog witness when Git is available. Releasing
   and restarting the same work item must reuse that baseline rather than
   laundering later changes.
+- `agent start --next` selects one candidate only through the existing
+  `agent next` eligibility policy, then invokes the same explicit start path.
+  It must not claim blocked work or invent a second priority/authority rule.
 - Linked Git worktrees coordinate active ownership through an expiring atomic
   ref-to-blob lease. A foreign live lease and malformed or contradictory lease
   state fail closed. Different work items retain independent leases.
@@ -98,6 +108,16 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
   against the packet boundary.
+- One request-local operation context shares a packet, check, directive, and
+  journal-verification witness across aggregate read views. The pure directive
+  compiler classifies the next owner/action; transition gates remain the sole
+  mutation authority.
+- `agent park` durably records one claim-bound blocked attempt, exact state
+  bindings, reason, observation, and next safe action before claim release.
+  Exact crash retry is idempotent. It never creates receipt, evidence, review,
+  human decision, acceptance, outcome, or convergence records. It requires an
+  existing writable journal; legacy activation remains an explicit checkpoint
+  with a visible pre-checkpoint continuity boundary.
 - `agent done` attributes every committed path from the persisted claim-start
   head to current `HEAD`, not merely the tip commit. The claim, companion
   baseline, Git witness ref, and original witness reflog entry must agree.
@@ -183,6 +203,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   workspace data but are not part of the offline verifier trusted-code base.
 - PCAW v1 attribution is declared, not cryptographically authenticated. It
   grants no acceptance, merge, push, deployment, or external-write authority.
+- PCAW v1 does not claim portable deletion-history proof. Local workspace
+  deletion tombstones remain outside the v1 protocol guarantee.
 - Every committed journal projection is a content-addressed checkpoint.
   Restoration appends a human-attributed transition only for an effect-free
   local chain. Every committed projection after the earliest matching digest

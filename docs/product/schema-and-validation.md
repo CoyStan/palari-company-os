@@ -78,6 +78,9 @@ Validation checks:
 - work item allowed source references
 - work item source and output targets stay inside its workbench boundary when
   a workbench is declared
+- optional work-item `path_intents` use only exact canonical repository paths
+  and `create`, `modify`, or `delete`; paths must be unique, prefix-disjoint,
+  and inside the declared write boundary
 - parent workbench and parent work item graphs do not contain cycles
 - workbench goal, Palari, human, source, and parent workbench references
 - work item recommended playbooks reference declared playbook sources and
@@ -117,6 +120,9 @@ Validation checks:
   forbidden paths, and claim lease fields
 - evidence manifest hash shape, exact receipt binding, artifact presence, and
   artifact hash path safety
+- an evidence artifact with `status: absent` uses exactly `sha256:absent`, is
+  declared as an artifact, and corresponds to an exact work-item delete intent;
+  no other artifact may use the absent digest
 - receipt hash, previous receipt hash, and evidence manifest hash shape
 - mandatory exact review-binding fields for every `accept-ready` verdict,
   covering the attempt, evidence, receipt, work contract, and aggregate proof
@@ -166,6 +172,30 @@ Validation checks:
   review, evidence, and reviewed head controls whether their approval counts
 - terminal work with an exact-bound review also requires the matching
   acceptance record; removing it fails closed
+
+### Exact Path Intents And Deletion Tombstones
+
+`path_intents` is additive. Historical work items may omit it and keep the
+existing `output_targets` presence contract. When present, it becomes the exact
+mutation contract:
+
+```json
+{
+  "path_intents": [
+    {"path": "docs/new.md", "intent": "create"},
+    {"path": "docs/current.md", "intent": "modify"},
+    {"path": "docs/obsolete.md", "intent": "delete"}
+  ]
+}
+```
+
+The packet write boundary is the listed exact paths. Git-aware checking
+requires the matching change class. Create and modify must end as regular
+files; delete must end absent and be observed as deleted. Evidence for the
+delete uses `{ "path": "docs/obsolete.md", "sha256": "sha256:absent",
+"status": "absent" }`. A missing ordinary output remains an error, and a fake
+absent record without the matching delete intent fails closed. This local
+tombstone is not a PCAW v1 portable deletion-history guarantee.
 
 Validation is intentionally stricter than a permissive JSON reader. Extra fields
 fail closed so typos and hidden state cannot quietly enter the source of truth.

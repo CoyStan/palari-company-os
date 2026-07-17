@@ -323,8 +323,10 @@ class ApprovalPackTests(unittest.TestCase):
             )
 
         self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v1")
-        self.assertIn("Primary action: approve-eligible", rendered_inbox)
-        self.assertIn("resolver: human-authority / human", rendered_inbox)
+        self.assertIn("State: decision-ready", rendered_inbox)
+        self.assertIn("Owner: qualified human", rendered_inbox)
+        self.assertIn("Next: palari human-decision pack", rendered_inbox)
+        self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
         self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
         self.assertTrue(detail["approval_pack"]["available"])
         self.assertEqual(decision["executed"], ["WORK-001"])

@@ -46,6 +46,16 @@ def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
+    entry = payload.get("entry") or {}
+    if entry:
+        selected = entry.get("selected_work_item", "none")
+        print(f"Agent entry: {selected}")
+        print(f"Status: {payload.get('start', {}).get('status', payload.get('status', 'unknown'))}")
+        print(f"Safe: {_yes_no(entry.get('safe', False))}")
+        print(f"Owner: {entry.get('owner', '')}")
+        print(f"Why: {entry.get('explanation', '')}")
+        print(f"Next: {entry.get('next_command', '') or entry.get('next_action', '')}")
+        return
     print_agent_brief(payload, False)
     start = payload.get("start") or {}
     print(f"Start: {start.get('status', 'unknown')}")
@@ -110,6 +120,17 @@ def print_agent_release(payload: dict[str, Any], as_json: bool) -> None:
     print(f"By: {payload['released_by']}")
     print(f"Claim file: {payload['claim_path']}")
     print(f"Message: {payload['message']}")
+
+
+def print_agent_park(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    print(f"Work: {payload['work_item']} [blocked]")
+    print(f"Owner: {payload['parked_by']}")
+    print(f"Reason: {payload['reason']}")
+    print(f"Next: {payload['next_action']}")
+    print(f"Claim released: {_yes_no(payload['claim_released'])}")
 
 
 def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
@@ -423,34 +444,31 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
         return
     work = payload["work_item"]
     agent = payload["agent"]
+    resolution = payload.get("resolution_summary") or {}
+    owner_by_class = {
+        "human-authority": "human",
+        "independent-review": "reviewer",
+        "external-state": "external owner",
+        "automatic-reconciliation": "system",
+        "terminal": "none",
+    }
+    owner = payload.get("owner") or owner_by_class.get(
+        resolution.get("primary_class"),
+        "agent" if payload.get("agent_safe") else "operator",
+    )
+    next_action = payload.get("next_action") or {}
+    next_command = str(next_action.get("command") or "") or next(
+        iter(payload.get("recommended_commands", [])), ""
+    )
     print(f"Agent doctor: {payload['doctor_id']}")
-    print(f"Status: {payload['status']}")
-    print(f"Agent safe: {_yes_no(payload['agent_safe'])}")
-    print(f"Human handoff required: {_yes_no(payload['human_handoff_required'])}")
-    print(f"Mode: {payload.get('mode', 'execute')}")
-    print(f"Step: {payload.get('next_step_type', 'inspect')}")
-    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
+    print(f"State: {payload['status']} / {payload.get('next_step_type', 'inspect')}")
+    print(f"Safe: {_yes_no(payload['agent_safe'])}")
+    print(f"Owner: {owner}")
+    print(f"Agent: {agent.get('id', '')}")
     print(f"Work: {work.get('id', '')} {work.get('title', '')}")
     print(f"Summary: {payload['summary']}")
-    checks = payload.get("checks", [])
-    if checks:
-        print("Diagnosis:")
-        for check in checks:
-            print(f"  - {check['code']} [{check['status']}]: {check['message']}")
-            if check.get("command"):
-                print(f"    command: {check['command']}")
-    if payload.get("missing_requirements"):
-        print("Missing requirements:")
-        for item in payload["missing_requirements"]:
-            print(f"  - {item['code']}: {item['message']}")
-    boundary = payload.get("human_action_boundary") or {}
-    if boundary.get("agent_may_execute") is False:
-        print("Human action boundary: agent may quote human commands, but must not run them.")
-    commands = payload.get("recommended_commands", [])
-    if commands:
-        print("Recommended commands:")
-        for command in commands:
-            print(f"  {command}")
+    print(f"Next: {next_command or 'No action; inspect --json for recorded proof.'}")
+    print("Proof details: rerun with --json.")
 
 
 def print_agent_done(payload: dict[str, Any], as_json: bool) -> None:

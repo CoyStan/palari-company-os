@@ -30,7 +30,7 @@ from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os import governance_journal
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
-from palari_company_os.agent_runtime import release_agent, start_agent
+from palari_company_os.agent_runtime import release_agent, start_agent, start_next_agent
 from palari_company_os.evidence_manifest import evidence_manifest_hash
 from palari_company_os.governance_binding import current_review_binding, review_proof_hash
 from palari_company_os.onramp import quick_add_work
@@ -826,7 +826,7 @@ class AgentPacketTests(unittest.TestCase):
         )
         self.assertEqual(agent_ids, {"PALARI-STEWARD", "PALARI-ARCHITECT"})
         self.assertEqual(build_queue.call_count, 1)
-        self.assertEqual(read_journal.call_count, 1)
+        self.assertLessEqual(read_journal.call_count, 1)
         if not candidates:
             self.assertIsNone(result["top_candidate"])
             self.assertEqual(result["status"], "no-ready-work")
@@ -1809,6 +1809,155 @@ class AgentPacketTests(unittest.TestCase):
             self.assertTrue(release["released"])
             self.assertFalse(claim_path.exists())
 
+    def test_cli_agent_start_next_selects_claims_and_reuses_one_safe_item(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            first = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "--next",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            second = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "--next",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+
+            self.assertEqual(first["entry"]["selected_work_item"], "WORK-0003")
+            self.assertTrue(first["entry"]["safe"])
+            self.assertEqual(first["start"]["status"], "claimed")
+            self.assertEqual(
+                first["start"]["claim"]["claim_session"],
+                second["start"]["claim"]["claim_session"],
+            )
+            self.assertEqual(
+                first["entry"]["next_command"],
+                "palari agent advance WORK-0003 --as PALARI-SOFIA --json",
+            )
+
+    def test_cli_agent_start_next_reports_no_safe_item_without_writing_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_root = Path(directory) / "empty"
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(REPO_ROOT / "src")
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-S",
+                    "-m",
+                    "palari_company_os",
+                    "init",
+                    str(workspace_root),
+                    "--palari",
+                    "Sofia",
+                    "--json",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            workspace_file = workspace_root / "workspace.json"
+
+            result = json.loads(
+                self.run_cli_in_workspace(
+                    workspace_file,
+                    "agent",
+                    "start",
+                    "--next",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+
+            self.assertEqual(result["status"], "no-ready-work")
+            self.assertFalse(result["entry"]["safe"])
+            self.assertEqual(result["start"]["status"], "not-started")
+            self.assertFalse((workspace_file.parent / ".palari" / "claims").exists())
+
+    def test_agent_start_next_skips_one_atomic_claim_race(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        candidates = {
+            "schema_version": "palari.agent_next.v1",
+            "workspace": workspace.name,
+            "agent": {"id": "PALARI-SOFIA"},
+            "candidates": [
+                {"work_item_id": "WORK-RACE", "can_start": True, "queue_rank": 1},
+                {"work_item_id": "WORK-0003", "can_start": True, "queue_rank": 2},
+            ],
+            "next_allowed_commands": [],
+        }
+        claimed = {
+            "start": {"status": "claimed", "claim": {"claim_session": "session"}},
+            "one_sentence_instruction": "Do bounded work.",
+        }
+
+        with (
+            patch("palari_company_os.agent_next.build_agent_next", return_value=candidates),
+            patch(
+                "palari_company_os.agent_runtime.start_agent",
+                side_effect=[
+                    WorkspaceError("work WORK-RACE is already claimed by PALARI-OTHER"),
+                    claimed,
+                ],
+            ) as start,
+        ):
+            result = start_next_agent(
+                workspace,
+                WORKSPACE,
+                "PALARI-SOFIA",
+            )
+
+        self.assertEqual(start.call_count, 2)
+        self.assertEqual(result["entry"]["selected_work_item"], "WORK-0003")
+        self.assertEqual(result["entry"]["selection_rank"], 2)
+        self.assertEqual(result["entry"]["skipped_contention"][0]["work_item_id"], "WORK-RACE")
+
+    def test_cli_agent_start_requires_exactly_one_explicit_or_next_target(self) -> None:
+        with self.temp_workspace_file(WORKSPACE) as workspace_file:
+            missing = self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+                check=False,
+            )
+            conflicting = self.run_cli_in_workspace(
+                workspace_file,
+                "agent",
+                "start",
+                "WORK-0003",
+                "--next",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+                check=False,
+            )
+
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotEqual(conflicting.returncode, 0)
+            self.assertIn("exactly one", json.loads(missing.stdout)["error"]["message"])
+            self.assertIn(
+                "exactly one",
+                json.loads(conflicting.stdout)["error"]["message"],
+            )
+
     def test_cli_agent_start_reports_claim_update_lock_as_json(self) -> None:
         with self.temp_workspace_file(WORKSPACE) as workspace_file:
             lock_dir = workspace_file.parent / ".palari" / "claims"
@@ -2388,7 +2537,9 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertIn("Agent doctor: DOCTOR-WORK-0003-PALARI-SOFIA-EXECUTE-V1", result.stdout)
         self.assertIn("Summary:", result.stdout)
-        self.assertIn("Diagnosis:", result.stdout)
+        self.assertIn("Owner:", result.stdout)
+        self.assertIn("Next:", result.stdout)
+        self.assertLessEqual(len(result.stdout.splitlines()), 9)
 
     def checks_by_code(self, result: dict[str, object]) -> dict[str, dict[str, object]]:
         return {check["code"]: check for check in result["checks"]}

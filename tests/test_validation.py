@@ -305,6 +305,63 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             self.modified_example_workspace(outside_output)
 
+    def test_work_item_path_intents_accept_exact_bounded_mutations(self) -> None:
+        def exact_intents(data: dict[str, object]) -> None:
+            data["work_items"][0]["path_intents"] = [
+                {"path": "docs/product/company-os.md", "intent": "modify"},
+                {"path": "examples/acme-company-os/workspace.json", "intent": "delete"},
+            ]
+
+        workspace = self.modified_example_workspace(exact_intents)
+
+        self.assertEqual(workspace.work_items[0].path_intents[1]["intent"], "delete")
+
+    def test_work_item_path_intent_outside_boundary_fails_closed(self) -> None:
+        def outside_intent(data: dict[str, object]) -> None:
+            data["work_items"][0]["path_intents"] = [
+                {"path": "secrets.env", "intent": "delete"}
+            ]
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "path_intents\\[0\\].path includes path outside declared boundaries",
+        ):
+            self.modified_example_workspace(outside_intent)
+
+    def test_work_item_duplicate_path_intent_fails_closed(self) -> None:
+        def duplicate_intent(data: dict[str, object]) -> None:
+            data["work_items"][0]["path_intents"] = [
+                {"path": "docs/product/company-os.md", "intent": "modify"},
+                {"path": "docs/product/company-os.md", "intent": "delete"},
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "contains duplicate path"):
+            self.modified_example_workspace(duplicate_intent)
+
+    def test_work_item_unsafe_path_intent_fails_closed(self) -> None:
+        def unsafe_intent(data: dict[str, object]) -> None:
+            data["work_items"][0]["path_intents"] = [
+                {"path": "docs/../secrets.env", "intent": "delete"}
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "contains unsafe path"):
+            self.modified_example_workspace(unsafe_intent)
+
+    def test_evidence_absence_tombstone_requires_delete_intent(self) -> None:
+        def unbound_tombstone(data: dict[str, object]) -> None:
+            evidence = data["evidence_runs"][0]
+            evidence["artifacts"] = ["docs/product/company-os.md"]
+            evidence["artifact_hashes"] = [
+                {
+                    "path": "docs/product/company-os.md",
+                    "sha256": "sha256:absent",
+                    "status": "absent",
+                }
+            ]
+
+        with self.assertRaisesRegex(WorkspaceError, "without a matching delete path intent"):
+            self.modified_example_workspace(unbound_tombstone)
+
     def test_attempt_changed_file_outside_declared_boundary_fails_closed(self) -> None:
         def outside_changed_file(data: dict[str, object]) -> None:
             data["attempts"][0]["changed_files"] = ["secrets.env"]

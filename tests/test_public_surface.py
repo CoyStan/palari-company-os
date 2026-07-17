@@ -17,7 +17,7 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 154)
+        self.assertEqual(len(actual), 155)
         self.assertEqual(actual, expected)
 
     def test_public_surface_doc_classifies_core_and_visual_surfaces(self) -> None:

@@ -62,6 +62,26 @@ Authority rules:
   and stops before independent review or human authority. A pending prepare is
   aborted before a safe retry; an already-applied pending commit is completed
   only under the exact original execution authority.
+- `agent start --next` does not introduce a second eligibility policy. It
+  selects the first candidate already marked safe by `agent next`, then invokes
+  the same packet, portable-contract, claim, baseline, witness, and lease path
+  as explicit `agent start WORK-ID`. No-ready and ambiguous invocation states
+  write nothing.
+- Explicit path intent separates authorization from final-state proof. A
+  `delete` intent authorizes only its exact normalized path and succeeds only
+  when Git reports deletion and the path is absent. Create/modify mismatches,
+  traversal, symlink escape, duplicate or prefix-overlapping intents, and
+  undeclared changes fail closed. Legacy work without path intents keeps its
+  presence-required output semantics.
+- `agent park` is claim-bound interruption state, not completion. It records a
+  blocked attempt, packet/head/workspace bindings, observed boundary changes,
+  a human-readable reason, and one next safe action in a journaled mutation
+  before releasing the owned execute claim. Crash retry is idempotent only for
+  the exact same durable record and repository state. It creates no receipt,
+  evidence, review, decision, acceptance, outcome, or convergence.
+  Parking requires a current writable governance journal; legacy workspaces
+  fail before mutation with an explicit `history --checkpoint` next action and
+  never receive a retroactive continuity claim.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari
@@ -90,6 +110,15 @@ Authority rules:
   configured workspace rather than trusting an arbitrary `--workspace` path.
   Human integration enqueue/cancel/send, Linear adoption, and external
   playbook-source authority changes are denied from agent shell commands.
+- The pure directive compiler and request-local operation context reduce
+  repeated packet/check/journal work; they do not replace transition checks or
+  cache authority across requests. A changed journal witness forces a fresh
+  complete scan.
+- Claude Code hooks are an optional host adapter. The provider-neutral Palari
+  loop, transition gates, and proof records work without them, but packets alone
+  do not install an OS sandbox or prevent an unrestricted same-user process
+  from writing files directly. Other agent hosts need their own proven adapter
+  if pre-write enforcement is required.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - Proof creation necessarily mutates `workspace.json`, legacy history, and the
@@ -122,6 +151,17 @@ cryptographically authenticated identities; PCAW does not prevent a hostile
 process running as the same OS user from rewriting local governance files and
 exporting a new statement. Signing, key custody, revocation, and protected
 identity are deferred to a versioned future protocol.
+
+PCAW v1 does not claim portable deletion-history proof. Local workspace
+`delete` tombstones are checked against exact Git state, but the v1 statement
+and verifier guarantees remain limited to their documented named subjects and
+governance properties.
+
+The governance journal is append-only JSONL, so complete verification cost is
+currently linear in history size. Request-local reuse removes duplicate scans
+inside one bounded operation, but the roughly 40 MB dogfood journal can still
+take several seconds and hundreds of MB of peak memory to verify. Persistent
+advisory caches never replace the scan for authority-producing decisions.
 
 PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in

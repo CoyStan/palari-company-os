@@ -23,6 +23,61 @@ terminal dependency artifact stale rather than treating terminal status as
 sufficient. External or irreversible effects remain parked for their native
 individual gate.
 
+## Normal Operator Path
+
+The normal path derives mechanical records instead of asking an agent to copy
+their ids and digests:
+
+```bash
+palari init
+palari work add "Draft onboarding note" --write docs/onboarding.md
+palari agent start --next --as PALARI-ID --json
+# work inside the packet and commit the bounded result
+palari agent advance WORK-ID --as PALARI-ID --json
+```
+
+The compatible `--write` form requires an output to exist. Use repeatable
+`--create`, `--modify`, and `--delete` instead when exact mutation class
+matters; exact intents cannot be mixed with `--write`.
+
+`start --next` selects exactly one item already considered safe by the queue,
+persists its packet and portable session contract, and claims it. `advance`
+derives the exact claim range, checks declared path intent, runs verification,
+and records deterministic attempt, receipt, evidence, and closeout state. It
+then completes eligible low-risk work or stops at independent review, exact
+human authority, external state, or a concrete blocker. Neither command creates
+an independent verdict or human decision.
+
+After a separate current review, a qualified human uses one inbox and one exact
+action:
+
+```bash
+palari queue --approval-inbox --json
+# inspect the emitted presentation, then run its exact
+# `palari human-decision pack ...` command once
+```
+
+The action binds the current pack and presentation digests. Stale proof,
+incomplete quorum, non-batchable work, and external effects remain parked with
+an explicit owner and next step. Review and acceptance stay attributable to
+distinct actors.
+
+When execution stops before proof is ready, preserve that fact before releasing
+ownership:
+
+```bash
+palari agent park WORK-ID --as PALARI-ID \
+  --reason "Waiting for product direction" \
+  --next-action "Ask the founder to choose the final wording" --json
+```
+
+Parking records one blocked attempt and the exact next safe action, then
+releases the owned claim. It creates no completion proof or authority. The
+workspace must already have a writable governance journal; legacy work receives
+the exact explicit `history --checkpoint` activation action and no retroactive
+continuity claim. The commands below remain available as lower-level authoring
+and recovery surfaces; they are not the ordinary agent ceremony.
+
 ## Create Intent And Actors
 
 ```bash
@@ -117,6 +172,12 @@ An offline verifier derives `blocked`, `review-required`,
 included records rather than trusting the claimed state. Legacy lifecycle
 records remain loadable, but absent artifact digests or stage timestamps are
 reported honestly and cannot become PCAW acceptance verification.
+
+Workspace work items may declare exact `create`, `modify`, and `delete` path
+intents. A delete succeeds only as an absent-path tombstone corroborated by Git;
+it is not treated as a missing required output. This is local lifecycle proof,
+not a new PCAW v1 portability claim: the v1 protocol does not encode portable
+deletion history.
 
 ## Complete Work And Record Outcome
 

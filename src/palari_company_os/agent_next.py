@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
-from .agent_packets import TERMINAL_WORK_STATUSES, build_agent_brief
+from .agent_directive import enrich_blockers, resolution_summary
+from .agent_finish import build_agent_finish
+from .agent_operation import AgentOperation
+from .agent_packets import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
 from .governance_journal import JournalVerificationContext
 from .read_models import queue_items
@@ -162,13 +164,14 @@ def _candidates(
         work = workspace.work_item(item.id)
         if work is None or not _palari_can_see_work(workspace, work, palari_id, mode):
             continue
-        packet = build_agent_brief(
-            workspace,
-            work.id,
-            palari_id,
-            mode,
+        operation = AgentOperation(
+            workspace=workspace,
+            work_id=work.id,
+            palari_id=palari_id,
+            mode=mode,
             journal_context=operation_journal,
         )
+        packet = operation.brief()
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)
@@ -186,6 +189,7 @@ def _candidates(
             palari_id,
             mode,
             journal_context=operation_journal,
+            operation=operation,
         )
         handoff_guidance = finish.get("handoff_guidance", [])
         finish_commands = (

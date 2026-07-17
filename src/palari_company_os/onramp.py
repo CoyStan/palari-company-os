@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import re
 import subprocess
+from copy import deepcopy
 from pathlib import Path
 from shlex import quote
 from typing import Any
 
-from .authoring import create_record, update_record
+from .governance_journal import MutationMetadata, utc_timestamp
+from .history import append_history_event
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
 from .validation import COLLECTION_FILE_KEYS
@@ -140,8 +142,7 @@ def initialize_starter_workspace(
         "source": SOURCE_ID,
         "next_commands": [
             f'palari{workspace_arg} work add "First task" --write docs/notes.md',
-            f"palari{workspace_arg} claude install",
-            f"palari{workspace_arg} queue",
+            f"palari{workspace_arg} agent start --next --as {palari_id} --json",
         ],
         "message": (
             f"Starter workspace '{workspace.name}' created. Add a bounded work "
@@ -155,6 +156,9 @@ def quick_add_work(
     title: str,
     *,
     write: list[str],
+    create: list[str] | None = None,
+    modify: list[str] | None = None,
+    delete: list[str] | None = None,
     read: list[str] | None = None,
     palari_id: str = "",
     goal_id: str = "",
@@ -173,9 +177,33 @@ def quick_add_work(
     clean_title = title.strip()
     if not clean_title:
         raise WorkspaceError("work title is required")
-    write_paths = _normalized_paths(write, "--write")
+    legacy_write_paths = _normalized_paths(write, "--write")
+    intent_inputs = {
+        "create": _normalized_paths(create or [], "--create"),
+        "modify": _normalized_paths(modify or [], "--modify"),
+        "delete": _normalized_paths(delete or [], "--delete"),
+    }
+    path_intents = [
+        {"path": path, "intent": intent}
+        for intent, paths in intent_inputs.items()
+        for path in paths
+    ]
+    if legacy_write_paths and path_intents:
+        raise WorkspaceError(
+            "legacy --write cannot be combined with exact --create, --modify, or "
+            "--delete intents"
+        )
+    exact_paths = [str(item["path"]) for item in path_intents]
+    if len(exact_paths) != len(set(exact_paths)):
+        raise WorkspaceError(
+            "an exact path may declare only one create, modify, or delete intent"
+        )
+    write_paths = legacy_write_paths or exact_paths
     if not write_paths:
-        raise WorkspaceError("at least one --write path is required to bound the work")
+        raise WorkspaceError(
+            "at least one --write path or exact --create, --modify, or --delete "
+            "path is required"
+        )
     read_paths = _normalized_paths(read or [], "--read")
 
     store = load_store(workspace_path)
@@ -200,6 +228,8 @@ def quick_add_work(
 
     allowed_sources: list[str] = []
     workbench_outputs_added: list[str] = []
+    bench: dict[str, Any] | None = None
+    before_bench: dict[str, Any] | None = None
     if workbench:
         bench = _find_record(store.data, "workbenches", workbench)
         allowed_sources = [str(item) for item in (bench or {}).get("source_ids", [])]
@@ -208,13 +238,9 @@ def quick_add_work(
         existing_outputs = [str(item) for item in (bench or {}).get("output_target_ids", [])]
         workbench_outputs_added = [path for path in write_paths if path not in existing_outputs]
         if workbench_outputs_added:
-            update_record(
-                str(workspace_path),
-                "workbench",
-                workbench,
-                {"output_target_ids": existing_outputs + workbench_outputs_added},
-                command="work add",
-            )
+            before_bench = deepcopy(bench)
+            assert bench is not None
+            bench["output_target_ids"] = existing_outputs + workbench_outputs_added
 
     resources: list[str] = []
     for path in read_paths + write_paths:
@@ -239,22 +265,74 @@ def quick_add_work(
         "parallel_policy": parallel_policy,
         "forbidden_actions": ["write outside the declared write paths"],
         "acceptance_target": (
-            acceptance_target.strip() or "Declared outputs exist and verification passes."
+            acceptance_target.strip()
+            or (
+                "Declared path intents hold and verification passes."
+                if path_intents
+                else "Declared outputs exist and verification passes."
+            )
         ),
         "verification_expectations": list(verify or []),
         "required_approval_count": max(0, approvals),
     }
-    create_record(str(workspace_path), "work", record, command="work add", actor=palari)
+    if path_intents:
+        record["path_intents"] = path_intents
+    work_items = store.data.setdefault("work_items", [])
+    if any(item.get("id") == resolved_id for item in work_items):
+        raise WorkspaceError(f"work already exists: {resolved_id}")
+    work_items.append(record)
+    objects = [
+        {"type": "work", "collection": "work_items", "id": resolved_id}
+    ]
+    if workbench_outputs_added:
+        objects.insert(
+            0,
+            {"type": "workbench", "collection": "workbenches", "id": workbench},
+        )
+    workspace = write_store(
+        store,
+        metadata=MutationMetadata(
+            command="work add",
+            actor=palari,
+            action="created-bounded-work",
+            timestamp=utc_timestamp(),
+            objects=tuple(objects),
+        ),
+    )
+    if workbench_outputs_added and bench is not None:
+        append_history_event(
+            store.data_path,
+            schema_version=workspace.schema_version,
+            command="work add",
+            action="updated",
+            object_type="workbench",
+            object_collection="workbenches",
+            object_id=workbench,
+            actor=palari,
+            before=before_bench,
+            after=bench,
+        )
+    append_history_event(
+        store.data_path,
+        schema_version=workspace.schema_version,
+        command="work add",
+        action="created",
+        object_type="work",
+        object_collection="work_items",
+        object_id=resolved_id,
+        actor=palari,
+        before=None,
+        after=record,
+    )
 
     return {
         "schema_version": "palari.work_add.v1",
         "workspace_file": str(store.data_path),
         "work_item": record,
+        "path_intents": path_intents,
         "workbench_outputs_added": workbench_outputs_added,
         "next_commands": [
-            f"palari agent start {resolved_id} --as {palari} --mode execute --json",
-            f"palari agent check {resolved_id} --as {palari} --mode execute --git-diff --json",
-            "palari claude install",
+            f"palari agent start --next --as {palari} --mode execute --json",
         ],
         "message": (
             f"{resolved_id} created for {palari}: write boundary is "
@@ -303,7 +381,10 @@ def _normalized_paths(paths: list[str], flag: str) -> list[str]:
 
 def _resolve_default(data: dict[str, Any], collection: str, explicit: str, flag: str) -> str:
     if explicit.strip():
-        return explicit.strip()
+        selected = explicit.strip()
+        if selected not in _collection_ids(data, collection):
+            raise WorkspaceError(f"{flag} references unknown {collection.rstrip('s')} {selected}")
+        return selected
     ids = _collection_ids(data, collection)
     if len(ids) == 1:
         return ids[0]
@@ -323,7 +404,10 @@ def _resolve_optional_default(
     flag: str,
 ) -> str:
     if explicit.strip():
-        return explicit.strip()
+        selected = explicit.strip()
+        if selected not in _collection_ids(data, collection):
+            raise WorkspaceError(f"{flag} references unknown {collection.rstrip('s')} {selected}")
+        return selected
     ids = _collection_ids(data, collection)
     if len(ids) == 1:
         return ids[0]

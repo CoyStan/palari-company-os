@@ -292,9 +292,15 @@ def _add_agent_parser(subparsers: Any) -> None:
     brief.add_argument("--json", action="store_true", help="Emit JSON.")
     start = nested.add_parser(
         "start",
-        help="Persist the agent packet and claim one ready work item.",
+        help="Persist and claim an explicit work item or the next safe item.",
     )
-    start.add_argument("work_id")
+    start.add_argument("work_id", nargs="?")
+    start.add_argument(
+        "--next",
+        action="store_true",
+        dest="start_next",
+        help="Deterministically select and claim the next safe work item.",
+    )
     start.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     start.add_argument("--mode", default="execute", help="Packet mode.")
     start.add_argument(
@@ -321,6 +327,23 @@ def _add_agent_parser(subparsers: Any) -> None:
     release.add_argument("work_id")
     release.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     release.add_argument("--json", action="store_true", help="Emit JSON.")
+    park = nested.add_parser(
+        "park",
+        help="Durably record why owned work stopped, then release its claim.",
+    )
+    park.add_argument("work_id")
+    park.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
+    park.add_argument(
+        "--reason",
+        required=True,
+        help="Concise reason the work cannot safely continue.",
+    )
+    park.add_argument(
+        "--next-action",
+        required=True,
+        help="Exact safe action that can unblock or resume the work.",
+    )
+    park.add_argument("--json", action="store_true", help="Emit JSON.")
     check = nested.add_parser(
         "check",
         help="Check whether one work item currently satisfies its agent packet contract.",
@@ -1231,6 +1254,16 @@ def _add_work_parser(subparsers: Any) -> None:
         default=[],
         help="Allowed write path (repeatable). Becomes the enforced write boundary.",
     )
+    for intent in ("create", "modify", "delete"):
+        add.add_argument(
+            f"--{intent}",
+            action="append",
+            default=[],
+            help=(
+                f"Exact path that this work must {intent} (repeatable). "
+                "Do not combine exact intents with legacy --write."
+            ),
+        )
     add.add_argument(
         "--read",
         action="append",

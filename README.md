@@ -53,13 +53,24 @@ Then open the live local supervision desk:
 `serve` is local only by default. It lets you click through work that needs
 human attention while the files remain the source of truth.
 
-To adopt it in your own repo, three commands give Claude Code an enforced
-write boundary:
+To adopt it in your own repo, create the local contract, add bounded work, and
+let any agent claim the next safe item:
 
 ```bash
 palari init
 palari work add "Clean up launch notes" --write docs/notes.md
-palari claude install
+palari agent start --next --as PALARI-CLAUDE --json
+```
+
+`palari claude install` is an optional Claude Code enforcement adapter. The
+core packet, claim, proof, review, and human-decision flow is provider-neutral.
+
+Use legacy `--write PATH` when the output must exist. When final mutation type
+matters, declare it exactly and do not mix the forms:
+
+```bash
+palari work add "Replace obsolete guidance" \
+  --create docs/new.md --modify docs/current.md --delete docs/obsolete.md
 ```
 
 See the [Quickstart](docs/product/quickstart.md) for the full path.
@@ -115,7 +126,14 @@ Implemented now:
 - queue, detail, state, history, Mission Control, and desktop prototype views
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
+- deterministic next-safe selection and claiming through `agent start --next`
+- one deterministic `agent advance` convergence path that stops at independent
+  review, exact human authority, external effects, or concrete blockers
+- durable `agent park` interruptions that record a blocked attempt and next
+  safe action before releasing the owned claim
 - file-change boundary checks for `agent check --changed` and `--git-diff`
+- explicit create, modify, and delete path intents; declared deletion is checked
+  as an exact absent-path tombstone instead of being mistaken for a missing file
 - canonical path/symlink enforcement and metadata-only start baselines that
   distinguish unchanged pre-existing dirt from agent changes
 - structural boundary enforcement inside Claude Code via `palari claude install`
@@ -150,6 +168,11 @@ Not implemented yet:
 - real policy acceptance
 - secret manager or signed key custody
 - autonomous acceptance, merge, push, or deploy
+- portable deletion-history proof in PCAW v1 (local declared deletion
+  tombstones are enforced, but the protocol does not export that history yet)
+- constant-time large-journal verification; the append-only JSONL scan is
+  linear, and the current roughly 40 MB dogfood journal can still take several
+  seconds and hundreds of MB of peak memory despite request-local scan reuse
 - live external writes outside the approved Linear path (Linear comment sends,
   issue status updates, and issue creation are the only live writes, and each
   requires an approved plan first)
@@ -217,55 +240,58 @@ Then open:
 
 ## Agent Workflow
 
-The `agent` commands are mostly meant for coding agents or AI operators. Humans
-can run them to inspect the contract, but the normal idea is that an agent asks
-Palari what work is safe, reads one compact packet, starts a bounded local
-attempt, checks its file changes, and releases or finishes cleanly.
+Most days have three short journeys.
 
-For a committed Git candidate, `agent advance` compresses the mechanical tail
-of that loop into one deterministic operation: it derives the exact claim-start
-range, runs bound verification, records receipt/evidence/attempt closeout
-atomically, and either completes eligible R1 work or stops at independent
-review. `--dry-run` returns the exact plan without verification or mutation;
-the command never records human review, decision, or acceptance.
+1. Initialize, add bounded work, and claim the next safe item:
 
-Find the next useful item:
+   ```bash
+   palari init
+   palari work add "Clean up launch notes" --write docs/notes.md
+   palari agent start --next --as PALARI-CLAUDE --json
+   ```
+
+   The final command selects exactly one eligible item using the existing queue
+   policy, persists its packet and portable session contract, and claims it.
+   Explicit `agent next`, `brief`, and `start WORK-ID` remain available for
+   inspection and controlled selection.
+
+2. After editing and committing inside the packet boundary, converge proof:
+
+   ```bash
+   palari agent advance WORK-ID --as PALARI-CLAUDE --json
+   ```
+
+   Palari derives the exact claim range, runs the declared verification, and
+   records deterministic attempt, receipt, and evidence state. Low-risk work may
+   complete; higher-risk work stops with the exact independent-review handoff.
+   It never records the review or a human decision. Use `--dry-run` to inspect
+   the plan first.
+
+3. A human opens one inbox and runs the one exact action it presents:
+
+   ```bash
+   palari queue --approval-inbox --json
+   # A qualified human inspects the presentation, then runs its exact
+   # `palari human-decision pack ...` command once.
+   ```
+
+   The command is bound to the current pack and presentation digests. Changed
+   proof fails closed. Independent review remains separate from acceptance, and
+   agents may display but must not execute the human-only command.
+
+If work is interrupted before proof is ready, park it durably:
 
 ```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent next --as PALARI-SOFIA --json
+palari agent park WORK-ID --as PALARI-CLAUDE \
+  --reason "Waiting for product direction" \
+  --next-action "Ask the founder to choose the final wording" --json
 ```
 
-Read the packet the agent would receive:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-```
-
-Start the copied demo work item. This persists the packet and creates a local
-claim in the `/tmp` demo workspace:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-```
-
-Check whether an observed file change stays inside the allowed boundary:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
-```
-
-Release the local claim:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent release WORK-0003 --as PALARI-SOFIA --json
-```
-
-In plain language:
-
-```text
-find safe work -> read the packet -> claim the local attempt
-  -> compare changes against the boundary -> release, finish, or ask for help
-```
+Parking records blocked state and the next action before releasing the owned
+claim. It does not manufacture completion evidence or authority. It requires a
+writable governance journal; a legacy workspace receives the exact explicit
+`history --checkpoint` activation command rather than a silently invented
+continuity claim.
 
 ## Core Concepts
 
@@ -307,8 +333,12 @@ goal -> workbench -> selected sources -> work item -> attempt
 
 # Agent contract
 ./bin/palari agent next --as PALARI-SOFIA --json
+./bin/palari agent start --next --as PALARI-SOFIA --json
 ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari agent advance WORK-0003 --as PALARI-SOFIA --json
+./bin/palari agent park WORK-0003 --as PALARI-SOFIA \
+  --reason "Paused" --next-action "Resume from the recorded blocker" --json
 
 # Lightweight process guidance
 ./bin/palari playbooks sources
@@ -348,6 +378,8 @@ tests/                             Unit and fixture tests
 
 - **Demo:** run `./bin/palari demo`, then open `./bin/palari serve --as HUMAN-FOUNDER`.
 - **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
+- **Human loop:** open `palari queue --approval-inbox --json`, inspect the exact
+  presentation, and run only its bound human action.
 - **Linear dogfood:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
 - **Evidence and acceptance:** read [Authority And Gates](docs/product/authority-and-gates.md).
 - **Surface audit:** read [Public Surface](docs/product/public-surface.md).

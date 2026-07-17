@@ -454,6 +454,18 @@
         "allowed_sources": { "$ref": "#/$defs/string_list" },
         "allowed_actions": { "$ref": "#/$defs/string_list" },
         "output_targets": { "$ref": "#/$defs/string_list" },
+        "path_intents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "intent"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "intent": { "type": "string", "enum": ["create", "modify", "delete"] }
+            }
+          }
+        },
         "forbidden_actions": { "$ref": "#/$defs/string_list" },
         "acceptance_target": { "type": "string" },
         "verification_expectations": { "$ref": "#/$defs/string_list" },

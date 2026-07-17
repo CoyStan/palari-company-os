@@ -52,8 +52,12 @@ def inspect_file_changes(
 
     allowed_write = _strings(packet.get("allowed_paths", {}).get("write", []))
     required_output = packet.get("required_output", {})
-    output_targets = required_output.get("output_targets", []) or required_output.get(
-        "fallback_write_paths", []
+    path_intents = _path_intents(required_output.get("path_intents", []))
+    output_targets = (
+        required_output.get("output_targets", [])
+        if path_intents
+        else required_output.get("output_targets", [])
+        or required_output.get("fallback_write_paths", [])
     )
     attempt = packet.get("proof_state", {}).get("attempt") or {}
     receipt = packet.get("proof_state", {}).get("receipt") or {}
@@ -88,6 +92,78 @@ def inspect_file_changes(
             continue
         if not output_path.exists():
             missing_outputs.append(path)
+    intent_mismatches: list[dict[str, str]] = []
+    observed_status = {item["path"]: item["status"] for item in observed}
+    for item in path_intents:
+        path = item["path"]
+        intent = item["intent"]
+        if root is None:
+            intent_mismatches.append(
+                {
+                    "path": path,
+                    "intent": intent,
+                    "actual": "unobserved",
+                    "reason": "Git root is unavailable; final path state cannot be verified.",
+                }
+            )
+            continue
+        try:
+            intent_path = resolve_workspace_path(root, path)
+        except ValueError as exc:
+            intent_mismatches.append(
+                {
+                    "path": path,
+                    "intent": intent,
+                    "actual": "unsafe",
+                    "reason": f"Path cannot be resolved inside the repository: {exc}",
+                }
+            )
+            observation_errors.append(f"path intent is unsafe: {path}: {exc}")
+            if path not in missing_outputs:
+                missing_outputs.append(path)
+            continue
+        present = intent_path.exists() or intent_path.is_symlink()
+        regular_file = present and intent_path.is_file()
+        satisfied = not present if intent == "delete" else regular_file
+        if git_diff and satisfied:
+            actual_change = observed_status.get(path, "unchanged")
+            accepted_changes = {
+                "create": {"created", "untracked"},
+                "modify": {"modified"},
+                "delete": {"deleted"},
+            }[intent]
+            satisfied = actual_change in accepted_changes
+            if not satisfied:
+                intent_mismatches.append(
+                    {
+                        "path": path,
+                        "intent": intent,
+                        "actual": actual_change,
+                        "reason": (
+                            f"{intent.title()} intent does not match the observed Git "
+                            f"change type {actual_change}."
+                        ),
+                    }
+                )
+                if path not in missing_outputs:
+                    missing_outputs.append(path)
+                continue
+        if satisfied:
+            continue
+        intent_mismatches.append(
+            {
+                "path": path,
+                "intent": intent,
+                "actual": "present" if present else "absent",
+                "reason": (
+                    "Delete intent requires the exact path to be absent."
+                    if intent == "delete"
+                    else f"{intent.title()} intent requires the exact path to be a file."
+                ),
+            }
+        )
+        if path not in missing_outputs:
+            missing_outputs.append(path)
 
     return {
         "enabled": True,
@@ -99,6 +175,7 @@ def inspect_file_changes(
         "changed_files": changed,
         "preexisting_unchanged_files": preexisting_unchanged,
         "modified_files": [item["path"] for item in observed if item["status"] == "modified"],
+        "created_files": [item["path"] for item in observed if item["status"] == "created"],
         "untracked_files": [item["path"] for item in observed if item["status"] == "untracked"],
         "deleted_files": [item["path"] for item in observed if item["status"] == "deleted"],
         "inside_write_boundary": inside,
@@ -106,6 +183,9 @@ def inspect_file_changes(
         "allowed_write_paths": allowed_write,
         "required_outputs": _strings(output_targets),
         "missing_required_outputs": missing_outputs,
+        "path_intents": path_intents,
+        "path_intent_mismatches": intent_mismatches,
+        "path_intents_ok": not intent_mismatches,
         "recorded_changed_files": recorded,
         "unrecorded_changed_files": unrecorded,
     }
@@ -208,7 +288,15 @@ def _git_status_result(root: Path) -> tuple[list[dict[str, str]], str]:
             path = _normalize_git_path(raw_path)
         except ValueError as exc:
             return [], f"Git reported an unsafe path {raw_path!r}: {exc}"
-        status = "untracked" if marker == "??" else "deleted" if "D" in marker else "modified"
+        status = (
+            "untracked"
+            if marker == "??"
+            else "deleted"
+            if "D" in marker
+            else "created"
+            if "A" in marker
+            else "modified"
+        )
         changes.append({"path": path, "status": status})
 
         if "R" in marker or "C" in marker:
@@ -260,7 +348,7 @@ def _subtract_git_baseline(
         if (
             not isinstance(path, str)
             or not path
-            or status_value not in {"modified", "untracked", "deleted"}
+            or status_value not in {"created", "modified", "untracked", "deleted"}
             or not isinstance(fingerprint, dict)
         ):
             errors.append("Git baseline contains a malformed path, status, or fingerprint")
@@ -399,3 +487,16 @@ def _strings(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item) for item in value if str(item)]
     return []
+
+
+def _path_intents(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    return [
+        {"path": item["path"], "intent": item["intent"]}
+        for item in value
+        if isinstance(item, dict)
+        and isinstance(item.get("path"), str)
+        and item.get("path")
+        and item.get("intent") in {"create", "modify", "delete"}
+    ]

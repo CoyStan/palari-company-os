@@ -201,6 +201,126 @@ def start_agent(
     return packet
 
 
+def start_next_agent(
+    workspace: Workspace,
+    workspace_path: Path | str,
+    palari_id: str,
+    mode: str = "execute",
+    lease_minutes: int = 30,
+) -> dict[str, Any]:
+    """Select and claim the first deterministically safe queue item.
+
+    Selection is a projection of the existing agent-next policy. It does not
+    create a second eligibility rule or widen the packet compiled by
+    ``start_agent``.
+    """
+
+    from .agent_next import build_agent_next
+
+    next_payload = build_agent_next(
+        workspace,
+        palari_id,
+        mode,
+        limit=max(1, len(workspace.work_items)),
+    )
+    ready_candidates = [
+        candidate
+        for candidate in next_payload.get("candidates", [])
+        if candidate.get("can_start")
+    ]
+    if not ready_candidates:
+        primary = next(iter(next_payload.get("next_allowed_commands", [])), "")
+        return {
+            "schema_version": "palari.agent_start_next.v1",
+            "workspace": workspace.name,
+            "status": "no-ready-work",
+            "agent": next_payload.get("agent", {"id": palari_id}),
+            "entry": {
+                "safe": False,
+                "state": "blocked",
+                "owner": palari_id,
+                "explanation": "No work item is currently safe to claim.",
+                "next_action": primary,
+                "next_command": primary,
+            },
+            "start": {
+                "status": "not-started",
+                "would_mutate": False,
+                "claim": None,
+            },
+            "next": next_payload,
+        }
+
+    contention: list[dict[str, str]] = []
+    packet: dict[str, Any] | None = None
+    selected: dict[str, Any] | None = None
+    for candidate in ready_candidates:
+        work_id = str(candidate["work_item_id"])
+        try:
+            current_workspace = Workspace.load(workspace_path)
+            attempted = start_agent(
+                current_workspace,
+                workspace_path,
+                work_id,
+                palari_id,
+                mode,
+                lease_minutes=lease_minutes,
+            )
+        except WorkspaceError as exc:
+            if not _claim_contention(exc, work_id):
+                raise
+            contention.append({"work_item_id": work_id, "message": str(exc)})
+            continue
+        if attempted.get("start", {}).get("status") != "claimed":
+            contention.append(
+                {
+                    "work_item_id": work_id,
+                    "message": "Candidate was no longer ready when its packet was refreshed.",
+                }
+            )
+            continue
+        packet = attempted
+        selected = candidate
+        break
+    if packet is None or selected is None:
+        primary = f"palari agent start --next --as {palari_id} --mode {mode} --json"
+        return {
+            "schema_version": "palari.agent_start_next.v1",
+            "workspace": workspace.name,
+            "status": "selection-contended",
+            "agent": next_payload.get("agent", {"id": palari_id}),
+            "entry": {
+                "safe": False,
+                "state": "contended",
+                "owner": palari_id,
+                "explanation": "Ready candidates changed or were claimed concurrently.",
+                "next_action": primary,
+                "next_command": primary,
+                "contention": contention,
+            },
+            "start": {"status": "not-started", "would_mutate": False, "claim": None},
+            "next": next_payload,
+        }
+
+    work_id = str(selected["work_item_id"])
+    packet["entry"] = {
+        "safe": packet.get("start", {}).get("status") == "claimed",
+        "state": "active" if packet.get("start", {}).get("status") == "claimed" else "blocked",
+        "owner": palari_id,
+        "selected_work_item": work_id,
+        "selection_rank": selected.get("queue_rank"),
+        "explanation": packet.get("one_sentence_instruction", ""),
+        "next_action": "Work inside the persisted packet, then converge deterministic proof.",
+        "next_command": f"palari agent advance {work_id} --as {palari_id} --json",
+        "skipped_contention": contention,
+    }
+    return packet
+
+
+def _claim_contention(error: WorkspaceError, work_id: str) -> bool:
+    return str(error).startswith(f"work {work_id} is already claimed by ")
+
+
 def claim_baseline_head(workspace_path: Path | str, work_id: str) -> str:
     """Return a verified persistent claim-start commit for safe worktree migration."""
 

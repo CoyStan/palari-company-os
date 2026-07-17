@@ -8,7 +8,13 @@ scope, and stop when human authority is required.
 
 ## Canonical Loop
 
-Agent work should start with one packet command:
+Ordinary execution starts by selecting and claiming one safe item:
+
+```bash
+palari agent start --next --as PALARI-ID --json
+```
+
+Explicit inspection and selection remain available:
 
 ```bash
 palari agent next --as PALARI-ID --json
@@ -23,72 +29,54 @@ operational entry point for ready execution work: it persists the exact packet
 the agent received, persists its deterministic portable session contract, and
 records a digest-bound local lease claim. Blocked packets remain read-only and
 are not claimed. `agent brief --session-contract` emits the portable contract
-instead of the full packet without writing runtime state.
+instead of the full packet without writing runtime state. `agent start --next`
+uses the same queue eligibility and packet compiler, then persists exactly one
+ready packet and claim. It does not infer new authority or silently choose
+blocked work. Use explicit `start WORK-ID --isolate` when a committed work item
+needs its own deterministic branch and worktree.
 
-The v1 loop is:
+The ordinary loop is deliberately short:
 
-1. Run `palari agent next --as PALARI-ID --json` to discover safe candidates.
-2. Run `palari agent brief WORK-ID --as PALARI-ID --mode execute --json` to preview scope.
-3. Run `palari agent start WORK-ID --as PALARI-ID --mode execute --json` to persist the packet and claim the work.
-   When parallel sessions need independent checkouts and the work definition is
-   committed, add `--isolate`; Palari creates or resumes the deterministic local
-   worktree and returns its resume command.
-4. Continue only if the packet returns `status: ready`.
-5. Read and write only the packet's allowed paths and sources.
-6. Stop if the packet is blocked or a stop condition is reached.
-7. Run `palari gate recommend WORK-ID --json` when the work crosses source,
-   prompt-authority, external-write, human-approval, deploy/runtime,
-   multimodal/privacy, or product-claim boundaries.
-8. Produce the required output and trust records.
-9. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
-   or `--git-diff` to compare observed edits with the packet boundary.
-10. Run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` for the normal proof-state check.
-11. Run `palari agent finish WORK-ID --as PALARI-ID --json`.
-12. If the result is a human review or decision handoff, run
-   `palari agent handoff WORK-ID --as PALARI-ID --json`.
-13. Run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
-    plain-language diagnosis of the current safety state.
-14. Run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a
-    compact summary of the current brief/check/finish/handoff state.
-15. After committing bounded implementation output, run `palari agent advance
-    WORK-ID --as PALARI-ID --dry-run --json` to inspect the deterministic plan,
-    then run it without `--dry-run`. It derives changed paths and the exact head,
-    runs bound verification, records proof atomically, releases the claim, and
-    stops at review or human authority. Once those separate records exist, a
-    later call performs only deterministic acceptance projection and terminal
-    bookkeeping. Authority-producing authoring functions also invoke the same
-    bounded fixed-point driver after a qualified accepted decision is recorded,
-    so already-authorized bookkeeping normally finishes in that human action.
-    The driver detects cycles, no-progress transitions, and iteration exhaustion;
-    it stops at review, human authority, external state, or an error and never
-    records the review or human decision itself. Later Git commits preserve proof
-    currency only when every committed and dirty tracked path is governance
-    projection data; any substantive repository change fails closed.
-    When a bound changes-requested review identifies stale proof whose ordinary
-    governed outputs are byte-unchanged, `--refresh-verification --dry-run`
-    previews a separate claimless refresh and the non-dry-run command reruns
-    verification, records new exact-head proof, and stops for fresh independent
-    review. Self-mutating workspace, history, and journal artifacts are not
-    described as immutable: structured output lists ordinary unchanged paths,
-    uniform per-projection records with previous/current hashes and statuses plus
-    an unchanged or rebound transition, and projection paths that proof recording
-    will mutate after the evidence head. Missing legacy projection hashes are
-    `not-recorded`; malformed hashes or statuses fail closed. Separately governed
-    descendant commits are context, not claimed work. Every commit is compared
-    with every parent, so a touched non-projection output is rejected even when
-    its bytes were later restored; an active claim,
-    mismatched review head, dirty tracked state, or rewritten history also fails
-    closed. The immutable claim-start baseline is never rotated by this path.
-16. For R1/light/0-approval work items only, `palari agent done WORK-ID --as
-    PALARI-ID --json` auto-records proof, runs check/finish, closes out, and
-    completes the work item in one step. It requires a clean worktree and
-    attributes the complete committed range from the persisted claim-start
-    head through current `HEAD`; a commit made before the claim does not count.
-    For R2+ work, use the full lifecycle above.
-17. Run `palari validate --json`.
-18. Run `palari agent release WORK-ID --as PALARI-ID --json` if abandoning or
-    handing off the local claim before completion.
-19. Report the packet status, finish guidance, changed files, checks, gates, and blockers.
+1. Run `palari agent start --next --as PALARI-ID --json` and continue only when
+   the returned packet is ready. Read and write only its allowed paths and
+   sources.
+2. Do the bounded work and commit it. Then run `palari agent advance WORK-ID
+   --as PALARI-ID --json` once. It derives the complete claim-start range, checks
+   exact create/modify/delete intent, runs fixed verification profiles, and
+   atomically records deterministic attempt, receipt, evidence, and closeout
+   state. It stops at independent review, human authority, external state, or a
+   concrete blocker; it never creates a review or human decision.
+3. Follow the one command returned at that boundary. After a separate current
+   review, a qualified human opens `palari queue --approval-inbox --json`,
+   inspects the exact presentation, and may run its bound `human-decision pack`
+   command once. Current authority can trigger only deterministic local
+   terminal bookkeeping.
+
+Use `agent advance --dry-run` to inspect the plan, `agent check`, `finish`,
+`handoff`, `doctor`, and `loop` for detailed diagnosis, and `agent done` as the
+compatible R1/light/zero-approval shortcut. Proof refresh remains an explicit
+claimless recovery path: `agent advance --refresh-verification --dry-run`
+previews it, and the non-dry-run form creates fresh exact-head proof only when
+ordinary governed outputs remain byte-identical. Prior review and human
+authority never carry forward.
+
+If execution must stop before proof is ready, run:
+
+```bash
+palari agent park WORK-ID --as PALARI-ID \
+  --reason "Why work stopped" --next-action "The next safe step" --json
+```
+
+Parking durably records one blocked attempt, exact packet/head/workspace
+bindings, observed in-scope and out-of-scope changes, the reason, and the next
+safe action before releasing the owned execute claim. A retry after an
+interrupted release is idempotent only for the same durable record and unchanged
+repository state. Parking creates no receipt, evidence, review, decision,
+acceptance, outcome, or convergence. Use bare `agent release` only when no
+durable interrupted-work record is required. Parking requires an activated,
+writable governance journal. A legacy workspace without one fails before
+mutation with the exact `history --checkpoint` activation command; it never
+silently claims continuity for earlier history.
 
 For independent inspection work, use `--mode review` after a work item is in
 `needs-review` or `receipt-ready`. A distinct source-authorized Palari may also
@@ -119,6 +107,13 @@ workflow from many separate commands. A packet answers:
 
 The packet must not dump the whole workspace. It includes only directly related
 records and explicit omitted-context notes.
+
+Aggregate agent views share one request-local packet, check, directive, and
+journal-verification observation. A pure directive compiler turns that current
+check into state, owner, blocker class, and next safe action. It has no clock,
+filesystem, mutation, review, or human-authority access. Transition checks—not
+the directive—remain authoritative, and a changed journal witness forces a new
+scan.
 
 ## Documentation Hints
 
@@ -234,12 +229,14 @@ Implemented:
 - `palari agent next --as PALARI-ID --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json`
+- `palari agent start --next --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --isolate --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
 - `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
 - `palari agent release WORK-ID --as PALARI-ID --json`
+- `palari agent park WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
@@ -254,9 +251,13 @@ Implemented:
 - compact ready/blocked packets
 - machine-readable packet compliance checks
 - local packet persistence and local claim leases
+- deterministic one-item selection and claiming through `agent start --next`
+- durable, claim-bound interrupted-work parking without completion authority
 - deterministic portable session-contract compilation, inspection, persistence,
   and claim binding
 - optional changed-file boundary checks
+- explicit create/modify/delete path intent with exact absent-path deletion
+  tombstones; legacy work retains presence-required output behavior
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
 - claim-start commit-range proof for `agent done`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
@@ -284,6 +285,8 @@ Not implemented yet:
   separately documented Claude hook integration
 - live connector execution
 - memory providers or vector search
+- portable deletion-history proof in PCAW v1; workspace tombstones are enforced
+  locally but are not exported as a new protocol guarantee
 
 `agent check` rebuilds the packet, reports packet blockers, verifies the active
 local claim for ready packets, carries the current
@@ -307,6 +310,13 @@ listed separately and not attributed to the agent; a changed fingerprint is
 attributed normally. This is intentionally content-blind: Palari compares Git
 status and file metadata, rejects traversal/symlink escape and incomplete
 observations, and never treats the baseline as cryptographic provenance.
+When a work item declares `path_intents`, each exact normalized path is one of
+`create`, `modify`, or `delete`. Create and modify require a regular file in the
+expected Git change class; delete requires the exact path to be absent and the
+Git observation to report deletion. That absent-path record is a local
+governance tombstone, not a missing-output exception. Unsafe, overlapping,
+duplicate, symlinked, mismatched, or undeclared paths fail closed. Work items
+without `path_intents` keep their historical presence-required behavior.
 Execute-mode hooks additionally rebuild the current packet from workspace truth
 before granting writes, so coordinated edits to a packet and claim cannot
 expand scope. A generic `work update` cannot mutate a work item while any local

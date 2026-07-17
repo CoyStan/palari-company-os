@@ -13,6 +13,7 @@ from .cli_output_agent import (
     print_agent_loop,
     print_agent_next,
     print_agent_next_all,
+    print_agent_park,
     print_agent_release,
     print_agent_session_contract,
     print_agent_start,
@@ -156,6 +157,10 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-release":
         print_agent_release(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-park":
+        print_agent_park(result.payload, result.as_json)
         return
 
     if result.kind == "agent-next":
@@ -986,72 +991,54 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
 
 def print_approval_inbox(payload: dict[str, Any]) -> None:
     counts = payload["counts"]
-    commands = {
-        item["pack_digest"]: item
-        for item in payload.get("approval_commands", [])
-    }
     print(f"Approval Inbox: {payload['workspace']}")
+    primary = payload.get("primary_action", {})
+    commands = list(primary.get("commands", []))
+    if primary.get("available"):
+        state = "decision-ready"
+        owner = "qualified human"
+        safe = "yes, for the exact eligible presentation"
+        explanation = (
+            f"{counts['eligible']} item(s) have current proof; "
+            f"{counts['blocked'] + counts['stale'] + counts['non_batchable']} exception(s) stay parked."
+        )
+        next_action = commands[0] if len(commands) == 1 else "Use the exact commands in --json."
+    elif not counts["items"]:
+        state = "empty"
+        owner = "none"
+        safe = "yes"
+        explanation = "No governed human decision is waiting."
+        next_action = "palari agent next --json"
+    else:
+        resolutions = [
+            item.get("resolution", {}) for item in payload.get("individual_items", [])
+        ]
+        owner = next(
+            (str(item.get("owner")) for item in resolutions if item.get("owner") not in {None, "none"}),
+            "agent or reviewer",
+        )
+        state = "blocked"
+        safe = "no aggregate decision is available"
+        explanation = str(primary.get("next_safe_action") or "Resolve the current exceptions.")
+        next_action = next(
+            (
+                str(item.get("next_safe_action"))
+                for item in payload.get("individual_items", [])
+                if item.get("next_safe_action")
+            ),
+            "palari agent next --json",
+        )
+    print(f"State: {state}")
+    print(f"Safe: {safe}")
+    print(f"Owner: {owner}")
     print(
-        f"{counts['packs']} packs / {counts['items']} items | "
+        f"Items: {counts['items']} in {counts['packs']} pack(s) | "
         f"eligible {counts['eligible']} | blocked {counts['blocked']} | "
         f"stale {counts['stale']} | non-batchable {counts['non_batchable']}"
     )
-    print(
-        f"Reversible local: {payload['groups']['safe_reversible']} | "
-        f"external or irreversible: {payload['groups']['external_or_irreversible']}"
-    )
-    primary = payload.get("primary_action", {})
-    if primary.get("available"):
-        print(
-            f"Primary action: {primary['mode']} | "
-            f"{primary['eligible_items']} eligible item(s) | "
-            f"{primary['human_actions']} human action(s)"
-        )
-    else:
-        print("Primary action: inspect exceptions; no aggregate approval is available")
-    for pack, presentation, evaluation in zip(
-        payload["packs"],
-        payload.get("presentations", []),
-        payload["evaluations"],
-        strict=True,
-    ):
-        summary = presentation["summary"]
-        print("")
-        print(f"{pack['pack_id']} {pack['pack_digest']}")
-        command = commands.get(pack["pack_digest"], {})
-        print(f"  Presentation: {command.get('presentation_digest', 'unavailable')}")
-        print(
-            f"  {summary['items']} items; {summary['batchable']} batchable; "
-            f"{summary['external_or_irreversible']} external/irreversible"
-        )
-        if pack["external_effects"]:
-            print(f"  EXTERNAL EFFECTS: {', '.join(pack['external_effects'])}")
-        for item, presented in zip(
-            evaluation["members"], presentation["members"], strict=True
-        ):
-            dependencies = ", ".join(item["dependencies"]) or "none"
-            print(
-                f"  {item['id']}: {presented['title']} | {item['state']} | "
-                f"{item['reversibility']} | "
-                f"dependencies {dependencies}"
-            )
-            resolution = item.get("resolution", {})
-            if resolution:
-                print(
-                    f"    resolver: {resolution['class']} / {resolution['owner']} | "
-                    f"mode {resolution['approval_mode']}"
-                )
-            for reason in item["reasons"]:
-                print(f"    reason: {reason}")
-        has_eligible = any(
-            item.get("state") == "eligible" for item in evaluation["members"]
-        )
-        if command and has_eligible:
-            print("  approve: " + str(command["approve_eligible"]))
-        else:
-            print("  approve: unavailable; resolve the listed exceptions")
-    print("")
-    print("Parked is not approved. Exact evidence remains item-level.")
+    print(f"Why: {explanation}")
+    print(f"Next: {next_action}")
+    print("Proof details: rerun with --json. Parked is not approved.")
 
 
 def print_approval_pack_decision(payload: dict[str, Any]) -> None:

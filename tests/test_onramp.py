@@ -39,7 +39,7 @@ class InitTests(unittest.TestCase):
         self.assertEqual([source.id for source in workspace.sources], ["SOURCE-REPO"])
         self.assertEqual(workspace.palaris[0].default_worker, "claude-code")
         self.assertTrue(any("work add" in cmd for cmd in result["next_commands"]))
-        self.assertTrue(any("claude install" in cmd for cmd in result["next_commands"]))
+        self.assertTrue(any("agent start --next" in cmd for cmd in result["next_commands"]))
 
     def test_init_refuses_existing_workspace(self) -> None:
         initialize_starter_workspace(self.project)
@@ -90,6 +90,10 @@ class WorkAddTests(unittest.TestCase):
         packet = build_agent_brief(workspace, work_id, "PALARI-CLAUDE", "execute")
         self.assertEqual(packet["status"], "ready")
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/notes.md"])
+        self.assertEqual(
+            result["next_commands"],
+            ["palari agent start --next --as PALARI-CLAUDE --mode execute --json"],
+        )
 
     def test_write_paths_become_boundary_and_reads_stay_read_only(self) -> None:
         result = quick_add_work(
@@ -187,6 +191,81 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(result["workbench_outputs_added"], ["docs/a.md"])
         workspace = Workspace.load(self.project)
         self.assertIn("docs/a.md", workspace.workbenches[0].output_target_ids)
+
+    def test_exact_create_modify_delete_intents_compile_one_write_contract(self) -> None:
+        result = quick_add_work(
+            self.project,
+            "Exact mutation",
+            write=[],
+            create=["docs/new.md"],
+            modify=["docs/existing.md"],
+            delete=["docs/obsolete.md"],
+        )
+
+        work_id = result["work_item"]["id"]
+        workspace = Workspace.load(self.project)
+        work = workspace.work_item(work_id)
+        assert work is not None
+        self.assertEqual(
+            work.path_intents,
+            [
+                {"path": "docs/new.md", "intent": "create"},
+                {"path": "docs/existing.md", "intent": "modify"},
+                {"path": "docs/obsolete.md", "intent": "delete"},
+            ],
+        )
+        self.assertEqual(
+            work.acceptance_target,
+            "Declared path intents hold and verification passes.",
+        )
+        packet = build_agent_brief(workspace, work_id, work.palari, "execute")
+        self.assertEqual(
+            packet["allowed_paths"]["write"],
+            ["docs/new.md", "docs/existing.md", "docs/obsolete.md"],
+        )
+        self.assertEqual(
+            packet["required_output"]["output_targets"],
+            ["docs/new.md", "docs/existing.md"],
+        )
+
+    def test_exact_intents_cannot_be_mixed_with_legacy_write(self) -> None:
+        workspace_file = self.project / "workspace.json"
+        before = workspace_file.read_bytes()
+
+        with self.assertRaisesRegex(WorkspaceError, "cannot be combined"):
+            quick_add_work(
+                self.project,
+                "Ambiguous mutation",
+                write=["docs/legacy.md"],
+                delete=["docs/obsolete.md"],
+            )
+
+        self.assertEqual(workspace_file.read_bytes(), before)
+
+    def test_work_add_validation_failure_leaves_workspace_and_journal_unchanged(self) -> None:
+        workspace_file = self.project / "workspace.json"
+        journal_file = self.project / ".palari" / "governance-journal.v1.jsonl"
+        history_file = self.project / ".palari" / "history.jsonl"
+        before = {
+            "workspace": workspace_file.read_bytes(),
+            "journal": journal_file.read_bytes(),
+            "history": history_file.read_bytes() if history_file.exists() else b"",
+        }
+
+        with self.assertRaisesRegex(WorkspaceError, "unknown goal"):
+            quick_add_work(
+                self.project,
+                "Invalid",
+                write=["docs/should-not-expand.md"],
+                goal_id="GOAL-NOT-THERE",
+            )
+
+        self.assertEqual(workspace_file.read_bytes(), before["workspace"])
+        self.assertEqual(journal_file.read_bytes(), before["journal"])
+        self.assertEqual(
+            history_file.read_bytes() if history_file.exists() else b"",
+            before["history"],
+        )
 
     def test_requires_at_least_one_write_path(self) -> None:
         with self.assertRaises(WorkspaceError):

@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_checks import build_agent_check
-from .agent_finish import build_agent_finish, enrich_blockers, resolution_summary
+from .agent_directive import enrich_blockers, resolution_summary
+from .agent_finish import build_agent_finish
 from .agent_handoff import build_agent_handoff
-from .agent_packets import build_agent_brief
+from .agent_operation import AgentOperation, ensure_agent_operation
+from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -15,14 +16,39 @@ def build_agent_loop(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    journal_context: JournalVerificationContext | None = None,
+    operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
     """Return a compact read-only view of the agent operating loop."""
 
-    brief = build_agent_brief(workspace, work_id, palari_id, mode)
-    check = build_agent_check(workspace, work_id, palari_id, mode)
-    finish = build_agent_finish(workspace, work_id, palari_id, mode)
+    operation_state = ensure_agent_operation(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=journal_context,
+        operation=operation,
+    )
+    brief = operation_state.brief()
+    check = operation_state.check()
+    finish = build_agent_finish(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=operation_state.journal_context,
+        operation=operation_state,
+    )
     handoff = (
-        build_agent_handoff(workspace, work_id, palari_id, mode)
+        build_agent_handoff(
+            workspace,
+            work_id,
+            palari_id,
+            mode,
+            journal_context=operation_state.journal_context,
+            operation=operation_state,
+        )
         if _should_include_handoff(finish)
         else None
     )
@@ -50,6 +76,12 @@ def build_agent_loop(
         "would_mutate": False,
         "mode": mode or "execute",
         "status": _loop_status(check, finish, handoff),
+        "owner": finish.get("owner", "agent"),
+        "agent_may_execute": finish.get("agent_may_execute", False),
+        "next_action": finish.get("next_action", {}),
+        "automatic_transitions": finish.get("automatic_transitions", []),
+        "review_boundary": finish.get("review_boundary", False),
+        "human_boundary": finish.get("human_boundary", False),
         "next_step_type": finish.get("next_step_type", check.get("next_step_type", "inspect")),
         "agent": brief.get("agent", {}),
         "work_item": brief.get("work_item", {}),

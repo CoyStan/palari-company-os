@@ -22,6 +22,7 @@ from palari_company_os.agent_advance import (
     _git_commit_timestamp,
     _refresh_artifact_transition,
     _refresh_proof_narration,
+    _verify_path_intents,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -45,6 +46,7 @@ from palari_company_os.evidence_manifest import (
     evidence_manifest_hash,
     git_artifact_state,
     receipt_hash,
+    stamp_evidence_record,
     verify_evidence,
 )
 from palari_company_os.governance_journal import (
@@ -80,6 +82,111 @@ from tests.workspace_fixture import write_portable_agent_workspace
 
 
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
+
+
+class PathIntentAncestryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp())
+        subprocess.run(["git", "-C", str(self.root), "init", "-q"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.email", "test@example.com"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.name", "Test"],
+            check=True,
+        )
+        (self.root / "modify.txt").write_text("before\n", encoding="utf-8")
+        (self.root / "delete.txt").write_text("remove me\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.root), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "commit", "-qm", "base"],
+            check=True,
+        )
+        self.base = self._head()
+        (self.root / "create.txt").write_text("created\n", encoding="utf-8")
+        (self.root / "modify.txt").write_text("after\n", encoding="utf-8")
+        (self.root / "delete.txt").unlink()
+        subprocess.run(["git", "-C", str(self.root), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "commit", "-qm", "candidate"],
+            check=True,
+        )
+        self.head = self._head()
+        self.changed = ["create.txt", "delete.txt", "modify.txt"]
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def test_create_modify_and_delete_are_proven_against_exact_range(self) -> None:
+        result = _verify_path_intents(
+            self.root,
+            [
+                {"path": "create.txt", "intent": "create"},
+                {"path": "modify.txt", "intent": "modify"},
+                {"path": "delete.txt", "intent": "delete"},
+            ],
+            self.changed,
+            self.base,
+            self.head,
+        )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(
+            [item["status"] for item in result["checks"]],
+            ["verified", "verified", "verified"],
+        )
+
+    def test_mislabeled_and_unchanged_intents_fail_closed(self) -> None:
+        result = _verify_path_intents(
+            self.root,
+            [
+                {"path": "modify.txt", "intent": "create"},
+                {"path": "create.txt", "intent": "modify"},
+                {"path": "delete.txt", "intent": "create"},
+                {"path": "never.txt", "intent": "create"},
+            ],
+            self.changed,
+            self.base,
+            self.head,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(
+            [item["code"] for item in result["errors"]],
+            [
+                "PATH_INTENT_MISMATCH",
+                "PATH_INTENT_MISMATCH",
+                "PATH_INTENT_MISMATCH",
+                "PATH_INTENT_UNCHANGED",
+            ],
+        )
+
+    def test_unreadable_range_fails_and_legacy_contract_remains_noop(self) -> None:
+        invalid = _verify_path_intents(
+            self.root,
+            [{"path": "create.txt", "intent": "create"}],
+            ["create.txt"],
+            "0" * 40,
+            self.head,
+        )
+        legacy = _verify_path_intents(
+            self.root,
+            [],
+            self.changed,
+            self.base,
+            self.head,
+        )
+
+        self.assertFalse(invalid["ok"])
+        self.assertEqual(invalid["errors"][0]["code"], "PATH_INTENT_GIT_UNREADABLE")
+        self.assertEqual(legacy, {"required": False, "ok": True, "checks": [], "errors": []})
+
+    def _head(self) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(self.root), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
 
 
 class AdvancePlannerTests(unittest.TestCase):
@@ -500,6 +607,265 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             (len(resumed.attempts), len(resumed.receipts), len(resumed.evidence_runs)),
         )
         self.assertFalse(second["would_mutate"])
+
+    def test_delete_intent_records_and_reverifies_core_tombstone(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "review-required", result)
+        workspace = Ws.load(self.temp_dir)
+        evidence = next(
+            item for item in workspace.evidence_runs if item.work_item_id == self.work_id
+        )
+        tombstone = next(
+            item for item in evidence.artifact_hashes if item["path"] == "README.md"
+        )
+        self.assertEqual(
+            tombstone,
+            {"path": "README.md", "sha256": "sha256:absent", "status": "absent"},
+        )
+        report = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+        self.assertTrue(report["ok"], report)
+
+    def test_create_intent_rejects_modification_of_existing_file(self) -> None:
+        self._restart_with_path_intent("create")
+        (self.temp_dir / "README.md").write_text("not newly created\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "modify instead of create"],
+            check=True,
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+        )
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["blockers"][0]["code"], "PREFLIGHT_BLOCKED")
+        ancestry = result["preflight"]["path_intent_verification"]
+        self.assertEqual(ancestry["errors"][0]["code"], "PATH_INTENT_MISMATCH")
+
+    def test_fake_or_stale_delete_tombstone_fails_exact_verification(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        raw = deepcopy(load_store(self.temp_dir).data)
+        evidence = next(
+            item for item in raw["evidence_runs"] if item["work_item_id"] == self.work_id
+        )
+        fake = deepcopy(raw)
+        fake_evidence = next(
+            item for item in fake["evidence_runs"] if item["id"] == evidence["id"]
+        )
+        fake_evidence["artifact_hashes"][0]["previous_git_oid"] = "0" * 40
+        fake_evidence["manifest_hash"] = evidence_manifest_hash(fake_evidence)
+        fake_report = verify_evidence(
+            Ws.from_raw(fake, self.temp_dir),
+            evidence["id"],
+            require_output_coverage=True,
+        )
+
+        stale = deepcopy(raw)
+        stale_evidence = next(
+            item for item in stale["evidence_runs"] if item["id"] == evidence["id"]
+        )
+        stale_evidence["base_ref"] = stale_evidence["head_sha"]
+        stale_evidence["manifest_hash"] = evidence_manifest_hash(stale_evidence)
+        stale_report = verify_evidence(
+            Ws.from_raw(stale, self.temp_dir),
+            evidence["id"],
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(fake_report["artifact_hashes_ok"])
+        self.assertFalse(stale_report["artifact_hashes_ok"])
+        self.assertEqual(
+            stale_report["computed_artifact_hashes"][0]["status"],
+            "invalid-deletion",
+        )
+
+    def test_delete_reappearing_after_reconciliation_blocks_terminalization(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+
+        def reconcile_then_reappear(*args, **kwargs):
+            reconciled = reconcile_agent_proof(*args, **kwargs)
+            (self.temp_dir / "README.md").write_text(
+                "reappeared after reconciliation\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(self.temp_dir), "commit", "-qm", "reintroduce output"],
+                check=True,
+            )
+            return reconciled
+
+        with (
+            patch(
+                "palari_company_os.agent_advance.run_or_reuse",
+                side_effect=self._passing_attestation,
+            ),
+            patch(
+                "palari_company_os.agent_advance.reconcile_agent_proof",
+                side_effect=reconcile_then_reappear,
+            ),
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "state-changed", result)
+        self.assertFalse(result["preflight"]["path_intent_verification"]["ok"])
+        self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
+
+    def test_cas_intent_inference_is_unique_and_legacy_missing_stays_missing(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+
+        unique = git_artifact_state(
+            self.temp_dir,
+            ["README.md"],
+            governance_workspace_path=self.temp_dir,
+        )
+        self.assertEqual(unique["artifact_hashes"][0]["status"], "absent")
+
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": "WORK-TEST-AMBIGUOUS-DELETE",
+                "title": "Ambiguous deletion contract",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "delete"}],
+                "required_approval_count": 1,
+            },
+            command="test ambiguous delete contract",
+            actor="PALARI-STEWARD",
+        )
+        ambiguous = git_artifact_state(
+            self.temp_dir,
+            ["README.md"],
+            governance_workspace_path=self.temp_dir,
+        )
+        legacy = git_artifact_state(
+            self.temp_dir,
+            ["never-declared.txt"],
+            governance_workspace_path=self.temp_dir,
+        )
+
+        self.assertEqual(ambiguous["artifact_hashes"][0]["status"], "missing")
+        self.assertEqual(legacy["artifact_hashes"][0]["status"], "missing")
+
+    def test_manual_evidence_stamp_uses_exact_work_contract_intent(self) -> None:
+        self._restart_with_path_intent("delete")
+        base_sha = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+        head_sha = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
+        ).strip()
+        attempt = {
+            "id": "ATTEMPT-MANUAL-DELETE",
+            "workspace_path": str(self.temp_dir),
+            "allowed_paths": ["README.md"],
+            "forbidden_paths": [],
+            "head_sha": head_sha,
+        }
+        record = {
+            "id": "EVIDENCE-MANUAL-DELETE",
+            "work_item_id": self.work_id,
+            "attempt_id": attempt["id"],
+            "head_sha": head_sha,
+            "base_ref": base_sha,
+            "status": "passed",
+            "artifacts": ["README.md"],
+        }
+
+        inferred = stamp_evidence_record(
+            record,
+            self.temp_dir,
+            attempts=[attempt],
+        )
+        explicit_legacy = stamp_evidence_record(
+            {**record, "id": "EVIDENCE-EXPLICIT-NO-INTENT"},
+            self.temp_dir,
+            attempts=[attempt],
+            path_intents=[],
+        )
+
+        self.assertEqual(inferred["artifact_hashes"][0]["status"], "absent")
+        self.assertEqual(explicit_legacy["artifact_hashes"][0]["status"], "missing")
 
     def test_completed_proof_resume_rejects_changed_artifact_bytes(self) -> None:
         with patch(
@@ -3386,6 +3752,65 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         return next(
             item for item in workspace.evidence_runs if item.work_item_id == self.work_id
         )
+
+    def _restart_with_path_intent(self, intent: str) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.work_id = f"WORK-TEST-ADVANCE-{intent.upper()}"
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": f"Test exact {intent} intent",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": f"Prove an exact {intent} mutation",
+                "acceptance_target": "Exact ancestry proof reaches review",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": intent}],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test declare exact path intent",
+            actor="PALARI-STEWARD",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bind path intent"],
+            check=True,
+        )
+        started = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(started["start"]["status"], "claimed")
 
     def _passing_attestation(self, _workspace, _root, profile, context, **_kwargs):
         key = cache_key(profile, context)

@@ -169,6 +169,16 @@ def work_contract_hash(work: Any) -> str:
         "conflict_targets": sorted(work.conflict_targets),
         "parallel_policy": work.parallel_policy,
     }
+    path_intents = getattr(work, "path_intents", [])
+    if path_intents:
+        payload["path_intents"] = sorted(
+            (
+                {"path": str(item.get("path", "")), "intent": str(item.get("intent", ""))}
+                for item in path_intents
+                if isinstance(item, dict)
+            ),
+            key=lambda item: (item["path"], item["intent"]),
+        )
     return _stable_hash(payload)
 
 
@@ -290,9 +300,24 @@ def _evidence_errors(
         str(item.get("path", "")): str(item.get("status", ""))
         for item in evidence.artifact_hashes
     }
+    work = workspace.work_item(evidence.work_item_id)
+    delete_paths = {
+        str(item.get("path"))
+        for item in (getattr(work, "path_intents", []) if work is not None else [])
+        if isinstance(item, dict)
+        and item.get("intent") == "delete"
+        and isinstance(item.get("path"), str)
+    }
     for artifact in evidence.artifacts:
-        if artifact_statuses.get(artifact) != "present":
-            errors.append(f"evidence {evidence.id} artifact is not present: {artifact}")
+        expected = "absent" if artifact in delete_paths else "present"
+        if artifact_statuses.get(artifact) != expected:
+            if expected == "present":
+                errors.append(f"evidence {evidence.id} artifact is not present: {artifact}")
+            else:
+                errors.append(
+                    f"evidence {evidence.id} artifact does not prove required deletion: "
+                    f"{artifact}"
+                )
     if receipt is not None:
         if not evidence.receipt_hash:
             errors.append(f"evidence {evidence.id} is not bound to receipt {receipt.id}")

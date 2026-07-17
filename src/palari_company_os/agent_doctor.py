@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent_loop import build_agent_loop
+from .agent_operation import AgentOperation, ensure_agent_operation
+from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -12,10 +14,28 @@ def build_agent_doctor(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    journal_context: JournalVerificationContext | None = None,
+    operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
     """Explain why a work item is or is not safe for an agent right now."""
 
-    loop = build_agent_loop(workspace, work_id, palari_id, mode)
+    operation_state = ensure_agent_operation(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=journal_context,
+        operation=operation,
+    )
+    loop = build_agent_loop(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=operation_state.journal_context,
+        operation=operation_state,
+    )
     diagnosis = _diagnosis(loop)
     return {
         "schema_version": "palari.agent_doctor.v1",
@@ -34,6 +54,12 @@ def build_agent_doctor(
         "loop_command": _loop_command(work_id, palari_id, mode),
         "checks": _doctor_checks(loop),
         "blockers": loop.get("blockers", []),
+        "owner": loop.get("owner", "agent"),
+        "agent_may_execute": loop.get("agent_may_execute", False),
+        "next_action": loop.get("next_action", {}),
+        "review_boundary": loop.get("review_boundary", False),
+        "human_boundary": loop.get("human_boundary", False),
+        "resolution_summary": loop.get("resolution_summary", {}),
         "missing_requirements": loop.get("missing_requirements", []),
         "completed_requirements": loop.get("completed_requirements", []),
         "recommended_commands": _recommended_commands(loop),

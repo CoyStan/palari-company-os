@@ -17,7 +17,11 @@ from .authoring import (
     complete_work,
     reconcile_agent_proof,
 )
-from .evidence_manifest import git_artifact_state, verify_evidence
+from .evidence_manifest import (
+    git_artifact_state,
+    git_deletion_tombstone,
+    verify_evidence,
+)
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
 from .path_policy import path_allowed, validate_workspace_path
@@ -107,11 +111,25 @@ def agent_advance_dry_run(
     profiles = verification_profiles(str(work.get("risk") or ""), changed)
     base_sha = str(preflight.get("base_sha") or "")
     head_sha = str(preflight.get("head_sha") or "")
+    path_intent_verification = _verify_path_intents(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        _packet_path_intents(packet),
+        changed,
+        base_sha,
+        head_sha,
+    )
+    preflight = {**preflight, "path_intent_verification": path_intent_verification}
+    preflight_ok = bool(preflight.get("ok") and path_intent_verification["ok"])
+    preflight_error = (
+        str(preflight.get("message") or "")
+        if not preflight.get("ok")
+        else _path_intent_error(path_intent_verification)
+    )
     context = default_context(
         head_sha=head_sha,
         base_sha=base_sha,
         changed_paths=changed,
-        cleanliness="clean" if preflight.get("ok") else "unverified",
+        cleanliness="clean" if preflight_ok else "unverified",
     )
     evidence_current = bool(
         isinstance(evidence, dict)
@@ -162,11 +180,11 @@ def agent_advance_dry_run(
         "git": {
             "base_sha": base_sha,
             "head_sha": head_sha,
-            "clean": bool(preflight.get("ok")),
+            "clean": preflight_ok,
             "changed_files": changed,
             "scope_ok": bool(preflight.get("ok")),
-            "outputs_ok": bool(preflight.get("ok")),
-            "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
+            "outputs_ok": preflight_ok,
+            "preflight_error": preflight_error,
         },
         "proof": {
             "attempt_id": (
@@ -609,19 +627,39 @@ def _collect_facts(
     )
     changed = list(preflight.get("changed_files", []))
     artifacts = _governed_artifacts(changed)
+    base_sha = str(
+        preflight.get("base_sha")
+        or claim.get("git_baseline", {}).get("head_sha")
+        or ""
+    )
+    head_sha = str(preflight.get("head_sha") or "")
+    path_intents = _work_path_intents(work)
+    path_intent_verification = _verify_path_intents(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        path_intents,
+        changed,
+        base_sha,
+        head_sha,
+    )
+    preflight = {**preflight, "path_intent_verification": path_intent_verification}
+    preflight_ok = bool(preflight.get("ok") and path_intent_verification["ok"])
+    preflight_error = (
+        str(preflight.get("message") or "")
+        if not preflight.get("ok")
+        else _path_intent_error(path_intent_verification)
+    )
     artifact_state = git_artifact_state(
         Path(str(preflight.get("git_root") or workspace_path)),
         artifacts,
         governance_workspace_path=workspace_path,
+        path_intents=path_intents,
     )
     profiles = verification_profiles(work.risk, changed)
-    base_sha = str(preflight.get("base_sha") or claim.get("git_baseline", {}).get("head_sha") or "")
-    head_sha = str(preflight.get("head_sha") or "")
     context = default_context(
         head_sha=head_sha,
         base_sha=base_sha,
         changed_paths=changed,
-        cleanliness="clean" if preflight.get("ok") else "unverified",
+        cleanliness="clean" if preflight_ok else "unverified",
     )
     profile_facts = [
         {
@@ -661,14 +699,14 @@ def _collect_facts(
             "base_sha": base_sha,
             "head_sha": head_sha,
             "clean": bool(
-                preflight.get("ok")
+                preflight_ok
                 and artifact_state["clean"]
                 and artifact_state["head_sha"] == head_sha
             ),
             "changed_files": changed,
             "scope_ok": bool(preflight.get("ok")),
-            "outputs_ok": bool(preflight.get("ok")),
-            "preflight_error": "" if preflight.get("ok") else preflight.get("message", ""),
+            "outputs_ok": preflight_ok,
+            "preflight_error": preflight_error,
             "artifact_hashes": artifact_state["artifact_hashes"],
         },
         "proof": {
@@ -729,6 +767,8 @@ def _reconcile_proof(
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification
     ]
+    path_intents = _work_path_intents(work)
+    intent_paths = [item["path"] for item in path_intents]
     result = reconcile_agent_proof(
         str(workspace_path),
         work_id=work_id,
@@ -740,7 +780,7 @@ def _reconcile_proof(
             "status": "active",
             "workspace_path": str(Path(preflight["git_root"])),
             "base_sha": preflight["base_sha"],
-            "allowed_paths": list(work.allowed_resources),
+            "allowed_paths": intent_paths or list(work.allowed_resources),
         },
         receipt_record={
             "id": receipt_id,
@@ -770,7 +810,7 @@ def _reconcile_proof(
         },
         head_sha=head_sha,
         changed_files=list(preflight["changed_files"]),
-        output_targets=list(work.output_targets),
+        output_targets=intent_paths or list(work.output_targets),
         proof_timestamp=proof_timestamp,
         expected_workspace_digest=expected_workspace_digest,
         expected_git_head=expected_git_head,
@@ -1661,6 +1701,7 @@ def _stale_projection_refresh_context(
         Path(root_text),
         artifacts,
         governance_workspace_path=workspace_path,
+        path_intents=_work_path_intents(work),
     )
     if (
         not artifact_state.get("clean")
@@ -2672,7 +2713,7 @@ def _resume_preflight(
             "head_sha": "",
             "changed_files": [],
         }
-    return _preflight(
+    preflight = _preflight(
         workspace,
         workspace_path,
         work.id,
@@ -2681,6 +2722,23 @@ def _resume_preflight(
         packet=authority["packet"],
         allow_current_proof_projection=True,
     )
+    verification = _verify_path_intents(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        _work_path_intents(work),
+        list(preflight.get("changed_files") or []),
+        str(preflight.get("base_sha") or ""),
+        str(preflight.get("head_sha") or ""),
+    )
+    if not preflight.get("ok"):
+        return {**preflight, "path_intent_verification": verification}
+    if verification["ok"]:
+        return {**preflight, "path_intent_verification": verification}
+    return {
+        **preflight,
+        "ok": False,
+        "message": _path_intent_error(verification),
+        "path_intent_verification": verification,
+    }
 
 
 def _resume_blocked(
@@ -2818,6 +2876,226 @@ def _governed_artifacts(paths: list[str]) -> list[str]:
         and not path.endswith("/.palari/history.jsonl")
         and path != "workspace.json"
         and path != ".palari/history.jsonl"
+    )
+
+
+def _work_path_intents(work: Any) -> list[dict[str, str]]:
+    return _normalized_path_intents(getattr(work, "path_intents", []))
+
+
+def _packet_path_intents(packet: dict[str, Any]) -> list[dict[str, str]]:
+    required = packet.get("required_output", {})
+    if not isinstance(required, dict):
+        return []
+    return _normalized_path_intents(required.get("path_intents", []))
+
+
+def _normalized_path_intents(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [
+        {"path": item["path"], "intent": item["intent"]}
+        for item in value
+        if isinstance(item, dict)
+        and isinstance(item.get("path"), str)
+        and item.get("path")
+        and item.get("intent") in {"create", "modify", "delete"}
+    ]
+
+
+def _verify_path_intents(
+    root: Path,
+    path_intents: list[dict[str, str]],
+    changed_files: list[str],
+    base_sha: str,
+    head_sha: str,
+) -> dict[str, Any]:
+    """Prove each exact mutation intent against the claim's base..head range."""
+
+    if not path_intents:
+        return {
+            "required": False,
+            "ok": True,
+            "checks": [],
+            "errors": [],
+        }
+    changed = set(changed_files)
+    checks: list[dict[str, str]] = []
+    errors: list[dict[str, str]] = []
+    for item in path_intents:
+        path = item["path"]
+        intent = item["intent"]
+        try:
+            normalized = validate_workspace_path(path)
+        except ValueError as exc:
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_UNSAFE",
+                    path,
+                    intent,
+                    f"Exact path is unsafe: {exc}",
+                )
+            )
+            continue
+        if normalized != path:
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_NONCANONICAL",
+                    path,
+                    intent,
+                    "Exact path is not in canonical repository form.",
+                )
+            )
+            continue
+        base_readable, base_entry = _git_exact_tree_entry(root, base_sha, path)
+        head_readable, head_entry = _git_exact_tree_entry(root, head_sha, path)
+        if not base_readable or not head_readable:
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_GIT_UNREADABLE",
+                    path,
+                    intent,
+                    "The exact base or candidate Git tree could not be inspected.",
+                )
+            )
+            continue
+        base_regular = _regular_file_state(base_entry)
+        head_regular = _regular_file_state(head_entry)
+        base_state = _tree_entry_state(base_entry)
+        head_state = _tree_entry_state(head_entry)
+        if path not in changed:
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_UNCHANGED",
+                    path,
+                    intent,
+                    "The exact path was not changed in the claim-bound commit range.",
+                )
+            )
+            continue
+        satisfied = False
+        if intent == "create":
+            satisfied = base_entry is None and head_regular
+        elif intent == "modify":
+            satisfied = (
+                base_regular
+                and head_regular
+                and base_entry != head_entry
+            )
+        else:
+            satisfied = bool(
+                git_deletion_tombstone(root, path, base_sha, head_sha)
+            )
+        check = {
+            "path": path,
+            "intent": intent,
+            "base_state": base_state,
+            "head_state": head_state,
+            "status": "verified" if satisfied else "failed",
+        }
+        checks.append(check)
+        if not satisfied:
+            expected = {
+                "create": "base absence followed by a regular file at candidate head",
+                "modify": "different regular-file state at base and candidate head",
+                "delete": "a regular file at base followed by exact absence at candidate head",
+            }[intent]
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_MISMATCH",
+                    path,
+                    intent,
+                    f"Expected {expected}; observed {base_state} -> {head_state}.",
+                )
+            )
+    return {
+        "required": True,
+        "ok": not errors,
+        "checks": checks,
+        "errors": errors,
+    }
+
+
+def _git_exact_tree_entry(
+    root: Path,
+    commit: str,
+    path: str,
+) -> tuple[bool, tuple[str, str, str] | None]:
+    if (
+        len(commit) not in {40, 64}
+        or any(character not in "0123456789abcdef" for character in commit)
+    ):
+        return False, None
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "--no-replace-objects",
+                "ls-tree",
+                "-z",
+                commit,
+                "--",
+                path,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False, None
+    if result.returncode != 0:
+        return False, None
+    entries = [value for value in result.stdout.split(b"\0") if value]
+    if not entries:
+        return True, None
+    if len(entries) != 1 or b"\t" not in entries[0]:
+        return False, None
+    metadata, raw_path = entries[0].split(b"\t", 1)
+    if raw_path.decode("utf-8", "surrogateescape") != path:
+        return False, None
+    parts = metadata.decode("ascii", "strict").split()
+    if len(parts) != 3:
+        return False, None
+    mode, object_type, oid = parts
+    return True, (mode, object_type, oid)
+
+
+def _regular_file_state(entry: tuple[str, str, str] | None) -> bool:
+    return bool(
+        entry is not None
+        and entry[0] in {"100644", "100755"}
+        and entry[1] == "blob"
+    )
+
+
+def _tree_entry_state(entry: tuple[str, str, str] | None) -> str:
+    if entry is None:
+        return "absent"
+    return "regular-file" if _regular_file_state(entry) else "non-regular"
+
+
+def _path_intent_diagnostic(
+    code: str,
+    path: str,
+    intent: str,
+    message: str,
+) -> dict[str, str]:
+    return {"code": code, "path": path, "intent": intent, "message": message}
+
+
+def _path_intent_error(verification: dict[str, Any]) -> str:
+    errors = verification.get("errors", [])
+    if not isinstance(errors, list) or not errors:
+        return ""
+    first = errors[0]
+    if not isinstance(first, dict):
+        return "Exact path intent verification failed."
+    return (
+        f"{first.get('path', 'path')} {first.get('intent', 'mutation')} intent failed: "
+        f"{first.get('message', 'exact Git ancestry did not match')}"
     )
 
 

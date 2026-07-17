@@ -22,6 +22,7 @@ documented CLI smokes. The install smoke is a separate package-boundary check.
 
 ```bash
 ./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh focused tests.test_operator_journeys tests.test_agent_file_changes
 ./scripts/verify.sh focused tests.test_validation tests.test_integrations
 ./scripts/verify.sh affected src/palari_company_os/agent_finish.py
 ./scripts/verify.sh affected --git-diff
@@ -34,6 +35,17 @@ focused or affected command to inspect the selection without running it.
 Focused and affected profiles shorten iteration only. They are not acceptance
 proof and never replace the complete profile.
 
+For operator-loop changes, verify all three journeys: initialize/add/start-next,
+advance to independent review, and approval-inbox presentation to one exact
+human action. Include `agent park` success, foreign/malformed/missing claim,
+interrupted-release retry, and changed-state rejection. Record interaction
+counts separately from test-process time.
+
+The append-only governance journal still has linear verification cost. A
+request-local context should keep one aggregate operation to one verified scan,
+but performance assertions must not skip continuity checks or promote a
+persistent cache into authority.
+
 ## CLI Smokes
 
 ```bash
@@ -43,6 +55,8 @@ proof and never replace the complete profile.
 ./bin/palari history --checkpoints --json
 ./bin/palari docs check --json
 ./bin/palari --workspace examples/acme-company-os agent next --json
+./bin/palari --workspace examples/acme-company-os agent brief WORK-0003 \
+  --as PALARI-SOFIA --mode execute --json
 ./bin/palari proof verify spec/pcaw/v1/vectors/valid/accepted/statement.json \
   --subject-root spec/pcaw/v1/vectors/valid/accepted --json
 ```

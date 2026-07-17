@@ -19,6 +19,13 @@ Human profiles should identify:
 For high-risk work, quorum can require more than one qualified human. The
 system should fail closed when authority is unclear.
 
+The normal human surface is `palari queue --approval-inbox --json`. It presents
+current independently reviewed work and emits at most the exact action allowed
+for that immutable pack and presentation. A qualified human may run that action
+once after inspection. This compresses navigation and deterministic local
+bookkeeping; it does not combine review with acceptance, waive quorum, approve
+external effects, or delegate authority to an agent.
+
 ## AI Roles
 
 AI roles describe capability and bounds, not final authority. A Palari can ask a
@@ -111,6 +118,12 @@ This keeps Palari small: no policy DSL, background service, or new public
 command is needed. The rule is simply that AI or adapters can prepare work, but
 they cannot move trusted state forward unless Palari can verify the required
 workspace records.
+
+The shared agent directive compiler is an advisory state-to-action projection.
+It may identify the next owner and safe command, but it does not perform a
+trusted transition. `agent start --next`, `agent advance`, and `agent park`
+still pass through the existing start, proof, journal, scope, and claim gates;
+none may manufacture an independent review or human decision.
 
 ## Review Gate Profiles
 

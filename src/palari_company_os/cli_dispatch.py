@@ -189,7 +189,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_loop import build_agent_loop
         from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
-        from .agent_runtime import release_agent, start_agent
+        from .agent_runtime import release_agent, start_agent, start_next_agent
 
         if args.agent_command == "advance" and args.dry_run:
             from .agent_advance import agent_advance_dry_run
@@ -201,6 +201,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
             if fast_plan is not None:
                 return CommandResult("agent-done", fast_plan, args.json)
+        if args.agent_command == "park":
+            from .agent_parking import park_agent
+
+            return CommandResult(
+                "agent-park",
+                park_agent(
+                    args.workspace,
+                    args.work_id,
+                    args.palari_id,
+                    reason=args.reason,
+                    next_action=args.next_action,
+                ),
+                args.json,
+            )
         workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:
@@ -235,6 +249,27 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
         if args.agent_command == "start":
+            if bool(args.start_next) == bool(args.work_id):
+                raise WorkspaceError(
+                    "agent start requires exactly one of WORK-ID or --next"
+                )
+            if args.start_next:
+                if args.isolate:
+                    raise WorkspaceError(
+                        "agent start --next does not infer an isolated branch; select an "
+                        "explicit WORK-ID when --isolate is required"
+                    )
+                return CommandResult(
+                    "agent-start",
+                    start_next_agent(
+                        workspace,
+                        args.workspace,
+                        args.palari_id,
+                        args.mode,
+                        lease_minutes=args.lease_minutes,
+                    ),
+                    args.json,
+                )
             if args.isolate:
                 from .agent_isolation import start_isolated_agent
 
@@ -898,6 +933,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.workspace,
                 args.title,
                 write=args.write,
+                create=args.create,
+                modify=args.modify,
+                delete=args.delete,
                 read=args.read,
                 palari_id=args.palari_id,
                 goal_id=args.goal,

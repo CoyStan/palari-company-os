@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -13,6 +14,11 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.agent_directive import compile_agent_directive
+from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_loop import build_agent_loop
+from palari_company_os.agent_operation import AgentOperation
+from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.maintainer import status as maintainer_status
 from palari_company_os.governance_journal import JournalVerificationContext
 from palari_company_os.read_models import (
@@ -32,6 +38,119 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 
 class WorkspaceReadModelTests(unittest.TestCase):
+    def test_agent_operation_compiles_packet_check_and_directive_once(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        operation = AgentOperation(workspace, "WORK-0003", "PALARI-SOFIA")
+
+        with patch(
+            "palari_company_os.agent_operation.build_agent_brief",
+            wraps=build_agent_brief,
+        ) as build_brief:
+            brief = operation.brief()
+            check = operation.check()
+            directive = operation.directive()
+
+            self.assertIs(operation.brief(), brief)
+            self.assertIs(operation.check(), check)
+            self.assertIs(operation.directive(), directive)
+
+        self.assertEqual(build_brief.call_count, 1)
+        self.assertEqual(check["packet_id"], brief["packet_id"])
+        self.assertEqual(directive["status"], "missing-proof")
+
+    def test_agent_operation_check_matches_standalone_check(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        expected = build_agent_check(workspace, "WORK-0003", "PALARI-SOFIA")
+
+        actual = AgentOperation(
+            workspace,
+            "WORK-0003",
+            "PALARI-SOFIA",
+        ).check()
+
+        expected.pop("created_at")
+        actual.pop("created_at")
+        self.assertEqual(actual, expected)
+
+    def test_agent_loop_reuses_one_packet_for_all_stages(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+
+        with patch(
+            "palari_company_os.agent_operation.build_agent_brief",
+            wraps=build_agent_brief,
+        ) as build_brief:
+            result = build_agent_loop(workspace, "WORK-0003", "PALARI-SOFIA")
+
+        self.assertEqual(result["status"], "missing-proof")
+        self.assertEqual(build_brief.call_count, 1)
+
+    def test_agent_directive_is_pure_and_preserves_human_boundary(self) -> None:
+        check = {
+            "mode": "execute",
+            "ok": False,
+            "agent": {"id": "PALARI-WORKER"},
+            "work_item": {"id": "WORK-OPAQUE"},
+            "next_step_type": "human-decision",
+            "checks": [
+                {
+                    "code": "RECEIPT_PRESENT",
+                    "status": "pass",
+                    "required": True,
+                    "message": "Receipt is present.",
+                },
+                {
+                    "code": "EVIDENCE_PRESENT",
+                    "status": "pass",
+                    "required": True,
+                    "message": "Evidence is present.",
+                },
+                {
+                    "code": "REVIEW_PRESENT",
+                    "status": "pass",
+                    "required": True,
+                    "message": "Review is present.",
+                },
+                {
+                    "code": "HUMAN_DECISION_PRESENT",
+                    "status": "fail",
+                    "required": True,
+                    "message": "Human decision quorum is incomplete.",
+                },
+            ],
+            "blockers": [
+                {
+                    "code": "HUMAN_DECISION_REQUIRED",
+                    "message": "Qualified human authority is required.",
+                }
+            ],
+            "next_allowed_commands": [
+                "palari human-decision record HUMAN-DECISION-ID --json"
+            ],
+        }
+        original = deepcopy(check)
+
+        first = compile_agent_directive(check)
+        second = compile_agent_directive(check)
+
+        self.assertEqual(first, second)
+        self.assertEqual(check, original)
+        self.assertEqual(first["status"], "handoff-ready")
+        self.assertEqual(first["owner"], "human")
+        self.assertTrue(first["agent_may_execute"])
+        self.assertTrue(first["human_boundary"])
+        self.assertFalse(first["review_boundary"])
+        self.assertEqual(first["automatic_transitions"], [])
+        self.assertEqual(
+            first["next_action"]["command"],
+            "palari agent handoff WORK-OPAQUE --as PALARI-WORKER --json",
+        )
+        self.assertEqual(first["handoff_guidance"][0]["code"], "HUMAN_APPROVAL_HANDOFF")
+        self.assertTrue(first["resolution_summary"]["human_attention_required"])
+        self.assertNotIn(
+            "palari human-decision record",
+            "\n".join(first["next_allowed_commands"]),
+        )
+
     def test_approval_inbox_forwards_caller_owned_journal_context(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         context = JournalVerificationContext()

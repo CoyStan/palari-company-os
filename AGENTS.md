@@ -5,8 +5,31 @@ supervisors. Humans should not need to drive every CLI command manually; agents
 use the CLI to stay inside company boundaries, and humans inspect blockers,
 approvals, receipts, and outcomes.
 
-Before changing files, either ask for the next safe work item or run a packet
-command for a known work item:
+For ordinary execution, select and claim the next safe item in one command:
+
+```bash
+palari agent start --next --as PALARI-ID --json
+```
+
+Work only inside the returned packet. After committing the bounded result, run
+one convergence command:
+
+```bash
+palari agent advance WORK-ID --as PALARI-ID --json
+```
+
+It derives deterministic proof and stops at the next real boundary: independent
+review, exact human authority, an external effect, or a concrete blocker. It
+never creates the review or human decision. If work must stop before proof is
+ready, preserve the interruption before releasing ownership:
+
+```bash
+palari agent park WORK-ID --as PALARI-ID \
+  --reason "Why work stopped" --next-action "The next safe step" --json
+```
+
+Use the read-only and explicit-target commands below for inspection, recovery,
+review, or when work selection must be controlled:
 
 ```bash
 palari agent next --json
@@ -35,6 +58,21 @@ to inspect the provider-neutral contract without claiming work. The portable
 contract declares boundaries; it does not install a host sandbox or grant
 execution authority.
 
+`agent start --next` uses the same deterministic eligibility and packet rules
+as `agent next` plus explicit `agent start`; it does not broaden scope.
+`agent park` first records a blocked attempt, the reason, repository
+observation, and next safe action in governed state, then releases the owned
+execute claim. It creates no receipt, evidence, review, decision, acceptance,
+outcome, or convergence authority. It requires a writable governance journal;
+on a legacy workspace, run the exact returned `history --checkpoint` command
+instead of assuming earlier continuity.
+
+After independent review, the normal human path is `palari queue
+--approval-inbox --json`. A qualified human inspects the exact presentation and
+may run its emitted `human-decision pack` action once. Agents may quote that
+command for the supervisor; they must not execute it or combine review with
+acceptance.
+
 Use `--mode review` only when work is already waiting for review or is
 receipt-ready. Review packets are read-only: they include review focus,
 attempt/evidence/receipt context, and review guide commands, but they do not
@@ -44,6 +82,9 @@ Follow the packet:
 
 - continue only when `status` is `ready`
 - use only `allowed_paths` and `allowed_sources`
+- satisfy declared `path_intents`: create/modify targets must exist in the
+  matching Git change class, while delete targets must be absent and observed
+  as deleted from claim base to candidate
 - respect each allowed source's data class, authority, steward, freshness, and
   redaction fields
 - use `agent start`, not only `agent brief`, before doing ready execution work
@@ -73,6 +114,8 @@ Follow the packet:
   them for a supervisor but must not run them yourself
 - run `palari agent release WORK-ID --as PALARI-ID --json` when abandoning or
   handing off a local claim
+- prefer `agent park` over bare `release` when an interruption and its next
+  action must remain durable
 
 Never:
 
@@ -87,9 +130,10 @@ The canonical contract is in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
-In Claude Code sessions this contract is also structurally enforced: `palari
-claude install` wires hooks that deny out-of-boundary file writes and block
-turn completion while the working tree escapes the packet boundary. See
+Claude Code users may optionally add structural enforcement with `palari
+claude install`. Those hooks deny out-of-boundary file writes and block turn
+completion while the working tree escapes the packet boundary; they are a
+secondary host adapter, not a requirement for the provider-neutral loop. See
 `docs/product/claude-code-integration.md`.
 
 ## Agent-Ready Repo Docs

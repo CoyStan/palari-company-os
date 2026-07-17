@@ -28,8 +28,8 @@ Keep it concise and update it when file ownership changes.
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
 - `src/palari_company_os/authoring.py`: create/update lifecycle records.
-- `src/palari_company_os/onramp.py`: `init` starter workspace and `work add`
-  quick-create for existing repos.
+- `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
+  and atomic `work add` quick-create for existing repos.
 - `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
   generation with no lifecycle ordering semantics.
 
@@ -51,6 +51,12 @@ When adding a command, update parser, dispatch, output, tests, and
   provider-neutral session-contract projection, strict validation, digest, and
   honest enforcement profile.
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
+- `src/palari_company_os/agent_directive.py`: pure state-to-owner/action
+  compiler shared by agent read surfaces.
+- `src/palari_company_os/agent_operation.py`: request-local packet, check,
+  directive, and journal-observation reuse.
+- `src/palari_company_os/agent_parking.py`: durable blocked-attempt parking and
+  exact idempotent claim-release recovery without proof authority.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
   exact-target integration readiness, and non-authority diagnostics.
 - `src/palari_company_os/agent_file_changes.py`: canonical Git change
@@ -73,8 +79,9 @@ When adding a command, update parser, dispatch, output, tests, and
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
-- `src/palari_company_os/claude_hooks.py`: Claude Code hook enforcement of the
-  packet write boundary (PreToolUse deny, Stop backstop, SessionStart context).
+- `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
+  of the packet write boundary (PreToolUse deny, Stop backstop, SessionStart
+  context); the core operating loop is provider-neutral.
 
 ## Trust Objects
 
@@ -115,6 +122,10 @@ runtime state.
 - `tests/test_agent_packets.py`: agent packet/check/loop behavior.
 - `tests/test_agent_advance.py`: deterministic planning, verification cache,
   atomic proof reconciliation, crash recovery, and idempotence.
+- `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
+  interruption recovery, and interaction-count evidence.
+- `tests/test_agent_file_changes.py`: explicit path-intent and deletion
+  tombstone enforcement plus legacy compatibility.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.
