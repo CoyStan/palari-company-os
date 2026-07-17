@@ -26,26 +26,26 @@ Every completed checkbox must name exact committed proof. The product rule is:
 - Existing opaque IDs and independent claims already permit unrelated work to
   proceed without chronological merge order.
 
-## Before Interaction Counts
+## Interaction Counts
 
 Counts are Palari invocations, excluding editing, tests, and Git commands.
 
-| Journey | Before | Judgment that must remain |
-| --- | ---: | --- |
-| Adopt a repository | 1 (`init`) | none |
-| Join an existing repository | 1 read-only orientation command | none |
-| Select and start ready work | 2–3 | none |
-| Complete R2+ bounded work | 5–6 after editing | none until review |
-| Independent review | 2 | one independent verdict |
-| Accept a reversible result | 2 | one human decision |
-| Narrow, reject, or defer | 2 | one human decision |
-| Diagnose a blocker | 1, but 24 lines and five alternatives | none |
-| Enable legacy journal continuity | 1 | explicit operator opt-in |
-| Complete ten unrelated R2 items | about 80–90 before review | one review per item |
+| Journey | Before | After | Judgment that must remain |
+| --- | ---: | ---: | --- |
+| Adopt a repository | 1 (`init`) | 1 (`init`) | none |
+| Join and claim safe work | 2–3 | 1 (`start --next`) | none |
+| Select and start ready work | 2–3 | 1 (`start --next`) | none |
+| Complete R2+ bounded work | 5–6 after editing | 1 (`advance`) | none until review |
+| Independent review | 2 | 2 | one independent verdict |
+| Accept a reversible result | 2 | 1 inbox read + 1 human action | one human decision |
+| Narrow, reject, or defer | 2 | 1 inbox read + 1 human action | one human decision |
+| Diagnose a blocker | 1, 24 lines/five alternatives | 1, at most 9 lines/one action | none |
+| Enable legacy journal continuity | 1 | 1 explicit checkpoint | explicit operator opt-in |
+| Complete ten unrelated R2 items | about 80–90 before review | 20, parallel-safe | one review per item |
 
 ## Required Outcomes
 
-- [ ] **One authoritative directive compiler**
+- [x] **One authoritative directive compiler**
   - Required outcome: one pure deterministic function returns lifecycle state,
     owner, automatic transitions, human/reviewer boundary, one safe action,
     concise diagnostics, and optional proof detail from current workspace truth.
@@ -53,20 +53,22 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     review-required, human-decision-required, accepted, and completed states;
     existing transition checks remain the mutation authority.
   - Verification: focused directive, kernel, read-model, and transition tests.
-  - Current status: in progress.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
+    (`agent_directive.py`, `agent_operation.py`, and directive/read-model parity tests).
 
-- [ ] **One entry action**
+- [x] **One entry action**
   - Required outcome: `palari agent start --next --as PALARI-ID` selects exactly
     one safe item, compiles its packet and portable contract, and claims it in
     one idempotent command. Explicit `start WORK-ID` remains compatible.
   - Objective evidence: ready, no-ready, ambiguous, review-only, foreign-claim,
     repeated, and parallel-unrelated interaction tests.
   - Verification: agent runtime/packet/CLI tests and golden terminal transcript.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
+    repeated start and atomic multi-agent contention tests pass.
 
-- [ ] **One convergence action**
+- [x] **One convergence action**
   - Required outcome: `palari agent advance WORK-ID` is the ordinary agent-safe
     fixed-point action. It derives deterministic attempt, receipt, evidence,
     verification, handoff, and terminal bookkeeping, then stops only for an
@@ -74,10 +76,12 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
   - Objective evidence: R1 and R2+ journeys require no copied IDs/digests and
     post-quorum completion requires no follow-up command; retries are idempotent.
   - Verification: advance, convergence, authority, crash, and interaction tests.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
+    the complete 86-test advance module passes, including crash recovery and
+    post-reconciliation state-change rejection.
 
-- [ ] **Deletion and parking are first-class**
+- [x] **Deletion and parking are first-class**
   - Required outcome: declared create/modify/delete intent is enforced against
     exact Git state; a deletion is proof, not a missing output. Durable
     `agent release --reason ... --next-action ...` records why work stopped and
@@ -87,10 +91,13 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     interrupted park, and retry cases fail closed or recover safely.
   - Verification: schema parity, file-boundary, proof, journal-crash, and park
     interaction tests.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
+    adds exact ancestry/tombstone/parking enforcement;
+    `591702bbe4ec19c18fc06275682a58b19a3137f7` keeps durable parking inside
+    compatible `agent release` instead of adding a 155th public command.
 
-- [ ] **One concise human surface and one exact action**
+- [x] **One concise human surface and one exact action**
   - Required outcome: default inbox/handoff output states what is happening,
     whether it is safe, who owns the next judgment, and exactly one bound action.
     Explain/JSON views retain every digest and proof detail. Existing one-action
@@ -99,30 +106,34 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     non-batchable, changed evidence, and partial quorum tests; no autonomous
     review or human decision is introduced.
   - Verification: approval pack/presentation/read-model interaction tests.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
+    approval inbox default output is eight lines and retains complete JSON proof.
 
-- [ ] **Activation and legacy continuity stay one command**
+- [x] **Activation and legacy continuity stay one command**
   - Required outcome: new repository initialization activates the operating
     contract and journal once; legacy checkpoint activation remains explicit,
     idempotent, and one command; provider-specific hooks remain optional.
   - Objective evidence: install/init and checkpoint interaction tests, with no
     new hook or provider dependency.
   - Verification: onramp, journal, install-smoke, and docs tests.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
+    onramp and parking tests prove explicit legacy checkpoint behavior.
 
-- [ ] **Progressive disclosure and shared diagnostics**
+- [x] **Progressive disclosure and shared diagnostics**
   - Required outcome: the default blocked view fits within 12 lines and exposes
     exactly state, safety, owner, explanation, and one next action. JSON and
     explicit detail retain the complete current proof and alternatives.
   - Objective evidence: text/JSON semantic-parity snapshots for ready, blocked,
     stale, review, human, and completed states.
   - Verification: CLI output, public-surface, and docs tests.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
+    doctor is at most nine lines, durable release five, start-next six, and
+    approval inbox eight; JSON remains complete.
 
-- [ ] **Performance follows the interaction**
+- [x] **Performance follows the interaction**
   - Required outcome: small-workspace reads remain below 0.5-second median;
     the 40 MB fixture verifies at or below 1.0-second median and 100 MB RSS, or
     the contract records why a staged journal-format migration is safer. One
@@ -132,8 +143,16 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
   - Objective evidence: repeatable three-run medians, slowest-module report,
     and before/after interaction counts for all ten journeys.
   - Verification: timing harness plus complete gate.
-  - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Current status: completed with an explicit staged format migration.
+  - Exact committed proof: at `591702bbe4ec19c18fc06275682a58b19a3137f7`,
+    three-run medians were 0.23 seconds/24.8 MB for small `agent next`, 0.73
+    seconds/26.8 MB for the dogfood aggregate loop, 5.27 seconds/293.8 MB for
+    raw 40 MB journal verification, and 11.45 seconds/410.6 MB for one
+    journaled `work add` mutation on temporary copies. Complete gates were
+    80.64, 81.28, and 82.57 seconds (81.28-second median, 11.7% below baseline).
+    The 1-second/100 MB and 2-second mutation targets are not met. A versioned
+    checkpoint/tail-index migration is deliberately deferred because a
+    persistent advisory cache must not become transition authority.
 
 - [ ] **Compatibility, security, documentation, and review**
   - Required outcome: existing commands, schemas, fixtures, PCAW v1, authority,
@@ -148,7 +167,9 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
   - Verification: `palari docs check --json`, `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, and independent review report.
   - Current status: pending.
-  - Exact committed proof: pending exact commit.
+  - Exact committed proof: candidate `591702bbe4ec19c18fc06275682a58b19a3137f7`;
+    830 tests/46 modules, style, 18/18 PCAW vectors, docs/schema/CLI checks, and
+    the isolated wheel smoke pass. Fresh exact-head independent review remains.
 
 ## Explicit Human And Reviewer Boundary
 
