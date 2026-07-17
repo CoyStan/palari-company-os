@@ -1300,6 +1300,7 @@ def _refresh_stale_projection(
         "committed_paths",
         "artifacts",
         "artifact_hashes",
+        "artifact_transition",
         "git_root",
     )
     if not rechecked["ok"] or any(
@@ -1327,6 +1328,50 @@ def _refresh_stale_projection(
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification_results
     ]
+    transition = refresh["artifact_transition"]
+    ordinary_artifacts = list(transition["ordinary_artifacts_unchanged"])
+    projection_rebounds = list(transition["projection_artifacts_rebound"])
+    projection_artifacts = sorted(
+        list(transition["projection_artifacts_unchanged"])
+        + [str(item["path"]) for item in projection_rebounds]
+    )
+    actions_taken: list[str] = []
+    if ordinary_artifacts:
+        actions_taken.append(
+            f"Reverified {len(ordinary_artifacts)} ordinary governed artifact(s) "
+            "as byte-unchanged at current repository HEAD."
+        )
+    if projection_artifacts:
+        actions_taken.append(
+            f"Rebound {len(projection_artifacts)} allowlisted self-mutating "
+            "governance projection artifact(s) to exact current-HEAD Git bytes."
+        )
+    actions_taken.append("Reran the authoritative exact-state verification profiles.")
+    not_done = [
+        "No non-projection governed artifact bytes were changed.",
+        "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
+    ]
+    if projection_artifacts:
+        not_done.insert(
+            1,
+            "Recording refreshed proof mutates the allowlisted governance projection "
+            "files after the evidence head; evidence remains bound to their exact "
+            "pre-projection Git bytes.",
+        )
+    summary_parts = [
+        f"{len(verification_results)} exact-state verification profile(s) passed"
+    ]
+    if ordinary_artifacts:
+        summary_parts.append(
+            f"{len(ordinary_artifacts)} ordinary artifact(s) remained byte-unchanged"
+        )
+    if projection_artifacts:
+        summary_parts.append(
+            f"{len(projection_artifacts)} self-mutating governance projection "
+            "artifact(s) were rebound to exact current-HEAD Git bytes; recording "
+            "the proof mutates those projection files after the evidence head"
+        )
+    evidence_summary = "; ".join(summary_parts) + "."
     attempt_id = _proof_id("ATTEMPT-REFRESH", work.id, refresh["head_sha"])
     receipt_id = _proof_id("RECEIPT-REFRESH", work.id, refresh["head_sha"])
     evidence_id = _proof_id("EVIDENCE-REFRESH", work.id, refresh["head_sha"])
@@ -1349,15 +1394,9 @@ def _refresh_stale_projection(
             "attempt_id": attempt_id,
             "actor": palari_id,
             "sources_used": list(work.allowed_sources),
-            "actions_taken": [
-                f"Reverified {len(refresh['artifacts'])} unchanged governed artifact(s) at current repository HEAD.",
-                "Reran the authoritative exact-state verification profiles.",
-            ],
+            "actions_taken": actions_taken,
             "outputs_created": list(refresh["artifacts"]),
-            "not_done": [
-                "No governed artifact bytes were changed.",
-                "No review, human decision, acceptance, external write, push, merge, or deployment was performed.",
-            ],
+            "not_done": not_done,
             "undo_refs": [],
         },
         evidence_record={
@@ -1370,10 +1409,7 @@ def _refresh_stale_projection(
             "commands": commands,
             "artifacts": list(refresh["artifacts"]),
             "artifact_hashes": list(refresh["artifact_hashes"]),
-            "summary": (
-                f"{len(verification_results)} exact-state verification profile(s) "
-                "passed for unchanged governed artifacts."
-            ),
+            "summary": evidence_summary,
             "freshness": "exact-head",
         },
         head_sha=refresh["head_sha"],
@@ -1405,7 +1441,7 @@ def _refresh_stale_projection(
         "refresh": {
             "previous_head": refresh["proof_head"],
             "current_head": refresh["head_sha"],
-            "artifacts_unchanged": True,
+            **transition,
             "performed_human_authority": False,
         },
         "verification": verification_results,
@@ -1471,7 +1507,7 @@ def _changes_requested_refresh_plan(
         "refresh": {
             "previous_head": refresh["proof_head"],
             "current_head": refresh["head_sha"],
-            "artifacts_unchanged": True,
+            **refresh["artifact_transition"],
             "performed_human_authority": False,
         },
         "steps": [
@@ -1486,10 +1522,7 @@ def _changes_requested_refresh_plan(
             {"step": "proof-refresh", "status": "required"},
             {"step": "review-handoff", "status": "required"},
         ],
-        "message": (
-            "Current outputs can be reverified at the exact current head; "
-            "fresh independent review will still be required."
-        ),
+        "message": _refresh_plan_message(refresh["artifact_transition"]),
     }
 
 
@@ -1682,10 +1715,26 @@ def _stale_projection_refresh_context(
                 "Current governed artifact bytes could not be bound to the exact refresh head."
             ),
         }
+    artifact_transition = _refresh_artifact_transition(
+        workspace_path,
+        Path(root_text),
+        artifacts,
+        evidence.artifact_hashes,
+        artifact_state["artifact_hashes"],
+    )
+    if artifact_transition is None:
+        return {
+            "ok": False,
+            "code": "REFRESH_ARTIFACT_STATE_CHANGED",
+            "message": (
+                "Previous and current governed artifact hashes could not be "
+                "classified safely for exact-head refresh."
+            ),
+        }
     return {
         "ok": True,
         "code": "",
-        "message": "Unchanged governed artifacts may be reverified at current HEAD.",
+        "message": _refresh_plan_message(artifact_transition),
         "workspace_digest": workspace_digest(load_store(workspace_path).data),
         "attempt_id": attempt.id,
         "evidence_id": evidence.id,
@@ -1694,6 +1743,7 @@ def _stale_projection_refresh_context(
         "committed_paths": committed_paths,
         "artifacts": artifacts,
         "artifact_hashes": artifact_state["artifact_hashes"],
+        "artifact_transition": artifact_transition,
         "git_root": root_text,
     }
 
@@ -1832,17 +1882,9 @@ def _non_projection_output_overlap(
     committed_paths: list[str],
     output_targets: list[str],
 ) -> list[str]:
-    try:
-        data_path = workspace_file_path(workspace_path).resolve()
-        relative_data = data_path.relative_to(git_root.resolve()).as_posix()
-    except (OSError, ValueError):
+    projection_paths = _projection_artifact_paths(workspace_path, git_root)
+    if projection_paths is None:
         return sorted(set(committed_paths))
-    base = relative_data.removesuffix("workspace.json")
-    projection_paths = {
-        relative_data,
-        f"{base}.palari/history.jsonl",
-        f"{base}.palari/governance-journal.v1.jsonl",
-    }
     return sorted(
         {
             path
@@ -1850,6 +1892,110 @@ def _non_projection_output_overlap(
             if path not in projection_paths
             and any(path_allowed(path, [target]) for target in output_targets)
         }
+    )
+
+
+def _projection_artifact_paths(
+    workspace_path: Path,
+    git_root: Path,
+) -> set[str] | None:
+    try:
+        data_path = workspace_file_path(workspace_path).resolve()
+        relative_data = data_path.relative_to(git_root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
+    base = relative_data.removesuffix("workspace.json")
+    return {
+        relative_data,
+        f"{base}.palari/history.jsonl",
+        f"{base}.palari/governance-journal.v1.jsonl",
+    }
+
+
+def _refresh_artifact_transition(
+    workspace_path: Path,
+    git_root: Path,
+    artifacts: list[str],
+    previous_hashes: list[dict[str, Any]],
+    current_hashes: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    projection_paths = _projection_artifact_paths(workspace_path, git_root)
+    if projection_paths is None:
+        return None
+
+    def hash_map(items: list[dict[str, Any]]) -> dict[str, str] | None:
+        result: dict[str, str] = {}
+        for item in items:
+            if not isinstance(item, dict):
+                return None
+            path = item.get("path")
+            digest = item.get("sha256")
+            if not isinstance(path, str) or not isinstance(digest, str):
+                return None
+            if path in result or path not in artifacts:
+                return None
+            result[path] = digest
+        return result
+
+    previous = hash_map(previous_hashes)
+    current = hash_map(current_hashes)
+    if previous is None or current is None:
+        return None
+    if set(current) != set(artifacts):
+        return None
+    missing_previous = set(artifacts) - set(previous)
+    if missing_previous - projection_paths:
+        return None
+
+    ordinary_unchanged: list[str] = []
+    projection_unchanged: list[str] = []
+    projection_rebound: list[dict[str, str]] = []
+    for path in artifacts:
+        if path not in projection_paths:
+            if previous[path] != current[path]:
+                return None
+            ordinary_unchanged.append(path)
+            continue
+        previous_digest = previous.get(path, "")
+        if previous_digest and previous_digest == current[path]:
+            projection_unchanged.append(path)
+        else:
+            projection_rebound.append(
+                {
+                    "path": path,
+                    "previous_sha256": previous_digest,
+                    "previous_status": (
+                        "recorded" if previous_digest else "not-recorded"
+                    ),
+                    "current_sha256": current[path],
+                }
+            )
+    proof_projection_paths = sorted(projection_unchanged + [
+        item["path"] for item in projection_rebound
+    ])
+    return {
+        # Compatibility field: true only when every governed artifact is
+        # byte-identical across the proof-head transition.
+        "artifacts_unchanged": not projection_rebound,
+        "ordinary_artifacts_unchanged": sorted(ordinary_unchanged),
+        "projection_artifacts_unchanged": sorted(projection_unchanged),
+        "projection_artifacts_rebound": projection_rebound,
+        "proof_projection_mutates_after_evidence": proof_projection_paths,
+    }
+
+
+def _refresh_plan_message(transition: dict[str, Any]) -> str:
+    projection_paths = transition.get("proof_projection_mutates_after_evidence", [])
+    if projection_paths:
+        return (
+            "Ordinary governed outputs are byte-unchanged; allowlisted self-mutating "
+            "governance projections can be rebound to exact current-HEAD Git bytes. "
+            "Recording refreshed proof will mutate those projection files after the "
+            "evidence head, and fresh independent review will still be required."
+        )
+    return (
+        "Current governed outputs are byte-unchanged and can be reverified at the "
+        "exact current head; fresh independent review will still be required."
     )
 
 

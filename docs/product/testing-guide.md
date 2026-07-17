@@ -88,7 +88,9 @@ The test suite covers:
 - in-place split-workspace migration with stale-proof invalidation
 - coordinated claim/packet/baseline rehash rejection and Git witness history
 - claimless changes-requested proof refresh preview and execution, including
-  self-mutating workspace/history/journal outputs; active-claim, mismatched-review,
+  truthful ordinary-unchanged versus self-mutating-projection rebound status,
+  previous/current projection hashes, and post-evidence projection-mutation
+  disclosure; active-claim, missing ordinary hash, mismatched-review,
   changed-then-restored output (including merge-only changes), dirty-state, and
   exact-history rejection
 - agent-shell denial for human-only and packet-authority commands, dynamic

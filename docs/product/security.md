@@ -40,7 +40,11 @@ Authority rules:
   and compares every raw commit with every parent in the range. Separately governed
   commits may advance repository context, but touching a governed
   non-projection output blocks refresh even if a later commit restores identical
-  bytes. The refreshed proof invalidates prior review and human authority.
+  bytes. Self-mutating projection artifacts may evolve through legitimate
+  governance transactions, but refresh reports their previous/current exact Git
+  hashes as rebound rather than calling them byte-unchanged. It also discloses
+  that recording refreshed proof mutates those projections after the evidence
+  head. The refreshed proof invalidates prior review and human authority.
 - `agent advance` applies that same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
   argument vectors rather than workspace prose. Run records bind the head,

@@ -63,10 +63,14 @@ The v1 loop is:
     records the review or human decision itself. Later Git commits preserve proof
     currency only when every committed and dirty tracked path is governance
     projection data; any substantive repository change fails closed.
-    When a bound changes-requested review identifies stale proof whose governed
-    outputs are unchanged, `--refresh-verification --dry-run` previews a separate
-    claimless refresh and the non-dry-run command reruns verification, records new
-    exact-head proof, and stops for fresh independent review. Separately governed
+    When a bound changes-requested review identifies stale proof whose ordinary
+    governed outputs are byte-unchanged, `--refresh-verification --dry-run`
+    previews a separate claimless refresh and the non-dry-run command reruns
+    verification, records new exact-head proof, and stops for fresh independent
+    review. Self-mutating workspace, history, and journal artifacts are not
+    described as immutable: structured output lists ordinary unchanged paths,
+    projection paths rebound with previous/current hashes, and projection paths
+    that proof recording will mutate after the evidence head. Separately governed
     descendant commits are context, not claimed work. Every commit is compared
     with every parent, so a touched non-projection output is rejected even when
     its bytes were later restored; an active claim,

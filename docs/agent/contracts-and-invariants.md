@@ -106,13 +106,17 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   or human decision, and cycle, no-progress, or iteration-limit states fail
   closed.
 - Explicit exact-head proof refresh is claimless. A current changes-requested
-  review may route unchanged outputs through that transaction after separately
-  governed descendant commits; dry-run previews it without verification or
-  mutation. Every raw commit is compared with every parent, with Git replacement
-  objects disabled. Any non-projection output touch, even if later restored,
-  active claim, mismatched review head, dirty tracked state, or divergent history
-  fails closed. Refresh creates new attempt, receipt, and evidence only; prior
-  review and human authority never carry forward.
+  review may route byte-unchanged ordinary outputs through that transaction after
+  separately governed descendant commits; dry-run previews it without
+  verification or mutation. Self-mutating workspace, history, and journal
+  projections are classified separately: their previous and current exact Git
+  hashes are reported as unchanged or rebound, and the receipt discloses that
+  recording proof mutates those projections after the evidence head. Every raw
+  commit is compared with every parent, with Git replacement objects disabled.
+  Any non-projection output touch, even if later restored, active claim,
+  mismatched review head, dirty tracked state, or divergent history fails closed.
+  Refresh creates new attempt, receipt, and evidence only; prior review and human
+  authority never carry forward.
 - Blockers expose stable resolver metadata. Current authority followed only by
   mechanical bookkeeping is automatic reconciliation; terminal work is closed,
   not a blocker; external, review, and human boundaries remain distinct.

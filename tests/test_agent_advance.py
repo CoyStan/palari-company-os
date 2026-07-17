@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_advance import (
     _completed_projection,
     _git_commit_timestamp,
+    _refresh_artifact_transition,
     agent_advance,
     agent_advance_dry_run,
     plan_advance,
@@ -958,6 +959,49 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
         ).strip()
 
+        planned = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+        self.assertEqual(planned["status"], "planned", planned)
+        self.assertFalse(planned["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            planned["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        expected_projections = [
+            ".palari/governance-journal.v1.jsonl",
+            ".palari/history.jsonl",
+            "workspace.json",
+        ]
+        self.assertEqual(
+            [
+                item["path"]
+                for item in planned["refresh"]["projection_artifacts_rebound"]
+            ],
+            expected_projections,
+        )
+        rebound_by_path = {
+            item["path"]: item
+            for item in planned["refresh"]["projection_artifacts_rebound"]
+        }
+        self.assertEqual(
+            rebound_by_path[".palari/history.jsonl"]["previous_status"],
+            "not-recorded",
+        )
+        self.assertEqual(
+            rebound_by_path["workspace.json"]["previous_status"],
+            "not-recorded",
+        )
+        self.assertEqual(
+            planned["refresh"]["proof_projection_mutates_after_evidence"],
+            expected_projections,
+        )
+        self.assertIn("mutate those projection files after the evidence head", planned["message"])
+
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
             side_effect=self._passing_attestation,
@@ -971,6 +1015,17 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             )
 
         self.assertEqual(result["status"], "review-required", result)
+        self.assertFalse(result["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            result["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        self.assertEqual(
+            [
+                item["path"]
+                for item in result["refresh"]["projection_artifacts_rebound"]
+            ],
+            expected_projections,
+        )
         refreshed = Ws.load(self.temp_dir)
         refreshed_work = refreshed.work_item(self.work_id)
         assert refreshed_work is not None and refreshed_work.current_attempt
@@ -992,6 +1047,45 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 ".palari/governance-journal.v1.jsonl",
             },
         )
+        receipt = next(
+            item
+            for item in refreshed.receipts
+            if item.attempt_id == refreshed_attempt.id
+        )
+        narration = " ".join(receipt.actions_taken + receipt.not_done)
+        self.assertIn("self-mutating governance projection", narration)
+        self.assertIn("after the evidence head", narration)
+        self.assertNotIn("unchanged governed artifact", narration)
+        self.assertIn("were rebound to exact current-HEAD Git bytes", evidence.summary)
+        self.assertIn("after the evidence head", evidence.summary)
+
+    def test_refresh_transition_rejects_missing_ordinary_artifact_hash(self) -> None:
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            ["README.md", "workspace.json"],
+            [
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "1" * 64,
+                    "status": "present",
+                }
+            ],
+            [
+                {
+                    "path": "README.md",
+                    "sha256": "sha256:" + "2" * 64,
+                    "status": "present",
+                },
+                {
+                    "path": "workspace.json",
+                    "sha256": "sha256:" + "3" * 64,
+                    "status": "present",
+                },
+            ],
+        )
+
+        self.assertIsNone(transition)
 
     def test_changes_requested_refresh_rejects_mismatched_review_head(self) -> None:
         with patch(
@@ -1588,6 +1682,15 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(refreshed["status"], "review-required", refreshed)
         self.assertEqual(runner.call_count, 3)
         self.assertTrue(refreshed["refresh"]["artifacts_unchanged"])
+        self.assertEqual(
+            refreshed["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+        )
+        self.assertEqual(
+            refreshed["refresh"]["projection_artifacts_rebound"], []
+        )
+        self.assertEqual(
+            refreshed["refresh"]["proof_projection_mutates_after_evidence"], []
+        )
         self.assertFalse(refreshed["refresh"]["performed_human_authority"])
         self.assertEqual(refreshed["refresh"]["previous_head"], previous_head)
         self.assertEqual(refreshed["refresh"]["current_head"], current_head)
