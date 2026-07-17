@@ -97,6 +97,27 @@ Work item: `WORK-437003B620774C2E99C44668EE402C26`
   journal-performance decision derived fully verified `completed` state.
   Exact committed proof: `466f672`.
 
+- [x] **Single-scan approval handoff.** Outcome: one eligible human-approval
+  handoff shares a filesystem-witnessed journal-verification context through
+  evidence, review binding, Approval Pack construction, and dependency
+  projection, so the exact journal is scanned once without weakening any
+  stale, corrupt, pending, divergent, dependency, or presentation rejection.
+  Objective evidence: an exact journal-read-count regression, unchanged pack
+  and presentation digests, witness-invalidation tests, and three real dogfood
+  timings below ten seconds. The complete correctness gate must pass; its
+  unrelated dashboard timing is disclosed separately rather than hidden.
+  Verification: focused agent-packet, Approval Pack, journal, and read-model
+  tests; `./scripts/verify.sh`; `./scripts/install_smoke.sh`; and exact-head
+  independent review. Status: complete. The focused suites passed 23 Approval
+  Pack, 40 workspace-read-model, 17 journal, and 83 agent-packet tests. The
+  dogfood handoff used one journal read and completed in 6.25, 6.07, and 5.99
+  seconds, down from 52.55 seconds. The complete gate passed all 799 tests in
+  93.75 seconds. This exceeds the earlier 86.77-second performance target;
+  profiling attributes the remaining cost primarily to repeated dashboard
+  projections, which the founder explicitly deferred on 2026-07-17 to finish
+  this bounded task without weakening correctness. Exact committed proof:
+  pending candidate commit.
+
 - [ ] **Repair verification and independent acceptance.** Outcome: affected,
   complete, installed-package, documentation, and exact-head independent
   review gates pass before the R4 repair is accepted. Objective evidence:

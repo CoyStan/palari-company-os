@@ -18,6 +18,7 @@ from .governance_binding import (
     work_contract_hash,
 )
 from .governance_journal import (
+    JournalVerificationContext,
     MutationMetadata,
     pending_journal_prepare,
     recover_pending,
@@ -54,9 +55,11 @@ def build_approval_inbox(
     raw_data: dict[str, Any],
     *,
     selected_work_ids: Iterable[str] = (),
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     """Build deterministic, immutable pack manifests from current workspace truth."""
 
+    operation_journal = journal_context or JournalVerificationContext()
     selected = tuple(sorted(set(selected_work_ids)))
     known = {work.id: work for work in workspace.work_items}
     missing = [work_id for work_id in selected if work_id not in known]
@@ -73,14 +76,17 @@ def build_approval_inbox(
             and current_attempt_for_work(work, workspace.attempts) is not None
         ]
 
-    members = [_work_member(workspace, work) for work in candidates]
+    members = [
+        _work_member(workspace, work, journal_context=operation_journal)
+        for work in candidates
+    ]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for member in members:
         policy = member["batch_policy"]
         group = "batchable-local" if policy["batchable"] else str(policy["class"])
         grouped.setdefault(group, []).append(member)
 
-    journal = verify_journal(workspace.path / "workspace.json", raw_data)
+    journal = operation_journal.verify(workspace.path)
     if not journal.get("chain_valid") or journal.get("pending"):
         raise WorkspaceError(
             "approval inbox requires a verified, committed governance journal checkpoint"
@@ -98,7 +104,14 @@ def build_approval_inbox(
         _pack_manifest(base, group, grouped[group])
         for group in sorted(grouped)
     ]
-    evaluated = [evaluate_approval_pack(workspace, pack) for pack in packs]
+    evaluated = [
+        evaluate_approval_pack(
+            workspace,
+            pack,
+            journal_context=operation_journal,
+        )
+        for pack in packs
+    ]
     presentations = [
         build_approval_presentation(workspace, pack, report)
         for pack, report in zip(packs, evaluated, strict=True)
@@ -452,14 +465,24 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
                 raise WorkspaceError("approval pack execution order violates a dependency")
 
 
-def evaluate_approval_pack(workspace: Workspace, pack: dict[str, Any]) -> dict[str, Any]:
+def evaluate_approval_pack(
+    workspace: Workspace,
+    pack: dict[str, Any],
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
     validate_pack_manifest(pack)
+    operation_journal = journal_context or JournalVerificationContext()
     work_by_id = {work.id: work for work in workspace.work_items}
     current_members: dict[str, dict[str, Any]] = {}
     for member in pack["members"]:
         work = work_by_id.get(member["id"])
         if work is not None:
-            current_members[member["id"]] = _work_member(workspace, work)
+            current_members[member["id"]] = _work_member(
+                workspace,
+                work,
+                journal_context=operation_journal,
+            )
 
     result_by_id: dict[str, dict[str, Any]] = {}
     for member in pack["members"]:
@@ -1042,6 +1065,7 @@ def _work_member(
     work: Any,
     *,
     include_dependency_bindings: bool = True,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     attempt = current_attempt_for_work(work, workspace.attempts)
     receipt = latest_for_work(workspace.receipts, work.id)
@@ -1071,6 +1095,7 @@ def _work_member(
                 workspace,
                 evidence.id,
                 require_output_coverage=True,
+                journal_context=journal_context,
             )
         except WorkspaceError as exc:
             errors.append(f"evidence validation failed: {exc}")
@@ -1088,6 +1113,7 @@ def _work_member(
                     workspace,
                     review,
                     require_output_coverage=True,
+                    journal_context=journal_context,
                 )
             )
         except WorkspaceError as exc:
@@ -1153,7 +1179,11 @@ def _work_member(
         "outputs": artifacts,
         "dependencies": sorted(work.dependency_ids),
         "dependency_bindings": (
-            _dependency_bindings(workspace, work)
+            _dependency_bindings(
+                workspace,
+                work,
+                journal_context=journal_context,
+            )
             if include_dependency_bindings
             else []
         ),
@@ -1251,7 +1281,12 @@ def _topological_order(members: list[dict[str, Any]]) -> list[str]:
     return order
 
 
-def _dependency_bindings(workspace: Workspace, work: Any) -> list[dict[str, str]]:
+def _dependency_bindings(
+    workspace: Workspace,
+    work: Any,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> list[dict[str, str]]:
     return [
         {
             "id": dependency_id,
@@ -1259,6 +1294,7 @@ def _dependency_bindings(workspace: Workspace, work: Any) -> list[dict[str, str]
                 workspace,
                 dependency_id,
                 ancestors=frozenset({work.id}),
+                journal_context=journal_context,
             ),
         }
         for dependency_id in sorted(work.dependency_ids)
@@ -1270,6 +1306,7 @@ def _dependency_state_digest(
     work_id: str,
     *,
     ancestors: frozenset[str],
+    journal_context: JournalVerificationContext | None = None,
 ) -> str:
     if work_id in ancestors:
         return canonical_sha256({"id": work_id, "cycle": True})
@@ -1280,6 +1317,7 @@ def _dependency_state_digest(
         workspace,
         work,
         include_dependency_bindings=False,
+        journal_context=journal_context,
     )
     descendants = [
         {
@@ -1288,6 +1326,7 @@ def _dependency_state_digest(
                 workspace,
                 dependency_id,
                 ancestors=ancestors | {work_id},
+                journal_context=journal_context,
             ),
         }
         for dependency_id in sorted(work.dependency_ids)

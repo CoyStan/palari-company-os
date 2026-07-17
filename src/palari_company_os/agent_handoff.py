@@ -6,6 +6,7 @@ from typing import Any
 
 from .agent_finish import build_agent_finish
 from .decision_guides import build_decision_guide
+from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .review_guides import build_review_guide
 from .workspace import Workspace, WorkspaceError
@@ -17,8 +18,17 @@ def build_agent_handoff(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
-    finish = build_agent_finish(workspace, work_id, palari_id, mode)
+    operation_journal = journal_context or JournalVerificationContext()
+    finish = build_agent_finish(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        journal_context=operation_journal,
+    )
     guidance_codes = {item.get("code", "") for item in finish.get("handoff_guidance", [])}
     has_linked_decision = _has_linked_decision(workspace, work_id)
     decision_requested = "DECISION_HANDOFF" in guidance_codes or (
@@ -32,7 +42,13 @@ def build_agent_handoff(
     )
     decision_handoff = _decision_handoff(workspace, work_id) if decision_requested else None
     human_approval_handoff = (
-        _human_approval_handoff(workspace, work_id) if human_approval_requested else None
+        _human_approval_handoff(
+            workspace,
+            work_id,
+            journal_context=operation_journal,
+        )
+        if human_approval_requested
+        else None
     )
     supplemental_review_required = False
     if (
@@ -199,8 +215,13 @@ def _has_linked_decision(workspace: Workspace, work_id: str) -> bool:
     )
 
 
-def _human_approval_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
-    payload = detail(workspace, work_id)
+def _human_approval_handoff(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
+    payload = detail(workspace, work_id, journal_context=journal_context)
     work = payload["work_item"]
     evidence = payload.get("evidence") or {}
     review = payload.get("review") or {}
@@ -216,7 +237,11 @@ def _human_approval_handoff(workspace: Workspace, work_id: str) -> dict[str, Any
         excluded_actors=excluded_actors,
     )
     reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or _attempt_head(attempt)
-    approval_pack = _approval_pack_handoff(workspace, work_id)
+    approval_pack = _approval_pack_handoff(
+        workspace,
+        work_id,
+        journal_context=journal_context,
+    )
     command = (
         str(approval_pack["inbox_command"])
         if approval_pack.get("available")
@@ -462,10 +487,19 @@ def _approval_candidates(
     return candidates
 
 
-def _approval_pack_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
+def _approval_pack_handoff(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    journal_context: JournalVerificationContext | None = None,
+) -> dict[str, Any]:
     inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
     try:
-        inbox = approval_inbox(workspace, selected_work_ids=(work_id,))
+        inbox = approval_inbox(
+            workspace,
+            selected_work_ids=(work_id,),
+            journal_context=journal_context,
+        )
     except WorkspaceError as exc:
         return {
             "available": False,

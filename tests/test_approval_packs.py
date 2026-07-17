@@ -10,6 +10,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,12 +31,18 @@ from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
+    verify_evidence,
 )
 from palari_company_os.governance_binding import (
     current_review_binding,
+    current_review_binding_errors,
     review_proof_hash,
 )
-from palari_company_os.governance_journal import verify_journal
+from palari_company_os.governance_journal import (
+    JournalVerificationContext,
+    verify_journal,
+    verify_workspace_journal,
+)
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -103,6 +110,102 @@ def apply_pack_decision(
 
 
 class ApprovalPackTests(unittest.TestCase):
+    def test_injected_journal_context_preserves_output_and_reuses_one_verification(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=2,
+                dependencies={"WORK-002": ["WORK-001"]},
+            )
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            baseline = build_approval_inbox(workspace, store.data)
+            baseline_evaluation = evaluate_approval_pack(
+                workspace,
+                baseline["packs"][0],
+            )
+            context = JournalVerificationContext()
+
+            with (
+                patch(
+                    "palari_company_os.governance_journal.verify_workspace_journal",
+                    wraps=verify_workspace_journal,
+                ) as verify_journal_once,
+                patch(
+                    "palari_company_os.approval_packs.verify_evidence",
+                    wraps=verify_evidence,
+                ) as evidence_checks,
+                patch(
+                    "palari_company_os.approval_packs.current_review_binding_errors",
+                    wraps=current_review_binding_errors,
+                ) as review_checks,
+            ):
+                injected = build_approval_inbox(
+                    workspace,
+                    store.data,
+                    journal_context=context,
+                )
+                evaluated = evaluate_approval_pack(
+                    workspace,
+                    injected["packs"][0],
+                    journal_context=context,
+                )
+
+        self.assertEqual(injected, baseline)
+        self.assertEqual(evaluated, baseline_evaluation)
+        self.assertEqual(verify_journal_once.call_count, 1)
+        self.assertGreater(len(evidence_checks.call_args_list), 2)
+        self.assertGreater(len(review_checks.call_args_list), 2)
+        self.assertTrue(
+            all(
+                call.kwargs["journal_context"] is context
+                for call in evidence_checks.call_args_list
+            )
+        )
+        self.assertTrue(
+            all(
+                call.kwargs["journal_context"] is context
+                for call in review_checks.call_args_list
+            )
+        )
+
+    def test_injected_journal_context_reverifies_changed_witness_and_fails_closed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            context = JournalVerificationContext()
+            journal_path = data_path.parent / ".palari" / "governance-journal.v1.jsonl"
+
+            with patch(
+                "palari_company_os.governance_journal.verify_workspace_journal",
+                wraps=verify_workspace_journal,
+            ) as verify:
+                build_approval_inbox(
+                    workspace,
+                    store.data,
+                    journal_context=context,
+                )
+                journal_path.write_text(
+                    journal_path.read_text(encoding="utf-8") + "{}\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "verified, committed governance journal checkpoint",
+                ):
+                    build_approval_inbox(
+                        workspace,
+                        store.data,
+                        journal_context=context,
+                    )
+
+        self.assertEqual(verify.call_count, 2)
+
     def test_interaction_measurement_is_one_session_and_action_for_1_10_100(self) -> None:
         for count in (1, 10, 100):
             with self.subTest(count=count), tempfile.TemporaryDirectory() as directory:

@@ -34,7 +34,7 @@ from palari_company_os.agent_runtime import release_agent, start_agent
 from palari_company_os.evidence_manifest import evidence_manifest_hash
 from palari_company_os.governance_binding import current_review_binding, review_proof_hash
 from palari_company_os.onramp import quick_add_work
-from palari_company_os.read_models import queue_items
+from palari_company_os.read_models import detail, queue_items
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -1353,6 +1353,89 @@ class AgentPacketTests(unittest.TestCase):
         self.assertNotIn("'palari human-decision record'", commands)
         self.assertIn("--decision accepted", commands)
         self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
+
+    def test_agent_handoff_threads_one_journal_context_through_human_approval(
+        self,
+    ) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        journal_context = governance_journal.JournalVerificationContext()
+        eligible_inbox = {
+            "individual_items": [
+                {"id": "WORK-0001", "state": "eligible", "reasons": []}
+            ],
+            "packs": [
+                {
+                    "pack_id": "PACK-TEST",
+                    "pack_digest": "sha256:pack-test",
+                }
+            ],
+            "approval_commands": [
+                {
+                    "presentation_digest": "sha256:presentation-test",
+                    "approve_eligible": (
+                        "palari human-decision pack --pack-digest sha256:pack-test "
+                        "--presentation-digest sha256:presentation-test "
+                        "--human-id HUMAN-ID --approve-eligible "
+                        "--pack-member WORK-0001 --json"
+                    ),
+                }
+            ],
+        }
+
+        with (
+            patch(
+                "palari_company_os.agent_handoff.JournalVerificationContext",
+                return_value=journal_context,
+            ) as context_factory,
+            patch(
+                "palari_company_os.agent_handoff.build_agent_finish",
+                wraps=build_agent_finish,
+            ) as finish,
+            patch(
+                "palari_company_os.agent_handoff.detail",
+                wraps=detail,
+            ) as handoff_detail,
+            patch(
+                "palari_company_os.agent_handoff.approval_inbox",
+                return_value=eligible_inbox,
+            ) as approval_inbox,
+        ):
+            result = build_agent_handoff(
+                workspace,
+                "WORK-0001",
+                "PALARI-SOFIA",
+            )
+
+        context_factory.assert_called_once_with()
+        self.assertIs(finish.call_args.kwargs["journal_context"], journal_context)
+        self.assertIs(
+            handoff_detail.call_args.kwargs["journal_context"],
+            journal_context,
+        )
+        self.assertIs(
+            approval_inbox.call_args.kwargs["journal_context"],
+            journal_context,
+        )
+        self.assertEqual(result["status"], "handoff-ready")
+        self.assertEqual(result["handoff_types"], ["human-approval"])
+        approval = result["human_approval_handoff"]["approval_pack"]
+        self.assertTrue(approval["available"])
+        self.assertEqual(approval["item_state"], "eligible")
+        self.assertEqual(
+            approval["presentation_digest"],
+            "sha256:presentation-test",
+        )
+        self.assertFalse(result["human_action_boundary"]["agent_may_execute"])
+        self.assertTrue(result["human_action_commands"])
+        self.assertTrue(
+            all(
+                item["type"] == "approval-pack"
+                for item in result["human_action_commands"]
+            )
+        )
+        command = result["human_action_commands"][0]["command"]
+        self.assertIn("--presentation-digest sha256:presentation-test", command)
+        self.assertNotIn("--human-id HUMAN-ID", command)
 
     def test_emitted_agent_safe_commands_for_human_approval_work_execute(self) -> None:
         with self.temp_workspace_file(WORKSPACE) as workspace_file:

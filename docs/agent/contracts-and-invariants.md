@@ -26,6 +26,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   workspace SHA-256 bindings once; filesystem identity, size, modification,
   and change-time witnesses must then remain stable. A changed witness forces
   fresh verification; persistent advisory caches never become authority.
+  Nested queue, handoff, Approval Pack, evidence, review-binding, and dependency
+  projection calls must share that operation context rather than replaying the
+  same unchanged journal independently.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   Schema migration preserves record placement, detects concurrent changes to

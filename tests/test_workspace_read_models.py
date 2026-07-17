@@ -8,11 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.maintainer import status as maintainer_status
+from palari_company_os.governance_journal import JournalVerificationContext
 from palari_company_os.read_models import (
     active_parallel_work,
     coordination_warnings,
@@ -21,6 +23,7 @@ from palari_company_os.read_models import (
 )
 from palari_company_os.scope import check_scope
 from palari_company_os.workspace import Workspace
+from palari_company_os.workspace_read_models import approval_inbox
 
 
 WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
@@ -29,6 +32,28 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 
 class WorkspaceReadModelTests(unittest.TestCase):
+    def test_approval_inbox_forwards_caller_owned_journal_context(self) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        context = JournalVerificationContext()
+        expected = {"schema_version": "test.approval-inbox"}
+
+        with patch(
+            "palari_company_os.workspace_read_models.build_approval_inbox",
+            return_value=expected,
+        ) as build:
+            result = approval_inbox(
+                workspace,
+                selected_work_ids=("WORK-0001",),
+                journal_context=context,
+            )
+
+        self.assertEqual(result, expected)
+        self.assertIs(build.call_args.kwargs["journal_context"], context)
+        self.assertEqual(
+            build.call_args.kwargs["selected_work_ids"],
+            ("WORK-0001",),
+        )
+
     def test_example_workspace_loads(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         self.assertEqual(workspace.name, "Acme Company OS Example")

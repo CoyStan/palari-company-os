@@ -3919,7 +3919,8 @@
         "Complete verification is at most 86.77 seconds and install smoke passes"
       ],
       "required_approval_count": 0,
-      "parent_work_item_id": "WORK-437003B620774C2E99C44668EE402C26"
+      "parent_work_item_id": "WORK-437003B620774C2E99C44668EE402C26",
+      "current_attempt": "ATTEMPT-7B5E9C2A6FAD4E87B16943F8C7D0A251-HANDOFF"
     }
   ],
   "attempts": [

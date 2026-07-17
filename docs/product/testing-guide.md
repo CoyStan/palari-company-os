@@ -38,13 +38,19 @@ requires the complete profile.
 Read-model performance checks should time the real CLI against the dogfood
 workspace. `agent next --json` derives both Palari queues in one operation and
 must not rescan an unchanged governance journal per work item or per Palari.
+An eligible human-approval `agent handoff` must likewise reuse one verification
+through nested evidence, review-binding, Approval Pack, and dependency
+projection calls rather than replaying the journal for each member.
 The request-local reuse path is covered by same-size, same-mtime tamper tests;
 changed bytes force a fresh fail-closed verification. A representative timing
-command is:
+pair is:
 
 ```bash
 /usr/bin/time -p ./bin/palari \
   --workspace workspaces/palari-company-os agent next --json >/dev/null
+/usr/bin/time -p ./bin/palari \
+  --workspace workspaces/palari-company-os \
+  agent handoff WORK-ID --as PALARI-ID --json >/dev/null
 ```
 
 The package install smoke command is:
