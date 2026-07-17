@@ -3750,10 +3750,17 @@
       ],
       "output_targets": [
         "src/palari_company_os/read_models.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/agent_handoff.py",
         "tests/test_agent_packets.py",
         "tests/test_dashboard.py",
         "tests/test_decision_guides.py",
         "tests/test_workspace_read_models.py",
+        "tests/test_governance_journal.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/testing-guide.md",
         "workspaces/palari-company-os/workspace.json",
         "workspaces/palari-company-os/.palari/history.jsonl",
         "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
