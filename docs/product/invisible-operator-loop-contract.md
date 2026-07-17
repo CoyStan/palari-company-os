@@ -33,7 +33,7 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
 | Journey | Before | After | Judgment that must remain |
 | --- | ---: | ---: | --- |
 | Adopt a repository | 1 (`init`) | 1 (`init`) | none |
-| Join and claim safe work | 2–3 | 1 (`start --next`) | none |
+| Claim safe work as a known Palari | 2–3 | 1 (`start --next`) | identity selection remains explicit |
 | Select and start ready work | 2–3 | 1 (`start --next`) | none |
 | Complete R2+ bounded work | 5–6 after editing | 1 (`advance`) | none until review |
 | Independent review | 2 | 2 | one independent verdict |
@@ -42,6 +42,12 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
 | Diagnose a blocker | 1, 24 lines/five alternatives | 1, at most 9 lines/one action | none |
 | Enable legacy journal continuity | 1 | 1 explicit checkpoint | explicit operator opt-in |
 | Complete ten unrelated R2 items | about 80–90 before review | 20, parallel-safe | one review per item |
+
+The one-invocation claim count assumes the session already knows a Palari ID
+declared in the workspace. `start --next` does not discover a real-world actor,
+auto-assign identity, elevate authority, or decide which Palari a session should
+impersonate. Initialization or an operator supplies that identity explicitly;
+the command only selects and claims eligible work for it.
 
 ## Required Outcomes
 
@@ -58,9 +64,11 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     (`agent_directive.py`, `agent_operation.py`, and directive/read-model parity tests).
 
 - [x] **One entry action**
-  - Required outcome: `palari agent start --next --as PALARI-ID` selects exactly
-    one safe item, compiles its packet and portable contract, and claims it in
-    one idempotent command. Explicit `start WORK-ID` remains compatible.
+  - Required outcome: given an already-declared Palari identity, `palari agent
+    start --next --as PALARI-ID` selects exactly one safe item, compiles its
+    packet and portable contract, and claims it in one idempotent command. It
+    does not assign identity or authority. Explicit `start WORK-ID` remains
+    compatible.
   - Objective evidence: ready, no-ready, ambiguous, review-only, foreign-claim,
     repeated, and parallel-unrelated interaction tests.
   - Verification: agent runtime/packet/CLI tests and golden terminal transcript.
@@ -97,7 +105,7 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     `591702bbe4ec19c18fc06275682a58b19a3137f7` keeps durable parking inside
     compatible `agent release` instead of adding a 155th public command.
 
-- [x] **One concise human surface and one exact action**
+- [ ] **One concise human surface and one exact action**
   - Required outcome: default inbox/handoff output states what is happening,
     whether it is safe, who owns the next judgment, and exactly one bound action.
     Explain/JSON views retain every digest and proof detail. Existing one-action
@@ -106,9 +114,12 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
     non-batchable, changed evidence, and partial quorum tests; no autonomous
     review or human decision is introduced.
   - Verification: approval pack/presentation/read-model interaction tests.
-  - Current status: completed.
-  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
-    approval inbox default output is eight lines and retains complete JSON proof.
+  - Current status: in progress. The approval inbox is eight lines; the current
+    repair candidate makes every review, decision, approval, blocked, and
+    terminal agent handoff seven lines with one read-only next inspection.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
+    proves the approval-inbox surface. Exact committed proof for the handoff
+    repair and its fresh review is pending the final candidate commit.
 
 - [x] **Activation and legacy continuity stay one command**
   - Required outcome: new repository initialization activates the operating
@@ -121,17 +132,20 @@ Counts are Palari invocations, excluding editing, tests, and Git commands.
   - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
     onramp and parking tests prove explicit legacy checkpoint behavior.
 
-- [x] **Progressive disclosure and shared diagnostics**
+- [ ] **Progressive disclosure and shared diagnostics**
   - Required outcome: the default blocked view fits within 12 lines and exposes
     exactly state, safety, owner, explanation, and one next action. JSON and
     explicit detail retain the complete current proof and alternatives.
   - Objective evidence: text/JSON semantic-parity snapshots for ready, blocked,
     stale, review, human, and completed states.
   - Verification: CLI output, public-surface, and docs tests.
-  - Current status: completed.
-  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
-    doctor is at most nine lines, durable release five, start-next six, and
-    approval inbox eight; JSON remains complete.
+  - Current status: in progress. Default handoff output is repaired in the
+    current candidate; focused state/owner/action and JSON-parity tests remain
+    to be committed and independently reviewed.
+  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
+    proves doctor at most nine lines, durable release five, start-next six, and
+    approval inbox eight. Exact handoff proof is pending the final candidate
+    commit.
 
 - [x] **Performance follows the interaction**
   - Required outcome: small-workspace reads remain below 0.5-second median;

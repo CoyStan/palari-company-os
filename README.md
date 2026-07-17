@@ -57,13 +57,22 @@ To adopt it in your own repo, create the local contract, add bounded work, and
 let any agent claim the next safe item:
 
 ```bash
-palari init
-palari work add "Clean up launch notes" --write docs/notes.md
-palari agent start --next --as PALARI-CLAUDE --json
+palari init --palari Agent --json
+palari work add "Clean up launch notes" --write docs/notes.md --json
+palari agent start --next --as PALARI-AGENT --json
 ```
 
-`palari claude install` is an optional Claude Code enforcement adapter. The
-core packet, claim, proof, review, and human-decision flow is provider-neutral.
+Use the declared identity returned by `init` (`PALARI-AGENT` for the command
+above), then use the opaque work ID returned by `start` after doing and
+committing the bounded work:
+
+```bash
+palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
+```
+
+Do not infer a sequential work ID. `palari claude install` is an optional
+Claude Code enforcement adapter; the core packet, claim, proof, review, and
+human-decision flow is provider-neutral.
 
 Use legacy `--write PATH` when the output must exist. When final mutation type
 matters, declare it exactly and do not mix the forms:

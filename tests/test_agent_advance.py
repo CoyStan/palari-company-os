@@ -718,10 +718,179 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertFalse(fake_report["artifact_hashes_ok"])
         self.assertFalse(stale_report["artifact_hashes_ok"])
+        self.assertFalse(stale_report["base_ref_binding_ok"])
+        self.assertIn(
+            "EVIDENCE_BASE_REF_MISMATCH",
+            {
+                item["code"]
+                for item in stale_report["path_intent_verification"]["errors"]
+            },
+        )
         self.assertEqual(
             stale_report["computed_artifact_hashes"][0]["status"],
             "invalid-deletion",
         )
+
+    def test_delete_evidence_rejects_orphan_candidate_history(self) -> None:
+        self._restart_with_path_intent("delete")
+        (self.temp_dir / "README.md").unlink()
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "delete bounded output"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        raw = deepcopy(load_store(self.temp_dir).data)
+        evidence = next(
+            item for item in raw["evidence_runs"] if item["work_item_id"] == self.work_id
+        )
+        tree = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{evidence['head_sha']}^{{tree}}"],
+            text=True,
+        ).strip()
+        orphan = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit-tree", tree],
+            check=True,
+            input="orphan candidate\n",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        evidence["head_sha"] = orphan
+        evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+        attempt = next(
+            item for item in raw["attempts"] if item["id"] == evidence["attempt_id"]
+        )
+        if attempt.get("head_sha"):
+            attempt["head_sha"] = orphan
+
+        report = verify_evidence(
+            Ws.from_raw(raw, self.temp_dir),
+            evidence["id"],
+            require_output_coverage=True,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["path_intents_ok"])
+        self.assertIn(
+            "PATH_INTENT_GIT_NON_ANCESTOR",
+            {
+                item["code"]
+                for item in report["path_intent_verification"]["errors"]
+            },
+        )
+        self.assertEqual(
+            report["computed_artifact_hashes"][0]["status"],
+            "invalid-deletion",
+        )
+
+    def test_authoritative_evidence_rejects_create_and_modify_mismatch(self) -> None:
+        self._restart_with_path_intent("modify")
+        (self.temp_dir / "README.md").write_text("modified once\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "modify bounded output"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(result["status"], "review-required", result)
+        raw = deepcopy(load_store(self.temp_dir).data)
+        evidence = next(
+            item for item in raw["evidence_runs"] if item["work_item_id"] == self.work_id
+        )
+        attempt = next(
+            item for item in raw["attempts"] if item["id"] == evidence["attempt_id"]
+        )
+
+        mislabeled_create = deepcopy(raw)
+        mislabeled_work = next(
+            item
+            for item in mislabeled_create["work_items"]
+            if item["id"] == self.work_id
+        )
+        mislabeled_work["path_intents"] = [
+            {"path": "README.md", "intent": "create"}
+        ]
+        create_report = verify_evidence(
+            Ws.from_raw(mislabeled_create, self.temp_dir),
+            evidence["id"],
+            require_output_coverage=True,
+        )
+
+        unchanged_modify = deepcopy(raw)
+        unchanged_evidence = next(
+            item
+            for item in unchanged_modify["evidence_runs"]
+            if item["id"] == evidence["id"]
+        )
+        unchanged_attempt = next(
+            item
+            for item in unchanged_modify["attempts"]
+            if item["id"] == evidence["attempt_id"]
+        )
+        base_sha = attempt["base_sha"]
+        base_tree = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", f"{base_sha}^{{tree}}"],
+            text=True,
+        ).strip()
+        unchanged_head = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "commit-tree",
+                base_tree,
+                "-p",
+                base_sha,
+            ],
+            check=True,
+            input="unchanged candidate\n",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        unchanged_evidence["head_sha"] = unchanged_head
+        unchanged_evidence["manifest_hash"] = evidence_manifest_hash(unchanged_evidence)
+        if unchanged_attempt.get("head_sha"):
+            unchanged_attempt["head_sha"] = unchanged_head
+        modify_report = verify_evidence(
+            Ws.from_raw(unchanged_modify, self.temp_dir),
+            evidence["id"],
+            require_output_coverage=True,
+        )
+
+        for intent, report in (("create", create_report), ("modify", modify_report)):
+            with self.subTest(intent=intent):
+                self.assertFalse(report["ok"])
+                self.assertFalse(report["path_intents_ok"])
+                self.assertIn(
+                    "PATH_INTENT_MISMATCH",
+                    {
+                        item["code"]
+                        for item in report["path_intent_verification"]["errors"]
+                    },
+                )
+                self.assertEqual(
+                    report["computed_artifact_hashes"][0]["status"],
+                    f"invalid-{intent}",
+                )
 
     def test_delete_reappearing_after_reconciliation_blocks_terminalization(self) -> None:
         self._restart_with_path_intent("delete")

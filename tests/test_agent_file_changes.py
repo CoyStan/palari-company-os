@@ -191,10 +191,19 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
             work = SimpleNamespace(
                 path_intents=[{"path": "obsolete.txt", "intent": "delete"}]
             )
+            attempt = SimpleNamespace(
+                id="ATTEMPT-1",
+                work_item_id="WORK-1",
+                base_sha=base_head,
+                head_sha=candidate_head,
+                workspace_path=str(root),
+                allowed_paths=["obsolete.txt"],
+                forbidden_paths=[],
+            )
             workspace = SimpleNamespace(
                 name="Test",
                 path=root,
-                attempts=[],
+                attempts=[attempt],
                 receipts=[],
                 evidence_runs=[evidence],
                 work_item=lambda work_id: work if work_id == "WORK-1" else None,

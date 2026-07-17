@@ -120,7 +120,9 @@ def compile_agent_directive(
                 ),
             }
             for blocker in blockers
-            if blocker.get("resolution", {}).get("automatic")
+            if convergence_ready
+            and not terminal
+            and blocker.get("resolution", {}).get("automatic")
         ],
         "review_boundary": any(
             code in REVIEW_BLOCKERS or code.startswith("REVIEW_")
@@ -172,6 +174,8 @@ def _primary_action(
     message = "Follow the first current safe command."
     if terminal:
         message = "No action is required; inspect the terminal record."
+    elif status == "ready-to-report":
+        message = "Report completion with the current check result."
     elif convergence_ready:
         command = next(
             (item for item in next_commands if item.startswith("palari agent advance ")),

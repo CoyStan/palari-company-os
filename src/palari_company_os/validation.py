@@ -1366,6 +1366,10 @@ def _validate_path_intents(work: WorkItem) -> None:
         intent = item.get("intent")
         if not isinstance(path, str) or not path:
             raise WorkspaceError(f"{label}.path must be a non-empty string")
+        if not path.isprintable():
+            raise WorkspaceError(
+                f"{label}.path contains unsafe non-printable or control characters"
+            )
         if intent not in {"create", "modify", "delete"}:
             raise WorkspaceError(
                 f"{label}.intent has unsupported value {intent!r}; "

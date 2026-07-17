@@ -347,6 +347,27 @@ class WorkspaceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "contains unsafe path"):
             self.modified_example_workspace(unsafe_intent)
 
+    def test_work_item_control_path_intent_fails_closed(self) -> None:
+        unsafe_paths = (
+            "docs/product/nul\x00name.md",
+            "docs/product/line\nbreak.md",
+            "docs/product/tab\tname.md",
+            "docs/product/bidi\u202ereversed.md",
+            "docs/product/surrogate\ud800name.md",
+        )
+        for unsafe_path in unsafe_paths:
+            with self.subTest(path=ascii(unsafe_path)):
+                def control_intent(data: dict[str, object]) -> None:
+                    data["work_items"][0]["path_intents"] = [
+                        {"path": unsafe_path, "intent": "modify"}
+                    ]
+
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "unsafe non-printable or control characters",
+                ):
+                    self.modified_example_workspace(control_intent)
+
     def test_evidence_absence_tombstone_requires_delete_intent(self) -> None:
         def unbound_tombstone(data: dict[str, object]) -> None:
             evidence = data["evidence_runs"][0]

@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .cli_output_utils import (
-    comma_or_none as _comma_or_none,
     print_json,
-    print_limited_items as _print_limited_items,
     yes_no as _yes_no,
 )
 
@@ -304,109 +302,120 @@ def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
         print_json(payload)
         return
     work = payload["work_item"]
-    agent = payload["agent"]
-    print(f"Agent handoff: {payload['handoff_id']}")
-    print(f"Status: {payload['status']} | Handoff: {_yes_no(payload['handoff_available'])}")
-    print(f"Step: {payload.get('next_step_type', 'inspect')}")
-    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
-    print(f"Work: {work.get('id', '')} {work.get('title', '')}")
-    finish = payload["finish"]
-    print(f"Finish guidance: {finish['report_guidance']}")
-    if finish.get("handoff_guidance"):
-        print("Handoff guidance:")
-        for item in finish["handoff_guidance"]:
-            print(f"  - {item['code']}: {item['message']}")
-            if item.get("command"):
-                print(f"    command: {item['command']}")
-    review = payload.get("review_handoff")
-    if review:
-        print("Review handoff:")
-        print(f"  status: {review['status']}")
-        print(f"  command: {review['command']}")
-        focus = review.get("review_focus", [])
-        if focus:
-            print("  review focus:")
-            for item in focus:
-                print(f"    - {item}")
-        receipt = review.get("receipt", {})
-        if receipt.get("present"):
-            print("  receipt:")
-            outputs = receipt.get("outputs_created", [])
-            if outputs:
-                _print_limited_items("outputs", outputs, limit=8, indent="    ", item_indent="      ")
-            print(f"    external writes: {_comma_or_none(receipt.get('external_writes', []))}")
-            not_done = receipt.get("not_done", [])
-            if not_done:
-                _print_limited_items("not done", not_done, limit=8, indent="    ", item_indent="      ")
-        candidates = review.get("reviewer_candidates", [])
-        if candidates:
-            print("  reviewer candidates:")
-            for candidate in candidates:
-                print(
-                    f"    - {candidate['id']} ({candidate['name']}, "
-                    f"{candidate.get('identity_type', 'human')})"
-                )
-        record_commands = review.get("review_record_commands", [])
-        if record_commands:
-            print("  review record commands:")
-            for item in record_commands:
-                print(f"    - {item['reviewer']}: {item['command']}")
-    decision = payload.get("decision_handoff")
+    print(f"Agent handoff: {work.get('id', '')} {work.get('title', '')}")
+    print(
+        f"State: {payload.get('status', 'unknown')} / "
+        f"{payload.get('next_step_type', 'inspect')}"
+    )
+    print("Safe: yes (read-only; no verdict or human authority is recorded)")
+    print(f"Owner: {_handoff_owner(payload)}")
+    print(f"Why: {_handoff_explanation(payload)}")
+    print(f"Next: {_handoff_next_action(payload)}")
+    print("Proof and alternatives: rerun with --json.")
+
+
+def _handoff_owner(payload: dict[str, Any]) -> str:
+    step = str(payload.get("next_step_type") or "")
+    review = payload.get("review_handoff") or {}
+    decision = payload.get("decision_handoff") or {}
+    approval = payload.get("human_approval_handoff") or {}
+    if review and (step == "review-handoff" or not (decision or approval)):
+        return _eligible_owner(
+            "independent reviewer",
+            review.get("reviewer_candidates", []),
+        )
     if decision:
-        print("Decision handoff:")
-        print(f"  status: {decision['status']}")
-        print(f"  command: {decision['command']}")
-        print(f"  decision: {decision['decision']['id']} {decision['decision']['question']}")
-        commands_for_results = decision.get("decision_update_commands", [])
-        if commands_for_results:
-            print("  suggested update commands:")
-            for item in commands_for_results:
-                print(f"    - {item['result']}: {item['command']}")
-    approval = payload.get("human_approval_handoff")
+        required = decision.get("required_human") or {}
+        required_id = str(
+            required.get("id")
+            or decision.get("decision", {}).get("required_human")
+            or ""
+        )
+        return f"qualified human {required_id}".rstrip()
     if approval:
-        print("Human approval handoff:")
-        print(f"  status: {approval['status']}")
-        print(f"  command: {approval['command']}")
-        print(f"  approval progress: {approval.get('approval_progress', '')}")
-        print(f"  required approvals: {approval.get('required_approval_count', 0)}")
-        if approval.get("required_approval_capability"):
-            print(f"  required capability: {approval['required_approval_capability']}")
-        focus = approval.get("approval_focus", [])
-        if focus:
-            print("  approval focus:")
-            for item in focus:
-                print(f"    - {item}")
-        candidates = approval.get("approval_candidates", [])
-        if candidates:
-            print("  approval candidates:")
-            for candidate in candidates:
-                print(f"    - {candidate['id']} ({candidate['name']})")
-        record_commands = approval.get("human_decision_record_commands", [])
-        if record_commands:
-            print("  human decision record commands:")
-            for item in record_commands:
-                print(f"    - {item['human_id']} {item['decision']}: {item['command']}")
-    commands = payload.get("next_allowed_commands", [])
-    if commands:
-        print("Next agent-safe commands:")
-        for command in commands:
-            print(f"  {command}")
-    human_commands = payload.get("human_action_commands", [])
-    if human_commands:
-        boundary = payload.get("human_action_boundary", {})
-        if boundary.get("agent_may_execute") is False:
-            print("Human action boundary: agent may quote these commands, but must not run them.")
-        print("Human action commands:")
-        for item in human_commands:
-            detail = f" ({item.get('result', item.get('actor', ''))})"
-            print(f"  - {item['type']}{detail}: {item['command']}")
-    agent_commands = payload.get("agent_action_commands", [])
-    if agent_commands:
-        print("Agent review actions (advisory only):")
-        for item in agent_commands:
-            if item.get("packet_command"):
-                print(f"  - packet: {item['packet_command']}")
-            print(f"    record as {item['actor']}: {item['command']}")
+        return _eligible_owner(
+            "qualified human",
+            approval.get("approval_candidates", []),
+        )
+    primary = str(payload.get("resolution_summary", {}).get("primary_class") or "")
+    if payload.get("status") == "closed" or step == "closed" or primary == "terminal":
+        return "none (terminal)"
+    return {
+        "human-authority": "qualified human",
+        "independent-review": "independent reviewer",
+        "external-state": "external owner",
+        "automatic-reconciliation": (
+            "system" if step == "automatic-reconciliation" else "agent"
+        ),
+        "agent-action": "agent",
+    }.get(primary, "agent")
+
+
+def _eligible_owner(label: str, candidates: list[dict[str, Any]]) -> str:
+    ids = [str(item.get("id") or "") for item in candidates if item.get("id")]
+    if not ids:
+        return label
+    if len(ids) == 1:
+        return f"{label} {ids[0]}"
+    if len(ids) <= 3:
+        return f"{label} ({' or '.join(ids)})"
+    return f"{label} ({len(ids)} eligible; inspect --json)"
+
+
+def _handoff_explanation(payload: dict[str, Any]) -> str:
+    review = payload.get("review_handoff") or {}
+    decision = payload.get("decision_handoff") or {}
+    approval = payload.get("human_approval_handoff") or {}
+    if payload.get("status") == "closed" or payload.get("next_step_type") == "closed":
+        return "Work is closed; no further authority or execution is required."
+    for section, fallback in (
+        (review, "Current proof is waiting for an independent verdict."),
+        (decision, "A linked decision is waiting for qualified human judgment."),
+        (approval, "Current reviewed proof is waiting for qualified human approval."),
+    ):
+        if section:
+            return _one_line(section.get("why") or section.get("next_action") or fallback)
+    finish = payload.get("finish") or {}
+    for key in ("missing_requirements", "blockers"):
+        items = finish.get(key) or []
+        if items:
+            return _one_line(items[0].get("message") or "Current proof is blocked.")
+    return _one_line(
+        finish.get("report_guidance")
+        or "Inspect current proof before taking another action."
+    )
+
+
+def _handoff_next_action(payload: dict[str, Any]) -> str:
+    step = str(payload.get("next_step_type") or "")
+    review = payload.get("review_handoff") or {}
+    decision = payload.get("decision_handoff") or {}
+    approval = payload.get("human_approval_handoff") or {}
+    if review and (step == "review-handoff" or not (decision or approval)):
+        return str(review.get("command") or _first_command(payload))
+    if decision:
+        return str(decision.get("command") or _first_command(payload))
+    if approval:
+        return str(approval.get("command") or _first_command(payload))
+    command = _first_command(payload)
+    if command:
+        return command
+    work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
+    return f"palari detail {work_id} --json"
+
+
+def _first_command(payload: dict[str, Any]) -> str:
+    return next(
+        (str(item) for item in payload.get("next_allowed_commands", []) if item),
+        "",
+    )
+
+
+def _one_line(value: Any, *, limit: int = 180) -> str:
+    text = " ".join(str(value).split())
+    if len(text) <= limit:
+        return text
+    return f"{text[: limit - 1].rstrip()}…"
 
 
 def print_agent_loop(payload: dict[str, Any], as_json: bool) -> None:

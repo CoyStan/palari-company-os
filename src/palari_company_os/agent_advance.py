@@ -2925,6 +2925,16 @@ def _verify_path_intents(
     for item in path_intents:
         path = item["path"]
         intent = item["intent"]
+        if not path.isprintable():
+            errors.append(
+                _path_intent_diagnostic(
+                    "PATH_INTENT_UNSAFE",
+                    path,
+                    intent,
+                    "Exact path contains non-printable or control characters.",
+                )
+            )
+            continue
         try:
             normalized = validate_workspace_path(path)
         except ValueError as exc:
@@ -3044,7 +3054,7 @@ def _git_exact_tree_entry(
             stderr=subprocess.PIPE,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, ValueError, subprocess.SubprocessError):
         return False, None
     if result.returncode != 0:
         return False, None

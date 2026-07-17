@@ -52,22 +52,30 @@ def park_agent(
     reason: str,
     next_action: str,
     _after_persist: Callable[[dict[str, Any]], None] | None = None,
+    _after_lease_release: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Park owned execute work without manufacturing completion authority.
 
-    ``_after_persist`` is a narrow crash-injection seam used to prove that a
-    retry after the durable write, but before claim release, is idempotent.
-    Production callers should leave it unset.
+    ``_after_persist`` and ``_after_lease_release`` are narrow crash-injection
+    seams used to prove retries around the durable write and lease/local-claim
+    boundary. Production callers should leave them unset.
     """
 
     reason = _required_text(reason, "reason")
     next_action = _required_text(next_action, "next action")
-    claim, packet = _owned_claim(workspace_path, work_id, palari_id)
-    attempt_id = _parking_attempt_id(work_id, claim)
-
     store = load_store(workspace_path)
     work_record = _record(store, "work_items", work_id)
+    durable_attempt = _current_parking_attempt(store, work_record, work_id)
+    claim, packet = _owned_claim(
+        workspace_path,
+        work_id,
+        palari_id,
+        allow_released_lease=durable_attempt is not None,
+    )
+    attempt_id = _parking_attempt_id(work_id, claim)
     existing = _optional_record(store, "attempts", attempt_id)
+    if existing is None:
+        existing = durable_attempt
     if existing is not None:
         return _resume_parked_release(
             store,
@@ -79,6 +87,7 @@ def park_agent(
             palari_id,
             reason,
             next_action,
+            _after_lease_release,
         )
 
     if not claim_is_active(claim):
@@ -183,6 +192,8 @@ def park_agent(
         workspace_path,
         work_id,
         palari_id,
+        _expected_claim=claim,
+        _after_lease_release=_after_lease_release,
     )
     _require_release(release, work_id)
     return _result_payload(
@@ -211,6 +222,7 @@ def _resume_parked_release(
     palari_id: str,
     reason: str,
     next_action: str,
+    after_lease_release: Callable[[dict[str, Any]], None] | None,
 ) -> dict[str, Any]:
     """Finish release after an exact prior parking mutation."""
 
@@ -228,7 +240,8 @@ def _resume_parked_release(
         )
     if parking.get("packet") != expected_binding:
         raise WorkspaceError(
-            f"cannot resume parking {work_id}: claimed packet binding differs from the durable record"
+            f"cannot resume parking {work_id}: claim state changed; "
+            "the claimed packet binding differs from the durable record"
         )
     observation = _observe_repository(store.data_path, packet, claim)
     recorded_observation = parking.get("observation")
@@ -255,6 +268,9 @@ def _resume_parked_release(
         store.data_path,
         work_id,
         palari_id,
+        _expected_claim=claim,
+        _allow_missing_lease=True,
+        _after_lease_release=after_lease_release,
     )
     _require_release(release, work_id)
     return _result_payload(
@@ -278,14 +294,25 @@ def _owned_claim(
     workspace_path: Path | str,
     work_id: str,
     palari_id: str,
+    *,
+    allow_released_lease: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     claim = read_claim(workspace_path, work_id)
     if claim is None:
         raise WorkspaceError(
             f"cannot park {work_id}: an owned execute claim is required; no claim exists"
         )
-    error = claim_integrity_error(workspace_path, work_id, claim)
+    error = claim_integrity_error(
+        workspace_path,
+        work_id,
+        claim,
+        allow_released_lease=allow_released_lease,
+    )
     if error:
+        if allow_released_lease:
+            raise WorkspaceError(
+                f"cannot resume parking {work_id}: claim state changed: {error}"
+            )
         raise WorkspaceError(f"cannot park {work_id}: active claim is invalid: {error}")
     if claim.get("claimed_by") != palari_id:
         raise WorkspaceError(
@@ -404,6 +431,10 @@ def _parking_binding(packet: dict[str, Any], claim: dict[str, Any]) -> dict[str,
         "session_contract_digest": str(claim.get("session_contract_digest") or ""),
         "claim_session": str(claim.get("claim_session") or ""),
         "claim_workspace_file_hash": str(claim.get("workspace_file_hash") or ""),
+        "git_lease_version": str(claim.get("git_lease_version") or ""),
+        "git_lease_ref": str(claim.get("git_lease_ref") or ""),
+        "git_lease_oid": str(claim.get("git_lease_oid") or ""),
+        "workspace_fingerprint": str(claim.get("workspace_fingerprint") or ""),
     }
 
 
@@ -835,6 +866,27 @@ def _optional_record(
         (item for item in _records(store, collection) if item.get("id") == record_id),
         None,
     )
+
+
+def _current_parking_attempt(
+    store: WorkspaceStore,
+    work_record: dict[str, Any],
+    work_id: str,
+) -> dict[str, Any] | None:
+    attempt_id = str(work_record.get("current_attempt") or "")
+    if not attempt_id.startswith("ATTEMPT-PARK-"):
+        return None
+    attempt = _optional_record(store, "attempts", attempt_id)
+    if attempt is None:
+        raise WorkspaceError(
+            f"work {work_id} identifies missing parking attempt {attempt_id}"
+        )
+    if attempt.get("work_item_id") != work_id:
+        raise WorkspaceError(
+            f"work {work_id} identifies a parking attempt for different work"
+        )
+    _parking_result(attempt)
+    return attempt
 
 
 def _records(store: WorkspaceStore, collection: str) -> list[dict[str, Any]]:

@@ -173,6 +173,45 @@ class WorkspaceReadModelTests(unittest.TestCase):
             ("WORK-0001",),
         )
 
+    def test_ready_to_report_does_not_recommend_redundant_validation(self) -> None:
+        directive = compile_agent_directive(
+            {
+                "ok": True,
+                "agent": {"id": "PALARI-WORKER"},
+                "work_item": {"id": "WORK-OPAQUE"},
+                "next_step_type": "execute",
+                "checks": [],
+                "blockers": [],
+                "next_allowed_commands": [],
+            }
+        )
+
+        self.assertEqual(directive["status"], "ready-to-report")
+        self.assertEqual(directive["owner"], "agent")
+        self.assertEqual(directive["next_action"]["command"], "")
+        self.assertFalse(directive["agent_may_execute"])
+        self.assertIn("Report completion", directive["next_action"]["message"])
+
+    def test_mixed_blockers_do_not_claim_automatic_transition_is_ready(self) -> None:
+        directive = compile_agent_directive(
+            {
+                "ok": False,
+                "agent": {"id": "PALARI-WORKER"},
+                "work_item": {"id": "WORK-OPAQUE"},
+                "next_step_type": "human-decision",
+                "checks": [],
+                "blockers": [
+                    {"code": "ACCEPTANCE_PROJECTION_PENDING"},
+                    {"code": "HUMAN_DECISION_REQUIRED"},
+                ],
+                "next_allowed_commands": [],
+            }
+        )
+
+        self.assertTrue(directive["agent_may_execute"])
+        self.assertEqual(directive["owner"], "human")
+        self.assertEqual(directive["automatic_transitions"], [])
+
     def test_example_workspace_loads(self) -> None:
         workspace = Workspace.load(WORKSPACE)
         self.assertEqual(workspace.name, "Acme Company OS Example")

@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,16 @@ PACKET_RUNTIME_STATE_FIELDS = {
     "state",
     "status",
 }
+
+
+class ClaimContentionError(WorkspaceError):
+    """A bounded, retryable collision while acquiring one work claim."""
+
+    code = "CLAIM_CONTENTION"
+
+    def __init__(self, work_id: str, message: str) -> None:
+        super().__init__(message)
+        self.work_id = work_id
 
 
 def start_agent(
@@ -85,7 +96,8 @@ def start_agent(
     try:
         existing = read_claim(workspace_path, work_id)
         if existing and _claim_active(existing) and existing.get("claimed_by") != palari_id:
-            raise WorkspaceError(
+            raise ClaimContentionError(
+                work_id,
                 f"work {work_id} is already claimed by {existing.get('claimed_by', 'unknown')}"
             )
         if existing and _claim_active(existing):
@@ -124,21 +136,21 @@ def start_agent(
                 )
 
         persisted_baseline = _read_persisted_baseline(baseline_path, work_id)
+        baseline_record: dict[str, Any] | None = None
         if persisted_baseline is None:
             git_baseline = capture_git_baseline(workspace.path)
             if claim_start_head:
                 git_baseline = _baseline_at_claim_start(git_baseline, claim_start_head)
-            git_witness_ref = _create_git_witness(work_id, git_baseline)
             baseline_record = {
                 "schema_version": "palari.persisted_git_baseline.v1",
                 "work_item": work_id,
                 "captured_at": now,
                 "git_baseline": git_baseline,
                 "git_baseline_hash": _git_baseline_hash(git_baseline),
-                "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
-                "git_witness_ref": git_witness_ref,
+                "git_witness_version": "",
+                "git_witness_ref": "",
             }
-            _write_json(baseline_path, baseline_record)
+            git_witness_ref = ""
         else:
             git_baseline = persisted_baseline["git_baseline"]
             git_witness_ref = str(persisted_baseline.get("git_witness_ref") or "")
@@ -153,6 +165,17 @@ def start_agent(
             data_path,
             git_baseline,
         )
+
+        # A competing worktree must win the repository-shared lease before it
+        # can create any durable local baseline or shared witness.  Capturing a
+        # baseline is read-only; persistence happens only after the lease CAS.
+        if baseline_record is not None:
+            git_witness_ref = _create_git_witness(work_id, git_baseline)
+            baseline_record["git_witness_version"] = (
+                GIT_WITNESS_VERSION if git_witness_ref else ""
+            )
+            baseline_record["git_witness_ref"] = git_witness_ref
+            _write_json(baseline_path, baseline_record)
 
         claim = {
             "schema_version": CLAIM_SCHEMA_VERSION,
@@ -229,20 +252,12 @@ def start_next_agent(
         if candidate.get("can_start")
     ]
     if not ready_candidates:
-        primary = next(iter(next_payload.get("next_allowed_commands", [])), "")
         return {
             "schema_version": "palari.agent_start_next.v1",
             "workspace": workspace.name,
             "status": "no-ready-work",
             "agent": next_payload.get("agent", {"id": palari_id}),
-            "entry": {
-                "safe": False,
-                "state": "blocked",
-                "owner": palari_id,
-                "explanation": "No work item is currently safe to claim.",
-                "next_action": primary,
-                "next_command": primary,
-            },
+            "entry": _blocked_start_entry(next_payload),
             "start": {
                 "status": "not-started",
                 "would_mutate": False,
@@ -318,7 +333,51 @@ def start_next_agent(
 
 
 def _claim_contention(error: WorkspaceError, work_id: str) -> bool:
-    return str(error).startswith(f"work {work_id} is already claimed by ")
+    return isinstance(error, ClaimContentionError) and error.work_id == work_id
+
+
+def _blocked_start_entry(next_payload: dict[str, Any]) -> dict[str, Any]:
+    """Project the first waiting candidate without inventing its owner."""
+
+    candidates = next_payload.get("candidates", [])
+    candidate = candidates[0] if candidates else None
+    fallback_command = next(
+        iter(next_payload.get("next_allowed_commands", [])),
+        "",
+    )
+    if not isinstance(candidate, dict):
+        return {
+            "safe": False,
+            "state": "empty",
+            "owner": "none",
+            "explanation": "No visible work item is available to claim.",
+            "next_action": fallback_command,
+            "next_command": fallback_command,
+        }
+    primary_class = str(
+        candidate.get("resolution_summary", {}).get("primary_class") or ""
+    )
+    owner = {
+        "human-authority": "human",
+        "independent-review": "reviewer",
+        "external-state": "external",
+        "automatic-reconciliation": "system",
+        "terminal": "none",
+    }.get(primary_class, "agent")
+    command = str(candidate.get("next_command") or fallback_command)
+    return {
+        "safe": False,
+        "state": str(candidate.get("next_step_type") or "blocked"),
+        "owner": owner,
+        "selected_work_item": str(candidate.get("work_item_id") or ""),
+        "explanation": str(
+            candidate.get("why")
+            or candidate.get("next_action")
+            or "No work item is currently safe to claim."
+        ),
+        "next_action": command,
+        "next_command": command,
+    }
 
 
 def claim_baseline_head(workspace_path: Path | str, work_id: str) -> str:
@@ -340,28 +399,51 @@ def release_agent(
     workspace_path: Path | str,
     work_id: str,
     palari_id: str,
+    *,
+    _expected_claim: dict[str, Any] | None = None,
+    _allow_missing_lease: bool = False,
+    _after_lease_release: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     data_path = workspace_file_path(workspace_path)
     claim_path = _claim_path(data_path, work_id)
-    claim = read_claim(workspace_path, work_id)
-    if not claim:
-        return {
-            "schema_version": "palari.agent_release.v1",
-            "released": False,
-            "status": "not-claimed",
-            "workspace": workspace.name,
-            "work_item": work_id,
-            "released_by": palari_id,
-            "claim": None,
-            "claim_path": _runtime_relative(data_path, claim_path),
-            "message": f"No claim exists for {work_id}.",
-        }
-    if claim.get("claimed_by") != palari_id:
-        raise WorkspaceError(
-            f"work {work_id} is claimed by {claim.get('claimed_by', 'unknown')}, not {palari_id}"
+    lock_path = _acquire_claim_lock(data_path, work_id)
+    try:
+        claim = read_claim(workspace_path, work_id)
+        if not claim:
+            return {
+                "schema_version": "palari.agent_release.v1",
+                "released": False,
+                "status": "not-claimed",
+                "workspace": workspace.name,
+                "work_item": work_id,
+                "released_by": palari_id,
+                "claim": None,
+                "claim_path": _runtime_relative(data_path, claim_path),
+                "message": f"No claim exists for {work_id}.",
+            }
+        if claim.get("claimed_by") != palari_id:
+            raise WorkspaceError(
+                f"work {work_id} is claimed by {claim.get('claimed_by', 'unknown')}, not {palari_id}"
+            )
+        if _expected_claim is not None:
+            _assert_release_claim_unchanged(work_id, claim, _expected_claim)
+        _release_git_lease(
+            claim,
+            strict=_claim_active(claim),
+            allow_missing=_allow_missing_lease and _expected_claim is not None,
         )
-    _release_git_lease(claim, strict=_claim_active(claim))
-    claim_path.unlink(missing_ok=True)
+        if _after_lease_release is not None:
+            _after_lease_release(claim)
+
+        # The local lock coordinates all compliant same-worktree claim writers.
+        # Re-read once more so even an injected/manual replacement between the
+        # shared lease CAS and unlink is preserved and diagnosed fail-closed.
+        after_release = read_claim(workspace_path, work_id)
+        if after_release is not None:
+            _assert_release_claim_unchanged(work_id, after_release, claim)
+            claim_path.unlink()
+    finally:
+        lock_path.unlink(missing_ok=True)
     return {
         "schema_version": "palari.agent_release.v1",
         "released": True,
@@ -373,6 +455,46 @@ def release_agent(
         "claim_path": _runtime_relative(data_path, claim_path),
         "message": f"Released claim for {work_id}.",
     }
+
+
+_RELEASE_BINDING_FIELDS = (
+    "schema_version",
+    "work_item",
+    "claimed_by",
+    "mode",
+    "claim_session",
+    "packet_id",
+    "packet_path",
+    "context_hash",
+    "session_contract_path",
+    "session_contract_digest",
+    "git_baseline_hash",
+    "git_baseline_path",
+    "git_witness_version",
+    "git_witness_ref",
+    "git_lease_version",
+    "git_lease_ref",
+    "git_lease_oid",
+    "workspace_fingerprint",
+    "lease_expires_at",
+)
+
+
+def _assert_release_claim_unchanged(
+    work_id: str,
+    current: dict[str, Any],
+    expected: dict[str, Any],
+) -> None:
+    changed = [
+        field
+        for field in _RELEASE_BINDING_FIELDS
+        if current.get(field) != expected.get(field)
+    ]
+    if changed:
+        raise WorkspaceError(
+            f"work {work_id} claim state changed ({', '.join(changed)}); "
+            "refusing to release a replacement session"
+        )
 
 
 def claim_check(
@@ -477,6 +599,8 @@ def claim_integrity_error(
     workspace_path: Path | str,
     work_id: str,
     claim: dict[str, Any],
+    *,
+    allow_released_lease: bool = False,
 ) -> str:
     """Validate claim structure and its immutable persisted Git baseline."""
 
@@ -507,7 +631,7 @@ def claim_integrity_error(
     witness_error = _git_witness_error(work_id, persisted)
     if witness_error:
         return witness_error
-    lease_error = _git_lease_error(claim)
+    lease_error = _git_lease_error(claim, allow_missing=allow_released_lease)
     if lease_error:
         return lease_error
     try:
@@ -749,7 +873,10 @@ def _acquire_claim_lock(data_path: Path, work_id: str) -> Path:
     try:
         descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError as exc:
-        raise WorkspaceError(f"work {work_id} claim is being updated; retry shortly") from exc
+        raise ClaimContentionError(
+            work_id,
+            f"work {work_id} claim is being updated; retry shortly",
+        ) from exc
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(f"{_timestamp()}\n")
     return path
@@ -1124,7 +1251,8 @@ def _claim_git_lease(
     lease_ref = _git_lease_ref(work_id)
     foreign_claim = _foreign_registered_claim(root, data_path, work_id)
     if foreign_claim is not None:
-        raise WorkspaceError(
+        raise ClaimContentionError(
+            work_id,
             f"work {work_id} is already claimed by {foreign_claim['claimed_by']} "
             f"in another Git worktree registered locally until "
             f"{foreign_claim['lease_expires_at']}"
@@ -1149,7 +1277,8 @@ def _claim_git_lease(
                 and current_expires > datetime.now(timezone.utc)
             )
             if current_active and current["session_id"] != session_id:
-                raise WorkspaceError(
+                raise ClaimContentionError(
+                    work_id,
                     f"work {work_id} is already claimed by {current['claimed_by']} "
                     f"in another Git worktree until {current['lease_expires_at']}"
                 )
@@ -1184,7 +1313,10 @@ def _claim_git_lease(
                 "git_lease_oid": lease_oid,
                 "workspace_fingerprint": record["workspace_fingerprint"],
             }
-    raise WorkspaceError(f"work {work_id} claim changed concurrently; retry safely")
+    raise ClaimContentionError(
+        work_id,
+        f"work {work_id} claim changed concurrently; retry safely",
+    )
 
 
 def _foreign_registered_claim(
@@ -1249,6 +1381,7 @@ def _release_git_lease(
     *,
     strict: bool,
     root: str = "",
+    allow_missing: bool = False,
 ) -> None:
     lease_ref = str(claim.get("git_lease_ref") or "")
     lease_oid = str(claim.get("git_lease_oid") or "")
@@ -1261,7 +1394,13 @@ def _release_git_lease(
         if strict:
             raise WorkspaceError("active Git claim lease metadata is incomplete")
         return
-    current_oid = _git_output(root, ["rev-parse", "--verify", lease_ref])
+    current_oid, ref_error = _git_ref_oid(root, lease_ref)
+    if ref_error:
+        if strict or allow_missing:
+            raise WorkspaceError(ref_error)
+        return
+    if not current_oid and allow_missing:
+        return
     if current_oid != lease_oid:
         if strict:
             raise WorkspaceError(
@@ -1306,7 +1445,11 @@ def _release_git_lease(
         )
 
 
-def _git_lease_error(claim: dict[str, Any]) -> str:
+def _git_lease_error(
+    claim: dict[str, Any],
+    *,
+    allow_missing: bool = False,
+) -> str:
     fields = (
         "git_lease_version",
         "git_lease_ref",
@@ -1327,7 +1470,11 @@ def _git_lease_error(claim: dict[str, Any]) -> str:
     root = str(baseline.get("git_root") or "") if isinstance(baseline, dict) else ""
     if not root:
         return "Git claim lease has no repository root"
-    current_oid = _git_output(root, ["rev-parse", "--verify", claim["git_lease_ref"]])
+    current_oid, ref_error = _git_ref_oid(root, str(claim["git_lease_ref"]))
+    if ref_error:
+        return ref_error
+    if not current_oid and allow_missing:
+        return ""
     if current_oid != claim["git_lease_oid"]:
         return "Git claim lease does not match the active repository lease"
     try:
@@ -1437,6 +1584,23 @@ def _git_output(root: str, args: list[str]) -> str:
         text=True,
     )
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _git_ref_oid(root: str, ref: str) -> tuple[str, str]:
+    result = subprocess.run(
+        ["git", "-C", root, "for-each-ref", "--format=%(objectname)", ref],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "git for-each-ref failed"
+        return "", f"cannot inspect active Git claim lease: {detail}"
+    values = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if len(values) > 1 or (values and not re_fullmatch_git_oid(values[0])):
+        return "", "active Git claim lease ref produced an invalid object id"
+    return (values[0] if values else ""), ""
 
 
 def _safe_file_id(value: str) -> str:

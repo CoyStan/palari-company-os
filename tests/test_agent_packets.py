@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import shlex
@@ -7,8 +8,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import Iterator
 from unittest.mock import patch
@@ -30,7 +32,16 @@ from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os import governance_journal
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
-from palari_company_os.agent_runtime import release_agent, start_agent, start_next_agent
+from palari_company_os.agent_parking import park_agent
+from palari_company_os.agent_runtime import (
+    ClaimContentionError,
+    _blocked_start_entry,
+    read_claim,
+    release_agent,
+    start_agent,
+    start_next_agent,
+)
+from palari_company_os.cli_output_agent import print_agent_handoff
 from palari_company_os.evidence_manifest import evidence_manifest_hash
 from palari_company_os.governance_binding import current_review_binding, review_proof_hash
 from palari_company_os.onramp import quick_add_work
@@ -199,6 +210,210 @@ class AgentPacketTests(unittest.TestCase):
                 "PALARI-SOFIA",
             )
             self.assertEqual(transferred["start"]["status"], "claimed")
+
+    def test_cross_worktree_claim_loser_cannot_persist_baseline_before_lease(self) -> None:
+        from palari_company_os import agent_runtime
+
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            second_root = root.parent / "baseline-race-worktree"
+            subprocess.run(
+                ["git", "-C", str(root), "worktree", "add", "-b", "baseline-race", str(second_root)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            entered = threading.Event()
+            proceed = threading.Event()
+            results: list[dict[str, object]] = []
+            errors: list[BaseException] = []
+            original_create = agent_runtime._create_git_witness
+
+            def hold_after_lease(work_id: str, baseline: dict[str, object]) -> str:
+                if work_id == "WORK-0003" and Path(str(baseline["git_root"])).resolve() == root:
+                    entered.set()
+                    if not proceed.wait(10):
+                        raise RuntimeError("timed out waiting to finish first claim")
+                return original_create(work_id, baseline)
+
+            def claim_first() -> None:
+                try:
+                    results.append(
+                        start_agent(
+                            Workspace.load(workspace_file),
+                            workspace_file,
+                            "WORK-0003",
+                            "PALARI-SOFIA",
+                        )
+                    )
+                except BaseException as exc:  # pragma: no cover - reported below
+                    errors.append(exc)
+
+            with patch(
+                "palari_company_os.agent_runtime._create_git_witness",
+                side_effect=hold_after_lease,
+            ):
+                worker = threading.Thread(target=claim_first)
+                worker.start()
+                self.assertTrue(entered.wait(10))
+                try:
+                    with self.assertRaisesRegex(ClaimContentionError, "another Git worktree"):
+                        start_agent(
+                            Workspace.load(second_root / "workspace.json"),
+                            second_root / "workspace.json",
+                            "WORK-0003",
+                            "PALARI-SOFIA",
+                        )
+                    self.assertFalse(
+                        (
+                            second_root
+                            / ".palari/claims/WORK-0003.baseline"
+                        ).exists()
+                    )
+                finally:
+                    proceed.set()
+                    worker.join(10)
+
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(results[0]["start"]["status"], "claimed")
+            self.assertTrue((root / ".palari/claims/WORK-0003.baseline").is_file())
+
+    def test_park_retry_recovers_crash_after_shared_lease_deletion(self) -> None:
+        with self.git_workspace() as workspace_file:
+            governance_journal.checkpoint_workspace_journal(
+                workspace_file,
+                "PALARI-SOFIA",
+                reason="Activate journal for release crash test.",
+            )
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+
+            def interrupt(_claim: dict[str, object]) -> None:
+                raise RuntimeError("crash after shared lease deletion")
+
+            with self.assertRaisesRegex(RuntimeError, "shared lease deletion"):
+                park_agent(
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                    reason="Pause bounded work.",
+                    next_action="Resume from the recorded blocker.",
+                    _after_lease_release=interrupt,
+                )
+
+            self.assertIsNotNone(read_claim(workspace_file, "WORK-0003"))
+            missing_ref = subprocess.run(
+                ["git", "-C", str(workspace_file.parent), "rev-parse", "--verify", claim["git_lease_ref"]],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertNotEqual(missing_ref.returncode, 0)
+
+            resumed = park_agent(
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+                reason="Pause bounded work.",
+                next_action="Resume from the recorded blocker.",
+            )
+
+            self.assertTrue(resumed["resumed"])
+            self.assertTrue(resumed["claim_released"])
+            self.assertIsNone(read_claim(workspace_file, "WORK-0003"))
+
+    def test_park_crash_retry_preserves_a_replacement_same_palari_session(self) -> None:
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            governance_journal.checkpoint_workspace_journal(
+                workspace_file,
+                "PALARI-SOFIA",
+                reason="Activate journal for replacement claim test.",
+            )
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                "WORK-0003",
+                "PALARI-SOFIA",
+            )
+            original = started["start"]["claim"]
+
+            def interrupt(_claim: dict[str, object]) -> None:
+                raise RuntimeError("crash before local claim unlink")
+
+            with self.assertRaisesRegex(RuntimeError, "local claim unlink"):
+                park_agent(
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                    reason="Pause bounded work.",
+                    next_action="Resume from the recorded blocker.",
+                    _after_lease_release=interrupt,
+                )
+
+            replacement = dict(original)
+            replacement["claim_session"] = "replacement-session"
+            lease_record = {
+                "schema_version": replacement["git_lease_version"],
+                "work_item": replacement["work_item"],
+                "claimed_by": replacement["claimed_by"],
+                "mode": replacement["mode"],
+                "session_id": replacement["claim_session"],
+                "workspace_fingerprint": replacement["workspace_fingerprint"],
+                "lease_expires_at": replacement["lease_expires_at"],
+            }
+            encoded = json.dumps(lease_record, sort_keys=True, separators=(",", ":")) + "\n"
+            replacement_oid = subprocess.run(
+                ["git", "-C", str(root), "hash-object", "-w", "--stdin"],
+                input=encoded,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "update-ref",
+                    replacement["git_lease_ref"],
+                    replacement_oid,
+                    "0" * len(replacement_oid),
+                ],
+                check=True,
+            )
+            replacement["git_lease_oid"] = replacement_oid
+            claim_path = root / ".palari/claims/WORK-0003.json"
+            claim_path.write_text(json.dumps(replacement), encoding="utf-8")
+            replacement_bytes = claim_path.read_bytes()
+
+            with self.assertRaisesRegex(WorkspaceError, "claim state changed"):
+                park_agent(
+                    workspace_file,
+                    "WORK-0003",
+                    "PALARI-SOFIA",
+                    reason="Pause bounded work.",
+                    next_action="Resume from the recorded blocker.",
+                )
+
+            self.assertEqual(claim_path.read_bytes(), replacement_bytes)
+            active_oid = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", replacement["git_lease_ref"]],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            self.assertEqual(active_oid, replacement_oid)
 
     def test_registered_worktree_scan_blocks_a_legacy_claim_without_shared_ref(self) -> None:
         with self.git_workspace() as workspace_file:
@@ -1495,7 +1710,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["human_action_commands"][0]["type"], "review-record")
         self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
 
-    def test_cli_agent_handoff_text_shows_review_commands(self) -> None:
+    def test_cli_agent_handoff_text_shows_one_read_only_review_action(self) -> None:
         result = self.run_cli(
             "--workspace",
             str(DOGFOOD),
@@ -1506,16 +1721,101 @@ class AgentPacketTests(unittest.TestCase):
             "PALARI-STEWARD",
         )
 
-        self.assertIn("Agent handoff:", result.stdout)
-        self.assertIn("Review handoff:", result.stdout)
-        self.assertIn("review focus:", result.stdout)
-        self.assertIn("Compare the attempt result", result.stdout)
-        self.assertIn("receipt:", result.stdout)
-        self.assertIn("external writes: none", result.stdout)
-        self.assertIn("No deployment performed", result.stdout)
-        self.assertIn("ready-to-edit review record commands", result.stdout)
-        self.assertIn("review record commands:", result.stdout)
-        self.assertIn("Human action boundary: agent may quote", result.stdout)
+        lines = result.stdout.splitlines()
+        self.assertEqual(len(lines), 7)
+        self.assertIn("State: handoff-ready / review-handoff", lines)
+        self.assertIn("Safe: yes (read-only; no verdict or human authority is recorded)", lines)
+        self.assertTrue(any(line.startswith("Owner: independent reviewer") for line in lines))
+        self.assertIn("Next: palari review guide WORK-REPO-0006 --json", lines)
+        self.assertIn("Proof and alternatives: rerun with --json.", lines)
+        self.assertNotIn("review record", result.stdout)
+
+    def test_agent_handoff_progressive_disclosure_covers_each_owner(self) -> None:
+        base = {
+            "status": "missing-proof",
+            "next_step_type": "check-active-proof",
+            "work_item": {"id": "WORK-OPAQUE", "title": "Bounded change"},
+            "finish": {
+                "report_guidance": "Continue only inside the packet boundary.",
+                "missing_requirements": [
+                    {"message": "The current attempt needs a receipt."}
+                ],
+                "blockers": [],
+            },
+            "review_handoff": None,
+            "decision_handoff": None,
+            "human_approval_handoff": None,
+            "resolution_summary": {"primary_class": "agent-action"},
+            "next_allowed_commands": ["palari agent advance WORK-OPAQUE --json"],
+            "human_action_commands": [
+                {"type": "review-record", "command": "palari review record REVIEW-ID"}
+            ],
+        }
+        cases = (
+            (
+                {**base, "review_handoff": {
+                    "command": "palari review guide WORK-OPAQUE --json",
+                    "reviewer_candidates": [{"id": "PALARI-REVIEWER"}],
+                }},
+                "independent reviewer PALARI-REVIEWER",
+                "palari review guide WORK-OPAQUE --json",
+            ),
+            (
+                {**base, "decision_handoff": {
+                    "command": "palari decision guide DECISION-OPAQUE --json",
+                    "required_human": {"id": "HUMAN-FOUNDER"},
+                }},
+                "qualified human HUMAN-FOUNDER",
+                "palari decision guide DECISION-OPAQUE --json",
+            ),
+            (
+                {**base, "human_approval_handoff": {
+                    "command": "palari queue --approval-inbox --select WORK-OPAQUE --json",
+                    "approval_candidates": [{"id": "HUMAN-FOUNDER"}],
+                }},
+                "qualified human HUMAN-FOUNDER",
+                "palari queue --approval-inbox --select WORK-OPAQUE --json",
+            ),
+            (
+                base,
+                "agent",
+                "palari agent advance WORK-OPAQUE --json",
+            ),
+            (
+                {
+                    **base,
+                    "status": "closed",
+                    "next_step_type": "closed",
+                    "resolution_summary": {"primary_class": "terminal"},
+                    "next_allowed_commands": [],
+                },
+                "none (terminal)",
+                "palari detail WORK-OPAQUE --json",
+            ),
+        )
+        for payload, owner, command in cases:
+            with self.subTest(owner=owner):
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    print_agent_handoff(payload, False)
+                lines = output.getvalue().splitlines()
+                self.assertEqual(len(lines), 7)
+                self.assertIn(f"Owner: {owner}", lines)
+                self.assertIn(f"Next: {command}", lines)
+                self.assertNotIn("palari review record", output.getvalue())
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            print_agent_handoff(base, True)
+        self.assertEqual(json.loads(output.getvalue()), base)
+
+    def test_readme_operator_path_uses_declared_identity_and_returned_id(self) -> None:
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("palari init --palari Agent --json", readme)
+        self.assertIn("palari agent start --next --as PALARI-AGENT --json", readme)
+        self.assertIn("palari agent advance WORK-RETURNED-BY-START", readme)
+        self.assertIn("Do not infer a sequential work ID", readme)
 
     def test_ready_execute_packet_is_compact_and_actionable(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -1886,8 +2186,44 @@ class AgentPacketTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "no-ready-work")
             self.assertFalse(result["entry"]["safe"])
+            self.assertEqual(result["entry"]["owner"], "none")
+            self.assertEqual(result["entry"]["state"], "empty")
             self.assertEqual(result["start"]["status"], "not-started")
             self.assertFalse((workspace_file.parent / ".palari" / "claims").exists())
+
+    def test_agent_start_next_blocked_entry_preserves_directive_owner(self) -> None:
+        cases = (
+            ("human-authority", "human", "human-decision"),
+            ("independent-review", "reviewer", "review-handoff"),
+            ("external-state", "external", "external-state"),
+        )
+        for primary_class, owner, state in cases:
+            with self.subTest(primary_class=primary_class):
+                entry = _blocked_start_entry(
+                    {
+                        "candidates": [
+                            {
+                                "work_item_id": "WORK-OPAQUE",
+                                "next_step_type": state,
+                                "why": f"Waiting for {primary_class}.",
+                                "next_command": "palari agent handoff WORK-OPAQUE --json",
+                                "resolution_summary": {
+                                    "primary_class": primary_class,
+                                },
+                            }
+                        ],
+                        "next_allowed_commands": ["palari validate --json"],
+                    }
+                )
+
+                self.assertEqual(entry["owner"], owner)
+                self.assertEqual(entry["state"], state)
+                self.assertEqual(entry["selected_work_item"], "WORK-OPAQUE")
+                self.assertEqual(entry["explanation"], f"Waiting for {primary_class}.")
+                self.assertEqual(
+                    entry["next_command"],
+                    "palari agent handoff WORK-OPAQUE --json",
+                )
 
     def test_agent_start_next_skips_one_atomic_claim_race(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -1911,7 +2247,10 @@ class AgentPacketTests(unittest.TestCase):
             patch(
                 "palari_company_os.agent_runtime.start_agent",
                 side_effect=[
-                    WorkspaceError("work WORK-RACE is already claimed by PALARI-OTHER"),
+                    ClaimContentionError(
+                        "WORK-RACE",
+                        "work WORK-RACE is already claimed by PALARI-OTHER",
+                    ),
                     claimed,
                 ],
             ) as start,
@@ -1926,6 +2265,61 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["entry"]["selected_work_item"], "WORK-0003")
         self.assertEqual(result["entry"]["selection_rank"], 2)
         self.assertEqual(result["entry"]["skipped_contention"][0]["work_item_id"], "WORK-RACE")
+
+    def test_agent_start_next_skips_actual_claim_update_lock_contention(self) -> None:
+        from palari_company_os import agent_runtime
+
+        with self.git_workspace() as workspace_file:
+            entered = threading.Event()
+            proceed = threading.Event()
+            errors: list[BaseException] = []
+            first_results: list[dict[str, object]] = []
+            original_claim_lease = agent_runtime._claim_git_lease
+
+            def hold_work_0003(*args: object, **kwargs: object) -> dict[str, str]:
+                if args[0] == "WORK-0003":
+                    entered.set()
+                    if not proceed.wait(10):
+                        raise RuntimeError("timed out waiting to finish claim")
+                return original_claim_lease(*args, **kwargs)
+
+            def claim_first() -> None:
+                try:
+                    first_results.append(
+                        start_agent(
+                            Workspace.load(workspace_file),
+                            workspace_file,
+                            "WORK-0003",
+                            "PALARI-SOFIA",
+                        )
+                    )
+                except BaseException as exc:  # pragma: no cover - reported below
+                    errors.append(exc)
+
+            with patch(
+                "palari_company_os.agent_runtime._claim_git_lease",
+                side_effect=hold_work_0003,
+            ):
+                worker = threading.Thread(target=claim_first)
+                worker.start()
+                self.assertTrue(entered.wait(10))
+                try:
+                    result = start_next_agent(
+                        Workspace.load(workspace_file),
+                        workspace_file,
+                        "PALARI-SOFIA",
+                    )
+                finally:
+                    proceed.set()
+                    worker.join(10)
+
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(first_results[0]["start"]["status"], "claimed")
+            self.assertEqual(result["entry"]["selected_work_item"], "WORK-0005")
+            skipped = result["entry"]["skipped_contention"]
+            self.assertEqual(skipped[0]["work_item_id"], "WORK-0003")
+            self.assertIn("claim is being updated", skipped[0]["message"])
 
     def test_cli_agent_start_requires_exactly_one_explicit_or_next_target(self) -> None:
         with self.temp_workspace_file(WORKSPACE) as workspace_file:

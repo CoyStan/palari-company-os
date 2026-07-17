@@ -223,19 +223,21 @@ def verify_evidence(
     }
     work_lookup = getattr(workspace, "work_item", None)
     work = work_lookup(evidence.work_item_id) if callable(work_lookup) else None
-    expected_absent_paths = _delete_intent_paths(
-        getattr(work, "path_intents", []) if work is not None else []
-    )
+    path_intents = getattr(work, "path_intents", []) if work is not None else []
+    expected_absent_paths = _delete_intent_paths(path_intents)
     recomputed_artifacts, exact_head_artifacts = _verification_artifact_hashes(
         workspace,
         evidence,
         expected_absent_paths=expected_absent_paths,
     )
-    recomputed_artifacts = _enforce_verified_deletions(
+    path_intent_verification = _verify_evidence_path_intents(
         workspace,
         evidence,
+        path_intents,
+    )
+    recomputed_artifacts = _mark_invalid_path_intents(
         recomputed_artifacts,
-        expected_absent_paths,
+        path_intent_verification,
     )
     recomputed_record = dict(record)
     recomputed_record["artifact_hashes"] = recomputed_artifacts
@@ -289,6 +291,7 @@ def verify_evidence(
         and manifest_ok
         and journal_continuity_ok
         and output_binding_version_ok
+        and path_intent_verification["ok"]
         and (output_coverage_ok or not coverage_required)
         and all(item["ok"] for item in receipt_checks)
     )
@@ -307,6 +310,9 @@ def verify_evidence(
         "journal_continuity_ok": journal_continuity_ok,
         "journal_verification": journal_verification,
         "status_ok": status_ok,
+        "path_intents_ok": path_intent_verification["ok"],
+        "path_intent_verification": path_intent_verification,
+        "base_ref_binding_ok": path_intent_verification["base_ref_binding_ok"],
         "output_binding_version": output_binding_version,
         "output_binding_version_ok": output_binding_version_ok,
         "output_coverage_ok": output_coverage_ok,
@@ -488,7 +494,7 @@ def _git_value(path: Path, arguments: list[str]) -> str:
             text=True,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, UnicodeError):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
 
@@ -505,7 +511,7 @@ def _git_exact_object_value(path: Path, arguments: list[str]) -> str:
             text=True,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, UnicodeError):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
 
@@ -791,24 +797,108 @@ def _workspace_work_path_intents(
     ]
 
 
-def _enforce_verified_deletions(
+def _verify_evidence_path_intents(
     workspace: Workspace,
     evidence: Any,
-    hashes: list[dict[str, Any]],
-    delete_paths: set[str],
-) -> list[dict[str, Any]]:
-    """Accept absence only when Git proves a regular file was deleted.
+    raw_path_intents: Any,
+) -> dict[str, Any]:
+    """Verify exact path semantics from the attempt's immutable Git range.
 
-    The evidence record stays compatible with the existing atomic authoring
-    path by persisting only the core ``absent`` marker.  Verification derives
-    the stronger ancestry fact from the immutable base and candidate commits.
-    A missing base blob, unsupported object format, non-file entry, or path
-    that reappears at the candidate head changes the recomputed value so exact
-    artifact and manifest comparison fail closed.
+    This is the authoritative check used when evidence is consumed.  It is
+    deliberately independent of the command that produced the evidence, so a
+    manual or alternate authoring path cannot bypass create/modify/delete
+    semantics that were checked during agent advance.
     """
 
-    if not delete_paths:
-        return hashes
+    path_intents: list[dict[str, str]] = []
+    malformed = False
+    if isinstance(raw_path_intents, (list, tuple)):
+        for item in raw_path_intents:
+            path = _field(item, "path")
+            intent = _field(item, "intent")
+            if (
+                not isinstance(path, str)
+                or not path.isprintable()
+                or intent not in {"create", "modify", "delete"}
+            ):
+                malformed = True
+                continue
+            path_intents.append({"path": path, "intent": str(intent)})
+    elif raw_path_intents not in (None, []):
+        malformed = True
+
+    attempts = [
+        attempt
+        for attempt in getattr(workspace, "attempts", [])
+        if str(_field(attempt, "id") or "") == str(evidence.attempt_id or "")
+        and str(_field(attempt, "work_item_id") or "")
+        == str(evidence.work_item_id or "")
+    ]
+    attempt = attempts[0] if len(attempts) == 1 else None
+    attempt_base = str(_field(attempt, "base_sha") or "") if attempt else ""
+    binding_required = bool(path_intents) or bool(attempt_base)
+    report: dict[str, Any] = {
+        "required": bool(path_intents) or malformed,
+        "ok": True,
+        "attempt_id": str(evidence.attempt_id or ""),
+        "base_ref_binding_required": binding_required,
+        "base_ref_binding_ok": True,
+        "head_binding_ok": True,
+        "intents": path_intents,
+        "checks": [],
+        "errors": [],
+        "invalid_paths": [],
+    }
+    if malformed:
+        report["errors"].append(
+            _path_intent_error(
+                "PATH_INTENT_INVALID",
+                "work path intents are malformed",
+                "Repair the work contract before relying on its evidence.",
+            )
+        )
+    if not binding_required:
+        report["ok"] = not report["errors"]
+        return report
+
+    if attempt is None:
+        report["base_ref_binding_ok"] = False
+        report["head_binding_ok"] = False
+        report["errors"].append(
+            _path_intent_error(
+                "EVIDENCE_ATTEMPT_MISSING",
+                "evidence does not identify one associated attempt",
+                "Record evidence against the exact work attempt and verify again.",
+            )
+        )
+        return _finish_path_intent_report(report, path_intents)
+
+    evidence_base = str(evidence.base_ref or "")
+    if not attempt_base or evidence_base != attempt_base:
+        report["base_ref_binding_ok"] = False
+        report["errors"].append(
+            _path_intent_error(
+                "EVIDENCE_BASE_REF_MISMATCH",
+                "evidence base_ref does not match the associated attempt base_sha",
+                "Regenerate evidence from the exact attempt baseline.",
+            )
+        )
+
+    attempt_head = str(_field(attempt, "head_sha") or "")
+    evidence_head = str(evidence.head_sha or "")
+    if attempt_head and evidence_head != attempt_head:
+        report["head_binding_ok"] = False
+        report["errors"].append(
+            _path_intent_error(
+                "EVIDENCE_HEAD_MISMATCH",
+                "evidence head_sha does not match the associated attempt head_sha",
+                "Regenerate evidence from the attempt's exact candidate commit.",
+            )
+        )
+
+    if not path_intents:
+        return _finish_path_intent_report(report, path_intents)
+
     try:
         root = evidence_artifact_root(
             workspace.path,
@@ -816,36 +906,146 @@ def _enforce_verified_deletions(
             list(evidence.artifacts),
             list(workspace.attempts),
         )
-    except (ValueError, WorkspaceError):
-        unavailable = [
-            (
-                {
-                    **item,
-                    "sha256": f"{HASH_PREFIX}invalid-deletion",
-                    "status": "invalid-deletion",
-                }
-                if str(item.get("path") or "") in delete_paths
-                else dict(item)
+    except (ValueError, WorkspaceError) as exc:
+        report["errors"].append(
+            _path_intent_error(
+                "PATH_INTENT_ROOT_UNSAFE",
+                f"artifact root is unavailable or unsafe: {exc}",
+                "Restore the bounded attempt workspace or exact candidate Git object.",
             )
-            for item in hashes
-        ]
-        return sorted(unavailable, key=lambda value: str(value.get("path", "")))
+        )
+        return _finish_path_intent_report(report, path_intents)
+
+    git_root, object_format, range_error = _exact_git_commit_range(
+        root,
+        attempt_base,
+        evidence_head,
+    )
+    if range_error:
+        code = (
+            "PATH_INTENT_GIT_NON_ANCESTOR"
+            if range_error == "non-ancestor"
+            else "PATH_INTENT_GIT_UNREADABLE"
+        )
+        message = (
+            "attempt base commit is not an ancestor of the evidence head commit"
+            if range_error == "non-ancestor"
+            else "attempt base and evidence head are not exact readable Git commits"
+        )
+        report["errors"].append(
+            _path_intent_error(
+                code,
+                message,
+                "Restore the exact commit ancestry and regenerate evidence.",
+            )
+        )
+        return _finish_path_intent_report(report, path_intents)
+
+    artifact_set = {
+        artifact for artifact in evidence.artifacts if isinstance(artifact, str)
+    }
+    assert git_root is not None
+    for item in path_intents:
+        path = item["path"]
+        intent = item["intent"]
+        if path not in artifact_set:
+            report["checks"].append(
+                {"path": path, "intent": intent, "status": "invalid"}
+            )
+            report["errors"].append(
+                _path_intent_error(
+                    "PATH_INTENT_ARTIFACT_MISSING",
+                    f"path intent {path} is absent from evidence artifacts",
+                    "Include every exact path intent in the evidence manifest.",
+                    path=path,
+                )
+            )
+            continue
+        transition = _git_path_intent_transition(
+            root,
+            git_root,
+            path,
+            intent,
+            attempt_base,
+            evidence_head,
+            object_format,
+        )
+        if transition:
+            report["checks"].append(
+                {"path": path, "intent": intent, "status": "verified"}
+            )
+            continue
+        report["checks"].append(
+            {"path": path, "intent": intent, "status": "invalid"}
+        )
+        report["errors"].append(
+            _path_intent_error(
+                "PATH_INTENT_MISMATCH",
+                f"Git ancestry does not prove {intent} for {path}",
+                "Make the declared mutation from the claimed base and regenerate evidence.",
+                path=path,
+            )
+        )
+    return _finish_path_intent_report(report, path_intents)
+
+
+def _finish_path_intent_report(
+    report: dict[str, Any],
+    path_intents: list[dict[str, str]],
+) -> dict[str, Any]:
+    checked = {str(item.get("path") or "") for item in report["checks"]}
+    global_failure = bool(report["errors"]) and not report["checks"]
+    invalid = {
+        str(item.get("path") or "")
+        for item in report["checks"]
+        if item.get("status") != "verified"
+    }
+    if global_failure or not report["base_ref_binding_ok"] or not report["head_binding_ok"]:
+        invalid.update(item["path"] for item in path_intents)
+    if report["errors"] and checked != {item["path"] for item in path_intents}:
+        invalid.update(item["path"] for item in path_intents if item["path"] not in checked)
+    report["invalid_paths"] = sorted(invalid)
+    report["ok"] = not report["errors"]
+    return report
+
+
+def _mark_invalid_path_intents(
+    hashes: list[dict[str, Any]],
+    verification: dict[str, Any],
+) -> list[dict[str, Any]]:
+    invalid_paths = set(verification.get("invalid_paths", []))
+    if not invalid_paths:
+        return hashes
+    intents = {
+        str(item.get("path") or ""): str(item.get("intent") or "")
+        for item in verification.get("intents", [])
+    }
     result: list[dict[str, Any]] = []
     for item in hashes:
         current = dict(item)
         path = str(current.get("path") or "")
-        if path in delete_paths and current.get("status") == "absent":
-            tombstone = git_deletion_tombstone(
-                root,
-                path,
-                str(evidence.base_ref or ""),
-                str(evidence.head_sha or ""),
-            )
-            if tombstone is None:
-                current["sha256"] = f"{HASH_PREFIX}invalid-deletion"
-                current["status"] = "invalid-deletion"
+        if path in invalid_paths:
+            intent = intents.get(path)
+            if not intent:
+                intent = "path-intent"
+            invalid_status = "invalid-deletion" if intent == "delete" else f"invalid-{intent}"
+            current["sha256"] = f"{HASH_PREFIX}{invalid_status}"
+            current["status"] = invalid_status
         result.append(current)
     return sorted(result, key=lambda value: str(value.get("path", "")))
+
+
+def _path_intent_error(
+    code: str,
+    message: str,
+    next_action: str,
+    *,
+    path: str = "",
+) -> dict[str, str]:
+    result = {"code": code, "message": message, "next_action": next_action}
+    if path:
+        result["path"] = path
+    return result
 
 
 def git_deletion_tombstone(
@@ -857,26 +1057,28 @@ def git_deletion_tombstone(
     """Return exact Git ancestry for one regular-file deletion, or ``None``."""
 
     try:
-        resolve_workspace_path(root, path)
+        resolved_path = resolve_workspace_path(root, path)
     except ValueError:
         return None
-    object_format = _git_value(root, ["rev-parse", "--show-object-format"])
-    if object_format not in {"sha1", "sha256"}:
+    git_root, object_format, range_error = _exact_git_commit_range(
+        root,
+        base_head,
+        candidate_head,
+    )
+    if git_root is None or range_error:
         return None
-    expected_length = 40 if object_format == "sha1" else 64
-    if any(
-        len(commit) != expected_length
-        or any(char not in "0123456789abcdef" for char in commit)
-        for commit in (base_head, candidate_head)
-    ):
+    try:
+        git_path = resolved_path.relative_to(git_root).as_posix()
+    except ValueError:
         return None
-    previous = _git_tree_entry(root, base_head, path)
-    current = _git_tree_entry(root, candidate_head, path)
+    previous = _git_tree_entry(git_root, base_head, git_path)
+    current = _git_tree_entry(git_root, candidate_head, git_path)
     if previous is None or current is not None:
         return None
     mode, object_type, oid = previous
     if object_type != "blob" or mode not in {"100644", "100755"}:
         return None
+    expected_length = 40 if object_format == "sha1" else 64
     if len(oid) != expected_length or any(char not in "0123456789abcdef" for char in oid):
         return None
     return {
@@ -885,6 +1087,115 @@ def git_deletion_tombstone(
         "previous_git_oid": oid,
         "previous_git_mode": mode,
     }
+
+
+def _exact_git_commit_range(
+    root: Path,
+    base_head: str,
+    candidate_head: str,
+) -> tuple[Path | None, str, str]:
+    """Resolve two exact commits without replacements and prove ancestry."""
+
+    git_root = _git_root(root)
+    if git_root is None:
+        return None, "", "unreadable"
+    object_format = _git_exact_object_value(
+        git_root,
+        ["rev-parse", "--show-object-format"],
+    )
+    if object_format not in {"sha1", "sha256"}:
+        return git_root, object_format, "unreadable"
+    expected_length = 40 if object_format == "sha1" else 64
+    for commit in (base_head, candidate_head):
+        if len(commit) != expected_length or any(
+            character not in "0123456789abcdef" for character in commit
+        ):
+            return git_root, object_format, "unreadable"
+        resolved = _git_exact_object_value(
+            git_root,
+            ["rev-parse", "--verify", f"{commit}^{{commit}}"],
+        )
+        if resolved != commit:
+            return git_root, object_format, "unreadable"
+    ancestor = _git_is_ancestor(git_root, base_head, candidate_head)
+    if ancestor is None:
+        return git_root, object_format, "unreadable"
+    if not ancestor:
+        return git_root, object_format, "non-ancestor"
+    return git_root, object_format, ""
+
+
+def _git_is_ancestor(root: Path, base_head: str, candidate_head: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "--no-replace-objects",
+                "merge-base",
+                "--is-ancestor",
+                base_head,
+                candidate_head,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    return None
+
+
+def _git_path_intent_transition(
+    artifact_root: Path,
+    git_root: Path,
+    path: str,
+    intent: str,
+    base_head: str,
+    candidate_head: str,
+    object_format: str,
+) -> bool:
+    try:
+        resolved_path = resolve_workspace_path(artifact_root, path)
+        git_path = resolved_path.relative_to(git_root).as_posix()
+    except ValueError:
+        return False
+    previous = _git_tree_entry(git_root, base_head, git_path)
+    current = _git_tree_entry(git_root, candidate_head, git_path)
+    regular_previous = _regular_git_blob(previous, object_format)
+    regular_current = _regular_git_blob(current, object_format)
+    if intent == "create":
+        return previous is None and regular_current
+    if intent == "modify":
+        return (
+            regular_previous
+            and regular_current
+            and previous is not None
+            and current is not None
+            and (previous[0], previous[2]) != (current[0], current[2])
+        )
+    if intent == "delete":
+        return regular_previous and current is None
+    return False
+
+
+def _regular_git_blob(entry: tuple[str, str, str] | None, object_format: str) -> bool:
+    if entry is None:
+        return False
+    mode, object_type, oid = entry
+    expected_length = 40 if object_format == "sha1" else 64
+    return (
+        object_type == "blob"
+        and mode in {"100644", "100755"}
+        and len(oid) == expected_length
+        and all(character in "0123456789abcdef" for character in oid)
+    )
 
 
 def _git_tree_entry(root: Path, commit: str, path: str) -> tuple[str, str, str] | None:
@@ -908,7 +1219,7 @@ def _git_tree_entry(root: Path, commit: str, path: str) -> tuple[str, str, str] 
             stderr=subprocess.PIPE,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, ValueError, subprocess.SubprocessError):
         return None
     if result.returncode != 0 or not result.stdout:
         return None
@@ -916,9 +1227,13 @@ def _git_tree_entry(root: Path, commit: str, path: str) -> tuple[str, str, str] 
     if len(entries) != 1 or b"\t" not in entries[0]:
         return None
     metadata, raw_path = entries[0].split(b"\t", 1)
-    if raw_path.decode("utf-8", "surrogateescape") != path:
+    try:
+        decoded_path = raw_path.decode("utf-8", "strict")
+        parts = metadata.decode("ascii", "strict").split()
+    except UnicodeDecodeError:
         return None
-    parts = metadata.decode("ascii", "strict").split()
+    if decoded_path != path:
+        return None
     if len(parts) != 3:
         return None
     return parts[0], parts[1], parts[2]
