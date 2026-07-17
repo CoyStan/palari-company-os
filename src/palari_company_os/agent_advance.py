@@ -1989,8 +1989,12 @@ def _refresh_artifact_transition(
         # byte-identical across the proof-head transition.
         "artifacts_unchanged": not projection_rebound,
         "ordinary_artifacts_unchanged": sorted(ordinary_unchanged),
-        "projection_artifacts_unchanged": sorted(projection_unchanged),
-        "projection_artifacts_rebound": projection_rebound,
+        "projection_artifacts_unchanged": sorted(
+            projection_unchanged, key=lambda item: item["path"]
+        ),
+        "projection_artifacts_rebound": sorted(
+            projection_rebound, key=lambda item: item["path"]
+        ),
         "proof_projection_mutates_after_evidence": proof_projection_paths,
     }
 

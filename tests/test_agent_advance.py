@@ -1154,6 +1154,41 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ],
         )
 
+    def test_refresh_transition_sorts_three_unchanged_projection_records(self) -> None:
+        paths = [
+            ".palari/governance-journal.v1.jsonl",
+            ".palari/history.jsonl",
+            "workspace.json",
+        ]
+        hashes = [
+            {
+                "path": path,
+                "sha256": "sha256:" + str(index) * 64,
+                "status": "present",
+            }
+            for index, path in enumerate(reversed(paths), start=1)
+        ]
+
+        transition = _refresh_artifact_transition(
+            self.temp_dir,
+            self.temp_dir,
+            list(reversed(paths)),
+            hashes,
+            hashes,
+        )
+
+        self.assertIsNotNone(transition)
+        assert transition is not None
+        self.assertEqual(
+            [
+                item["path"]
+                for item in transition["projection_artifacts_unchanged"]
+            ],
+            paths,
+        )
+        self.assertEqual(transition["projection_artifacts_rebound"], [])
+        self.assertTrue(transition["artifacts_unchanged"])
+
     def test_refresh_transition_rejects_malformed_hash_or_status(self) -> None:
         valid = {
             "path": "workspace.json",
