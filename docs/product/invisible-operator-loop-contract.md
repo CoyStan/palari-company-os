@@ -106,6 +106,14 @@ the command only selects and claims eligible work for it.
     compatible `agent release` instead of adding a 155th public command.
 
 - [ ] **One concise human surface and one exact action**
+- [x] **Pre-claim control-plane state never becomes agent write scope**
+  - Required outcome: an approved, committed Palari workspace projection that predates an execution session may be identified separately from product output without widening the packet, session contract, or hook write boundary. Any missing, changed, malformed, post-session, explicitly governed, or non-exact projection fails closed.
+  - Objective evidence: the claim carries a Git-lease-bound snapshot of the exact workspace, legacy-history, and journal bytes; its current journal replay is valid; the immutable proof baseline remains unchanged; and agent advance reports classified control-plane paths separately.
+  - Verification: focused snapshot/tamper tests, full packet/advance modules, and a dogfood dry run against the retained c528f2a witness.
+  - Current status: completed.
+  - Exact committed proof: 43cc159d44ed01ee662c834ba05275cf64108989 adds the versioned claim/lease snapshot and preflight classifier. The dogfood dry run reports exactly the three committed projection paths separately while retaining 47 product paths as proof output.
+
+
   - Required outcome: default inbox/handoff output states what is happening,
     whether it is safe, who owns the next judgment, and exactly one bound action.
     Explain/JSON views retain every digest and proof detail. Existing one-action
