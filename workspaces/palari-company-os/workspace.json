@@ -4182,7 +4182,8 @@
         "docs/agent/common-workflows.md",
         "docs/agent/verification.md",
         "AGENTS.md",
-        "README.md"
+        "README.md",
+        "docs/product/quickstart.md"
       ],
       "allowed_sources": [
         "SOURCE-REPO-FOUNDATION"
@@ -4247,7 +4248,8 @@
         "docs/agent/common-workflows.md",
         "docs/agent/verification.md",
         "AGENTS.md",
-        "README.md"
+        "README.md",
+        "docs/product/quickstart.md"
       ],
       "conflict_targets": [
         "src/palari_company_os/agent_directive.py",
@@ -16609,6 +16611,28 @@
       "safe_default": "reject scope expansion",
       "linked_goal": "GOAL-REPO-0001",
       "linked_work": "WORK-DDDCF6BD8DB248CFA51B68FC6CC167BC",
+      "linked_palari": "PALARI-STEWARD",
+      "result": "approve scope expansion"
+    },
+    {
+      "id": "DECISION-SCOPE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-QUICKSTART",
+      "question": "Should scope expand for WORK-D18949EABBAC41AA9C0FB3D57BD4B88F?",
+      "status": "decided",
+      "context": "Reason: Fresh independent review found the linked Quickstart materially contradicts the provider-neutral opaque-ID start-next/advance journey; aligning that existing public document is required for a truthful completed operator contract.\nRequested read paths: docs/product/quickstart.md\nRequested write paths: docs/product/quickstart.md",
+      "options": [
+        "approve scope expansion",
+        "reject scope expansion",
+        "split into new work"
+      ],
+      "tradeoffs": [
+        "Approving changes the declared work boundary.",
+        "Rejecting keeps the current attempt inside its packet.",
+        "Splitting preserves parallel safety for unrelated changes."
+      ],
+      "recommendation": "Do not expand scope until a human reviews the new boundary.",
+      "safe_default": "reject scope expansion",
+      "linked_goal": "GOAL-REPO-0002",
+      "linked_work": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
       "linked_palari": "PALARI-STEWARD",
       "result": "approve scope expansion"
     }
