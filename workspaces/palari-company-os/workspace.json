@@ -4311,7 +4311,7 @@
         "AGENTS.md",
         "README.md"
       ],
-      "parallel_policy": "exclusive",
+      "parallel_policy": "coordinate",
       "forbidden_actions": [
         "write outside the declared write paths"
       ],
