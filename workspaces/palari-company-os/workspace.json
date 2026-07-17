@@ -3656,9 +3656,70 @@
       "palari": "PALARI-STEWARD",
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "blocked",
       "scope": "Make one exact accepted human-decision command atomically create or reconcile its bound acceptance record and terminal work state when all proof and authority gates are current; preserve separate human authority and reject stale, mismatched, revoked, unqualified, or contradictory decisions.",
       "acceptance_target": "A qualified human records one accepted decision and receives deterministic acceptance plus completion or an exact fail-closed diagnosis; no second work-accept command is needed; agents cannot manufacture acceptance; retries are idempotent; positive, stale-head, stale-review, wrong-evidence, unqualified-human, revocation, crash-boundary, and existing compatibility tests pass.",
+      "required_approval_count": 1
+    },
+    {
+      "parent_work_item_id": "WORK-9120A9D378054BC7A696AC33A51236B1",
+      "parallel_policy": "coordinate",
+      "dependency_ids": [
+        "WORK-AA4EBA9EE93F46A1982A4E03FA7A2D8D"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "allowed_resources": [
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/governance_convergence.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_governance_completion.py",
+        "tests/test_one_action_convergence.py",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/security.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_kernel.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/governance_convergence.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_governance_completion.py",
+        "tests/test_one_action_convergence.py",
+        "docs/product/presentation-bound-human-decisions-contract.md",
+        "docs/product/security.md",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl"
+      ],
+      "forbidden_actions": [
+        "record human decision as agent",
+        "manufacture human identity",
+        "weaken positive quorum",
+        "weaken R3-R5 authority",
+        "external write",
+        "push",
+        "merge",
+        "deploy"
+      ],
+      "verification_expectations": [
+        "Focused one-action convergence and negative authority tests pass",
+        "Existing kernel and completion compatibility tests pass",
+        "Complete verification and isolated install smoke pass"
+      ],
+      "id": "WORK-437003B620774C2E99C44668EE402C26",
+      "title": "Bind explicit human authority when numeric quorum is zero",
+      "goal": "GOAL-REPO-0001",
+      "palari": "PALARI-STEWARD",
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Make an exact accepted human decision mechanically bind a current acceptance and converge terminal work even when policy requires human authority while the numeric quorum is zero; preserve not-required quorum semantics for ordinary low-risk work and fail closed on stale, mismatched, revoked, unqualified, malformed, or contradictory authority.",
+      "acceptance_target": "One accepted exact human decision creates or reconciles its bound acceptance and terminal state in the same transaction; the governance kernel validates explicit current decisions even when numeric quorum is zero; low-risk no-human completion is unchanged; retry, stale-head, stale-review, wrong-evidence, unqualified-human, revocation, contradiction, kernel, completion, full verification, and install smoke checks pass.",
       "required_approval_count": 1
     }
   ],
