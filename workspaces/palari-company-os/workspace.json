@@ -13655,6 +13655,14 @@
       "receipt_hash": "sha256:836c18afbba00193bfe5a8d4f4f3f8a59c3a610793c8fe757e23e1435252c942",
       "work_contract_hash": "sha256:f95b172e92833cc91b18c7df0e8936dc0fcef1f84838ae5e2409373ad98c15f3",
       "proof_hash": "sha256:d15fd3eec49d594ca989ecd2451690f772794aba731d68f48388974f308e16fe"
+    },
+    {
+      "id": "REVIEW-PROJECTION-SECURITY-ARCHITECT-9AD22E4",
+      "work_item_id": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
+      "reviewed_head": "9ad22e472955c182f56e7d1cd4e262e471ef82b4",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-17T18:46:41.181043Z"
     }
   ],
   "human_decisions": [
