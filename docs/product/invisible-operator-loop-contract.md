@@ -19,18 +19,21 @@ Every completed checkbox must name exact committed proof. The product rule is:
 - GitHub Actions exposed one environment-coupled assertion: a clean checkout
   has no activated dogfood journal, while the test required exactly one journal
   read. The production behavior was not implicated.
-- Dogfood journal: 39,889,344 bytes, 150 records, 75 committed transactions.
+- At work-item setup head `c528f2a`, dogfood journal: 39,889,344 bytes, 150
+  records, 75 committed transactions.
   Three exact verification runs had a 4.88-second median and approximately
   278 MB peak RSS. One journaled mutation currently performs roughly two full
   scans.
 - Existing opaque IDs and independent claims already permit unrelated work to
   proceed without chronological merge order.
 
-## Interaction Counts
+## Design Interaction Budget
 
-Counts are Palari invocations, excluding editing, tests, and Git commands.
+These are intended operator-call budgets, not completion evidence. Counts are
+Palari invocations, excluding editing, tests, and Git commands; final evidence
+must name measured transcript fixtures for any acceptance claim.
 
-| Journey | Before | After | Judgment that must remain |
+| Journey | Before | Target after | Judgment that must remain |
 | --- | ---: | ---: | --- |
 | Adopt a repository | 1 (`init`) | 1 (`init`) | none |
 | Claim safe work as a known Palari | 2–3 | 1 (`start --next`) | identity selection remains explicit |
@@ -76,7 +79,7 @@ the command only selects and claims eligible work for it.
   - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
     repeated start and atomic multi-agent contention tests pass.
 
-- [x] **One convergence action**
+- [ ] **One convergence action**
   - Required outcome: `palari agent advance WORK-ID` is the ordinary agent-safe
     fixed-point action. It derives deterministic attempt, receipt, evidence,
     verification, handoff, and terminal bookkeeping, then stops only for an
@@ -84,10 +87,11 @@ the command only selects and claims eligible work for it.
   - Objective evidence: R1 and R2+ journeys require no copied IDs/digests and
     post-quorum completion requires no follow-up command; retries are idempotent.
   - Verification: advance, convergence, authority, crash, and interaction tests.
-  - Current status: completed.
-  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`;
-    the complete 86-test advance module passes, including crash recovery and
-    post-reconciliation state-change rejection.
+  - Current status: in progress.
+  - Current evidence (not completion proof):
+    `25967792ccceec3f4b1c9b319f9087c5cf1d73d0` established the original
+    convergence implementation. Its later pre-claim composition needs final
+    integration verification and fresh exact-head review.
 
 - [x] **Deletion and parking are first-class**
   - Required outcome: declared create/modify/delete intent is enforced against
@@ -106,12 +110,6 @@ the command only selects and claims eligible work for it.
     compatible `agent release` instead of adding a 155th public command.
 
 - [ ] **One concise human surface and one exact action**
-- [x] **Pre-claim control-plane state never becomes agent write scope**
-  - Required outcome: an approved, committed Palari workspace projection that predates an execution session may be identified separately from product output without widening the packet, session contract, or hook write boundary. Any missing, changed, malformed, post-session, explicitly governed, or non-exact projection fails closed.
-  - Objective evidence: the claim carries a Git-lease-bound snapshot of the exact workspace, legacy-history, and journal bytes; its current journal replay is valid; the immutable proof baseline remains unchanged; and agent advance reports classified control-plane paths separately.
-  - Verification: focused snapshot/tamper tests, full packet/advance modules, and a dogfood dry run against the retained c528f2a witness.
-  - Current status: completed.
-  - Exact committed proof: 43cc159d44ed01ee662c834ba05275cf64108989 adds the versioned claim/lease snapshot and preflight classifier. The dogfood dry run reports exactly the three committed projection paths separately while retaining 47 product paths as proof output.
 
 
   - Required outcome: default inbox/handoff output states what is happening,
@@ -122,12 +120,30 @@ the command only selects and claims eligible work for it.
     non-batchable, changed evidence, and partial quorum tests; no autonomous
     review or human decision is introduced.
   - Verification: approval pack/presentation/read-model interaction tests.
-  - Current status: in progress. The approval inbox is eight lines; the current
-    repair candidate makes every review, decision, approval, blocked, and
-    terminal agent handoff seven lines with one read-only next inspection.
-  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
-    proves the approval-inbox surface. Exact committed proof for the handoff
-    repair and its fresh review is pending the final candidate commit.
+  - Current status: in progress.
+  - Current evidence (not completion proof):
+    `25967792ccceec3f4b1c9b319f9087c5cf1d73d0` proves the approval-inbox
+    surface. The handoff composition and its fresh exact-head review remain
+    pending final verification.
+
+- [ ] **Pre-claim control-plane state never becomes agent write scope**
+  - Required outcome: a pre-session, committed Palari workspace projection may
+    be identified separately from product output without widening the packet,
+    session contract, hook boundary, reviewed source range, or acceptance
+    authority.
+  - Objective evidence: the claim carries a Git-lease-bound snapshot of the
+    exact workspace, legacy-history, and journal bytes plus a valid journal
+    replay at claim creation; the immutable proof baseline remains unchanged;
+    and agent advance reports classified control-plane paths separately.
+  - Verification: focused snapshot/tamper tests, full packet/advance modules,
+    and a dogfood dry run against the retained `c528f2a` witness.
+  - Current status: in progress.
+  - Current evidence (not completion proof):
+    `43cc159d44ed01ee662c834ba05275cf64108989` introduced the versioned
+    snapshot and classifier. The rejected `9ad22e4` review required additional
+    fail-closed coverage for parent/leaf symlink escape, replacement-ref
+    history, v2 version/digest mismatch, and claim-start races. The historical
+    47-product-path/three-projection-path dry run is not final proof.
 
 - [x] **Activation and legacy continuity stay one command**
   - Required outcome: new repository initialization activates the operating
@@ -147,15 +163,13 @@ the command only selects and claims eligible work for it.
   - Objective evidence: text/JSON semantic-parity snapshots for ready, blocked,
     stale, review, human, and completed states.
   - Verification: CLI output, public-surface, and docs tests.
-  - Current status: in progress. Default handoff output is repaired in the
-    current candidate; focused state/owner/action and JSON-parity tests remain
-    to be committed and independently reviewed.
-  - Exact committed proof: `25967792ccceec3f4b1c9b319f9087c5cf1d73d0`
-    proves doctor at most nine lines, durable release five, start-next six, and
-    approval inbox eight. Exact handoff proof is pending the final candidate
-    commit.
+  - Current status: in progress.
+  - Current evidence (not completion proof):
+    `25967792ccceec3f4b1c9b319f9087c5cf1d73d0` proves doctor at most nine
+    lines, durable release five, start-next six, and approval inbox eight.
+    Exact handoff parity and fresh review remain pending final verification.
 
-- [x] **Performance follows the interaction**
+- [ ] **Performance follows the interaction**
   - Required outcome: small-workspace reads remain below 0.5-second median;
     the 40 MB fixture verifies at or below 1.0-second median and 100 MB RSS, or
     the contract records why a staged journal-format migration is safer. One
@@ -165,16 +179,15 @@ the command only selects and claims eligible work for it.
   - Objective evidence: repeatable three-run medians, slowest-module report,
     and before/after interaction counts for all ten journeys.
   - Verification: timing harness plus complete gate.
-  - Current status: completed with an explicit staged format migration.
-  - Exact committed proof: at `591702bbe4ec19c18fc06275682a58b19a3137f7`,
-    three-run medians were 0.23 seconds/24.8 MB for small `agent next`, 0.73
-    seconds/26.8 MB for the dogfood aggregate loop, 5.27 seconds/293.8 MB for
-    raw 40 MB journal verification, and 11.45 seconds/410.6 MB for one
-    journaled `work add` mutation on temporary copies. Complete gates were
-    80.64, 81.28, and 82.57 seconds (81.28-second median, 11.7% below baseline).
-    The 1-second/100 MB and 2-second mutation targets are not met. A versioned
-    checkpoint/tail-index migration is deliberately deferred because a
-    persistent advisory cache must not become transition authority.
+  - Current status: in progress.
+  - Current evidence (not completion proof): at
+    `591702bbe4ec19c18fc06275682a58b19a3137f7`, three-run medians were 0.23
+    seconds/24.8 MB for small `agent next`, 5.27 seconds/293.8 MB for raw 40 MB
+    journal verification, and 11.45 seconds/410.6 MB for one temporary-copy
+    journaled mutation. The 1-second/100 MB and 2-second mutation targets are
+    unmet. A versioned checkpoint/tail-index migration remains deferred because
+    a persistent advisory cache must not become transition authority. Final
+    exact-head timing and complete-gate evidence remain required.
 
 - [ ] **Compatibility, security, documentation, and review**
   - Required outcome: existing commands, schemas, fixtures, PCAW v1, authority,
@@ -188,10 +201,11 @@ the command only selects and claims eligible work for it.
     audit, and a fresh independent exact-head ACCEPT.
   - Verification: `palari docs check --json`, `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, and independent review report.
-  - Current status: pending.
-  - Exact committed proof: candidate `591702bbe4ec19c18fc06275682a58b19a3137f7`;
-    830 tests/46 modules, style, 18/18 PCAW vectors, docs/schema/CLI checks, and
-    the isolated wheel smoke pass. Fresh exact-head independent review remains.
+  - Current status: in progress.
+  - Current evidence (not completion proof):
+    `591702bbe4ec19c18fc06275682a58b19a3137f7` is historical verification
+    evidence. The rejected `9ad22e4` candidate requires repair; final
+    exact-head checks, path audit, isolated smoke, and fresh ACCEPT remain due.
 
 ## Explicit Human And Reviewer Boundary
 

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from .agent_done import _preflight
+from .agent_file_changes import inspect_file_changes
 from .agent_handoff import build_agent_handoff
 from .agent_runtime import (
     claim_check,
@@ -878,7 +879,37 @@ def _projection_bound_preflight(
     )
     if not result.get("ok"):
         return result
-    proof_range = list(result.get("changed_files") or [])
+    base_sha = str(baseline.get("head_sha") or "")
+    proof_range = _exact_committed_paths(root_text, base_sha, current_head)
+    if proof_range is None:
+        return _projection_preflight_blocked(
+            "exact claim commit history is unreadable"
+        )
+    declared = sorted(dict.fromkeys(declared_changed or []))
+    if declared and declared != proof_range:
+        return _projection_preflight_blocked(
+            "declared --changed paths do not exactly match the committed HEAD artifact"
+        )
+    inspection = inspect_file_changes(
+        augmented_packet,
+        changed_paths=proof_range,
+        cwd=root,
+    )
+    if inspection is None or not inspection.get("observation_complete"):
+        return _projection_preflight_blocked(
+            "exact claim commit boundary inspection failed"
+        )
+    outside = inspection.get("outside_write_boundary", [])
+    if outside:
+        return _projection_preflight_blocked(
+            "exact claim commit range contains paths outside the write boundary: "
+            + ", ".join(outside)
+        )
+    missing = inspection.get("missing_required_outputs", [])
+    if missing:
+        return _projection_preflight_blocked(
+            "required outputs are missing: " + ", ".join(missing)
+        )
     effective = sorted(path for path in proof_range if path not in classified)
     if not effective:
         return _projection_preflight_blocked(
@@ -906,6 +937,9 @@ def _projection_bound_preflight(
             "Active claim, clean worktree, exact claim-start range, write boundary, "
             "and lease-bound governance projection verified."
         ),
+        "git_root": root_text,
+        "base_sha": base_sha,
+        "head_sha": current_head,
         "changed_files": effective,
         "proof_range_changed_files": proof_range,
         "verified_governance_projection_changes": verified,

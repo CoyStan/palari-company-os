@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -29,8 +30,12 @@ from palari_company_os.agent_advance import (
 )
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_next import build_agent_next
-from palari_company_os.agent_runtime import start_agent
-from palari_company_os.agent_runtime import release_agent
+from palari_company_os.agent_runtime import (
+    claim_check,
+    governance_projection_snapshot_error,
+    release_agent,
+    start_agent,
+)
 from palari_company_os.authoring import (
     ReconciliationStateChanged,
     create_human_decision,
@@ -576,6 +581,45 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    def _start_preclaim_projection(self) -> dict[str, Any]:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {"scope": "Updated through a governed pre-claim control-plane action."},
+            command="test governed scope update",
+            actor="HUMAN-FOUNDER",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
+            check=True,
+        )
+        return start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+
     def test_one_command_reaches_review_and_repeated_call_is_idempotent(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
@@ -733,6 +777,241 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             "governance projection changed after claim start",
             result["preflight"]["message"],
         )
+
+    def test_preclaim_projection_full_advance_is_idempotent(self) -> None:
+        self._start_preclaim_projection()
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ) as runner:
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(first["status"], "review-required", first)
+        self.assertEqual(runner.call_count, 3)
+        workspace = Ws.load(self.temp_dir)
+        counts = (len(workspace.attempts), len(workspace.receipts), len(workspace.evidence_runs))
+        second = agent_advance(
+            workspace,
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertEqual(second["status"], "review-required", second)
+        self.assertFalse(second["would_mutate"])
+        resumed = Ws.load(self.temp_dir)
+        self.assertEqual(
+            counts,
+            (len(resumed.attempts), len(resumed.receipts), len(resumed.evidence_runs)),
+        )
+
+    def test_preclaim_projection_parent_symlink_escape_fails_closed(self) -> None:
+        started = self._start_preclaim_projection()
+        claim = started["start"]["claim"]
+        assert isinstance(claim, dict)
+        snapshot = claim["governance_projection_snapshot"]
+        assert isinstance(snapshot, dict)
+        baseline = claim["git_baseline"]
+        assert isinstance(baseline, dict)
+        palari = self.temp_dir / ".palari"
+        outside = self.temp_dir.parent / f"{self.temp_dir.name}-projection-outside"
+        moved = self.temp_dir / ".palari-real"
+        outside.mkdir()
+        shutil.copy2(palari / "history.jsonl", outside / "history.jsonl")
+        shutil.copy2(
+            palari / "governance-journal.v1.jsonl",
+            outside / "governance-journal.v1.jsonl",
+        )
+        palari.rename(moved)
+        os.symlink(outside, palari, target_is_directory=True)
+        try:
+            error = governance_projection_snapshot_error(
+                self.temp_dir / "workspace.json",
+                baseline,
+                snapshot,
+                require_worktree_match=True,
+            )
+            self.assertIn("path escapes workspace root through a symlink", error)
+        finally:
+            if palari.is_symlink():
+                palari.unlink()
+            if moved.exists():
+                moved.rename(palari)
+            shutil.rmtree(outside, ignore_errors=True)
+
+    def test_v2_projection_lease_binding_cannot_be_stripped_or_downgraded(self) -> None:
+        started = self._start_preclaim_projection()
+        claim = started["start"]["claim"]
+        assert isinstance(claim, dict)
+        self.assertEqual(claim["git_lease_version"], "palari.git_claim_lease.v2")
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        variants: list[tuple[str, dict[str, object], str]] = []
+
+        stripped = deepcopy(claim)
+        stripped.pop("governance_projection_snapshot")
+        stripped.pop("governance_projection_snapshot_digest")
+        variants.append(("stripped", stripped, "v2 Git claim lease requires"))
+
+        downgraded = deepcopy(claim)
+        downgraded["git_lease_version"] = "palari.git_claim_lease.v1"
+        downgraded.pop("governance_projection_snapshot")
+        downgraded.pop("governance_projection_snapshot_digest")
+        variants.append(("downgraded", downgraded, "version differs from the local claim"))
+
+        mismatched = deepcopy(claim)
+        mismatched["governance_projection_snapshot_digest"] = "sha256:" + "0" * 64
+        variants.append(("digest", mismatched, "snapshot does not match its digest"))
+
+        for label, tampered, expected in variants:
+            with self.subTest(label=label):
+                claim_path.write_text(json.dumps(tampered), encoding="utf-8")
+                checked = claim_check(
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                    str(claim["context_hash"]),
+                )
+                self.assertEqual(checked["status"], "fail", checked)
+                self.assertIn(expected, checked["message"])
+                dry_run = agent_advance(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    dry_run=True,
+                )
+                self.assertEqual(dry_run["status"], "blocked", dry_run)
+                with self.assertRaisesRegex(WorkspaceError, expected):
+                    release_agent(
+                        Ws.load(self.temp_dir),
+                        self.temp_dir,
+                        self.work_id,
+                        "PALARI-STEWARD",
+                    )
+
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+
+    def test_preclaim_projection_rejects_replace_ref_hidden_path(self) -> None:
+        self._start_preclaim_projection()
+        outside = self.temp_dir / "outside.txt"
+        outside.write_text("outside the packet boundary\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "outside.txt"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "outside change"],
+            check=True,
+        )
+        head = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
+        parent = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD^"],
+            text=True,
+        ).strip()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "replace", head, parent],
+            check=True,
+        )
+        outside.unlink()
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "update-index", "--force-remove", "outside.txt"],
+            check=True,
+        )
+        try:
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                dry_run=True,
+            )
+            self.assertEqual(result["status"], "blocked", result)
+            self.assertIn(
+                "exact claim commit range contains paths outside the write boundary: outside.txt",
+                result["preflight"]["message"],
+            )
+        finally:
+            subprocess.run(
+                ["git", "-C", str(self.temp_dir), "replace", "-d", head],
+                check=True,
+            )
+
+    def test_preclaim_snapshot_race_releases_lease_and_retries_safely(self) -> None:
+        self._start_preclaim_projection()
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        from palari_company_os import agent_runtime
+
+        original_claim_lease = agent_runtime._claim_git_lease
+        raced = False
+
+        def claim_lease_after_interloper(*args: object, **kwargs: object) -> dict[str, str]:
+            nonlocal raced
+            if not raced:
+                raced = True
+                (self.temp_dir / "README.md").write_text("raced\n", encoding="utf-8")
+                subprocess.run(
+                    ["git", "-C", str(self.temp_dir), "add", "README.md"],
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "-C", str(self.temp_dir), "commit", "-qm", "interloper"],
+                    check=True,
+                )
+            return original_claim_lease(*args, **kwargs)
+
+        with patch(
+            "palari_company_os.agent_runtime._claim_git_lease",
+            side_effect=claim_lease_after_interloper,
+        ):
+            with self.assertRaisesRegex(WorkspaceError, "HEAD changed while claim was starting"):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        self.assertFalse((self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists())
+        lease_refs = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/palari/leases/",
+            ],
+            text=True,
+        )
+        self.assertNotIn(self.work_id, lease_refs)
+        retried = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(retried["start"]["status"], "claimed")
 
     def test_delete_intent_records_and_reverifies_core_tombstone(self) -> None:
         self._restart_with_path_intent("delete")
