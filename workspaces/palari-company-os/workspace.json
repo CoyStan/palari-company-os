@@ -12225,6 +12225,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-AA4EBA9EE93F46A1982A4E03FA7A2D8D-D2194F1065CB",
       "review_reference": "REVIEW-PROJECTION-NARRATION-FINAL-ARCHITECT-D2194F1-ACCEPT",
       "timestamp": "2026-07-17T07:57:26.405802Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-9120A9D378054BC7A696AC33A51236B1-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-9120A9D378054BC7A696AC33A51236B1",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "ca1a0835a22d9dbc1c07a9120db2bd1eff70a099",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-9120A9D378054BC7A696AC33A51236B1-CA1A0835A22D",
+      "review_reference": "REVIEW-JOURNAL-PERF-FINAL-ARCHITECT-CA1A083-ACCEPT",
+      "timestamp": "2026-07-17T08:49:28.905524Z"
     }
   ],
   "receipts": [
