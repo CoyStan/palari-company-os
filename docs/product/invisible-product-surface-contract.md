@@ -7,6 +7,9 @@ Baseline: `4881dd853ebcec73ce7a69ff7acefd4b637e2a21`
 Final candidate implementation commit:
 `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
 
+Committed verification record:
+`444e505a26c1e30ad9eff8027b6c4f84e17f6bb5`.
+
 This contract makes the common operating journey obvious without deleting the
 expert surface or laundering unfinished work into completion.
 
