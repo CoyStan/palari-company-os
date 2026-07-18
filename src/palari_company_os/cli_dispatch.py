@@ -401,18 +401,27 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
     if args.command == "claude":
-        from .claude_hooks import hooks_status, install_hooks, run_hook
+        from .claude_hooks import hooks_status
 
         if args.claude_command == "hook":
+            from .agent_adoption import run_agent_hook
+
             return CommandResult(
                 "claude-hook",
-                run_hook(args.event, args.workspace, strict=args.strict),
+                run_agent_hook(
+                    "claude",
+                    args.event,
+                    args.workspace,
+                    strict=args.strict,
+                ),
                 True,
             )
         if args.claude_command == "install":
+            from .agent_adoption import install_claude_host_hooks
+
             return CommandResult(
                 "claude-install",
-                install_hooks(
+                install_claude_host_hooks(
                     args.project_dir or Path.cwd(),
                     args.workspace,
                     settings_file=args.settings_file,

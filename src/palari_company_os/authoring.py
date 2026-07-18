@@ -347,6 +347,11 @@ def complete_work(
     current = workspace.work_item(work_id)
     if current is None:
         raise WorkspaceError(f"work not found: {work_id}")
+    if current.terminal_disposition:
+        raise WorkspaceError(
+            f"work {work_id} was {current.terminal_disposition} and cannot be "
+            "completed; create or follow an explicit successor work item"
+        )
     if current.status in {"completed", "closed", "done"}:
         return MutationResult("completed", "work_items", work_id, workspace.name)
     _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
@@ -1346,10 +1351,27 @@ def _latest_raw_for_attempt(
 def _reject_generic_trust_transition(
     kind: str, record_id: str, record: dict[str, Any], updates: dict[str, Any]
 ) -> None:
-    if kind == "work" and str(updates.get("status") or "") in {"completed", "closed", "done"}:
-        raise WorkspaceError(
-            f"work {record_id} terminal status must use `palari work complete`"
-        )
+    if kind == "work":
+        terminal_statuses = {"completed", "closed", "done", "superseded", "abandoned"}
+        current_status = str(record.get("status") or "")
+        requested_status = str(updates.get("status") or "")
+        if current_status in terminal_statuses:
+            raise WorkspaceError(
+                f"work {record_id} is terminal ({current_status}) and immutable; "
+                "create or follow an explicit successor work item"
+            )
+        if requested_status in {"completed", "closed", "done"}:
+            raise WorkspaceError(
+                f"work {record_id} terminal status must use `palari work complete`"
+            )
+        if requested_status in {"superseded", "abandoned"}:
+            retirement_fields = {"status", "terminal_reason", "successor_work_item_id"}
+            unrelated = sorted(set(updates) - retirement_fields)
+            if unrelated:
+                raise WorkspaceError(
+                    f"work {record_id} retirement cannot rewrite other fields: "
+                    f"{', '.join(unrelated)}"
+                )
     if kind == "attempt" and set(updates) & {
         "status",
         "head_sha",

@@ -15,6 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.store import load_store, migrate_data, migrate_store, write_store
+from palari_company_os.authoring import complete_work, update_record
+from palari_company_os.pcaw_workspace import governance_case_from_workspace
+from palari_company_os.governance_kernel import evaluate_governance_case
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -202,8 +205,59 @@ class WorkspaceValidationTests(unittest.TestCase):
 
         workspace = Workspace.from_raw(raw, FIXTURES)
 
-        self.assertEqual(workspace.work_items[0].status, "closed")
+        self.assertEqual(workspace.work_items[0].status, "blocked")
         self.assertEqual(workspace.work_items[0].terminal_disposition, "abandoned")
+
+        governance_case, _ = governance_case_from_workspace(
+            workspace,
+            workspace.work_items[0].id,
+            inspect_external=False,
+        )
+        self.assertEqual(governance_case.claimed_state, "blocked")
+        self.assertEqual(evaluate_governance_case(governance_case).derived_state, "blocked")
+
+    def test_terminal_work_is_immutable_and_retirement_never_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(
+                FIXTURES / "valid-accepted-completed-work.json",
+                root / "workspace.json",
+            )
+            with self.assertRaisesRegex(WorkspaceError, "terminal .* immutable"):
+                update_record(
+                    str(root),
+                    "work",
+                    "WORK-1",
+                    {
+                        "status": "abandoned",
+                        "terminal_reason": "Must not erase accepted completion.",
+                    },
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(
+                FIXTURES / "valid-source-receipt-loop.json",
+                root / "workspace.json",
+            )
+            update_record(
+                str(root),
+                "work",
+                "WORK-1",
+                {
+                    "status": "abandoned",
+                    "terminal_reason": "The objective is intentionally obsolete.",
+                },
+            )
+            with self.assertRaisesRegex(WorkspaceError, "terminal .* immutable"):
+                update_record(
+                    str(root),
+                    "work",
+                    "WORK-1",
+                    {"status": "active", "terminal_reason": ""},
+                )
+            with self.assertRaisesRegex(WorkspaceError, "was abandoned"):
+                complete_work(str(root), "WORK-1")
 
     def test_superseded_work_requires_valid_distinct_acyclic_successor(self) -> None:
         raw = json.loads(

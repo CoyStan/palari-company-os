@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -35,7 +36,14 @@ class AgentAdoptionTests(unittest.TestCase):
         shutil.rmtree(self.workspace / ".palari", ignore_errors=True)
         (self.tmp / "README.md").write_text("test\n", encoding="utf-8")
         (self.tmp / "bin").mkdir()
-        (self.tmp / "bin" / "palari").write_text("#!/bin/sh\n", encoding="utf-8")
+        (self.tmp / "bin" / "palari").write_text(
+            "#!/usr/bin/env bash\n"
+            "set -euo pipefail\n"
+            'repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+            'export PYTHONPATH="$repo_dir/src${PYTHONPATH:+:$PYTHONPATH}"\n'
+            'exec python3 -S -m palari_company_os "$@"\n',
+            encoding="utf-8",
+        )
         (self.tmp / "bin" / "palari").chmod(0o755)
         self.env = {
             **os.environ,
@@ -145,6 +153,32 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertFalse((self.tmp / "AGENTS.md").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
 
+    def test_adoption_refuses_noop_and_symlinked_local_wrappers(self) -> None:
+        wrapper = self.tmp / "bin" / "palari"
+        wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(WorkspaceError, "not an inspectable Palari launcher"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="generic",
+                palari_id="PALARI-STEWARD",
+            )
+
+        wrapper.unlink()
+        outside = self.tmp.parent / f"{self.tmp.name}-palari"
+        outside.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        outside.chmod(0o755)
+        self.addCleanup(outside.unlink, True)
+        wrapper.symlink_to(outside)
+        with self.assertRaisesRegex(WorkspaceError, "must not be a symlink"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="generic",
+                palari_id="PALARI-STEWARD",
+            )
+
     def test_adoption_never_overwrites_an_unmanaged_git_hook(self) -> None:
         hook = self.tmp / ".git" / "hooks" / "pre-commit"
         hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -218,7 +252,7 @@ class AgentAdoptionTests(unittest.TestCase):
         hooks_file.parent.mkdir()
         hooks_file.write_text("{broken", encoding="utf-8")
 
-        with self.assertRaisesRegex(WorkspaceError, "not valid JSON"):
+        with self.assertRaisesRegex(WorkspaceError, "not valid .*JSON"):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
@@ -228,6 +262,113 @@ class AgentAdoptionTests(unittest.TestCase):
 
         self.assertFalse((self.tmp / "AGENTS.md").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+    def test_codex_adoption_rejects_invalid_utf8_and_regular_config_parent_before_writes(self) -> None:
+        codex = self.tmp / ".codex"
+        codex.mkdir()
+        (codex / "hooks.json").write_bytes(b"\xff")
+        with self.assertRaisesRegex(WorkspaceError, "valid UTF-8 JSON"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+        shutil.rmtree(codex)
+        codex.write_text("not a directory\n", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "parent is not a directory"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+    def test_adoption_rolls_back_project_files_when_git_hook_target_is_not_local(self) -> None:
+        outside = self.tmp.parent / f"{self.tmp.name}-hooks"
+        self.addCleanup(shutil.rmtree, outside, True)
+        self._git("config", "core.hooksPath", str(outside))
+
+        with self.assertRaisesRegex(WorkspaceError, "outside this repository"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".codex").exists())
+        self.assertFalse((outside / "pre-commit").exists())
+
+    def test_codex_adoption_preserves_foreign_hook_co_located_with_managed_hook(self) -> None:
+        hooks_file = self.tmp / ".codex" / "hooks.json"
+        hooks_file.parent.mkdir()
+        hooks_file.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "mixed",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari agent adopt --host codex --hook-event pre-tool-use",
+                                    },
+                                    {"type": "command", "command": "foreign-check"},
+                                ],
+                            }
+                        ]
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="codex",
+            palari_id="PALARI-STEWARD",
+        )
+
+        entries = json.loads(hooks_file.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+        commands = [hook["command"] for entry in entries for hook in entry["hooks"]]
+        self.assertIn("foreign-check", commands)
+        self.assertEqual(sum("--host codex --hook-event" in item for item in commands), 1)
+
+    def test_generated_commands_quote_adversarial_workspace_path_as_data(self) -> None:
+        malicious = self.tmp / "ws$(touch PWNED)"
+        shutil.copytree(self.workspace, malicious)
+
+        result = adopt_agent_host(
+            malicious,
+            project_dir=self.tmp,
+            host="codex",
+            palari_id="PALARI-STEWARD",
+        )
+        hooks = json.loads((self.tmp / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+        command = hooks["hooks"]["SessionStart"][-1]["hooks"][0]["command"]
+        subprocess.run(
+            command,
+            cwd=self.tmp,
+            input="{}",
+            text=True,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertFalse((self.tmp / "PWNED").exists())
+        self.assertIn(str(malicious), shlex.split(command))
+        self.assertIn(str(malicious), shlex.split(result["mcp"]["command"]))
 
     def test_claude_adoption_preserves_settings_and_installs_structural_profile(self) -> None:
         settings = self.tmp / ".claude" / "settings.json"
@@ -369,8 +510,8 @@ class AgentAdoptionTests(unittest.TestCase):
 
         (self.tmp / "outside.txt").write_text("outside\n", encoding="utf-8")
         stopped = self._codex_hook("stop", {"cwd": str(self.tmp)})
-        self.assertEqual(stopped["decision"], "block")
-        self.assertIn("outside.txt", stopped["reason"])
+        self.assertEqual(stopped["continue"], False)
+        self.assertIn("outside.txt", stopped["stopReason"])
 
     def test_codex_hook_converts_unsupported_ask_into_fail_closed_deny(self) -> None:
         adopt_agent_host(
@@ -413,6 +554,90 @@ class AgentAdoptionTests(unittest.TestCase):
         )
         self.assertEqual(authority["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("human-only", authority["hookSpecificOutput"]["permissionDecisionReason"])
+
+        allowed_advance = self._codex_hook(
+            "pre-tool-use",
+            {
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": (
+                        f"palari --workspace {shlex.quote(str(self.workspace))} "
+                        "agent advance WORK-BASH --as PALARI-STEWARD --json"
+                    )
+                },
+                "cwd": str(self.tmp),
+            },
+        )
+        self.assertEqual(allowed_advance, {})
+
+        foreign_advance = self._codex_hook(
+            "pre-tool-use",
+            {
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": (
+                        "palari --workspace /tmp/foreign "
+                        "agent advance WORK-BASH --as PALARI-STEWARD --json"
+                    )
+                },
+                "cwd": str(self.tmp),
+            },
+        )
+        self.assertEqual(
+            foreign_advance["hookSpecificOutput"]["permissionDecision"],
+            "deny",
+        )
+
+        claude_advance = run_agent_hook(
+            "claude",
+            "pre-tool-use",
+            self.workspace,
+            stdin=io.StringIO(
+                json.dumps(
+                    {
+                        "tool_name": "Bash",
+                        "tool_input": {
+                            "command": (
+                                f"palari --workspace {shlex.quote(str(self.workspace))} "
+                                "agent advance WORK-BASH --as PALARI-STEWARD --json"
+                            )
+                        },
+                        "cwd": str(self.tmp),
+                    }
+                )
+            ),
+        )
+        self.assertEqual(claude_advance, {})
+
+    def test_compatible_claude_install_cli_uses_hardened_absolute_command(self) -> None:
+        result = subprocess.run(
+            [
+                str(REPO_ROOT / "bin" / "palari"),
+                "--workspace",
+                str(self.workspace),
+                "claude",
+                "install",
+                "--project-dir",
+                str(self.tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], "palari.claude_install.v1")
+        settings = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        command = settings["hooks"]["PreToolUse"][-1]["hooks"][0]["command"]
+        tokens = shlex.split(command)
+        self.assertEqual(tokens[tokens.index("--workspace") + 1], str(self.workspace))
+        self.assertEqual(tokens[-4:], ["claude", "hook", "pre-tool-use", "--strict"])
 
     def _codex_hook(self, event: str, payload: dict[str, object]) -> dict[str, object]:
         return run_agent_hook(

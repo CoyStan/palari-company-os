@@ -13,7 +13,7 @@ that first screen but remain available and parseable; use direct
 ## Two-Minute Onramp
 
 ```bash
-palari init
+palari init --host codex
 palari work add "Clean up launch notes" --write docs/notes.md
 palari agent start --next --as PALARI-CLAUDE --json
 ```
@@ -24,6 +24,22 @@ from `git config user.name` when available), one Palari (Claude by default,
 refuses to overwrite an existing `workspace.json`. When the current directory
 contains a `workspace.json`, every command uses it as the default workspace,
 so no `--workspace` flag is needed after `init`.
+
+Add `--host claude|codex|cursor|devin|glm|generic` to make first adoption one
+anchored action. Every host profile installs or reuses the portable repository
+contract and installs the claim-bound Git commit gate. Claude and Codex also
+receive tested project-local session hooks; Codex requires explicit `/hooks`
+review before they activate. Cursor, Devin, GLM, and generic profiles are
+reported as advisory at session time. Existing workspaces use `palari agent
+adopt` instead:
+
+```bash
+palari agent adopt --host codex --as PALARI-ID --json
+```
+
+Adoption preserves existing instructions and host configuration. It grants no
+review, human decision, acceptance, merge, push, deployment, provider, or
+external-write authority.
 
 `work add` creates one agent-startable work item from a title and its write
 paths. `--write` paths become the enforced write boundary (and are declared on
@@ -58,8 +74,8 @@ The command returned by `work add` is `agent start --next`: it selects exactly
 one currently safe item using the same queue and packet policy, persists its
 portable contract, and claims it. Existing `agent next`, `brief`, and explicit
 `start WORK-ID` commands remain the inspectable compatibility surfaces.
-`palari claude install` is optional host enforcement for Claude Code, not part
-of repository activation or a requirement for other agent providers.
+`palari claude install` remains the compatible Claude-only adapter command; it
+is not a requirement for the provider-neutral loop.
 
 ## Workspace Init
 
@@ -425,12 +441,15 @@ reason, successor, and historical records. Existing successful terminal states
 
 `mcp serve` runs a stdio MCP server for agents and MCP-speaking clients. It
 exposes compact Palari tools for queue, state, detail, docs check, and the
-agent loop: next, brief, start, check, finish, handoff, doctor, loop, and
-release. Most tools are read-only. `palari_agent_start` and
-`palari_agent_release` only write or remove local `.palari/packets` and
-`.palari/claims` runtime files; they do not change workspace records, call
-providers, read secrets, or perform external writes. The server writes only
-JSON-RPC MCP messages to stdout.
+agent loop: next, brief, start, check, advance, finish, handoff, doctor, loop,
+and release. `palari_agent_brief` can return the portable session contract;
+`palari_agent_start` can select and claim the next safe item. Most tools are
+read-only. Start and release write only local packet/claim runtime state.
+`palari_agent_advance` may record deterministic attempt, receipt, evidence,
+and eligible local closeout records, but stops before independent review,
+human authority, or external effects. The server exposes no review-record,
+human-decision, acceptance, merge, push, deployment, provider, or external-
+write tool. It writes only JSON-RPC MCP messages to stdout.
 
 ```bash
 ./bin/palari agent next --json

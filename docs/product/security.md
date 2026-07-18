@@ -145,11 +145,13 @@ Authority rules:
   repeated packet/check/journal work; they do not replace transition checks or
   cache authority across requests. A changed journal witness forces a fresh
   complete scan.
-- Claude Code hooks are an optional host adapter. The provider-neutral Palari
-  loop, transition gates, and proof records work without them, but packets alone
-  do not install an OS sandbox or prevent an unrestricted same-user process
-  from writing files directly. Other agent hosts need their own proven adapter
-  if pre-write enforcement is required.
+- `palari init --host HOST` and `palari agent adopt --host HOST` install or
+  reuse the portable contract and claim-bound Git commit gate without granting
+  authority. Claude and Codex have tested project-local session adapters;
+  Codex hooks activate only after explicit host `/hooks` review. Cursor, Devin,
+  GLM, and generic profiles are labeled advisory at session time. No profile is
+  an OS sandbox, and an unrestricted same-user process can still rewrite local
+  files or Git metadata. Existing `palari claude install` remains compatible.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - Proof creation necessarily mutates `workspace.json`, legacy history, and the

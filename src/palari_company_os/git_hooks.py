@@ -216,6 +216,15 @@ def install_git_hook(
             "message": f"Cannot locate Git hook directory: {hook_error}",
             "hook_path": "",
         }
+    location_error = _git_hook_location_error(git_root, hook_path)
+    if location_error:
+        return {
+            "schema_version": "palari.git_install.v1",
+            "status": "error",
+            "changed": False,
+            "message": location_error,
+            "hook_path": str(hook_path),
+        }
     workspace_arg = shlex.quote(_workspace_argument(root, workspace_path))
     executable = _palari_executable(root)
 
@@ -461,3 +470,42 @@ def _git_hook_path(root: Path) -> tuple[Path | None, str]:
     if not path.is_absolute():
         path = root / path
     return path.resolve(), ""
+
+
+def _git_hook_location_error(root: Path, hook_path: Path) -> str:
+    """Reject process-global or unrelated hook targets before any write.
+
+    A linked worktree legitimately shares the repository's common Git
+    directory, so both the worktree root and that exact common directory are
+    local. An arbitrary absolute ``core.hooksPath`` is not.
+    """
+
+    allowed_roots = [root.resolve()]
+    try:
+        common = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--git-common-dir"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"Cannot verify Git hook locality: {exc}"
+    if common.returncode != 0 or not common.stdout.strip():
+        return common.stderr.strip() or "Cannot verify Git common directory"
+    common_dir = Path(common.stdout.strip()).expanduser()
+    if not common_dir.is_absolute():
+        common_dir = root / common_dir
+    allowed_roots.append(common_dir.resolve())
+    resolved = hook_path.resolve()
+    for allowed in allowed_roots:
+        try:
+            resolved.relative_to(allowed)
+            return ""
+        except ValueError:
+            continue
+    return (
+        f"Refusing Git hook target outside this repository: {resolved}. "
+        "Use a repository-local core.hooksPath or remove that configuration."
+    )

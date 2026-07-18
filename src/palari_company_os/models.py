@@ -384,7 +384,11 @@ class WorkItem:
             dependency_ids=_strings(record, "dependency_ids"),
             risk=_string(record, "risk", "R1"),
             intensity=_string(record, "intensity", "light"),
-            status="closed" if terminal_disposition else declared_status,
+            # Non-success retirement must never satisfy consumers that treat
+            # ``closed`` as successful completion. Preserve the exact raw
+            # disposition separately for audit/output while presenting a
+            # fail-closed runtime status to legacy completion consumers.
+            status="blocked" if terminal_disposition else declared_status,
             terminal_disposition=terminal_disposition,
             terminal_reason=_string(record, "terminal_reason"),
             successor_work_item_id=_string(record, "successor_work_item_id"),

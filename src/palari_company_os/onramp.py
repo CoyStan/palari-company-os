@@ -242,13 +242,14 @@ def initialize_starter_workspace(
                     "changed_files": [],
                     "message": str(exc),
                 }
-    anchor_paths = list(agent_docs["created"])
+    adoption_anchor_files: list[Path] = []
+    adoption_root = Path(str(adoption.get("project") or directory)).resolve()
     for path in adoption.get("changed_files", []):
-        if path not in anchor_paths:
-            anchor_paths.append(path)
+        adoption_anchor_files.append(adoption_root / str(path))
     authority_anchor = _anchor_starter_authority(
         workspace_file,
-        created_docs=anchor_paths,
+        created_docs=list(agent_docs["created"]),
+        additional_files=adoption_anchor_files,
     )
     workspace_arg = _workspace_cli_argument(directory)
     next_commands = [
@@ -571,6 +572,7 @@ def _anchor_starter_authority(
     workspace_file: Path,
     *,
     created_docs: list[str],
+    additional_files: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Commit only newly adopted governance files as an immutable baseline.
 
@@ -616,6 +618,7 @@ def _anchor_starter_authority(
         workspace_file.parent / ".palari" / "history.jsonl",
         workspace_file.parent / ".palari" / "governance-journal.v1.jsonl",
         *(workspace_file.parent / relative for relative in created_docs),
+        *(additional_files or []),
     ]
     relative_paths: list[str] = []
     for candidate in candidate_paths:

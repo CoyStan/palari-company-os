@@ -196,7 +196,7 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   coordinated claim/packet self-rehashing cannot expand current scope.
 - Generic work updates cannot change an actively claimed packet, and an active
   claim cannot renew against different current packet authority.
-- Supported agent hooks deny human-attributed and packet-authority Palari
+- Supported native agent hooks deny human-attributed and packet-authority Palari
   mutations and require a human decision for opaque interpreters, unreviewed
   or path-qualified executables, unquoted pathname expansion, recursive/tree
   writes, hidden backup outputs, hook self-modification, unclassified Palari
@@ -218,6 +218,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and destructive protected-path or standard Claude-settings ancestors require
   review. Git pathspec magic/globs, dash-prefixed operands after `--`, and
   agent-safe Palari mutations pointed at another workspace also require review.
+- Universal host adoption always installs or reuses the portable repository
+  contract and claim-bound Git commit gate. Only Claude and Codex currently
+  have tested session adapters; Codex requires explicit project-hook trust.
+  Cursor, Devin, GLM, and generic profiles must remain labeled advisory at
+  session time, and no profile may grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git

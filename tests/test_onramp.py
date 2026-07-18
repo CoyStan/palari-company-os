@@ -165,6 +165,25 @@ class InitTests(unittest.TestCase):
         self.assertEqual(agents.count("palari agent start --next"), 1)
         self.assertNotIn("palari:agent-contract:start", agents)
 
+    def test_nested_init_anchors_repo_root_host_files_without_setup_dirt(self) -> None:
+        self._prepare_adoptable_git_project()
+        nested = self.project / "companies" / "acme"
+
+        result = initialize_starter_workspace(
+            nested,
+            palari_name="Agent",
+            host="codex",
+        )
+
+        self.assertEqual(result["adoption"]["status"], "ready")
+        anchored = set(result["authority_anchor"]["paths"])
+        self.assertIn("AGENTS.md", anchored)
+        self.assertIn(".codex/hooks.json", anchored)
+        self.assertIn("companies/acme/workspace.json", anchored)
+        committed = set(self.git_output("show", "--format=", "--name-only", "HEAD").splitlines())
+        self.assertEqual(committed, anchored)
+        self.assertEqual(self.git_output("status", "--short"), "")
+
     def test_init_preserves_existing_host_files_and_returns_one_recovery_action(self) -> None:
         self._prepare_adoptable_git_project()
         agents = self.project / "AGENTS.md"
@@ -234,7 +253,14 @@ class InitTests(unittest.TestCase):
         )
         wrapper = self.project / "bin" / "palari"
         wrapper.parent.mkdir()
-        wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        wrapper.write_text(
+            "#!/usr/bin/env bash\n"
+            "set -euo pipefail\n"
+            'repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+            'export PYTHONPATH="$repo_dir/src${PYTHONPATH:+:$PYTHONPATH}"\n'
+            'exec python3 -S -m palari_company_os "$@"\n',
+            encoding="utf-8",
+        )
         wrapper.chmod(0o755)
         subprocess.run(
             ["git", "-C", str(self.project), "add", "bin/palari"],

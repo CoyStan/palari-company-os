@@ -29,12 +29,18 @@ The normal path derives mechanical records instead of asking an agent to copy
 their ids and digests:
 
 ```bash
-palari init
+palari init --host codex
 palari work add "Draft onboarding note" --write docs/onboarding.md
 palari agent start --next --as PALARI-ID --json
 # work inside the packet and commit the bounded result
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
+
+`--host` accepts `claude`, `codex`, `cursor`, `devin`, `glm`, or `generic` and
+folds new portable instructions plus the claim-bound Git gate into the starter
+anchor. Existing workspaces use `palari agent adopt --host HOST --as PALARI-ID
+--json`. Only Claude and Codex currently have tested session-hook adapters;
+other profiles are explicitly advisory at session time.
 
 The compatible `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` instead when exact mutation class

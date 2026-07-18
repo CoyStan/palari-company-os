@@ -162,6 +162,22 @@ class GitHooksTests(unittest.TestCase):
         self.assertEqual(Path(result["hook_path"]), Path(self._tmp) / ".custom-hooks" / "pre-commit")
         self.assertTrue((Path(self._tmp) / ".custom-hooks" / "pre-commit").is_file())
 
+    def test_install_rejects_core_hooks_path_outside_repository(self) -> None:
+        outside = Path(self._tmp).parent / f"{Path(self._tmp).name}-hooks"
+        self.addCleanup(shutil.rmtree, outside, True)
+        subprocess.run(
+            ["git", "config", "core.hooksPath", str(outside)],
+            cwd=self._tmp,
+            check=True,
+            capture_output=True,
+        )
+
+        result = install_git_hook(self._tmp, self.workspace_path)
+
+        self.assertEqual(result["status"], "error")
+        self.assertIn("outside this repository", result["message"])
+        self.assertFalse((outside / "pre-commit").exists())
+
     def test_remove_when_not_installed(self) -> None:
         result = install_git_hook(self._tmp, self.workspace_path, remove=True)
         self.assertEqual(result["status"], "unchanged")

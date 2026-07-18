@@ -159,8 +159,9 @@ Implemented now:
   as an exact absent-path tombstone instead of being mistaken for a missing file
 - canonical path/symlink enforcement and metadata-only start baselines that
   distinguish unchanged pre-existing dirt from agent changes
-- structural boundary enforcement inside Claude Code via `palari claude install`
-  (out-of-boundary writes are denied by hooks, not just reported)
+- one-action host adoption with a provider-neutral contract and claim-bound
+  Git gate; Claude and Codex also receive tested project-local session hooks,
+  while other host profiles remain explicitly advisory at session time
 - source and receipt trust records
 - exact attempt/receipt/evidence/work-contract review binding, immutable bound
   reviews, and latest-decision quorum revocation

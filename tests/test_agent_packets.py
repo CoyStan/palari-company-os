@@ -2263,7 +2263,7 @@ class AgentPacketTests(unittest.TestCase):
     def test_readme_operator_path_uses_declared_identity_and_returned_id(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("palari init --palari Agent --json", readme)
+        self.assertIn("palari init --palari Agent --host codex --json", readme)
         self.assertIn("palari agent start --next --as PALARI-AGENT --json", readme)
         self.assertIn("palari agent advance WORK-RETURNED-BY-START", readme)
         self.assertIn("Do not infer a sequential work ID", readme)
@@ -2272,10 +2272,10 @@ class AgentPacketTests(unittest.TestCase):
         quickstart = (REPO_ROOT / "docs/product/quickstart.md").read_text(
             encoding="utf-8"
         )
-        journey = quickstart.split("## Optional Host Hooks", 1)[0]
+        journey = quickstart.split("## One-Action Host Adoption", 1)[0]
 
         commands = (
-            "palari init --palari Agent --json",
+            "palari init --palari Agent --host codex --json",
             'palari work add "Clean up launch notes" --write docs/notes.md --json',
             "palari agent start --next --as PALARI-AGENT --json",
             "palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json",
