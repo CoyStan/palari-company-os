@@ -40,7 +40,10 @@ palari init WORKSPACE-DIR --host codex --as PALARI-ID --json
 Without `--host`, `init` still refuses to overwrite an existing workspace.
 Adoption preserves existing instructions and host configuration. It grants no
 review, human decision, acceptance, merge, push, deployment, provider, or
-external-write authority.
+external-write authority. A nested workspace adopts at its enclosing Git root.
+If root instructions or selected-host configuration already exist, first
+initialization preserves them outside the anchor and returns one separate
+review/adoption action.
 
 `work add` creates one agent-startable work item from a title and its write
 paths. `--write` paths become the enforced write boundary (and are declared on

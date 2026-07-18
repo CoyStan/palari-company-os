@@ -92,8 +92,11 @@ requires one host-native `/hooks` review before its project hooks activate.
 Cursor, Devin, GLM, and generic profiles are honestly reported as advisory at
 session time until a native protocol is separately proven. No profile grants
 review, human acceptance, merge, push, deployment, provider, or external-write
-authority. Existing `palari claude install` remains compatible. See [Claude
-Code Integration](claude-code-integration.md).
+authority. Nested workspaces install at the enclosing Git root; existing root
+instructions or host configuration are preserved outside the bootstrap anchor
+and require the one returned review/adoption action. Existing `palari claude
+install` remains compatible. See [Claude Code
+Integration](claude-code-integration.md).
 
 ## Optional Local Desk
 

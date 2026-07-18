@@ -152,7 +152,10 @@ Authority rules:
   Codex hooks activate only after explicit host `/hooks` review. Cursor, Devin,
   GLM, and generic profiles are labeled advisory at session time. No profile is
   an OS sandbox, and an unrestricted same-user process can still rewrite local
-  files or Git metadata. Existing `palari claude install` remains compatible.
+  files or Git metadata. Nested workspace adoption resolves and preflights the
+  enclosing Git root before any write, so existing root instructions or host
+  configuration cannot be silently absorbed into the bootstrap commit.
+  Existing `palari claude install` remains compatible.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked

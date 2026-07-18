@@ -72,6 +72,10 @@ That commit is an immutable execution-authority anchor, not human approval;
 unrelated staged and unstaged work is excluded. Choose `claude`, `codex`,
 `cursor`, `devin`, `glm`, or `generic`. Codex asks you to review the exact
 project hook once through `/hooks`; Palari cannot manufacture that host trust.
+For a workspace nested inside a repository, adoption targets the enclosing Git
+root. Existing root instructions or host configuration remain untouched and
+uncommitted; `init` returns one separate review/adoption action instead of
+absorbing those bytes into the authority anchor.
 
 Use the declared identity returned by `init` (`PALARI-AGENT` for the command
 above), then use the opaque work ID returned by `start` after doing and
