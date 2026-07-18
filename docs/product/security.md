@@ -156,11 +156,12 @@ Authority rules:
   enclosing Git root before any write, so existing root instructions or host
   configuration cannot be silently absorbed into the bootstrap commit.
   A symlinked workspace file or escaping managed target fails before the
-  workspace is loaded or project files are written. Generated commands bind
-  the exact inspectable executable already running, including an isolated
-  absolute installation absent from `PATH`. Existing `palari claude install`
-  remains compatible; its Palari-managed legacy hooks are upgraded and removed
-  without duplicate entries.
+  workspace is loaded or project files are written. Generated commands use an
+  inspectable project-local launcher when present; otherwise they preserve the
+  absolute Palari entrypoint currently running or a validated `PATH` entry.
+  Existing `palari claude install` remains compatible; its Palari-managed
+  legacy hooks are upgraded and removed without duplicate entries while
+  co-located foreign host hooks are preserved.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked

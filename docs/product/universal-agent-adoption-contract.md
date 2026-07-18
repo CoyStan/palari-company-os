@@ -84,7 +84,7 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Current status: completed; MCP and session-contract suites pass.
   - Exact committed evidence when completed: `485cb7bb4b85f4364e6fe1e19f4e05be975b75b8`.
 
-- [x] **Minimal, compatible, and independently reviewed delivery**
+- [ ] **Minimal, compatible, and independently reviewed delivery**
   - Required outcome: standard library only; no global config, credential,
     network, provider, daemon, autonomous review, or human acceptance; existing
     CLI/MCP/session-contract behavior remains compatible. A fresh independent
@@ -93,16 +93,14 @@ Every completed checkbox names exact committed proof. The product rule is:
     isolated install smoke, changed-path check, and exact-head review.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/verify.sh`, `./scripts/install_smoke.sh`, and review artifact.
-  - Current status: completed; the dependency-free candidate passed the full,
-    installed, conformance, host-adapter, and adversarial suites, and a fresh
-    architecture reviewer returned ACCEPT with no substantive findings.
-  - Exact committed evidence when completed: exact reviewed implementation
-    head `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`; isolated installed-package
-    compatibility at `6c2d70324e97326397478c336fb047d5d750c32a`;
-    reviewer verdict ACCEPT for `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`;
-    complete gate at `6c2d70324e97326397478c336fb047d5d750c32a`
-    passed 946 tests in three runs with a 111.86-second median; isolated install
-    smoke and all 18 PCAW vectors passed.
+  - Current status: implementation verified; a fresh architecture reviewer
+    returned ACCEPT with no substantive findings for exact implementation head
+    `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`, but durable review and proof
+    recording remain pending in the integration item.
+  - Exact committed evidence when completed: pending. Isolated installed-package
+    compatibility is committed at `6c2d70324e97326397478c336fb047d5d750c32a`;
+    its complete gate passed 946 tests in three runs with a 111.86-second
+    median; isolated install smoke and all 18 PCAW vectors passed.
 
 ## Non-claims
 

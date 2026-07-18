@@ -102,29 +102,31 @@ not four branch-specific approval ceremonies.
   - Verification command or artifact: `./bin/palari validate --json`,
     `./bin/palari docs check --json`, PCAW conformance, `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, agent check/advance/handoff, and review history.
-  - Current status: blocked only on explicit human scope decision
+  - Current status: blocked at the next gate by explicit human scope decision
     `DECISION-FOUNDATION-AUTHORING-SCOPE`. Independent repair moved terminal
     lifecycle enforcement into `src/palari_company_os/authoring.py` after the
     integration packet was claimed, so exact commit-range proof correctly
-    refuses to conceal that added path. All safe implementation, precursor
-    retirement, focused verification, complete verification, install smoke,
-    conformance, and implementation review work is complete.
+    refuses to conceal that added path. All currently attributable implementation
+    checks and precursor retirement are complete. After the decision, corrected
+    packet proof and a fresh exact-head review remain required.
   - Exact committed evidence when completed: not yet complete. Candidate code
     is exact head `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d` with architecture-review
     ACCEPT; all four precursors are auditably superseded by the integration item
     at `cc96d088d42ac1b3bf4bb4565c3496d87b3aff11`; the fail-closed scope
     decision is committed at `70407b50faf8c7ada29e128ff300f71811b5367f`.
-    Final proof and presentation remain
-    unavailable until that decision is made by a human and the corrected
-    packet completes normal review.
+    Final proof and presentation remain unavailable until that decision is made
+    by a human and the corrected packet completes normal review.
 
 ## Complete-Gate Timing
 
-| Candidate | Tests | Three-run median | Median peak RSS | Comparison |
+| Candidate | Tests | Recorded wall time | Peak RSS | Comparison |
 | --- | ---: | ---: | ---: | --- |
-| Baseline `f6e2cf9` | 876 | 113.59 s | 358,556 KB | recorded baseline |
-| Implementation `6c2d703` | 946 | 111.86 s | 218,180 KB | 1.52% faster; 39.2% less memory |
+| Baseline `f6e2cf9` | 876 | 113.59 s | 358,556 KB | single recorded baseline |
+| Implementation `6c2d703` | 946 | 111.86 s | 218,180 KB | three-run median; 1.52% lower wall time and 39.2% lower RSS than the recorded baseline |
 
 The implementation adds 70 tests while remaining inside the performance
-budget. The authoritative gate is still `./scripts/verify.sh`; focused profiles
-exist only to shorten development feedback, not to replace acceptance checks.
+budget. Because the baseline is one recorded run and the candidate value is a
+three-run median, the comparison is directional rather than a like-for-like
+distribution. The authoritative gate is still `./scripts/verify.sh`; focused
+profiles exist only to shorten development feedback, not to replace acceptance
+checks.

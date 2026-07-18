@@ -43,12 +43,13 @@ review, human decision, acceptance, merge, push, deployment, provider, or
 external-write authority. A nested workspace adopts at its enclosing Git root.
 If root instructions or selected-host configuration already exist, first
 initialization preserves them outside the anchor and returns one separate
-review/adoption action. Generated commands use the exact inspectable Palari
-entrypoint already running, including an absolute isolated-install entrypoint
-when `palari` is not on `PATH`. A symlinked `workspace.json`, escaping managed
-target, or foreign hook blocks before adoption writes. Palari-managed legacy
-Claude hooks are replaced by the current profile and can be removed without
-leaving duplicates.
+review/adoption action. Generated commands use an inspectable project-local
+launcher when present; otherwise they preserve the absolute Palari entrypoint
+currently running or a validated `PATH` entry. A symlinked `workspace.json`,
+escaping or malformed managed target, or unmanaged Git pre-commit hook blocks
+before adoption writes; co-located foreign host hooks are preserved.
+Palari-managed legacy Claude hooks are replaced by the current profile and can
+be removed without leaving duplicates.
 
 `work add` creates one agent-startable work item from a title and its write
 paths. `--write` paths become the enforced write boundary (and are declared on
