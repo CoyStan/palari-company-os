@@ -313,12 +313,6 @@ def _git_status_result(root: Path) -> tuple[list[dict[str, str]], str]:
     return changes, ""
 
 
-def _git_status(root: Path) -> list[dict[str, str]]:
-    """Compatibility wrapper for callers that only need successful results."""
-    changes, _error = _git_status_result(root)
-    return changes
-
-
 def _subtract_git_baseline(
     root: Path,
     observed: list[dict[str, str]],
@@ -406,11 +400,6 @@ def _path_fingerprint(root: Path, path: str) -> tuple[dict[str, Any], str]:
 
 def git_repo_root(cwd: Path) -> Path | None:
     """Return the enclosing git repository root, or None outside a repo."""
-    root, _error = _git_root_result(cwd)
-    return root
-
-
-def _git_root(cwd: Path) -> Path | None:
     root, _error = _git_root_result(cwd)
     return root
 

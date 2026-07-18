@@ -347,11 +347,6 @@ def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
     return load_active_claim_contexts(workspace_path)["contexts"]
 
 
-def _staged_files(root: Path) -> list[str]:
-    files, _error = _staged_files_result(root)
-    return files
-
-
 def _staged_files_result(root: Path) -> tuple[list[str], str]:
     try:
         result = subprocess.run(
@@ -381,15 +376,6 @@ def _staged_files_result(root: Path) -> tuple[list[str], str]:
         if normalized not in files:
             files.append(normalized)
     return files, ""
-
-
-def _allowed_write_paths(contexts: list[dict[str, Any]]) -> list[str]:
-    allowed: list[str] = []
-    for context in contexts:
-        for path in _packet_write_paths(context["packet"]):
-            if path not in allowed:
-                allowed.append(path)
-    return allowed
 
 
 def _packet_write_paths(packet: dict[str, Any]) -> list[str]:

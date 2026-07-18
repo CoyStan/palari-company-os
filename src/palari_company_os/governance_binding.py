@@ -252,19 +252,6 @@ def review_proof_hash(review: Any) -> str:
     return _stable_hash(payload)
 
 
-def _review_binding_dict(review: Any) -> dict[str, str]:
-    return {
-        "binding_version": review.binding_version,
-        "attempt_id": review.attempt_id,
-        "attempt_hash": review.attempt_hash,
-        "evidence_reference": review.evidence_reference,
-        "evidence_manifest_hash": review.evidence_manifest_hash,
-        "receipt_reference": review.receipt_reference,
-        "receipt_hash": review.receipt_hash,
-        "work_contract_hash": review.work_contract_hash,
-    }
-
-
 def _evidence_errors(
     workspace: Any,
     attempt: Any,

@@ -644,22 +644,6 @@ def _check_integration_send(
     next_commands.append(f"palari linear send {outbox_id} --by HUMAN-ID --confirm --json")
 
 
-def _matching_fresh_passed_evidence(workspace: Workspace, work: Any, head_sha: str) -> Any | None:
-    current_attempt = current_attempt_for_work(work, workspace.attempts)
-    current_attempt_id = current_attempt.id if current_attempt is not None else ""
-    current_head = _attempt_head(current_attempt) if current_attempt is not None else ""
-    for evidence in reversed(workspace.evidence_runs):
-        if (
-            evidence.work_item_id == work.id
-            and evidence.head_sha == head_sha
-            and evidence.status == "passed"
-            and (not current_attempt_id or evidence.attempt_id == current_attempt_id)
-            and (not current_head or evidence.head_sha == current_head)
-        ):
-            return evidence
-    return None
-
-
 def _attempt(workspace: Workspace, attempt_id: str) -> Any | None:
     return next((attempt for attempt in workspace.attempts if attempt.id == attempt_id), None)
 
