@@ -126,24 +126,41 @@ the command only selects and claims eligible work for it.
     surface. The handoff composition and its fresh exact-head review remain
     pending final verification.
 
-- [ ] **Pre-claim control-plane state never becomes agent write scope**
+- [ ] **Pre-claim control plane and immutable execution authority**
   - Required outcome: a pre-session, committed Palari workspace projection may
     be identified separately from product output without widening the packet,
     session contract, hook boundary, reviewed source range, or acceptance
-    authority.
-  - Objective evidence: the claim carries a Git-lease-bound snapshot of the
-    exact workspace, legacy-history, and journal bytes plus a valid journal
-    replay at claim creation; the immutable proof baseline remains unchanged;
-    and agent advance reports classified control-plane paths separately.
-  - Verification: focused snapshot/tamper tests, full packet/advance modules,
-    and a dogfood dry run against the retained `c528f2a` witness.
+    authority. For every complete Git-backed baseline, including a first claim
+    and release or expiry recovery, a same-ID execution contract cannot be
+    changed: actor/mode, reviewer linkage,
+    lifecycle/dependency authority, paths, sources, capabilities, outputs,
+    coordination, and static gates require a successor work item.
+  - Objective evidence: the claim carries a Git-lease-bound snapshot of exact
+    workspace, legacy-history, and journal bytes plus valid journal replay at
+    claim creation; its v2 binding compares canonical baseline/current
+    authority from strict root/split bytes before lease and again under the
+    final workspace lock, which remains held through witness, baseline, packet,
+    and claim persistence. A first current-only declaration
+    receives a normalized all-Palari execute/review authority catalog whose
+    canonical digest is fixed by the oldest v2 witness reflog message. No claim
+    survives a changed contract, malformed/unsafe collection, cross-worktree
+    anchor mismatch, coordinated catalog rehash, or phase-A/phase-C race.
+  - Verification: committed, uncommitted, expired-claim, reviewer-link,
+    actor-boundary, source-locator, missing/changed witness, v2 catalog-message,
+    parent/leaf symlink, replacement-ref, snapshot-digest, projection-bound
+    park-crash recovery, and two-phase lease-race negative tests; full
+    packet/advance modules; dogfood dry run against the retained `c528f2a`
+    witness.
   - Current status: in progress.
   - Current evidence (not completion proof):
     `43cc159d44ed01ee662c834ba05275cf64108989` introduced the versioned
-    snapshot and classifier. The rejected `9ad22e4` review required additional
-    fail-closed coverage for parent/leaf symlink escape, replacement-ref
-    history, v2 version/digest mismatch, and claim-start races. The historical
-    47-product-path/three-projection-path dry run is not final proof.
+    snapshot/classifier. The rejected `9ad22e4` review required this repair.
+    The retained `c528f2a` baseline correctly rejected renewal after the
+    original work contract later added `docs/product/quickstart.md`; repair
+    therefore continues under immutable successor
+    `WORK-1E6CC071418B42709B60CDA3FED2D952`, not a same-ID rebaseline.
+    Final candidate commit, exact dogfood proof, complete verification, and
+    fresh independent review remain required.
 
 - [x] **Activation and legacy continuity stay one command**
   - Required outcome: new repository initialization activates the operating

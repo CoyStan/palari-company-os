@@ -39,6 +39,37 @@ Authority rules:
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
   the original head; coordinated rewrites of the claim and baseline fail.
+- Every complete Git-backed baseline, including a first claim and any restart
+  or expiry recovery, derives a canonical execution-authority digest from exact
+  baseline workspace bytes and strict current root/split bytes before a lease,
+  then repeats it under the final workspace mutation lock and holds that lock
+  through witness, baseline, packet, and claim persistence. It binds actor
+  identity, role, scope, worker, standards, input/memory boundaries and mode;
+  reviewer goal linkage; work/dependency lifecycle authority; paths;
+  selected-source provider/URI/external identity; capabilities; outputs;
+  coordination; and static gates—not mutable proof records. Committed or uncommitted
+  expansion, malformed or duplicate
+  JSON, unsafe collection paths, and split mismatch fail closed; journal actor
+  metadata and handoff do not rebaseline a work item. A substantive amendment
+  requires a successor work item.
+- If a first-claim current work declaration is absent from the baseline commit, the
+  baseline contains a normalized actor/mode authority digest catalog rather
+  than workspace or proof narration. Its canonical digest is bound in the
+  oldest v2 Git-witness reflog message. With that witness intact, catalog-bound
+  authority differences in another worktree, coordinated catalog/JSON rehashing,
+  and actors added after the anchor fail closed. This is not authentication
+  against a hostile same-user process that can rewrite local Git metadata.
+  Catalog-free v1 witnesses remain valid only when the baseline already contains
+  the work; a historical current-only baseline without a catalog requires a
+  successor.
+- Persisted witness ref/head/history is checked before restart lease acquisition
+  and again before claim persistence. A legacy current-only active claim without
+  a catalog is rejected by claim integrity and cannot reach advance or done.
+- Durable parking crash recovery is the sole narrow exception to live status
+  equality: after confirming the exact persisted parking-attempt/claim epoch, it
+  normalizes current `blocked` status back to the immutable packet status and
+  rehashes every other authority field. Any additional scope or actor change
+  still fails closed before the claim is released.
 - Proof-only refresh does not reset or replace that baseline. It runs without a
   claim, requires exact descendant history with replacement objects disabled,
   and compares every raw commit with every parent in the range. Separately governed

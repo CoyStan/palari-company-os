@@ -81,6 +81,33 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and a dedicated local Git ref/reflog witness when Git is available. Releasing
   and restarting the same work item must reuse that baseline rather than
   laundering later changes.
+- For every complete Git-backed baseline, including a first claim and any
+  restart or expiry recovery, Palari compares a canonical execution-authority
+  projection from exact baseline workspace bytes with strict current root and
+  split-collection bytes before it can
+  acquire a lease, then repeats that comparison under the final local workspace
+  mutation lock and holds that lock through witness, baseline, packet, and claim
+  persistence. It covers the acting Palari's identity, role, scope, worker,
+  standards, input/memory boundaries and mode; reviewer goal linkage; work and
+  dependency lifecycle authority; paths; selected-source provider/URI/external
+  identity; capabilities; outputs; coordination policy; and static completion
+  gates. Mutable proof records and current builder/reviewer proof context are
+  deliberately excluded. A changed authority, malformed strict JSON, unsafe
+  collection path, or mismatched split collection fails closed. Journal actor
+  labels and `agent handoff` do not authorize a rebaseline. Preserve the old
+  record and create a successor work item for a changed contract; unrelated
+  read-model projection remains eligible for separate classification.
+- If a first claim's current work declaration is absent from the baseline commit,
+  Palari captures a normalized digest catalog for every declared Palari in both
+  execute and review modes. The catalog carries only actor IDs, modes, and
+  authority digests and is embedded in the hashed baseline beside Git and dirty
+  path metadata. A v2 witness's oldest reflog message binds its exact canonical
+  digest. A later actor/mode absent from that catalog or any changed
+  catalog-bound authority fails closed. A historical current-only baseline
+  without a catalog cannot be safely upgraded; preserve it and use a successor.
+- A persisted Git witness is checked before lease acquisition and again while
+  the final workspace lock is held. Missing refs, changed heads, and mismatched
+  v2 catalog messages block restart before a durable claim can be renewed.
 - `agent start --next` selects one candidate only through the existing
   `agent next` eligibility policy, then invokes the same explicit start path.
   It must not claim blocked work or invent a second priority/authority rule.
@@ -114,10 +141,13 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   mutation authority.
 - `agent release` with reason and next action durably records one claim-bound blocked attempt, exact state
   bindings, reason, observation, and next safe action before claim release.
-  Exact crash retry is idempotent. It never creates receipt, evidence, review,
-  human decision, acceptance, outcome, or convergence records. It requires an
-  existing writable journal; legacy activation remains an explicit checkpoint
-  with a visible pre-checkpoint continuity boundary.
+  Exact crash retry is idempotent. A projection-bound retry recognizes only the
+  durable claim-epoch transition from the packet's original work status to
+  `blocked`; it normalizes that single field and rehashes every other scope-
+  authority field before the exact attempt is released. It never creates
+  receipt, evidence, review, human decision, acceptance, outcome, or convergence
+  records. It requires an existing writable journal; legacy activation remains
+  an explicit checkpoint with a visible pre-checkpoint continuity boundary.
 - `agent done` attributes every committed path from the persisted claim-start
   head to current `HEAD`, not merely the tip commit. The claim, companion
   baseline, Git witness ref, and original witness reflog entry must agree.

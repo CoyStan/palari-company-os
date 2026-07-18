@@ -35,7 +35,12 @@ from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_parking import park_agent
 from palari_company_os.agent_runtime import (
     ClaimContentionError,
+    GIT_WITNESS_VERSION,
+    LEGACY_GIT_WITNESS_VERSION,
     _blocked_start_entry,
+    _git_baseline_hash,
+    _scope_authority_catalog_hash,
+    claim_integrity_error,
     read_claim,
     release_agent,
     start_agent,
@@ -210,6 +215,396 @@ class AgentPacketTests(unittest.TestCase):
                 "PALARI-SOFIA",
             )
             self.assertEqual(transferred["start"]["status"], "claimed")
+
+    def test_cross_worktree_catalog_conflict_is_rejected_by_shared_witness(self) -> None:
+        work_id = "WORK-CURRENT-ONLY-CATALOG"
+        with self.git_workspace() as workspace_file:
+            root = workspace_file.parent
+            second_root = root.parent / "catalog-conflict-worktree"
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "worktree",
+                    "add",
+                    "-b",
+                    "catalog-conflict",
+                    str(second_root),
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            second_workspace_file = second_root / "workspace.json"
+            first_head = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            second_head = subprocess.run(
+                ["git", "-C", str(second_root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            self.assertEqual(first_head, second_head)
+
+            quick_add_work(
+                workspace_file,
+                "First current-only authority",
+                write=["first-authority.txt"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id=work_id,
+                verify=["echo first"],
+            )
+            quick_add_work(
+                second_workspace_file,
+                "Second current-only authority",
+                write=["second-authority.txt"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id=work_id,
+                verify=["echo second"],
+            )
+
+            first = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            self.assertIn(
+                "scope_authority_catalog",
+                first["start"]["claim"]["git_baseline"],
+            )
+            first_claim = first["start"]["claim"]
+            catalog_hash = _scope_authority_catalog_hash(
+                first_claim["git_baseline"], work_id
+            )
+            witness_messages = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "reflog",
+                    "show",
+                    "--format=%gs",
+                    first_claim["git_witness_ref"],
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+            self.assertEqual(first_claim["git_witness_version"], GIT_WITNESS_VERSION)
+            self.assertEqual(
+                witness_messages[-1],
+                f"palari scope authority {catalog_hash}",
+            )
+            release_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "Git witness history does not bind the claim-start authority catalog",
+            ):
+                start_agent(
+                    Workspace.load(second_workspace_file),
+                    second_workspace_file,
+                    work_id,
+                    "PALARI-SOFIA",
+                )
+            self.assertFalse(
+                (second_root / ".palari" / "claims" / f"{work_id}.json").exists()
+            )
+
+    def test_coordinated_catalog_rehash_cannot_override_v2_git_witness(self) -> None:
+        work_id = "WORK-COORDINATED-CATALOG-REHASH"
+        with self.git_workspace() as workspace_file:
+            quick_add_work(
+                workspace_file,
+                "Current-only catalog authority",
+                write=["catalog-authority.txt"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id=work_id,
+                verify=["echo catalog"],
+            )
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim_path = workspace_file.parent / started["start"]["claim_path"]
+            baseline_path = claim_path.with_suffix(".baseline")
+            claim = json.loads(claim_path.read_text(encoding="utf-8"))
+            persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+            for record in (claim, persisted):
+                catalog = record["git_baseline"]["scope_authority_catalog"]
+                catalog["bindings"][0]["digest"] = "sha256:" + "0" * 64
+                record["git_baseline_hash"] = _git_baseline_hash(
+                    record["git_baseline"]
+                )
+            claim_path.write_text(json.dumps(claim), encoding="utf-8")
+            baseline_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+            error = claim_integrity_error(workspace_file, work_id, claim)
+
+            self.assertEqual(
+                error,
+                "Git witness history does not bind the claim-start authority catalog",
+            )
+
+    def test_legacy_v1_witness_accepts_catalog_free_baseline_without_message(self) -> None:
+        work_id = "WORK-0003"
+        with self.git_workspace() as workspace_file:
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim_path = workspace_file.parent / started["start"]["claim_path"]
+            baseline_path = claim_path.with_suffix(".baseline")
+            claim = json.loads(claim_path.read_text(encoding="utf-8"))
+            persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+            self.assertNotIn("scope_authority_catalog", claim["git_baseline"])
+            for record in (claim, persisted):
+                record["git_witness_version"] = LEGACY_GIT_WITNESS_VERSION
+            claim_path.write_text(json.dumps(claim), encoding="utf-8")
+            baseline_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+            witness_messages = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(workspace_file.parent),
+                    "reflog",
+                    "show",
+                    "--format=%gs",
+                    claim["git_witness_ref"],
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+
+            self.assertEqual(witness_messages.strip(), "")
+            self.assertEqual(claim_integrity_error(workspace_file, work_id, claim), "")
+
+    def test_legacy_current_only_claim_without_catalog_fails_integrity(self) -> None:
+        work_id = "WORK-LEGACY-CURRENT-ONLY"
+        with self.git_workspace() as workspace_file:
+            quick_add_work(
+                workspace_file,
+                "Legacy current-only authority",
+                write=["legacy-current-only.txt"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id=work_id,
+                verify=["echo legacy"],
+            )
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim_path = workspace_file.parent / started["start"]["claim_path"]
+            baseline_path = claim_path.with_suffix(".baseline")
+            claim = json.loads(claim_path.read_text(encoding="utf-8"))
+            persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+            for record in (claim, persisted):
+                record["git_baseline"].pop("scope_authority_catalog")
+                record["git_baseline_hash"] = _git_baseline_hash(
+                    record["git_baseline"]
+                )
+                record["git_witness_version"] = LEGACY_GIT_WITNESS_VERSION
+            claim_path.write_text(json.dumps(claim), encoding="utf-8")
+            baseline_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+            error = claim_integrity_error(workspace_file, work_id, claim)
+
+            self.assertEqual(
+                error,
+                f"immutable Git baseline predates work {work_id} and has no "
+                "claim-start authority catalog",
+            )
+
+    def test_restart_rejects_missing_v1_witness_before_lease(self) -> None:
+        work_id = "WORK-0003"
+        with self.git_workspace() as workspace_file:
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            self.assertEqual(
+                claim["git_witness_version"],
+                LEGACY_GIT_WITNESS_VERSION,
+            )
+            release_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(workspace_file.parent),
+                    "update-ref",
+                    "-d",
+                    str(claim["git_witness_ref"]),
+                ],
+                check=True,
+            )
+
+            with patch("palari_company_os.agent_runtime._claim_git_lease") as lease:
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "Git witness does not match the persisted claim-start head",
+                ):
+                    start_agent(
+                        Workspace.load(workspace_file),
+                        workspace_file,
+                        work_id,
+                        "PALARI-SOFIA",
+                    )
+
+            lease.assert_not_called()
+
+    def test_restart_rejects_v1_witness_head_change_before_lease(self) -> None:
+        work_id = "WORK-0003"
+        with self.git_workspace() as workspace_file:
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            release_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            readme = workspace_file.parent / "README.md"
+            readme.write_text("new witness head\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(workspace_file.parent), "add", "README.md"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(workspace_file.parent), "commit", "-qm", "new head"],
+                check=True,
+            )
+            new_head = subprocess.check_output(
+                ["git", "-C", str(workspace_file.parent), "rev-parse", "HEAD"],
+                text=True,
+            ).strip()
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(workspace_file.parent),
+                    "update-ref",
+                    str(claim["git_witness_ref"]),
+                    new_head,
+                ],
+                check=True,
+            )
+
+            with patch("palari_company_os.agent_runtime._claim_git_lease") as lease:
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "Git witness does not match the persisted claim-start head",
+                ):
+                    start_agent(
+                        Workspace.load(workspace_file),
+                        workspace_file,
+                        work_id,
+                        "PALARI-SOFIA",
+                    )
+
+            lease.assert_not_called()
+
+    def test_restart_rejects_v2_catalog_witness_message_rewrite(self) -> None:
+        work_id = "WORK-CATALOG-WITNESS-REWRITE"
+        with self.git_workspace() as workspace_file:
+            quick_add_work(
+                workspace_file,
+                "Catalog witness rewrite",
+                write=["catalog-witness.txt"],
+                palari_id="PALARI-SOFIA",
+                goal_id="GOAL-0001",
+                workbench_id="WORKBENCH-BETA",
+                work_id=work_id,
+                verify=["echo catalog witness"],
+            )
+            started = start_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            claim = started["start"]["claim"]
+            release_agent(
+                Workspace.load(workspace_file),
+                workspace_file,
+                work_id,
+                "PALARI-SOFIA",
+            )
+            root = workspace_file.parent
+            witness_ref = str(claim["git_witness_ref"])
+            subprocess.run(
+                ["git", "-C", str(root), "update-ref", "-d", witness_ref],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "update-ref",
+                    "--create-reflog",
+                    "-m",
+                    "incorrect catalog authority",
+                    witness_ref,
+                    str(claim["git_baseline"]["head_sha"]),
+                ],
+                check=True,
+            )
+
+            with patch("palari_company_os.agent_runtime._claim_git_lease") as lease:
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "Git witness history does not bind the claim-start authority catalog",
+                ):
+                    start_agent(
+                        Workspace.load(workspace_file),
+                        workspace_file,
+                        work_id,
+                        "PALARI-SOFIA",
+                    )
+
+            lease.assert_not_called()
 
     def test_cross_worktree_claim_loser_cannot_persist_baseline_before_lease(self) -> None:
         from palari_company_os import agent_runtime

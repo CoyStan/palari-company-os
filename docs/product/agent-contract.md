@@ -217,6 +217,35 @@ local Git witness for ready started work:
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
   local reflog entry provide a separate Git-backed witness. All four views must
   agree before claim authority or `agent done` attribution is accepted.
+  For every complete Git-backed baseline, including a first claim and any
+  restart or expiry recovery, Palari derives a canonical execution-authority
+  digest from exact baseline workspace bytes and strict current root and
+  split-collection bytes before the lease, then repeats the comparison under the
+  final workspace mutation lock and holds that lock through witness, baseline,
+  packet, and claim persistence.
+  It binds the acting Palari's identity, role, scope, worker, standards,
+  input/memory boundaries and mode; reviewer goal linkage; work and dependency
+  lifecycle authority; paths; selected-source provider/URI/external identity;
+  capabilities; output contract; coordination policy; and static completion
+  gates while deliberately
+  excluding mutable proof records and current builder/reviewer proof context.
+  An uncommitted or committed authority change, malformed/unsafe collection,
+  or split mismatch fails closed. A declared journal actor or `agent handoff`
+  does not authorize a reset: preserve the original record and create a
+  successor work item for a changed contract. Unrelated read-model/journal
+  projection may still be classified separately.
+  When a first claim's current work declaration is absent from the baseline
+  commit, Palari
+  stores a normalized all-Palari execute/review digest catalog inside the hashed
+  baseline instead of copying the workspace. The v2 Git witness's oldest reflog
+  message binds the exact catalog digest. This keeps the no-extra-commit
+  workflow while preventing release, expiry, another worktree, or a newly
+  authorized reviewer from silently choosing a different authority origin.
+  Catalog-free v1 witnesses remain compatible when that baseline commit already
+  contains the work. A historical current-only baseline without a catalog fails
+  closed and requires a successor because no durable authority origin exists.
+  Existing witness refs, heads, and v2 catalog messages are verified before a
+  restart lease and again under the final lock before local claim persistence.
   New v2 claims require both portable-contract binding fields. Historical v1
   claims without those fields remain readable and upgrade on restart; the
   schema marker is declared local state, not authentication against a hostile
@@ -321,8 +350,11 @@ Execute-mode hooks additionally rebuild the current packet from workspace truth
 before granting writes, so coordinated edits to a packet and claim cannot
 expand scope. A generic `work update` cannot mutate a work item while any local
 claim is active, and `agent start` refuses to renew an active claim when the
-current workspace would compile different packet authority. Scope changes must
-therefore cross a release and authorized handoff into a new claim epoch.
+current workspace would compile different packet authority. After release or
+expiry, a same-ID execution-contract change still cannot start: exact
+baseline/current authority comparison fails before lease creation and final
+claim write. A declared actor and `agent handoff` do not rebaseline the work;
+preserve the record and create a successor work item for the changed contract.
 Opaque interpreters, unreviewed executables, dynamic shell expansion or
 indirection, and Git witness mutations (including Git commands with global
 `-C`, `--git-dir`, or `--work-tree` options) require a human hook decision.

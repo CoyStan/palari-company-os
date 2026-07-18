@@ -70,7 +70,7 @@ def park_agent(
         workspace_path,
         work_id,
         palari_id,
-        allow_released_lease=durable_attempt is not None,
+        durable_attempt=durable_attempt,
     )
     attempt_id = _parking_attempt_id(work_id, claim)
     existing = _optional_record(store, "attempts", attempt_id)
@@ -295,18 +295,27 @@ def _owned_claim(
     work_id: str,
     palari_id: str,
     *,
-    allow_released_lease: bool = False,
+    durable_attempt: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     claim = read_claim(workspace_path, work_id)
     if claim is None:
         raise WorkspaceError(
             f"cannot park {work_id}: an owned execute claim is required; no claim exists"
         )
+    allow_released_lease = durable_attempt is not None
+    if durable_attempt is not None and durable_attempt.get("id") != _parking_attempt_id(
+        work_id, claim
+    ):
+        raise WorkspaceError(
+            f"cannot resume parking {work_id}: claim state changed: "
+            "durable attempt does not match the claim epoch"
+        )
     error = claim_integrity_error(
         workspace_path,
         work_id,
         claim,
         allow_released_lease=allow_released_lease,
+        allow_durable_parking_transition=allow_released_lease,
     )
     if error:
         if allow_released_lease:
@@ -694,7 +703,12 @@ def _normalize_retry_observation(
     normalized["all_changed_paths"] = all_paths
     for field in ("inside_write_boundary", "outside_write_boundary"):
         values = normalized.get(field)
-        if isinstance(values, list):
+        recorded_values = recorded.get(field)
+        if (
+            isinstance(values, list)
+            and isinstance(recorded_values, list)
+            and workspace_path not in recorded_values
+        ):
             normalized[field] = [path for path in values if path != workspace_path]
     return normalized
 

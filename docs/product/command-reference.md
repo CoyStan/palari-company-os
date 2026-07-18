@@ -485,7 +485,10 @@ and packet/Git/digest/change observations, then releases the claim. Bare
 creates no receipt, evidence, review, decision, acceptance, outcome, or
 convergence authority. If execution stops after persistence but before release,
 rerunning the exact command resumes release without duplicating the parking
-record; changed reason, action, claim, packet, or repository state fails closed.
+record. Projection-bound recovery permits only the recorded claim epoch's
+deterministic work-status transition to `blocked`; it rechecks all other scope
+authority against the original packet. Changed reason, action, claim, packet,
+or repository state fails closed.
 Durable release requires an already active, writable governance journal.
 A legacy workspace without one fails before mutation and returns the exact
 one-command `history --checkpoint` activation action; Palari does not silently
@@ -496,9 +499,32 @@ companion persists when a claim is released and reused when that work item is
 started again, preventing release/restart from laundering later dirt. When the
 baseline has a commit head, a dedicated local Git ref and its original reflog
 entry witness that head independently of the ignored JSON files. An active
-claim may renew only while its freshly compiled packet authority is unchanged;
-generic `work update` is blocked until the claim is released and the change is
-routed through an authorized handoff into a new claim epoch.
+claim may renew only while its freshly compiled packet authority is unchanged.
+If the first claim's current work item is absent from that baseline commit,
+Palari records a
+small all-Palari execute/review authority digest catalog in the hashed baseline;
+the v2 witness's original reflog message binds the catalog digest. No manual
+pre-claim commit is required, but later authority still requires a successor.
+Catalog-free v1 witnesses remain restart-compatible only when the baseline
+already contains the work; a historical current-only baseline has no safe
+automatic migration and requires a successor.
+Restart validates the persisted witness ref, head, and any v2 catalog message
+before acquiring a lease and again under the final lock before writing a claim.
+Actor scope/worker/standards/input boundaries and stable source locator identity
+are part of the immutable authority digest, not merely presentation metadata.
+After release or expiry, a same-ID execution-contract change still cannot
+start: exact baseline/current authority comparison fails before lease creation
+and again before durable claim write. A declared actor and `agent handoff` do
+not reset that baseline. Preserve the original record and create a successor
+work item for the changed contract.
+
+`agent start` holds a per-work claim-update lock throughout its start path.
+It acquires the shared workspace mutation lock only for its final strict
+re-read, authority/snapshot revalidation, and local packet/claim writes after
+the Git lease step. A concurrent workspace mutation gets the explicit safe
+retry diagnostic; it does not serialize independent work items while another
+work is negotiating its lease. Git compare-and-swap remains the cross-worktree
+same-work lock.
 
 When Git is available, an active claim also has a compare-and-swap lease under
 `refs/palari/leases/`. Linked worktrees therefore cannot both claim the same

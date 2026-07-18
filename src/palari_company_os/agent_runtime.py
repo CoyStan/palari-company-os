@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+from contextlib import ExitStack
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,18 +20,23 @@ from .agent_session_contract import (
     session_contract_summary,
 )
 from .path_policy import resolve_workspace_path, validate_workspace_path
-from .pcaw_canonical import CanonicalJSONError, strict_json_loads
-from .store import workspace_file_path
+from .pcaw_canonical import CanonicalJSONError, canonical_sha256, strict_json_loads
+from .store import workspace_file_path, workspace_write_lock
 from .transition_checks import assert_transition_allowed
+from .validation import COLLECTION_FILE_KEYS
 from .workspace import Workspace, WorkspaceError
 
 
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v2"
 LEGACY_CLAIM_SCHEMA_VERSION = "palari.agent_claim.v1"
-GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
+LEGACY_GIT_WITNESS_VERSION = "palari.git_claim_witness.v1"
+GIT_WITNESS_VERSION = "palari.git_claim_witness.v2"
 GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
 LEGACY_GIT_LEASE_VERSION = "palari.git_claim_lease.v1"
-PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v1"
+LEGACY_PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v1"
+PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v2"
+PRECLAIM_SCOPE_AUTHORITY_VERSION = "palari.preclaim_scope_authority.v1"
+PRECLAIM_SCOPE_CATALOG_VERSION = "palari.preclaim_scope_catalog.v1"
 PACKET_RUNTIME_STATE_FIELDS = {
     "blockers",
     "completion_contract",
@@ -86,17 +92,36 @@ def start_agent(
     )
 
     data_path = workspace_file_path(workspace_path)
-    session_contract = compile_agent_session_contract(packet)
     now = _timestamp()
     expires = _timestamp_after(minutes=max(1, lease_minutes))
-    packet_path = _packet_path(data_path, packet["packet_id"])
-    contract_path = _session_contract_path(data_path, session_contract["contract_id"])
     claim_path = _claim_path(data_path, work_id)
     baseline_path = _baseline_path(data_path, work_id)
-    lock_path = _acquire_claim_lock(data_path, work_id)
+    workspace_locks = ExitStack()
+    lock_path: Path | None = None
     acquired_lease: dict[str, str] | None = None
     try:
+        lock_path = _acquire_claim_lock(data_path, work_id)
+        workspace, packet = _current_start_packet(
+            data_path,
+            work_id,
+            palari_id,
+            mode or "execute",
+            packet,
+        )
+        assert_transition_allowed(
+            workspace,
+            "agent_start",
+            work_id,
+            actor=palari_id,
+            context={"packet": packet, "mode": mode or "execute"},
+        )
+        session_contract = compile_agent_session_contract(packet)
+        packet_path = _packet_path(data_path, packet["packet_id"])
+        contract_path = _session_contract_path(data_path, session_contract["contract_id"])
         existing = read_claim(workspace_path, work_id)
+        active_existing = (
+            existing if existing is not None and _claim_active(existing) else None
+        )
         if existing and _claim_active(existing) and existing.get("claimed_by") != palari_id:
             raise ClaimContentionError(
                 work_id,
@@ -143,6 +168,12 @@ def start_agent(
             git_baseline = capture_git_baseline(workspace.path)
             if claim_start_head:
                 git_baseline = _baseline_at_claim_start(git_baseline, claim_start_head)
+            if _complete_git_baseline(git_baseline):
+                git_baseline = _capture_missing_work_scope_baseline(
+                    data_path,
+                    git_baseline,
+                    packet,
+                )
             baseline_record = {
                 "schema_version": "palari.persisted_git_baseline.v1",
                 "work_item": work_id,
@@ -153,18 +184,39 @@ def start_agent(
                 "git_witness_ref": "",
             }
             git_witness_ref = ""
+            git_witness_version = ""
         else:
             git_baseline = persisted_baseline["git_baseline"]
             git_witness_ref = str(persisted_baseline.get("git_witness_ref") or "")
+            git_witness_version = str(
+                persisted_baseline.get("git_witness_version") or ""
+            )
+            witness_error = _git_witness_error(work_id, persisted_baseline)
+            if witness_error:
+                raise WorkspaceError(
+                    f"persisted Git baseline for {work_id}: {witness_error}"
+                )
 
-        claim_session = str((existing or {}).get("claim_session") or uuid4().hex)
-        projection_snapshot = (existing or {}).get("governance_projection_snapshot")
+        scope_authority: dict[str, str] | None = None
+        if _complete_git_baseline(git_baseline):
+            scope_authority = _preclaim_scope_authority_binding(
+                data_path, git_baseline, packet
+            )
+            if scope_authority["baseline_digest"] != scope_authority["current_digest"]:
+                raise WorkspaceError(
+                    "pre-claim scope authority differs from immutable baseline; "
+                    "create a successor work item for the changed contract"
+                )
+
+        claim_session = str((active_existing or {}).get("claim_session") or uuid4().hex)
+        projection_snapshot = (active_existing or {}).get("governance_projection_snapshot")
         projection_snapshot_captured = False
-        if projection_snapshot is None and existing is None:
+        if projection_snapshot is None and active_existing is None:
             projection_snapshot = _capture_governance_projection_snapshot(
                 data_path,
                 git_baseline,
                 packet,
+                scope_authority=scope_authority,
             )
             projection_snapshot_captured = isinstance(projection_snapshot, dict)
         projection_snapshot_digest = (
@@ -172,6 +224,15 @@ def start_agent(
             if isinstance(projection_snapshot, dict)
             else ""
         )
+        _, current_packet = _current_start_packet(
+            data_path,
+            work_id,
+            palari_id,
+            mode or "execute",
+            packet,
+        )
+        if current_packet.get("context_hash") != packet.get("context_hash"):
+            raise WorkspaceError("workspace packet changed while claim was starting; retry safely")
         acquired_lease = _claim_git_lease(
             work_id,
             palari_id,
@@ -183,6 +244,32 @@ def start_agent(
             projection_snapshot_digest,
         )
 
+        workspace_locks.enter_context(workspace_write_lock(data_path))
+        (
+            workspace,
+            packet,
+            session_contract,
+            packet_path,
+            contract_path,
+            projection_snapshot,
+        ) = _final_start_revalidation(
+            data_path,
+            work_id,
+            palari_id,
+            mode or "execute",
+            packet,
+            git_baseline,
+            scope_authority=scope_authority,
+            projection_snapshot=projection_snapshot,
+            projection_snapshot_captured=projection_snapshot_captured,
+            projection_snapshot_digest=projection_snapshot_digest,
+        )
+        if persisted_baseline is not None:
+            witness_error = _git_witness_error(work_id, persisted_baseline)
+            if witness_error:
+                raise WorkspaceError(
+                    f"persisted Git baseline for {work_id}: {witness_error}"
+                )
         if projection_snapshot_captured:
             snapshot_head = str(projection_snapshot.get("session_start_head") or "")
             if _exact_git_head(str(git_baseline.get("git_root") or "")) != snapshot_head:
@@ -201,14 +288,28 @@ def start_agent(
                     + snapshot_error
                 )
 
+        if projection_snapshot is not None and not projection_snapshot_captured:
+            snapshot_error = governance_projection_snapshot_error(
+                data_path,
+                git_baseline,
+                projection_snapshot,
+                require_worktree_match=True,
+            )
+            if snapshot_error:
+                raise WorkspaceError(
+                    "governance projection changed after claim start: " + snapshot_error
+                )
+
         # A competing worktree must win the repository-shared lease before it
         # can create any durable local baseline or shared witness.  Capturing a
         # baseline is read-only; persistence happens only after the lease CAS.
         if baseline_record is not None:
             git_witness_ref = _create_git_witness(work_id, git_baseline)
-            baseline_record["git_witness_version"] = (
-                GIT_WITNESS_VERSION if git_witness_ref else ""
+            git_witness_version = _git_witness_version(
+                git_baseline,
+                git_witness_ref,
             )
+            baseline_record["git_witness_version"] = git_witness_version
             baseline_record["git_witness_ref"] = git_witness_ref
             _write_json(baseline_path, baseline_record)
 
@@ -228,7 +329,7 @@ def start_agent(
             "git_baseline": git_baseline,
             "git_baseline_hash": _git_baseline_hash(git_baseline),
             "git_baseline_path": _runtime_relative(data_path, baseline_path),
-            "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+            "git_witness_version": git_witness_version,
             "git_witness_ref": git_witness_ref,
             "claim_session": claim_session,
             "governance_projection_snapshot": projection_snapshot,
@@ -251,7 +352,9 @@ def start_agent(
             )
         raise
     finally:
-        lock_path.unlink(missing_ok=True)
+        if lock_path is not None:
+            lock_path.unlink(missing_ok=True)
+        workspace_locks.close()
     packet["start"] = {
         "status": "claimed",
         "would_mutate": True,
@@ -640,8 +743,12 @@ def claim_integrity_error(
     claim: dict[str, Any],
     *,
     allow_released_lease: bool = False,
+    allow_durable_parking_transition: bool = False,
 ) -> str:
     """Validate claim structure and its immutable persisted Git baseline."""
+
+    if allow_durable_parking_transition and not allow_released_lease:
+        return "durable parking recovery requires released-lease handling"
 
     error = _validate_active_claim(claim)
     if error:
@@ -670,23 +777,58 @@ def claim_integrity_error(
     witness_error = _git_witness_error(work_id, persisted)
     if witness_error:
         return witness_error
+    baseline = persisted["git_baseline"]
+    if _complete_git_baseline(baseline):
+        try:
+            baseline_workspace = _scope_authority_workspace_from_git(
+                data_path,
+                baseline,
+            )
+            if baseline_workspace.work_item(work_id) is None:
+                _scope_authority_catalog_digest(
+                    baseline,
+                    work_id,
+                    str(claim["claimed_by"]),
+                    str(claim["mode"]),
+                )
+        except WorkspaceError as exc:
+            return str(exc)
     projection_snapshot = claim.get("governance_projection_snapshot")
+    recovery_work_status = ""
+    recovery_packet: dict[str, Any] | None = None
+    if allow_durable_parking_transition and isinstance(projection_snapshot, dict):
+        try:
+            recovery_packet = _read_claim_packet(data_path, claim)
+        except (ValueError, WorkspaceError) as exc:
+            return str(exc)
+        packet_error = _validate_claim_packet(claim, recovery_packet)
+        if packet_error:
+            return packet_error
+        work_packet = recovery_packet.get("work_item")
+        if not isinstance(work_packet, dict) or not isinstance(
+            work_packet.get("status"), str
+        ):
+            return "packet work_item status is missing"
+        recovery_work_status = str(work_packet["status"])
     if isinstance(projection_snapshot, dict):
         snapshot_error = governance_projection_snapshot_error(
             data_path,
             persisted["git_baseline"],
             projection_snapshot,
             require_worktree_match=False,
+            parked_work_status_from=recovery_work_status,
         )
         if snapshot_error:
             return snapshot_error
     lease_error = _git_lease_error(claim, allow_missing=allow_released_lease)
     if lease_error:
         return lease_error
-    try:
-        packet = _read_claim_packet(data_path, claim)
-    except (ValueError, WorkspaceError) as exc:
-        return str(exc)
+    packet = recovery_packet
+    if packet is None:
+        try:
+            packet = _read_claim_packet(data_path, claim)
+        except (ValueError, WorkspaceError) as exc:
+            return str(exc)
     contract_error = _persisted_session_contract_error(data_path, claim, packet)
     if contract_error:
         return contract_error
@@ -985,13 +1127,23 @@ def _read_persisted_baseline(path: Path, work_id: str) -> dict[str, Any] | None:
     if record.get("git_baseline_hash") != _git_baseline_hash(baseline):
         raise WorkspaceError(f"persisted Git baseline for {work_id} does not match its hash")
     if baseline.get("head_sha"):
-        if record.get("git_witness_version") != GIT_WITNESS_VERSION:
+        if record.get("git_witness_version") not in {
+            LEGACY_GIT_WITNESS_VERSION,
+            GIT_WITNESS_VERSION,
+        }:
             raise WorkspaceError(
                 f"persisted Git baseline for {work_id} has no supported Git witness"
             )
         if record.get("git_witness_ref") != _git_witness_ref(work_id):
             raise WorkspaceError(
                 f"persisted Git baseline for {work_id} has an invalid Git witness ref"
+            )
+        if (
+            _scope_authority_catalog_hash(baseline, work_id)
+            and record.get("git_witness_version") != GIT_WITNESS_VERSION
+        ):
+            raise WorkspaceError(
+                f"persisted Git baseline for {work_id} has no catalog-bound Git witness"
             )
     return record
 
@@ -1216,6 +1368,8 @@ def _capture_governance_projection_snapshot(
     data_path: Path,
     baseline: dict[str, Any],
     packet: dict[str, Any],
+    *,
+    scope_authority: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Bind the claim epoch to the exact local governance projection.
 
@@ -1244,6 +1398,15 @@ def _capture_governance_projection_snapshot(
     touched = _git_range_paths(root_text, base_sha, session_head, projection_paths)
     if touched is None:
         raise WorkspaceError("cannot inspect governance projection commit history")
+    if scope_authority is None:
+        scope_authority = _preclaim_scope_authority_binding(
+            data_path, baseline, packet
+        )
+    if scope_authority["baseline_digest"] != scope_authority["current_digest"]:
+        raise WorkspaceError(
+            "pre-claim scope authority differs from immutable baseline; "
+            "create a successor work item for the changed contract"
+        )
     if not touched:
         return None
     required = packet.get("required_output") or {}
@@ -1290,6 +1453,7 @@ def _capture_governance_projection_snapshot(
         "changed_paths": sorted(touched),
         "files": files,
         "journal_verification": {},
+        "scope_authority": scope_authority,
     }
     if touched:
         from .governance_journal import verify_workspace_journal
@@ -1338,10 +1502,14 @@ def governance_projection_snapshot_error(
     snapshot: dict[str, Any],
     *,
     require_worktree_match: bool,
+    parked_work_status_from: str = "",
 ) -> str:
     """Return a fail-closed error for an invalid or stale claim snapshot."""
 
-    if snapshot.get("schema_version") != PROJECTION_SNAPSHOT_VERSION:
+    if snapshot.get("schema_version") not in {
+        LEGACY_PROJECTION_SNAPSHOT_VERSION,
+        PROJECTION_SNAPSHOT_VERSION,
+    }:
         return "governance projection snapshot has an unsupported schema"
     root_text = str(baseline.get("git_root") or "")
     base_sha = str(baseline.get("head_sha") or "")
@@ -1357,6 +1525,15 @@ def governance_projection_snapshot_error(
         relative_data = data_path.resolve().relative_to(root).as_posix()
     except (OSError, ValueError):
         return "workspace projection escapes the claim Git repository"
+    if snapshot.get("schema_version") == PROJECTION_SNAPSHOT_VERSION:
+        authority_error = _governance_projection_scope_authority_error(
+            data_path,
+            baseline,
+            snapshot,
+            parked_work_status_from=parked_work_status_from,
+        )
+        if authority_error:
+            return authority_error
     projection_paths = _governance_projection_paths(relative_data)
     files = snapshot.get("files")
     if not isinstance(files, list) or len(files) != len(projection_paths):
@@ -1415,9 +1592,818 @@ def _governance_projection_paths(relative_data: str) -> list[str]:
     ]
 
 
+def _capture_missing_work_scope_baseline(
+    data_path: Path,
+    baseline: dict[str, Any],
+    packet: dict[str, Any],
+) -> dict[str, Any]:
+    """Anchor a newly declared work contract that is not in Git yet."""
+
+    work_id = _scope_authority_packet_identifier(packet, "work_item", "id")
+    baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
+    if baseline_workspace.work_item(work_id) is not None:
+        return baseline
+    current_workspace = _scope_authority_workspace_from_current(data_path)
+    if current_workspace.work_item(work_id) is None:
+        raise WorkspaceError(
+            f"pre-claim scope authority work is missing: {work_id}"
+        )
+    anchored = dict(baseline)
+    anchored["scope_authority_catalog"] = _scope_authority_catalog(
+        current_workspace,
+        work_id,
+    )
+    return anchored
+
+
+def _preclaim_scope_authority_binding(
+    data_path: Path,
+    baseline: dict[str, Any],
+    packet: dict[str, Any],
+) -> dict[str, str]:
+    work_id = _scope_authority_packet_identifier(packet, "work_item", "id")
+    palari_id = _scope_authority_packet_identifier(packet, "agent", "id")
+    mode = packet.get("mode")
+    if mode not in {"execute", "review"}:
+        raise WorkspaceError("pre-claim scope authority packet mode is unsupported")
+    return _scope_authority_binding_for(data_path, baseline, work_id, palari_id, mode)
+
+
+def _governance_projection_scope_authority_error(
+    data_path: Path,
+    baseline: dict[str, Any],
+    snapshot: dict[str, Any],
+    *,
+    parked_work_status_from: str = "",
+) -> str:
+    binding = snapshot.get("scope_authority")
+    if not isinstance(binding, dict):
+        return "governance projection snapshot scope authority binding is missing"
+    if binding.get("schema_version") != PRECLAIM_SCOPE_AUTHORITY_VERSION:
+        return "governance projection snapshot scope authority binding has an unsupported schema"
+    work_id = binding.get("work_item_id")
+    palari_id = binding.get("palari_id")
+    mode = binding.get("mode")
+    baseline_digest = binding.get("baseline_digest")
+    current_digest = binding.get("current_digest")
+    if not isinstance(work_id, str) or not work_id:
+        return "governance projection snapshot scope authority work item is missing"
+    if not isinstance(palari_id, str) or not palari_id:
+        return "governance projection snapshot scope authority Palari is missing"
+    if mode not in {"execute", "review"}:
+        return "governance projection snapshot scope authority mode is unsupported"
+    if not isinstance(baseline_digest, str) or not _valid_sha256(baseline_digest):
+        return "governance projection snapshot scope authority baseline digest is malformed"
+    if not isinstance(current_digest, str) or not _valid_sha256(current_digest):
+        return "governance projection snapshot scope authority current digest is malformed"
+    try:
+        actual = _scope_authority_binding_for(data_path, baseline, work_id, palari_id, mode)
+    except WorkspaceError as exc:
+        return f"cannot verify governance projection scope authority: {exc}"
+    if actual["baseline_digest"] != baseline_digest:
+        return "governance projection snapshot scope authority baseline digest differs"
+    if actual["current_digest"] != current_digest:
+        if not parked_work_status_from:
+            return "governance projection snapshot scope authority current digest differs"
+        try:
+            current_workspace = _scope_authority_workspace_from_current(data_path)
+            current_work = current_workspace.work_item(work_id)
+            if current_work is None or current_work.status != "blocked":
+                return "governance projection snapshot scope authority current digest differs"
+            normalized_current_digest = _scope_authority_digest(
+                current_workspace,
+                work_id,
+                palari_id,
+                mode,
+                work_status_override=parked_work_status_from,
+            )
+        except WorkspaceError as exc:
+            return f"cannot verify parked governance projection scope authority: {exc}"
+        if normalized_current_digest != current_digest:
+            return "governance projection snapshot scope authority current digest differs"
+    if baseline_digest != current_digest:
+        return "pre-claim scope authority differs from immutable baseline; " \
+            "create a successor work item for the changed contract"
+    return ""
+
+
+def _scope_authority_binding_for(
+    data_path: Path,
+    baseline: dict[str, Any],
+    work_id: str,
+    palari_id: str,
+    mode: str,
+) -> dict[str, str]:
+    baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
+    current_workspace = _scope_authority_workspace_from_current(data_path)
+    if baseline_workspace.work_item(work_id) is None:
+        baseline_digest = _scope_authority_catalog_digest(
+            baseline,
+            work_id,
+            palari_id,
+            mode,
+        )
+    else:
+        baseline_digest = _scope_authority_digest(
+            baseline_workspace,
+            work_id,
+            palari_id,
+            mode,
+        )
+    return {
+        "schema_version": PRECLAIM_SCOPE_AUTHORITY_VERSION,
+        "work_item_id": work_id,
+        "palari_id": palari_id,
+        "mode": mode,
+        "baseline_digest": baseline_digest,
+        "current_digest": _scope_authority_digest(
+            current_workspace, work_id, palari_id, mode
+        ),
+    }
+
+
+def _scope_authority_catalog(
+    workspace: Workspace,
+    work_id: str,
+) -> dict[str, Any]:
+    bindings = [
+        {
+            "palari_id": palari.id,
+            "mode": mode,
+            "digest": _scope_authority_digest(
+                workspace,
+                work_id,
+                palari.id,
+                mode,
+            ),
+        }
+        for palari in sorted(workspace.palaris, key=lambda item: item.id)
+        for mode in ("execute", "review")
+    ]
+    return {
+        "schema_version": PRECLAIM_SCOPE_CATALOG_VERSION,
+        "work_item_id": work_id,
+        "bindings": bindings,
+    }
+
+
+def _scope_authority_catalog_digest(
+    baseline: dict[str, Any],
+    work_id: str,
+    palari_id: str,
+    mode: str,
+) -> str:
+    bindings = _scope_authority_catalog_bindings(baseline, work_id)
+    for binding in bindings:
+        if (binding["palari_id"], binding["mode"]) == (palari_id, mode):
+            return str(binding["digest"])
+    raise WorkspaceError(
+        f"claim-start authority catalog has no {mode} binding for {palari_id}"
+    )
+
+
+def _scope_authority_catalog_hash(
+    baseline: dict[str, Any],
+    work_id: str,
+) -> str:
+    catalog = baseline.get("scope_authority_catalog")
+    if catalog is None:
+        return ""
+    _scope_authority_catalog_bindings(baseline, work_id)
+    try:
+        return canonical_sha256(catalog)
+    except CanonicalJSONError as exc:
+        raise WorkspaceError(
+            f"claim-start authority catalog cannot be canonicalized: {exc}"
+        ) from exc
+
+
+def _scope_authority_catalog_bindings(
+    baseline: dict[str, Any],
+    work_id: str,
+) -> list[dict[str, str]]:
+    catalog = baseline.get("scope_authority_catalog")
+    if not isinstance(catalog, dict):
+        raise WorkspaceError(
+            f"immutable Git baseline predates work {work_id} and has no "
+            "claim-start authority catalog"
+        )
+    if set(catalog) != {"schema_version", "work_item_id", "bindings"}:
+        raise WorkspaceError("claim-start authority catalog has unexpected fields")
+    if catalog.get("schema_version") != PRECLAIM_SCOPE_CATALOG_VERSION:
+        raise WorkspaceError("claim-start authority catalog has an unsupported schema")
+    if catalog.get("work_item_id") != work_id:
+        raise WorkspaceError("claim-start authority catalog identifies different work")
+    bindings = catalog.get("bindings")
+    if not isinstance(bindings, list):
+        raise WorkspaceError("claim-start authority catalog bindings are malformed")
+    expected_order: list[tuple[str, str]] = []
+    normalized: list[dict[str, str]] = []
+    for binding in bindings:
+        if not isinstance(binding, dict) or set(binding) != {
+            "palari_id",
+            "mode",
+            "digest",
+        }:
+            raise WorkspaceError("claim-start authority catalog binding is malformed")
+        candidate = binding.get("palari_id")
+        candidate_mode = binding.get("mode")
+        digest = binding.get("digest")
+        if not isinstance(candidate, str) or not candidate:
+            raise WorkspaceError("claim-start authority catalog Palari is malformed")
+        if candidate_mode not in {"execute", "review"}:
+            raise WorkspaceError("claim-start authority catalog mode is malformed")
+        if not isinstance(digest, str) or not _valid_sha256(digest):
+            raise WorkspaceError("claim-start authority catalog digest is malformed")
+        key = (candidate, candidate_mode)
+        if key in expected_order:
+            raise WorkspaceError("claim-start authority catalog binding is duplicated")
+        expected_order.append(key)
+        normalized.append(
+            {
+                "palari_id": candidate,
+                "mode": candidate_mode,
+                "digest": digest,
+            }
+        )
+    if expected_order != sorted(expected_order):
+        raise WorkspaceError("claim-start authority catalog bindings are not canonical")
+    if not normalized:
+        raise WorkspaceError("claim-start authority catalog has no bindings")
+    return normalized
+
+
+def _scope_authority_packet_identifier(
+    packet: dict[str, Any], collection: str, field: str
+) -> str:
+    record = packet.get(collection)
+    value = record.get(field) if isinstance(record, dict) else None
+    if not isinstance(value, str) or not value:
+        raise WorkspaceError(
+            f"pre-claim scope authority packet {collection}.{field} is missing"
+        )
+    return value
+
+
+def _scope_authority_workspace_from_current(data_path: Path) -> Workspace:
+    workspace_root = data_path.parent
+    if data_path.is_symlink():
+        raise WorkspaceError(
+            "workspace.json symlink is unsafe for pre-claim scope authority"
+        )
+    try:
+        payload = data_path.read_bytes()
+    except OSError as exc:
+        raise WorkspaceError(
+            f"cannot read current workspace for pre-claim scope authority: {exc}"
+        ) from exc
+
+    def read_collection(relative_path: str) -> bytes:
+        try:
+            candidate = resolve_workspace_path(
+                workspace_root, relative_path, require_exists=True
+            )
+            if not candidate.is_file():
+                raise ValueError("collection path is not a file")
+            return candidate.read_bytes()
+        except (OSError, ValueError) as exc:
+            raise WorkspaceError(
+                "cannot read current workspace collection for pre-claim scope authority: "
+                f"{relative_path}: {exc}"
+            ) from exc
+
+    return _scope_authority_workspace_from_bytes(
+        payload,
+        data_path,
+        read_collection,
+        label="current",
+    )
+
+
+def _final_start_revalidation(
+    data_path: Path,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+    expected_packet: dict[str, Any],
+    git_baseline: dict[str, Any],
+    *,
+    scope_authority: dict[str, str] | None,
+    projection_snapshot: dict[str, Any] | None,
+    projection_snapshot_captured: bool,
+    projection_snapshot_digest: str,
+) -> tuple[
+    Workspace,
+    dict[str, Any],
+    dict[str, Any],
+    Path,
+    Path,
+    dict[str, Any] | None,
+]:
+    """Recheck prepared claim state while the workspace mutation lock is held."""
+
+    workspace, packet = _current_start_packet(
+        data_path, work_id, palari_id, mode, expected_packet
+    )
+    assert_transition_allowed(
+        workspace,
+        "agent_start",
+        work_id,
+        actor=palari_id,
+        context={"packet": packet, "mode": mode},
+    )
+    session_contract = compile_agent_session_contract(packet)
+    packet_path = _packet_path(data_path, packet["packet_id"])
+    contract_path = _session_contract_path(data_path, session_contract["contract_id"])
+
+
+    final_scope_authority = scope_authority
+    if _complete_git_baseline(git_baseline):
+        final_scope_authority = _preclaim_scope_authority_binding(
+            data_path, git_baseline, packet
+        )
+        if (
+            final_scope_authority["baseline_digest"]
+            != final_scope_authority["current_digest"]
+        ):
+            raise WorkspaceError(
+                "pre-claim scope authority differs from immutable baseline; "
+                "create a successor work item for the changed contract"
+            )
+        if scope_authority is None or final_scope_authority != scope_authority:
+            raise WorkspaceError(
+                "pre-claim scope authority changed while claim was starting; "
+                "retry safely"
+            )
+
+    if projection_snapshot_captured:
+        current_snapshot = _capture_governance_projection_snapshot(
+            data_path,
+            git_baseline,
+            packet,
+            scope_authority=final_scope_authority,
+        )
+        current_digest = (
+            _governance_projection_snapshot_digest(current_snapshot)
+            if isinstance(current_snapshot, dict)
+            else ""
+        )
+        if current_digest != projection_snapshot_digest:
+            raise WorkspaceError(
+                "governance projection changed while claim was starting; retry safely"
+            )
+        projection_snapshot = current_snapshot
+
+    return (
+        workspace,
+        packet,
+        session_contract,
+        packet_path,
+        contract_path,
+        projection_snapshot,
+    )
+
+def _current_start_packet(
+    data_path: Path,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+    expected_packet: dict[str, Any],
+) -> tuple[Workspace, dict[str, Any]]:
+    """Rebuild the exact current packet before a claim can gain a lease."""
+
+    workspace = _scope_authority_workspace_from_current(data_path)
+    packet = build_agent_brief(workspace, work_id, palari_id, mode)
+    if packet.get("status") != "ready":
+        raise WorkspaceError(
+            "workspace packet changed while claim was starting and is no longer ready; "
+            "retry safely"
+        )
+    if packet.get("context_hash") != expected_packet.get("context_hash"):
+        raise WorkspaceError("workspace packet changed while claim was starting; retry safely")
+    return workspace, packet
+
+
+def _scope_authority_workspace_from_git(
+    data_path: Path, baseline: dict[str, Any]
+) -> Workspace:
+    root_text = str(baseline.get("git_root") or "")
+    base_sha = str(baseline.get("head_sha") or "")
+    if not root_text or not _exact_git_sha(base_sha):
+        raise WorkspaceError("immutable scope authority baseline has incomplete Git identity")
+    try:
+        root = Path(root_text).resolve()
+        relative_data = data_path.resolve().relative_to(root).as_posix()
+    except (OSError, ValueError) as exc:
+        raise WorkspaceError(
+            f"immutable scope authority workspace escapes the Git repository: {exc}"
+        ) from exc
+    payload = _git_blob_bytes(root_text, base_sha, relative_data)
+    if payload is None:
+        raise WorkspaceError("immutable scope authority workspace Git blob is unreadable")
+    workspace_prefix = Path(relative_data).parent.as_posix()
+
+    def read_collection(relative_path: str) -> bytes:
+        try:
+            normalized = validate_workspace_path(relative_path)
+        except ValueError as exc:
+            raise WorkspaceError(
+                "immutable scope authority workspace collection path is unsafe: "
+                f"{relative_path}: {exc}"
+            ) from exc
+        git_path = (
+            normalized
+            if workspace_prefix == "."
+            else f"{workspace_prefix}/{normalized}"
+        )
+        collection_payload = _git_blob_bytes(root_text, base_sha, git_path)
+        if collection_payload is None:
+            raise WorkspaceError(
+                "immutable scope authority workspace collection Git blob is unreadable: "
+                + relative_path
+            )
+        return collection_payload
+
+    return _scope_authority_workspace_from_bytes(
+        payload,
+        data_path,
+        read_collection,
+        label="immutable baseline",
+    )
+
+
+def _scope_authority_workspace_from_bytes(
+    payload: bytes,
+    data_path: Path,
+    read_collection: Callable[[str], bytes],
+    *,
+    label: str,
+) -> Workspace:
+    try:
+        raw = strict_json_loads(payload)
+    except (CanonicalJSONError, TypeError) as exc:
+        raise WorkspaceError(
+            f"{label} workspace is not strict JSON for pre-claim scope authority: {exc}"
+        ) from exc
+    if not isinstance(raw, dict):
+        raise WorkspaceError(
+            f"{label} workspace root is not an object for pre-claim scope authority"
+        )
+    expanded = _expand_scope_authority_collection_files(raw, read_collection, label)
+    try:
+        return Workspace.from_raw(expanded, data_path.parent)
+    except WorkspaceError as exc:
+        raise WorkspaceError(
+            f"{label} workspace is invalid for pre-claim scope authority: {exc}"
+        ) from exc
+
+
+def _expand_scope_authority_collection_files(
+    raw: dict[str, Any],
+    read_collection: Callable[[str], bytes],
+    label: str,
+) -> dict[str, Any]:
+    collection_files = raw.get("collection_files")
+    if not collection_files:
+        return raw
+    if not isinstance(collection_files, dict):
+        raise WorkspaceError(
+            f"{label} workspace collection_files is invalid for pre-claim scope authority"
+        )
+    expanded = dict(raw)
+    expanded["collection_files"] = {}
+    for collection, paths in collection_files.items():
+        if collection not in COLLECTION_FILE_KEYS:
+            raise WorkspaceError(
+                f"{label} workspace collection_files has unknown collection: {collection}"
+            )
+        if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
+            raise WorkspaceError(
+                f"{label} workspace collection_files.{collection} is invalid"
+            )
+        records = raw.get(collection, [])
+        if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
+            raise WorkspaceError(f"{label} workspace {collection} is invalid")
+        combined = list(records)
+        for relative_path in paths:
+            try:
+                normalized = validate_workspace_path(relative_path)
+            except ValueError as exc:
+                raise WorkspaceError(
+                    f"{label} workspace collection path is unsafe: {relative_path}: {exc}"
+                ) from exc
+            try:
+                included = strict_json_loads(read_collection(normalized))
+            except (CanonicalJSONError, TypeError) as exc:
+                raise WorkspaceError(
+                    f"{label} workspace collection is not strict JSON: {relative_path}: {exc}"
+                ) from exc
+            if not isinstance(included, list) or not all(
+                isinstance(item, dict) for item in included
+            ):
+                raise WorkspaceError(
+                    f"{label} workspace collection is not a list of records: {relative_path}"
+                )
+            combined.extend(included)
+        expanded[collection] = combined
+    return expanded
+
+
+def _scope_authority_digest(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+    *,
+    work_status_override: str = "",
+) -> str:
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"pre-claim scope authority work is missing: {work_id}")
+    palari = workspace.palari(palari_id)
+    if palari is None:
+        raise WorkspaceError(f"pre-claim scope authority Palari is missing: {palari_id}")
+    packet = build_agent_brief(workspace, work_id, palari_id, mode)
+    agent = _scope_authority_mapping(packet.get("agent"), "agent")
+    work_packet = _scope_authority_mapping(packet.get("work_item"), "work item")
+    allowed_paths = _scope_authority_mapping(packet.get("allowed_paths"), "allowed paths")
+    required_output = _scope_authority_mapping(
+        packet.get("required_output"), "required output"
+    )
+    completion = _scope_authority_mapping(
+        packet.get("completion_contract"), "completion contract"
+    )
+    policy = _scope_authority_mapping(
+        packet.get("capability_policy"), "capability policy"
+    )
+    blockers = packet.get("blockers")
+    if not isinstance(blockers, list) or not all(isinstance(item, dict) for item in blockers):
+        raise WorkspaceError("pre-claim scope authority packet blockers are malformed")
+    actor_eligible = not any(
+        item.get("code") == "PALARI_NOT_ASSIGNED" for item in blockers
+    )
+    actor_authority = {
+        "id": _scope_authority_text(agent.get("id"), "agent.id"),
+        "name": _scope_authority_text(agent.get("name"), "agent.name"),
+        "role": _scope_authority_text(agent.get("role"), "agent.role"),
+        "scope": _scope_authority_text(agent.get("scope"), "agent.scope"),
+        "mode": mode,
+        "default_worker": _scope_authority_text(
+            agent.get("default_worker"), "agent.default_worker"
+        ),
+        "standards": _scope_authority_strings(
+            agent.get("standards", []), "agent.standards"
+        ),
+        "allowed_inputs": _scope_authority_strings(
+            palari.allowed_inputs, "agent.allowed_inputs"
+        ),
+        "forbidden_inputs": _scope_authority_strings(
+            palari.forbidden_inputs, "agent.forbidden_inputs"
+        ),
+        "forbidden_actions": _scope_authority_strings(
+            agent.get("forbidden_actions", []), "agent.forbidden_actions"
+        ),
+        "memory_sources": _scope_authority_strings(
+            palari.memory_sources, "agent.memory_sources"
+        ),
+        "owner_human": _scope_authority_text(
+            palari.owner_human, "agent.owner_human"
+        ),
+    }
+    if mode == "execute":
+        actor_authority["assigned_or_workbench_allowed"] = actor_eligible
+    else:
+        actor_authority["review_goal_linked"] = (
+            not work.goal or work.goal in palari.linked_goals
+        )
+    authority = {
+        "schema_version": PRECLAIM_SCOPE_AUTHORITY_VERSION,
+        "actor": actor_authority,
+        "work_item": {
+            "id": _scope_authority_text(work_packet.get("id"), "work_item.id"),
+            "goal": _scope_authority_text(work.goal, "work_item.goal"),
+            "status": _scope_authority_text(
+                work_status_override or work.status,
+                "work_item.status",
+            ),
+            "workbench_id": _scope_authority_text(
+                work.workbench_id, "work_item.workbench_id"
+            ),
+            "parent_work_item_id": _scope_authority_text(
+                work.parent_work_item_id, "work_item.parent_work_item_id"
+            ),
+            "dependency_ids": _scope_authority_strings(
+                work.dependency_ids, "work_item.dependency_ids"
+            ),
+            "title": _scope_authority_text(work_packet.get("title", ""), "work_item.title"),
+            "risk": _scope_authority_text(work_packet.get("risk", ""), "work_item.risk"),
+            "intensity": _scope_authority_text(
+                work_packet.get("intensity", ""), "work_item.intensity"
+            ),
+            "objective": _scope_authority_text(
+                work_packet.get("objective", ""), "work_item.objective"
+            ),
+            "acceptance_target": _scope_authority_text(
+                work_packet.get("acceptance_target", ""), "work_item.acceptance_target"
+            ),
+            "required_approval_count": work_packet.get("required_approval_count"),
+            "required_approval_capability": _scope_authority_text(
+                work_packet.get("required_approval_capability", ""),
+                "work_item.required_approval_capability",
+            ),
+            "assigned_palari": work.palari,
+            "allowed_actions": _scope_authority_strings(
+                work.allowed_actions, "work_item.allowed_actions"
+            ),
+            "conflict_targets": _scope_authority_strings(
+                work.conflict_targets, "work_item.conflict_targets"
+            ),
+            "parallel_policy": _scope_authority_text(
+                work.parallel_policy, "work_item.parallel_policy"
+            ),
+        },
+        "allowed_resources": _scope_authority_strings(
+            packet.get("allowed_resources"), "allowed_resources"
+        ),
+        "allowed_paths": {
+            "read": _scope_authority_strings(allowed_paths.get("read"), "allowed_paths.read"),
+            "write": _scope_authority_strings(
+                allowed_paths.get("write"), "allowed_paths.write"
+            ),
+        },
+        "dependencies": _scope_authority_dependencies(packet.get("dependencies")),
+        "allowed_sources": _scope_authority_sources(
+            workspace,
+            packet.get("allowed_sources"),
+        ),
+        "allowed_capabilities": _scope_authority_capabilities(
+            packet.get("allowed_capabilities")
+        ),
+        "capability_policy": policy,
+        "forbidden_actions": _scope_authority_strings(
+            packet.get("forbidden_actions"), "forbidden_actions"
+        ),
+        "required_output": {
+            "output_targets": _scope_authority_strings(
+                required_output.get("output_targets", []), "required_output.output_targets"
+            ),
+            "fallback_write_paths": _scope_authority_strings(
+                required_output.get("fallback_write_paths", []),
+                "required_output.fallback_write_paths",
+            ),
+            "acceptance_target": _scope_authority_text(
+                required_output.get("acceptance_target", ""),
+                "required_output.acceptance_target",
+            ),
+            "verification_expectations": _scope_authority_strings(
+                required_output.get("verification_expectations", []),
+                "required_output.verification_expectations",
+            ),
+            "must_not": _scope_authority_strings(
+                required_output.get("must_not", []), "required_output.must_not"
+            ),
+            "path_intents": _scope_authority_records(
+                required_output.get("path_intents", []), "required_output.path_intents"
+            ),
+        },
+        "completion_gates": {
+            "requires_receipt": completion.get("requires_receipt"),
+            "requires_review": completion.get("requires_review"),
+            "requires_human_decision": completion.get("requires_human_decision"),
+            "external_writes_allowed": completion.get("external_writes_allowed"),
+            "external_write_actions": _scope_authority_strings(
+                completion.get("external_write_actions", []),
+                "completion_contract.external_write_actions",
+            ),
+        },
+    }
+    try:
+        return canonical_sha256(authority)
+    except CanonicalJSONError as exc:
+        raise WorkspaceError(
+            f"pre-claim scope authority cannot be canonicalized: {exc}"
+        ) from exc
+
+
+def _scope_authority_mapping(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise WorkspaceError(f"pre-claim scope authority {label} is malformed")
+    return value
+
+
+def _scope_authority_text(value: Any, label: str) -> str:
+    if not isinstance(value, str):
+        raise WorkspaceError(f"pre-claim scope authority {label} is malformed")
+    return value
+
+
+def _scope_authority_strings(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise WorkspaceError(f"pre-claim scope authority {label} is malformed")
+    return sorted(set(value))
+
+
+def _scope_authority_records(value: Any, label: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise WorkspaceError(f"pre-claim scope authority {label} is malformed")
+    try:
+        return sorted((dict(item) for item in value), key=canonical_sha256)
+    except CanonicalJSONError as exc:
+        raise WorkspaceError(
+            f"pre-claim scope authority {label} cannot be canonicalized: {exc}"
+        ) from exc
+
+
+def _scope_authority_dependencies(value: Any) -> list[dict[str, str]]:
+    records = _scope_authority_records(value, "dependencies")
+    normalized: list[dict[str, str]] = []
+    for item in records:
+        normalized.append(
+            {
+                "id": _scope_authority_text(item.get("id"), "dependencies[].id"),
+                "status": _scope_authority_text(
+                    item.get("status"), "dependencies[].status"
+                ),
+            }
+        )
+    return sorted(normalized, key=canonical_sha256)
+
+
+def _scope_authority_sources(
+    workspace: Workspace,
+    value: Any,
+) -> list[dict[str, Any]]:
+    records = _scope_authority_records(value, "allowed_sources")
+    fields = (
+        "id",
+        "kind",
+        "provider",
+        "access_mode",
+        "selected",
+        "owner_human",
+        "allowed_palaris",
+        "data_class",
+        "authority",
+        "steward_human",
+        "freshness_sla",
+        "redaction_required",
+    )
+    normalized = []
+    for item in records:
+        entry = {field: item.get(field) for field in fields}
+        source_id = _scope_authority_text(entry.get("id"), "allowed_sources[].id")
+        source = workspace.source(source_id)
+        if source is None:
+            raise WorkspaceError(
+                f"pre-claim scope authority source is missing: {source_id}"
+            )
+        entry["uri"] = source.uri
+        entry["external_id"] = source.external_id
+        entry["allowed_palaris"] = _scope_authority_strings(
+            entry["allowed_palaris"], "allowed_sources[].allowed_palaris"
+        )
+        normalized.append(entry)
+    return sorted(normalized, key=canonical_sha256)
+
+
+def _scope_authority_capabilities(value: Any) -> list[dict[str, Any]]:
+    records = _scope_authority_records(value, "allowed_capabilities")
+    fields = (
+        "id",
+        "kind",
+        "provider",
+        "status",
+        "risk_level",
+        "allowed_actions",
+        "allowed_palaris",
+        "source_ids",
+        "policy_ref",
+    )
+    normalized = []
+    for item in records:
+        entry = {field: item.get(field) for field in fields}
+        entry["allowed_actions"] = _scope_authority_strings(
+            entry["allowed_actions"], "allowed_capabilities[].allowed_actions"
+        )
+        entry["allowed_palaris"] = _scope_authority_strings(
+            entry["allowed_palaris"], "allowed_capabilities[].allowed_palaris"
+        )
+        entry["source_ids"] = _scope_authority_strings(
+            entry["source_ids"], "allowed_capabilities[].source_ids"
+        )
+        normalized.append(entry)
+    return sorted(normalized, key=canonical_sha256)
+
+
 def _runtime_path_matches(path: str, target: str) -> bool:
     normalized_target = target.rstrip("/")
     return path == normalized_target or path.startswith(normalized_target + "/")
+
+
+def _complete_git_baseline(baseline: dict[str, Any]) -> bool:
+    return bool(baseline.get("git_root")) and _exact_git_sha(
+        str(baseline.get("head_sha") or "")
+    )
 
 
 def _exact_git_sha(value: str) -> bool:
@@ -1531,18 +2517,29 @@ def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:
     if not root or not head:
         return ""
     witness_ref = _git_witness_ref(work_id)
+    catalog_hash = _scope_authority_catalog_hash(baseline, work_id)
+    message = f"palari scope authority {catalog_hash}"
     existing = _git_output(root, ["rev-parse", "--verify", witness_ref])
     if existing:
         if existing != head:
             raise WorkspaceError(
                 f"Git witness for {work_id} identifies {existing}, not claim head {head}"
             )
-        error = _git_witness_history_error(root, witness_ref, head)
+        error = _git_witness_history_error(
+            root,
+            witness_ref,
+            head,
+            authority_catalog_hash=catalog_hash,
+        )
         if error:
             raise WorkspaceError(error)
         return witness_ref
+    command = ["git", "-C", root, "update-ref", "--create-reflog"]
+    if catalog_hash:
+        command.extend(["-m", message])
+    command.extend([witness_ref, head])
     result = subprocess.run(
-        ["git", "-C", root, "update-ref", "--create-reflog", witness_ref, head],
+        command,
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -1553,10 +2550,25 @@ def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:
             f"cannot create Git witness for {work_id}: "
             f"{result.stderr.strip() or 'git update-ref failed'}"
         )
-    error = _git_witness_history_error(root, witness_ref, head)
+    error = _git_witness_history_error(
+        root,
+        witness_ref,
+        head,
+        authority_catalog_hash=catalog_hash,
+    )
     if error:
         raise WorkspaceError(error)
     return witness_ref
+
+
+def _git_witness_version(baseline: dict[str, Any], witness_ref: str) -> str:
+    if not witness_ref:
+        return ""
+    return (
+        GIT_WITNESS_VERSION
+        if baseline.get("scope_authority_catalog") is not None
+        else LEGACY_GIT_WITNESS_VERSION
+    )
 
 
 def _git_witness_error(work_id: str, persisted: dict[str, Any]) -> str:
@@ -1573,10 +2585,28 @@ def _git_witness_error(work_id: str, persisted: dict[str, Any]) -> str:
     current = _git_output(root, ["rev-parse", "--verify", witness_ref])
     if current != head:
         return "Git witness does not match the persisted claim-start head"
-    return _git_witness_history_error(root, witness_ref, head)
+    version = persisted.get("git_witness_version")
+    try:
+        catalog_hash = _scope_authority_catalog_hash(baseline, work_id)
+    except WorkspaceError as exc:
+        return str(exc)
+    if catalog_hash and version != GIT_WITNESS_VERSION:
+        return "claim-start authority catalog requires a v2 Git witness"
+    return _git_witness_history_error(
+        root,
+        witness_ref,
+        head,
+        authority_catalog_hash=catalog_hash,
+    )
 
 
-def _git_witness_history_error(root: str, witness_ref: str, head: str) -> str:
+def _git_witness_history_error(
+    root: str,
+    witness_ref: str,
+    head: str,
+    *,
+    authority_catalog_hash: str = "",
+) -> str:
     result = subprocess.run(
         [
             "git",
@@ -1584,7 +2614,7 @@ def _git_witness_history_error(root: str, witness_ref: str, head: str) -> str:
             root,
             "reflog",
             "show",
-            "--format=%H",
+            "--format=%H%x09%gs",
             witness_ref,
         ],
         check=False,
@@ -1595,8 +2625,14 @@ def _git_witness_history_error(root: str, witness_ref: str, head: str) -> str:
     entries = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if result.returncode != 0 or not entries:
         return "Git witness history is missing or unreadable"
-    if entries[-1] != head:
+    oldest_head, _, oldest_message = entries[-1].partition("\t")
+    if oldest_head != head:
         return "Git witness history does not start at the persisted claim-start head"
+    if (
+        authority_catalog_hash
+        and oldest_message != f"palari scope authority {authority_catalog_hash}"
+    ):
+        return "Git witness history does not bind the claim-start authority catalog"
     return ""
 
 

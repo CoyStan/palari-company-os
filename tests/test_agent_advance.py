@@ -30,9 +30,12 @@ from palari_company_os.agent_advance import (
 )
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_next import build_agent_next
+from palari_company_os.agent_parking import park_agent
 from palari_company_os.agent_runtime import (
     claim_check,
+    claim_integrity_error,
     governance_projection_snapshot_error,
+    read_claim,
     release_agent,
     start_agent,
 )
@@ -581,19 +584,18 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def _start_preclaim_projection(self) -> dict[str, Any]:
-        release_agent(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-        )
-        update_record(
+    def _commit_preclaim_read_model_projection(self) -> None:
+        create_record(
             str(self.temp_dir),
-            "work",
-            self.work_id,
-            {"scope": "Updated through a governed pre-claim control-plane action."},
-            command="test governed scope update",
+            "decision",
+            {
+                "id": "DECISION-TEST-PROJECTION-CHECKPOINT",
+                "question": "Does this unrelated projection preserve authority?",
+                "status": "decided",
+                "context": "Projection-only read-model checkpoint.",
+                "result": "recorded",
+            },
+            command="test projection-only read-model record",
             actor="HUMAN-FOUNDER",
         )
         subprocess.run(
@@ -609,9 +611,71 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             check=True,
         )
         subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "projection-only update"],
             check=True,
         )
+
+    def _commit_governance_records(self, message: str) -> None:
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", message],
+            check=True,
+        )
+
+    def _declare_current_only_work(self, work_id: str) -> None:
+        """Declare work in the live workspace without adding it to the Git anchor."""
+        self.work_id = work_id
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": "Test current-only authority catalog",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Produce one bounded README change.",
+                "acceptance_target": "An uncommitted work contract remains bound to its first claim authority.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "parallel_policy": "independent",
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test declare current-only authority work",
+            actor="PALARI-STEWARD",
+        )
+        anchored_workspace = subprocess.check_output(
+            ["git", "-C", str(self.temp_dir), "show", "HEAD:workspace.json"],
+            text=True,
+        )
+        self.assertNotIn(self.work_id, anchored_workspace)
+
+    def _start_preclaim_projection(self) -> dict[str, Any]:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._commit_preclaim_read_model_projection()
         return start_agent(
             Ws.load(self.temp_dir),
             self.temp_dir,
@@ -619,6 +683,49 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             "PALARI-STEWARD",
             "execute",
         )
+
+    def _expire_active_claim(self) -> tuple[dict[str, Any], str]:
+        """Make the current local and Git lease observably expired for restart tests."""
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        lease = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "cat-file",
+                "blob",
+                str(claim["git_lease_oid"]),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        lease_record = json.loads(lease.stdout)
+        lease_record["lease_expires_at"] = "2000-01-01T00:00:00Z"
+        encoded = json.dumps(lease_record, sort_keys=True, separators=(",", ":")) + "\n"
+        expired_oid = subprocess.run(
+            ["git", "-C", str(self.temp_dir), "hash-object", "-w", "--stdin"],
+            input=encoded,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "update-ref",
+                str(claim["git_lease_ref"]),
+                expired_oid,
+                str(claim["git_lease_oid"]),
+            ],
+            check=True,
+        )
+        claim["lease_expires_at"] = "2000-01-01T00:00:00Z"
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+        return claim, expired_oid
 
     def test_one_command_reaches_review_and_repeated_call_is_idempotent(self) -> None:
         with patch(
@@ -654,44 +761,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertFalse(second["would_mutate"])
 
     def test_committed_preclaim_projection_is_separate_from_work_output(self) -> None:
-        release_agent(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-        )
-        update_record(
-            str(self.temp_dir),
-            "work",
-            self.work_id,
-            {"scope": "Updated through a governed pre-claim control-plane action."},
-            command="test governed scope update",
-            actor="HUMAN-FOUNDER",
-        )
-        subprocess.run(
-            [
-                "git",
-                "-C",
-                str(self.temp_dir),
-                "add",
-                "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
-            ],
-            check=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
-            check=True,
-        )
-
-        started = start_agent(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-            "execute",
-        )
+        started = self._start_preclaim_projection()
         snapshot = started["start"]["claim"]["governance_projection_snapshot"]
         self.assertEqual(
             snapshot["changed_paths"],
@@ -723,19 +793,236 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertNotIn("workspace.json", preflight["changed_files"])
         self.assertIn("README.md", preflight["changed_files"])
 
-    def test_preclaim_projection_tamper_after_claim_fails_closed(self) -> None:
+    def test_projection_claim_park_retry_allows_only_durable_blocked_status(self) -> None:
+        started = self._start_preclaim_projection()
+        claim = started["start"]["claim"]
+        self.assertIn("governance_projection_snapshot", claim)
+
+        def interrupt(_claim: dict[str, object]) -> None:
+            raise RuntimeError("crash after shared lease deletion")
+
+        with self.assertRaisesRegex(RuntimeError, "shared lease deletion"):
+            park_agent(
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                reason="Pause bounded work.",
+                next_action="Resume from the recorded blocker.",
+                _after_lease_release=interrupt,
+            )
+
+        parked_workspace_path = self.temp_dir / "workspace.json"
+        parked_bytes = parked_workspace_path.read_bytes()
+        parked = json.loads(parked_bytes)
+        parked_work = next(
+            item for item in parked["work_items"] if item["id"] == self.work_id
+        )
+        self.assertEqual(parked_work["status"], "blocked")
+        attempt_count = len(parked["attempts"])
+        durable_claim = read_claim(self.temp_dir, self.work_id)
+        self.assertIsNotNone(durable_claim)
+        assert durable_claim is not None
+        self.assertIn(
+            "scope authority current digest differs",
+            claim_integrity_error(self.temp_dir, self.work_id, durable_claim),
+        )
+
+        parked_work["scope"] = "Changed authority must not be recoverable."
+        parked_workspace_path.write_text(json.dumps(parked), encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "current digest differs"):
+            park_agent(
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+                reason="Pause bounded work.",
+                next_action="Resume from the recorded blocker.",
+            )
+
+        parked_workspace_path.write_bytes(parked_bytes)
+        resumed = park_agent(
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            reason="Pause bounded work.",
+            next_action="Resume from the recorded blocker.",
+        )
+
+        self.assertTrue(resumed["resumed"])
+        self.assertTrue(resumed["claim_released"])
+        self.assertIsNone(read_claim(self.temp_dir, self.work_id))
+        self.assertEqual(len(Ws.load(self.temp_dir).attempts), attempt_count)
+
+    def test_projection_only_read_model_change_starts_and_classifies(self) -> None:
+        started = self._start_preclaim_projection()
+        snapshot = started["start"]["claim"]["governance_projection_snapshot"]
+        self.assertEqual(
+            snapshot["changed_paths"],
+            [
+                ".palari/governance-journal.v1.jsonl",
+                ".palari/history.jsonl",
+                "workspace.json",
+            ],
+        )
+
+        result = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+        )
+        self.assertEqual(result["status"], "planned", result)
+
+    def test_builder_proof_progress_allows_review_start(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            advanced = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(advanced["status"], "review-required", advanced)
+
+        review_start = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-ARCHITECT",
+            "review",
+        )
+
+        self.assertEqual(review_start["start"]["status"], "claimed")
+        self.assertEqual(review_start["start"]["claim"]["mode"], "review")
+
+    def test_review_goal_link_expansion_after_baseline_blocks_before_lease(
+        self,
+    ) -> None:
         release_agent(
             Ws.load(self.temp_dir),
             self.temp_dir,
             self.work_id,
             "PALARI-STEWARD",
         )
+        self.work_id = "WORK-TEST-REVIEW-STATIC-AUTHORITY"
+        update_record(
+            str(self.temp_dir),
+            "palari",
+            "PALARI-ARCHITECT",
+            {"linked_goals": ["GOAL-REPO-0002"]},
+            command="test remove reviewer goal linkage before immutable baseline",
+            actor="HUMAN-FOUNDER",
+        )
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": "Test review static authority binding",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Produce bounded proof before a distinct Palari review.",
+                "acceptance_target": "Review start remains bound to immutable reviewer eligibility.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test declare review authority work",
+            actor="PALARI-STEWARD",
+        )
+        self._commit_governance_records("declare reviewer authority baseline")
+        initial = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(initial["start"]["status"], "claimed")
+        self.assertTrue(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline").exists()
+        )
+        (self.temp_dir / "README.md").write_text(
+            "review-static-authority candidate\n",
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "review candidate"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            advanced = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(advanced["status"], "review-required", advanced)
+
+        update_record(
+            str(self.temp_dir),
+            "palari",
+            "PALARI-ARCHITECT",
+            {"linked_goals": ["GOAL-REPO-0001", "GOAL-REPO-0002"]},
+            command="test governed reviewer goal-link expansion",
+            actor="HUMAN-FOUNDER",
+        )
+        self._commit_governance_records("expand reviewer goal linkage")
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-ARCHITECT",
+                    "review",
+                )
+        claim_lease.assert_not_called()
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+
+    def test_preclaim_scope_expansion_is_blocked_before_lease_or_claim(self) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertTrue(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline").exists()
+        )
         update_record(
             str(self.temp_dir),
             "work",
             self.work_id,
-            {"scope": "Updated through a governed pre-claim control-plane action."},
-            command="test governed scope update",
+            {
+                "scope": "Expanded beyond the immutable work authority.",
+                "allowed_resources": ["README.md", "AGENTS.md"],
+                "output_targets": ["README.md", "AGENTS.md"],
+            },
+            command="test pre-claim scope authority expansion",
             actor="HUMAN-FOUNDER",
         )
         subprocess.run(
@@ -751,16 +1038,295 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             check=True,
         )
         subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "governed scope update"],
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "expand authority"],
             check=True,
         )
-        start_agent(
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+        claim_lease.assert_not_called()
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+        lease_refs = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/palari/leases/",
+            ],
+            text=True,
+        )
+        self.assertNotIn(self.work_id, lease_refs)
+
+    def test_uncommitted_preclaim_scope_expansion_is_blocked_before_lease_or_claim(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertTrue(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline").exists()
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {
+                "scope": "Expanded before a new claim without a committed projection.",
+                "allowed_resources": ["README.md", "AGENTS.md"],
+                "output_targets": ["README.md", "AGENTS.md"],
+            },
+            command="test uncommitted pre-claim scope authority expansion",
+            actor="HUMAN-FOUNDER",
+        )
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+        claim_lease.assert_not_called()
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+        lease_refs = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/palari/leases/",
+            ],
+            text=True,
+        )
+        self.assertNotIn(self.work_id, lease_refs)
+
+    def test_actor_scope_change_after_release_blocks_before_lease(self) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "palari",
+            "PALARI-STEWARD",
+            {
+                "scope": "Expanded actor scope after the immutable baseline.",
+                "default_worker": "different-worker",
+                "standards": ["changed execution standard"],
+            },
+            command="test actor authority change after release",
+            actor="HUMAN-FOUNDER",
+        )
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        claim_lease.assert_not_called()
+
+    def test_source_locator_change_after_release_blocks_before_lease(self) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "source",
+            "SOURCE-REPO-FOUNDATION",
+            {
+                "uri": "file://repointed-authority-source",
+                "external_id": "REPOINTED-SOURCE",
+            },
+            command="test source locator change after release",
+            actor="HUMAN-FOUNDER",
+        )
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        claim_lease.assert_not_called()
+
+    def test_uncommitted_preclaim_lifecycle_and_dependency_change_blocks_start(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {
+                "status": "proposed",
+                "dependency_ids": ["WORK-0001"],
+            },
+            command="test uncommitted pre-claim lifecycle authority expansion",
+            actor="HUMAN-FOUNDER",
+        )
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+        claim_lease.assert_not_called()
+        self.assertFalse(
+            (self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json").exists()
+        )
+        lease_refs = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/palari/leases/",
+            ],
+            text=True,
+        )
+        self.assertNotIn(self.work_id, lease_refs)
+
+    def test_expired_claim_with_changed_authority_fails_before_new_lease_or_claim(
+        self,
+    ) -> None:
+        prior_claim, expired_oid = self._expire_active_claim()
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {
+                "scope": "Expanded after an expired claim.",
+                "allowed_resources": ["README.md", "AGENTS.md"],
+                "output_targets": ["README.md", "AGENTS.md"],
+            },
+            command="test expired-claim authority expansion",
+            actor="HUMAN-FOUNDER",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "add",
+                "workspace.json",
+                ".palari/history.jsonl",
+                ".palari/governance-journal.v1.jsonl",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "expand after expiry"],
+            check=True,
+        )
+
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+        claim_lease.assert_not_called()
+        retained = json.loads(claim_path.read_text(encoding="utf-8"))
+        self.assertEqual(retained["claim_session"], prior_claim["claim_session"])
+        self.assertEqual(retained["git_lease_oid"], prior_claim["git_lease_oid"])
+        self.assertEqual(retained["lease_expires_at"], "2000-01-01T00:00:00Z")
+        current_oid = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "rev-parse",
+                "--verify",
+                str(prior_claim["git_lease_ref"]),
+            ],
+            text=True,
+        ).strip()
+        self.assertEqual(current_oid, expired_oid)
+
+    def test_unchanged_expired_claim_restarts_with_a_new_session(self) -> None:
+        prior_claim, expired_oid = self._expire_active_claim()
+
+        restarted = start_agent(
             Ws.load(self.temp_dir),
             self.temp_dir,
             self.work_id,
             "PALARI-STEWARD",
             "execute",
         )
+
+        self.assertEqual(restarted["start"]["status"], "claimed")
+        replacement = restarted["start"]["claim"]
+        self.assertNotEqual(replacement["claim_session"], prior_claim["claim_session"])
+        self.assertNotEqual(replacement["git_lease_oid"], expired_oid)
+        self.assertNotEqual(replacement["lease_expires_at"], "2000-01-01T00:00:00Z")
+
+    def test_preclaim_projection_tamper_after_claim_fails_closed(self) -> None:
+        self._start_preclaim_projection()
         journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
         journal.write_bytes(journal.read_bytes() + b"{}\n")
 
@@ -982,7 +1548,11 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             "palari_company_os.agent_runtime._claim_git_lease",
             side_effect=claim_lease_after_interloper,
         ):
-            with self.assertRaisesRegex(WorkspaceError, "HEAD changed while claim was starting"):
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "(?:Git HEAD changed while claim was starting|"
+                "governance projection changed while claim was starting)",
+            ):
                 start_agent(
                     Ws.load(self.temp_dir),
                     self.temp_dir,
@@ -1012,6 +1582,496 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             "execute",
         )
         self.assertEqual(retried["start"]["status"], "claimed")
+
+    def test_two_phase_claim_revalidates_governed_mutation_and_releases_lease(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.work_id = "WORK-TEST-TWO-PHASE-CLAIM-RACE"
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": "Test two-phase claim revalidation",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Produce one bounded README change.",
+                "acceptance_target": "A claim cannot survive a concurrent governed authority change.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test declare two-phase claim work",
+            actor="PALARI-STEWARD",
+        )
+        self._commit_governance_records("declare two-phase claim work")
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        baseline_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline"
+        self.assertFalse(claim_path.exists())
+        self.assertFalse(baseline_path.exists())
+
+        from palari_company_os import agent_runtime
+
+        original_claim_lease = agent_runtime._claim_git_lease
+        provisional: dict[str, str] = {}
+
+        def claim_lease_then_mutate(*args: object, **kwargs: object) -> dict[str, str]:
+            acquired = original_claim_lease(*args, **kwargs)
+            provisional.update(acquired)
+            update_record(
+                str(self.temp_dir),
+                "work",
+                self.work_id,
+                {
+                    "scope": "Governedly expanded after Phase-A claim preparation.",
+                    "allowed_resources": ["README.md", "AGENTS.md"],
+                    "output_targets": ["README.md", "AGENTS.md"],
+                },
+                command="test mutate authority after provisional lease",
+                actor="HUMAN-FOUNDER",
+            )
+            return acquired
+
+        with patch(
+            "palari_company_os.agent_runtime._claim_git_lease",
+            side_effect=claim_lease_then_mutate,
+        ) as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "workspace packet changed while claim was starting",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        claim_lease.assert_called_once()
+        self.assertTrue(provisional)
+        self.assertFalse(claim_path.exists())
+        self.assertFalse(baseline_path.exists())
+        lease = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "rev-parse",
+                "--verify",
+                str(provisional["git_lease_ref"]),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(lease.returncode, 0)
+
+    def test_first_git_claim_revalidates_authority_only_mutation_and_releases_lease(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.work_id = "WORK-TEST-FIRST-CLAIM-AUTHORITY-RACE"
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": "Test first-claim authority revalidation",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Produce one bounded README change.",
+                "acceptance_target": "First claim cannot survive an authority-only scheduling change.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "parallel_policy": "independent",
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test declare first-claim authority work",
+            actor="PALARI-STEWARD",
+        )
+        self._commit_governance_records("declare first-claim authority work")
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        baseline_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline"
+        self.assertFalse(claim_path.exists())
+        self.assertFalse(baseline_path.exists())
+
+        from palari_company_os import agent_runtime
+
+        original_claim_lease = agent_runtime._claim_git_lease
+        provisional: dict[str, str] = {}
+
+        def claim_lease_then_change_parallel_policy(
+            *args: object,
+            **kwargs: object,
+        ) -> dict[str, str]:
+            acquired = original_claim_lease(*args, **kwargs)
+            provisional.update(acquired)
+            update_record(
+                str(self.temp_dir),
+                "work",
+                self.work_id,
+                {"parallel_policy": "coordinate"},
+                command="test mutate first-claim scheduling authority",
+                actor="HUMAN-FOUNDER",
+            )
+            return acquired
+
+        with patch(
+            "palari_company_os.agent_runtime._claim_git_lease",
+            side_effect=claim_lease_then_change_parallel_policy,
+        ) as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        claim_lease.assert_called_once()
+        self.assertTrue(provisional)
+        self.assertFalse(claim_path.exists())
+        self.assertFalse(baseline_path.exists())
+        lease = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "rev-parse",
+                "--verify",
+                str(provisional["git_lease_ref"]),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(lease.returncode, 0)
+
+    def test_current_only_catalog_persists_restarts_and_rejects_parallel_change(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._declare_current_only_work("WORK-TEST-CURRENT-ONLY-CATALOG")
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        baseline_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline"
+
+        initial = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(initial["start"]["status"], "claimed")
+        baseline = initial["start"]["claim"]["git_baseline"]
+        catalog = baseline["scope_authority_catalog"]
+        self.assertEqual(catalog["schema_version"], "palari.preclaim_scope_catalog.v1")
+        self.assertEqual(catalog["work_item_id"], self.work_id)
+        bindings = catalog["bindings"]
+        binding_keys = [(item["palari_id"], item["mode"]) for item in bindings]
+        self.assertEqual(binding_keys, sorted(binding_keys))
+        self.assertIn(("PALARI-STEWARD", "execute"), binding_keys)
+        baseline_bytes = baseline_path.read_bytes()
+        persisted_baseline = json.loads(baseline_bytes)
+        self.assertEqual(persisted_baseline["git_baseline"], baseline)
+        self.assertEqual(
+            persisted_baseline["git_witness_version"],
+            "palari.git_claim_witness.v2",
+        )
+
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertFalse(claim_path.exists())
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(restarted["start"]["status"], "claimed")
+        self.assertEqual(restarted["start"]["claim"]["git_baseline"], baseline)
+        self.assertEqual(baseline_path.read_bytes(), baseline_bytes)
+
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        update_record(
+            str(self.temp_dir),
+            "work",
+            self.work_id,
+            {"parallel_policy": "coordinate"},
+            command="test current-only catalog scheduling authority change",
+            actor="HUMAN-FOUNDER",
+        )
+        with patch("palari_company_os.agent_runtime._claim_git_lease") as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+        claim_lease.assert_not_called()
+        self.assertFalse(claim_path.exists())
+
+    def test_current_only_catalog_rejects_post_lease_parallel_race_without_persisting(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._declare_current_only_work("WORK-TEST-CURRENT-ONLY-CATALOG-RACE")
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        baseline_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.baseline"
+
+        from palari_company_os import agent_runtime
+
+        original_claim_lease = agent_runtime._claim_git_lease
+        provisional: dict[str, str] = {}
+
+        def claim_lease_then_change_parallel_policy(
+            *args: object,
+            **kwargs: object,
+        ) -> dict[str, str]:
+            acquired = original_claim_lease(*args, **kwargs)
+            provisional.update(acquired)
+            update_record(
+                str(self.temp_dir),
+                "work",
+                self.work_id,
+                {"parallel_policy": "coordinate"},
+                command="test current-only catalog post-lease authority change",
+                actor="HUMAN-FOUNDER",
+            )
+            return acquired
+
+        with patch(
+            "palari_company_os.agent_runtime._claim_git_lease",
+            side_effect=claim_lease_then_change_parallel_policy,
+        ) as claim_lease:
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "pre-claim scope authority differs from immutable baseline",
+            ):
+                start_agent(
+                    Ws.load(self.temp_dir),
+                    self.temp_dir,
+                    self.work_id,
+                    "PALARI-STEWARD",
+                    "execute",
+                )
+
+        claim_lease.assert_called_once()
+        self.assertTrue(provisional)
+        self.assertFalse(claim_path.exists())
+        self.assertFalse(baseline_path.exists())
+        lease = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.temp_dir),
+                "rev-parse",
+                "--verify",
+                str(provisional["git_lease_ref"]),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(lease.returncode, 0)
+
+    def test_current_only_catalog_binds_architect_review_and_rejects_late_reviewer(
+        self,
+    ) -> None:
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._declare_current_only_work("WORK-TEST-CURRENT-ONLY-REVIEW-CATALOG")
+        initial = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(initial["start"]["status"], "claimed")
+        baseline = initial["start"]["claim"]["git_baseline"]
+        catalog = baseline["scope_authority_catalog"]
+        architect_review = next(
+            item
+            for item in catalog["bindings"]
+            if item["palari_id"] == "PALARI-ARCHITECT" and item["mode"] == "review"
+        )
+
+        from palari_company_os import agent_runtime
+
+        architect_binding = agent_runtime._scope_authority_binding_for(
+            self.temp_dir / "workspace.json",
+            baseline,
+            self.work_id,
+            "PALARI-ARCHITECT",
+            "review",
+        )
+        self.assertEqual(architect_binding["baseline_digest"], architect_review["digest"])
+        self.assertEqual(
+            architect_binding["baseline_digest"],
+            architect_binding["current_digest"],
+        )
+
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._commit_governance_records("commit current-only review work projection")
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(restarted["start"]["status"], "claimed")
+        self.assertEqual(restarted["start"]["claim"]["git_baseline"], baseline)
+        (self.temp_dir / "README.md").write_text(
+            "current-only catalog review candidate\n",
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "review candidate"],
+            check=True,
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            advanced = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(advanced["status"], "review-required", advanced)
+
+        review_start = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-ARCHITECT",
+            "review",
+        )
+        self.assertEqual(review_start["start"]["status"], "claimed")
+        review_claim = review_start["start"]["claim"]
+        self.assertEqual(review_claim["mode"], "review")
+        self.assertEqual(review_claim["git_baseline"], baseline)
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-ARCHITECT",
+        )
+
+        create_record(
+            str(self.temp_dir),
+            "palari",
+            {
+                "id": "PALARI-LATE-REVIEWER",
+                "name": "Late reviewer",
+                "role": "Test review identity",
+                "scope": "Reviews bounded repository proof.",
+                "forbidden_actions": ["deploy"],
+                "linked_goals": ["GOAL-REPO-0001"],
+                "owner_human": "HUMAN-FOUNDER",
+            },
+            command="test add reviewer after current-only anchor",
+            actor="HUMAN-FOUNDER",
+        )
+        update_record(
+            str(self.temp_dir),
+            "source",
+            "SOURCE-REPO-FOUNDATION",
+            {
+                "allowed_palaris": [
+                    "PALARI-STEWARD",
+                    "PALARI-ARCHITECT",
+                    "PALARI-LATE-REVIEWER",
+                ]
+            },
+            command="test allow late reviewer source inspection",
+            actor="HUMAN-FOUNDER",
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "claim-start authority catalog has no review binding for PALARI-LATE-REVIEWER",
+        ):
+            agent_runtime._scope_authority_binding_for(
+                self.temp_dir / "workspace.json",
+                baseline,
+                self.work_id,
+                "PALARI-LATE-REVIEWER",
+                "review",
+            )
 
     def test_delete_intent_records_and_reverifies_core_tombstone(self) -> None:
         self._restart_with_path_intent("delete")
@@ -1550,7 +2610,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["blockers"][0]["code"], "CURRENT_PROOF_INVALID")
         self.assertEqual(Ws.load(self.temp_dir).work_item(self.work_id).status, "active")
 
-    def test_self_mutating_governance_outputs_bind_commit_and_allow_review(self) -> None:
+    def test_classified_preclaim_projection_is_not_evidence_artifact_and_allows_review(
+        self,
+    ) -> None:
         evidence = self._advance_with_projection_outputs()
         report = verify_evidence(
             Ws.load(self.temp_dir),
@@ -1561,9 +2623,12 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertTrue(report["ok"], report)
         self.assertEqual(
             report["exact_head_artifacts"],
-            [".palari/governance-journal.v1.jsonl"],
+            [],
         )
-        self.assertTrue(report["journal_continuity_ok"])
+        self.assertEqual(
+            [item["path"] for item in report["declared_artifact_hashes"]],
+            ["README.md"],
+        )
         result = create_record(
             str(self.temp_dir),
             "review",
@@ -1583,121 +2648,6 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result.action, "created")
         self.assertTrue(verify_workspace_journal(self.temp_dir)["ok"])
-
-    def test_self_mutating_governance_output_rejects_forged_committed_hash(self) -> None:
-        evidence = self._advance_with_projection_outputs()
-        raw = deepcopy(load_store(self.temp_dir).data)
-        raw_evidence = next(
-            item for item in raw["evidence_runs"] if item["id"] == evidence.id
-        )
-        journal_hash = next(
-            item
-            for item in raw_evidence["artifact_hashes"]
-            if item["path"] == ".palari/governance-journal.v1.jsonl"
-        )
-        journal_hash["sha256"] = "sha256:" + "0" * 64
-        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
-        forged = Ws.from_raw(raw, self.temp_dir)
-
-        report = verify_evidence(
-            forged,
-            evidence.id,
-            require_output_coverage=True,
-        )
-
-        self.assertFalse(report["ok"])
-        self.assertFalse(report["artifact_hashes_ok"])
-        self.assertFalse(report["manifest_hash_ok"])
-        self.assertTrue(report["journal_continuity_ok"])
-
-    def test_self_mutating_governance_output_rejects_invalid_live_journal(self) -> None:
-        evidence = self._advance_with_projection_outputs()
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
-        with journal.open("a", encoding="utf-8") as stream:
-            stream.write("{}\n")
-
-        report = verify_evidence(
-            Ws.load(self.temp_dir),
-            evidence.id,
-            require_output_coverage=True,
-        )
-
-        self.assertFalse(report["ok"])
-        self.assertTrue(report["artifact_hashes_ok"])
-        self.assertFalse(report["journal_continuity_ok"])
-        with self.assertRaisesRegex(WorkspaceError, "complete exact proof"):
-            create_record(
-                str(self.temp_dir),
-                "review",
-                {
-                    "id": "REVIEW-TEST-INVALID-LIVE-JOURNAL",
-                    "work_item_id": self.work_id,
-                    "reviewed_head": evidence.head_sha,
-                    "reviewer": "PALARI-ARCHITECT",
-                    "verdict": "accept-ready",
-                    "findings": [],
-                    "checks_inspected": ["invalid live journal"],
-                    "residual_risks": [],
-                },
-                command="test invalid live journal rejection",
-                actor="PALARI-ARCHITECT",
-            )
-
-    def test_self_mutating_governance_output_rejects_git_replace_substitution(self) -> None:
-        evidence = self._advance_with_projection_outputs()
-        replacement = subprocess.run(
-            ["git", "-C", str(self.temp_dir), "rev-parse", f"{evidence.head_sha}^^"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        subprocess.run(
-            ["git", "-C", str(self.temp_dir), "replace", evidence.head_sha, replacement],
-            check=True,
-        )
-        object_spec = f"{evidence.head_sha}:.palari/governance-journal.v1.jsonl"
-        substituted = subprocess.run(
-            ["git", "-C", str(self.temp_dir), "cat-file", "blob", object_spec],
-            check=True,
-            capture_output=True,
-        ).stdout
-        original = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(self.temp_dir),
-                "--no-replace-objects",
-                "cat-file",
-                "blob",
-                object_spec,
-            ],
-            check=True,
-            capture_output=True,
-        ).stdout
-        self.assertNotEqual(substituted, original)
-
-        raw = deepcopy(load_store(self.temp_dir).data)
-        raw_evidence = next(
-            item for item in raw["evidence_runs"] if item["id"] == evidence.id
-        )
-        journal_hash = next(
-            item
-            for item in raw_evidence["artifact_hashes"]
-            if item["path"] == ".palari/governance-journal.v1.jsonl"
-        )
-        journal_hash["sha256"] = "sha256:" + hashlib.sha256(substituted).hexdigest()
-        raw_evidence["manifest_hash"] = evidence_manifest_hash(raw_evidence)
-
-        report = verify_evidence(
-            Ws.from_raw(raw, self.temp_dir),
-            evidence.id,
-            require_output_coverage=True,
-        )
-
-        self.assertFalse(report["ok"])
-        self.assertFalse(report["artifact_hashes_ok"])
-        self.assertFalse(report["manifest_hash_ok"])
-        self.assertTrue(report["journal_continuity_ok"])
 
     def test_relocated_artifact_root_rejects_replace_only_candidate(self) -> None:
         fake_head = "1" * 40
@@ -1959,134 +2909,21 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked", result)
         self.assertEqual(result["blockers"][0]["code"], "REFRESH_ACTIVE_CLAIM")
 
-    def test_changes_requested_refresh_rebinds_self_mutating_projection_outputs(
-        self,
-    ) -> None:
-        self._advance_with_projection_outputs()
-        workspace = Ws.load(self.temp_dir)
-        work = workspace.work_item(self.work_id)
-        assert work is not None and work.current_attempt
-        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
-        previous_head = attempt.head_sha or attempt.commits[-1]
-        self._record_changes_requested(previous_head, "REVIEW-REFRESH-PROJECTION")
-        (self.temp_dir / "RELATED.md").write_text(
-            "separately governed context\n", encoding="utf-8"
-        )
-        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
-        subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "later projection"],
-            check=True,
-        )
-        current_head = subprocess.check_output(
-            ["git", "-C", str(self.temp_dir), "rev-parse", "HEAD"], text=True
-        ).strip()
-
-        planned = agent_advance(
+    def test_classified_projection_paths_never_become_evidence_artifacts(self) -> None:
+        evidence = self._advance_with_projection_outputs()
+        report = verify_evidence(
             Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-            dry_run=True,
-            refresh_verification=True,
+            evidence.id,
+            require_output_coverage=True,
         )
-        self.assertEqual(planned["status"], "planned", planned)
-        self.assertFalse(planned["refresh"]["artifacts_unchanged"])
-        self.assertEqual(
-            planned["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
-        )
-        expected_projections = [
-            ".palari/governance-journal.v1.jsonl",
-            ".palari/history.jsonl",
-            "workspace.json",
-        ]
-        self.assertEqual(
-            [
-                item["path"]
-                for item in planned["refresh"]["projection_artifacts_rebound"]
-            ],
-            expected_projections,
-        )
-        rebound_by_path = {
-            item["path"]: item
-            for item in planned["refresh"]["projection_artifacts_rebound"]
-        }
-        self.assertEqual(
-            rebound_by_path[".palari/history.jsonl"]["previous_status"],
-            "not-recorded",
-        )
-        self.assertEqual(
-            rebound_by_path["workspace.json"]["previous_status"],
-            "not-recorded",
-        )
-        self.assertTrue(
-            all(
-                item["transition"] == "rebound"
-                and item["current_status"] == "present"
-                for item in rebound_by_path.values()
-            )
-        )
-        self.assertEqual(
-            planned["refresh"]["proof_projection_mutates_after_evidence"],
-            expected_projections,
-        )
-        self.assertIn("mutate those projection files after the evidence head", planned["message"])
 
-        with patch(
-            "palari_company_os.agent_advance.run_or_reuse",
-            side_effect=self._passing_attestation,
-        ):
-            result = agent_advance(
-                Ws.load(self.temp_dir),
-                self.temp_dir,
-                self.work_id,
-                "PALARI-STEWARD",
-                refresh_verification=True,
-            )
-
-        self.assertEqual(result["status"], "review-required", result)
-        self.assertFalse(result["refresh"]["artifacts_unchanged"])
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(evidence.artifacts, ["README.md"])
+        self.assertEqual(report["exact_head_artifacts"], [])
         self.assertEqual(
-            result["refresh"]["ordinary_artifacts_unchanged"], ["README.md"]
+            [item["path"] for item in report["computed_artifact_hashes"]],
+            ["README.md"],
         )
-        self.assertEqual(
-            [
-                item["path"]
-                for item in result["refresh"]["projection_artifacts_rebound"]
-            ],
-            expected_projections,
-        )
-        refreshed = Ws.load(self.temp_dir)
-        refreshed_work = refreshed.work_item(self.work_id)
-        assert refreshed_work is not None and refreshed_work.current_attempt
-        refreshed_attempt = next(
-            item for item in refreshed.attempts if item.id == refreshed_work.current_attempt
-        )
-        self.assertEqual(refreshed_attempt.head_sha, current_head)
-        evidence = next(
-            item
-            for item in refreshed.evidence_runs
-            if item.attempt_id == refreshed_attempt.id
-        )
-        self.assertEqual(
-            set(evidence.artifacts),
-            {
-                "README.md",
-                "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
-            },
-        )
-        receipt = next(
-            item
-            for item in refreshed.receipts
-            if item.attempt_id == refreshed_attempt.id
-        )
-        narration = " ".join(receipt.actions_taken + receipt.not_done)
-        self.assertIn("self-mutating governance projection", narration)
-        self.assertIn("after the evidence head", narration)
-        self.assertNotIn("unchanged governed artifact", narration)
-        self.assertIn("were rebound to exact current-HEAD Git bytes", evidence.summary)
-        self.assertIn("after the evidence head", evidence.summary)
 
     def test_refresh_transition_rejects_missing_ordinary_artifact_hash(self) -> None:
         transition = _refresh_artifact_transition(
@@ -4323,39 +5160,31 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             self.work_id,
             "PALARI-STEWARD",
         )
-        projection_outputs = [
-            "README.md",
-            "workspace.json",
-            ".palari/history.jsonl",
-            ".palari/governance-journal.v1.jsonl",
-        ]
-        raw = load_store(self.temp_dir).data
-        workbench = next(
-            item
-            for item in raw["workbenches"]
-            if item["id"] == "WORKBENCH-REPO-FOUNDATION"
-        )
-        update_record(
-            str(self.temp_dir),
-            "workbench",
-            "WORKBENCH-REPO-FOUNDATION",
-            {
-                "output_target_ids": sorted(
-                    set(workbench["output_target_ids"]) | set(projection_outputs)
-                )
-            },
-            command="test permit self-mutating governance outputs",
-            actor="PALARI-STEWARD",
-        )
-        update_record(
+        self.work_id = "WORK-TEST-SELF-MUTATING-PROJECTION"
+        create_record(
             str(self.temp_dir),
             "work",
-            self.work_id,
             {
-                "allowed_resources": projection_outputs,
-                "output_targets": projection_outputs,
+                "id": self.work_id,
+                "title": "Test projection-bound governance outputs",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Bind a pre-claim governance projection to an immutable README contract.",
+                "acceptance_target": "Exact ancestry proof reaches review.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
             },
-            command="test declare self-mutating governance outputs",
+            command="test declare projection-bound work before its baseline",
             actor="PALARI-STEWARD",
         )
         subprocess.run(
@@ -4371,16 +5200,32 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             check=True,
         )
         subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "bind governance outputs"],
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "declare projection work"],
             check=True,
         )
-        start_agent(
+        initial = start_agent(
             Ws.load(self.temp_dir),
             self.temp_dir,
             self.work_id,
             "PALARI-STEWARD",
             "execute",
         )
+        self.assertEqual(initial["start"]["status"], "claimed")
+        release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self._commit_preclaim_read_model_projection()
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(restarted["start"]["status"], "claimed")
         (self.temp_dir / "README.md").write_text(
             "self-journal candidate\n",
             encoding="utf-8",
@@ -4392,6 +5237,26 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ["git", "-C", str(self.temp_dir), "commit", "-qm", "self-journal candidate"],
             check=True,
         )
+        planned = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+        )
+        self.assertEqual(planned["status"], "planned", planned)
+        self.assertEqual(
+            [
+                item["path"]
+                for item in planned["preflight"]["verified_governance_projection_changes"]
+            ],
+            [
+                ".palari/governance-journal.v1.jsonl",
+                ".palari/history.jsonl",
+                "workspace.json",
+            ],
+        )
+        self.assertEqual(planned["preflight"]["changed_files"], ["README.md"])
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
             side_effect=self._passing_attestation,
@@ -4480,6 +5345,95 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "stderr_digest": "sha256:" + "2" * 64,
             },
         }
+
+
+class NonGitAgentStartCompatibilityTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = Path(tempfile.mkdtemp())
+        write_portable_agent_workspace(
+            DOGFOOD / "workspace.json",
+            self.temp_dir / "workspace.json",
+        )
+        self.work_id = "WORK-TEST-NON-GIT-RESTART"
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.work_id,
+                "title": "Test non-Git claim restart compatibility",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R4",
+                "intensity": "high",
+                "required_approval_count": 1,
+                "required_approval_capability": "architecture",
+                "scope": "Start and restart bounded local work without Git metadata.",
+                "acceptance_target": "A non-Git claim can be safely released or renewed.",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test non-Git setup",
+            actor="PALARI-STEWARD",
+        )
+        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
+        self.assertTrue(checkpoint["ok"])
+        (self.temp_dir / "README.md").write_text("before\n", encoding="utf-8")
+        self.assertFalse((self.temp_dir / ".git").exists())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_non_git_release_and_expiry_restart_remain_supported(self) -> None:
+        initial = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(initial["start"]["status"], "claimed")
+        initial_claim = initial["start"]["claim"]
+        self.assertEqual(initial_claim["git_baseline"]["git_root"], "")
+        self.assertEqual(initial_claim["git_baseline"]["head_sha"], "")
+
+        released = release_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+        )
+        self.assertTrue(released["released"])
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(restarted["start"]["status"], "claimed")
+        restarted_claim = restarted["start"]["claim"]
+        self.assertNotEqual(restarted_claim["claim_session"], initial_claim["claim_session"])
+
+        claim_path = self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        expired = json.loads(claim_path.read_text(encoding="utf-8"))
+        expired["lease_expires_at"] = "2000-01-01T00:00:00Z"
+        claim_path.write_text(json.dumps(expired), encoding="utf-8")
+        renewed = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )
+        self.assertEqual(renewed["start"]["status"], "claimed")
+        renewed_claim = renewed["start"]["claim"]
+        self.assertNotEqual(renewed_claim["claim_session"], restarted_claim["claim_session"])
+        self.assertNotEqual(renewed_claim["lease_expires_at"], "2000-01-01T00:00:00Z")
 
 
 if __name__ == "__main__":
