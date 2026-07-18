@@ -585,6 +585,27 @@ def _validate_agent_doc_paths(directory: Path) -> None:
             raise WorkspaceError(
                 f"agent documentation path is unsafe: {relative}: {exc}"
             ) from exc
+        cursor = directory
+        parts = Path(relative).parts
+        for index, part in enumerate(parts):
+            cursor = cursor / part
+            if cursor.is_symlink():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"path component is a symlink: {cursor.relative_to(directory)}"
+                )
+            if not cursor.exists():
+                continue
+            if index < len(parts) - 1 and not cursor.is_dir():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"parent is not a directory: {cursor.relative_to(directory)}"
+                )
+            if index == len(parts) - 1 and not cursor.is_file():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"target is not a regular file: {cursor.relative_to(directory)}"
+                )
 
 
 def _recoverable_agent_docs(directory: Path) -> list[str]:

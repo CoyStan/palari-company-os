@@ -279,6 +279,31 @@ class InitTests(unittest.TestCase):
         self.assertFalse((self.project / "workspace.json").exists())
         self.assertEqual(list(outside.iterdir()), [])
 
+    def test_init_rejects_agent_documentation_file_parent_before_any_write(
+        self,
+    ) -> None:
+        self._prepare_adoptable_git_project()
+        docs = self.project / "docs"
+        docs.write_bytes(b"existing non-directory\n")
+        status_before = self.git_output("status", "--short")
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "parent is not a directory: docs",
+        ):
+            initialize_starter_workspace(
+                self.project,
+                palari_name="Agent",
+                host="generic",
+            )
+
+        self.assertEqual(docs.read_bytes(), b"existing non-directory\n")
+        self.assertFalse((self.project / "workspace.json").exists())
+        self.assertFalse((self.project / ".palari").exists())
+        self.assertFalse((self.project / "AGENTS.md").exists())
+        self.assertFalse((self.project / ".git" / "hooks" / "pre-commit").exists())
+        self.assertEqual(self.git_output("status", "--short"), status_before)
+
     def git_output(self, *args: str) -> str:
         result = subprocess.run(
             ["git", "-C", str(self.project), *args],
