@@ -188,6 +188,169 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_abandoned_work_is_explicit_audit_terminalization(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        work = raw["work_items"][0]
+        work.update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "The operator intentionally stopped this objective.",
+            }
+        )
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].status, "closed")
+        self.assertEqual(workspace.work_items[0].terminal_disposition, "abandoned")
+
+    def test_superseded_work_requires_valid_distinct_acyclic_successor(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        original = raw["work_items"][0]
+        original.update(
+            {
+                "status": "superseded",
+                "terminal_reason": "A narrower successor owns the remaining objective.",
+                "successor_work_item_id": "WORK-NEXT",
+            }
+        )
+        raw["work_items"].append(
+            {
+                "id": "WORK-NEXT",
+                "title": "Narrow successor",
+                "goal": original["goal"],
+                "palari": original["palari"],
+                "status": "active",
+            }
+        )
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(
+            workspace.work_items[0].successor_work_item_id,
+            "WORK-NEXT",
+        )
+
+        raw["work_items"][1].update(
+            {
+                "status": "superseded",
+                "terminal_reason": "Invalid loop.",
+                "successor_work_item_id": "WORK-1",
+            }
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor graph contains a cycle",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_metadata_and_live_authority_fail_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["terminal_reason"] = "Looks retired but is still active."
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "retirement metadata without a superseded or abandoned status",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "Stop the objective.",
+            }
+        )
+        raw["attempts"][0]["status"] = "active"
+        with self.assertRaisesRegex(WorkspaceError, "cannot be retired with active attempts"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_requires_reason_and_existing_successor(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "superseded",
+                "successor_work_item_id": "WORK-MISSING",
+            }
+        )
+        with self.assertRaisesRegex(WorkspaceError, "terminal_reason is required"):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw["work_items"][0]["terminal_reason"] = "Replaced by narrower work."
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor_work_item_id references missing id WORK-MISSING",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw["work_items"][0]["successor_work_item_id"] = "WORK-1"
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor_work_item_id must reference a distinct work item",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_cannot_hide_an_open_human_decision(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "Attempted retirement with unresolved authority.",
+            }
+        )
+        raw["decisions"].append(
+            {
+                "id": "DECISION-OPEN",
+                "question": "Should this objective stop?",
+                "status": "open",
+                "linked_work": "WORK-1",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "cannot be retired with open decisions",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_dependency_cannot_treat_retired_work_as_completed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        original = raw["work_items"][0]
+        original.update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "This path is obsolete.",
+            }
+        )
+        raw["work_items"].append(
+            {
+                "id": "WORK-DEPENDENT",
+                "title": "Dependent work",
+                "goal": original["goal"],
+                "palari": original["palari"],
+                "status": "active",
+                "dependency_ids": [original["id"]],
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "dependency_ids references retired work: WORK-1",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_example_workbench_graph_loads(self) -> None:
         workspace = Workspace.load(EXAMPLE_WORKSPACE)
 

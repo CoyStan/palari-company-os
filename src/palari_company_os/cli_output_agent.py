@@ -182,6 +182,7 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent next: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Status: {payload['status']}")
     print(f"Mode: {payload.get('mode', 'execute')}")
+    print("Loop: start -> advance -> review -> human decision -> verify")
     print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
     blockers = payload.get("blockers", [])
     if blockers:
