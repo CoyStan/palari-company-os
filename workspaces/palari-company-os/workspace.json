@@ -5132,6 +5132,56 @@
       "required_approval_count": 1,
       "parent_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3",
       "current_attempt": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-50507BA11F94"
+    },
+    {
+      "id": "WORK-35A3DBD0A4FC4160AE1FF37190651127",
+      "title": "Repair GitHub CI Ruff import failures",
+      "goal": "GOAL-REPO-0002",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [
+        "WORK-E6AE25B296B340F89F24380B209DC64B"
+      ],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Remove only the unused and missing imports reported by Ruff on PR 19 without changing runtime behavior.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_finish.py",
+        "tests/test_agent_advance.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_finish.py",
+        "tests/test_agent_advance.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_finish.py",
+        "tests/test_agent_advance.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Ruff, focused agent-finish and agent-advance tests, complete verification, and GitHub CI pass on the exact repair head.",
+      "verification_expectations": [
+        "ruff check .",
+        "python3 -m unittest tests.test_agent_finish tests.test_agent_advance",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_finish.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
