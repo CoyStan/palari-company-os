@@ -31,7 +31,9 @@ Every completed checkbox names exact committed proof. The product rule is:
     `569f37d7f8bc9bcc578f0e04251f49f8a84ec7d3` and
     `6c2d70324e97326397478c336fb047d5d750c32a`; exact installed-executable
     binding for the structural Git gate is committed at
-    `5358cdef47336515694de7df2fbf61c5a607d37e`.
+    `5358cdef47336515694de7df2fbf61c5a607d37e`, and generated documentation
+    parents fail before bootstrap mutation at
+    `1c3664c0de12c5eb8eed5f718a168b66d904288a`.
 
 - [x] **Portable contract plus structural commit boundary**
   - Required outcome: adoption writes a bounded, managed `AGENTS.md` block and
@@ -98,11 +100,11 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/verify.sh`, `./scripts/install_smoke.sh`, and review artifact.
   - Current status: implementation verified through
-    `5358cdef47336515694de7df2fbf61c5a607d37e`. An architecture review accepted
+    `1c3664c0de12c5eb8eed5f718a168b66d904288a`. An architecture review accepted
     the earlier implementation head, then exact-head review found an
-    installed-package Git-hook gap; the committed repair passed focused tests
-    and read-only repair review. Fresh exact-head and durable lifecycle review
-    recording remain pending in the integration item.
+    installed-package Git-hook gap and a generated-documentation preflight gap.
+    Both committed repairs passed focused tests. Fresh exact-head and durable
+    lifecycle review recording remain pending in the integration item.
   - Exact committed evidence when completed: pending. Isolated installed-package
     compatibility is committed at `6c2d70324e97326397478c336fb047d5d750c32a`;
     its complete gate passed 946 tests in three runs with a 111.86-second

@@ -55,7 +55,10 @@ count of changes is not a completion condition.
   - Status: complete; focused and complete verification passed.
   - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/onramp.py`, `tests/test_onramp.py`, and
-    `tests/test_operator_journeys.py`.
+    `tests/test_operator_journeys.py`; generated-path preflight that rejects a
+    non-directory parent before any bootstrap write is committed at
+    `1c3664c0de12c5eb8eed5f718a168b66d904288a` in
+    `src/palari_company_os/onramp.py` and `tests/test_onramp.py`.
 
 - [x] A manually assembled unanchored workspace fails closed with the real
   recovery action.

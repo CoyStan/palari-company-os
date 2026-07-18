@@ -112,9 +112,10 @@ not four branch-specific approval ceremonies.
     checks and precursor retirement are complete. After the decision, corrected
     packet proof and a fresh exact-head review remain required.
   - Exact committed evidence when completed: not yet complete. Candidate code
-    is exact head `5358cdef47336515694de7df2fbf61c5a607d37e`; its final installed-hook
-    repair passed independent read-only review, while fresh exact-head lifecycle
-    review remains pending. All four precursors are auditably superseded by the
+    is exact head `1c3664c0de12c5eb8eed5f718a168b66d904288a`; installed-hook and
+    generated-documentation preflight repairs pass focused tests, while fresh
+    exact-head lifecycle review remains pending. All four precursors are
+    auditably superseded by the
     integration item
     at `cc96d088d42ac1b3bf4bb4565c3496d87b3aff11`; the fail-closed scope
     decision is committed at `70407b50faf8c7ada29e128ff300f71811b5367f`.
