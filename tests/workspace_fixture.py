@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.validation import COLLECTION_FILE_KEYS
@@ -97,3 +98,97 @@ def write_current_agent_workspace(destination: Path) -> None:
         }
     ]
     write_store(WorkspaceStore(data_path=destination, data=data))
+
+
+def current_recommendation_data() -> dict[str, Any]:
+    """Return a minimal current workspace for parked recommendation adapters."""
+
+    data: dict[str, Any] = {
+        "schema_version": 2,
+        "name": "Current Recommendation Contract",
+    }
+    for collection in COLLECTION_FILE_KEYS:
+        data[collection] = []
+    data["humans"] = [
+        {
+            "id": "HUMAN-1",
+            "name": "Product Owner",
+            "role": "Product authority",
+            "approval_capabilities": ["product"],
+        }
+    ]
+    data["palaris"] = [
+        {
+            "id": "PALARI-1",
+            "name": "Worker",
+            "role": "Bounded worker",
+            "owner_human": "HUMAN-1",
+            "linked_goals": ["GOAL-1"],
+        }
+    ]
+    data["goals"] = [
+        {
+            "id": "GOAL-1",
+            "title": "Keep optional guidance bounded",
+            "owner": "HUMAN-1",
+            "status": "active",
+        }
+    ]
+    data["sources"] = [
+        {
+            "id": "SOURCE-1",
+            "label": "Selected local note",
+            "kind": "note",
+            "provider": "local",
+            "uri": "notes/source.md",
+            "access_mode": "read",
+            "selected": True,
+            "owner_human": "HUMAN-1",
+            "allowed_palaris": ["PALARI-1"],
+            "data_class": "internal",
+            "authority": "company_owned",
+            "steward_human": "HUMAN-1",
+        }
+    ]
+    data["work_items"] = [
+        {
+            "id": "WORK-1",
+            "title": "Summarize a selected note",
+            "goal": "GOAL-1",
+            "palari": "PALARI-1",
+            "risk": "R2",
+            "intensity": "standard",
+            "status": "active",
+            "scope": "Use only the selected source.",
+            "allowed_resources": ["notes/source.md"],
+            "allowed_sources": ["SOURCE-1"],
+            "output_targets": ["notes/result.md"],
+            "forbidden_actions": ["external_write"],
+            "required_approval_count": 0,
+            "recommended_playbooks": [
+                "superpowers:verification-before-completion",
+                "superpowers:requesting-code-review",
+            ],
+        }
+    ]
+    data["playbook_sources"] = [
+        {
+            "id": "superpowers",
+            "label": "Superpowers skills",
+            "provider": "github",
+            "uri": "https://github.com/obra/Superpowers",
+            "ref": "main",
+            "license": "MIT",
+            "enabled": True,
+            "included_playbooks": [
+                "brainstorming",
+                "writing-plans",
+                "executing-plans",
+                "verification-before-completion",
+                "requesting-code-review",
+                "systematic-debugging",
+                "subagent-driven-development",
+            ],
+        }
+    ]
+    return data
