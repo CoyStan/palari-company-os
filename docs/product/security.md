@@ -145,13 +145,32 @@ Authority rules:
   repeated packet/check/journal work; they do not replace transition checks or
   cache authority across requests. A changed journal witness forces a fresh
   complete scan.
-- Claude Code hooks are an optional host adapter. The provider-neutral Palari
-  loop, transition gates, and proof records work without them, but packets alone
-  do not install an OS sandbox or prevent an unrestricted same-user process
-  from writing files directly. Other agent hosts need their own proven adapter
-  if pre-write enforcement is required.
+- `palari init --host HOST` creates and adopts a fresh workspace; `palari init
+  WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
+  one. Both install or reuse the portable contract and claim-bound Git commit
+  gate without granting authority. Claude and Codex have tested project-local session adapters;
+  Codex hooks activate only after explicit host `/hooks` review. Cursor, Devin,
+  GLM, and generic profiles are labeled advisory at session time. No profile is
+  an OS sandbox, and an unrestricted same-user process can still rewrite local
+  files or Git metadata. Nested workspace adoption resolves and preflights the
+  enclosing Git root before any write, so existing root instructions or host
+  configuration cannot be silently absorbed into the bootstrap commit.
+  A symlinked workspace file or escaping managed target fails before the
+  workspace is loaded or project files are written. Generated commands use an
+  inspectable project-local launcher when present; otherwise they preserve the
+  absolute Palari entrypoint currently running or a validated `PATH` entry.
+  Existing `palari claude install` remains compatible; its Palari-managed
+  legacy hooks are upgraded and removed without duplicate entries while
+  co-located foreign host hooks are preserved.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
+- `superseded` and `abandoned` are temporal storage boundaries. Prior linked
+  proof remains readable, but later writes to the retired contract or its
+  adopted proposal, attempts, receipts, evidence, reviews, decisions,
+  acceptances, outcomes, and external-action records fail before the workspace
+  or journal is replaced. The storage transaction creating retirement cannot
+  append authority or proof, and successful terminal work cannot be relabeled
+  as retired.
 - Proof creation necessarily mutates `workspace.json`, legacy history, and the
   governance journal. When one of those projection files is itself a declared
   artifact, verification reads its bytes from the evidence's exact Git commit
@@ -188,11 +207,26 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-The governance journal is append-only JSONL, so complete verification cost is
-currently linear in history size. Request-local reuse removes duplicate scans
-inside one bounded operation, but the roughly 40 MB dogfood journal can still
-take several seconds and hundreds of MB of peak memory to verify. Persistent
-advisory caches never replace the scan for authority-producing decisions.
+Governance journal v1 remains strictly readable and appendable until an
+operator explicitly runs another `history --checkpoint` against its valid,
+fully committed head. That one-time activation verifies the complete v1 chain,
+leaves its bytes untouched, and starts a compact v2 segment whose first
+checkpoint binds the exact v1 file SHA-256, byte length, head record digest,
+record count, replay digest, transaction counts, and continuity state. Every
+later verification re-hashes the sealed v1 bytes and streams the strict v2
+JSONL tail from its content-bound workspace checkpoint. It does not trust a
+persistent advisory cache.
+
+V2 mutation prepares contain deterministic add/remove/replace values rather
+than another full workspace projection. A checkpoint still contains one full
+projection so replay has an authoritative base. Record, transaction,
+before/after workspace, predecessor, and terminal digests remain fail-closed;
+truncation, reordering, duplicate terminals, malformed or non-canonical deltas,
+changed predecessor bytes, pending transactions, and workspace divergence are
+rejected. The sealed predecessor hash makes ordinary verification bounded in
+memory and avoids reparsing historical v1 JSON, but it does not authenticate
+the operator who created the checkpoint against a hostile same-user process
+that can rewrite both local journals.
 
 PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in

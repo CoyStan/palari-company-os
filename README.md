@@ -42,7 +42,8 @@ palari demo
 ```
 
 The demo is offline and uses a throwaway temp directory. It shows the blocked
-file change, a passing in-bound change, and the human handoff.
+file change, a committed in-bound change, and one `agent advance` deriving the
+receipt and evidence needed to close safe low-risk local work.
 
 Then open the live local supervision desk:
 
@@ -57,10 +58,28 @@ To adopt it in your own repo, create the local contract, add bounded work, and
 let any agent claim the next safe item:
 
 ```bash
-palari init --palari Agent --json
+palari init --palari Agent --host codex --json
 palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
+
+`init` creates missing `AGENTS.md` and `docs/agent/` orientation without
+overwriting existing guidance. In a Git worktree it also creates one local,
+path-limited bootstrap commit containing only the new governance projection and
+newly generated agent docs. With `--host`, the same commit also anchors new
+project-local host configuration and installs the claim-bound Git commit gate.
+That commit is an immutable execution-authority anchor, not human approval;
+unrelated staged and unstaged work is excluded. Choose `claude`, `codex`,
+`cursor`, `devin`, `glm`, or `generic`. Codex asks you to review the exact
+project hook once through `/hooks`; Palari cannot manufacture that host trust.
+For a workspace nested inside a repository, adoption targets the enclosing Git
+root. Existing root instructions or host configuration remain untouched and
+uncommitted; `init` returns one separate review/adoption action instead of
+absorbing those bytes into the authority anchor. Generated hook commands use an
+inspectable project-local launcher when present; otherwise they preserve the
+absolute Palari entrypoint currently running or a validated `PATH` entry. An
+isolated installed package therefore remains usable even when `palari` is
+absent from `PATH`.
 
 Use the declared identity returned by `init` (`PALARI-AGENT` for the command
 above), then use the opaque work ID returned by `start` after doing and
@@ -70,9 +89,20 @@ committing the bounded work:
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
-Do not infer a sequential work ID. `palari claude install` is an optional
-Claude Code enforcement adapter; the core packet, claim, proof, review, and
-human-decision flow is provider-neutral.
+Do not infer a sequential work ID. For a repository that already has a Palari
+workspace, run `palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json`
+once. Existing-workspace initialization is accepted only when `--host` makes
+the idempotent adoption intent explicit; it never rewrites the workspace.
+Claude and Codex receive tested session hooks; Cursor, Devin, GLM, and generic
+hosts receive the portable contract plus structural commit-time enforcement
+and are labeled advisory at session time. The core packet, claim, proof,
+review, and human-decision flow remains provider-neutral.
+
+Adoption preflights `workspace.json` and every managed target before writing.
+A workspace-file symlink, parent escape, malformed managed target, or unmanaged
+Git pre-commit hook fails closed. Co-located foreign host hooks are preserved;
+legacy Palari-managed Claude hooks are upgraded in place and remain cleanly
+removable.
 
 Use legacy `--write PATH` when the output must exist. When final mutation type
 matters, declare it exactly and do not mix the forms:
@@ -145,8 +175,9 @@ Implemented now:
   as an exact absent-path tombstone instead of being mistaken for a missing file
 - canonical path/symlink enforcement and metadata-only start baselines that
   distinguish unchanged pre-existing dirt from agent changes
-- structural boundary enforcement inside Claude Code via `palari claude install`
-  (out-of-boundary writes are denied by hooks, not just reported)
+- one-action host adoption with a provider-neutral contract and claim-bound
+  Git gate; Claude and Codex also receive tested project-local session hooks,
+  while other host profiles remain explicitly advisory at session time
 - source and receipt trust records
 - exact attempt/receipt/evidence/work-contract review binding, immutable bound
   reviews, and latest-decision quorum revocation
@@ -179,9 +210,10 @@ Not implemented yet:
 - autonomous acceptance, merge, push, or deploy
 - portable deletion-history proof in PCAW v1 (local declared deletion
   tombstones are enforced, but the protocol does not export that history yet)
-- constant-time large-journal verification; the append-only JSONL scan is
-  linear, and the current roughly 40 MB dogfood journal can still take several
-  seconds and hundreds of MB of peak memory despite request-local scan reuse
+- constant-time journal verification; compact v2 instead seals the untouched
+  v1 predecessor, streams a bounded-memory checkpoint/delta tail, and uses
+  request-local pure path normalization, but complete continuity verification
+  still reads the authenticated journal bytes
 - live external writes outside the approved Linear path (Linear comment sends,
   issue status updates, and issue creation are the only live writes, and each
   requires an approved plan first)
@@ -258,6 +290,12 @@ Most days have three short journeys.
    palari work add "Clean up launch notes" --write docs/notes.md
    palari agent start --next --as PALARI-CLAUDE --json
    ```
+
+   On first adoption, `init` generates only missing agent-ready documentation
+   and anchors the exact starter governance files in one path-limited local Git
+   commit. Existing project instructions and unrelated changes are preserved.
+   `work add` safely recovers that bootstrap if initialization was interrupted,
+   so the documented flow needs no extra hand-written Git ceremony.
 
    The final command selects exactly one eligible item using the existing queue
    policy, persists its packet and portable session contract, and claims it.

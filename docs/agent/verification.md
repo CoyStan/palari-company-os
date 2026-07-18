@@ -41,10 +41,36 @@ human action. Include durable `agent release` success, foreign/malformed/missing
 interrupted-release retry, and changed-state rejection. Record interaction
 counts separately from test-process time.
 
-The append-only governance journal still has linear verification cost. A
+For host-adoption or MCP-loop changes run:
+
+```bash
+python3 -m unittest tests.test_agent_adoption tests.test_git_hooks \
+  tests.test_mcp_server tests.test_agent_session_contract
+```
+
+Exercise every declared host profile in an isolated Git repository. Preserve
+existing instructions/configuration, reject malformed or foreign managed
+state, and keep hosts without a proven native session protocol explicitly
+advisory. MCP tests must prove deterministic advance stops before review,
+human authority, and external effects.
+
+For governance-journal changes run:
+
+```bash
+python3 -m unittest tests.test_governance_journal \
+  tests.test_governance_journal_crash tests.test_store_journal_integration
+./bin/palari history --verify --json
+```
+
+Active v1 verification still parses linearly. Compact v2 verification hashes
+and state-validates the sealed v1 predecessor without retaining its record
+payloads (transaction-identity sets still scale with transaction count), then
+streams the v2 checkpoint/tail. A
 request-local context should keep one aggregate operation to one verified scan,
-but performance assertions must not skip continuity checks or promote a
-persistent cache into authority.
+but performance assertions must include predecessor continuity and current
+workspace comparison; they must not promote a persistent cache into authority.
+Report raw journal verification separately from full `agent next`, `queue`, and
+`state` time so unrelated workspace validation/read-model cost is attributable.
 
 ## CLI Smokes
 

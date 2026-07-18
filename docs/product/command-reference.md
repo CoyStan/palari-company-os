@@ -5,10 +5,15 @@ commands intentionally write to `workspace.json` after validation. No command
 merges, pushes, deploys, activates policy, executes broker side effects, uses
 secrets, or bypasses human authority.
 
+Running `palari --help` shows the small ordinary surface and its golden journey.
+Primitive compatibility and recovery commands are intentionally omitted from
+that first screen but remain available and parseable; use direct
+`palari COMMAND --help` when operating below the ordinary loop.
+
 ## Two-Minute Onramp
 
 ```bash
-palari init
+palari init --host codex
 palari work add "Clean up launch notes" --write docs/notes.md
 palari agent start --next --as PALARI-CLAUDE --json
 ```
@@ -19,6 +24,32 @@ from `git config user.name` when available), one Palari (Claude by default,
 refuses to overwrite an existing `workspace.json`. When the current directory
 contains a `workspace.json`, every command uses it as the default workspace,
 so no `--workspace` flag is needed after `init`.
+
+Add `--host claude|codex|cursor|devin|glm|generic` to make first adoption one
+anchored action. Every host profile installs or reuses the portable repository
+contract and installs the claim-bound Git commit gate. Claude and Codex also
+receive tested project-local session hooks; Codex requires explicit `/hooks`
+review before they activate. Cursor, Devin, GLM, and generic profiles are
+reported as advisory at session time. Existing workspaces use the same `init`
+action with an explicit path and host:
+
+```bash
+palari init WORKSPACE-DIR --host codex --as PALARI-ID --json
+```
+
+Without `--host`, `init` still refuses to overwrite an existing workspace.
+Adoption preserves existing instructions and host configuration. It grants no
+review, human decision, acceptance, merge, push, deployment, provider, or
+external-write authority. A nested workspace adopts at its enclosing Git root.
+If root instructions or selected-host configuration already exist, first
+initialization preserves them outside the anchor and returns one separate
+review/adoption action. Generated commands use an inspectable project-local
+launcher when present; otherwise they preserve the absolute Palari entrypoint
+currently running or a validated `PATH` entry. A symlinked `workspace.json`,
+escaping or malformed managed target, or unmanaged Git pre-commit hook blocks
+before adoption writes; co-located foreign host hooks are preserved.
+Palari-managed legacy Claude hooks are replaced by the current profile and can
+be removed without leaving duplicates.
 
 `work add` creates one agent-startable work item from a title and its write
 paths. `--write` paths become the enforced write boundary (and are declared on
@@ -53,8 +84,8 @@ The command returned by `work add` is `agent start --next`: it selects exactly
 one currently safe item using the same queue and packet policy, persists its
 portable contract, and claims it. Existing `agent next`, `brief`, and explicit
 `start WORK-ID` commands remain the inspectable compatibility surfaces.
-`palari claude install` is optional host enforcement for Claude Code, not part
-of repository activation or a requirement for other agent providers.
+`palari claude install` remains the compatible Claude-only adapter command; it
+is not a requirement for the provider-neutral loop.
 
 ## Workspace Init
 
@@ -387,6 +418,31 @@ gate against that projection, and writes acceptance plus terminal state only if
 the whole transition passes. Missing, stale, contradictory, or insufficient
 authority never produces terminal work.
 
+## Supersede Or Abandon Obsolete Work
+
+```bash
+./bin/palari work update WORK-OLD --status superseded \
+  --terminal-reason "WORK-NEW owns the narrower objective." \
+  --successor-work-item-id WORK-NEW --json
+./bin/palari work update WORK-OLD --status abandoned \
+  --terminal-reason "This experiment will not continue." --json
+```
+
+`superseded` and `abandoned` are explicit audit-only terminal states. They do
+not assert completion and do not manufacture lifecycle proof. Both require a
+non-empty `terminal_reason`; `successor_work_item_id` is optional but must name
+a distinct existing work item. Cycles and dependencies that still point to a
+retired prerequisite fail closed. Retirement is also rejected while the item
+has an active attempt, open linked decision, pending integration plan, or queued
+external action. The retirement transaction may change only the terminal
+fields; it cannot add proof or authority at the same time. Afterward, the work
+contract, its adopted proposal, and all linked lifecycle records are immutable.
+
+Default `queue`, `agent next`, and `queue --approval-inbox` views omit retired
+work. `queue --include-closed` and `detail WORK-ID` retain its exact status,
+reason, successor, and historical records. Existing successful terminal states
+(`completed`, `closed`, and `done`) retain their proof requirements.
+
 ## Agent Packets
 
 ### MCP Server
@@ -397,12 +453,15 @@ authority never produces terminal work.
 
 `mcp serve` runs a stdio MCP server for agents and MCP-speaking clients. It
 exposes compact Palari tools for queue, state, detail, docs check, and the
-agent loop: next, brief, start, check, finish, handoff, doctor, loop, and
-release. Most tools are read-only. `palari_agent_start` and
-`palari_agent_release` only write or remove local `.palari/packets` and
-`.palari/claims` runtime files; they do not change workspace records, call
-providers, read secrets, or perform external writes. The server writes only
-JSON-RPC MCP messages to stdout.
+agent loop: next, brief, start, check, advance, finish, handoff, doctor, loop,
+and release. `palari_agent_brief` can return the portable session contract;
+`palari_agent_start` can select and claim the next safe item. Most tools are
+read-only. Start and release write only local packet/claim runtime state.
+`palari_agent_advance` may record deterministic attempt, receipt, evidence,
+and eligible local closeout records, but stops before independent review,
+human authority, or external effects. The server exposes no review-record,
+human-decision, acceptance, merge, push, deployment, provider, or external-
+write tool. It writes only JSON-RPC MCP messages to stdout.
 
 ```bash
 ./bin/palari agent next --json
@@ -993,13 +1052,15 @@ than hides, a legitimate continuity break after a manual edit. `--recover`
 idempotently resolves a prepared transaction when the on-disk projection makes
 the safe result unambiguous.
 
-The v1 journal is append-only JSONL and complete verification remains linear in
-the journal size. Request-local operation contexts reuse one verified scan
-while the file identity and size/time witnesses remain unchanged, but no
-persistent cache may authorize governance. On the current roughly 40 MB
-dogfood journal a full scan can still take several seconds and hundreds of MB
-of peak memory; journaled mutations may require more than one scan. This is a
-known performance limit, not a reason to skip continuity checks.
+The v1 journal remains append-only JSONL. An explicit valid-v1 checkpoint can
+activate compact v2 without rewriting its predecessor: the v2 checkpoint seals
+the exact v1 bytes, replay digest, head, and counts, then subsequent events use
+deterministic value deltas. Verification streams the v2 checkpoint/tail with
+bounded memory and validates the sealed predecessor. Request-local operation
+contexts reuse one verified scan and pure path-normalization results only while
+their exact witnesses remain unchanged; no persistent cache may authorize
+governance. Complete verification still reads authenticated journal bytes and
+therefore does not claim constant time.
 
 `--checkpoints` lists every committed journal projection by content digest.
 `--restore` requires a declared human and reason, then appends a restoration
@@ -1011,6 +1072,12 @@ hazard. The check scans every committed projection after the earliest matching
 checkpoint digest, so a later reset/removal—or already being back at the target
 bytes—cannot hide an intervening effect. Record any external compensation
 separately and create a new governed checkpoint instead.
+
+Restoration also respects non-success retirement as a temporal boundary. It
+cannot rewind `superseded` or `abandoned` work to an active projection, relabel
+successfully completed work as retired, or mutate the retired work's linked
+audit subgraph. Create explicit successor work when the old objective must be
+continued.
 
 ## Proof-Carrying AI Work
 

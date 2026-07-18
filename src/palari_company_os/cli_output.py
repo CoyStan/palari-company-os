@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from .cli_output_agent import (
+    print_agent_adopt,
     print_agent_brief,
     print_agent_check,
     print_agent_doctor,
@@ -145,6 +146,14 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-brief":
         print_agent_brief(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-adopt":
+        print_agent_adopt(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-hook":
+        print(json.dumps(result.payload))
         return
 
     if result.kind == "agent-start":
@@ -807,6 +816,18 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
         f"{payload['palari']['id']} ({payload['palari']['name']}), "
         f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
     )
+    adoption = payload.get("adoption") or {}
+    if adoption.get("status") != "not-requested":
+        print(
+            f"Host adoption: {adoption.get('host', '')} "
+            f"[{adoption.get('status', 'unknown')}]"
+        )
+        if adoption.get("status") == "blocked":
+            print(f"Why: {adoption.get('message', '')}")
+        else:
+            host = adoption.get("host_adapter") or {}
+            if host.get("next_action"):
+                print(f"Activation: {host['next_action']}")
     print("Next commands:")
     for command in payload["next_commands"]:
         print(f"  {command}")
@@ -937,10 +958,15 @@ def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:
     print(f"Palari Company OS Queue: {workspace.name}")
+    print("Ordinary loop: start -> advance -> review -> human decision -> verify")
     print("")
     for item in items:
         print(f"{item.id} [{item.intensity} / {item.risk}] {item.title}")
         print(f"  attention: {item.attention}")
+        print(f"  step: {item.next_step_type}")
+        print(f"  next: {item.next_action}")
+        if item.next_commands:
+            print(f"  command: {item.next_commands[0]}")
         if item.workbench_label:
             print(f"  workbench: {item.workbench_label}")
         print(f"  goal: {item.goal_title}")
@@ -959,7 +985,6 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
         )
         print(f"  integration: {item.integration_state}")
-        print(f"  step: {item.next_step_type}")
         if item.learning_signal:
             print(f"  learning: {item.learning_signal}")
         if item.playbook_recommendations:
@@ -979,13 +1004,14 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
                 f"  {label}: heuristic suggests {item.recommended_intensity} "
                 f"({item.intensity_reason})"
             )
-        print(f"  next: {item.next_action}")
         if item.agent_loop_command:
             print(f"  agent loop: {item.agent_loop_command}")
         if item.agent_handoff_command:
             print(f"  agent handoff: {item.agent_handoff_command}")
-        if item.next_commands:
-            print(f"  command: {item.next_commands[0]}")
+        if item.terminal_disposition:
+            print(f"  retired: {item.terminal_disposition} ({item.terminal_reason})")
+            if item.successor_work_item_id:
+                print(f"  successor: {item.successor_work_item_id}")
         print("")
 
 
@@ -1072,6 +1098,13 @@ def print_detail(payload: dict[str, Any]) -> None:
     workbench = payload.get("workbench") or {}
     print(f"{work['id']}: {work['title']}")
     print(f"Status: {work['status']} | Risk: {work['risk']} | Intensity: {work['intensity']}")
+    if work.get("status") in {"superseded", "abandoned"}:
+        print(
+            f"Retired: {work['status']} | "
+            f"Reason: {work.get('terminal_reason', '')}"
+        )
+        if work.get("successor_work_item_id"):
+            print(f"Successor: {work['successor_work_item_id']}")
     if workbench:
         print(f"Workbench: {workbench.get('label', work['workbench_id'])}")
     print(f"Goal: {goal.get('title', work['goal'])}")

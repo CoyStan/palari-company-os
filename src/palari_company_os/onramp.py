@@ -6,14 +6,18 @@ and ``palari work add`` creates an agent-startable work item from a title and
 its write paths. Together with ``palari claude install`` they take a repo
 from "never heard of Palari" to an enforced write boundary in three commands.
 
-Everything here writes through the validated store, so an init or quick-add
-that would produce an invalid workspace fails before touching disk.
+Everything here writes through the validated store. In Git repositories the
+explicit initialization command also creates one hook-free, path-limited local
+commit as the immutable authority origin; unrelated repository changes are not
+included.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from shlex import quote
@@ -32,21 +36,94 @@ GOAL_ID = "GOAL-0001"
 WORKBENCH_ID = "WORKBENCH-MAIN"
 SOURCE_ID = "SOURCE-REPO"
 
+AGENT_DOC_TEMPLATES = {
+    "AGENTS.md": """# Palari Agent Contract
+
+Before changing files, claim one bounded work item:
+
+```bash
+palari agent start --next --as PALARI-ID --json
+```
+
+Continue only when the returned packet is ready. Read and write only the
+declared paths, use only its selected sources, and stop at every review, human,
+or external-effect boundary. After committing the bounded change, run:
+
+```bash
+palari agent advance WORK-ID --as PALARI-ID --json
+```
+
+`advance` derives deterministic proof and never manufactures independent review
+or human acceptance. Use `palari agent doctor WORK-ID --as PALARI-ID --json`
+for the next safe action. Repository orientation lives under `docs/agent/`.
+""",
+    "docs/agent/repo-map.md": """# Repository Map
+
+`workspace.json` is the governed local truth. `.palari/` contains replayable
+history and local runtime bindings. Record project-specific source, test, and
+documentation ownership here before asking an agent to work broadly.
+""",
+    "docs/agent/contracts-and-invariants.md": """# Contracts And Invariants
+
+- Work only inside the active packet's read and write boundaries.
+- Do not invent sources, authority, receipts, evidence, review, or acceptance.
+- Commit the bounded result before running `palari agent advance`.
+- Treat review, human decisions, and external effects as real stop boundaries.
+- Preserve `workspace.json` and `.palari/` as governed projection data.
+""",
+    "docs/agent/common-workflows.md": """# Common Workflows
+
+Start ordinary work with `palari agent start --next --as PALARI-ID --json`.
+Follow the packet, commit only the bounded change, and run `palari agent
+advance WORK-ID --as PALARI-ID --json`. If blocked, run `palari agent doctor`
+and report its exact next safe action.
+""",
+    "docs/agent/verification.md": """# Verification
+
+Run the work item's declared checks while editing. Before reporting completion,
+run `palari validate --json` and `palari agent check WORK-ID --as PALARI-ID
+--mode execute --git-diff --json`. `palari agent advance` reruns only declared,
+built-in verification profiles before deriving proof.
+""",
+    "docs/agent/documentation-freshness.md": """# Documentation Freshness
+
+Update committed agent guidance when commands, boundaries, verification,
+project layout, or authority rules change. Run `palari docs check --json` after
+those changes.
+""",
+}
+
+AUTHORITY_ANCHOR_MESSAGE = "palari: anchor governance workspace"
+
 
 def initialize_starter_workspace(
     target: str | Path,
     *,
     name: str = "",
     palari_name: str = "Claude",
+    host: str = "",
 ) -> dict[str, Any]:
     """Create a starter workspace ready for ``work add`` and ``agent start``."""
     directory = Path(target).expanduser().resolve()
+    adoption_root = _adoption_project_root(directory)
     workspace_file = directory / "workspace.json"
     if workspace_file.exists():
         raise WorkspaceError(
             f"workspace file already exists: {workspace_file}; "
             "use the existing workspace or initialize a different directory"
         )
+    _validate_agent_doc_paths(directory)
+    selected_host = host.strip().lower()
+    if selected_host:
+        from .agent_adoption import SUPPORTED_HOSTS
+
+        if selected_host not in SUPPORTED_HOSTS:
+            raise WorkspaceError(
+                "host must be one of: " + ", ".join(SUPPORTED_HOSTS)
+            )
+    bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
+        directory, adoption_root, selected_host
+    )
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
     palari_id = _palari_id(palari_label)
@@ -129,7 +206,66 @@ def initialize_starter_workspace(
     ]
 
     workspace = write_store(WorkspaceStore(data_path=workspace_file, data=data))
+    agent_docs = _write_missing_agent_docs(directory)
+    adoption: dict[str, Any] = {
+        "schema_version": "palari.agent_adoption.v1",
+        "status": "not-requested",
+        "host": "",
+        "changed": False,
+        "changed_files": [],
+        "message": "No host profile requested; the portable workspace remains active.",
+    }
+    if selected_host:
+        if bootstrap_adoption_blocker:
+            adoption = {
+                "schema_version": "palari.agent_adoption.v1",
+                "status": "blocked",
+                "host": selected_host,
+                "changed": False,
+                "changed_files": [],
+                "message": bootstrap_adoption_blocker,
+            }
+        else:
+            from .agent_adoption import adopt_agent_host
+
+            try:
+                adoption = adopt_agent_host(
+                    workspace_file,
+                    project_dir=adoption_root,
+                    host=selected_host,
+                    palari_id=palari_id,
+                )
+            except WorkspaceError as exc:
+                adoption = {
+                    "schema_version": "palari.agent_adoption.v1",
+                    "status": "blocked",
+                    "host": selected_host,
+                    "changed": False,
+                    "changed_files": [],
+                    "message": str(exc),
+                }
+    adoption_anchor_files: list[Path] = []
+    adoption_root = Path(str(adoption.get("project") or directory)).resolve()
+    for path in adoption.get("changed_files", []):
+        adoption_anchor_files.append(adoption_root / str(path))
+    authority_anchor = _anchor_starter_authority(
+        workspace_file,
+        created_docs=list(agent_docs["created"]),
+        additional_files=adoption_anchor_files,
+    )
+    command_name = str(adoption.get("executable") or _current_cli_executable())
     workspace_arg = _workspace_cli_argument(directory)
+    next_commands = [
+        f'{quote(command_name)}{workspace_arg} work add "First task" --write docs/notes.md',
+        f"{quote(command_name)}{workspace_arg} agent start --next --as {palari_id} --json",
+    ]
+    if authority_anchor["status"] == "blocked":
+        next_commands = [authority_anchor["next_command"]]
+    elif adoption["status"] == "blocked":
+        next_commands = [
+            f"{quote(command_name)} init {quote(str(directory))} --host {selected_host} "
+            f"--as {palari_id} --json"
+        ]
     return {
         "schema_version": "palari.init.v1",
         "workspace": workspace.name,
@@ -140,13 +276,19 @@ def initialize_starter_workspace(
         "goal": GOAL_ID,
         "workbench": WORKBENCH_ID,
         "source": SOURCE_ID,
-        "next_commands": [
-            f'palari{workspace_arg} work add "First task" --write docs/notes.md',
-            f"palari{workspace_arg} agent start --next --as {palari_id} --json",
-        ],
+        "agent_docs": agent_docs,
+        "adoption": adoption,
+        "authority_anchor": authority_anchor,
+        "next_commands": next_commands,
         "message": (
             f"Starter workspace '{workspace.name}' created. Add a bounded work "
-            "item with: palari work add \"Title\" --write PATH"
+            "item with: palari work add \"Title\" --write PATH. "
+            + str(authority_anchor["message"])
+            + (
+                f" Host adoption: {adoption.get('status', 'unknown')}."
+                if selected_host
+                else ""
+            )
         ),
     }
 
@@ -280,6 +422,16 @@ def quick_add_work(
     work_items = store.data.setdefault("work_items", [])
     if any(item.get("id") == resolved_id for item in work_items):
         raise WorkspaceError(f"work already exists: {resolved_id}")
+    authority_anchor = _anchor_starter_authority(
+        store.data_path,
+        created_docs=_recoverable_agent_docs(store.data_path.parent),
+    )
+    if authority_anchor["status"] == "blocked":
+        raise WorkspaceError(
+            "Palari governance authority is not anchored in Git: "
+            f"{authority_anchor['message']}; next action: "
+            f"{authority_anchor['next_command']}"
+        )
     work_items.append(record)
     objects = [
         {"type": "work", "collection": "work_items", "id": resolved_id}
@@ -330,6 +482,7 @@ def quick_add_work(
         "workspace_file": str(store.data_path),
         "work_item": record,
         "path_intents": path_intents,
+        "authority_anchor": authority_anchor,
         "workbench_outputs_added": workbench_outputs_added,
         "next_commands": [
             f"palari agent start --next --as {palari} --mode execute --json",
@@ -339,6 +492,401 @@ def quick_add_work(
             f"{', '.join(write_paths)}."
         ),
     }
+
+
+def _write_missing_agent_docs(directory: Path) -> dict[str, Any]:
+    created: list[str] = []
+    preserved: list[str] = []
+    for relative, content in AGENT_DOC_TEMPLATES.items():
+        candidate = directory / relative
+        if candidate.exists() or candidate.is_symlink():
+            preserved.append(relative)
+            continue
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_text(content, encoding="utf-8")
+        created.append(relative)
+    return {
+        "schema_version": "palari.agent_docs_bootstrap.v1",
+        "created": created,
+        "preserved": preserved,
+        "status": "ready",
+    }
+
+
+def _bootstrap_adoption_blocker(
+    directory: Path,
+    adoption_root: Path,
+    host: str,
+) -> str:
+    if not host:
+        return ""
+    roots: list[Path] = []
+    for candidate in (adoption_root, directory):
+        if candidate not in roots:
+            roots.append(candidate)
+    for root in roots:
+        blocker = _bootstrap_adoption_blocker_at(root, host)
+        if blocker:
+            return blocker
+    return ""
+
+
+def _bootstrap_adoption_blocker_at(directory: Path, host: str) -> str:
+    agents = directory / "AGENTS.md"
+    if agents.exists() or agents.is_symlink():
+        try:
+            from .agent_adoption import has_portable_agent_contract
+
+            if agents.is_symlink() or not agents.is_file():
+                return "existing AGENTS.md is not a regular project file"
+            if not has_portable_agent_contract(agents.read_text(encoding="utf-8")):
+                return (
+                    "existing AGENTS.md is preserved; review it, then run the returned "
+                    "host-adoption action separately"
+                )
+        except (OSError, UnicodeError) as exc:
+            return f"existing AGENTS.md cannot be inspected safely: {exc}"
+    host_file = {
+        "codex": directory / ".codex" / "hooks.json",
+        "claude": directory / ".claude" / "settings.json",
+    }.get(host)
+    if host_file is not None and (host_file.exists() or host_file.is_symlink()):
+        return (
+            f"existing {host_file.relative_to(directory)} is preserved; run the "
+            "returned host-adoption action separately to merge reviewed hooks"
+        )
+    return ""
+
+
+def _nearest_existing_directory(target: Path) -> Path:
+    candidate = target
+    while not candidate.is_dir() and candidate != candidate.parent:
+        candidate = candidate.parent
+    return candidate
+
+
+def _adoption_project_root(directory: Path) -> Path:
+    repo_root = _git_root(_nearest_existing_directory(directory))
+    if repo_root is None:
+        return directory
+    try:
+        directory.relative_to(repo_root)
+    except ValueError:
+        return directory
+    return repo_root
+
+
+def _validate_agent_doc_paths(directory: Path) -> None:
+    for relative in AGENT_DOC_TEMPLATES:
+        candidate = directory / relative
+        try:
+            candidate.resolve(strict=False).relative_to(directory)
+        except (OSError, ValueError) as exc:
+            raise WorkspaceError(
+                f"agent documentation path is unsafe: {relative}: {exc}"
+            ) from exc
+        cursor = directory
+        parts = Path(relative).parts
+        for index, part in enumerate(parts):
+            cursor = cursor / part
+            if cursor.is_symlink():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"path component is a symlink: {cursor.relative_to(directory)}"
+                )
+            if not cursor.exists():
+                continue
+            if index < len(parts) - 1 and not cursor.is_dir():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"parent is not a directory: {cursor.relative_to(directory)}"
+                )
+            if index == len(parts) - 1 and not cursor.is_file():
+                raise WorkspaceError(
+                    f"agent documentation path is unsafe: {relative}: "
+                    f"target is not a regular file: {cursor.relative_to(directory)}"
+                )
+
+
+def _recoverable_agent_docs(directory: Path) -> list[str]:
+    """Return only untouched Palari templates safe to include in recovery."""
+
+    recoverable: list[str] = []
+    for relative, content in AGENT_DOC_TEMPLATES.items():
+        candidate = directory / relative
+        try:
+            if (
+                not candidate.is_symlink()
+                and candidate.is_file()
+                and candidate.read_text(encoding="utf-8") == content
+            ):
+                recoverable.append(relative)
+        except OSError:
+            continue
+    return recoverable
+
+
+def _anchor_starter_authority(
+    workspace_file: Path,
+    *,
+    created_docs: list[str],
+    additional_files: list[Path] | None = None,
+) -> dict[str, Any]:
+    """Commit only newly adopted governance files as an immutable baseline.
+
+    `palari init` is the explicit local authorization for this bootstrap. The
+    path-limited commit excludes unrelated staged and unstaged work. A retry is
+    idempotent because an existing workspace Git blob is never rewritten from
+    mutable current authority.
+    """
+
+    root = _git_root(workspace_file.parent)
+    if root is None:
+        return {
+            "schema_version": "palari.authority_anchor.v1",
+            "status": "not-required",
+            "commit": "",
+            "paths": [],
+            "next_command": "",
+            "message": (
+                "No Git worktree was found; local non-Git operation needs no "
+                "Git anchor."
+            ),
+        }
+    try:
+        workspace_relative = workspace_file.resolve().relative_to(root).as_posix()
+    except (OSError, ValueError) as exc:
+        raise WorkspaceError(f"workspace escapes its Git repository: {exc}") from exc
+
+    head = _git_output(root, ["rev-parse", "--verify", "HEAD^{commit}"])
+    if head and _git_blob_exists(root, head, workspace_relative):
+        return {
+            "schema_version": "palari.authority_anchor.v1",
+            "status": "anchored",
+            "commit": head,
+            "paths": [workspace_relative],
+            "next_command": "",
+            "message": (
+                "Immutable Git authority was already present and was not rewritten."
+            ),
+        }
+
+    candidate_paths = [
+        workspace_file,
+        workspace_file.parent / ".palari" / "history.jsonl",
+        workspace_file.parent / ".palari" / "governance-journal.v1.jsonl",
+        *(workspace_file.parent / relative for relative in created_docs),
+        *(additional_files or []),
+    ]
+    relative_paths: list[str] = []
+    for candidate in candidate_paths:
+        if not candidate.exists():
+            continue
+        if candidate.is_symlink() or not candidate.is_file():
+            raise WorkspaceError(
+                f"authority anchor path is not a regular file: {candidate}"
+            )
+        try:
+            relative = candidate.resolve().relative_to(root).as_posix()
+        except (OSError, ValueError) as exc:
+            raise WorkspaceError(
+                f"authority anchor path escapes Git: {candidate}: {exc}"
+            ) from exc
+        if relative not in relative_paths:
+            relative_paths.append(relative)
+    relative_paths.sort()
+    command = _authority_anchor_command(root, relative_paths)
+    if workspace_relative not in relative_paths:
+        return {
+            "schema_version": "palari.authority_anchor.v1",
+            "status": "blocked",
+            "commit": "",
+            "paths": relative_paths,
+            "next_command": command,
+            "message": (
+                "The workspace file is unavailable for an exact authority anchor."
+            ),
+        }
+
+    operation_markers = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD")
+    if any(
+        _git_output(root, ["rev-parse", "-q", "--verify", marker])
+        for marker in operation_markers
+    ):
+        return {
+            "schema_version": "palari.authority_anchor.v1",
+            "status": "blocked",
+            "commit": "",
+            "paths": relative_paths,
+            "next_command": command,
+            "message": (
+                "Git is already completing another history operation; finish it first."
+            ),
+        }
+
+    add = _run_git(root, ["add", "-f", "--", *relative_paths])
+    if add.returncode != 0:
+        return _blocked_anchor(relative_paths, command, add.stderr)
+    commit = _run_git(
+        root,
+        [
+            "commit",
+            "--quiet",
+            "--only",
+            "-m",
+            AUTHORITY_ANCHOR_MESSAGE,
+            "--",
+            *relative_paths,
+        ],
+        env=_bootstrap_git_identity(),
+    )
+    if commit.returncode != 0:
+        _restore_anchor_index(root, relative_paths, bool(head))
+        return _blocked_anchor(relative_paths, command, commit.stderr)
+    anchored_head = _git_output(root, ["rev-parse", "--verify", "HEAD^{commit}"])
+    if not anchored_head or not _git_blob_exists(
+        root, anchored_head, workspace_relative
+    ):
+        raise WorkspaceError(
+            "Git authority anchor commit did not contain workspace.json"
+        )
+    return {
+        "schema_version": "palari.authority_anchor.v1",
+        "status": "anchored",
+        "commit": anchored_head,
+        "paths": relative_paths,
+        "next_command": "",
+        "message": "Palari created one path-limited local Git authority anchor.",
+    }
+
+
+def _blocked_anchor(paths: list[str], command: str, stderr: str) -> dict[str, Any]:
+    detail = stderr.strip() or "Git did not create the authority anchor."
+    return {
+        "schema_version": "palari.authority_anchor.v1",
+        "status": "blocked",
+        "commit": "",
+        "paths": paths,
+        "next_command": command,
+        "message": detail,
+    }
+
+
+def _restore_anchor_index(root: Path, paths: list[str], has_head: bool) -> None:
+    args = (
+        ["reset", "--quiet", "HEAD", "--", *paths]
+        if has_head
+        else [
+            "rm",
+            "--cached",
+            "--quiet",
+            "--ignore-unmatch",
+            "--",
+            *paths,
+        ]
+    )
+    _run_git(root, args)
+
+
+def _authority_anchor_command(root: Path, paths: list[str]) -> str:
+    prefix = (
+        f"git -C {quote(str(root))} -c core.hooksPath=/dev/null "
+        "-c commit.gpgSign=false"
+    )
+    rendered = " ".join(quote(path) for path in paths)
+    return (
+        f"{prefix} add -f -- {rendered} && {prefix} commit --only "
+        f"-m {quote(AUTHORITY_ANCHOR_MESSAGE)} -- {rendered}"
+    )
+
+
+def _bootstrap_git_identity() -> dict[str, str]:
+    env = os.environ.copy()
+    defaults = {
+        "GIT_AUTHOR_NAME": "Palari Bootstrap",
+        "GIT_AUTHOR_EMAIL": "palari-bootstrap@local.invalid",
+        "GIT_COMMITTER_NAME": "Palari Bootstrap",
+        "GIT_COMMITTER_EMAIL": "palari-bootstrap@local.invalid",
+    }
+    for key, value in defaults.items():
+        if not env.get(key):
+            env[key] = value
+    return env
+
+
+def _git_root(directory: Path) -> Path | None:
+    root = _git_output(directory, ["rev-parse", "--show-toplevel"])
+    if not root:
+        return None
+    try:
+        return Path(root).resolve()
+    except OSError:
+        return None
+
+
+def _git_blob_exists(root: Path, revision: str, path: str) -> bool:
+    result = _run_git(root, ["cat-file", "-e", f"{revision}:{path}"])
+    return result.returncode == 0
+
+
+def _git_output(root: Path, args: list[str]) -> str:
+    result = _run_git(root, args)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _run_git(
+    root: Path,
+    args: list[str],
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    git_env = (env or os.environ).copy()
+    for key in tuple(git_env):
+        if key in {
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_COMMON_DIR",
+            "GIT_DIR",
+            "GIT_EXEC_PATH",
+            "GIT_INDEX_FILE",
+            "GIT_NAMESPACE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_WORK_TREE",
+        } or key.startswith("GIT_CONFIG_"):
+            git_env.pop(key, None)
+    git_env.update(
+        {
+            "GIT_PAGER": "cat",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    try:
+        return subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "commit.gpgSign=false",
+                "-c",
+                "core.fsmonitor=false",
+                *args,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=15,
+            env=git_env,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return subprocess.CompletedProcess(
+            ["git", "-C", str(root), *args],
+            1,
+            "",
+            str(exc),
+        )
 
 
 def _palari_id(label: str) -> str:
@@ -365,6 +913,16 @@ def _workspace_cli_argument(directory: Path) -> str:
     if directory == Path.cwd():
         return ""
     return f" --workspace {quote(str(directory))}"
+
+
+def _current_cli_executable() -> str:
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.name == "palari" and invoked.is_absolute():
+        try:
+            return str(invoked.resolve(strict=True))
+        except OSError:
+            pass
+    return "palari"
 
 
 def _normalized_paths(paths: list[str], flag: str) -> list[str]:

@@ -3,19 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_directive import (
-    AUTOMATIC_BLOCKERS,
-    EXTERNAL_BLOCKERS,
-    HANDOFF_BLOCKERS,
-    HUMAN_BLOCKERS,
-    REVIEW_BLOCKERS,
-    TERMINAL_BLOCKERS,
-    classify_resolution,
-    enrich_blockers,
-    human_approval_prerequisites_met,
-    resolution_summary,
-    review_prerequisites_met,
-)
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .governance_journal import JournalVerificationContext
 from .workspace import Workspace

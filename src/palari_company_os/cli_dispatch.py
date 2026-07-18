@@ -191,6 +191,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
 
+        workspace: Workspace | None = None
+        if args.agent_command == "advance":
+            advance_workspace = Workspace.load(args.workspace)
+            workspace = advance_workspace
+            advance_work = advance_workspace.work_item(args.work_id)
+            if advance_work is not None and advance_work.terminal_disposition:
+                return CommandResult(
+                    "agent-done",
+                    {
+                        "schema_version": "palari.agent_advance.v1",
+                        "workspace": advance_workspace.name,
+                        "work_item": args.work_id,
+                        "status": "retired",
+                        "can_advance": False,
+                        "would_mutate": False,
+                        "expected_state": "retired",
+                        "stop_boundary": "terminal",
+                        "message": (
+                            f"Work item {args.work_id} was "
+                            f"{advance_work.terminal_disposition} and is audit-only: "
+                            f"{advance_work.terminal_reason}"
+                        ),
+                        "steps": [],
+                    },
+                    args.json,
+                )
         if args.agent_command == "advance" and args.dry_run:
             from .agent_advance import agent_advance_dry_run
 
@@ -219,7 +245,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 ),
                 args.json,
             )
-        workspace = Workspace.load(args.workspace)
+        if workspace is None:
+            workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:
                 return CommandResult(
@@ -381,18 +408,27 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
     if args.command == "claude":
-        from .claude_hooks import hooks_status, install_hooks, run_hook
+        from .claude_hooks import hooks_status
 
         if args.claude_command == "hook":
+            from .agent_adoption import run_agent_hook
+
             return CommandResult(
                 "claude-hook",
-                run_hook(args.event, args.workspace, strict=args.strict),
+                run_agent_hook(
+                    "claude",
+                    args.event,
+                    args.workspace,
+                    strict=args.strict,
+                ),
                 True,
             )
         if args.claude_command == "install":
+            from .agent_adoption import install_claude_host_hooks
+
             return CommandResult(
                 "claude-install",
-                install_hooks(
+                install_claude_host_hooks(
                     args.project_dir or Path.cwd(),
                     args.workspace,
                     settings_file=args.settings_file,
@@ -920,11 +956,41 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "init":
+        from .agent_adoption import adopt_agent_host, run_agent_hook
         from .onramp import initialize_starter_workspace
+        from .store import workspace_file_path
+
+        if args.hook_event:
+            if not args.host:
+                raise WorkspaceError("--hook-event requires --host")
+            return CommandResult(
+                "agent-hook",
+                run_agent_hook(args.host, args.hook_event, args.path),
+                True,
+            )
+
+        if workspace_file_path(args.path).exists() and args.host:
+            return CommandResult(
+                "agent-adopt",
+                adopt_agent_host(
+                    args.path,
+                    project_dir=workspace_file_path(args.path).parent,
+                    host=args.host,
+                    palari_id=args.palari_id,
+                ),
+                args.json,
+            )
+        if args.palari_id:
+            raise WorkspaceError("--as is only valid when adopting an existing workspace")
 
         return CommandResult(
             "init",
-            initialize_starter_workspace(args.path, name=args.name, palari_name=args.palari),
+            initialize_starter_workspace(
+                args.path,
+                name=args.name,
+                palari_name=args.palari,
+                host=args.host,
+            ),
             args.json,
         )
 

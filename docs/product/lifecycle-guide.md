@@ -29,12 +29,19 @@ The normal path derives mechanical records instead of asking an agent to copy
 their ids and digests:
 
 ```bash
-palari init
+palari init --host codex
 palari work add "Draft onboarding note" --write docs/onboarding.md
 palari agent start --next --as PALARI-ID --json
 # work inside the packet and commit the bounded result
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
+
+`--host` accepts `claude`, `codex`, `cursor`, `devin`, `glm`, or `generic` and
+folds new portable instructions plus the claim-bound Git gate into the starter
+anchor. Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as
+PALARI-ID --json`; without an explicit host, initialization still refuses an
+existing workspace. Only Claude and Codex currently have tested session-hook adapters;
+other profiles are explicitly advisory at session time.
 
 The compatible `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` instead when exact mutation class
@@ -77,6 +84,35 @@ workspace must already have a writable governance journal; legacy work receives
 the exact explicit `history --checkpoint` activation action and no retroactive
 continuity claim. The commands below remain available as lower-level authoring
 and recovery surfaces; they are not the ordinary agent ceremony.
+
+## Retire Obsolete Work Without Pretending It Completed
+
+When an unclaimed item is genuinely obsolete, close attention explicitly
+through the existing governed update path:
+
+```bash
+palari work update WORK-OLD \
+  --status superseded \
+  --terminal-reason "A narrower contract now owns the objective." \
+  --successor-work-item-id WORK-NEW --json
+
+palari work update WORK-EXPERIMENT \
+  --status abandoned \
+  --terminal-reason "The experiment no longer earns operator attention." --json
+```
+
+These dispositions are audit terminalization, not successful completion. They
+create no attempt, receipt, evidence, review, human decision, acceptance, or
+outcome. A reason is mandatory and the successor is optional, but any successor
+must be an existing distinct work item. Successor cycles, retirement with an
+active attempt, open decision, or unresolved external action, and dependencies
+that still point at retired work all fail closed. Rebind a dependent to the
+explicit successor before retiring its old prerequisite.
+
+Retired work is absent from the ordinary queue, `agent next`, and Approval
+Inbox. It remains visible through `queue --include-closed` and `detail`, and an
+explicit `agent start` cannot claim it. Historical proof and review records are
+preserved rather than rewritten.
 
 ## Create Intent And Actors
 

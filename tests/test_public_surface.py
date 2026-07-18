@@ -20,6 +20,27 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertEqual(len(actual), 154)
         self.assertEqual(actual, expected)
 
+    def test_default_help_leads_with_the_ordinary_journey(self) -> None:
+        help_text = build_parser().format_help()
+
+        self.assertIn(
+            "init -> work add -> agent start --next -> agent advance",
+            help_text,
+        )
+        for command in ("init", "work", "agent", "queue", "proof", "validate"):
+            self.assertRegex(help_text, rf"(?m)^    {command}\s")
+        self.assertNotIn("desktop-prototype", help_text)
+        self.assertNotIn("human-decision      ", help_text)
+
+        init_help = _subparser("init").format_help()
+        self.assertIn("--host", init_help)
+
+    def test_workspace_schema_copies_remain_identical(self) -> None:
+        self.assertEqual(
+            _read("schemas/workspace.schema.json"),
+            _read("src/palari_company_os/data/schemas/workspace.schema.json"),
+        )
+
     def test_public_surface_doc_classifies_core_and_visual_surfaces(self) -> None:
         surface = _read("docs/product/public-surface.md")
 
@@ -79,6 +100,14 @@ def _collect_commands() -> list[str]:
 
     walk(build_parser())
     return commands
+
+
+def _subparser(name: str) -> Any:
+    for action in build_parser()._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and name in choices:
+            return choices[name]
+    raise AssertionError(f"missing subparser: {name}")
 
 
 def _fixture_lines(name: str) -> list[str]:

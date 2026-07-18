@@ -15,6 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.store import load_store, migrate_data, migrate_store, write_store
+from palari_company_os.authoring import complete_work, update_record
+from palari_company_os.pcaw_workspace import governance_case_from_workspace
+from palari_company_os.governance_kernel import evaluate_governance_case
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -188,6 +191,268 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_abandoned_work_is_explicit_audit_terminalization(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        work = raw["work_items"][0]
+        work.update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "The operator intentionally stopped this objective.",
+            }
+        )
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].status, "blocked")
+        self.assertEqual(workspace.work_items[0].terminal_disposition, "abandoned")
+
+        governance_case, _ = governance_case_from_workspace(
+            workspace,
+            workspace.work_items[0].id,
+            inspect_external=False,
+        )
+        self.assertEqual(governance_case.claimed_state, "blocked")
+        self.assertEqual(evaluate_governance_case(governance_case).derived_state, "blocked")
+
+    def test_terminal_work_is_immutable_and_retirement_never_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(
+                FIXTURES / "valid-accepted-completed-work.json",
+                root / "workspace.json",
+            )
+            with self.assertRaisesRegex(WorkspaceError, "terminal .* immutable"):
+                update_record(
+                    str(root),
+                    "work",
+                    "WORK-1",
+                    {
+                        "status": "abandoned",
+                        "terminal_reason": "Must not erase accepted completion.",
+                    },
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(
+                FIXTURES / "valid-source-receipt-loop.json",
+                root / "workspace.json",
+            )
+            update_record(
+                str(root),
+                "work",
+                "WORK-1",
+                {
+                    "status": "abandoned",
+                    "terminal_reason": "The objective is intentionally obsolete.",
+                },
+            )
+            with self.assertRaisesRegex(WorkspaceError, "terminal .* immutable"):
+                update_record(
+                    str(root),
+                    "work",
+                    "WORK-1",
+                    {"status": "active", "terminal_reason": ""},
+                )
+            with self.assertRaisesRegex(WorkspaceError, "was abandoned"):
+                complete_work(str(root), "WORK-1")
+
+    def test_superseded_work_requires_valid_distinct_acyclic_successor(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        original = raw["work_items"][0]
+        original.update(
+            {
+                "status": "superseded",
+                "terminal_reason": "A narrower successor owns the remaining objective.",
+                "successor_work_item_id": "WORK-NEXT",
+            }
+        )
+        raw["work_items"].append(
+            {
+                "id": "WORK-NEXT",
+                "title": "Narrow successor",
+                "goal": original["goal"],
+                "palari": original["palari"],
+                "status": "active",
+            }
+        )
+
+        workspace = Workspace.from_raw(raw, FIXTURES)
+
+        self.assertEqual(
+            workspace.work_items[0].successor_work_item_id,
+            "WORK-NEXT",
+        )
+
+        raw["work_items"][1].update(
+            {
+                "status": "superseded",
+                "terminal_reason": "Invalid loop.",
+                "successor_work_item_id": "WORK-1",
+            }
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor graph contains a cycle",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_metadata_and_live_authority_fail_closed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0]["terminal_reason"] = "Looks retired but is still active."
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "retirement metadata without a superseded or abandoned status",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "Stop the objective.",
+            }
+        )
+        raw["attempts"][0]["status"] = "active"
+        with self.assertRaisesRegex(WorkspaceError, "cannot be retired with active attempts"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_requires_reason_and_existing_successor(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "superseded",
+                "successor_work_item_id": "WORK-MISSING",
+            }
+        )
+        with self.assertRaisesRegex(WorkspaceError, "terminal_reason is required"):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw["work_items"][0]["terminal_reason"] = "Replaced by narrower work."
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor_work_item_id references missing id WORK-MISSING",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+        raw["work_items"][0]["successor_work_item_id"] = "WORK-1"
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "successor_work_item_id must reference a distinct work item",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_cannot_hide_an_open_human_decision(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        raw["work_items"][0].update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "Attempted retirement with unresolved authority.",
+            }
+        )
+        raw["decisions"].append(
+            {
+                "id": "DECISION-OPEN",
+                "question": "Should this objective stop?",
+                "status": "open",
+                "linked_work": "WORK-1",
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "cannot be retired with open decisions",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_retirement_cannot_hide_approved_or_failed_external_authority(self) -> None:
+        from types import SimpleNamespace
+
+        from palari_company_os.models import WorkItem
+        from palari_company_os.validation import _validate_retired_work
+
+        work = WorkItem.from_record(
+            {
+                "id": "WORK-RETIRE",
+                "title": "Retire me",
+                "goal": "GOAL-1",
+                "palari": "PALARI-1",
+                "status": "abandoned",
+                "terminal_reason": "No longer active.",
+            }
+        )
+        workspace = SimpleNamespace(
+            decisions=[],
+            attempts=[],
+            integration_plans=[
+                SimpleNamespace(
+                    id="PLAN-APPROVED",
+                    work_item_id=work.id,
+                    status="approved",
+                )
+            ],
+            integration_outbox=[],
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "external action authority is unresolved: PLAN-APPROVED",
+        ):
+            _validate_retired_work(workspace, work)
+
+        workspace.integration_outbox.append(
+            SimpleNamespace(
+                id="OUTBOX-FAILED",
+                plan_id="PLAN-APPROVED",
+                work_item_id=work.id,
+                status="failed",
+            )
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "PLAN-APPROVED, OUTBOX-FAILED",
+        ):
+            _validate_retired_work(workspace, work)
+
+    def test_dependency_cannot_treat_retired_work_as_completed(self) -> None:
+        raw = json.loads(
+            (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
+        )
+        original = raw["work_items"][0]
+        original.update(
+            {
+                "status": "abandoned",
+                "terminal_reason": "This path is obsolete.",
+            }
+        )
+        raw["work_items"].append(
+            {
+                "id": "WORK-DEPENDENT",
+                "title": "Dependent work",
+                "goal": original["goal"],
+                "palari": original["palari"],
+                "status": "active",
+                "dependency_ids": [original["id"]],
+            }
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "dependency_ids references retired work: WORK-1",
+        ):
+            Workspace.from_raw(raw, FIXTURES)
+
     def test_example_workbench_graph_loads(self) -> None:
         workspace = Workspace.load(EXAMPLE_WORKSPACE)
 
@@ -315,6 +580,61 @@ class WorkspaceValidationTests(unittest.TestCase):
         workspace = self.modified_example_workspace(exact_intents)
 
         self.assertEqual(workspace.work_items[0].path_intents[1]["intent"], "delete")
+
+    def test_request_path_normalizer_is_bounded_and_request_local(self) -> None:
+        from palari_company_os import validation
+
+        first = validation._request_path_normalizer()
+        second = validation._request_path_normalizer()
+
+        self.assertIsNot(first, second)
+        self.assertEqual(first.cache_info().maxsize, validation.PATH_VALIDATION_CACHE_SIZE)
+        self.assertEqual(second.cache_info().currsize, 0)
+
+        for index in range(validation.PATH_VALIDATION_CACHE_SIZE + 1):
+            first(f"docs/cache-entry-{index}.md")
+
+        full = first.cache_info()
+        self.assertEqual(full.currsize, validation.PATH_VALIDATION_CACHE_SIZE)
+        self.assertEqual(full.misses, validation.PATH_VALIDATION_CACHE_SIZE + 1)
+
+        first("docs/cache-entry-0.md")
+        self.assertEqual(first.cache_info().misses, full.misses + 1)
+        self.assertEqual(second.cache_info().currsize, 0)
+
+    def test_cached_path_allowed_matches_canonical_path_policy(self) -> None:
+        from palari_company_os import validation
+        from palari_company_os.path_policy import path_allowed
+
+        paths = (
+            "docs",
+            "docs/guide.md",
+            "docs/nested/guide.md",
+            "docs-other/guide.md",
+            "docs/./guide.md",
+            "docs\\nested\\guide.md",
+            "docs/../secret.txt",
+            "/docs/guide.md",
+            "C:\\docs\\guide.md",
+            "",
+        )
+        boundary_sets = (
+            [],
+            ["docs"],
+            ["docs/guide.md"],
+            ["docs\\nested"],
+            ["../docs"],
+            ["../invalid", "docs"],
+        )
+        normalize_path = validation._request_path_normalizer()
+
+        for path in paths:
+            for boundaries in boundary_sets:
+                with self.subTest(path=path, boundaries=boundaries):
+                    self.assertEqual(
+                        validation._path_allowed(path, boundaries, normalize_path),
+                        path_allowed(path, boundaries),
+                    )
 
     def test_work_item_path_intent_outside_boundary_fails_closed(self) -> None:
         def outside_intent(data: dict[str, object]) -> None:

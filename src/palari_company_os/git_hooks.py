@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -190,6 +191,7 @@ def install_git_hook(
     workspace_path: Path | str,
     *,
     remove: bool = False,
+    palari_executable: Path | str | None = None,
 ) -> dict[str, Any]:
     """Install or remove the Palari pre-commit hook in ``.git/hooks/``.
 
@@ -216,8 +218,21 @@ def install_git_hook(
             "message": f"Cannot locate Git hook directory: {hook_error}",
             "hook_path": "",
         }
+    location_error = _git_hook_location_error(git_root, hook_path)
+    if location_error:
+        return {
+            "schema_version": "palari.git_install.v1",
+            "status": "error",
+            "changed": False,
+            "message": location_error,
+            "hook_path": str(hook_path),
+        }
     workspace_arg = shlex.quote(_workspace_argument(root, workspace_path))
-    executable = _palari_executable(root)
+    executable = (
+        shlex.quote(str(palari_executable))
+        if palari_executable is not None
+        else _palari_executable(root)
+    )
 
     if remove:
         if hook_path.exists() and _is_managed_hook(hook_path):
@@ -244,7 +259,7 @@ def install_git_hook(
     )
     existing = hook_path.read_text(encoding="utf-8") if hook_path.exists() else ""
     if _is_managed_hook_str(existing):
-        if existing.strip() == script.strip():
+        if existing.strip() == script.strip() and os.access(hook_path, os.X_OK):
             return {
                 "schema_version": "palari.git_install.v1",
                 "status": "unchanged",
@@ -252,8 +267,9 @@ def install_git_hook(
                 "hook_path": str(hook_path),
                 "message": f"Palari pre-commit hook already installed at {hook_path}.",
             }
-        hook_path.write_text(script, encoding="utf-8")
-        _make_executable(hook_path)
+        write_error = _replace_executable_hook(hook_path, script)
+        if write_error:
+            return _hook_install_error(hook_path, write_error)
         return {
             "schema_version": "palari.git_install.v1",
             "status": "updated",
@@ -274,9 +290,9 @@ def install_git_hook(
             ),
         }
 
-    hook_path.parent.mkdir(parents=True, exist_ok=True)
-    hook_path.write_text(script, encoding="utf-8")
-    _make_executable(hook_path)
+    write_error = _replace_executable_hook(hook_path, script)
+    if write_error:
+        return _hook_install_error(hook_path, write_error)
     return {
         "schema_version": "palari.git_install.v1",
         "status": "installed",
@@ -297,7 +313,7 @@ def git_hook_status(
 
     installed = False
     if hook_path and hook_path.exists():
-        installed = _is_managed_hook(hook_path)
+        installed = _is_managed_hook(hook_path) and os.access(hook_path, os.X_OK)
 
     state = load_active_claim_contexts(workspace_path)
     contexts = state["contexts"]
@@ -397,11 +413,42 @@ def _is_managed_hook_str(content: str) -> bool:
     return HOOK_MARKER in content and "palari" in content
 
 
-def _make_executable(path: Path) -> None:
+def _replace_executable_hook(path: Path, content: str) -> str:
+    """Atomically install executable hook bytes or leave the target untouched."""
+
+    temporary: Path | None = None
     try:
-        path.chmod(0o755)
-    except OSError:
-        pass
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, raw_path = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.palari-",
+        )
+        os.close(descriptor)
+        temporary = Path(raw_path)
+        temporary.write_text(content, encoding="utf-8")
+        temporary.chmod(0o755)
+        if not os.access(temporary, os.X_OK):
+            raise OSError("temporary hook did not become executable")
+        os.replace(temporary, path)
+        temporary = None
+    except OSError as exc:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+        return str(exc)
+    return ""
+
+
+def _hook_install_error(path: Path, detail: str) -> dict[str, Any]:
+    return {
+        "schema_version": "palari.git_install.v1",
+        "status": "error",
+        "changed": False,
+        "hook_path": str(path),
+        "message": f"Palari pre-commit hook was not installed safely: {detail}",
+    }
 
 
 def _workspace_argument(root: Path, workspace_path: Path | str) -> str:
@@ -461,3 +508,42 @@ def _git_hook_path(root: Path) -> tuple[Path | None, str]:
     if not path.is_absolute():
         path = root / path
     return path.resolve(), ""
+
+
+def _git_hook_location_error(root: Path, hook_path: Path) -> str:
+    """Reject process-global or unrelated hook targets before any write.
+
+    A linked worktree legitimately shares the repository's common Git
+    directory, so both the worktree root and that exact common directory are
+    local. An arbitrary absolute ``core.hooksPath`` is not.
+    """
+
+    allowed_roots = [root.resolve()]
+    try:
+        common = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--git-common-dir"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"Cannot verify Git hook locality: {exc}"
+    if common.returncode != 0 or not common.stdout.strip():
+        return common.stderr.strip() or "Cannot verify Git common directory"
+    common_dir = Path(common.stdout.strip()).expanduser()
+    if not common_dir.is_absolute():
+        common_dir = root / common_dir
+    allowed_roots.append(common_dir.resolve())
+    resolved = hook_path.resolve()
+    for allowed in allowed_roots:
+        try:
+            resolved.relative_to(allowed)
+            return ""
+        except ValueError:
+            continue
+    return (
+        f"Refusing Git hook target outside this repository: {resolved}. "
+        "Use a repository-local core.hooksPath or remove that configuration."
+    )

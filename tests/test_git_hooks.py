@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -140,6 +141,30 @@ class GitHooksTests(unittest.TestCase):
         self.assertEqual(result["status"], "unchanged")
         self.assertFalse(result["changed"])
 
+    def test_install_fails_closed_when_hook_cannot_be_made_executable(self) -> None:
+        hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
+
+        with mock.patch.object(Path, "chmod", side_effect=OSError("chmod denied")):
+            result = install_git_hook(self._tmp, self.workspace_path)
+
+        self.assertEqual(result["status"], "error")
+        self.assertFalse(result["changed"])
+        self.assertIn("not installed safely", result["message"])
+        self.assertFalse(hook_path.exists())
+        self.assertEqual(list(hook_path.parent.glob(".pre-commit.palari-*")), [])
+
+    def test_install_repairs_a_non_executable_managed_hook(self) -> None:
+        install_git_hook(self._tmp, self.workspace_path)
+        hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
+        hook_path.chmod(0o600)
+
+        self.assertFalse(git_hook_status(self._tmp, self.workspace_path)["installed"])
+        result = install_git_hook(self._tmp, self.workspace_path)
+
+        self.assertEqual(result["status"], "updated")
+        self.assertTrue(result["changed"])
+        self.assertTrue(os.access(hook_path, os.X_OK))
+
     def test_install_then_remove(self) -> None:
         install_git_hook(self._tmp, self.workspace_path)
         result = install_git_hook(self._tmp, self.workspace_path, remove=True)
@@ -161,6 +186,22 @@ class GitHooksTests(unittest.TestCase):
         self.assertEqual(result["status"], "installed")
         self.assertEqual(Path(result["hook_path"]), Path(self._tmp) / ".custom-hooks" / "pre-commit")
         self.assertTrue((Path(self._tmp) / ".custom-hooks" / "pre-commit").is_file())
+
+    def test_install_rejects_core_hooks_path_outside_repository(self) -> None:
+        outside = Path(self._tmp).parent / f"{Path(self._tmp).name}-hooks"
+        self.addCleanup(shutil.rmtree, outside, True)
+        subprocess.run(
+            ["git", "config", "core.hooksPath", str(outside)],
+            cwd=self._tmp,
+            check=True,
+            capture_output=True,
+        )
+
+        result = install_git_hook(self._tmp, self.workspace_path)
+
+        self.assertEqual(result["status"], "error")
+        self.assertIn("outside this repository", result["message"])
+        self.assertFalse((outside / "pre-commit").exists())
 
     def test_remove_when_not_installed(self) -> None:
         result = install_git_hook(self._tmp, self.workspace_path, remove=True)
