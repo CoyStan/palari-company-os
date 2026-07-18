@@ -26,7 +26,12 @@ from palari_company_os.claude_hooks import (
 )
 from palari_company_os.agent_file_changes import capture_git_baseline
 from palari_company_os.agent_packets import build_agent_brief
-from palari_company_os.agent_runtime import GIT_WITNESS_VERSION, _create_git_witness
+from palari_company_os.agent_runtime import (
+    CLAIM_SCHEMA_VERSION,
+    GIT_WITNESS_VERSION,
+    _create_git_witness,
+)
+from palari_company_os.agent_session_contract import compile_agent_session_contract
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.workspace import Workspace
 
@@ -130,11 +135,16 @@ def _write_claim_and_packet(
         packet["mode"] = mode
     context_hash = _packet_hash(packet)
     packet["context_hash"] = context_hash
+    session_contract = compile_agent_session_contract(packet)
+    contract_relative = (
+        ".palari/packets/session-contracts/"
+        f"{session_contract['contract_id']}.json"
+    )
     git_baseline = capture_git_baseline(workspace_dir)
     git_baseline_hash = _object_hash(git_baseline)
     git_witness_ref = _create_git_witness(work_id, git_baseline)
     claim = {
-        "schema_version": "palari.agent_claim.v1",
+        "schema_version": CLAIM_SCHEMA_VERSION,
         "work_item": work_id,
         "claimed_by": palari_id,
         "mode": mode,
@@ -142,6 +152,8 @@ def _write_claim_and_packet(
         "packet_id": packet_id,
         "context_hash": context_hash,
         "packet_path": f".palari/packets/{packet_id}.json",
+        "session_contract_path": contract_relative,
+        "session_contract_digest": session_contract["contract_digest"],
         "git_baseline": git_baseline,
         "git_baseline_hash": git_baseline_hash,
         "git_baseline_path": f".palari/claims/{work_id}.baseline",
@@ -150,8 +162,9 @@ def _write_claim_and_packet(
     }
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
+    contracts = packets / "session-contracts"
     claims.mkdir(parents=True, exist_ok=True)
-    packets.mkdir(parents=True, exist_ok=True)
+    contracts.mkdir(parents=True, exist_ok=True)
     baseline = {
         "schema_version": "palari.persisted_git_baseline.v1",
         "work_item": work_id,
@@ -168,6 +181,9 @@ def _write_claim_and_packet(
         json.dumps(baseline), encoding="utf-8"
     )
     (packets / f"{packet_id}.json").write_text(json.dumps(packet), encoding="utf-8")
+    (workspace_dir / contract_relative).write_text(
+        json.dumps(session_contract), encoding="utf-8"
+    )
 
 
 def _packet_hash(packet: dict[str, Any]) -> str:
@@ -1113,7 +1129,7 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(_decision(result), "deny")
         self.assertIn(
-            "current workspace packet",
+            "persisted contract differs from the current packet authority",
             result["hookSpecificOutput"]["permissionDecisionReason"],
         )
 
