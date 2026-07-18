@@ -4120,7 +4120,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "blocked",
       "scope": "Make ordinary governed work a two-command agent path and one-action human path through one deterministic state-to-action compiler, including safe deletion and parking semantics.",
       "allowed_resources": [
         "src/palari_company_os/agent_directive.py",
