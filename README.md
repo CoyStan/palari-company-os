@@ -58,7 +58,7 @@ To adopt it in your own repo, create the local contract, add bounded work, and
 let any agent claim the next safe item:
 
 ```bash
-palari init --palari Agent --json
+palari init --palari Agent --host codex --json
 palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
@@ -66,8 +66,12 @@ palari agent start --next --as PALARI-AGENT --json
 `init` creates missing `AGENTS.md` and `docs/agent/` orientation without
 overwriting existing guidance. In a Git worktree it also creates one local,
 path-limited bootstrap commit containing only the new governance projection and
-newly generated agent docs. That commit is an immutable execution-authority
-anchor, not human approval; unrelated staged and unstaged work is excluded.
+newly generated agent docs. With `--host`, the same commit also anchors new
+project-local host configuration and installs the claim-bound Git commit gate.
+That commit is an immutable execution-authority anchor, not human approval;
+unrelated staged and unstaged work is excluded. Choose `claude`, `codex`,
+`cursor`, `devin`, `glm`, or `generic`. Codex asks you to review the exact
+project hook once through `/hooks`; Palari cannot manufacture that host trust.
 
 Use the declared identity returned by `init` (`PALARI-AGENT` for the command
 above), then use the opaque work ID returned by `start` after doing and
@@ -77,9 +81,12 @@ committing the bounded work:
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
-Do not infer a sequential work ID. `palari claude install` is an optional
-Claude Code enforcement adapter; the core packet, claim, proof, review, and
-human-decision flow is provider-neutral.
+Do not infer a sequential work ID. For a repository that already has a Palari
+workspace, run `palari agent adopt --host HOST --as PALARI-ID --json` once.
+Claude and Codex receive tested session hooks; Cursor, Devin, GLM, and generic
+hosts receive the portable contract plus structural commit-time enforcement
+and are labeled advisory at session time. The core packet, claim, proof,
+review, and human-decision flow remains provider-neutral.
 
 Use legacy `--write PATH` when the output must exist. When final mutation type
 matters, declare it exactly and do not mix the forms:

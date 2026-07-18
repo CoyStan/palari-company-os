@@ -40,7 +40,7 @@ one bounded item, and let Palari select and claim the next safe item:
 
 ```bash
 cd your-project
-palari init --palari Agent --json
+palari init --palari Agent --host codex --json
 palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
@@ -55,7 +55,10 @@ declared by `init`.
 In a Git worktree, `init` also creates missing agent-ready guidance and one
 path-limited local commit that anchors the exact starter governance projection.
 It never overwrites existing `AGENTS.md` or `docs/agent/` files and excludes
-unrelated staged and unstaged work. This mechanical anchor is not a review or
+unrelated staged and unstaged work. `--host codex` also installs the portable
+contract, claim-bound Git gate, and project-local Codex hooks, and includes new
+host configuration in that same anchor so the first work session does not
+inherit unexplained setup dirt. This mechanical anchor is not a review or
 human decision. An interrupted initialization is recovered idempotently by
 `work add`; if Git cannot supply the immutable baseline, `agent start` reports
 one exact path-limited anchor command instead of suggesting unrelated queue or
@@ -74,14 +77,23 @@ number. Unrelated opaque work IDs can be claimed and completed in parallel.
 `advance` stops at the first genuine independent-review, human-authority,
 external-effect, or safety boundary; it never manufactures that judgment.
 
-## Optional Host Hooks
+## One-Action Host Adoption
 
-Palari's packet, claim, scope, proof, review, and authority flow does not require
-a provider adapter. Claude Code users may additionally run `palari claude
-install` to deny out-of-boundary writes through host hooks. The hooks strengthen
-runtime enforcement, but they are optional and do not replace Palari's
-provider-neutral governance checks. See [Claude Code
-Integration](claude-code-integration.md).
+Fresh repositories can pass `--host claude`, `codex`, `cursor`, `devin`, `glm`,
+or `generic` to `init`. Existing Palari workspaces use one explicit action:
+
+```bash
+palari agent adopt --host codex --as PALARI-AGENT --json
+```
+
+Every profile installs the portable repository contract and structural Git
+commit boundary. Claude and Codex also receive tested session hooks. Codex
+requires one host-native `/hooks` review before its project hooks activate.
+Cursor, Devin, GLM, and generic profiles are honestly reported as advisory at
+session time until a native protocol is separately proven. No profile grants
+review, human acceptance, merge, push, deployment, provider, or external-write
+authority. Existing `palari claude install` remains compatible. See [Claude
+Code Integration](claude-code-integration.md).
 
 ## Optional Local Desk
 

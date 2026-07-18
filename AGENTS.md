@@ -131,11 +131,13 @@ The canonical contract is in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
-Claude Code users may optionally add structural enforcement with `palari
-claude install`. Those hooks deny out-of-boundary file writes and block turn
-completion while the working tree escapes the packet boundary; they are a
-secondary host adapter, not a requirement for the provider-neutral loop. See
-`docs/product/claude-code-integration.md`.
+Fresh Git projects may use `palari init --host HOST`; existing workspaces use
+`palari agent adopt --host HOST --as PALARI-ID`. Every profile installs the
+portable contract and commit-time Git boundary. Claude and Codex also receive
+tested session hooks; Codex requires explicit `/hooks` trust. Cursor, Devin,
+GLM, and generic profiles remain advisory at session time rather than claiming
+an unproven native enforcement boundary. Existing `palari claude install`
+remains compatible; see `docs/product/claude-code-integration.md`.
 
 ## Agent-Ready Repo Docs
 
