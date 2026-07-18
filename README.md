@@ -75,7 +75,9 @@ project hook once through `/hooks`; Palari cannot manufacture that host trust.
 For a workspace nested inside a repository, adoption targets the enclosing Git
 root. Existing root instructions or host configuration remain untouched and
 uncommitted; `init` returns one separate review/adoption action instead of
-absorbing those bytes into the authority anchor.
+absorbing those bytes into the authority anchor. Palari binds generated hook
+commands to the exact executable that is currently running, so an isolated
+installed package remains usable even when `palari` is absent from `PATH`.
 
 Use the declared identity returned by `init` (`PALARI-AGENT` for the command
 above), then use the opaque work ID returned by `start` after doing and
@@ -93,6 +95,11 @@ Claude and Codex receive tested session hooks; Cursor, Devin, GLM, and generic
 hosts receive the portable contract plus structural commit-time enforcement
 and are labeled advisory at session time. The core packet, claim, proof,
 review, and human-decision flow remains provider-neutral.
+
+Adoption preflights `workspace.json` and every managed target before writing.
+A workspace-file symlink, parent escape, or foreign managed target fails closed;
+legacy Palari-managed Claude hooks are upgraded in place and remain cleanly
+removable.
 
 Use legacy `--write PATH` when the output must exist. When final mutation type
 matters, declare it exactly and do not mix the forms:

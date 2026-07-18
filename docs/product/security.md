@@ -155,7 +155,12 @@ Authority rules:
   files or Git metadata. Nested workspace adoption resolves and preflights the
   enclosing Git root before any write, so existing root instructions or host
   configuration cannot be silently absorbed into the bootstrap commit.
-  Existing `palari claude install` remains compatible.
+  A symlinked workspace file or escaping managed target fails before the
+  workspace is loaded or project files are written. Generated commands bind
+  the exact inspectable executable already running, including an isolated
+  absolute installation absent from `PATH`. Existing `palari claude install`
+  remains compatible; its Palari-managed legacy hooks are upgraded and removed
+  without duplicate entries.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked

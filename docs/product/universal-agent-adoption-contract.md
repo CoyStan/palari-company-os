@@ -27,6 +27,9 @@ Every completed checkbox names exact committed proof. The product rule is:
     `3bf74e9a874df0cac4a999fc921836ca5c3078ac`, and
     `bd1dde8506ef83974bf7f3419ed5f0e3bbb3ab10`; the same `init --host`
     surface is committed at `06551e64c4d056a6c55fbbcb1ba960e63e599710`.
+    Nested-root preflight and installed-package compatibility are proven at
+    `569f37d7f8bc9bcc578f0e04251f49f8a84ec7d3` and
+    `6c2d70324e97326397478c336fb047d5d750c32a`.
 
 - [x] **Portable contract plus structural commit boundary**
   - Required outcome: adoption writes a bounded, managed `AGENTS.md` block and
@@ -40,7 +43,10 @@ Every completed checkbox names exact committed proof. The product rule is:
     executable-wrapper proof at `bd1dde8506ef83974bf7f3419ed5f0e3bbb3ab10`,
     and atomic executable-hook/foreign-command repairs at
     `53400beeb3ab833b22fc3eb056ae0d7549874141` and
-    `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
+    `f9620da7a8d6728c35e27e09b0c2d820c214f80a`, followed by stable
+    executable ownership at `4ced628bfcc6988c914db81b0cf2bd69b05b5cd4`
+    and unrelated-bin compatibility at
+    `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`.
 
 - [x] **Proven native session adapters only**
   - Required outcome: Claude keeps its existing structural hook adapter; Codex
@@ -61,6 +67,10 @@ Every completed checkbox names exact committed proof. The product rule is:
     and duplicate-workspace/compound-hook hardening at
     `53400beeb3ab833b22fc3eb056ae0d7549874141`, with exact executable-token
     classification at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
+    Legacy Claude-hook replacement, external workspace-symlink rejection, and
+    current-entrypoint preservation are proven at
+    `6c2d70324e97326397478c336fb047d5d750c32a` and
+    `4ced628bfcc6988c914db81b0cf2bd69b05b5cd4`.
 
 - [x] **Complete agent loop over MCP**
   - Required outcome: MCP clients can select/start the next work item, request
@@ -74,7 +84,7 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Current status: completed; MCP and session-contract suites pass.
   - Exact committed evidence when completed: `485cb7bb4b85f4364e6fe1e19f4e05be975b75b8`.
 
-- [ ] **Minimal, compatible, and independently reviewed delivery**
+- [x] **Minimal, compatible, and independently reviewed delivery**
   - Required outcome: standard library only; no global config, credential,
     network, provider, daemon, autonomous review, or human acceptance; existing
     CLI/MCP/session-contract behavior remains compatible. A fresh independent
@@ -83,8 +93,16 @@ Every completed checkbox names exact committed proof. The product rule is:
     isolated install smoke, changed-path check, and exact-head review.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/verify.sh`, `./scripts/install_smoke.sh`, and review artifact.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; the dependency-free candidate passed the full,
+    installed, conformance, host-adapter, and adversarial suites, and a fresh
+    architecture reviewer returned ACCEPT with no substantive findings.
+  - Exact committed evidence when completed: exact reviewed implementation
+    head `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`; isolated installed-package
+    compatibility at `6c2d70324e97326397478c336fb047d5d750c32a`;
+    reviewer verdict ACCEPT for `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`;
+    complete gate at `6c2d70324e97326397478c336fb047d5d750c32a`
+    passed 946 tests in three runs with a 111.86-second median; isolated install
+    smoke and all 18 PCAW vectors passed.
 
 ## Non-claims
 

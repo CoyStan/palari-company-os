@@ -86,7 +86,10 @@ not four branch-specific approval ceremonies.
     `8ea7816fee11fe753345f122f23c48a5f89771d0`,
     `06551e64c4d056a6c55fbbcb1ba960e63e599710`, and
     `53400beeb3ab833b22fc3eb056ae0d7549874141`, with foreign-command
-    preservation at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
+    preservation at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`, installed and legacy-host
+    compatibility at `6c2d70324e97326397478c336fb047d5d750c32a`, executable ownership at
+    `4ced628bfcc6988c914db81b0cf2bd69b05b5cd4`, and final symlink-boundary
+    compatibility at `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`.
 
 - [ ] **One coherent, verified, review-accepted candidate**
   - Required outcome: all four slices compose on one exact committed head,
@@ -99,5 +102,29 @@ not four branch-specific approval ceremonies.
   - Verification command or artifact: `./bin/palari validate --json`,
     `./bin/palari docs check --json`, PCAW conformance, `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, agent check/advance/handoff, and review history.
-  - Current status: pending.
-  - Exact committed evidence when completed: pending.
+  - Current status: blocked only on explicit human scope decision
+    `DECISION-FOUNDATION-AUTHORING-SCOPE`. Independent repair moved terminal
+    lifecycle enforcement into `src/palari_company_os/authoring.py` after the
+    integration packet was claimed, so exact commit-range proof correctly
+    refuses to conceal that added path. All safe implementation, precursor
+    retirement, focused verification, complete verification, install smoke,
+    conformance, and implementation review work is complete.
+  - Exact committed evidence when completed: not yet complete. Candidate code
+    is exact head `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d` with architecture-review
+    ACCEPT; all four precursors are auditably superseded by the integration item
+    at `cc96d088d42ac1b3bf4bb4565c3496d87b3aff11`; the fail-closed scope
+    decision is committed at `70407b50faf8c7ada29e128ff300f71811b5367f`.
+    Final proof and presentation remain
+    unavailable until that decision is made by a human and the corrected
+    packet completes normal review.
+
+## Complete-Gate Timing
+
+| Candidate | Tests | Three-run median | Median peak RSS | Comparison |
+| --- | ---: | ---: | ---: | --- |
+| Baseline `f6e2cf9` | 876 | 113.59 s | 358,556 KB | recorded baseline |
+| Implementation `6c2d703` | 946 | 111.86 s | 218,180 KB | 1.52% faster; 39.2% less memory |
+
+The implementation adds 70 tests while remaining inside the performance
+budget. The authoritative gate is still `./scripts/verify.sh`; focused profiles
+exist only to shorten development feedback, not to replace acceptance checks.
