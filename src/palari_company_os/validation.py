@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Any, Iterable, TypeVar
+from functools import lru_cache
+from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
 from .integration_contracts import PROVIDER_ACTIONS, supported_actions_for_mode
@@ -21,11 +22,14 @@ from .models import (
     ReviewVerdict,
     WorkItem,
 )
-from .path_policy import path_allowed, validate_workspace_path
+from .path_policy import validate_workspace_path
 from .record_order import record_time_key, timestamp_order
 
 
 T = TypeVar("T")
+PathNormalizer = Callable[[str], str]
+
+PATH_VALIDATION_CACHE_SIZE = 4096
 
 COLLECTION_KEYS = (
     "goals",
@@ -560,6 +564,7 @@ def _validate_collection(raw: dict[str, object], key: str) -> None:
 
 
 def validate_workspace_contract(workspace: Any) -> None:
+    normalize_path = _request_path_normalizer()
     attempts_by_id = {attempt.id: attempt for attempt in workspace.attempts}
     evidence_by_id = {evidence.id: evidence for evidence in workspace.evidence_runs}
     reviews_by_id = {review.id: review for review in workspace.review_verdicts}
@@ -621,7 +626,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             work.parallel_policy,
             PARALLEL_POLICIES,
         )
-        _validate_path_intents(work)
+        _validate_path_intents(work, normalize_path)
 
     _validate_work_retirement_graph(work_by_id)
 
@@ -643,7 +648,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
-        _validate_attempt_boundaries(attempt, work_by_id)
+        _validate_attempt_boundaries(attempt, work_by_id, normalize_path)
 
     for evidence in workspace.evidence_runs:
         _require_allowed_value(
@@ -863,6 +868,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             sources_by_id,
             integration_plans_by_id,
             integration_outbox_by_id,
+            normalize_path,
         )
         _validate_receipt_hash_shape(receipt)
 
@@ -901,6 +907,12 @@ def _reject_unknown_fields(label: str, record: dict[str, object], allowed: set[s
     if unknown:
         fields = ", ".join(unknown)
         raise WorkspaceError(f"{label} has unknown field(s): {fields}")
+
+
+def _request_path_normalizer() -> PathNormalizer:
+    """Return a bounded pure path cache for one workspace validation request."""
+
+    return lru_cache(maxsize=PATH_VALIDATION_CACHE_SIZE)(validate_workspace_path)
 
 
 def _record_label(collection: str, index: int, record: dict[str, object]) -> str:
@@ -1334,6 +1346,7 @@ def _looks_like_secret_field(key: str, value: str) -> bool:
 def _validate_attempt_boundaries(
     attempt: Attempt,
     work_by_id: dict[str, WorkItem],
+    normalize_path: PathNormalizer,
 ) -> None:
     work = work_by_id[attempt.work_item_id]
     write_boundaries = _write_boundaries(work)
@@ -1345,18 +1358,25 @@ def _validate_attempt_boundaries(
             f"attempts.{attempt.id}.changed_files",
             changed_file,
             attempt_boundaries,
+            normalize_path,
         )
         for forbidden_path in attempt.forbidden_paths:
-            _require_changed_file_outside_forbidden_path(attempt.id, changed_file, forbidden_path)
+            _require_changed_file_outside_forbidden_path(
+                attempt.id,
+                changed_file,
+                forbidden_path,
+                normalize_path,
+            )
     for output_target in attempt.output_targets:
         _require_path_in_boundaries(
             f"attempts.{attempt.id}.output_targets",
             output_target,
             output_boundaries,
+            normalize_path,
         )
 
 
-def _validate_path_intents(work: WorkItem) -> None:
+def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> None:
     """Validate the additive exact-path mutation contract.
 
     Legacy work items omit ``path_intents`` and retain their existing
@@ -1385,7 +1405,7 @@ def _validate_path_intents(work: WorkItem) -> None:
                 "expected one of: create, delete, modify"
             )
         try:
-            normalized = validate_workspace_path(path)
+            normalized = normalize_path(path)
         except ValueError as exc:
             raise WorkspaceError(f"{label}.path contains unsafe path {path}: {exc}") from exc
         if normalized != path:
@@ -1396,24 +1416,33 @@ def _validate_path_intents(work: WorkItem) -> None:
             )
         seen.add(path)
         for other in seen - {path}:
-            if path_allowed(path, [other]) or path_allowed(other, [path]):
+            if _path_allowed(path, [other], normalize_path) or _path_allowed(
+                other,
+                [path],
+                normalize_path,
+            ):
                 raise WorkspaceError(
                     f"work_items.{work.id}.path_intents paths overlap by prefix: "
                     f"{other}, {path}"
                 )
-        if not boundaries or not path_allowed(path, boundaries):
+        if not boundaries or not _path_allowed(path, boundaries, normalize_path):
             raise WorkspaceError(
                 f"{label}.path includes path outside declared boundaries: {path}"
             )
 
 
-def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
+def _validate_receipt_boundaries(
+    receipt: Receipt,
+    work: WorkItem,
+    normalize_path: PathNormalizer,
+) -> None:
     write_boundaries = _write_boundaries(work)
     for output in receipt.outputs_created:
         _require_path_in_boundaries(
             f"receipts.{receipt.id}.outputs_created",
             output,
             write_boundaries,
+            normalize_path,
         )
     for undo_ref in receipt.undo_refs:
         undo_path = _undo_ref_path(undo_ref)
@@ -1422,6 +1451,7 @@ def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
                 f"receipts.{receipt.id}.undo_refs",
                 undo_path,
                 write_boundaries,
+                normalize_path,
             )
 
 
@@ -1433,29 +1463,57 @@ def _output_boundaries(work: WorkItem) -> list[str]:
     return list(work.output_targets or work.allowed_resources)
 
 
-def _require_path_in_boundaries(label: str, path: str, boundaries: list[str]) -> None:
+def _require_path_in_boundaries(
+    label: str,
+    path: str,
+    boundaries: list[str],
+    normalize_path: PathNormalizer,
+) -> None:
     if not boundaries:
         raise WorkspaceError(f"{label} has no declared output or resource boundary for {path}")
     try:
-        validate_workspace_path(path)
+        normalize_path(path)
     except ValueError as exc:
         raise WorkspaceError(f"{label} contains unsafe path {path}: {exc}") from exc
-    if not path_allowed(path, boundaries):
+    if not _path_allowed(path, boundaries, normalize_path):
         raise WorkspaceError(f"{label} includes path outside declared boundaries: {path}")
+
+
+def _path_allowed(
+    path: str,
+    boundaries: Iterable[str],
+    normalize_path: PathNormalizer,
+) -> bool:
+    try:
+        normalized = normalize_path(path)
+    except ValueError:
+        return False
+
+    for boundary in boundaries:
+        try:
+            normalized_boundary = normalize_path(boundary)
+        except ValueError:
+            continue
+        if normalized == normalized_boundary or normalized.startswith(
+            f"{normalized_boundary}/"
+        ):
+            return True
+    return False
 
 
 def _require_changed_file_outside_forbidden_path(
     attempt_id: str,
     changed_file: str,
     forbidden_path: str,
+    normalize_path: PathNormalizer,
 ) -> None:
     try:
-        validate_workspace_path(forbidden_path)
+        normalize_path(forbidden_path)
     except ValueError as exc:
         raise WorkspaceError(
             f"attempts.{attempt_id}.forbidden_paths contains unsafe path {forbidden_path}: {exc}"
         ) from exc
-    if path_allowed(changed_file, [forbidden_path]):
+    if _path_allowed(changed_file, [forbidden_path], normalize_path):
         raise WorkspaceError(
             f"attempts.{attempt_id}.changed_files includes forbidden path {changed_file}"
         )
@@ -2010,6 +2068,7 @@ def _validate_receipt(
     sources_by_id: dict[str, Any],
     integration_plans_by_id: dict[str, IntegrationPlan],
     integration_outbox_by_id: dict[str, IntegrationOutboxItem],
+    normalize_path: PathNormalizer,
 ) -> None:
     work = work_by_id[receipt.work_item_id]
     attempt = attempts_by_id[receipt.attempt_id]
@@ -2034,7 +2093,7 @@ def _validate_receipt(
                 f"receipts.{receipt.id}.sources_used includes source {source_id} "
                 f"not allowed for Palari {work.palari}"
             )
-    _validate_receipt_boundaries(receipt, work)
+    _validate_receipt_boundaries(receipt, work, normalize_path)
     for plan_id in receipt.planned_external_writes:
         plan = integration_plans_by_id[plan_id]
         if plan.work_item_id != work.id:
