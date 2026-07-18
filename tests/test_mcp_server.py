@@ -65,6 +65,13 @@ class McpServerTests(unittest.TestCase):
             "palari_agent_release",
         }
         non_idempotent_tools = {"palari_agent_start", "palari_agent_release"}
+        self.assertFalse(
+            any(
+                word in name
+                for name in names
+                for word in ("human", "accept", "review_record", "push", "merge", "deploy")
+            )
+        )
         for tool in tool_definitions():
             self.assertEqual(
                 tool["annotations"]["readOnlyHint"],

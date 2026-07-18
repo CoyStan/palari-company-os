@@ -661,7 +661,7 @@ def _add_mcp_parser(subparsers: Any) -> None:
     nested = parser.add_subparsers(dest="mcp_command", required=True)
     serve = nested.add_parser(
         "serve",
-        help="Run a read-only stdio MCP server for Palari agent tools.",
+        help="Run a local stdio MCP server for Palari agent tools.",
     )
     serve.add_argument(
         "--repo",

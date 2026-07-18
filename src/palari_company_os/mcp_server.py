@@ -37,7 +37,7 @@ def serve_mcp(
     input_stream: TextIO | None = None,
     output_stream: TextIO | None = None,
 ) -> None:
-    """Serve read-only Palari tools over MCP stdio JSON-RPC."""
+    """Serve bounded Palari agent-loop tools over MCP stdio JSON-RPC."""
     context = McpContext(
         workspace=str(workspace or default_workspace_path()),
         repo=str(repo),

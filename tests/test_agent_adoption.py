@@ -78,6 +78,23 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertEqual(first["enforcement"]["session_boundary"], "advisory")
         self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
 
+    def test_unproven_hosts_are_honestly_advisory_and_commit_gated(self) -> None:
+        for host in ("cursor", "devin", "glm"):
+            with self.subTest(host=host):
+                result = adopt_agent_host(
+                    self.workspace,
+                    project_dir=self.tmp,
+                    host=host,
+                    palari_id="PALARI-STEWARD",
+                )
+                self.assertEqual(result["host"], host)
+                self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
+                self.assertEqual(result["enforcement"]["commit_boundary"], "structural")
+                self.assertEqual(
+                    result["host_adapter"]["activation"],
+                    "no-proven-session-hook",
+                )
+
     def test_adoption_refuses_malformed_managed_block_without_installing_hook(self) -> None:
         (self.tmp / "AGENTS.md").write_text(
             "<!-- palari:agent-contract:start -->\n",
@@ -308,6 +325,19 @@ class AgentAdoptionTests(unittest.TestCase):
         )
         self.assertEqual(allowed, {})
 
+        session = self._codex_hook(
+            "session-start",
+            {"cwd": str(self.tmp), "source": "startup"},
+        )
+        context = session["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("WORK-ADOPT", context)
+        self.assertIn("README.md", context)
+
+        (self.tmp / "outside.txt").write_text("outside\n", encoding="utf-8")
+        stopped = self._codex_hook("stop", {"cwd": str(self.tmp)})
+        self.assertEqual(stopped["decision"], "block")
+        self.assertIn("outside.txt", stopped["reason"])
+
     def test_codex_hook_converts_unsupported_ask_into_fail_closed_deny(self) -> None:
         adopt_agent_host(
             self.workspace,
@@ -336,6 +366,19 @@ class AgentAdoptionTests(unittest.TestCase):
 
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("has no ask decision", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+        authority = self._codex_hook(
+            "pre-tool-use",
+            {
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": "palari human-decision record FORGED --work-item-id WORK-BASH"
+                },
+                "cwd": str(self.tmp),
+            },
+        )
+        self.assertEqual(authority["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("human-only", authority["hookSpecificOutput"]["permissionDecisionReason"])
 
     def _codex_hook(self, event: str, payload: dict[str, object]) -> dict[str, object]:
         return run_agent_hook(
