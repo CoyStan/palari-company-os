@@ -26,8 +26,8 @@ count of changes is not a completion condition.
     authority origin and returns `start.status: claimed` for the opaque work ID.
   - Verification: `python3 -m unittest
     tests.test_operator_journeys.OperatorJourneyTests.test_fresh_committed_repo_runs_init_start_and_advance_without_proof_ids`
-  - Status: implemented and focused verification passed.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in
+  - Status: complete; focused and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
     `src/palari_company_os/onramp.py` and `tests/test_operator_journeys.py`.
 
 - [x] First-adoption authority is anchored without laundering unrelated work.
@@ -40,8 +40,8 @@ count of changes is not a completion condition.
   - Verification: `python3 -m unittest
     tests.test_onramp.InitTests.test_init_anchors_only_generated_adoption_files_in_a_committed_repo
     tests.test_onramp.WorkAddTests.test_work_add_idempotently_recovers_an_unanchored_git_workspace`
-  - Status: implemented and focused verification passed.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in
+  - Status: complete; focused and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
     `src/palari_company_os/onramp.py` and `tests/test_onramp.py`.
 
 - [x] A newly adopted repository has useful agent-facing instructions before a
@@ -52,8 +52,8 @@ count of changes is not a completion condition.
     preservation tests prove existing `AGENTS.md` bytes are unchanged.
   - Verification: `python3 -m unittest tests.test_onramp.InitTests
     tests.test_operator_journeys.OperatorJourneyTests.test_fresh_committed_repo_runs_init_start_and_advance_without_proof_ids`
-  - Status: implemented and focused verification passed.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in
+  - Status: complete; focused and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
     `src/palari_company_os/onramp.py`, `tests/test_onramp.py`, and
     `tests/test_operator_journeys.py`.
 
@@ -67,8 +67,8 @@ count of changes is not a completion condition.
     `next action`, exact projection paths, `git add -f`, and `commit --only`.
   - Verification: `python3 -m unittest
     tests.test_operator_journeys.OperatorJourneyTests.test_unanchored_manual_workspace_fails_with_one_exact_recovery_action`
-  - Status: implemented and focused verification passed.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in
+  - Status: complete; focused and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
     `src/palari_company_os/agent_runtime.py` and
     `tests/test_operator_journeys.py`.
 
@@ -82,8 +82,8 @@ count of changes is not a completion condition.
     `Docs: missing`.
   - Verification: `python3 -m unittest tests.test_demo` and
     `palari demo --no-pause --json`.
-  - Status: implemented and focused verification passed.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in
+  - Status: complete; focused and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
     `src/palari_company_os/demo.py` and `tests/test_demo.py`.
 
 - [x] Public guidance describes the mechanical bootstrap and its authority
@@ -95,8 +95,8 @@ count of changes is not a completion condition.
     failure and public examples use `start --next` followed by `advance`.
   - Verification: `palari docs check --json` and complete repository
     verification.
-  - Status: implemented; complete verification pending candidate commit.
-  - Exact committed proof: `PENDING-CANDIDATE-COMMIT` in `README.md`,
+  - Status: complete; documentation and complete verification passed.
+  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in `README.md`,
     `docs/product/quickstart.md`, and `docs/product/agent-contract.md`.
 
 ## Non-claims
@@ -108,3 +108,16 @@ count of changes is not a completion condition.
 - Existing guidance is never rewritten automatically.
 - A repository already carrying committed workspace authority is never
   silently re-anchored from mutable current bytes.
+
+## Candidate Verification
+
+The exact implementation commit above passed:
+
+- `python3 -m unittest tests.test_onramp tests.test_demo
+  tests.test_operator_journeys tests.test_agent_packets` — 140 focused tests;
+- `./scripts/verify.sh complete` — 882 tests across 46 modules, style, schemas,
+  CLI smokes, trusted-code manifest, and 18 PCAW conformance vectors;
+- `./scripts/install_smoke.sh` — isolated wheel installation passed;
+- `palari docs check --json` — 12 checks passed with no warnings;
+- `palari demo --no-pause --json` — final deterministic advance reported
+  `Status: completed`.
