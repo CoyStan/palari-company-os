@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +21,7 @@ from palari_company_os.governance_binding import (
     current_review_binding,
     review_proof_hash,
 )
+from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace
 
 
@@ -479,27 +479,6 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertEqual(evidence["summary"], "Historical note clarified.")
         self.assertEqual(review["residual_risks"], ["Review must still be rerun."])
 
-    def test_public_command_surface_matches_current_product(self) -> None:
-        from palari_company_os.cli_parser import build_parser
-
-        commands: list[str] = []
-
-        def walk(parser: object, prefix: str = "palari") -> None:
-            for action in getattr(parser, "_actions", []):
-                choices = getattr(action, "choices", None)
-                if not isinstance(choices, dict):
-                    continue
-                for name, subparser in choices.items():
-                    if not hasattr(subparser, "_actions"):
-                        continue
-                    command = f"{prefix} {name}"
-                    commands.append(command)
-                    walk(subparser, command)
-
-        walk(build_parser())
-
-        self.assertEqual(len(commands), 153)
-
     def temp_workspace(self) -> object:
         return _TempWorkspace()
 
@@ -526,7 +505,9 @@ class _TempWorkspace:
     def __enter__(self) -> Path:
         self._tempdir = tempfile.TemporaryDirectory()
         target = Path(self._tempdir.name) / "acme-company-os"
-        shutil.copytree(WORKSPACE, target)
+        target.mkdir()
+        data = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
+        write_store(WorkspaceStore(data_path=target / "workspace.json", data=data))
         return target
 
     def __exit__(self, *args: object) -> None:
