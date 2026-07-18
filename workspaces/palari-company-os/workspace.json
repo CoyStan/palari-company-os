@@ -4814,7 +4814,8 @@
         "docs/product/compact-journal-v2-contract.md",
         "docs/product/invisible-product-surface-contract.md",
         "docs/product/universal-agent-adoption-contract.md",
-        "docs/product/invisible-adoption-foundation-contract.md"
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "src/palari_company_os/authoring.py"
       ],
       "allowed_sources": [
         "SOURCE-REPO-FOUNDATION"
@@ -4870,7 +4871,8 @@
         "docs/product/compact-journal-v2-contract.md",
         "docs/product/invisible-product-surface-contract.md",
         "docs/product/universal-agent-adoption-contract.md",
-        "docs/product/invisible-adoption-foundation-contract.md"
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "src/palari_company_os/authoring.py"
       ],
       "conflict_targets": [
         "src/palari_company_os/onramp.py",
@@ -4923,7 +4925,8 @@
         "docs/product/compact-journal-v2-contract.md",
         "docs/product/invisible-product-surface-contract.md",
         "docs/product/universal-agent-adoption-contract.md",
-        "docs/product/invisible-adoption-foundation-contract.md"
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "src/palari_company_os/authoring.py"
       ],
       "parallel_policy": "coordinate",
       "forbidden_actions": [
@@ -18687,7 +18690,7 @@
     {
       "id": "DECISION-FOUNDATION-AUTHORING-SCOPE",
       "question": "Should scope expand for WORK-3B7821F3452B40B283784832E86234C3?",
-      "status": "open",
+      "status": "decided",
       "context": "Reason: An independent lifecycle repair moved terminal-work enforcement into the shared authoring boundary after the integration packet was claimed; exact commit-range proof must name that file rather than hide it.\nRequested write paths: src/palari_company_os/authoring.py",
       "options": [
         "approve scope expansion",
@@ -18703,7 +18706,8 @@
       "safe_default": "reject scope expansion",
       "linked_goal": "GOAL-REPO-0002",
       "linked_work": "WORK-3B7821F3452B40B283784832E86234C3",
-      "linked_palari": "PALARI-STEWARD"
+      "linked_palari": "PALARI-STEWARD",
+      "result": "approve scope expansion"
     }
   ],
   "outcomes": [
