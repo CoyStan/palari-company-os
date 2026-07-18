@@ -24,7 +24,7 @@ not four branch-specific approval ceremonies.
 
 ## Required Outcomes
 
-- [ ] **Golden path is truthful and executable**
+- [x] **Golden path is truthful and executable**
   - Required outcome: a clean repository follows init, bounded work creation,
     start-next, one bounded commit, and advance without an undocumented Git
     bootstrap failure or copied proof IDs.
@@ -33,10 +33,11 @@ not four branch-specific approval ceremonies.
     fail-closed unusual states.
   - Verification command or artifact: onramp, demo, operator-journey, runtime,
     and install smokes.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; isolated journey, demo, docs, and install checks pass.
+  - Exact committed evidence when completed: `ed877ed1c03179ce5895fa6533a4c628dcf2d787`
+    with verification record `ded82cd0efdeb09b42a09b6e8019b2c621a2e994`.
 
-- [ ] **Journal cost is proportional to logical change**
+- [x] **Journal cost is proportional to logical change**
   - Required outcome: compact v2 checkpoint/delta history remains strict,
     replayable, crash-safe, and backward-compatible without loading or copying
     the full historical projection on ordinary reads and writes.
@@ -44,10 +45,14 @@ not four branch-specific approval ceremonies.
     retry, bounded-memory, compactness, and three-run timing evidence.
   - Verification command or artifact: journal/crash/store suites and recorded
     dogfood-copy timings.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; compactness, crash, corruption, canonicality,
+    product-flow, and timing tests pass.
+  - Exact committed evidence when completed: `13c7be140e8adaf2dba90a9aa26a33314696a45f`,
+    `af4412597dcd1000010ef082b05a07cc55ed2106`,
+    `a2b99fbdcb3c0e2b3f5e0a11f06b4eef6d08a2f2`, and
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
-- [ ] **Ordinary product surface exposes concepts, not ceremony**
+- [x] **Ordinary product surface exposes concepts, not ceremony**
   - Required outcome: default help and operator views foreground init, work,
     agent start/advance/doctor, queue/detail, and proof; advanced compatibility
     commands remain parseable. Superseded/abandoned work is explicit,
@@ -57,18 +62,28 @@ not four branch-specific approval ceremonies.
     compatibility, and migration tests.
   - Verification command or artifact: public-surface, validation, read-model,
     packet, docs, and schema suites.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; 154-command compatibility, read-model,
+    retirement, storage-terminal, schema, and docs checks pass.
+  - Exact committed evidence when completed: `974121cac0fca752151de684caf4488b9e292829`,
+    `0e72d370c9fede44361340e60e1f2f97f032612c`,
+    `54bb18e117208932da05617315b0ec2ded53a3c8`,
+    `06551e64c4d056a6c55fbbcb1ba960e63e599710`, and
+    `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
 
-- [ ] **Any supported agent can adopt the same bounded loop**
+- [x] **Any supported agent can adopt the same bounded loop**
   - Required outcome: one honest host adoption action installs portable
     instructions, a structural Git gate, proven native hooks where available,
     and a complete agent-safe MCP loop without granting human authority.
   - Objective evidence: the universal adoption contract is fully satisfied.
   - Verification command or artifact:
     `docs/product/universal-agent-adoption-contract.md` and its focused suites.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; the provider profiles, native hooks, commit
+    gate, portable contract, and agent-safe MCP loop pass focused tests.
+  - Exact committed evidence when completed: `92bca37449246ba9f34d301028157640d96794e4`,
+    `485cb7bb4b85f4364e6fe1e19f4e05be975b75b8`,
+    `8ea7816fee11fe753345f122f23c48a5f89771d0`,
+    `06551e64c4d056a6c55fbbcb1ba960e63e599710`, and
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
 - [ ] **One coherent, verified, review-accepted candidate**
   - Required outcome: all four slices compose on one exact committed head,
@@ -83,4 +98,3 @@ not four branch-specific approval ceremonies.
     `./scripts/install_smoke.sh`, agent check/advance/handoff, and review history.
   - Current status: pending.
   - Exact committed evidence when completed: pending.
-

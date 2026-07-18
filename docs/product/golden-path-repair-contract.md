@@ -27,7 +27,7 @@ count of changes is not a completion condition.
   - Verification: `python3 -m unittest
     tests.test_operator_journeys.OperatorJourneyTests.test_fresh_committed_repo_runs_init_start_and_advance_without_proof_ids`
   - Status: complete; focused and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/onramp.py` and `tests/test_operator_journeys.py`.
 
 - [x] First-adoption authority is anchored without laundering unrelated work.
@@ -41,7 +41,7 @@ count of changes is not a completion condition.
     tests.test_onramp.InitTests.test_init_anchors_only_generated_adoption_files_in_a_committed_repo
     tests.test_onramp.WorkAddTests.test_work_add_idempotently_recovers_an_unanchored_git_workspace`
   - Status: complete; focused and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/onramp.py` and `tests/test_onramp.py`.
 
 - [x] A newly adopted repository has useful agent-facing instructions before a
@@ -53,7 +53,7 @@ count of changes is not a completion condition.
   - Verification: `python3 -m unittest tests.test_onramp.InitTests
     tests.test_operator_journeys.OperatorJourneyTests.test_fresh_committed_repo_runs_init_start_and_advance_without_proof_ids`
   - Status: complete; focused and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/onramp.py`, `tests/test_onramp.py`, and
     `tests/test_operator_journeys.py`.
 
@@ -68,7 +68,7 @@ count of changes is not a completion condition.
   - Verification: `python3 -m unittest
     tests.test_operator_journeys.OperatorJourneyTests.test_unanchored_manual_workspace_fails_with_one_exact_recovery_action`
   - Status: complete; focused and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/agent_runtime.py` and
     `tests/test_operator_journeys.py`.
 
@@ -83,7 +83,7 @@ count of changes is not a completion condition.
   - Verification: `python3 -m unittest tests.test_demo` and
     `palari demo --no-pause --json`.
   - Status: complete; focused and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in
     `src/palari_company_os/demo.py` and `tests/test_demo.py`.
 
 - [x] Public guidance describes the mechanical bootstrap and its authority
@@ -96,7 +96,7 @@ count of changes is not a completion condition.
   - Verification: `palari docs check --json` and complete repository
     verification.
   - Status: complete; documentation and complete verification passed.
-  - Exact committed proof: `81ad0b1be28e2f15de8d4759ed09f6bbe0c784bc` in `README.md`,
+  - Exact committed proof: `ed877ed1c03179ce5895fa6533a4c628dcf2d787` in `README.md`,
     `docs/product/quickstart.md`, and `docs/product/agent-contract.md`.
 
 ## Non-claims

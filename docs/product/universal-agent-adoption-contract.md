@@ -12,7 +12,7 @@ Every completed checkbox names exact committed proof. The product rule is:
 
 ## Required Outcomes
 
-- [ ] **One provider-neutral adoption action**
+- [x] **One provider-neutral adoption action**
   - Required outcome: one `palari init WORKSPACE-DIR --host HOST` action installs the portable
     repository contract and strongest honest local enforcement profile for
     Claude Code, Codex, Cursor, Devin, GLM, or a generic agent host.
@@ -21,20 +21,27 @@ Every completed checkbox names exact committed proof. The product rule is:
     instructions, and refusal to overwrite malformed or foreign configuration.
   - Verification command or artifact: `python3 -m unittest
     tests.test_agent_adoption` and installed-package CLI smoke.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; focused adoption and CLI tests pass.
+  - Exact committed evidence when completed: foundation and boundary hardening
+    at `92bca37449246ba9f34d301028157640d96794e4`,
+    `3bf74e9a874df0cac4a999fc921836ca5c3078ac`, and
+    `bd1dde8506ef83974bf7f3419ed5f0e3bbb3ab10`; the same `init --host`
+    surface is committed at `06551e64c4d056a6c55fbbcb1ba960e63e599710`.
 
-- [ ] **Portable contract plus structural commit boundary**
+- [x] **Portable contract plus structural commit boundary**
   - Required outcome: adoption writes a bounded, managed `AGENTS.md` block and
     installs the existing claim-bound Git pre-commit gate for every host. It
     never overwrites non-Palari hooks or treats instructions as a sandbox.
   - Objective evidence: preservation, malformed-marker, unmanaged-hook,
     out-of-boundary staged-file, traversal, and symlink tests fail closed.
   - Verification command or artifact: agent-adoption and Git-hook suites.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; negative Git/adoption tests pass.
+  - Exact committed evidence when completed: `3bf74e9a874df0cac4a999fc921836ca5c3078ac`,
+    executable-wrapper proof at `bd1dde8506ef83974bf7f3419ed5f0e3bbb3ab10`,
+    and atomic executable-hook/foreign-command repairs at
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
-- [ ] **Proven native session adapters only**
+- [x] **Proven native session adapters only**
   - Required outcome: Claude keeps its existing structural hook adapter; Codex
     receives project-local SessionStart, PreToolUse, and Stop hooks using its
     documented protocol. Codex `apply_patch` targets are exact, unsupported
@@ -46,10 +53,14 @@ Every completed checkbox names exact committed proof. The product rule is:
     tests.
   - Verification command or artifact: adoption and existing Claude-hook suites;
     current official Codex hook contract recorded in product docs.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; Claude/Codex adversarial tests pass and other
+    hosts remain explicitly advisory.
+  - Exact committed evidence when completed: `92bca37449246ba9f34d301028157640d96794e4`,
+    integrated native routing at `8ea7816fee11fe753345f122f23c48a5f89771d0`,
+    and duplicate-workspace/compound-hook hardening at
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
-- [ ] **Complete agent loop over MCP**
+- [x] **Complete agent loop over MCP**
   - Required outcome: MCP clients can select/start the next work item, request
     the provider-neutral session contract, check it, and invoke deterministic
     `agent advance`; the server exposes no review, human-decision, acceptance,
@@ -58,8 +69,8 @@ Every completed checkbox names exact committed proof. The product rule is:
     local claim lifecycle, exact dry-run, and authority annotations.
   - Verification command or artifact: `python3 -m unittest
     tests.test_mcp_server` and stdio smoke.
-  - Current status: in progress.
-  - Exact committed evidence when completed: pending.
+  - Current status: completed; MCP and session-contract suites pass.
+  - Exact committed evidence when completed: `485cb7bb4b85f4364e6fe1e19f4e05be975b75b8`.
 
 - [ ] **Minimal, compatible, and independently reviewed delivery**
   - Required outcome: standard library only; no global config, credential,

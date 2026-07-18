@@ -4,11 +4,11 @@ Work item: `WORK-31D9DD73A7A045BC8236FA561291D064`
 
 Baseline: `4881dd853ebcec73ce7a69ff7acefd4b637e2a21`
 
-Final candidate implementation commit:
-`644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+Initial implementation commit:
+`974121cac0fca752151de684caf4488b9e292829`.
 
 Committed verification record:
-`444e505a26c1e30ad9eff8027b6c4f84e17f6bb5`.
+`07cdfbf7f1567d11851a47e7b0c2cff31fd485d9`.
 
 This contract makes the common operating journey obvious without deleting the
 expert surface or laundering unfinished work into completion.
@@ -21,7 +21,8 @@ expert surface or laundering unfinished work into completion.
   remains 154 and focused-help assertions pass. Verification:
   `python3 -m unittest tests.test_public_surface`. Status: proven. Exact
   committed proof: parser and public-surface tests at
-  `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+  `974121cac0fca752151de684caf4488b9e292829`, with the no-additive-command
+  consolidation at `06551e64c4d056a6c55fbbcb1ba960e63e599710`.
 
 - [x] **Explicit non-success retirement** — obsolete work can be recorded as
   `superseded` or `abandoned` with a mandatory reason and optional successor,
@@ -29,7 +30,9 @@ expert surface or laundering unfinished work into completion.
   and positive CLI round trip. Verification:
   `python3 -m unittest tests.test_validation tests.test_workspace_read_models`.
   Status: proven. Exact committed proof: model, schema, CLI, and end-to-end tests
-  at `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+  at `974121cac0fca752151de684caf4488b9e292829`, with non-success and
+  temporal-storage repairs at `54bb18e117208932da05617315b0ec2ded53a3c8`
+  and `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
 
 - [x] **Fail-closed authority graph** — missing/self/cyclic successors, active
   attempts, open decisions, unresolved external actions, and dependencies on
@@ -37,7 +40,8 @@ expert surface or laundering unfinished work into completion.
   validation diagnostics. Verification:
   `python3 -m unittest tests.test_validation`. Status: proven. Exact committed
   proof: retirement validation and negative tests at
-  `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+  `54bb18e117208932da05617315b0ec2ded53a3c8`, with later-lifecycle
+  immutability at `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
 
 - [x] **Quiet defaults, complete audit** — retired work is absent from default
   queue, agent-next, and Approval Inbox views; explicit start cannot claim it;
@@ -45,7 +49,9 @@ expert surface or laundering unfinished work into completion.
   Objective evidence: end-to-end temporary-workspace test. Verification:
   `python3 -m unittest tests.test_workspace_read_models`. Status: proven. Exact
   committed proof: queue/inbox/detail and direct-start tests at
-  `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+  `974121cac0fca752151de684caf4488b9e292829`, unresolved-external-state
+  repair at `0e72d370c9fede44361340e60e1f2f97f032612c`, and terminal advance/proof
+  containment at `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
 
 - [x] **Compatibility and documentation** — both shipped schemas are identical,
   detailed JSON remains additive, successful terminal proof semantics remain
@@ -56,12 +62,14 @@ expert surface or laundering unfinished work into completion.
   src/palari_company_os/data/schemas/workspace.schema.json && ./bin/palari docs
   check --json && ./scripts/verify.sh && ./scripts/install_smoke.sh`. Status:
   proven. Exact committed proof: both schemas, snapshot test, and documentation
-  at `644282184b6b80cc61dd9aa71c51cf06261b23ba`.
+  at `07cdfbf7f1567d11851a47e7b0c2cff31fd485d9`, with integrated compatibility
+  retained through `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
 
 ## Verification Evidence
 
-All checks below ran against exact candidate
-`644282184b6b80cc61dd9aa71c51cf06261b23ba`:
+All slice checks below ran against exact verification record
+`07cdfbf7f1567d11851a47e7b0c2cff31fd485d9`; later integrated repairs have
+their own focused evidence above and are covered by the integration gate:
 
 - affected contract suite: 268 tests passed;
 - complete gate: 889 tests across 46 modules, style pass, trusted-code manifest

@@ -14,7 +14,10 @@ not permission to skip validation.
   exact replay, non-canonical delta, digest, reorder, duplicate-terminal, and
   truncation tests. **Verification:** `python3 -m unittest
   tests.test_governance_journal`. **Status:** implemented and focused tests pass.
-  **Exact committed proof:** `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  **Exact committed proof:** `13c7be140e8adaf2dba90a9aa26a33314696a45f`,
+  with canonical counterexample repairs at
+  `af4412597dcd1000010ef082b05a07cc55ed2106` and
+  `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
 - [x] **Outcome:** verification is streaming and bounded by one workspace
   projection plus one record, not the complete journal payload or record list.
@@ -22,7 +25,7 @@ not permission to skip validation.
   materializer is patched to fail; dogfood peak RSS is below 100 MB.
   **Verification:** focused tests and three-run `/usr/bin/time` measurements.
   **Status:** implemented; measured agent-next 84 MB, queue 83 MB, state 83 MB.
-  **Exact committed proof:** `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  **Exact committed proof:** `13c7be140e8adaf2dba90a9aa26a33314696a45f`.
 
 - [x] **Outcome:** strict v1 behavior remains readable and appendable, and v2
   activation is explicit, idempotent, continuity-preserving, and never rewrites
@@ -30,7 +33,7 @@ not permission to skip validation.
   the v2 checkpoint binds their SHA-256, length, head, replay digest, counts, and
   continuity. **Verification:** focused migration and predecessor-tamper tests.
   **Status:** implemented. **Exact committed proof:**
-  `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  `13c7be140e8adaf2dba90a9aa26a33314696a45f`.
 
 - [x] **Outcome:** crash boundaries, pending retries, every committed prefix,
   corruption, fork/reorder, predecessor changes, and workspace divergence fail
@@ -38,25 +41,27 @@ not permission to skip validation.
   crash-injection suite. **Verification:** `python3 -m unittest
   tests.test_governance_journal_crash tests.test_governance_journal`.
   **Status:** 34 focused journal/store tests pass. **Exact committed proof:**
-  `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  `13c7be140e8adaf2dba90a9aa26a33314696a45f`, with prefix and
+  canonical-delta repairs at `af4412597dcd1000010ef082b05a07cc55ed2106`
+  and `53400beeb3ab833b22fc3eb056ae0d7549874141`.
 
 - [x] **Outcome:** compact journaled mutation overhead remains below two
   seconds. **Objective evidence:** 20 mutations of an 800 KB projection after
   v2 activation measured median 0.1563 s and maximum 0.2118 s.
   **Verification:** deterministic local stdlib benchmark recorded in the work
   packet evidence. **Status:** target met. **Exact committed proof:**
-  `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  `13c7be140e8adaf2dba90a9aa26a33314696a45f`.
 
-- [ ] **Outcome:** complete dogfood `agent next`, `queue`, and `state` medians
+- [x] **Outcome:** complete dogfood `agent next`, `queue`, and `state` medians
   are below one second. **Objective evidence:** three-run wall/RSS measurement.
-  **Verification:** `/usr/bin/time` around each command. **Status:** not met,
-  honestly attributed: v1 baselines were 8.98 s/368 MB, 8.31 s/366 MB, and
-  8.28 s/191 MB; final v2 medians are 2.86 s/84 MB, 1.76 s/83 MB, and 1.77 s/83 MB.
-  Raw journal verification median is 0.30 s/28 MB; profile evidence attributes roughly
-  1.8 s to workspace validation and further time to evidence/read-model
-  evaluation outside this work item's write boundary. **Exact committed proof:**
-  `b268390e685ea244d3ddacbee9a960bf5b0e48ba`; remaining CPU work is deferred
-  rather than bypassed.
+  **Verification:** `/usr/bin/time` around each command. **Status:** met after
+  compact v2 plus bounded request-local pure path normalization: medians are
+  0.75 s, 0.65 s, and 0.63 s respectively. Raw journal verification remains
+  about 0.30 s/28 MB and no persisted cache authorizes governance. **Exact
+  committed proof:** compact journal `13c7be140e8adaf2dba90a9aa26a33314696a45f`,
+  canonical-delta repairs `af4412597dcd1000010ef082b05a07cc55ed2106`
+  and `53400beeb3ab833b22fc3eb056ae0d7549874141`, and bounded pure cache
+  `a2b99fbdcb3c0e2b3f5e0a11f06b4eef6d08a2f2`.
 
 - [x] **Outcome:** complete repository, package-install, docs, schema/fixture,
   security, and CLI verification pass at the exact candidate head. **Objective
@@ -65,4 +70,4 @@ not permission to skip validation.
   --json`. **Status:** `verify.sh` passed 883 tests across 46 modules, style,
   schema/fixtures, CLI smokes, and 18 PCAW vectors; wheel install smoke, docs
   check, and dogfood validation passed. **Exact committed proof:**
-  `b268390e685ea244d3ddacbee9a960bf5b0e48ba`.
+  `1b09120d01c9804d30844f7091c46f8887a30675`.
