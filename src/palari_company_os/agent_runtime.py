@@ -835,12 +835,6 @@ def claim_integrity_error(
     return ""
 
 
-def git_lease_status(workspace_path: Path | str, work_id: str) -> dict[str, Any]:
-    """Inspect the repository-shared active claim for one work item."""
-
-    return git_lease_statuses(workspace_path, [work_id])[work_id]
-
-
 def git_lease_statuses(
     workspace_path: Path | str,
     work_ids: list[str],

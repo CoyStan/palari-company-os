@@ -203,25 +203,6 @@ def attempt_state_hash(attempt: Any) -> str:
     return _stable_hash(payload)
 
 
-def proof_binding_hash(binding: dict[str, str]) -> str:
-    """Return the hash of proof inputs only (kept for compatibility helpers)."""
-
-    payload = {
-        key: binding.get(key, "")
-        for key in (
-            "binding_version",
-            "attempt_id",
-            "attempt_hash",
-            "evidence_reference",
-            "evidence_manifest_hash",
-            "receipt_reference",
-            "receipt_hash",
-            "work_contract_hash",
-        )
-    }
-    return _stable_hash(payload)
-
-
 def review_proof_hash(review: Any) -> str:
     """Bind exact proof inputs and the reviewer-authored verdict context."""
 

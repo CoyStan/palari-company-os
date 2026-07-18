@@ -342,11 +342,6 @@ def git_hook_status(
     }
 
 
-def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
-    """Return active claims with their persisted packets."""
-    return load_active_claim_contexts(workspace_path)["contexts"]
-
-
 def _staged_files_result(root: Path) -> tuple[list[str], str]:
     try:
         result = subprocess.run(

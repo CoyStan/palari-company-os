@@ -352,20 +352,6 @@ def handle_hook_event(
     return {}
 
 
-def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
-    """Return active claims with their persisted packets.
-
-    Each entry has ``claim`` and ``packet`` keys. Expired leases are skipped.
-    ``PALARI_AS`` / ``PALARI_WORK_ID`` environment variables narrow the set
-    when one session among several must be pinned to a single claim.
-    """
-    return load_active_claim_contexts(
-        workspace_path,
-        pin_palari=os.environ.get("PALARI_AS", ""),
-        pin_work=os.environ.get("PALARI_WORK_ID", ""),
-    )["contexts"]
-
-
 def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
     """Return path-like write targets a Bash command appears to touch.
 
