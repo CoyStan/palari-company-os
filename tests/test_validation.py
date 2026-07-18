@@ -581,6 +581,61 @@ class WorkspaceValidationTests(unittest.TestCase):
 
         self.assertEqual(workspace.work_items[0].path_intents[1]["intent"], "delete")
 
+    def test_request_path_normalizer_is_bounded_and_request_local(self) -> None:
+        from palari_company_os import validation
+
+        first = validation._request_path_normalizer()
+        second = validation._request_path_normalizer()
+
+        self.assertIsNot(first, second)
+        self.assertEqual(first.cache_info().maxsize, validation.PATH_VALIDATION_CACHE_SIZE)
+        self.assertEqual(second.cache_info().currsize, 0)
+
+        for index in range(validation.PATH_VALIDATION_CACHE_SIZE + 1):
+            first(f"docs/cache-entry-{index}.md")
+
+        full = first.cache_info()
+        self.assertEqual(full.currsize, validation.PATH_VALIDATION_CACHE_SIZE)
+        self.assertEqual(full.misses, validation.PATH_VALIDATION_CACHE_SIZE + 1)
+
+        first("docs/cache-entry-0.md")
+        self.assertEqual(first.cache_info().misses, full.misses + 1)
+        self.assertEqual(second.cache_info().currsize, 0)
+
+    def test_cached_path_allowed_matches_canonical_path_policy(self) -> None:
+        from palari_company_os import validation
+        from palari_company_os.path_policy import path_allowed
+
+        paths = (
+            "docs",
+            "docs/guide.md",
+            "docs/nested/guide.md",
+            "docs-other/guide.md",
+            "docs/./guide.md",
+            "docs\\nested\\guide.md",
+            "docs/../secret.txt",
+            "/docs/guide.md",
+            "C:\\docs\\guide.md",
+            "",
+        )
+        boundary_sets = (
+            [],
+            ["docs"],
+            ["docs/guide.md"],
+            ["docs\\nested"],
+            ["../docs"],
+            ["../invalid", "docs"],
+        )
+        normalize_path = validation._request_path_normalizer()
+
+        for path in paths:
+            for boundaries in boundary_sets:
+                with self.subTest(path=path, boundaries=boundaries):
+                    self.assertEqual(
+                        validation._path_allowed(path, boundaries, normalize_path),
+                        path_allowed(path, boundaries),
+                    )
+
     def test_work_item_path_intent_outside_boundary_fails_closed(self) -> None:
         def outside_intent(data: dict[str, object]) -> None:
             data["work_items"][0]["path_intents"] = [
