@@ -570,13 +570,9 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         return False
     if not tokens or any(_is_shell_control(token) for token in tokens):
         return False
-    try:
-        executable_index = next(
-            index for index, token in enumerate(tokens) if Path(token).name == "palari"
-        )
-    except StopIteration:
+    if Path(tokens[0]).name != "palari":
         return False
-    arguments = tokens[executable_index + 1 :]
+    arguments = tokens[1:]
     if arguments[:1] == ["--workspace"] and len(arguments) >= 2:
         arguments = arguments[2:]
     elif arguments and arguments[0].startswith("--workspace="):

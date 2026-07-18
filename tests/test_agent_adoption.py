@@ -333,6 +333,13 @@ class AgentAdoptionTests(unittest.TestCase):
                                             "pre-tool-use && foreign-compound-check"
                                         ),
                                     },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "foreign-check palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
                                 ],
                             }
                         ]
@@ -355,6 +362,10 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertIn(
             "palari agent adopt --host codex --hook-event pre-tool-use "
             "&& foreign-compound-check",
+            commands,
+        )
+        self.assertIn(
+            "foreign-check palari agent adopt --host codex --hook-event pre-tool-use",
             commands,
         )
         self.assertEqual(
