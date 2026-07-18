@@ -12,6 +12,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.governance_journal import (
     MutationMetadata,
+    _active_state,
+    _v1_predecessor_binding,
+    append_record_fsync,
+    commit_record,
+    prepare_record,
     recover_pending,
     transact,
     verify_journal,
@@ -26,6 +31,71 @@ class InjectedCrash(RuntimeError):
 
 
 class GovernanceJournalCrashTests(unittest.TestCase):
+    def test_v1_to_v2_activation_crashes_remain_recoverable(self) -> None:
+        for point, expected in {
+            "after_prepare_fsync": "pending-prepare",
+            # Activation is a no-op workspace checkpoint, so before and after
+            # digests are intentionally identical at every crash boundary.
+            "after_apply": "pending-prepare",
+        }.items():
+            with self.subTest(point=point), tempfile.TemporaryDirectory() as directory:
+                data_path = Path(directory) / "workspace.json"
+                data = workspace("Legacy v1")
+                prepared = prepare_record(
+                    sequence=0,
+                    previous_record_digest=None,
+                    event_kind="checkpoint",
+                    coverage="complete",
+                    expected_before_workspace_digest=None,
+                    before_workspace_digest=None,
+                    after_projection=data,
+                    before_projection=None,
+                    metadata=metadata(),
+                )
+                append_record_fsync(data_path, prepared)
+                write_workspace(data_path, data)
+                append_record_fsync(
+                    data_path,
+                    commit_record(
+                        prepared,
+                        sequence=1,
+                        previous_record_digest=prepared["record_digest"],
+                    ),
+                )
+                predecessor = _v1_predecessor_binding(data_path, _active_state(data_path))
+
+                with self.assertRaisesRegex(InjectedCrash, point):
+                    transact(
+                        data_path,
+                        before_data=data,
+                        after_data=data,
+                        metadata=metadata(action="activated-v2"),
+                        apply=lambda: None,
+                        event_kind="checkpoint",
+                        coverage="continuous",
+                        crash_hook=crash_at(point),
+                        _force_v2=True,
+                        _predecessor=predecessor,
+                    )
+
+                pending = verify_journal(data_path, data)
+                if expected == "pending-prepare":
+                    recovered = transact(
+                        data_path,
+                        before_data=data,
+                        after_data=data,
+                        metadata=metadata(action="activated-v2"),
+                        apply=lambda: None,
+                        event_kind="checkpoint",
+                        coverage="continuous",
+                        _predecessor=predecessor,
+                    )
+                else:
+                    recovered = recover_pending(data_path, data)
+
+                self.assertEqual(pending["status"], expected)
+                self.assertTrue(recovered["ok"])
+
     def test_initial_checkpoint_crash_boundaries_are_detectable(self) -> None:
         expectations = {
             "after_prepare_write": "pending-prepare",

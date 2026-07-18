@@ -200,6 +200,34 @@ tombstone is not a PCAW v1 portable deletion-history guarantee.
 Validation is intentionally stricter than a permissive JSON reader. Extra fields
 fail closed so typos and hidden state cannot quietly enter the source of truth.
 
+## Governance Journal Formats
+
+`palari.governance-journal.v1` remains a supported strict JSONL format. Its
+prepare records retain complete `after_projection` values so existing tools and
+workspaces remain readable and crash-recoverable without an implicit rewrite.
+
+`palari.governance-journal.v2` is a staged compact format. Its first committed
+prepare is a full content-bound checkpoint. Later mutation prepares replace
+the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
+`add` and `replace` carry the exact value; `remove` carries no value. Applying
+the delta must reproduce the recorded workspace digest and the delta must equal
+the deterministic minimal diff, otherwise verification fails closed.
+
+An already-journaled v1 workspace activates v2 only through an explicit,
+idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified
+v1 file as a predecessor and does not edit or rename it. A workspace with no
+journal first creates the ordinary v1 checkpoint; a second explicit checkpoint
+performs the v2 activation. This staged rule preserves existing raw-journal and
+Git artifact compatibility. New v2 records may retain the established v1
+filename only in isolated test/API construction; the record schema, never the
+filename, determines validation behavior.
+
+V2 verification reads one JSONL record at a time and retains only the current
+workspace projection, pending prepare, and fixed-size chain state. When a v1
+predecessor exists, its bytes are streamed through SHA-256 on every verification
+and compared with the authoritative binding in the v2 checkpoint; they are not
+reparsed and no advisory cache can authorize a transition.
+
 Migration:
 
 ```bash

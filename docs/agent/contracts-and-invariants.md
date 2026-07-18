@@ -11,10 +11,14 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Work-item IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin a replayable governance journal. Legacy workspaces keep
-  working until an operator explicitly checkpoints them. Prepared and committed
-  journal records bracket the atomic, fsynced workspace replacement; divergence,
-  corruption, pending transactions, and continuity breaks remain visible.
+- New workspaces begin a replayable v1-compatible governance journal. Legacy
+  workspaces keep working until an operator explicitly checkpoints them.
+  A second explicit checkpoint on a valid v1 head activates compact v2 without
+  rewriting v1: the v2 checkpoint content-binds the exact sealed predecessor,
+  then deterministic value deltas form the streamed tail. Prepared and
+  committed records still bracket the atomic, fsynced workspace replacement;
+  divergence, corruption, pending transactions, and continuity breaks remain
+  visible.
 - Evidence for self-mutating governance projection files (`workspace.json`,
   legacy history, and the governance journal) binds their bytes at the exact
   evidence Git head. The live journal is verified separately against the
@@ -39,9 +43,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   delete requires an absent exact path plus an observed Git deletion. Legacy
   work without intents retains its presence-required output behavior.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
-- Governance-journal verification is linear in the append-only JSONL history.
-  Request-local reuse may remove duplicate scans only while filesystem witnesses
-  remain unchanged; no persistent cache may authorize a transition.
+- Active v1 verification is linear in parsed append-only history. V2 hashes the
+  sealed v1 predecessor as bytes and strictly streams only its compact segment,
+  retaining one replay projection rather than all records or projections.
+  Request-local reuse may remove duplicate scans only while workspace, v1, and
+  v2 filesystem witnesses remain unchanged; no persistent cache may authorize
+  a transition.
 
 ## Authority
 
