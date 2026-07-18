@@ -1904,19 +1904,27 @@ def _validate_retired_work(
             f"work_items.{work.id} cannot be retired with active attempts: "
             f"{', '.join(active_attempts)}"
         )
+    resolved_plan_ids = {
+        item.plan_id
+        for item in workspace.integration_outbox
+        if item.work_item_id == work.id and item.status in {"sent", "canceled"}
+    }
     pending_plans = sorted(
         plan.id
         for plan in workspace.integration_plans
         if plan.work_item_id == work.id
-        and plan.status in {"planned", "pending-approval"}
+        and (
+            plan.status in {"planned", "pending-approval"}
+            or (plan.status == "approved" and plan.id not in resolved_plan_ids)
+        )
     )
-    queued_actions = sorted(
+    unresolved_actions = sorted(
         item.id
         for item in workspace.integration_outbox
-        if item.work_item_id == work.id and item.status == "queued"
+        if item.work_item_id == work.id and item.status in {"queued", "failed"}
     )
-    if pending_plans or queued_actions:
-        records = ", ".join([*pending_plans, *queued_actions])
+    if pending_plans or unresolved_actions:
+        records = ", ".join([*pending_plans, *unresolved_actions])
         raise WorkspaceError(
             f"work_items.{work.id} cannot be retired while external action "
             f"authority is unresolved: {records}"

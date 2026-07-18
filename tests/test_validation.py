@@ -323,6 +323,54 @@ class WorkspaceValidationTests(unittest.TestCase):
         ):
             Workspace.from_raw(raw, FIXTURES)
 
+    def test_retirement_cannot_hide_approved_or_failed_external_authority(self) -> None:
+        from types import SimpleNamespace
+
+        from palari_company_os.models import WorkItem
+        from palari_company_os.validation import _validate_retired_work
+
+        work = WorkItem.from_record(
+            {
+                "id": "WORK-RETIRE",
+                "title": "Retire me",
+                "goal": "GOAL-1",
+                "palari": "PALARI-1",
+                "status": "abandoned",
+                "terminal_reason": "No longer active.",
+            }
+        )
+        workspace = SimpleNamespace(
+            decisions=[],
+            attempts=[],
+            integration_plans=[
+                SimpleNamespace(
+                    id="PLAN-APPROVED",
+                    work_item_id=work.id,
+                    status="approved",
+                )
+            ],
+            integration_outbox=[],
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "external action authority is unresolved: PLAN-APPROVED",
+        ):
+            _validate_retired_work(workspace, work)
+
+        workspace.integration_outbox.append(
+            SimpleNamespace(
+                id="OUTBOX-FAILED",
+                plan_id="PLAN-APPROVED",
+                work_item_id=work.id,
+                status="failed",
+            )
+        )
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "PLAN-APPROVED, OUTBOX-FAILED",
+        ):
+            _validate_retired_work(workspace, work)
+
     def test_dependency_cannot_treat_retired_work_as_completed(self) -> None:
         raw = json.loads(
             (FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8")
