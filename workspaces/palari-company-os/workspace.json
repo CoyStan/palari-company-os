@@ -4335,7 +4335,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "completed",
       "scope": "Repair WORK-D18949EABBAC41AA9C0FB3D57BD4B88F through an immutable successor: bind every Git claim to exact scope authority and make projection-bound parking crash recovery exact and idempotent.",
       "allowed_resources": [
         "AGENTS.md",
@@ -14729,6 +14729,19 @@
       "evidence_reference": "EVIDENCE-ADVANCE-WORK-4E434990123E4E938E5B584C33E33BC7-904B1AD245BE",
       "review_reference": "REVIEW-HERMETIC-GATE-ARCHITECT-904B1AD-ACCEPT",
       "timestamp": "2026-07-17T10:48:01.205142Z"
+    },
+    {
+      "id": "HUMAN-DECISION-WORK-1E6CC071418B42709B60CDA3FED2D952-HUMAN-FOUNDER-accepted",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "0f762ef5cb6932ffb7debe0873b49a055d83d29c",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "human",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "review_reference": "REVIEW-AUTHORITY-SUCCESSOR-ARCHITECT-0F762EF-ACCEPT",
+      "timestamp": "2026-07-18T13:41:20.758865Z"
     }
   ],
   "receipts": [
@@ -18632,6 +18645,21 @@
       "quorum_status": "met",
       "reason": "PALARI-STEWARD",
       "accepted_at": "2026-07-17T10:48:35.511880Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-HUMAN-FOUNDER",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "0f762ef5cb6932ffb7debe0873b49a055d83d29c",
+      "status": "accepted",
+      "decision_id": "HUMAN-DECISION-WORK-1E6CC071418B42709B60CDA3FED2D952-HUMAN-FOUNDER-accepted",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "review_reference": "REVIEW-AUTHORITY-SUCCESSOR-ARCHITECT-0F762EF-ACCEPT",
+      "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "PALARI-STEWARD",
+      "accepted_at": "2026-07-18T13:41:37.306811Z"
     }
   ]
 }
