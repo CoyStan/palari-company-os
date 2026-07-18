@@ -6,7 +6,11 @@ from functools import lru_cache
 from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .integration_contracts import PROVIDER_ACTIONS, supported_actions_for_mode
+from .integration_contracts import (
+    SUPPORTED_INTEGRATION_ACTIONS,
+    human_can_decide_integration_plan,
+    supported_actions_for_mode,
+)
 from .models import (
     AcceptanceRecord,
     Attempt,
@@ -505,7 +509,6 @@ APPROVAL_PACK_ACTIONS = {"approve", "reject", "defer"}
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
 ACCEPTANCE_RECORD_STATUSES = {"accepted", "rejected", "revoked"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
-INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email", "linear"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
 SOURCE_DATA_CLASSES = {"", "public", "internal", "confidential", "restricted"}
@@ -520,7 +523,8 @@ INTEGRATION_EVENTS = {
     "work_completed",
     "work_blocked",
 }
-INTEGRATION_ACTIONS = {"notify", "comment", "create_issue", "update_issue"}
+INTEGRATION_ACTIONS = set(SUPPORTED_INTEGRATION_ACTIONS)
+INTEGRATION_PROVIDER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 SECRET_REF_RE = re.compile(r"^env:[A-Z_][A-Z0-9_]*$")
 
 
@@ -939,13 +943,10 @@ def _require_allowed_value(
 
 
 def _validate_integration(integration: Integration) -> None:
-    _require_allowed_value(
-        "integrations",
-        integration.id,
-        "provider",
-        integration.provider,
-        INTEGRATION_PROVIDERS,
-    )
+    if not INTEGRATION_PROVIDER_RE.fullmatch(integration.provider):
+        raise WorkspaceError(
+            f"integrations.{integration.id}.provider must be a non-empty lowercase identifier"
+        )
     _require_allowed_value(
         "integrations",
         integration.id,
@@ -976,12 +977,7 @@ def _validate_integration(integration: Integration) -> None:
             action,
             INTEGRATION_ACTIONS,
         )
-        if action not in PROVIDER_ACTIONS[integration.provider]:
-            raise WorkspaceError(
-                f"integrations.{integration.id}.allowed_actions includes action "
-                f"{action!r} unsupported by provider {integration.provider}"
-            )
-        if action not in supported_actions_for_mode(integration.mode, integration.provider):
+        if action not in supported_actions_for_mode(integration.mode):
             raise WorkspaceError(
                 f"integrations.{integration.id}.allowed_actions includes action "
                 f"{action!r} unsupported by mode {integration.mode}"
@@ -1142,7 +1138,7 @@ def _validate_integration_plan(
             )
         human = humans_by_id[plan.reviewed_by]
         work = work_by_id[plan.work_item_id]
-        if not _human_can_decide_integration_plan(
+        if not human_can_decide_integration_plan(
             human,
             work,
             integration,
@@ -1151,24 +1147,6 @@ def _validate_integration_plan(
                 f"integration_plans.{plan.id}.reviewed_by {human.id} lacks authority "
                 "to decide this integration plan"
             )
-
-
-def _human_can_decide_integration_plan(
-    human: Any,
-    work: WorkItem,
-    integration: Integration,
-) -> bool:
-    if human.authority_level == "admin":
-        return True
-    if work.required_approval_capability:
-        return work.required_approval_capability in human.approval_capabilities
-    if integration.owner_human == human.id and integration.risk_level in {"low", "standard"}:
-        return True
-    if integration.risk_level in {"high", "critical"}:
-        return bool({"policy", "deploy", "security"} & set(human.approval_capabilities))
-    return bool(
-        {"operations", "product", "policy", "merge", "deploy"} & set(human.approval_capabilities)
-    )
 
 
 def _validate_unique_outbox_plans(items: Iterable[IntegrationOutboxItem]) -> None:
@@ -1240,7 +1218,7 @@ def _validate_integration_outbox_item(
         )
     if item.risk != plan.risk:
         raise WorkspaceError(f"integration_outbox.{item.id}.risk does not match plan {plan.id}")
-    if not _human_can_decide_integration_plan(human, work, integration):
+    if not human_can_decide_integration_plan(human, work, integration):
         raise WorkspaceError(
             f"integration_outbox.{item.id}.enqueued_by {human.id} lacks authority "
             "to enqueue this integration plan"
@@ -1259,7 +1237,7 @@ def _validate_integration_outbox_item(
                 f"integration_outbox.{item.id}.cancel_reason is required when status is canceled"
             )
         canceling_human = humans_by_id[item.canceled_by]
-        if not _human_can_decide_integration_plan(canceling_human, work, integration):
+        if not human_can_decide_integration_plan(canceling_human, work, integration):
             raise WorkspaceError(
                 f"integration_outbox.{item.id}.canceled_by {canceling_human.id} lacks "
                 "authority to cancel this integration outbox item"
@@ -1288,7 +1266,7 @@ def _validate_integration_outbox_item(
             )
     if item.sent_by:
         sending_human = humans_by_id[item.sent_by]
-        if not _human_can_decide_integration_plan(sending_human, work, integration):
+        if not human_can_decide_integration_plan(sending_human, work, integration):
             raise WorkspaceError(
                 f"integration_outbox.{item.id}.sent_by {sending_human.id} lacks "
                 "authority to send this integration outbox item"

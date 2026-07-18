@@ -261,7 +261,7 @@
       "required": ["id", "provider", "label"],
       "properties": {
         "id": { "type": "string" },
-        "provider": { "type": "string", "enum": ["slack", "github", "jira", "email", "linear"] },
+        "provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
         "label": { "type": "string" },
         "mode": {
           "type": "string",

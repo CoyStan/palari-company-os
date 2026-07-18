@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -24,6 +25,7 @@ from palari_company_os.integrations import (
     plan_integration,
     record_integration_plan,
 )
+from palari_company_os.integration_contracts import human_can_decide_integration_plan
 from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -146,9 +148,17 @@ def _base_raw() -> dict[str, Any]:
 def _payload_preview() -> dict[str, Any]:
     return {
         "provider": "slack",
-        "operation": "post_message",
-        "webhook_ref": "env:PALARI_TEST_WEBHOOK",
-        "json": {"text": "Approved deterministic preview."},
+        "operation": "external_action_preview",
+        "event": "approval_requested",
+        "action": "notify",
+        "secret_ref": "env:PALARI_TEST_WEBHOOK",
+        "work_item": {
+            "id": WORK_ID,
+            "title": f"Bounded work {WORK_ID}",
+            "status": "active",
+            "risk": "R1",
+        },
+        "summary": "Approved deterministic preview.",
     }
 
 
@@ -287,6 +297,7 @@ class IntegrationBoundaryTests(unittest.TestCase):
         self.assertTrue(payload["valid"])
         self.assertTrue(payload["dry_run_only"])
         self.assertEqual(payload["plannable_actions"], ["notify"])
+        self.assertEqual(payload["mode_supported_actions"], ["notify"])
         self.assertTrue(payload["secret_ref_present"])
         self.assertIn("No live provider calls", " ".join(payload["notes"]))
 
@@ -315,7 +326,7 @@ class IntegrationBoundaryTests(unittest.TestCase):
                 with self.assertRaisesRegex(WorkspaceError, expected):
                     plan_integration(workspace, INTEGRATION_ID, WORK_ID, event, action)
 
-    def test_malformed_or_unsupported_integration_fails_closed(self) -> None:
+    def test_malformed_integration_contract_fails_closed(self) -> None:
         cases = (
             (
                 lambda raw: raw["integrations"][0].update(
@@ -324,14 +335,14 @@ class IntegrationBoundaryTests(unittest.TestCase):
                 "secret_ref must be an env:NAME reference",
             ),
             (
-                lambda raw: raw["integrations"][0].update({"provider": "unsupported"}),
-                "provider has unsupported value",
+                lambda raw: raw["integrations"][0].update({"provider": "Slack API"}),
+                "provider must be a non-empty lowercase identifier",
             ),
             (
                 lambda raw: raw["integrations"][0].update(
                     {"allowed_actions": ["comment"]}
                 ),
-                "action 'comment' unsupported by provider slack",
+                "action 'comment' unsupported by mode notify",
             ),
             (
                 lambda raw: raw["integrations"][0].update({"mode": "read"}),
@@ -446,6 +457,44 @@ class IntegrationBoundaryTests(unittest.TestCase):
         self.assertEqual(approved["status"], "approved")
         self.assertFalse(approved["would_call_provider"])
         self.assertEqual(approved["integration_plan"]["reviewed_by"], OWNER_ID)
+
+    def test_external_plan_human_authority_has_one_pure_policy(self) -> None:
+        workspace = _workspace()
+        work = workspace.work_item(WORK_ID)
+        integration = workspace.integration(INTEGRATION_ID)
+        owner = workspace.human(OWNER_ID)
+        observer = workspace.human(UNQUALIFIED_ID)
+        assert work is not None and integration is not None
+        assert owner is not None and observer is not None
+
+        cases = (
+            (replace(observer, authority_level="admin"), work, integration, True),
+            (owner, work, integration, True),
+            (observer, work, integration, False),
+            (owner, replace(work, required_approval_capability=""), integration, True),
+            (
+                replace(owner, approval_capabilities=[]),
+                replace(work, required_approval_capability=""),
+                replace(integration, risk_level="high"),
+                False,
+            ),
+            (
+                replace(observer, approval_capabilities=["security"]),
+                replace(work, required_approval_capability=""),
+                replace(integration, risk_level="high"),
+                True,
+            ),
+        )
+        for human, candidate_work, candidate_integration, expected in cases:
+            with self.subTest(human=human.id, risk=candidate_integration.risk_level):
+                self.assertEqual(
+                    human_can_decide_integration_plan(
+                        human,
+                        candidate_work,
+                        candidate_integration,
+                    ),
+                    expected,
+                )
 
     def test_approved_plan_enqueues_an_exact_local_outbox_item(self) -> None:
         with _stored_workspace() as path:

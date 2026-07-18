@@ -10,7 +10,8 @@ from typing import Any
 from .agent_runtime import start_agent
 from .errors import WorkspaceError
 from .governance_journal import MutationMetadata
-from .integrations import _human_can_decide_plan, check_integration_outbox
+from .integration_contracts import human_can_decide_integration_plan
+from .integrations import check_integration_outbox
 from .linear_blocks import (
     PalariBlock,
     block_payload as _block_payload,
@@ -925,7 +926,7 @@ def linear_send(
         raise WorkspaceError(
             "linear send only supports comment, update_issue, and create_issue outbox items"
         )
-    if not _human_can_decide_plan(human, work, integration):
+    if not human_can_decide_integration_plan(human, work, integration):
         raise WorkspaceError(f"human {human.id} lacks authority to send {outbox_id}")
 
     records = _records(store.data, "integration_outbox")

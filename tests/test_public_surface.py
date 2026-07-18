@@ -56,8 +56,9 @@ class PublicSurfaceTests(unittest.TestCase):
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")
 
-        self.assertIn("Slack, GitHub, Jira, and email are dry-run planning providers only.", surface)
-        self.assertIn("does not execute live provider calls for them", surface)
+        self.assertIn("Generic integration records keep the provider name opaque.", surface)
+        self.assertIn("does not model Slack, GitHub, Jira, email", surface)
+        self.assertIn("adapter or enable execution", surface)
         self.assertIn("Linear is the only current live provider path.", surface)
         self.assertIn("governed issue", surface)
         self.assertIn(

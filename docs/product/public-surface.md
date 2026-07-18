@@ -26,7 +26,7 @@ boundaries. Everything else should serve that kernel.
 | Authoring commands | operator | Explicit local mutations of workspace records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
 | Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
-| Slack/GitHub/Jira/email providers | future | Dry-run planning only; no live provider execution. |
+| Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
 | Mission Control and local serve | visual | Local supervision surface, not core kernel. |
 | ACME workspace | example | Current local example and packaged starter data. |
 
@@ -62,9 +62,11 @@ terminal fields and cannot bundle new proof or authority.
 
 ## Provider Boundary
 
-Slack, GitHub, Jira, and email are dry-run planning providers only. They may
-produce reviewable payload previews and approved outbox records, but this CLI
-does not execute live provider calls for them.
+Generic integration records keep the provider name opaque. Palari can produce
+one provider-neutral external-action preview and bind it through approval and
+the outbox, but it does not model Slack, GitHub, Jira, email, or another
+provider's API payload. Declaring a provider name does not make it a supported
+adapter or enable execution.
 
 Linear is the only current live provider path. It is limited to governed issue
 reads/imports, approved comment sends, approved issue status updates, and

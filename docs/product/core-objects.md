@@ -58,20 +58,20 @@ actual external writes.
 
 ## Integration
 
-Dry-run declaration for a possible external provider such as Slack, GitHub,
-Jira, or email. Integrations record provider, mode, owner human, enabled state,
-allowed events, allowed actions, secret reference, risk level, source boundary,
-and notes. Secret references must be references such as `env:NAME`; Palari does
-not read secret values or call providers in the v0 foundation.
+Dry-run declaration for a possible external-effect adapter. Integrations record
+an opaque provider identifier, mode, owner human, enabled state, allowed events,
+allowed actions, secret reference, risk level, source boundary, and notes.
+Secret references must be references such as `env:NAME`; the generic boundary
+does not read secret values, model provider API payloads, or call providers.
 
 ## Integration Plan
 
 Recorded dry-run payload preview for one integration, work item, event, and
 action. Integration plans keep the exact planned payload, source boundary, risk,
 actor, timestamp, and approval requirement reviewable before any future live
-connector exists. Recording a plan appends history but still performs no live
+connector exists. Recording a plan appends the governance journal but still performs no live
 provider call and reads no secret value. A qualified human may later mark the
-plan approved, rejected, or canceled; that decision is history/audit state only
+plan approved, rejected, or canceled; that decision is journaled audit state only
 and still does not execute the external provider action.
 
 ## Integration Outbox Item

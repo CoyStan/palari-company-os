@@ -847,30 +847,31 @@ sources, authority, receipts, evidence, review, human decisions, and outcomes.
 ./bin/palari integration outbox-cancel OUTBOX-X --by HUMAN-FOUNDER --reason "no longer needed"
 ```
 
-Integrations declare possible external providers and boundaries before Palari
-can ever use them. The v0 implementation is dry-run only: it validates provider,
-owner, event, action, source, risk, and secret-reference metadata, then produces
-a payload preview without reading secrets or calling Slack, GitHub, Jira,
-Linear, email, or any other provider.
+Integrations declare possible external-effect boundaries before an adapter can
+use them. The generic implementation is dry-run only: it validates an opaque
+provider identifier, owner, event, action, source, risk, and secret-reference
+metadata, then produces one provider-neutral preview without reading secrets or
+calling any provider. A provider identifier is routing metadata, not a claim
+that Palari implements that provider's API.
 
 `secret_ref` values must be references such as `env:PALARI_SLACK_WEBHOOK_URL`.
 Raw tokens or keys fail validation. Planning also fails closed when an
 integration is disabled, when a requested event/action is not allowed, or when
-the provider does not support the requested action. Workspace validation applies
-the same provider/action matrix so hand-edited integration records cannot
-declare unsupported actions. `mode` is also enforced: `notify` can only notify,
-`write` can plan write-style previews, `read` and `webhook` declare no outbound
-actions, and `dry_run` can preview any action supported by the provider while
-still making no live call.
+the action exceeds the declared mode. Workspace validation applies the same
+mode/action policy so hand-edited integration records cannot widen the
+boundary. `notify` can only notify, `write` can plan write-style previews,
+`read` and `webhook` declare no outbound actions, and `dry_run` can preview any
+generic external action while still making no live call.
 
 By default, `integration plan` is a preview and does not write workspace state.
 Use `--record` when the dry-run payload should become a reviewable integration
-plan. Recorded plans are stored in `integration_plans`, appended to history,
+plan. Recorded plans are stored in `integration_plans`, appended to the
+governance journal,
 shown in `queue` and `detail`, and still do not perform live provider calls.
 Recorded plans start as `pending-approval`. A qualified human can approve,
-reject, or cancel the plan; each decision updates the plan state and appends
-history. Approval is still custody only: Palari records that the dry-run plan
-is allowed for future execution wiring, but this v0 CLI still makes no provider
+reject, or cancel the plan; each decision updates the plan state and journal.
+Approval is still custody only: Palari records that the dry-run plan is allowed
+for future execution wiring, but this generic CLI still makes no provider
 call and reads no secret value.
 
 Approved plans can be placed into `integration_outbox` with `integration
@@ -880,7 +881,7 @@ does not call providers or read secrets. Pending, rejected, canceled, or already
 enqueued plans fail closed. Hand-edited outbox items must keep the exact payload
 preview and source boundary that the human approved on the plan. Queued outbox
 items can be canceled by a qualified human with `integration outbox-cancel`;
-cancellation is recorded in history, keeps the dry-run boundary intact, and
+cancellation is recorded in the journal, keeps the dry-run boundary intact, and
 still performs no provider call.
 
 `integration outbox-check` is a read-only execution preflight for a queued
@@ -888,8 +889,7 @@ outbox item. It confirms that the item is still queued, the plan is approved,
 the integration remains enabled, the event/action are allowed, and the payload
 and source boundary still match what the human approved. It also reports
 `execution_enabled: false` and `would_call_provider: false`; this command is
-preparation for future executor wiring, not live Slack/GitHub/Jira/Linear/email
-execution.
+preparation for an adapter boundary, not provider execution.
 
 ## Linear Adapter
 
