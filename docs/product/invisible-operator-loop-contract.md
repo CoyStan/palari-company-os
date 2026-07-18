@@ -159,8 +159,11 @@ the command only selects and claims eligible work for it.
     original work contract later added `docs/product/quickstart.md`; repair
     therefore continues under immutable successor
     `WORK-1E6CC071418B42709B60CDA3FED2D952`, not a same-ID rebaseline.
-    Final candidate commit, exact dogfood proof, complete verification, and
-    fresh independent review remain required.
+    Candidate `e4c9fb38d18ece6ea501a93e903ecd5e354bedcc` adds the complete
+    authority catalog/witness, restart, race, and exact parking-recovery repair.
+    Focused verification passed 111 advance, 229 packet/session/hook, and 61
+    filesystem/journal/PCAW tests; exact dogfood proof and fresh exact-head
+    review remain required.
 
 - [x] **Activation and legacy continuity stay one command**
   - Required outcome: new repository initialization activates the operating
@@ -204,7 +207,10 @@ the command only selects and claims eligible work for it.
     journaled mutation. The 1-second/100 MB and 2-second mutation targets are
     unmet. A versioned checkpoint/tail-index migration remains deferred because
     a persistent advisory cache must not become transition authority. Final
-    exact-head timing and complete-gate evidence remain required.
+    candidate `e4c9fb38d18ece6ea501a93e903ecd5e354bedcc` passed three complete
+    gates in 93.68, 93.33, and 93.36 seconds (93.36-second median, 1.4% over the
+    92.08-second baseline and below the 101.29-second ceiling); median peak RSS
+    was 335,956 KB. Fresh exact-head review remains required.
 
 - [ ] **Compatibility, security, documentation, and review**
   - Required outcome: existing commands, schemas, fixtures, PCAW v1, authority,
@@ -221,8 +227,10 @@ the command only selects and claims eligible work for it.
   - Current status: in progress.
   - Current evidence (not completion proof):
     `591702bbe4ec19c18fc06275682a58b19a3137f7` is historical verification
-    evidence. The rejected `9ad22e4` candidate requires repair; final
-    exact-head checks, path audit, isolated smoke, and fresh ACCEPT remain due.
+    evidence. Candidate `e4c9fb38d18ece6ea501a93e903ecd5e354bedcc`
+    passed 876 tests across 46 modules, style, the trusted-code manifest, all
+    18 PCAW vectors, 12 documentation checks, exact nine-path packet audit, and
+    isolated wheel installation. Fresh exact-head ACCEPT remains due.
 
 ## Explicit Human And Reviewer Boundary
 
