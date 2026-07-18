@@ -5,6 +5,10 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .governance_kernel import (
+    EXTERNAL_WRITE_ACTIONS,
+    low_risk_completion_policy_applies,
+)
 from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
@@ -14,7 +18,6 @@ from .workspace import Workspace
 
 SUPPORTED_MODES = {"execute", "review"}
 TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
-EXTERNAL_WRITE_ACTIONS = {"external_write", "write_external", "write"}
 
 
 def build_agent_brief(
@@ -51,7 +54,12 @@ def build_agent_brief(
         return _finalize_packet(packet, blockers)
 
     work_detail = detail(workspace, work.id, journal_context=journal_context)
-    review_context = _review_context(workspace, work.id, mode)
+    review_context = (
+        _review_context(workspace, work.id, mode)
+        if mode == "review"
+        and work_detail["attention"] == "needs-review"
+        else None
+    )
     blockers.extend(
         _work_blockers(workspace, work_detail, palari_id, mode, review_context)
     )
@@ -230,13 +238,13 @@ def _work_blockers(
 
     attention = work_detail["attention"]
     if mode == "review":
-        if attention in {"needs-review", "receipt-ready"}:
-            if work_detail.get("evidence") is None and work_detail.get("receipt") is None:
+        if attention == "needs-review":
+            if work_detail.get("evidence") is None:
                 blockers.append(
                     _blocker(
                         "REVIEW_CONTEXT_MISSING",
-                        "Review mode needs evidence or a receipt to inspect.",
-                        missing="reviewable evidence or receipt",
+                        "Review mode needs current evidence to inspect.",
+                        missing="reviewable evidence",
                     )
                 )
             return blockers
@@ -258,7 +266,7 @@ def _work_blockers(
         blockers.append(
             _blocker(
                 "REVIEW_NOT_READY",
-                f"Current attention state is {attention}; review mode is for needs-review or receipt-ready work.",
+                "The work is not ready for independent review; current exact evidence is required first.",
                 missing="review-ready work",
             )
         )
@@ -292,15 +300,6 @@ def _work_blockers(
                 missing="review-mode packet",
             )
         )
-    elif attention == "receipt-ready":
-        blockers.append(
-            _blocker(
-                "RECEIPT_READY_REVIEW",
-                work_detail["why"],
-                missing="human output review or follow-up",
-            )
-        )
-
     return blockers
 
 
@@ -521,7 +520,7 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
     if mode == "review":
         return {
             "requires_receipt": False,
-            "requires_evidence": False,
+            "requires_evidence": True,
             "requires_review": False,
             "requires_human_decision": False,
             "external_writes_allowed": False,
@@ -530,20 +529,21 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
         }
     work = work_detail["work_item"]
     external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
-    low_risk_light = (
-        work.get("risk") in {"R1", "R2"}
-        and work.get("required_approval_count", 0) == 0
-        and not external_actions
+    receipt = work_detail.get("receipt") or {}
+    low_risk_light = low_risk_completion_policy_applies(
+        risk=str(work.get("risk", "")),
+        intensity=str(work.get("intensity", "")),
+        required_approval_count=int(work.get("required_approval_count", 0)),
+        allowed_actions=list(work.get("allowed_actions", [])),
+        external_writes=list(receipt.get("external_writes", [])),
+        planned_external_writes=list(receipt.get("planned_external_writes", [])),
+        queued_external_writes=list(receipt.get("queued_external_writes", [])),
     )
-    evidence_state = work_detail["safety"]["evidence_state"]
-    receipt_ready = low_risk_light and work_detail["safety"]["receipt_state"] == "ready"
     return {
         "requires_receipt": True,
-        "requires_evidence": False
-        if receipt_ready
-        else evidence_state in {"missing", "stale", "failed"} or not low_risk_light,
+        "requires_evidence": True,
         "requires_review": not low_risk_light,
-        "requires_human_decision": work.get("required_approval_count", 0) > 0,
+        "requires_human_decision": not low_risk_light,
         "external_writes_allowed": bool(external_actions),
         "external_write_actions": external_actions,
     }
@@ -588,6 +588,9 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
                 "id",
                 "attempt_id",
                 "outputs_created",
+                "planned_external_writes",
+                "queued_external_writes",
+                "external_writes",
                 "context_packet",
                 "context_hash",
                 "receipt_hash",

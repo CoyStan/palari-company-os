@@ -24,6 +24,11 @@ repository milestones, not a production Company OS release.
 
 ### Changed
 
+- Removed the superseded `palari agent done` command and receipt-only
+  completion lifecycle. `palari agent advance` is now the sole current
+  execution-to-proof path, every completion requires current exact evidence,
+  and only R1/light/zero-approval work with no external-write surface may omit
+  independent review and human acceptance.
 - Retired the bundled static `dashboard` command, generator, screenshots, and
   publication path. Structured CLI read models and the local Mission Control
   and desktop prototype surfaces remain available; invoking `dashboard` now

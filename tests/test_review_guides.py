@@ -14,46 +14,46 @@ from palari_company_os.review_guides import build_review_guide
 from palari_company_os.workspace import Workspace
 
 
-DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
 ACME = REPO_ROOT / "examples" / "acme-company-os"
 
 
 class ReviewGuideTests(unittest.TestCase):
     def test_review_guide_summarizes_evidence_receipt_and_focus(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
+        workspace = Workspace.load(ACME)
 
-        payload = build_review_guide(workspace, "WORK-REPO-0003")
+        payload = build_review_guide(workspace, "WORK-0001")
 
         self.assertEqual(payload["schema_version"], "palari.review_guide.v1")
-        self.assertEqual(payload["status"], "review-needed")
+        self.assertEqual(payload["status"], "has-review")
         self.assertEqual(payload["would_mutate"], False)
-        self.assertEqual(payload["work_item"]["id"], "WORK-REPO-0003")
-        self.assertEqual(payload["evidence"]["id"], "EVIDENCE-REPO-0003")
-        self.assertEqual(payload["evidence"]["head_sha"], "e0e70f")
-        self.assertEqual(payload["attempt"]["id"], "ATTEMPT-REPO-0003")
-        self.assertIn("src/palari_company_os/workspace.py", payload["attempt"]["changed_files"])
-        self.assertEqual(payload["receipt"]["id"], "RECEIPT-REPO-0003")
+        self.assertEqual(payload["work_item"]["id"], "WORK-0001")
+        self.assertEqual(payload["evidence"]["id"], "EVIDENCE-0001")
+        self.assertEqual(payload["evidence"]["head_sha"], "abc1234")
+        self.assertEqual(payload["attempt"]["id"], "ATTEMPT-0001")
+        self.assertIn("examples/acme-company-os/workspace.json", payload["attempt"]["changed_files"])
+        self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001A")
         self.assertIn("Confirm forbidden actions", " ".join(payload["review_focus"]))
         candidates = {item["id"]: item for item in payload["reviewer_candidates"]}
-        self.assertEqual(payload["reviewer_candidates"][0]["id"], "PALARI-ARCHITECT")
-        self.assertEqual(candidates["PALARI-ARCHITECT"]["identity_type"], "palari")
-        self.assertTrue(candidates["PALARI-ARCHITECT"]["agent_may_execute"])
+        self.assertEqual(payload["reviewer_candidates"][0]["id"], "PALARI-ALFRED")
+        self.assertEqual(candidates["PALARI-ALFRED"]["identity_type"], "palari")
+        self.assertTrue(candidates["PALARI-ALFRED"]["agent_may_execute"])
         self.assertEqual(candidates["HUMAN-FOUNDER"]["identity_type"], "human")
         self.assertFalse(candidates["HUMAN-FOUNDER"]["agent_may_execute"])
         self.assertNotIn("HUMAN-MAINTAINER", candidates)
-        self.assertEqual(payload["review_record_commands"][0]["reviewer"], "PALARI-ARCHITECT")
+        self.assertEqual(payload["review_record_commands"][0]["reviewer"], "PALARI-ALFRED")
         self.assertIn("--verdict VERDICT", payload["review_record_commands"][0]["command"])
         self.assertIn("separate from acceptance", candidates["HUMAN-FOUNDER"]["reason"])
         self.assertIn("--verdict VERDICT", payload["review_record_command_template"])
 
     def test_review_guide_reports_missing_evidence(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
+        workspace = Workspace.load(ACME)
 
-        payload = build_review_guide(workspace, "WORK-REPO-0004")
+        payload = build_review_guide(workspace, "WORK-0003")
 
         self.assertEqual(payload["status"], "missing-evidence")
         self.assertEqual(payload["evidence"], {"present": False})
-        self.assertEqual(payload["attempt"], {"present": False})
+        self.assertEqual(payload["attempt"]["id"], "ATTEMPT-0002")
+        self.assertEqual(payload["attempt"]["status"], "active")
         self.assertEqual(payload["receipt"], {"present": False})
 
     def test_review_guide_excludes_human_attempt_actor(self) -> None:
@@ -79,49 +79,27 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["evidence"]["head_sha"], "review-fresh")
         self.assertIn("A review already exists", " ".join(payload["review_focus"]))
 
-    def test_review_guide_keeps_receipt_ready_lightweight(self) -> None:
-        workspace = Workspace.load(ACME)
-
-        payload = build_review_guide(workspace, "WORK-0007")
-
-        self.assertEqual(payload["status"], "receipt-ready")
-        self.assertEqual(payload["evidence"], {"present": False})
-        self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001")
-        self.assertIn("receipt-ready low-risk work", " ".join(payload["review_focus"]))
-
-    def test_review_guide_keeps_dogfood_receipt_ready_lightweight_with_evidence(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
-
-        payload = build_review_guide(workspace, "WORK-REPO-0006")
-        focus = " ".join(payload["review_focus"])
-
-        self.assertEqual(payload["status"], "receipt-ready")
-        self.assertEqual(payload["evidence"]["id"], "EVIDENCE-REPO-0006")
-        self.assertEqual(payload["receipt"]["id"], "RECEIPT-REPO-0006")
-        self.assertIn("receipt-ready low-risk work", focus)
-        self.assertIn("Use the evidence as supporting context", focus)
-
     def test_cli_review_guide_emits_json_shape(self) -> None:
         result = json.loads(
             self.run_cli(
                 "review",
                 "guide",
-                "WORK-REPO-0003",
+                "WORK-0006",
                 "--json",
+                workspace=ACME,
             ).stdout
         )
 
         self.assertEqual(result["schema_version"], "palari.review_guide.v1")
-        self.assertEqual(result["status"], "review-needed")
-        self.assertEqual(result["work_item"]["id"], "WORK-REPO-0003")
+        self.assertEqual(result["status"], "stale-review")
+        self.assertEqual(result["work_item"]["id"], "WORK-0006")
 
     def test_cli_review_guide_text_shows_reviewer_candidates(self) -> None:
-        result = self.run_cli("review", "guide", "WORK-REPO-0006")
+        result = self.run_cli("review", "guide", "WORK-0001", workspace=ACME)
 
         self.assertIn("Reviewer candidates:", result.stdout)
-        self.assertIn("PALARI-ARCHITECT", result.stdout)
+        self.assertIn("PALARI-ALFRED", result.stdout)
         self.assertIn("HUMAN-FOUNDER", result.stdout)
-        self.assertNotIn("HUMAN-MAINTAINER", result.stdout)
         self.assertIn("record: palari review record REVIEW-ID", result.stdout)
         self.assertIn("--reviewer HUMAN-FOUNDER", result.stdout)
 
@@ -162,7 +140,7 @@ class ReviewGuideTests(unittest.TestCase):
     def run_cli(
         self,
         *args: str,
-        workspace: Path = DOGFOOD,
+        workspace: Path = ACME,
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")

@@ -203,7 +203,6 @@ ALLOWED_RECORD_FIELDS = {
         "mode",
         "summary",
         "require_human_for_risks",
-        "receipt_ready_risks",
         "minimum_approval_count",
         "r5_approval_count",
         "required_approval_capability",
@@ -1022,8 +1021,6 @@ def _validate_authority_profile(profile: AuthorityProfile) -> None:
     _require_allowed_value("authority_profiles", profile.id, "mode", profile.mode, AUTHORITY_MODES)
     for risk in profile.require_human_for_risks:
         _require_allowed_value("authority_profiles", profile.id, "require_human_for_risks", risk, RISKS)
-    for risk in profile.receipt_ready_risks:
-        _require_allowed_value("authority_profiles", profile.id, "receipt_ready_risks", risk, RISKS)
     if profile.minimum_approval_count < 0:
         raise WorkspaceError(
             f"authority_profiles.{profile.id}.minimum_approval_count must be zero or greater"
@@ -1812,8 +1809,6 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but dependencies are unfinished: "
             f"{', '.join(unfinished_dependencies)}"
         )
-    if _completed_via_low_risk_receipt(workspace, work, attempt):
-        return
     if attempt.status not in {"complete", "completed"}:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but current attempt "
@@ -1833,6 +1828,21 @@ def _validate_completed_work(
             f"not for current attempt {work.current_attempt}"
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
+    if evidence.output_binding_version:
+        integrity_errors = _stored_evidence_integrity_errors(workspace, evidence)
+        if integrity_errors:
+            raise WorkspaceError(
+                f"work_items.{work.id}.status is terminal but exact evidence proof is stale: "
+                f"{integrity_errors[0]}"
+            )
+    if evidence.output_binding_version and _completed_via_evidence_complete_low_risk(
+        workspace, work, attempt
+    ):
+        return
+    if not evidence.output_binding_version and _historical_low_risk_completion(
+        workspace, work, attempt
+    ):
+        return
     review = _latest_for_work(workspace.review_verdicts, work.id)
     if review is None:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but review is missing")
@@ -1844,7 +1854,6 @@ def _validate_completed_work(
         # records with genuinely unversioned evidence remain loadable as
         # legacy state, but a v1 record cannot use that compatibility path.
         binding_errors = review_binding_integrity_errors(workspace, review)
-        binding_errors.extend(_stored_evidence_integrity_errors(workspace, evidence))
         if review.work_contract_hash != work_contract_hash(work):
             binding_errors.append(f"review {review.id} work contract is stale")
         if binding_errors:
@@ -1995,13 +2004,8 @@ def _stored_evidence_integrity_errors(
 ) -> list[str]:
     """Validate terminal proof records without rebinding them to a later checkout."""
 
-    from .evidence_manifest import evidence_manifest_hash, receipt_hash
-    from .models import to_plain
+    from .evidence_manifest import stored_evidence_integrity_errors
 
-    record = to_plain(evidence)
-    errors: list[str] = []
-    if not evidence.manifest_hash or evidence.manifest_hash != evidence_manifest_hash(record):
-        errors.append(f"evidence {evidence.id} manifest content changed")
     receipts = [
         receipt
         for receipt in workspace.receipts
@@ -2009,35 +2013,26 @@ def _stored_evidence_integrity_errors(
         and receipt.attempt_id == evidence.attempt_id
     ]
     receipt = max(receipts, key=record_time_key) if receipts else None
-    if receipt is None:
-        errors.append(f"evidence {evidence.id} receipt is missing")
-    else:
-        if not receipt.receipt_hash or receipt.receipt_hash != receipt_hash(to_plain(receipt)):
-            errors.append(f"receipt {receipt.id} content changed")
-        if evidence.receipt_hash != receipt.receipt_hash:
-            errors.append(f"evidence {evidence.id} receipt binding changed")
-    if evidence.output_binding_version:
-        declared_paths = sorted(evidence.artifacts)
-        hashed_paths = sorted(
-            str(item.get("path", ""))
-            for item in evidence.artifact_hashes
-            if item.get("status") == "present"
-            and re.fullmatch(r"sha256:[0-9a-f]{64}", str(item.get("sha256", "")))
-        )
-        if declared_paths != hashed_paths:
-            errors.append(f"evidence {evidence.id} output hashes are incomplete")
-        if not hashed_paths:
-            errors.append(f"evidence {evidence.id} versioned output proof is vacuous")
-        if receipt is not None and not set(receipt.outputs_created).issubset(hashed_paths):
-            errors.append(f"evidence {evidence.id} receipt outputs are not artifact-hashed")
-    return list(dict.fromkeys(errors))
+    work = workspace.work_item(evidence.work_item_id)
+    versioned = bool(evidence.output_binding_version)
+    return stored_evidence_integrity_errors(
+        evidence,
+        receipt,
+        path_intents=work.path_intents if work is not None else [],
+        require_output_coverage=versioned,
+        require_version=versioned,
+    )
 
 
-def _completed_via_low_risk_receipt(workspace: Any, work: WorkItem, attempt: Attempt) -> bool:
-    if work.risk not in {"R1", "R2"}:
-        return False
-    if work.required_approval_count != 0:
-        return False
+def _completed_via_evidence_complete_low_risk(
+    workspace: Any,
+    work: WorkItem,
+    attempt: Attempt,
+) -> bool:
+    """Load current evidence-complete work under the narrow kernel policy."""
+
+    from .governance_kernel import low_risk_completion_policy_applies
+
     if attempt.status not in {"complete", "completed"}:
         return False
     if _unfinished_dependency_ids(workspace, work):
@@ -2045,10 +2040,41 @@ def _completed_via_low_risk_receipt(workspace: Any, work: WorkItem, attempt: Att
     receipt = _latest_for_work(workspace.receipts, work.id)
     if receipt is None or receipt.attempt_id != work.current_attempt:
         return False
-    return not (
-        receipt.external_writes
-        or receipt.planned_external_writes
-        or receipt.queued_external_writes
+    return low_risk_completion_policy_applies(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+        external_writes=receipt.external_writes,
+        planned_external_writes=receipt.planned_external_writes,
+        queued_external_writes=receipt.queued_external_writes,
+    )
+
+
+def _historical_low_risk_completion(
+    workspace: Any,
+    work: WorkItem,
+    attempt: Attempt,
+) -> bool:
+    """Load committed R1/R2 evidence history without granting current authority."""
+
+    from .governance_kernel import EXTERNAL_WRITE_ACTIONS
+
+    if (
+        work.risk not in {"R1", "R2"}
+        or work.required_approval_count != 0
+        or bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
+        or attempt.status not in {"complete", "completed"}
+        or _unfinished_dependency_ids(workspace, work)
+    ):
+        return False
+    receipt = _latest_for_work(workspace.receipts, work.id)
+    return bool(
+        receipt is not None
+        and receipt.attempt_id == work.current_attempt
+        and not receipt.external_writes
+        and not receipt.planned_external_writes
+        and not receipt.queued_external_writes
     )
 
 

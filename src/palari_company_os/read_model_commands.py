@@ -44,7 +44,7 @@ def work_next_commands(
     commands: list[str] = []
     if open_decision is not None:
         commands.append(f"palari decision guide {open_decision.id} --json")
-    elif attention in {"needs-review", "receipt-ready"}:
+    elif attention == "needs-review":
         commands.append(f"palari review guide {work.id} --json")
     elif attention == "needs-evidence" and has_current_attempt:
         commands.append(f"palari agent check {work.id} --as {work.palari} --mode execute --json")

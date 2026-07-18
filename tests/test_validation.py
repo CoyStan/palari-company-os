@@ -162,9 +162,48 @@ class WorkspaceValidationTests(unittest.TestCase):
         self.assertEqual(workspace.sources[0].id, "SOURCE-1")
         self.assertEqual(workspace.receipts[0].sources_used, ["SOURCE-1"])
 
-    def test_completed_low_risk_receipt_ready_work_loads(self) -> None:
+    def test_completed_low_risk_work_without_evidence_fails_closed(self) -> None:
         raw = json.loads((FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8"))
         raw["work_items"][0]["status"] = "completed"
+
+        with self.assertRaisesRegex(WorkspaceError, "evidence is missing"):
+            Workspace.from_raw(raw, FIXTURES)
+
+    def test_completed_low_risk_work_with_exact_evidence_loads(self) -> None:
+        from palari_company_os.evidence_manifest import (
+            OUTPUT_BINDING_VERSION,
+            evidence_manifest_hash,
+            stamp_receipt_record,
+        )
+
+        raw = json.loads((FIXTURES / "valid-source-receipt-loop.json").read_text(encoding="utf-8"))
+        raw["work_items"][0]["status"] = "completed"
+        receipt = stamp_receipt_record(raw["receipts"][0], [])
+        raw["receipts"][0] = receipt
+        evidence = {
+            "id": "EVIDENCE-1",
+            "work_item_id": "WORK-1",
+            "attempt_id": "ATTEMPT-1",
+            "head_sha": "head-1",
+            "status": "passed",
+            "commands": ["python3 -m unittest tests.test_summary"],
+            "artifacts": ["notes/summary.md"],
+            "artifact_hashes": [
+                {
+                    "path": "notes/summary.md",
+                    "sha256": "sha256:" + "a" * 64,
+                    "status": "present",
+                }
+            ],
+            "output_binding_version": OUTPUT_BINDING_VERSION,
+            "receipt_hash": receipt["receipt_hash"],
+            "summary": "Focused verification passed.",
+            "freshness": "current",
+            "timestamp": "2026-06-19T04:06:00Z",
+        }
+        evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+        raw["evidence_runs"] = [evidence]
+
         workspace = Workspace.from_raw(raw, FIXTURES)
 
         self.assertEqual(workspace.work_items[0].status, "completed")

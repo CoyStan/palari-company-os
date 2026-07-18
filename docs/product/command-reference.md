@@ -358,8 +358,10 @@ cannot accept work or expand scope.
 
 Authority profiles describe risk/quorum posture. Built-ins are
 `solo-founder`, `team-safe`, and `strict`. `authority check` shows whether the
-work item's declared approval count satisfies the profile and whether
-receipt-ready completion is allowed for that risk tier.
+work item's declared approval count satisfies the profile. It does not waive
+exact evidence or create authority. The governance kernel separately applies
+the narrow R1/light/0-approval/no-external review and human-acceptance
+exemption.
 
 ## Proposals And Scope Expansion
 
@@ -609,8 +611,8 @@ gates separately from properties that need a host adapter. File writes and
 stop-time checks are `adapter-required`; read scope is `advisory`. A future
 adapter must not promote either status unless its native controls are proven.
 `--mode review` compiles a work-output-read-only reviewer packet for work
-already waiting on review or marked receipt-ready. It includes review focus and
-compact attempt/evidence/receipt context and sets write paths to empty. For a
+already waiting on review with current exact evidence. It includes review focus
+and compact attempt/evidence/receipt context and sets write paths to empty. For a
 matching eligible Palari, the packet exposes exactly one advisory review-record
 action. `agent next --mode review` also permits a distinct Palari to supplement
 a positive review waiting on a different human acceptance identity; negative
@@ -626,8 +628,9 @@ human-decision records are missing. Missing receipt, evidence, and review
 checks include concrete next-command guidance when possible, and failed
 required check commands appear before generic inspect/validate commands.
 Human-decision record commands are not surfaced until prerequisite proof is
-present. Light low-risk receipt-ready work can satisfy the receipt requirement
-without forcing review or human approval. When blocked work is waiting on
+present. R1/light/0-approval work with current exact evidence and no allowed,
+planned, queued, or actual external writes may complete without independent
+review or human approval. When blocked work is waiting on
 review, `agent check` prioritizes `agent handoff` before generic detail
 commands.
 
@@ -676,7 +679,7 @@ agent-safe read commands from human action commands, and does not mutate the
 workspace. For an eligible local approval with valid journal continuity, it
 exposes the exact one-action Approval Pack command. Legacy or non-batchable
 states retain an individual human-decision fallback. It excludes the current
-builder and reviewer from approval candidates. `agent next` and receipt-ready
+builder and reviewer from approval candidates. `agent next` and review-bound
 `agent finish` prefer this command before lower-level direct guide commands.
 
 `agent doctor` is read-only and explains why one work item is or is not safe for
@@ -689,23 +692,18 @@ work item. It includes stage status and exact commands for `brief`, `check`,
 full stage payloads; run the listed command when you need the detailed packet,
 check, finish, or handoff output.
 
-`agent done` is a shortcut for R1/light/0-approval work items only. It
-auto-records a minimal attempt, receipt, and work update; releases and
-re-claims the work item; runs the full check/finish loop; closes out the
-attempt; and completes the work item — all in one command. For R2+ or
-non-light work, it rejects with guidance to use the full proof lifecycle.
-Pass `--changed PATH` for each changed file, `--head-sha` for attempt
-closeout, and `--model-or-worker` to label the attempt.
-
-`agent advance` is the risk-aware deterministic successor for governed Git
-work. `--dry-run` derives an ordered, content-addressed plan without running
-verification or mutating state. Execution derives the complete claim-start
+`agent advance` is the sole current execution-to-proof and closeout path for
+governed Git work. `--dry-run` derives an ordered, content-addressed plan
+without running verification or mutating state. Execution derives the complete claim-start
 commit range, checks the packet boundary, runs built-in argument-vector
 profiles (never work-item prose), and binds passing results to the exact head,
 profile, source state, interpreter, and platform. It then rechecks the plan and
 commits attempt, receipt, evidence, and closeout as one journaled workspace
-transaction. R1/light/0 work may complete; higher-risk work releases its claim
-and stops with an independent-review handoff. After a separate current review
+transaction. Current exact passing evidence is mandatory for every completion.
+Only R1/light/0-approval work with no allowed, planned, queued, or actual
+external writes may complete without independent review and human acceptance;
+all other work releases its claim and stops at the next required boundary.
+After a separate current review
 and qualified human decision exist, the authority-producing function normally
 invokes the same fixed-point driver immediately. A later `agent advance` remains
 an idempotent recovery surface: it verifies the exact artifact bytes, derives
@@ -1015,13 +1013,14 @@ queued outbox item, matching approved payload, valid human authority,
 id and URL. Drift in provider, operation, issue id, body payload, or linked work
 target fails closed and records failed outbox metadata without storing secrets.
 
-## Receipt-Ready Low-Risk Work
+## Evidence-Complete Low-Risk Work
 
-For light R1/R2 local work, a completed attempt plus a valid receipt can move
-the queue to `receipt-ready` without requiring full evidence, independent
-review, and human-decision ceremony. That state is deliberately human-facing:
-review the output, undo it if needed, or continue. R3/R4/R5 work and receipts
-that claim actual external writes still require the stricter governance path. A
+Every completion requires a terminal clean attempt, a bound receipt, and
+current exact passing evidence covering the head and output artifacts. The
+kernel may omit independent review and human acceptance only when the work is
+R1, uses light intensity, requires zero approvals, and has no allowed, planned,
+queued, or actual external writes. R2+ work and every item outside those exact
+conditions follow the review and human-authority path. A
 receipt may reference `planned_external_writes` only by approved integration
 plan id, or `queued_external_writes` by integration outbox id, without claiming
 that anything was sent or changed externally. `queued_external_writes` must
@@ -1237,13 +1236,11 @@ Accepted human decisions fail closed if:
 - review is missing, not accept-ready, or stale
 - the decision head does not match the reviewed head
 
-Completion fails closed unless one of these is true:
-
-- the queue integration state is `ready`, meaning evidence, review, and any
-  required human approval are complete
-- the work is receipt-ready local R1/R2 work with `required_approval_count: 0`,
-  terminal dependencies, no open linked decisions, and no actual, planned, or
-  queued external writes
+Completion fails closed unless current exact passing evidence is bound to the
+terminal clean attempt, receipt, head, and output artifacts, dependencies are
+terminal, and no linked decision remains open. In addition, either independent
+review and explicit human acceptance must be current, or the work must satisfy
+the exact R1/light/0-approval/no-external exemption.
 
 ## External Maintainer Status
 

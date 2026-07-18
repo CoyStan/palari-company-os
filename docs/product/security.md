@@ -16,9 +16,15 @@ Authority rules:
 - Required approval capability is checked before accepted decisions are
   recorded.
 - Quorum is checked before work can be completed.
+- Every completion requires current exact passing evidence bound to the exact
+  attempt, receipt, head, and output artifacts and evaluated against the
+  current work contract.
 - Governed acceptance requires a terminal clean attempt, mandatory
   evidence/receipt integrity, and an exact-bound independent review matching
   the current attempt, head, and work contract.
+- Independent review and human acceptance may both be omitted only for
+  R1/light/0-approval work with no allowed, planned, queued, or actual external
+  writes. That narrow policy never waives evidence.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a later negative decision revokes an earlier
   approval, while contradictory or ambiguous records fail closed.
@@ -34,7 +40,7 @@ Authority rules:
   paths, and forbidden actions.
 - Active claims hash their metadata-only dirty baseline. Unchanged pre-existing
   dirt is not attributed to the agent, while changes after claim are blocked.
-- The baseline also records the claim-start commit. `agent done` checks the
+- The baseline also records the claim-start commit. `agent advance` checks the
   entire descendant commit range, so claim restart cannot hide an earlier
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
@@ -64,7 +70,7 @@ Authority rules:
   successor.
 - Persisted witness ref/head/history is checked before restart lease acquisition
   and again before claim persistence. A legacy current-only active claim without
-  a catalog is rejected by claim integrity and cannot reach advance or done.
+  a catalog is rejected by claim integrity and cannot reach `agent advance`.
 - Durable parking crash recovery is the sole narrow exception to live status
   equality: after confirming the exact persisted parking-attempt/claim epoch, it
   normalizes current `blocked` status back to the immutable packet status and
@@ -82,7 +88,8 @@ Authority rules:
   malformed hash/status records fail closed. Refresh also discloses
   that recording refreshed proof mutates those projections after the evidence
   head. The refreshed proof invalidates prior review and human authority.
-- `agent advance` applies that same exact-range proof to every risk tier. Its
+- `agent advance` is the sole current execution-to-proof path and applies that
+  same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
   argument vectors rather than workspace prose. Run records bind the head,
   base, changed-path digest, clean state, profile, source state, interpreter,
@@ -90,9 +97,10 @@ Authority rules:
   Only current proof already reconciled into governed evidence is reusable.
   The command rechecks its plan and post-proof actor, claim, clean-tree, and
   scope boundaries, commits agent-owned proof as one journaled transaction,
-  and stops before independent review or human authority. A pending prepare is
-  aborted before a safe retry; an already-applied pending commit is completed
-  only under the exact original execution authority.
+  and either completes only under the narrow R1/light/0-approval/no-external
+  exemption or stops before required independent review or human authority. A
+  pending prepare is aborted before a safe retry; an already-applied pending
+  commit is completed only under the exact original execution authority.
 - `agent start --next` does not introduce a second eligibility policy. It
   selects the first candidate already marked safe by `agent next`, then invokes
   the same packet, portable-contract, claim, baseline, witness, and lease path

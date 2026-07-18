@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -190,6 +191,88 @@ def receipt_hash(record: dict[str, Any]) -> str:
         if key not in {"receipt_hash"} and value not in (None, "", [], {})
     }
     return _stable_hash(payload)
+
+
+def stored_evidence_integrity_errors(
+    evidence: Any,
+    receipt: Any | None,
+    *,
+    path_intents: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    require_output_coverage: bool = True,
+    require_version: bool = True,
+) -> list[str]:
+    """Verify stored exact-proof metadata without reading artifact bytes."""
+
+    evidence_record = _plain_record(evidence)
+    receipt_record = _plain_record(receipt) if receipt is not None else None
+    evidence_id = str(evidence_record.get("id", ""))
+    errors: list[str] = []
+    if require_version and evidence_record.get("output_binding_version") != OUTPUT_BINDING_VERSION:
+        errors.append(f"evidence {evidence_id} has no current output binding version")
+    if (
+        not evidence_record.get("manifest_hash")
+        or evidence_record["manifest_hash"] != evidence_manifest_hash(evidence_record)
+    ):
+        errors.append(f"evidence {evidence_id} manifest content changed")
+    if receipt_record is None:
+        errors.append(f"evidence {evidence_id} receipt is missing")
+    else:
+        receipt_id = str(receipt_record.get("id", ""))
+        declared_receipt_hash = str(receipt_record.get("receipt_hash", ""))
+        if not declared_receipt_hash or declared_receipt_hash != receipt_hash(receipt_record):
+            errors.append(f"receipt {receipt_id} content changed")
+        if evidence_record.get("receipt_hash") != declared_receipt_hash:
+            errors.append(f"evidence {evidence_id} receipt binding changed")
+
+    artifacts = [str(path) for path in evidence_record.get("artifacts", [])]
+    artifact_hashes = evidence_record.get("artifact_hashes", [])
+    hash_records = [item for item in artifact_hashes if isinstance(item, dict)]
+    hashes = {str(item.get("path", "")): item for item in hash_records}
+    if len(hash_records) != len(artifact_hashes) or len(hashes) != len(hash_records):
+        errors.append(f"evidence {evidence_id} output hashes contain duplicate or malformed paths")
+    if set(hashes) != set(artifacts) or len(artifacts) != len(set(artifacts)):
+        errors.append(f"evidence {evidence_id} output hashes are incomplete")
+
+    delete_paths = {
+        str(item.get("path", ""))
+        for item in path_intents
+        if isinstance(item, dict) and item.get("intent") == "delete"
+    }
+    for path, item in hashes.items():
+        status = str(item.get("status", ""))
+        digest = str(item.get("sha256", ""))
+        if path in delete_paths:
+            if status != "absent" or digest != f"{HASH_PREFIX}absent":
+                errors.append(f"evidence {evidence_id} deletion proof is invalid for {path}")
+        elif status != "present" or not _exact_sha256(digest):
+            errors.append(f"evidence {evidence_id} artifact digest is invalid for {path}")
+
+    outputs = (
+        [str(path) for path in receipt_record.get("outputs_created", [])]
+        if receipt_record is not None
+        else []
+    )
+    if require_output_coverage:
+        if not artifacts:
+            errors.append(f"evidence {evidence_id} versioned output proof is vacuous")
+        if not outputs or not set(outputs).issubset(artifacts):
+            errors.append(f"evidence {evidence_id} receipt outputs are not artifact-hashed")
+    return list(dict.fromkeys(errors))
+
+
+def _plain_record(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if is_dataclass(value):
+        return asdict(value)
+    raise TypeError("stored evidence records must be mappings or dataclasses")
+
+
+def _exact_sha256(value: str) -> bool:
+    if not value.startswith(HASH_PREFIX):
+        return False
+    digest = value.removeprefix(HASH_PREFIX)
+    return len(digest) == 64 and all(character in "0123456789abcdef" for character in digest)
 
 
 def verify_evidence(

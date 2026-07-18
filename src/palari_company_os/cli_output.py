@@ -8,7 +8,7 @@ from .cli_output_agent import (
     print_agent_brief,
     print_agent_check,
     print_agent_doctor,
-    print_agent_done,
+    print_agent_advance,
     print_agent_finish,
     print_agent_handoff,
     print_agent_loop,
@@ -200,8 +200,8 @@ def print_result(result: CommandResult) -> None:
         print_agent_doctor(result.payload, result.as_json)
         return
 
-    if result.kind == "agent-done":
-        print_agent_done(result.payload, result.as_json)
+    if result.kind == "agent-advance":
+        print_agent_advance(result.payload, result.as_json)
         return
 
     if result.kind == "review-guide":

@@ -74,8 +74,8 @@ may run its emitted `human-decision pack` action once. Agents may quote that
 command for the supervisor; they must not execute it or combine review with
 acceptance.
 
-Use `--mode review` only when work is already waiting for review or is
-receipt-ready. Review packets are read-only: they include review focus,
+Use `--mode review` only when work has current exact evidence and is waiting
+for independent review. Review packets are read-only: they include review focus,
 attempt/evidence/receipt context, and review guide commands, but they do not
 record a verdict.
 

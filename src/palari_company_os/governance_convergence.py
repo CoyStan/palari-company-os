@@ -374,7 +374,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
     safety = work_detail.get("safety", {})
     acceptance_state = str(safety.get("acceptance_state") or "")
     proof = {**projection, "evidence_id": evidence.id, "proof_current": True}
-    if acceptance_state in {"ready-to-record", "accepted"}:
+    if acceptance_state in {"not-required", "ready-to-record", "accepted"}:
         return ConvergenceObservation(
             digest=digest,
             status="ready",
@@ -385,7 +385,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
         )
     attention = str(work_detail.get("attention") or "")
     next_step = str(work_detail.get("next_step_type") or "")
-    if attention in {"needs-review", "receipt-ready"} or next_step == "review-handoff":
+    if attention == "needs-review" or next_step == "review-handoff":
         boundary = "independent-review"
     elif attention == "needs-human-decision" or next_step == "human-decision":
         boundary = "human-authority"

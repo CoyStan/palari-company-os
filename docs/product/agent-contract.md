@@ -68,17 +68,20 @@ The ordinary loop is deliberately short:
    exact create/modify/delete intent, runs fixed verification profiles, and
    atomically records deterministic attempt, receipt, evidence, and closeout
    state. It stops at independent review, human authority, external state, or a
-   concrete blocker; it never creates a review or human decision.
+   concrete blocker; it never creates a review or human decision. Every
+   completion requires current exact passing evidence. Only R1/light work with
+   zero required approvals and no allowed, planned, queued, or actual external
+   writes may complete without independent review and human acceptance.
 3. Follow the one command returned at that boundary. After a separate current
    review, a qualified human opens `palari queue --approval-inbox --json`,
    inspects the exact presentation, and may run its bound `human-decision pack`
    command once. Current authority can trigger only deterministic local
    terminal bookkeeping.
 
-Use `agent advance --dry-run` to inspect the plan, `agent check`, `finish`,
-`handoff`, `doctor`, and `loop` for detailed diagnosis, and `agent done` as the
-compatible R1/light/zero-approval shortcut. Proof refresh remains an explicit
-claimless recovery path: `agent advance --refresh-verification --dry-run`
+`agent advance` is the sole current execution-to-proof and closeout path. Use
+`agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
+`handoff`, `doctor`, and `loop` for detailed diagnosis. Proof refresh remains
+an explicit claimless recovery path: `agent advance --refresh-verification --dry-run`
 previews it, and the non-dry-run form creates fresh exact-head proof only when
 ordinary governed outputs remain byte-identical. Prior review and human
 authority never carry forward.
@@ -102,7 +105,7 @@ mutation with the exact `history --checkpoint` activation command; it never
 silently claims continuity for earlier history.
 
 For independent inspection work, use `--mode review` after a work item is in
-`needs-review` or `receipt-ready`. A distinct source-authorized Palari may also
+`needs-review`. A distinct source-authorized Palari may also
 open a supplemental review packet when a positive human review is waiting on a
 different acceptance identity. The packet is read-only with respect to work
 outputs. It includes the review guide focus, attempt, evidence, receipt,
@@ -202,7 +205,6 @@ Common blocker codes include:
 - `WORK_CLOSED`
 - `INTEGRATION_BOUNDARY`
 - `REVIEW_REQUIRED`
-- `RECEIPT_READY_REVIEW`
 
 ## Boundaries
 
@@ -239,7 +241,7 @@ local Git witness for ready started work:
   item so an agent cannot reclassify its own later changes as pre-existing.
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
   local reflog entry provide a separate Git-backed witness. All four views must
-  agree before claim authority or `agent done` attribution is accepted.
+  agree before claim authority or `agent advance` attribution is accepted.
   For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari derives a canonical execution-authority
   digest from exact baseline workspace bytes and strict current root and
@@ -292,7 +294,6 @@ Implemented:
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
-- `palari agent done WORK-ID --as PALARI-ID --json` (R1/light/0-approval only)
 - `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
 - `palari agent advance WORK-ID --as PALARI-ID --json`
 - `palari agent loop WORK-ID --as PALARI-ID --json`
@@ -311,7 +312,7 @@ Implemented:
 - explicit create/modify/delete path intent with exact absent-path deletion
   tombstones; legacy work retains presence-required output behavior
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
-- claim-start commit-range proof for `agent done`, preserved across release and
+- claim-start commit-range proof for `agent advance`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
 - deterministic claim-range planning and atomic proof reconciliation through
   `agent advance`, with governed exact-proof reuse, an authority stop, and
@@ -345,8 +346,9 @@ local claim for ready packets, carries the current
 `next_step_type`, and then evaluates the current workspace against the
 completion contract. It returns `ok: false` when required receipt, evidence,
 review, human decision, source, dependency, or external-write checks fail. Light
-low-risk work may satisfy its trust loop with a valid receipt without requiring
-review or human approval. Missing receipt, evidence, and review checks include
+R1 work may omit review and human approval only when it has zero required
+approvals, current exact passing evidence, and no allowed, planned, queued, or
+actual external writes. Missing receipt, evidence, and review checks include
 the next safe command Palari can infer for the current work item. Human-decision
 record commands are held back until prerequisite proof, such as receipt,
 evidence, and review, is present, so agents do not jump from missing review
@@ -435,11 +437,11 @@ first concrete next step.
 
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
 workspace state in v1. It carries the same `next_step_type`, distinguishes
-missing proof from handoff-ready work, such as low-risk receipt-ready results
-that should stop execution and move to a human review path. Its
+missing proof from work ready for automatic reconciliation or a human handoff.
+Its
 `next_allowed_commands` prioritize missing proof or approval record templates
-before generic inspect/validate commands. For receipt-ready review handoffs and
-work that already has evidence but still needs review, `agent handoff` is
+before generic inspect/validate commands. For work that has exact evidence but
+still needs review, `agent handoff` is
 listed before the direct review guide command. Approval commands appear only
 after the earlier proof required for approval is present. In review mode,
 `agent finish` means the agent may report a review recommendation; it does not

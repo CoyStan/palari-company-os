@@ -105,7 +105,6 @@ LIST_FIELDS = {
     "allowed_palaris",
     "source_ids",
     "require_human_for_risks",
-    "receipt_ready_risks",
     "verification_expectations",
     "recommended_playbooks",
     "included_playbooks",
@@ -409,63 +408,13 @@ def _completion_blocker(work_detail: dict[str, Any]) -> str:
     if work_detail["attention"] == "blocked":
         return work_detail["why"]
     integration_state = work_detail["safety"]["integration_state"]
-    if integration_state == "ready":
-        return ""
-    if integration_state != "receipt-ready":
-        return f"integration_state is {integration_state}"
-    return _receipt_ready_completion_blocker(work_detail)
-
-
-def _receipt_ready_completion_blocker(work_detail: dict[str, Any]) -> str:
-    work = work_detail["work_item"]
-    if work["risk"] not in {"R1", "R2"}:
-        return f"receipt-ready completion requires R1/R2 risk, found {work['risk']}"
-    if work.get("required_approval_count", 0) != 0:
-        return "receipt-ready completion requires required_approval_count 0"
-    unfinished_dependencies = [
-        dependency["id"]
-        for dependency in work_detail.get("dependencies", [])
-        if dependency.get("status") not in {"completed", "closed", "done"}
-    ]
-    if unfinished_dependencies:
-        return f"dependencies are unfinished: {', '.join(unfinished_dependencies)}"
-    open_decisions = [
-        decision["id"]
-        for decision in work_detail.get("linked_decisions", [])
-        if decision.get("status") not in {"decided", "answered", "closed"}
-    ]
-    if open_decisions:
-        return f"linked decisions are open: {', '.join(open_decisions)}"
-    receipt = work_detail.get("receipt") or {}
-    if not receipt:
-        return "receipt-ready completion requires a receipt"
-    if (
-        receipt.get("external_writes")
-        or receipt.get("planned_external_writes")
-        or receipt.get("queued_external_writes")
-    ):
-        return "receipt-ready completion requires no external writes"
-    return ""
+    return "" if integration_state == "ready" else f"integration_state is {integration_state}"
 
 
 def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
-    work = workspace.work_item(work_id)
-    if work is not None and not (
-        work.risk in {"R1", "R2"} and work.required_approval_count == 0
-    ):
-        review = latest_for_work(workspace.review_verdicts, work_id)
-        if review is None:
-            return "exact review binding is missing"
-        from .governance_binding import current_review_binding_errors
-
-        binding_errors = current_review_binding_errors(
-            workspace, review, require_output_coverage=True
-        )
-        if binding_errors:
-            return binding_errors[0]
     evidence = latest_for_work(workspace.evidence_runs, work_id)
     if evidence is None or not evidence.manifest_hash:
-        return ""
+        return "current exact evidence is missing"
     from .evidence_manifest import verify_evidence
 
     verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)

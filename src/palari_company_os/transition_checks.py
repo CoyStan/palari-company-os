@@ -514,34 +514,14 @@ def _check_work_complete(
     from .pcaw_workspace import governance_case_from_workspace
 
     governance_case, _ = governance_case_from_workspace(workspace, work_id)
-    low_risk_receipt_path = work.risk in {"R1", "R2"} and work.required_approval_count == 0
-    if low_risk_receipt_path:
-        governance_case = replace(
-            governance_case,
-            claimed_state="completed",
-            contract=replace(governance_case.contract, status="completed"),
-        )
-    else:
-        governance_case = replace(governance_case, claimed_state="accepted")
+    governance_case = replace(
+        governance_case,
+        claimed_state="completed",
+        contract=replace(governance_case.contract, status="completed"),
+    )
     governance = evaluate_governance_case(governance_case)
-    # Legacy v2 workspaces may omit PCAW-only artifact coverage and stage
-    # timestamps. Existing gates below remain authoritative for those records;
-    # their exported proof is honestly not acceptance-verified until refreshed.
-    compatibility_only = {
-        "PCAW_EVIDENCE_OUTPUT_UNHASHED",
-        "PCAW_REVIEW_PREREQUISITE_INVALID",
-        "PCAW_ACCEPTANCE_PREREQUISITE_INVALID",
-        "PCAW_LIFECYCLE_ORDER_INVALID",
-        "PCAW_EVIDENCE_RECEIPT_INVALID",
-        "PCAW_CLAIMED_STATE_MISMATCH",
-    }
-    kernel_errors = [
-        item for item in governance.errors if item.code not in compatibility_only
-    ]
-    if low_risk_receipt_path:
-        kernel_errors = []
-    if governance.derived_state not in {"accepted", "completed"} and kernel_errors:
-        first_error = kernel_errors[0]
+    if governance.derived_state != "completed" or not governance.fully_verified:
+        first_error = governance.errors[0] if governance.errors else None
         blockers.append(
             TransitionBlocker(
                 "GOVERNANCE_PROOF_INCOMPLETE",
@@ -558,37 +538,13 @@ def _check_work_complete(
             )
         )
     work_detail = detail(workspace, work_id)
-    attempt = current_attempt_for_work(work, workspace.attempts)
-    if not low_risk_receipt_path:
-        if attempt is None or attempt.status not in {"complete", "completed"}:
-            blockers.append(
-                TransitionBlocker("ATTEMPT_NOT_COMPLETE", "current attempt is not complete")
-            )
-        elif attempt.cleanliness.lower() not in {"clean", "pristine"}:
-            blockers.append(
-                TransitionBlocker("ATTEMPT_NOT_CLEAN", "current attempt is not recorded clean")
-            )
-        review = latest_for_work(workspace.review_verdicts, work_id)
-        if review is None:
-            blockers.append(TransitionBlocker("REVIEW_MISSING", "current review is missing"))
-        else:
-            binding_errors = current_review_binding_errors(
-                workspace, review, require_output_coverage=True
-            )
-            if binding_errors:
-                blockers.append(
-                    TransitionBlocker(
-                        "REVIEW_PROOF_STALE",
-                        f"current review proof is stale: {binding_errors[0]}",
-                    )
-                )
     attention = work_detail.get("attention")
     integration_state = work_detail.get("safety", {}).get("integration_state")
     if attention == "blocked":
         blockers.append(
             TransitionBlocker("WORK_BLOCKED", str(work_detail.get("why") or "work is blocked"))
         )
-    if integration_state not in {"ready", "receipt-ready"}:
+    if integration_state != "ready":
         blockers.append(
             TransitionBlocker(
                 "INTEGRATION_NOT_READY",

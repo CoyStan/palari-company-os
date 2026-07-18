@@ -14,6 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.transition_checks import check_transition
+from palari_company_os.evidence_manifest import (
+    stamp_evidence_record,
+    stamp_receipt_record,
+)
 from palari_company_os.workspace import Workspace
 
 
@@ -21,6 +25,57 @@ WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
 
 
 class TransitionCheckTests(unittest.TestCase):
+    def test_work_complete_requires_evidence_even_for_low_risk_local_work(self) -> None:
+        raw = json.loads(
+            (REPO_ROOT / "tests/fixtures/workspaces/valid-source-receipt-loop.json")
+            .read_text(encoding="utf-8")
+        )
+        workspace = Workspace.from_raw(raw, WORKSPACE)
+
+        result = check_transition(workspace, "work_complete", "WORK-1")
+
+        self.assertFalse(result.ok)
+        self.assertIn(
+            "GOVERNANCE_PROOF_INCOMPLETE",
+            {blocker.code for blocker in result.blockers},
+        )
+
+    def test_work_complete_accepts_exact_low_risk_local_evidence(self) -> None:
+        raw = json.loads(
+            (REPO_ROOT / "tests/fixtures/workspaces/valid-source-receipt-loop.json")
+            .read_text(encoding="utf-8")
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            output = root / "notes/summary.md"
+            output.parent.mkdir(parents=True)
+            output.write_text("Current exact summary.\n", encoding="utf-8")
+            receipt = stamp_receipt_record(raw["receipts"][0], [])
+            raw["receipts"][0] = receipt
+            evidence = stamp_evidence_record(
+                {
+                    "id": "EVIDENCE-1",
+                    "work_item_id": "WORK-1",
+                    "attempt_id": "ATTEMPT-1",
+                    "head_sha": "head-1",
+                    "status": "passed",
+                    "commands": ["python3 -m unittest tests.test_governance_kernel"],
+                    "artifacts": ["notes/summary.md"],
+                    "receipt_hash": receipt["receipt_hash"],
+                    "summary": "Focused verification passed.",
+                    "freshness": "exact-head",
+                    "timestamp": "2026-06-19T04:06:00Z",
+                },
+                root,
+                attempts=raw["attempts"],
+            )
+            raw["evidence_runs"] = [evidence]
+            workspace = Workspace.from_raw(raw, root)
+
+            result = check_transition(workspace, "work_complete", "WORK-1")
+
+        self.assertTrue(result.ok, result.to_dict())
+
     def test_work_accept_transition_is_the_hard_acceptance_choke_point(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
@@ -324,7 +379,7 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertEqual(evidence["summary"], "Historical note clarified.")
         self.assertEqual(review["residual_risks"], ["Review must still be rerun."])
 
-    def test_public_command_surface_is_unchanged(self) -> None:
+    def test_public_command_surface_matches_current_product(self) -> None:
         from palari_company_os.cli_parser import build_parser
 
         commands: list[str] = []
@@ -343,7 +398,7 @@ class TransitionCheckTests(unittest.TestCase):
 
         walk(build_parser())
 
-        self.assertEqual(len(commands), 154)
+        self.assertEqual(len(commands), 153)
 
     def temp_workspace(self) -> object:
         return _TempWorkspace()

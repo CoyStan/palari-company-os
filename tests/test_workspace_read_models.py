@@ -20,6 +20,11 @@ from palari_company_os.agent_checks import build_agent_check
 from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_operation import AgentOperation
 from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.evidence_manifest import (
+    OUTPUT_BINDING_VERSION,
+    evidence_manifest_hash,
+    stamp_receipt_record,
+)
 from palari_company_os.maintainer import status as maintainer_status
 from palari_company_os.governance_journal import JournalVerificationContext
 from palari_company_os.read_models import (
@@ -374,20 +379,17 @@ class WorkspaceReadModelTests(unittest.TestCase):
             "palari detail WORK-REPO-0004 --json",
         )
         self.assertEqual(queue["WORK-REPO-0004"].agent_handoff_command, "")
-        self.assertEqual(queue["WORK-REPO-0006"].attention, "receipt-ready")
-        self.assertEqual(queue["WORK-REPO-0006"].next_step_type, "review-handoff")
+        self.assertEqual(queue["WORK-REPO-0006"].attention, "needs-evidence")
+        self.assertEqual(queue["WORK-REPO-0006"].next_step_type, "check-active-proof")
         self.assertEqual(queue["WORK-REPO-0006"].receipt_state, "ready")
-        self.assertEqual(queue["WORK-REPO-0006"].evidence_state, "passed")
+        self.assertEqual(queue["WORK-REPO-0006"].evidence_state, "invalid")
         self.assertEqual(queue["WORK-REPO-0006"].approval_progress, "0/0")
-        self.assertFalse(queue["WORK-REPO-0006"].ai_safe_to_proceed)
+        self.assertTrue(queue["WORK-REPO-0006"].ai_safe_to_proceed)
         self.assertEqual(
             queue["WORK-REPO-0006"].next_commands[0],
-            "palari review guide WORK-REPO-0006 --json",
+            "palari agent check WORK-REPO-0006 --as PALARI-STEWARD --mode execute --json",
         )
-        self.assertEqual(
-            queue["WORK-REPO-0006"].agent_handoff_command,
-            "palari agent handoff WORK-REPO-0006 --as PALARI-STEWARD --json",
-        )
+        self.assertEqual(queue["WORK-REPO-0006"].agent_handoff_command, "")
 
     def test_queue_prioritizes_human_decisions(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -449,14 +451,15 @@ class WorkspaceReadModelTests(unittest.TestCase):
             by_id["WORK-0006"].next_commands[0],
             "palari review guide WORK-0006 --json",
         )
-        self.assertEqual(by_id["WORK-0007"].attention, "receipt-ready")
-        self.assertEqual(by_id["WORK-0007"].next_step_type, "review-handoff")
+        self.assertEqual(by_id["WORK-0007"].attention, "needs-evidence")
+        self.assertEqual(by_id["WORK-0007"].next_step_type, "check-active-proof")
         self.assertEqual(by_id["WORK-0007"].receipt_state, "ready")
-        self.assertEqual(by_id["WORK-0007"].integration_state, "receipt-ready")
-        self.assertIn("Review the output", by_id["WORK-0007"].next_action)
+        self.assertEqual(by_id["WORK-0007"].integration_state, "not-ready")
+        self.assertEqual(by_id["WORK-0007"].acceptance_state, "pending")
+        self.assertIn("focused verification", by_id["WORK-0007"].next_action)
         self.assertEqual(
             by_id["WORK-0007"].next_commands[0],
-            "palari review guide WORK-0007 --json",
+            "palari agent check WORK-0007 --as PALARI-SOFIA --mode execute --json",
         )
         self.assertEqual(by_id["WORK-0004"].attention, "needs-human-decision")
 
@@ -486,17 +489,17 @@ class WorkspaceReadModelTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["id"], "RECEIPT-0001")
         self.assertEqual(payload["receipt"]["sources_used"], ["SOURCE-0001"])
         self.assertEqual(payload["safety"]["receipt_state"], "ready")
-        self.assertEqual(payload["attention"], "receipt-ready")
-        self.assertEqual(payload["next_step_type"], "review-handoff")
-        self.assertEqual(payload["next_commands"][0], "palari review guide WORK-0007 --json")
+        self.assertEqual(payload["attention"], "needs-evidence")
+        self.assertEqual(payload["next_step_type"], "check-active-proof")
+        self.assertEqual(
+            payload["next_commands"][0],
+            "palari agent check WORK-0007 --as PALARI-SOFIA --mode execute --json",
+        )
         self.assertEqual(
             payload["agent_loop_command"],
             "palari agent loop WORK-0007 --as PALARI-SOFIA --json",
         )
-        self.assertEqual(
-            payload["agent_handoff_command"],
-            "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
-        )
+        self.assertEqual(payload["agent_handoff_command"], "")
         self.assertEqual(payload["parent_work_item"]["id"], "WORK-0001")
         self.assertEqual(payload["dependencies"][0]["id"], "WORK-0003")
         self.assertEqual(
@@ -523,14 +526,8 @@ class WorkspaceReadModelTests(unittest.TestCase):
             payload["agent_commands"]["handoff"],
             "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
         )
-        self.assertEqual(
-            payload["agent_commands"]["review"],
-            "palari agent brief WORK-0007 --as PALARI-SOFIA --mode review --json",
-        )
-        self.assertEqual(
-            payload["agent_commands"]["review_check"],
-            "palari agent check WORK-0007 --as PALARI-SOFIA --mode review --json",
-        )
+        self.assertNotIn("review", payload["agent_commands"])
+        self.assertNotIn("review_check", payload["agent_commands"])
 
     def test_detail_omits_review_packet_commands_when_not_review_ready(self) -> None:
         workspace = Workspace.load(WORKSPACE)
@@ -605,18 +602,53 @@ class WorkspaceReadModelTests(unittest.TestCase):
             ["docs/product/company-os.md"],
         )
 
-    def test_receipt_ready_queue_state_for_light_work(self) -> None:
+    def test_receipt_without_evidence_is_not_completion_ready(self) -> None:
         workspace = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")
         item = queue_items(workspace)[0]
 
-        self.assertEqual(item.attention, "receipt-ready")
+        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.next_step_type, "check-active-proof")
         self.assertEqual(item.receipt_state, "ready")
-        self.assertEqual(item.integration_state, "receipt-ready")
+        self.assertEqual(item.integration_state, "not-ready")
+        self.assertEqual(item.acceptance_state, "pending")
+        self.assertTrue(item.ai_safe_to_proceed)
+        self.assertIn("no evidence", item.why)
+
+    def test_exact_low_risk_evidence_is_ready_for_automatic_completion(self) -> None:
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            self.add_current_exact_evidence,
+        )
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "ready-to-complete")
+        self.assertEqual(item.next_step_type, "automatic-reconciliation")
+        self.assertEqual(item.evidence_state, "passed")
+        self.assertEqual(item.integration_state, "ready")
+        self.assertEqual(item.acceptance_state, "not-required")
         self.assertFalse(item.ai_safe_to_proceed)
-        self.assertIn("actions, outputs, and limits", item.why)
+        self.assertIn("exact passing evidence", item.why)
+
+    def test_tampered_low_risk_evidence_returns_to_needs_evidence(self) -> None:
+        def tamper(data: dict[str, Any]) -> None:
+            self.add_current_exact_evidence(data)
+            data["evidence_runs"][0]["commands"].append("unverified command")
+
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            tamper,
+        )
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.next_step_type, "check-active-proof")
+        self.assertEqual(item.integration_state, "not-ready")
+        self.assertEqual(item.acceptance_state, "pending")
+        self.assertIn("not a current exact proof", item.why)
 
     def test_high_risk_work_still_requires_governance_even_with_receipt(self) -> None:
         def make_high_risk(data: dict[str, object]) -> None:
+            self.add_current_exact_evidence(data)
             data["work_items"][0]["risk"] = "R3"
             data["work_items"][0]["intensity"] = "standard"
 
@@ -627,11 +659,12 @@ class WorkspaceReadModelTests(unittest.TestCase):
         item = queue_items(workspace)[0]
 
         self.assertEqual(item.receipt_state, "ready")
-        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.attention, "needs-review")
         self.assertEqual(item.integration_state, "not-ready")
 
-    def test_approval_required_low_risk_work_does_not_use_receipt_ready_path(self) -> None:
+    def test_approval_required_low_risk_work_requires_review(self) -> None:
         def require_approval(data: dict[str, object]) -> None:
+            self.add_current_exact_evidence(data)
             work_items = data["work_items"]
             assert isinstance(work_items, list)
             work_items[0]["required_approval_count"] = 1
@@ -643,13 +676,14 @@ class WorkspaceReadModelTests(unittest.TestCase):
         item = queue_items(workspace)[0]
 
         self.assertEqual(item.receipt_state, "ready")
-        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.attention, "needs-review")
         self.assertEqual(item.integration_state, "not-ready")
 
-    def test_external_write_receipt_does_not_use_light_receipt_ready_path(self) -> None:
+    def test_external_write_disables_review_free_completion(self) -> None:
         def allow_external_write(data: dict[str, object]) -> None:
             data["work_items"][0]["allowed_actions"] = ["external_write"]
             data["receipts"][0]["external_writes"] = ["google_drive:doc-1"]
+            self.add_current_exact_evidence(data)
 
         workspace = self.modified_fixture_workspace(
             "valid-source-receipt-loop.json",
@@ -658,7 +692,8 @@ class WorkspaceReadModelTests(unittest.TestCase):
         item = queue_items(workspace)[0]
 
         self.assertEqual(item.receipt_state, "ready")
-        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.attention, "needs-review")
+        self.assertEqual(item.integration_state, "not-ready")
 
     def test_evidence_staleness_blocks_review(self) -> None:
         def add_new_current_attempt(data: dict[str, object]) -> None:
@@ -899,6 +934,34 @@ class WorkspaceReadModelTests(unittest.TestCase):
         mutate(source)
         return Workspace.from_raw(source, WORKSPACE)
 
+    @staticmethod
+    def add_current_exact_evidence(data: dict[str, Any]) -> None:
+        receipt = stamp_receipt_record(data["receipts"][0], [])
+        data["receipts"][0] = receipt
+        evidence = {
+            "id": "EVIDENCE-EXACT-1",
+            "work_item_id": "WORK-1",
+            "attempt_id": "ATTEMPT-1",
+            "head_sha": "head-1",
+            "status": "passed",
+            "commands": ["python3 -m unittest tests.test_governance_kernel"],
+            "artifacts": ["notes/summary.md"],
+            "artifact_hashes": [
+                {
+                    "path": "notes/summary.md",
+                    "sha256": "sha256:" + ("a" * 64),
+                    "status": "present",
+                }
+            ],
+            "output_binding_version": OUTPUT_BINDING_VERSION,
+            "receipt_hash": receipt["receipt_hash"],
+            "summary": "Current exact focused evidence passed.",
+            "freshness": "exact-head",
+            "timestamp": "2026-06-19T04:06:00Z",
+        }
+        evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+        data["evidence_runs"].append(evidence)
+
     def modified_fixture_workspace(self, fixture: str, mutate: object) -> Workspace:
         source = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
         mutate(source)
@@ -1095,7 +1158,8 @@ class CliTests(unittest.TestCase):
 
         self.assertTrue(validate["valid"])
         self.assertEqual(state["attention"]["needs-human-decision"], 3)
-        self.assertEqual(state["attention"]["receipt-ready"], 1)
+        self.assertEqual(state["attention"]["needs-evidence"], 3)
+        self.assertNotIn("receipt-ready", state["attention"])
         self.assertEqual(state["top_attention"]["id"], "WORK-0001")
         self.assertEqual(state["top_attention"]["next_step_type"], "human-decision")
         self.assertEqual(
@@ -1377,7 +1441,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-X")
         self.assertEqual(final_detail["outcome"]["id"], "OUTCOME-X")
 
-    def test_cli_complete_allows_low_risk_receipt_ready_work(self) -> None:
+    def test_cli_complete_rejects_low_risk_receipt_without_evidence(self) -> None:
         with self.temp_workspace() as workspace:
             self.run_cli_in_workspace(
                 workspace,
@@ -1387,30 +1451,6 @@ class CliTests(unittest.TestCase):
                 "--list",
                 "dependency_ids=",
             )
-            complete = self.run_cli_in_workspace(
-                workspace,
-                "work",
-                "complete",
-                "WORK-0007",
-                "--json",
-            )
-            payload = json.loads(complete.stdout)
-            final_detail = detail(Workspace.load(workspace), "WORK-0007")
-
-        self.assertEqual(payload["action"], "completed")
-        self.assertEqual(final_detail["work_item"]["status"], "completed")
-        self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-0001")
-
-    def test_cli_complete_blocks_receipt_ready_work_with_unfinished_dependency(self) -> None:
-        with self.temp_workspace() as workspace:
-            self.run_cli_in_workspace(
-                workspace,
-                "work",
-                "update",
-                "WORK-0007",
-                "--list",
-                "dependency_ids=WORK-0003",
-            )
             result = self.run_cli_in_workspace(
                 workspace,
                 "work",
@@ -1418,9 +1458,12 @@ class CliTests(unittest.TestCase):
                 "WORK-0007",
                 check=False,
             )
+            final_detail = detail(Workspace.load(workspace), "WORK-0007")
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("dependencies are unfinished: WORK-0003", result.stderr)
+        self.assertIn("integration_state is not-ready", result.stderr)
+        self.assertEqual(final_detail["work_item"]["status"], "active")
+        self.assertEqual(final_detail["receipt"]["id"], "RECEIPT-0001")
 
     def test_cli_acceptance_fails_closed_for_wrong_human_capability(self) -> None:
         with self.temp_workspace() as workspace:

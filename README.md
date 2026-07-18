@@ -309,10 +309,13 @@ Most days have three short journeys.
    ```
 
    Palari derives the exact claim range, runs the declared verification, and
-   records deterministic attempt, receipt, and evidence state. Low-risk work may
-   complete; higher-risk work stops with the exact independent-review handoff.
-   It never records the review or a human decision. Use `--dry-run` to inspect
-   the plan first.
+   records deterministic attempt, receipt, and current exact evidence state.
+   Evidence is mandatory for every completion. Only R1/light work with zero
+   required approvals and no allowed, planned, queued, or actual external
+   writes may complete without independent review and human acceptance; all
+   other work stops at the next required boundary. `agent advance` never
+   records the review or a human decision. Use `--dry-run` to inspect the plan
+   first.
 
 3. A human opens one inbox and runs the one exact action it presents:
 
@@ -361,8 +364,8 @@ The product loop is:
 
 ```text
 goal -> workbench -> selected sources -> work item -> attempt
-  -> receipt -> evidence or review when needed
-    -> human decision when needed -> outcome
+  -> receipt -> exact evidence -> independent review when required
+    -> human decision when required -> outcome
 ```
 
 ## Useful Commands
@@ -489,8 +492,9 @@ GitHub Actions runs the core checks on Python 3.10 and 3.12.
   cannot read.
 - **Receipts are for trust.** Receipts explain what happened in human terms;
   they are not a replacement for governance evidence.
-- **Risk changes intensity.** Low-risk local work can stay light. Higher-risk
-  work still requires stronger proof and human decisions.
+- **Evidence is universal; ceremony is risk-based.** Every completion requires
+  current exact proof. Only R1/light/zero-approval work with no external-write
+  surface may omit independent review and human acceptance.
 - **Read models do not mutate authority.** Queue, detail, state, Mission
   Control, and prototypes are derived from workspace data.
 - **Ordinary software maintenance wins.** The repo should stay simple,

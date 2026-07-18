@@ -42,7 +42,7 @@ class GateProfileTests(unittest.TestCase):
         )
         self.assertEqual(len(payload["profiles"]), len(GATE_PROFILES))
 
-    def test_low_risk_local_receipt_ready_work_recommends_no_special_gate(self) -> None:
+    def test_low_risk_local_work_recommends_no_special_gate(self) -> None:
         with self.modified_workspace(self._make_work_0007_simple_local) as workspace_file:
             workspace = Workspace.load(workspace_file)
 

@@ -55,10 +55,11 @@ palari capability export-policy WORK-ID --json
 Authority profiles describe how much human judgment a risk tier needs. Built-in
 profiles:
 
-- `solo-founder`: lightweight founder mode; R3+ work needs human acceptance.
-- `team-safe`: default team mode; R3+ work needs human acceptance and R5 needs
-  two approvals.
-- `strict`: every risk tier needs human acceptance.
+- `solo-founder`: lightweight founder mode; R3+ work needs a counted human
+  approval.
+- `team-safe`: default team mode; R3+ work needs a counted human approval and
+  R5 needs two approvals.
+- `strict`: every risk tier needs a counted human approval.
 
 Use:
 
@@ -67,9 +68,12 @@ palari authority profiles --json
 palari authority check WORK-ID --profile team-safe --json
 ```
 
-The check is advisory until the work item declares the matching approval count,
-but the acceptance and completion gates still enforce fresh evidence, review,
-human decisions, open-decision blocking, and scope-overlap blocking.
+The check is advisory until the work item declares the matching approval count.
+Completion always requires current exact passing evidence. Independent review
+and human acceptance may both be omitted only for R1/light/0-approval work with
+no allowed, planned, queued, or actual external writes. Every other completion
+still enforces review, explicit human acceptance, open-decision blocking, and
+scope-overlap blocking.
 
 ## Memory Is Context, Not Authority
 
@@ -207,13 +211,15 @@ selected source. That verdict remains advisory. Palari reviewer identities are
 never human approval candidates and never satisfy human quorum; acceptance,
 rejection, and Approval Pack actions remain attributable human authority.
 
-`palari work complete` keeps the terminal status gate. For non-receipt-ready
-work, it can derive a missing acceptance record from the latest qualified human
-decision. That record is projected before the complete gate and written in the
-same successful mutation as terminal state, so invalid or stale authority does
-not leave a partial acceptance behind. `agent advance` may invoke this
-mechanical transition after authority exists; it does not create the review or
-human decision.
+`palari work complete` keeps the terminal status gate. Outside the narrow
+evidence-complete R1/light/0-approval/no-external exemption, it can derive a
+missing acceptance record from the latest qualified human decision. That record
+is projected before the complete gate and written in the same successful
+mutation as terminal state, so invalid or stale authority does not leave a
+partial acceptance behind. `agent advance` may invoke this mechanical
+transition after authority exists; it does not create the review or human
+decision. The exemption waives only review and human acceptance, never current
+exact evidence.
 Accepted human-decision and work-accept authoring functions invoke a shared,
 bounded fixed-point driver after recording the human action. The driver applies
 only the already-authorized completion transition, detects cycles and

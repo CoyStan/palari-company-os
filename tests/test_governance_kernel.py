@@ -14,6 +14,7 @@ from palari_company_os.governance_case import (
     AcceptanceSnapshot,
     ArtifactDigest,
     AttemptSnapshot,
+    DependencyState,
     EvidenceSnapshot,
     GovernanceCase,
     HumanAuthority,
@@ -193,6 +194,26 @@ def accepted_zero_quorum_case() -> GovernanceCase:
     )
 
 
+def evidence_complete_low_risk_case() -> GovernanceCase:
+    case = accepted_case(claimed_state="completed", terminal=True)
+    return replace(
+        case,
+        contract=replace(
+            case.contract,
+            risk="R1",
+            intensity="light",
+            required_approval_count=0,
+            required_approval_capability="",
+            allowed_actions=("local_write",),
+        ),
+        dependencies=(DependencyState("WORK-DEPENDENCY", "completed"),),
+        review=None,
+        humans=(),
+        human_decisions=(),
+        acceptance_records=(),
+    )
+
+
 class GovernanceCaseTests(unittest.TestCase):
     def test_case_round_trip_is_exact_and_rejects_unknown_fields(self) -> None:
         case = accepted_case()
@@ -276,6 +297,150 @@ class GovernanceKernelTests(unittest.TestCase):
 
         self.assertEqual(result.derived_state, "completed")
         self.assertTrue(result.fully_verified)
+
+    def test_evidence_complete_low_risk_work_needs_no_review_or_human_acceptance(
+        self,
+    ) -> None:
+        result = evaluate_governance_case(evidence_complete_low_risk_case())
+        properties = {item.name: item.status for item in result.properties}
+
+        self.assertEqual(result.derived_state, "completed")
+        self.assertTrue(result.fully_verified)
+        self.assertEqual(properties["scope_compliance"], "verified")
+        self.assertEqual(properties["receipt_binding"], "verified")
+        self.assertEqual(properties["evidence_freshness"], "verified")
+        self.assertEqual(properties["independent_review"], "not-required")
+        self.assertEqual(properties["human_quorum"], "not-required")
+        self.assertEqual(properties["acceptance_currency"], "not-required")
+        self.assertEqual(result.errors, ())
+
+    def test_low_risk_completion_requires_exact_current_evidence(self) -> None:
+        case = evidence_complete_low_risk_case()
+        stale_receipt = replace(case.receipt, actions_taken=("changed after evidence",))
+        cases = (
+            (
+                "missing",
+                replace(case, claimed_state="blocked", evidence=None),
+                "PCAW_EVIDENCE_MISSING",
+            ),
+            (
+                "stale head",
+                replace(
+                    case,
+                    claimed_state="blocked",
+                    evidence=replace(case.evidence, head_sha="stale-head"),
+                ),
+                "PCAW_EVIDENCE_STALE",
+            ),
+            (
+                "stale receipt binding",
+                replace(case, claimed_state="blocked", receipt=stale_receipt),
+                "PCAW_EVIDENCE_RECEIPT_STALE",
+            ),
+        )
+
+        for label, candidate, expected_error in cases:
+            with self.subTest(label):
+                result = evaluate_governance_case(candidate)
+                properties = {item.name: item.status for item in result.properties}
+
+                self.assertEqual(result.derived_state, "blocked")
+                self.assertFalse(result.fully_verified)
+                self.assertEqual(properties["evidence_freshness"], "failed")
+                self.assertNotEqual(properties["independent_review"], "not-required")
+                self.assertIn(expected_error, {item.code for item in result.errors})
+
+    def test_review_and_human_acceptance_are_optional_only_for_narrow_policy(
+        self,
+    ) -> None:
+        case = evidence_complete_low_risk_case()
+
+        external_write_cases = []
+        for field in (
+            "external_writes",
+            "planned_external_writes",
+            "queued_external_writes",
+        ):
+            receipt = replace(case.receipt, **{field: ("WRITE-1",)})
+            candidate = replace(case, receipt=receipt)
+            candidate = replace(
+                candidate,
+                evidence=replace(
+                    candidate.evidence,
+                    receipt_digest=candidate.receipt_digest(),
+                ),
+            )
+            external_write_cases.append((field, candidate))
+
+        cases = (
+            ("R2 risk", replace(case, contract=replace(case.contract, risk="R2"))),
+            (
+                "non-light intensity",
+                replace(case, contract=replace(case.contract, intensity="high")),
+            ),
+            (
+                "approval required",
+                replace(
+                    case,
+                    contract=replace(case.contract, required_approval_count=1),
+                ),
+            ),
+            (
+                "declared external write",
+                replace(
+                    case,
+                    contract=replace(
+                        case.contract,
+                        allowed_actions=(*case.contract.allowed_actions, "external_write"),
+                    ),
+                ),
+            ),
+            (
+                "non-terminal work",
+                replace(case, contract=replace(case.contract, status="in-review")),
+            ),
+            (
+                "non-terminal attempt",
+                replace(case, attempt=replace(case.attempt, status="active")),
+            ),
+            (
+                "dirty attempt",
+                replace(case, attempt=replace(case.attempt, cleanliness="dirty")),
+            ),
+            (
+                "non-current attempt",
+                replace(
+                    case,
+                    contract=replace(case.contract, current_attempt_id="ATTEMPT-NEW"),
+                ),
+            ),
+            (
+                "scope failure",
+                replace(
+                    case,
+                    attempt=replace(case.attempt, changed_files=("outside.txt",)),
+                ),
+            ),
+            (
+                "receipt failure",
+                replace(case, receipt=replace(case.receipt, attempt_id="ATTEMPT-OLD")),
+            ),
+            ("open decision", replace(case, open_decisions=("DECISION-OPEN",))),
+            (
+                "unfinished dependency",
+                replace(case, dependencies=(DependencyState("WORK-DEPENDENCY", "active"),)),
+            ),
+            *external_write_cases,
+        )
+
+        for label, candidate in cases:
+            with self.subTest(label):
+                result = evaluate_governance_case(candidate)
+                properties = {item.name: item.status for item in result.properties}
+
+                self.assertNotEqual(result.derived_state, "completed")
+                self.assertFalse(result.fully_verified)
+                self.assertNotEqual(properties["independent_review"], "not-required")
 
     def test_substantive_attempt_mutation_invalidates_evidence_review_and_acceptance(self) -> None:
         case = accepted_case(claimed_state="blocked")

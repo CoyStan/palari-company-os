@@ -35,7 +35,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **154**.
+Current CLI command count from parser inspection: **153**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
@@ -46,14 +46,12 @@ init -> work add -> agent start --next -> agent advance
 -> queue --approval-inbox -> proof verify
 ```
 
-All 154 prior command paths remain parseable for compatibility and expert
-recovery. The existing `init` action also installs the portable agent contract
-and strongest honestly supported local host profile when `--host` is explicit,
-so universal adoption does not add another permanent command. The broad
-primitive surface is therefore secondary without being removed or silently
-deprecated. New commands should remain rare. Prefer an existing command shape
-unless a new command exposes a core governance primitive or removes repeated
-operator confusion.
+There is no blanket compatibility promise for pre-1.0 commands. Superseded
+paths are removed when the current replacement is documented and committed
+stored data does not require a migration boundary. In particular, `agent
+advance` is the sole current proof-reconciliation command; the older `agent
+done` shortcut is not retained. New commands should remain rare and must expose
+a distinct current governance primitive.
 
 `superseded` and `abandoned` are explicit non-success dispositions, not aliases
 for completion. They leave the default queue, agent candidate list, and Approval

@@ -51,8 +51,10 @@ acceptance authority.
 
 Risk and quorum posture for a workspace or operating mode. Built-in profiles
 include `solo-founder`, `team-safe`, and `strict`; custom profiles can make the
-same relationship between risk, human review, receipt-ready shortcuts, and
-approval count explicit.
+relationship between risk and approval count explicit. Profiles never waive
+current exact evidence. Independent review and human acceptance may both be
+omitted only for R1/light/0-approval work with no allowed, planned, queued, or
+actual external writes.
 
 ## Integration
 
@@ -198,7 +200,8 @@ used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
 the user review, undo, or continue bounded work. The receipt hash is also part
-of exact evidence/review proof for governed acceptance. Planned external writes must
+of exact evidence/review proof for governed acceptance. A receipt without
+current exact evidence cannot complete work. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
 used as receipt-backed external-write claims. Canceled outbox items also cannot

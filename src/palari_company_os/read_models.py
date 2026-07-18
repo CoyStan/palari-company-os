@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, TypeVar
 
+from .evidence_manifest import stored_evidence_integrity_errors
 from .governance_binding import current_review_binding_errors
+from .governance_kernel import low_risk_completion_policy_applies
 from .governance_journal import JournalVerificationContext
 from .models import to_plain
 from .playbooks import recommend_playbooks, recommended_playbook_ids
@@ -112,7 +114,7 @@ ATTENTION_PRIORITY = {
     "needs-review": 2,
     "needs-evidence": 3,
     "ready-to-integrate": 4,
-    "receipt-ready": 5,
+    "ready-to-complete": 5,
     "ready-for-ai-work": 6,
     "blocked": 7,
     "closed": 8,
@@ -332,7 +334,6 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         attention,
         ai_safe_to_proceed,
         evidence_state,
-        active_attempts,
     )
     return QueueItem(
         id=work.id,
@@ -475,13 +476,6 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             next_action,
         )
 
-    if _low_risk_receipt_ready(work, attempt, context):
-        return (
-            "receipt-ready",
-            "A completed low-risk attempt has a receipt showing sources, actions, outputs, and limits.",
-            "Review the output, undo it if needed, or continue with the next bounded step.",
-        )
-
     evidence = context.latest_evidence_by_work.get(work.id)
     if evidence is None:
         return (
@@ -500,6 +494,20 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             "needs-evidence",
             f"Latest evidence run {evidence.id} is {evidence.status}.",
             "Repair the failing check or record an explicit blocker.",
+        )
+    if _low_risk_review_exemption_applies(work, attempt, context):
+        receipt = context.latest_receipt_by_work[work.id]
+        if not _is_current_exact_evidence(work, attempt, receipt, evidence):
+            return (
+                "needs-evidence",
+                f"Latest evidence run {evidence.id} is not a current exact proof.",
+                "Refresh exact passing evidence for the current attempt and receipt.",
+            )
+    if _evidence_complete_low_risk(work, attempt, context):
+        return (
+            "ready-to-complete",
+            "Current exact passing evidence completes the bounded low-risk proof.",
+            "Reconcile the terminal lifecycle state from the current proof.",
         )
 
     review = context.latest_review_by_work.get(work.id)
@@ -627,26 +635,23 @@ def _next_step_type(
     attention: str,
     ai_safe_to_proceed: bool,
     evidence_state: str,
-    active_attempts: list[dict[str, Any]],
 ) -> str:
     if (
         attention == "needs-evidence"
         and ai_safe_to_proceed
-        and evidence_state in {"missing", "stale", "failed"}
-        and active_attempts
+        and evidence_state in {"missing", "stale", "failed", "invalid"}
     ):
         return "check-active-proof"
     if attention == "changes-requested":
         return "repair"
-    if (
-        attention in {"ready-for-ai-work", "needs-evidence"}
-        and ai_safe_to_proceed
-    ):
+    if attention == "ready-for-ai-work" and ai_safe_to_proceed:
         return "start-work"
     if attention == "needs-human-decision":
         return "human-decision"
-    if attention in {"needs-review", "receipt-ready"}:
+    if attention == "needs-review":
         return "review-handoff"
+    if attention == "ready-to-complete":
+        return "automatic-reconciliation"
     if attention == "closed":
         return "closed"
     return "inspect"
@@ -661,6 +666,14 @@ def _evidence_state(work: Any, context: _ReadContext) -> str:
         return "missing"
     if evidence.head_sha != _attempt_head(attempt):
         return "stale"
+    receipt = context.latest_receipt_by_work.get(work.id)
+    if (
+        evidence.status == "passed"
+        and receipt is not None
+        and _low_risk_review_exemption_applies(work, attempt, context)
+        and not _is_current_exact_evidence(work, attempt, receipt, evidence)
+    ):
+        return "invalid"
     return evidence.status
 
 
@@ -705,8 +718,8 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
     if decided_state:
         return decided_state
     attempt = _attempt_for_work(context, work)
-    if attempt and _low_risk_receipt_ready(work, attempt, context):
-        return "receipt-ready"
+    if attempt and _evidence_complete_low_risk(work, attempt, context):
+        return "ready"
     review = context.latest_review_by_work.get(work.id)
     if (
         review
@@ -761,8 +774,9 @@ def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) ->
         and _approval_quorum_met(work, review, context)
     ):
         return "ready-to-record"
-    if work.required_approval_count == 0 and work.risk in {"R1", "R2"}:
-        return "receipt-path"
+    attempt = _attempt_for_work(context, work)
+    if attempt and _evidence_complete_low_risk(work, attempt, context):
+        return "not-required"
     return "pending"
 
 
@@ -894,7 +908,7 @@ def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> boo
         "needs-human-decision",
         "needs-review",
         "ready-to-integrate",
-        "receipt-ready",
+        "ready-to-complete",
         "blocked",
         "closed",
     }:
@@ -905,15 +919,96 @@ def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> boo
     return True
 
 
-def _low_risk_receipt_ready(work: Any, attempt: Any, context: _ReadContext) -> bool:
-    if work.risk not in {"R1", "R2"}:
+def _evidence_complete_low_risk(
+    work: Any,
+    attempt: Any,
+    context: _ReadContext,
+) -> bool:
+    """Project the kernel's narrow review-free completion policy.
+
+    This is a pure read-model translation of already-recorded exact proof. It
+    does not inspect artifact bytes or grant completion authority; the
+    transition boundary performs that verification before mutating state.
+    """
+
+    if not _low_risk_review_exemption_applies(work, attempt, context):
         return False
-    if work.required_approval_count != 0:
+    receipt = context.latest_receipt_by_work[work.id]
+    evidence = context.latest_evidence_by_work.get(work.id)
+    return evidence is not None and _is_current_exact_evidence(
+        work, attempt, receipt, evidence
+    )
+
+
+def _low_risk_review_exemption_applies(
+    work: Any,
+    attempt: Any,
+    context: _ReadContext,
+) -> bool:
+    if not (
+        attempt.status in {"complete", "completed"}
+        and attempt.cleanliness.lower() in {"clean", "pristine"}
+    ):
         return False
-    if attempt.status not in {"complete", "completed"}:
+    if context.open_decision_by_work.get(work.id) is not None:
         return False
+    if (
+        _pending_integration_plans_for_work(work, context)
+        or _queued_integration_outbox_for_work(work, context)
+        or _approved_unqueued_integration_plans_for_work(work, context)
+    ):
+        return False
+    if any(
+        dependency is None
+        or dependency.status not in {"completed", "closed", "done"}
+        for dependency in (
+            context.work_by_id.get(dependency_id)
+            for dependency_id in work.dependency_ids
+        )
+    ):
+        return False
+
     receipt = context.latest_receipt_by_work.get(work.id)
-    return receipt is not None and receipt.attempt_id == attempt.id and not receipt.external_writes
+    if receipt is None:
+        return False
+    if receipt.work_item_id != work.id or receipt.attempt_id != attempt.id:
+        return False
+    return low_risk_completion_policy_applies(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+        planned_external_writes=receipt.planned_external_writes,
+        queued_external_writes=receipt.queued_external_writes,
+        external_writes=receipt.external_writes,
+    )
+
+
+def _is_current_exact_evidence(
+    work: Any,
+    attempt: Any,
+    receipt: Any,
+    evidence: Any,
+) -> bool:
+    attempt_head = _attempt_head(attempt)
+    if not (
+        attempt_head
+        and evidence.work_item_id == work.id
+        and evidence.attempt_id == attempt.id
+        and evidence.head_sha == attempt_head
+        and evidence.status == "passed"
+        and evidence.commands
+        and evidence.summary.strip()
+        and evidence.timestamp
+    ):
+        return False
+    return not stored_evidence_integrity_errors(
+        evidence,
+        receipt,
+        path_intents=work.path_intents,
+        require_output_coverage=True,
+        require_version=True,
+    )
 
 
 def _learning_signal(context: _ReadContext, palari: Any | None) -> str:

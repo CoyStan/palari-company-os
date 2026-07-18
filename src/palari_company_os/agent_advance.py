@@ -9,9 +9,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
-from .agent_done import _preflight
-from .agent_file_changes import inspect_file_changes
+from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_handoff import build_agent_handoff
+from .agent_packets import build_agent_brief
 from .agent_runtime import (
     claim_check,
     governance_projection_snapshot_error,
@@ -31,6 +31,7 @@ from .evidence_manifest import (
 )
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
+from .governance_kernel import low_risk_completion_policy_applies
 from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
 from .store import load_store, workspace_file_path
@@ -172,6 +173,7 @@ def agent_advance_dry_run(
             "intensity": work.get("intensity", ""),
             "status": work.get("status", ""),
             "required_approval_count": work.get("required_approval_count", 0),
+            "allowed_actions": list(work.get("allowed_actions", [])),
             "current_attempt": attempt.get("id", "") if isinstance(attempt, dict) else "",
         },
         "packet": {
@@ -211,6 +213,21 @@ def agent_advance_dry_run(
             "attempt_bound": attempt_current,
             "receipt_current": receipt_current,
             "evidence_current": evidence_current,
+            "planned_external_writes": (
+                list(receipt.get("planned_external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
+            "queued_external_writes": (
+                list(receipt.get("queued_external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
+            "external_writes": (
+                list(receipt.get("external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
             "attempt_closed": bool(
                 attempt_current
                 and attempt_status in {"complete", "completed"}
@@ -318,10 +335,14 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
             "One or more required output targets are missing.",
         )
 
-    low_risk = (
-        work.get("risk") == "R1"
-        and work.get("intensity") == "light"
-        and work.get("required_approval_count") == 0
+    low_risk = low_risk_completion_policy_applies(
+        risk=str(work.get("risk") or ""),
+        intensity=str(work.get("intensity") or ""),
+        required_approval_count=int(work.get("required_approval_count") or 0),
+        allowed_actions=list(work.get("allowed_actions") or []),
+        planned_external_writes=list(proof.get("planned_external_writes") or []),
+        queued_external_writes=list(proof.get("queued_external_writes") or []),
+        external_writes=list(proof.get("external_writes") or []),
     )
     expected_state = "completed" if low_risk else "review-required"
     steps: list[dict[str, Any]] = []
@@ -361,6 +382,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
                 "intensity",
                 "status",
                 "required_approval_count",
+                "allowed_actions",
                 "current_attempt",
             )
         },
@@ -531,11 +553,8 @@ def agent_advance(
     work = final_workspace.work_item(work_id)
     if work is None:
         raise WorkspaceError(f"work not found after proof reconciliation: {work_id}")
-    low_risk = (
-        work.risk == "R1"
-        and work.intensity == "light"
-        and work.required_approval_count == 0
-    )
+    current_receipt = _current_receipt(final_workspace, work)
+    low_risk = _low_risk_completion_policy(work, current_receipt)
     resume_preflight = _resume_preflight(
         final_workspace, workspace_path, work, palari_id
     )
@@ -690,6 +709,7 @@ def _collect_facts(
             "intensity": work.intensity,
             "status": work.status,
             "required_approval_count": work.required_approval_count,
+            "allowed_actions": list(work.allowed_actions),
             "current_attempt": work.current_attempt,
         },
         "packet": {
@@ -726,6 +746,13 @@ def _collect_facts(
             "evidence_current": bool(
                 evidence and evidence.status == "passed" and evidence.head_sha == head_sha
             ),
+            "planned_external_writes": (
+                list(receipt.planned_external_writes) if receipt is not None else []
+            ),
+            "queued_external_writes": (
+                list(receipt.queued_external_writes) if receipt is not None else []
+            ),
+            "external_writes": list(receipt.external_writes) if receipt is not None else [],
             "attempt_closed": bool(
                 attempt
                 and attempt.status in {"complete", "completed"}
@@ -736,6 +763,221 @@ def _collect_facts(
         "workspace_digest": workspace_digest(load_store(workspace_path).data),
     }
     return facts, profiles, context, preflight
+
+
+def _preflight(
+    workspace: Workspace,
+    workspace_path: Path | str,
+    work_id: str,
+    palari_id: str,
+    declared_changed: list[str] | None,
+    *,
+    packet: dict[str, Any] | None = None,
+    allow_current_proof_projection: bool = False,
+) -> dict[str, Any]:
+    """Verify the exact claim-start Git range before proof reconciliation."""
+
+    claim = read_claim(workspace_path, work_id)
+    if not claim:
+        return _blocked_preflight("agent advance requires an active execute claim")
+    packet = packet or build_agent_brief(workspace, work_id, palari_id, "execute")
+    claim_result = claim_check(
+        workspace_path,
+        work_id,
+        palari_id,
+        "execute",
+        str(packet.get("context_hash") or ""),
+    )
+    if claim_result.get("status") != "pass":
+        return _blocked_preflight(
+            str(claim_result.get("message") or "active claim is invalid")
+        )
+    claim = claim_result["claim"]
+
+    root = git_repo_root(workspace.path) or git_repo_root(Path.cwd())
+    if root is None:
+        return _blocked_preflight(
+            "agent advance requires a Git repository for exact change proof"
+        )
+    status_inspection = inspect_file_changes(
+        {"allowed_paths": {"write": []}},
+        git_diff=True,
+        cwd=root,
+        git_baseline=claim.get("git_baseline"),
+    )
+    if status_inspection is None or not status_inspection.get("observation_complete"):
+        return _blocked_preflight(
+            "Git status failed; agent advance cannot prove repository state"
+        )
+    proof_projection_paths: set[str] = set()
+    if allow_current_proof_projection:
+        data_path = (workspace.path / "workspace.json").resolve()
+        try:
+            relative_data = data_path.relative_to(root.resolve()).as_posix()
+            proof_projection_paths.add(relative_data)
+            history_path = data_path.parent / ".palari" / "history.jsonl"
+            proof_projection_paths.add(
+                history_path.relative_to(root.resolve()).as_posix()
+            )
+        except ValueError:
+            return _blocked_preflight(
+                "workspace proof paths escape the Git repository boundary"
+            )
+    dirty = [
+        path
+        for path in status_inspection.get("changed_files", [])
+        if not _is_agent_runtime_path(path, root, workspace.path)
+        and path not in proof_projection_paths
+    ]
+    if dirty:
+        return _blocked_preflight(
+            "agent advance requires a clean committed worktree; "
+            "commit the bounded output first"
+        )
+
+    head_sha = _git_value(root, ["rev-parse", "HEAD"])
+    if not head_sha:
+        return _blocked_preflight(
+            "Git HEAD is unavailable; agent advance cannot bind the attempt"
+        )
+    baseline = claim.get("git_baseline")
+    if not isinstance(baseline, dict):
+        return _blocked_preflight("claim has no Git baseline; restart the claim")
+    base_sha = str(baseline.get("head_sha") or "")
+    if not base_sha:
+        return _blocked_preflight(
+            "claim baseline has no exact Git HEAD; restart the claim"
+        )
+    if baseline.get("git_root") != str(root):
+        return _blocked_preflight(
+            "claim baseline belongs to a different Git repository"
+        )
+    if not _git_ok(root, ["merge-base", "--is-ancestor", base_sha, head_sha]):
+        return _blocked_preflight(
+            "current Git HEAD does not descend from the claim-start commit"
+        )
+    committed = _git_lines(
+        root,
+        [
+            "log",
+            "--format=",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            f"{base_sha}..{head_sha}",
+        ],
+    )
+    if committed is None:
+        return _blocked_preflight(
+            "Git commit inspection failed; agent advance cannot prove changes"
+        )
+    changed_files = sorted({path for path in committed if path})
+    declared = sorted(dict.fromkeys(declared_changed or []))
+    if declared and declared != changed_files:
+        return _blocked_preflight(
+            "declared --changed paths do not exactly match the committed HEAD artifact"
+        )
+    if not changed_files:
+        return _blocked_preflight(
+            "no committed changes exist since the claim started"
+        )
+
+    inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
+    if inspection is None:
+        return _blocked_preflight("file change inspection was unavailable")
+    outside = inspection.get("outside_write_boundary", [])
+    if outside:
+        return _blocked_preflight(
+            "claim commit range contains paths outside the write boundary: "
+            + ", ".join(outside)
+        )
+    missing = inspection.get("missing_required_outputs", [])
+    if missing:
+        return _blocked_preflight(
+            "required outputs are missing: " + ", ".join(missing)
+        )
+    return {
+        "ok": True,
+        "message": (
+            "Active claim, clean worktree, exact claim-start range, and write "
+            "boundary verified."
+        ),
+        "git_root": str(root),
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "changed_files": changed_files,
+    }
+
+
+def _blocked_preflight(message: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "message": message,
+        "git_root": "",
+        "base_sha": "",
+        "head_sha": "",
+        "changed_files": [],
+    }
+
+
+def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> bool:
+    try:
+        relative_workspace = workspace_root.resolve().relative_to(
+            git_root.resolve()
+        ).as_posix()
+    except ValueError:
+        return False
+    base = f"{relative_workspace}/" if relative_workspace != "." else ""
+    if path in {
+        f"{base}.palari/governance-journal.v1.jsonl",
+        f"{base}.palari/governance-journal.v2.jsonl",
+    }:
+        return True
+    return any(
+        path.startswith(f"{base}.palari/{name}/")
+        for name in ("claims", "packets", "locks", "verification")
+    )
+
+
+def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=False,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        return None
+    separator = b"\0" if "-z" in arguments else None
+    if separator:
+        return [
+            os.fsdecode(field)
+            for field in result.stdout.split(separator)
+            if field
+        ]
+    return [
+        os.fsdecode(field).strip()
+        for field in result.stdout.splitlines()
+        if field.strip()
+    ]
+
+
+def _git_value(root: Path, arguments: list[str]) -> str:
+    lines = _git_lines(root, arguments)
+    return lines[0] if lines else ""
+
+
+def _git_ok(root: Path, arguments: list[str]) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+    )
+    return result.returncode == 0
 
 
 def _projection_bound_preflight(
@@ -1429,11 +1671,7 @@ def _completed_projection(
     proof_steps: list[dict[str, str]] = [
         {"step": "proof-projection", "status": "already-current"}
     ]
-    low_risk = (
-        work.risk == "R1"
-        and work.intensity == "light"
-        and work.required_approval_count == 0
-    )
+    low_risk = _low_risk_completion_policy(work, _current_receipt(workspace, work))
     if low_risk:
         preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
         if not preflight["ok"]:
@@ -1868,8 +2106,6 @@ def _stale_projection_refresh_context(
                 + (f": {detail}" if detail else ".")
             ),
         }
-    from .agent_done import _git_value
-
     root_text = _git_value(
         Path(attempt.workspace_path or workspace_path),
         ["rev-parse", "--show-toplevel"],
@@ -3041,6 +3277,27 @@ def _select_attempt(
     return next((item for item in workspace.attempts if item.id == expected_id), None)
 
 
+def _current_receipt(workspace: Workspace, work: Any) -> Any | None:
+    receipts = [
+        item
+        for item in workspace.receipts
+        if item.work_item_id == work.id and item.attempt_id == work.current_attempt
+    ]
+    return max(receipts, key=record_time_key) if receipts else None
+
+
+def _low_risk_completion_policy(work: Any, receipt: Any | None) -> bool:
+    return low_risk_completion_policy_applies(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+        planned_external_writes=(receipt.planned_external_writes if receipt else []),
+        queued_external_writes=(receipt.queued_external_writes if receipt else []),
+        external_writes=(receipt.external_writes if receipt else []),
+    )
+
+
 def _changes_requested_repair_candidate(
     workspace: Workspace,
     workspace_path: Path,
@@ -3101,8 +3358,6 @@ def _changes_requested_refresh_binding(
                 "The changes-requested review head does not match the current attempt head."
             ),
         }
-    from .agent_done import _git_value
-
     current_head = _git_value(workspace_path, ["rev-parse", "HEAD"])
     return {
         "applicable": True,

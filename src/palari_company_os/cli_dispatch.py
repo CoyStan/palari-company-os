@@ -198,7 +198,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             advance_work = advance_workspace.work_item(args.work_id)
             if advance_work is not None and advance_work.terminal_disposition:
                 return CommandResult(
-                    "agent-done",
+                    "agent-advance",
                     {
                         "schema_version": "palari.agent_advance.v1",
                         "workspace": advance_workspace.name,
@@ -226,7 +226,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.palari_id,
             )
             if fast_plan is not None:
-                return CommandResult("agent-done", fast_plan, args.json)
+                return CommandResult("agent-advance", fast_plan, args.json)
         if args.agent_command == "release" and (args.reason or args.next_action):
             from .agent_parking import park_agent
 
@@ -374,27 +374,11 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 build_agent_doctor(workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
-        if args.agent_command == "done":
-            from .agent_done import agent_done
-
-            return CommandResult(
-                "agent-done",
-                agent_done(
-                    workspace,
-                    args.workspace,
-                    args.work_id,
-                    args.palari_id,
-                    changed=args.changed,
-                    head_sha=args.head_sha,
-                    model_or_worker=args.model_or_worker,
-                ),
-                args.json,
-            )
         if args.agent_command == "advance":
             from .agent_advance import agent_advance
 
             return CommandResult(
-                "agent-done",
+                "agent-advance",
                 agent_advance(
                     workspace,
                     args.workspace,

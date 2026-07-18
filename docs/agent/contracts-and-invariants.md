@@ -155,13 +155,19 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   receipt, evidence, review, human decision, acceptance, outcome, or convergence
   records. It requires an existing writable journal; legacy activation remains
   an explicit checkpoint with a visible pre-checkpoint continuity boundary.
-- `agent done` attributes every committed path from the persisted claim-start
-  head to current `HEAD`, not merely the tip commit. The claim, companion
-  baseline, Git witness ref, and original witness reflog entry must agree.
-- `agent advance` uses the same complete claim-start range and packet boundary,
+- `agent advance` is the sole current execution-to-proof path. It attributes
+  every committed path from the persisted claim-start head to current `HEAD`,
+  not merely the tip commit. The claim, companion baseline, Git witness ref,
+  and original witness reflog entry must agree.
+- `agent advance` uses that complete claim-start range and packet boundary,
   runs only built-in shell-free verification profiles, rechecks the exact plan,
-  and atomically reconciles attempt, receipt, evidence, and closeout records.
-  It may complete R1/light/0 work; higher-risk work stops at independent review.
+  and atomically reconciles attempt, receipt, current exact evidence, and
+  closeout records. Completion always requires current passing evidence bound
+  to the exact attempt, receipt, head, and output artifacts and evaluated
+  against the current work contract.
+  Only R1/light/0-approval work with no allowed, planned, queued, or actual
+  external writes may omit independent review and human acceptance; every
+  other item stops at the next required authority boundary.
   After a current separate review and qualified human decision already exist,
   the shared bounded fixed-point driver may derive the acceptance record and
   terminalize the work mechanically. Authority-producing functions invoke that
@@ -260,7 +266,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Sources define what a Palari may use; unlisted sources are out of scope.
 - Receipts are human-facing trust records: what was used, created, changed, not
   done, and undoable.
-- Governance evidence is not the same thing as a receipt.
+- Governance evidence is not the same thing as a receipt. A receipt alone can
+  never complete work; every completion path requires current exact evidence.
 - Dry-run integration plans never call providers.
 - External writes require explicit approval and an outbox boundary before future
   live execution.

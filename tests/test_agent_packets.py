@@ -19,7 +19,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import build_agent_check
-from palari_company_os.agent_done import agent_done
 from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
@@ -46,6 +45,7 @@ from palari_company_os.agent_runtime import (
     start_agent,
     start_next_agent,
 )
+from palari_company_os.authoring import create_record, update_record
 from palari_company_os.cli_output_agent import print_agent_handoff
 from palari_company_os.evidence_manifest import evidence_manifest_hash
 from palari_company_os.governance_binding import current_review_binding, review_proof_hash
@@ -1135,14 +1135,39 @@ class AgentPacketTests(unittest.TestCase):
                 ["git", "-C", str(root), "commit", "-qm", "candidate"],
                 check=True,
             )
-            done = agent_done(
-                Workspace.load(workspace_file),
-                workspace_file,
-                "WORK-READY",
-                "PALARI-SOFIA",
-                changed=["README.md"],
+            candidate_sha = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            create_record(
+                str(workspace_file),
+                "attempt",
+                {
+                    "id": "ATTEMPT-READY",
+                    "work_item_id": "WORK-READY",
+                    "actor": "PALARI-SOFIA",
+                    "status": "active",
+                    "base_sha": base_sha,
+                    "head_sha": candidate_sha,
+                    "commits": [candidate_sha],
+                    "changed_files": ["README.md"],
+                    "allowed_paths": ["README.md"],
+                    "cleanliness": "clean",
+                    "output_targets": ["README.md"],
+                },
+                command="test fixture",
+                actor="PALARI-SOFIA",
             )
-            self.assertEqual(done["status"], "done")
+            update_record(
+                str(workspace_file),
+                "work",
+                "WORK-READY",
+                {"current_attempt": "ATTEMPT-READY"},
+                command="test fixture",
+                actor="PALARI-SOFIA",
+            )
 
             integrated = git_integration_readiness(
                 workspace_file,
@@ -1395,31 +1420,31 @@ class AgentPacketTests(unittest.TestCase):
         result = build_agent_next(workspace, "PALARI-ALFRED", mode="review", limit=20)
         candidate = {
             item["work_item_id"]: item for item in result["candidates"]
-        }["WORK-0007"]
+        }["WORK-0006"]
 
         self.assertEqual(result["schema_version"], "palari.agent_next.v1")
         self.assertEqual(result["status"], "ready")
         self.assertGreaterEqual(result["ready_count"], 1)
-        self.assertEqual(candidate["attention"], "receipt-ready")
+        self.assertEqual(candidate["attention"], "needs-review")
         self.assertEqual(candidate["packet_status"], "ready")
         self.assertTrue(candidate["can_start"])
         self.assertEqual(candidate["start_blockers"], [])
         self.assertEqual(
             candidate["next_command"],
-            "palari agent brief WORK-0007 --as PALARI-ALFRED --mode review --json",
+            "palari agent brief WORK-0006 --as PALARI-ALFRED --mode review --json",
         )
         self.assertEqual(
             candidate["next_commands"][:4],
             [
-                "palari agent brief WORK-0007 --as PALARI-ALFRED --mode review --json",
-                "palari review guide WORK-0007 --json",
-                "palari agent check WORK-0007 --as PALARI-ALFRED --mode review --json",
-                "palari agent doctor WORK-0007 --as PALARI-ALFRED --mode review --json",
+                "palari agent brief WORK-0006 --as PALARI-ALFRED --mode review --json",
+                "palari review guide WORK-0006 --json",
+                "palari agent check WORK-0006 --as PALARI-ALFRED --mode review --json",
+                "palari agent doctor WORK-0006 --as PALARI-ALFRED --mode review --json",
             ],
         )
         self.assertEqual(
             candidate["next_commands"][4],
-            "palari agent loop WORK-0007 --as PALARI-ALFRED --mode review --json",
+            "palari agent loop WORK-0006 --as PALARI-ALFRED --mode review --json",
         )
 
     def test_agent_next_review_mode_blocks_non_reviewable_work(self) -> None:
@@ -1630,30 +1655,29 @@ class AgentPacketTests(unittest.TestCase):
             commands,
         )
 
-    def test_agent_finish_low_risk_receipt_ready_hands_off_to_human(self) -> None:
+    def test_agent_finish_low_risk_receipt_without_evidence_reports_missing_proof(
+        self,
+    ) -> None:
         workspace = Workspace.load(WORKSPACE)
 
         result = build_agent_finish(workspace, "WORK-0007", "PALARI-SOFIA")
 
-        self.assertEqual(result["status"], "handoff-ready")
+        self.assertEqual(result["status"], "missing-proof")
         self.assertEqual(result["can_finish"], False)
-        self.assertEqual(result["handoff_ready"], True)
-        self.assertEqual(result["missing_requirements"], [])
+        self.assertEqual(result["handoff_ready"], False)
+        self.assertIn(
+            "EVIDENCE_PRESENT",
+            {item["code"] for item in result["missing_requirements"]},
+        )
         self.assertIn(
             "RECEIPT_PRESENT",
             {item["code"] for item in result["completed_requirements"]},
         )
+        self.assertEqual(result["handoff_guidance"], [])
         self.assertIn(
-            "RECEIPT_READY_REVIEW",
-            {blocker["code"] for blocker in result["blockers"]},
+            "palari evidence record EVIDENCE-ID --work-item-id WORK-0007",
+            "\n".join(result["next_allowed_commands"]),
         )
-        self.assertEqual(result["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
-        self.assertIn("ready-to-edit review record commands", result["handoff_guidance"][0]["message"])
-        self.assertEqual(
-            result["next_allowed_commands"][0],
-            "palari agent handoff WORK-0007 --as PALARI-SOFIA --json",
-        )
-        self.assertEqual(result["next_allowed_commands"][1], "palari review guide WORK-0007 --json")
 
     def test_agent_finish_dogfood_agent_loop_record_hands_off_to_review(self) -> None:
         workspace = Workspace.load(DOGFOOD)
@@ -1793,73 +1817,12 @@ class AgentPacketTests(unittest.TestCase):
     def test_cli_agent_finish_text_shows_completed_requirements(self) -> None:
         result = self.run_cli("agent", "finish", "WORK-0007", "--as", "PALARI-SOFIA")
 
-        self.assertIn("Status: handoff-ready", result.stdout)
-        self.assertIn("Step: review-handoff", result.stdout)
+        self.assertIn("Status: missing-proof", result.stdout)
+        self.assertIn("Step: check-active-proof", result.stdout)
+        self.assertIn("EVIDENCE_PRESENT", result.stdout)
         self.assertIn("Completed requirements:", result.stdout)
         self.assertIn("RECEIPT_PRESENT", result.stdout)
-        self.assertIn("Handoff guidance:", result.stdout)
-        self.assertIn("ready-to-edit review record commands", result.stdout)
-        self.assertIn("Guidance: Do not continue execution.", result.stdout)
-
-    def test_agent_handoff_receipt_ready_compiles_review_context(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
-
-        result = build_agent_handoff(workspace, "WORK-REPO-0006", "PALARI-STEWARD")
-
-        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
-        self.assertEqual(result["status"], "handoff-ready")
-        self.assertEqual(result["handoff_types"], ["review"])
-        self.assertEqual(result["handoff_available"], True)
-        self.assertEqual(result["would_mutate"], False)
-        self.assertEqual(result["finish"]["handoff_ready"], True)
-        self.assertEqual(result["finish"]["handoff_guidance"][0]["code"], "REVIEW_HANDOFF")
-        self.assertIsNotNone(result["review_handoff"])
-        self.assertIsNone(result["decision_handoff"])
-        review = result["review_handoff"]
-        self.assertEqual(review["status"], "receipt-ready")
-        self.assertEqual(review["command"], "palari review guide WORK-REPO-0006 --json")
-        self.assertIn("Hand off", result["finish"]["report_guidance"])
-        self.assertIn(
-            "palari review guide WORK-REPO-0006 --json",
-            result["next_allowed_commands"],
-        )
-        self.assertNotIn(
-            "palari review record REVIEW-ID",
-            "\n".join(result["next_allowed_commands"]),
-        )
-        self.assertIn("HUMAN-FOUNDER", {candidate["id"] for candidate in review["reviewer_candidates"]})
-        self.assertNotIn(
-            "HUMAN-MAINTAINER",
-            {candidate["id"] for candidate in review["reviewer_candidates"]},
-        )
-        human_commands = "\n".join(item["command"] for item in result["human_action_commands"])
-        self.assertIn("--reviewer HUMAN-FOUNDER", human_commands)
-        agent_commands = "\n".join(item["command"] for item in result["agent_action_commands"])
-        self.assertIn("--reviewer PALARI-ARCHITECT", agent_commands)
-        self.assertTrue(result["agent_action_boundary"]["agent_may_execute"])
-        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
-        self.assertEqual(result["human_action_boundary"]["count"], len(result["human_action_commands"]))
-        self.assertIn(
-            "human_action_commands[].command",
-            result["human_action_boundary"]["human_only_command_fields"],
-        )
-
-    def test_agent_handoff_waiting_for_review_compiles_review_context(self) -> None:
-        workspace = Workspace.load(DOGFOOD)
-
-        result = build_agent_handoff(workspace, "WORK-REPO-0003", "PALARI-STEWARD")
-
-        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
-        self.assertEqual(result["status"], "missing-proof")
-        self.assertEqual(result["handoff_types"], ["review"])
-        self.assertEqual(result["handoff_available"], True)
-        self.assertIsNotNone(result["review_handoff"])
-        self.assertIsNone(result["decision_handoff"])
-        self.assertEqual(result["review_handoff"]["status"], "review-needed")
-        self.assertEqual(
-            result["next_allowed_commands"][0],
-            "palari review guide WORK-REPO-0003 --json",
-        )
+        self.assertNotIn("Handoff guidance:", result.stdout)
 
     def test_handoff_exposes_palari_rereview_when_human_reviewer_exhausts_acceptors(
         self,
@@ -2118,46 +2081,6 @@ class AgentPacketTests(unittest.TestCase):
                 with self.subTest(command=command):
                     self.run_cli_in_workspace(workspace_file, *shlex.split(command)[1:])
 
-    def test_cli_agent_handoff_emits_json_shape(self) -> None:
-        result = json.loads(
-            self.run_cli(
-                "--workspace",
-                str(DOGFOOD),
-                "agent",
-                "handoff",
-                "WORK-REPO-0006",
-                "--as",
-                "PALARI-STEWARD",
-                "--json",
-            ).stdout
-        )
-
-        self.assertEqual(result["schema_version"], "palari.agent_handoff.v1")
-        self.assertEqual(result["handoff_types"], ["review"])
-        self.assertEqual(result["review_handoff"]["status"], "receipt-ready")
-        self.assertEqual(result["human_action_commands"][0]["type"], "review-record")
-        self.assertEqual(result["human_action_boundary"]["agent_may_execute"], False)
-
-    def test_cli_agent_handoff_text_shows_one_read_only_review_action(self) -> None:
-        result = self.run_cli(
-            "--workspace",
-            str(DOGFOOD),
-            "agent",
-            "handoff",
-            "WORK-REPO-0006",
-            "--as",
-            "PALARI-STEWARD",
-        )
-
-        lines = result.stdout.splitlines()
-        self.assertEqual(len(lines), 7)
-        self.assertIn("State: handoff-ready / review-handoff", lines)
-        self.assertIn("Safe: yes (next action is read-only; no authority is recorded)", lines)
-        self.assertTrue(any(line.startswith("Owner: independent reviewer") for line in lines))
-        self.assertIn("Next: palari review guide WORK-REPO-0006 --json", lines)
-        self.assertIn("Proof and alternatives: rerun with --json.", lines)
-        self.assertNotIn("review record", result.stdout)
-
     def test_cli_agent_handoff_blocked_state_never_suggests_mutation(self) -> None:
         result = self.run_cli(
             "--workspace",
@@ -2314,31 +2237,83 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["blockers"], [])
         self.assertTrue(packet["context_hash"].startswith("sha256:"))
 
-    def test_review_mode_packet_is_ready_for_receipt_ready_work(self) -> None:
+    def test_completion_contract_limits_review_exemption_to_exact_low_risk_policy(
+        self,
+    ) -> None:
+        workspace = Workspace.load(WORKSPACE)
+        contract = build_agent_brief(
+            workspace, "WORK-0007", "PALARI-SOFIA", "execute"
+        )["completion_contract"]
+
+        self.assertEqual(contract["requires_evidence"], True)
+        self.assertEqual(contract["requires_review"], False)
+        self.assertEqual(contract["requires_human_decision"], False)
+
+        mutations = {
+            "risk": lambda data: next(
+                item for item in data["work_items"] if item["id"] == "WORK-0007"
+            ).update({"risk": "R2"}),
+            "intensity": lambda data: next(
+                item for item in data["work_items"] if item["id"] == "WORK-0007"
+            ).update({"intensity": "standard"}),
+            "quorum": lambda data: next(
+                item for item in data["work_items"] if item["id"] == "WORK-0007"
+            ).update({"required_approval_count": 1}),
+            "declared-external-write": lambda data: next(
+                item for item in data["work_items"] if item["id"] == "WORK-0007"
+            ).update({"allowed_actions": ["external_write"]}),
+            "recorded-external-write": lambda data: (
+                next(
+                    item for item in data["work_items"] if item["id"] == "WORK-0007"
+                ).update({"allowed_actions": ["external_write"]}),
+                next(
+                    item
+                    for item in data["receipts"]
+                    if item["work_item_id"] == "WORK-0007"
+                ).update({"external_writes": ["provider:item"]}),
+            ),
+        }
+        for condition, mutate in mutations.items():
+            with self.subTest(condition=condition):
+                changed = self.modified_workspace(mutate)
+                changed_contract = build_agent_brief(
+                    changed, "WORK-0007", "PALARI-SOFIA", "execute"
+                )["completion_contract"]
+                self.assertEqual(changed_contract["requires_evidence"], True)
+                self.assertEqual(changed_contract["requires_review"], True)
+                self.assertEqual(changed_contract["requires_human_decision"], True)
+
+    def test_review_mode_packet_rejects_receipt_without_evidence(self) -> None:
         workspace = self.modified_workspace(_authorize_alfred_for_beta_sources)
 
         packet = build_agent_brief(workspace, "WORK-0007", "PALARI-ALFRED", "review")
 
         self.assertEqual(packet["schema_version"], "palari.agent_packet.v1")
-        self.assertEqual(packet["status"], "ready")
+        self.assertEqual(packet["status"], "blocked")
         self.assertEqual(packet["mode"], "review")
         self.assertEqual(packet["allowed_paths"]["write"], [])
         self.assertEqual(packet["completion_contract"]["review_mode"], True)
-        self.assertEqual(packet["review_context"]["status"], "receipt-ready")
-        self.assertIn("review_focus", packet["review_context"])
-        self.assertEqual(packet["human_action_boundary"]["agent_may_execute"], False)
+        self.assertEqual(packet["completion_contract"]["requires_evidence"], True)
+        self.assertNotIn("review_context", packet)
+        self.assertNotIn("human_action_boundary", packet)
+        self.assertNotIn("agent_action_boundary", packet)
         self.assertIn(
-            "review_context.human_review_commands[].command",
-            packet["human_action_boundary"]["human_only_command_fields"],
+            "REVIEW_NOT_READY", {blocker["code"] for blocker in packet["blockers"]}
         )
-        self.assertTrue(packet["agent_action_boundary"]["agent_may_execute"])
-        self.assertEqual(packet["agent_action_boundary"]["count"], 1)
-        self.assertEqual(
-            packet["next_allowed_commands"][0],
-            "palari review guide WORK-0007 --json",
+        self.assertIn(
+            "current exact evidence",
+            next(
+                blocker["message"]
+                for blocker in packet["blockers"]
+                if blocker["code"] == "REVIEW_NOT_READY"
+            ),
         )
-        self.assertIn("Stop before editing work outputs", packet["stop_conditions"][0])
-        self.assertEqual(packet["blockers"], [])
+        self.assertTrue(
+            any(
+                "Stop before editing work outputs" in condition
+                for condition in packet["stop_conditions"]
+            )
+        )
 
     def test_review_mode_packet_is_ready_for_needs_review_work(self) -> None:
         def add_evidence_without_review(data: dict[str, object]) -> None:
@@ -2370,7 +2345,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["mode"], "review")
         self.assertEqual(packet["review_context"]["status"], "review-needed")
         self.assertEqual(packet["review_context"]["evidence"]["id"], "EVIDENCE-WAITING-REVIEW")
-        self.assertEqual(packet["completion_contract"]["requires_evidence"], False)
+        self.assertEqual(packet["completion_contract"]["requires_evidence"], True)
         self.assertEqual(
             packet["human_action_boundary"]["agent_allowed_use"],
             "Quote or summarize human-only commands for a human supervisor.",
@@ -2441,7 +2416,7 @@ class AgentPacketTests(unittest.TestCase):
 
         self.assertEqual(_context_hash(packet), _context_hash(changed_timestamp))
 
-    def test_blocked_packet_names_dependency_and_receipt_review_blockers(self) -> None:
+    def test_blocked_packet_names_dependency_and_requires_evidence(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
         packet = build_agent_brief(workspace, "WORK-0007", "PALARI-SOFIA", "execute")
@@ -2449,7 +2424,6 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["status"], "blocked")
         codes = {blocker["code"] for blocker in packet["blockers"]}
         self.assertIn("DEPENDENCY_NOT_TERMINAL", codes)
-        self.assertIn("RECEIPT_READY_REVIEW", codes)
         self.assertEqual(packet["dependencies"][0]["id"], "WORK-0003")
         self.assertEqual(packet["allowed_sources"][0]["id"], "SOURCE-0001")
         self.assertEqual(packet["allowed_sources"][0]["data_class"], "internal")
@@ -2457,7 +2431,7 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(packet["allowed_sources"][0]["steward_human"], "HUMAN-FOUNDER")
         self.assertEqual(packet["allowed_sources"][0]["freshness_sla"], "weekly")
         self.assertFalse(packet["allowed_sources"][0]["redaction_required"])
-        self.assertEqual(packet["completion_contract"]["requires_evidence"], False)
+        self.assertEqual(packet["completion_contract"]["requires_evidence"], True)
         self.assertEqual(
             packet["next_allowed_commands"],
             [
@@ -3219,18 +3193,17 @@ class AgentPacketTests(unittest.TestCase):
         self.assertEqual(result["ok"], False)
         self.assertEqual(result["packet_status"], "blocked")
         self.assertIn("DEPENDENCY_NOT_TERMINAL", codes)
-        self.assertIn("RECEIPT_READY_REVIEW", codes)
         self.assertEqual(self.checks_by_code(result)["PACKET_READY"]["status"], "fail")
 
-    def test_agent_check_receipt_ready_low_risk_does_not_require_review_or_human_decision(self) -> None:
+    def test_agent_check_low_risk_receipt_still_requires_evidence(self) -> None:
         workspace = Workspace.load(WORKSPACE)
 
         result = build_agent_check(workspace, "WORK-0007", "PALARI-SOFIA")
         checks = self.checks_by_code(result)
 
         self.assertEqual(checks["RECEIPT_PRESENT"]["status"], "pass")
-        self.assertEqual(checks["EVIDENCE_PRESENT"]["status"], "pass")
-        self.assertEqual(checks["EVIDENCE_PRESENT"]["required"], False)
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["status"], "fail")
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["required"], True)
         self.assertEqual(checks["REVIEW_PRESENT"]["status"], "pass")
         self.assertEqual(checks["REVIEW_PRESENT"]["required"], False)
         self.assertEqual(checks["HUMAN_DECISION_PRESENT"]["status"], "pass")

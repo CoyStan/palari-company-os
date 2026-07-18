@@ -47,7 +47,7 @@ from palari_company_os.authoring import (
     update_record,
 )
 from palari_company_os.cli_dispatch import run_command
-from palari_company_os.cli_output_agent import print_agent_done
+from palari_company_os.cli_output_agent import print_agent_advance
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.evidence_manifest import (
     _git_tree_entry,
@@ -247,6 +247,21 @@ class AdvancePlannerTests(unittest.TestCase):
         self.assertIn("lifecycle-complete", [item["step"] for item in plan["steps"]])
         self.assertNotIn("review-handoff", [item["step"] for item in plan["steps"]])
 
+    def test_declared_external_write_disables_low_risk_auto_completion(self) -> None:
+        facts = self._facts()
+        facts["work"].update(
+            risk="R1",
+            intensity="light",
+            required_approval_count=0,
+            allowed_actions=["external_write"],
+        )
+
+        plan = plan_advance(facts)
+
+        self.assertEqual(plan["expected_state"], "review-required")
+        self.assertEqual(plan["stop_boundary"], "independent-review")
+        self.assertIn("review-handoff", [item["step"] for item in plan["steps"]])
+
     def _facts(self) -> dict[str, object]:
         return {
             "actor": "PALARI-STEWARD",
@@ -257,6 +272,7 @@ class AdvancePlannerTests(unittest.TestCase):
                 "intensity": "high",
                 "status": "active",
                 "required_approval_count": 1,
+                "allowed_actions": ["local_write"],
                 "current_attempt": "ATTEMPT-TEST",
             },
             "packet": {"status": "ready", "context_hash": "sha256:packet"},
@@ -4294,13 +4310,13 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         result = run_command(args)
 
-        self.assertEqual(result.kind, "agent-done")
+        self.assertEqual(result.kind, "agent-advance")
         self.assertEqual(result.payload["schema_version"], "palari.agent_advance.v1")
         self.assertEqual(result.payload["status"], "planned")
         self.assertTrue(result.payload["fast_path"])
         output = io.StringIO()
         with redirect_stdout(output):
-            print_agent_done(result.payload, False)
+            print_agent_advance(result.payload, False)
         rendered = output.getvalue()
         self.assertIn(f"Agent advance: {self.work_id}", rendered)
         self.assertIn("Status: planned", rendered)

@@ -29,6 +29,7 @@ TERMINAL_ATTEMPT_STATUSES = {"complete", "completed"}
 APPROVAL_VALUES = {"accepted", "approved"}
 NEGATIVE_REVIEW_VERDICTS = {"changes-requested", "needs-human-decision", "blocked"}
 PROPERTY_STATUSES = {"verified", "failed", "not-checked", "not-required"}
+EXTERNAL_WRITE_ACTIONS = frozenset({"external_write", "write_external", "write"})
 
 
 @dataclass(frozen=True)
@@ -107,11 +108,10 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
     evidence_result = _evidence_property(case, receipt_result, errors, warnings)
     properties["evidence_freshness"] = evidence_result
 
-    legacy_receipt_completion = _legacy_receipt_completion(case, properties, errors)
-    if legacy_receipt_completion:
-        properties["evidence_freshness"] = PropertyResult(
-            "evidence_freshness", "not-required", ("$.receipt",)
-        )
+    evidence_complete_low_risk_completion = _evidence_complete_low_risk_completion(
+        case, properties
+    )
+    if evidence_complete_low_risk_completion:
         properties["independent_review"] = PropertyResult(
             "independent_review", "not-required", ("$.contract.risk",)
         )
@@ -758,40 +758,62 @@ def _acceptance_property(
     return PropertyResult("acceptance_currency", status, ("$.acceptance_records",))
 
 
-def _legacy_receipt_completion(
+def _evidence_complete_low_risk_completion(
     case: GovernanceCase,
     properties: dict[str, PropertyResult],
-    errors: list[Diagnostic],
 ) -> bool:
     if not (
         case.contract.status in TERMINAL_WORK_STATUSES
-        and case.contract.risk in {"R1", "R2"}
-        and case.contract.required_approval_count == 0
+        and low_risk_completion_policy_applies(
+            risk=case.contract.risk,
+            intensity=case.contract.intensity,
+            required_approval_count=case.contract.required_approval_count,
+            allowed_actions=case.contract.allowed_actions,
+            planned_external_writes=(
+                case.receipt.planned_external_writes if case.receipt else ()
+            ),
+            queued_external_writes=(
+                case.receipt.queued_external_writes if case.receipt else ()
+            ),
+            external_writes=case.receipt.external_writes if case.receipt else (),
+        )
         and case.attempt is not None
         and case.attempt.status in TERMINAL_ATTEMPT_STATUSES
+        and case.attempt.cleanliness.lower() in {"clean", "pristine"}
         and case.receipt is not None
         and properties["scope_compliance"].status == "verified"
         and properties["receipt_binding"].status == "verified"
+        and properties["evidence_freshness"].status == "verified"
     ):
-        return False
-    if (
-        case.receipt.external_writes
-        or case.receipt.planned_external_writes
-        or case.receipt.queued_external_writes
-    ):
-        _error(
-            errors,
-            "PCAW_RECEIPT_PATH_EXTERNAL_WRITE",
-            "$.receipt",
-            "low-risk receipt completion cannot include external writes",
-            "Use the governed review and human-acceptance path.",
-        )
         return False
     if case.open_decisions or any(
         item.status not in TERMINAL_WORK_STATUSES for item in case.dependencies
     ):
         return False
     return True
+
+
+def low_risk_completion_policy_applies(
+    *,
+    risk: str,
+    intensity: str,
+    required_approval_count: int,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    planned_external_writes: tuple[str, ...] | list[str] = (),
+    queued_external_writes: tuple[str, ...] | list[str] = (),
+    external_writes: tuple[str, ...] | list[str] = (),
+) -> bool:
+    """Return whether exact evidence may replace review and human acceptance."""
+
+    return bool(
+        risk == "R1"
+        and intensity == "light"
+        and required_approval_count == 0
+        and not (set(allowed_actions) & EXTERNAL_WRITE_ACTIONS)
+        and not planned_external_writes
+        and not queued_external_writes
+        and not external_writes
+    )
 
 
 def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -> str:

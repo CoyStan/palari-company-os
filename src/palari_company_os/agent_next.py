@@ -15,7 +15,7 @@ from .workspace import Workspace
 
 
 AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready", "needs-human-decision"}
+AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "needs-human-decision"}
 
 
 def build_agent_next(

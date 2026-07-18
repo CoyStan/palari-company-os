@@ -4,7 +4,8 @@ This workspace demonstrates the first Palari Company OS loop with one JSON
 source file:
 
 ```text
-Goals -> Palaris -> Sources -> Work -> Attempt -> Receipt -> Evidence/Review -> Outcome
+Goals -> Palaris -> Sources -> Work -> Attempt -> Receipt -> Exact Evidence
+  -> Review when required -> Human Decision when required -> Outcome
 ```
 
 Run:
@@ -24,7 +25,8 @@ The example includes:
 - two Palaris
 - one selected local source
 - seven work items
-- one human-facing receipt for a low-risk local output
+- one human-facing receipt for a low-risk local output that still needs current
+  exact evidence
 - one open human decision
 - evidence and review for one accept-ready work item
 - one completed work item with a recorded outcome
@@ -33,8 +35,12 @@ The example includes:
 - adaptive intensity signals
 - stale evidence
 - stale review
-- a receipt-ready item that can be reviewed, undone, or continued without
-  pretending it has gone through full governance ceremony
+- an item with a receipt but missing exact evidence, which therefore cannot
+  complete
+
+Every completion requires current exact evidence. Only R1/light work with zero
+required approvals and no allowed, planned, queued, or actual external writes
+may omit independent review and human acceptance.
 
 The queue should make the point of the redesign visible: the operator sees the
 next thing that needs attention without reconciling separate ticket, branch,

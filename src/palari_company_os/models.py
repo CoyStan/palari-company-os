@@ -169,7 +169,6 @@ class AuthorityProfile:
     mode: str = "custom"
     summary: str = ""
     require_human_for_risks: list[str] = field(default_factory=list)
-    receipt_ready_risks: list[str] = field(default_factory=list)
     minimum_approval_count: int = 1
     r5_approval_count: int = 2
     required_approval_capability: str = ""
@@ -184,7 +183,6 @@ class AuthorityProfile:
             mode=_string(record, "mode", "custom"),
             summary=_string(record, "summary"),
             require_human_for_risks=_strings(record, "require_human_for_risks"),
-            receipt_ready_risks=_strings(record, "receipt_ready_risks"),
             minimum_approval_count=_integer(record, "minimum_approval_count", 1),
             r5_approval_count=_integer(record, "r5_approval_count", 2),
             required_approval_capability=_string(record, "required_approval_capability"),

@@ -248,7 +248,6 @@
         },
         "summary": { "type": "string" },
         "require_human_for_risks": { "$ref": "#/$defs/string_list" },
-        "receipt_ready_risks": { "$ref": "#/$defs/string_list" },
         "minimum_approval_count": { "type": "integer", "minimum": 0 },
         "r5_approval_count": { "type": "integer", "minimum": 0 },
         "required_approval_capability": { "type": "string" },

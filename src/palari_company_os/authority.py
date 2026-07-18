@@ -17,7 +17,6 @@ class AuthorityRule:
     mode: str
     summary: str
     require_human_for_risks: tuple[str, ...]
-    receipt_ready_risks: tuple[str, ...]
     minimum_approval_count: int
     r5_approval_count: int
     allow_agent_scope_expansion: bool = False
@@ -28,9 +27,8 @@ BUILT_IN_PROFILES: tuple[AuthorityRule, ...] = (
         id="solo-founder",
         label="Solo Founder",
         mode="solo-founder",
-        summary="Lightweight founder-operated mode. Low-risk receipt-ready work can close quickly.",
+        summary="Lightweight founder-operated mode with evidence-first local completion.",
         require_human_for_risks=("R3", "R4", "R5"),
-        receipt_ready_risks=("R1", "R2"),
         minimum_approval_count=1,
         r5_approval_count=1,
     ),
@@ -40,7 +38,6 @@ BUILT_IN_PROFILES: tuple[AuthorityRule, ...] = (
         mode="team-safe",
         summary="Default team mode. R3+ work needs explicit qualified human approval.",
         require_human_for_risks=("R3", "R4", "R5"),
-        receipt_ready_risks=("R1", "R2"),
         minimum_approval_count=1,
         r5_approval_count=2,
     ),
@@ -50,7 +47,6 @@ BUILT_IN_PROFILES: tuple[AuthorityRule, ...] = (
         mode="strict",
         summary="High-assurance mode. Every risk tier requires human acceptance.",
         require_human_for_risks=("R1", "R2", "R3", "R4", "R5"),
-        receipt_ready_risks=(),
         minimum_approval_count=1,
         r5_approval_count=2,
     ),
@@ -79,7 +75,6 @@ def authority_check(
     profile = _profile(workspace, profile_id)
     required_count = required_approval_count(work.risk, profile)
     requires_human = work.risk in set(profile["require_human_for_risks"])
-    receipt_ready_allowed = work.risk in set(profile["receipt_ready_risks"])
     blockers: list[str] = []
     if work.required_approval_count < required_count:
         blockers.append(
@@ -103,7 +98,6 @@ def authority_check(
         },
         "required_approval_count": required_count,
         "requires_human_acceptance": requires_human,
-        "receipt_ready_allowed": receipt_ready_allowed,
         "agent_scope_expansion_allowed": bool(profile["allow_agent_scope_expansion"]),
         "ok": not blockers,
         "blockers": blockers,
@@ -141,7 +135,6 @@ def _profile_payload(profile: AuthorityRule) -> dict[str, Any]:
         "mode": profile.mode,
         "summary": profile.summary,
         "require_human_for_risks": list(profile.require_human_for_risks),
-        "receipt_ready_risks": list(profile.receipt_ready_risks),
         "minimum_approval_count": profile.minimum_approval_count,
         "r5_approval_count": profile.r5_approval_count,
         "allow_agent_scope_expansion": profile.allow_agent_scope_expansion,

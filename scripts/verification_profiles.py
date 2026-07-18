@@ -14,7 +14,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE_TESTS = {
     "agent_advance.py": ("tests.test_agent_advance",),
-    "agent_done.py": ("tests.test_agent_done", "tests.test_agent_packets"),
     "agent_file_changes.py": (
         "tests.test_filesystem_security",
         "tests.test_path_policy",

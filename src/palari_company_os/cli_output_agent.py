@@ -526,14 +526,13 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
     print("Proof details: rerun with --json.")
 
 
-def print_agent_done(payload: dict[str, Any], as_json: bool) -> None:
+def print_agent_advance(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
-    label = "Agent advance" if payload.get("schema_version") == "palari.agent_advance.v1" else "Agent done"
-    print(f"{label}: {payload['work_item']}")
+    print(f"Agent advance: {payload['work_item']}")
     print(f"Status: {payload['status']}")
-    print(f"Can done: {_yes_no(payload.get('can_done', False))}")
+    print(f"Can advance: {_yes_no(payload.get('can_advance', False))}")
     if payload.get("message"):
         print(payload["message"])
     for step in payload.get("steps", []):

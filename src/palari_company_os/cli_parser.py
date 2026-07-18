@@ -422,32 +422,6 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
-    done = nested.add_parser(
-        "done",
-        help="Auto-record proof and complete an R1/light work item in one step.",
-    )
-    done.add_argument("work_id")
-    done.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
-    done.add_argument(
-        "--changed",
-        action="append",
-        default=[],
-        metavar="PATH",
-        help="Changed path to record. Repeat for multiple paths.",
-    )
-    done.add_argument(
-        "--head-sha",
-        dest="head_sha",
-        default="",
-        help="Head SHA for attempt closeout. Defaults to empty.",
-    )
-    done.add_argument(
-        "--model-or-worker",
-        dest="model_or_worker",
-        default="",
-        help="Model or worker label for the attempt record.",
-    )
-    done.add_argument("--json", action="store_true", help="Emit JSON.")
     advance = nested.add_parser(
         "advance",
         help="Deterministically verify and reconcile proof to the next authority boundary.",
