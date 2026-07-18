@@ -101,6 +101,13 @@ def write_store(
     lock = _acquire_workspace_lock(store.data_path)
     try:
         _assert_workspace_file_unchanged(store)
+        before_data = (
+            _load_current_raw(store.data_path)
+            if store.loaded_hash is not None
+            else None
+        )
+        if before_data is not None:
+            _assert_retired_work_immutable(before_data, store.data)
         workspace = validate_data(store.data_path, store.data)
         text = json.dumps(store.data, indent=2, sort_keys=False) + "\n"
         from .governance_journal import (
@@ -135,7 +142,6 @@ def write_store(
                     crash_hook=crash_hook,
                 )
             elif journal_path.exists():
-                before_data = _load_current_raw(store.data_path)
                 transact(
                     store.data_path,
                     before_data=before_data,
@@ -160,6 +166,102 @@ def write_store(
 def has_collection_files(data: dict[str, Any]) -> bool:
     value = data.get("collection_files")
     return isinstance(value, dict) and any(value.values())
+
+
+_WORK_LINKED_COLLECTIONS = {
+    "attempts": "work_item_id",
+    "evidence_runs": "work_item_id",
+    "review_verdicts": "work_item_id",
+    "human_decisions": "work_item_id",
+    "acceptance_records": "work_item_id",
+    "receipts": "work_item_id",
+    "decisions": "linked_work",
+    "outcomes": "work_item_id",
+    "integration_plans": "work_item_id",
+    "integration_outbox": "work_item_id",
+}
+
+
+def _assert_retired_work_immutable(
+    before: dict[str, Any],
+    after: dict[str, Any],
+) -> None:
+    """Make retirement a temporal boundary while preserving prior audit proof."""
+
+    before_work = {
+        str(record.get("id") or ""): record
+        for record in before.get("work_items", [])
+        if isinstance(record, dict)
+    }
+    after_work = {
+        str(record.get("id") or ""): record
+        for record in after.get("work_items", [])
+        if isinstance(record, dict)
+    }
+    retired = {
+        work_id: record
+        for work_id, record in before_work.items()
+        if record.get("status") in {"superseded", "abandoned"}
+    }
+    for work_id, record in retired.items():
+        candidate = after_work.get(work_id)
+        if candidate is None or not _same_json_value(record, candidate):
+            raise WorkspaceError(
+                f"retired work {work_id} is immutable; create successor work instead"
+            )
+    if not retired:
+        return
+    retired_ids = set(retired)
+    for collection, field in _WORK_LINKED_COLLECTIONS.items():
+        before_records = _linked_records_by_work(
+            before, collection, field, retired_ids
+        )
+        after_records = _linked_records_by_work(
+            after, collection, field, retired_ids
+        )
+        for work_id in retired:
+            if not _same_json_value(
+                before_records.get(work_id, []),
+                after_records.get(work_id, []),
+            ):
+                raise WorkspaceError(
+                    f"retired work {work_id} is audit-only; {collection} cannot change"
+                )
+
+
+def _linked_records_by_work(
+    data: dict[str, Any],
+    collection: str,
+    field: str,
+    work_ids: set[str],
+) -> dict[str, list[dict[str, Any]]]:
+    records = data.get(collection, [])
+    if not isinstance(records, list):
+        return {}
+    linked = {work_id: [] for work_id in work_ids}
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        work_id = record.get(field)
+        if work_id in linked:
+            linked[work_id].append(record)
+    return linked
+
+
+def _same_json_value(left: Any, right: Any) -> bool:
+    return json.dumps(
+        left,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ) == json.dumps(
+        right,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def migrate_store(

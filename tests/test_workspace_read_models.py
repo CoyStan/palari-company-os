@@ -1003,6 +1003,30 @@ class CliTests(unittest.TestCase):
                 "--json",
                 check=False,
             )
+            advance = self.run_cli_in_workspace(
+                workspace,
+                "agent",
+                "advance",
+                "WORK-RETIRE",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+                check=False,
+            )
+            late_receipt = self.run_cli_in_workspace(
+                workspace,
+                "receipt",
+                "record",
+                "RECEIPT-LATE",
+                "--work-item-id",
+                "WORK-RETIRE",
+                "--attempt-id",
+                "ATTEMPT-LATE",
+                "--actor",
+                "PALARI-SOFIA",
+                "--json",
+                check=False,
+            )
             inbox_result = self.run_cli_in_workspace(
                 workspace,
                 "queue",
@@ -1035,6 +1059,13 @@ class CliTests(unittest.TestCase):
             "claimed",
         )
         self.assertNotEqual(explicit_start_payload.get("status"), "ready")
+        advance_payload = json.loads(advance.stdout)
+        self.assertEqual(advance_payload["status"], "retired")
+        self.assertFalse(advance_payload["can_advance"])
+        self.assertFalse(advance_payload["would_mutate"])
+        self.assertEqual(advance_payload["stop_boundary"], "terminal")
+        self.assertNotEqual(late_receipt.returncode, 0)
+        self.assertIn("retired work WORK-RETIRE is audit-only", late_receipt.stderr)
         self.assertNotIn(
             "WORK-RETIRE",
             {entry["id"] for entry in inbox["individual_items"]},

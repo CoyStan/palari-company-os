@@ -155,6 +155,10 @@ Authority rules:
   files or Git metadata. Existing `palari claude install` remains compatible.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
+- `superseded` and `abandoned` are temporal storage boundaries. Prior linked
+  proof remains readable, but later writes to the retired contract or its
+  attempts, receipts, evidence, reviews, decisions, acceptances, outcomes, and
+  external-action records fail before the workspace or journal is replaced.
 - Proof creation necessarily mutates `workspace.json`, legacy history, and the
   governance journal. When one of those projection files is itself a declared
   artifact, verification reads its bytes from the evidence's exact Git commit

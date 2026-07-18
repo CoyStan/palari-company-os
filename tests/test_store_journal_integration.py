@@ -80,6 +80,58 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             ):
                 write_store(store)
 
+    def test_retired_work_preserves_prior_proof_but_rejects_later_lifecycle_changes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+            data["work_items"][0].update(
+                {
+                    "status": "abandoned",
+                    "terminal_reason": "The objective is intentionally parked.",
+                }
+            )
+            write_store(WorkspaceStore(data_path=data_path, data=data))
+            original = data_path.read_bytes()
+
+            proof_change = load_store(data_path)
+            proof_change.data["evidence_runs"][0]["summary"] = "late rewrite"
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "retired work WORK-1 is audit-only; evidence_runs cannot change",
+            ):
+                write_store(proof_change)
+            self.assertEqual(data_path.read_bytes(), original)
+
+            authority_change = load_store(data_path)
+            authority_change.data.setdefault("acceptance_records", []).append(
+                {"id": "ACCEPTANCE-LATE", "work_item_id": "WORK-1"}
+            )
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "retired work WORK-1 is audit-only; acceptance_records cannot change",
+            ):
+                write_store(authority_change)
+            self.assertEqual(data_path.read_bytes(), original)
+
+            contract_change = load_store(data_path)
+            contract_change.data["work_items"][0]["terminal_reason"] = "rewritten"
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "retired work WORK-1 is immutable",
+            ):
+                write_store(contract_change)
+            self.assertEqual(data_path.read_bytes(), original)
+
+            unrelated = load_store(data_path)
+            unrelated.data["name"] = "Unrelated workspace metadata update"
+            write_store(unrelated)
+            self.assertEqual(
+                load_store(data_path).data["name"],
+                "Unrelated workspace metadata update",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

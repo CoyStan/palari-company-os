@@ -191,6 +191,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
 
+        workspace: Workspace | None = None
+        if args.agent_command == "advance":
+            advance_workspace = Workspace.load(args.workspace)
+            workspace = advance_workspace
+            advance_work = advance_workspace.work_item(args.work_id)
+            if advance_work is not None and advance_work.terminal_disposition:
+                return CommandResult(
+                    "agent-done",
+                    {
+                        "schema_version": "palari.agent_advance.v1",
+                        "workspace": advance_workspace.name,
+                        "work_item": args.work_id,
+                        "status": "retired",
+                        "can_advance": False,
+                        "would_mutate": False,
+                        "expected_state": "retired",
+                        "stop_boundary": "terminal",
+                        "message": (
+                            f"Work item {args.work_id} was "
+                            f"{advance_work.terminal_disposition} and is audit-only: "
+                            f"{advance_work.terminal_reason}"
+                        ),
+                        "steps": [],
+                    },
+                    args.json,
+                )
         if args.agent_command == "advance" and args.dry_run:
             from .agent_advance import agent_advance_dry_run
 
@@ -219,7 +245,8 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 ),
                 args.json,
             )
-        workspace = Workspace.load(args.workspace)
+        if workspace is None:
+            workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:
                 return CommandResult(

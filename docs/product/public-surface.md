@@ -58,7 +58,10 @@ operator confusion.
 `superseded` and `abandoned` are explicit non-success dispositions, not aliases
 for completion. They leave the default queue, agent candidate list, and Approval
 Inbox, while `queue --include-closed` and `detail` preserve their reason and
-optional successor for audit.
+optional successor for audit. Once recorded, the retired work contract and all
+linked attempt, proof, review, decision, acceptance, outcome, and external-action
+records are storage-level immutable; follow-up belongs in explicit successor
+work.
 
 The bounded implementation evidence is tracked in the
 [Invisible Product Surface v1 Completion Contract](invisible-product-surface-contract.md).
