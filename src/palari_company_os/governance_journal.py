@@ -367,6 +367,19 @@ def _prepare_v2_record(
     _validate_metadata(metadata_dict, "$.metadata")
     projection = deepcopy(after_projection)
     checkpoint = event_kind == "checkpoint"
+    delta = [] if checkpoint else _value_delta(before_projection, projection)
+    if not checkpoint:
+        if before_projection is None:
+            raise JournalError(
+                "JOURNAL_DELTA_BASE_MISSING",
+                "a v2 mutation requires a replayable before projection",
+            )
+        replayed = _apply_value_delta(before_projection, delta, "$.delta")
+        if workspace_digest(replayed) != workspace_digest(projection):
+            raise JournalError(
+                "JOURNAL_DELTA_INTERNAL_MISMATCH",
+                "generated delta does not reconstruct the requested workspace projection",
+            )
     record = {
         "schema_version": V2_SCHEMA_VERSION,
         "sequence": sequence,
@@ -378,7 +391,7 @@ def _prepare_v2_record(
         "expected_before_workspace_digest": expected_before_workspace_digest,
         "before_workspace_digest": before_workspace_digest,
         "after_workspace_digest": workspace_digest(projection),
-        "delta": [] if checkpoint else _value_delta(before_projection, projection),
+        "delta": delta,
         "checkpoint_projection": projection if checkpoint else None,
         "predecessor": deepcopy(predecessor),
         "metadata": metadata_dict,
@@ -1909,7 +1922,7 @@ def _sorted_metadata_objects(objects: list[dict[str, str]]) -> list[dict[str, st
 
 
 def _collect_changes(before: Any, after: Any, path: str, output: list[dict[str, Any]]) -> None:
-    if before == after:
+    if _json_values_equal(before, after):
         return
     if isinstance(before, dict) and isinstance(after, dict):
         for key in sorted(set(before) | set(after)):
@@ -1934,6 +1947,7 @@ def _value_delta(
     _validate_json_value(before, "$")
     output: list[dict[str, Any]] = []
     _collect_value_delta(before, after, "", output)
+    output.sort(key=lambda change: change["path"])
     return output
 
 
@@ -1943,7 +1957,7 @@ def _collect_value_delta(
     path: str,
     output: list[dict[str, Any]],
 ) -> None:
-    if before == after:
+    if _json_values_equal(before, after):
         return
     if isinstance(before, dict) and isinstance(after, dict):
         for key in sorted(set(before) | set(after), key=_json_pointer_escape):
@@ -1956,6 +1970,22 @@ def _collect_value_delta(
                 _collect_value_delta(before[key], after[key], child_path, output)
         return
     output.append({"op": "replace", "path": path, "value": deepcopy(after)})
+
+
+def _json_values_equal(before: Any, after: Any) -> bool:
+    """Compare JSON values without Python's bool/int equality aliasing."""
+
+    if type(before) is not type(after):
+        return False
+    if isinstance(before, dict):
+        return before.keys() == after.keys() and all(
+            _json_values_equal(before[key], after[key]) for key in before
+        )
+    if isinstance(before, list):
+        return len(before) == len(after) and all(
+            _json_values_equal(left, right) for left, right in zip(before, after)
+        )
+    return bool(before == after)
 
 
 def _validate_value_delta(value: list[Any], path: str) -> None:

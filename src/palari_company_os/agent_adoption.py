@@ -215,6 +215,9 @@ def run_agent_hook(
         payload = json.loads(raw) if raw.strip() else {}
         if not isinstance(payload, dict):
             raise ValueError("hook input must be a JSON object")
+        security_error = _hook_payload_security_error(payload)
+        if event == "pre-tool-use" and security_error:
+            return _codex_deny(security_error)
         with _allow_agent_advance():
             if selected == "claude":
                 from .claude_hooks import handle_hook_event
@@ -561,18 +564,91 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
     if not isinstance(hook, dict) or hook.get("type") != "command":
         return False
     command = str(hook.get("command", ""))
-    marker = f"agent adopt --host {host} --hook-event"
-    if marker in command:
-        return True
     try:
-        tokens = shlex.split(command)
+        tokens = _shell_command_tokens(command)
     except ValueError:
-        tokens = []
-    if "init" in tokens and "--host" in tokens and "--hook-event" in tokens:
-        host_index = tokens.index("--host")
-        if host_index + 1 < len(tokens) and tokens[host_index + 1] == host:
-            return True
-    return host == "claude" and "palari" in command and " claude hook " in command
+        return False
+    if not tokens or any(_is_shell_control(token) for token in tokens):
+        return False
+    try:
+        executable_index = next(
+            index for index, token in enumerate(tokens) if Path(token).name == "palari"
+        )
+    except StopIteration:
+        return False
+    arguments = tokens[executable_index + 1 :]
+    if arguments[:1] == ["--workspace"] and len(arguments) >= 2:
+        arguments = arguments[2:]
+    elif arguments and arguments[0].startswith("--workspace="):
+        arguments = arguments[1:]
+
+    events = {"pre-tool-use", "stop", "session-start"}
+    if (
+        len(arguments) == 6
+        and arguments[0] == "init"
+        and arguments[2:5] == ["--host", host, "--hook-event"]
+        and arguments[5] in events
+    ):
+        return True
+    if (
+        len(arguments) == 5
+        and arguments[:4] == ["agent", "adopt", "--host", host]
+        and arguments[4].startswith("--hook-event=")
+        and arguments[4].split("=", 1)[1] in events
+    ):
+        return True
+    if (
+        len(arguments) == 6
+        and arguments[:5] == ["agent", "adopt", "--host", host, "--hook-event"]
+        and arguments[5] in events
+    ):
+        return True
+    if host != "claude" or arguments[:2] != ["claude", "hook"]:
+        return False
+    return (
+        len(arguments) == 3 and arguments[2] in events
+    ) or (
+        len(arguments) == 4
+        and arguments[2] == "pre-tool-use"
+        and arguments[3] == "--strict"
+    )
+
+
+def _hook_payload_security_error(payload: dict[str, Any]) -> str:
+    """Reject Palari commands whose CLI meaning is structurally ambiguous."""
+
+    if str(payload.get("tool_name", "")) != "Bash":
+        return ""
+    tool_input = payload.get("tool_input")
+    command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
+    try:
+        tokens = _shell_command_tokens(command)
+    except ValueError:
+        return ""
+    if not any(Path(token).name == "palari" for token in tokens):
+        return ""
+    declarations = sum(
+        token == "--workspace" or token.startswith("--workspace=")
+        for token in tokens
+    )
+    if declarations > 1:
+        return (
+            "Palari command has multiple --workspace declarations; the CLI uses the "
+            "last value, so the hook denies this ambiguous command. Use exactly one "
+            "workspace bound to the active packet."
+        )
+    return ""
+
+
+def _shell_command_tokens(command: str) -> list[str]:
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    return list(lexer)
+
+
+def _is_shell_control(token: str) -> bool:
+    return bool(token) and all(character in ";&|" for character in token)
 
 
 def _host_hook_command(

@@ -352,6 +352,48 @@ class GovernanceJournalTests(unittest.TestCase):
             [item["path"] for item in delta], ["/0", "/~0", "/~1"]
         )
 
+    def test_v2_delta_distinguishes_json_boolean_from_integer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = {"schema_version": 2, "payload": {"flag": True}}
+            updated = {"schema_version": 2, "payload": {"flag": 1}}
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            report = run_change(data_path, before=initial, after=updated)
+            delta = read_records(data_path)[-2]["delta"]
+
+        self.assertEqual(
+            delta,
+            [{"op": "replace", "path": "/payload/flag", "value": 1}],
+        )
+        self.assertTrue(report["ok"])
+        self.assertEqual(
+            report["replay_workspace_digest"], report["current_workspace_digest"]
+        )
+
+    def test_v2_delta_uses_global_pointer_order_across_nested_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = {"schema_version": 2, "a": {"z": 1}, "a-": 1}
+            updated = {"schema_version": 2, "a": {"z": 2}, "a-": 2}
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            report = run_change(data_path, before=initial, after=updated)
+            delta = read_records(data_path)[-2]["delta"]
+
+        self.assertEqual([change["path"] for change in delta], ["/a-", "/a/z"])
+        self.assertTrue(report["ok"])
+
     def test_legacy_checkpoint_is_explicit_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

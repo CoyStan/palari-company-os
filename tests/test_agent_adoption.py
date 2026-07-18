@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -325,6 +326,13 @@ class AgentAdoptionTests(unittest.TestCase):
                                         "command": "palari agent adopt --host codex --hook-event pre-tool-use",
                                     },
                                     {"type": "command", "command": "foreign-check"},
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "palari agent adopt --host codex --hook-event "
+                                            "pre-tool-use && foreign-compound-check"
+                                        ),
+                                    },
                                 ],
                             }
                         ]
@@ -344,7 +352,15 @@ class AgentAdoptionTests(unittest.TestCase):
         entries = json.loads(hooks_file.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
         commands = [hook["command"] for entry in entries for hook in entry["hooks"]]
         self.assertIn("foreign-check", commands)
-        self.assertEqual(sum("--host codex --hook-event" in item for item in commands), 1)
+        self.assertIn(
+            "palari agent adopt --host codex --hook-event pre-tool-use "
+            "&& foreign-compound-check",
+            commands,
+        )
+        self.assertEqual(
+            sum(" init " in item and "--host codex --hook-event" in item for item in commands),
+            1,
+        )
 
     def test_generated_commands_quote_adversarial_workspace_path_as_data(self) -> None:
         malicious = self.tmp / "ws$(touch PWNED)"
@@ -475,6 +491,20 @@ class AgentAdoptionTests(unittest.TestCase):
         )
         self.assertIn("Agent adoption: devin", plain.stdout)
 
+    def test_adoption_rolls_back_when_git_hook_cannot_be_executable(self) -> None:
+        with mock.patch.object(Path, "chmod", side_effect=OSError("chmod denied")):
+            with self.assertRaisesRegex(WorkspaceError, "not installed safely"):
+                adopt_agent_host(
+                    self.workspace,
+                    project_dir=self.tmp,
+                    host="codex",
+                    palari_id="PALARI-STEWARD",
+                )
+
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".codex").exists())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
     def test_codex_hook_denies_outside_patch_and_allows_exact_claim_path(self) -> None:
         adopt_agent_host(
             self.workspace,
@@ -574,6 +604,36 @@ class AgentAdoptionTests(unittest.TestCase):
         )
         self.assertEqual(authority["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("human-only", authority["hookSpecificOutput"]["permissionDecisionReason"])
+
+        ambiguous_command = (
+            f"palari --workspace {shlex.quote(str(self.workspace))} "
+            f"--workspace {shlex.quote(str(self.tmp / 'foreign-workspace'))} "
+            "agent advance WORK-BASH --as PALARI-STEWARD --json"
+        )
+        for host in ("claude", "codex"):
+            with self.subTest(host=host):
+                ambiguous = run_agent_hook(
+                    host,
+                    "pre-tool-use",
+                    self.workspace,
+                    stdin=io.StringIO(
+                        json.dumps(
+                            {
+                                "tool_name": "Bash",
+                                "tool_input": {"command": ambiguous_command},
+                                "cwd": str(self.tmp),
+                            }
+                        )
+                    ),
+                )
+                self.assertEqual(
+                    ambiguous["hookSpecificOutput"]["permissionDecision"],
+                    "deny",
+                )
+                self.assertIn(
+                    "multiple --workspace declarations",
+                    ambiguous["hookSpecificOutput"]["permissionDecisionReason"],
+                )
 
         allowed_advance = self._codex_hook(
             "pre-tool-use",
