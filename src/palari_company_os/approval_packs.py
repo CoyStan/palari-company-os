@@ -35,7 +35,6 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
-LEGACY_PACK_SCHEMA_VERSION = "palari.approval-pack.v1"
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 TERMINAL_WORK_STATUSES = {"closed", "completed", "done"}
@@ -366,7 +365,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] not in {PACK_SCHEMA_VERSION, LEGACY_PACK_SCHEMA_VERSION}:
+    if pack["schema_version"] != PACK_SCHEMA_VERSION:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(

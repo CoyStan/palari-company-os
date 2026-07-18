@@ -2416,17 +2416,16 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions approval pack {pack_digest} manifest digest does not match"
             )
-        if manifest.get("schema_version") == "palari.approval-pack.v2":
-            unbound = [
-                decision.id
-                for decision in bound
-                if not decision.approval_presentation_digest
-            ]
-            if unbound:
-                raise WorkspaceError(
-                    "human_decisions approval pack v2 requires presentation binding: "
-                    + ", ".join(sorted(unbound))
-                )
+        unbound = [
+            decision.id
+            for decision in bound
+            if not decision.approval_presentation_digest
+        ]
+        if unbound:
+            raise WorkspaceError(
+                "human_decisions approval pack requires presentation binding: "
+                + ", ".join(sorted(unbound))
+            )
         presentation_groups: dict[str, list[HumanDecision]] = {}
         for decision in bound:
             if decision.approval_presentation_digest:
