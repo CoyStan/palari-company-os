@@ -18,8 +18,10 @@ git clone https://github.com/CoyStan/palari-company-os.git && cd palari-company-
 ./bin/palari demo
 ```
 
-The demo uses a temporary copy of example files. It does not touch your repo
-or call any external service.
+The demo creates a temporary local Git repository. It does not touch your repo
+or call any external service. It shows the real `start --next` to committed
+bounded change to `agent advance` loop without asking you to copy receipt or
+evidence IDs.
 
 You should see:
 
@@ -49,6 +51,15 @@ collision-resistant opaque work ID. `start --next` selects one eligible item,
 persists its packet and portable session contract, and claims it. It does not
 assign an identity or grant new authority: `--as` must name the Palari already
 declared by `init`.
+
+In a Git worktree, `init` also creates missing agent-ready guidance and one
+path-limited local commit that anchors the exact starter governance projection.
+It never overwrites existing `AGENTS.md` or `docs/agent/` files and excludes
+unrelated staged and unstaged work. This mechanical anchor is not a review or
+human decision. An interrupted initialization is recovered idempotently by
+`work add`; if Git cannot supply the immutable baseline, `agent start` reports
+one exact path-limited anchor command instead of suggesting unrelated queue or
+validation commands.
 
 The agent follows the returned packet, changes only its allowed paths, runs the
 declared checks, and commits the bounded change. It then uses the opaque

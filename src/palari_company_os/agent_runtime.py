@@ -9,6 +9,7 @@ from contextlib import ExitStack
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from shlex import quote
 from typing import Any
 from uuid import uuid4
 
@@ -2000,7 +2001,11 @@ def _scope_authority_workspace_from_git(
         ) from exc
     payload = _git_blob_bytes(root_text, base_sha, relative_data)
     if payload is None:
-        raise WorkspaceError("immutable scope authority workspace Git blob is unreadable")
+        raise WorkspaceError(
+            "immutable scope authority workspace Git blob is unreadable; "
+            "next action: "
+            + _missing_workspace_anchor_command(root, relative_data)
+        )
     workspace_prefix = Path(relative_data).parent.as_posix()
 
     def read_collection(relative_path: str) -> bytes:
@@ -2509,6 +2514,31 @@ def _git_blob_bytes(root: str, revision: str, path: str) -> bytes | None:
     except (OSError, subprocess.TimeoutExpired):
         return None
     return result.stdout if result.returncode == 0 else None
+
+
+def _missing_workspace_anchor_command(root: Path, relative_data: str) -> str:
+    parent = Path(relative_data).parent.as_posix()
+    prefix = "" if parent == "." else parent + "/"
+    candidates = [
+        relative_data,
+        f"{prefix}.palari/history.jsonl",
+        f"{prefix}.palari/governance-journal.v1.jsonl",
+    ]
+    paths = [
+        path
+        for path in candidates
+        if not (root / path).is_symlink() and (root / path).is_file()
+    ]
+    rendered = " ".join(quote(path) for path in paths)
+    git = (
+        f"git -C {quote(str(root))} -c core.hooksPath=/dev/null "
+        "-c commit.gpgSign=false"
+    )
+    message = quote("palari: anchor governance workspace")
+    return (
+        f"{git} add -f -- {rendered} && {git} commit --only "
+        f"-m {message} -- {rendered}"
+    )
 
 
 def _create_git_witness(work_id: str, baseline: dict[str, Any]) -> str:

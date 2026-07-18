@@ -21,6 +21,7 @@ from palari_company_os.governance_journal import (
     checkpoint_workspace_journal,
     verify_workspace_journal,
 )
+from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -40,6 +41,132 @@ PROOF_COLLECTIONS = (
 
 
 class OperatorJourneyTests(unittest.TestCase):
+    def test_fresh_committed_repo_runs_init_start_and_advance_without_proof_ids(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "project"
+            root.mkdir()
+            self.run_git(root, "init", "-q")
+            self.run_git(root, "config", "user.name", "Test")
+            self.run_git(root, "config", "user.email", "test@example.invalid")
+            self.write_verification_profile(root)
+            self.run_git(root, "add", "scripts/verification_profiles.py")
+            self.run_git(root, "commit", "-qm", "initial")
+
+            initialized = self.run_project_cli(
+                root,
+                "init",
+                "--palari",
+                "Agent",
+                "--json",
+            )
+            init_payload = json.loads(initialized.stdout)
+            self.assertEqual(init_payload["authority_anchor"]["status"], "anchored")
+            self.assertEqual(init_payload["agent_docs"]["status"], "ready")
+
+            added = self.run_project_cli(
+                root,
+                "work",
+                "add",
+                "Write the launch note",
+                "--write",
+                "docs/notes.md",
+                "--json",
+            )
+            work_id = json.loads(added.stdout)["work_item"]["id"]
+            started = self.run_project_cli(
+                root,
+                "agent",
+                "start",
+                "--next",
+                "--as",
+                "PALARI-AGENT",
+                "--json",
+            )
+            start_payload = json.loads(started.stdout)
+            self.assertEqual(start_payload["start"]["status"], "claimed")
+            self.assertEqual(start_payload["work_item"]["id"], work_id)
+            self.assertEqual(start_payload["documentation_state"]["status"], "ready")
+
+            output = root / "docs" / "notes.md"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text("Bounded launch note.\n", encoding="utf-8")
+            self.run_git(root, "add", "docs/notes.md")
+            self.run_git(
+                root,
+                "commit",
+                "--only",
+                "-qm",
+                "bounded launch note",
+                "--",
+                "docs/notes.md",
+            )
+
+            advanced = self.run_project_cli(
+                root,
+                "agent",
+                "advance",
+                work_id,
+                "--as",
+                "PALARI-AGENT",
+                "--json",
+            )
+            advance_payload = json.loads(advanced.stdout)
+            self.assertEqual(advance_payload["status"], "completed")
+            self.assertNotIn("RECEIPT-ID", advanced.stdout)
+            self.assertNotIn("EVIDENCE-ID", advanced.stdout)
+            docs_payload = json.loads(
+                self.run_project_cli(root, "docs", "check", "--json").stdout
+            )
+            self.assertEqual(docs_payload["documentation_state"]["status"], "ready")
+            self.assertEqual(
+                docs_payload["documentation_state"]["canonical_docs_missing"],
+                [],
+            )
+
+    def test_unanchored_manual_workspace_fails_with_one_exact_recovery_action(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "project"
+            root.mkdir()
+            initialize_starter_workspace(root, palari_name="Agent")
+            quick_add_work(
+                root,
+                "Write the launch note",
+                write=["docs/notes.md"],
+            )
+            self.run_git(root, "init", "-q")
+            self.run_git(root, "config", "user.name", "Test")
+            self.run_git(root, "config", "user.email", "test@example.invalid")
+            self.write_verification_profile(root)
+            self.run_git(root, "add", "scripts/verification_profiles.py")
+            self.run_git(root, "commit", "-qm", "initial")
+
+            result = self.run_project_cli(
+                root,
+                "agent",
+                "start",
+                "--next",
+                "--as",
+                "PALARI-AGENT",
+                "--json",
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(
+                payload["error"]["code"],
+                "IMMUTABLE_SCOPE_AUTHORITY_WORKSPACE_GIT_BLOB",
+            )
+            message = payload["error"]["message"]
+            self.assertIn("next action: git -C", message)
+            self.assertIn("add -f --", message)
+            self.assertIn("commit --only", message)
+            self.assertEqual(message.count("next action:"), 1)
+
     def test_durable_release_cli_is_concise_by_default_and_exact_in_json(self) -> None:
         with self.git_workspace() as workspace_file:
             start_agent(
@@ -381,6 +508,41 @@ class OperatorJourneyTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
             timeout=30,
+        )
+
+    def run_project_cli(
+        self,
+        root: Path,
+        *args: str,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        return subprocess.run(
+            [sys.executable, "-S", "-m", "palari_company_os", *args],
+            cwd=root,
+            env=env,
+            check=check,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+    def write_verification_profile(self, root: Path) -> None:
+        script = root / "scripts" / "verification_profiles.py"
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text(
+            """from pathlib import Path
+import sys
+
+if len(sys.argv) < 3 or sys.argv[1] != "affected":
+    raise SystemExit(2)
+if any(not Path(path).is_file() for path in sys.argv[2:]):
+    raise SystemExit(1)
+""",
+            encoding="utf-8",
         )
 
 

@@ -34,6 +34,13 @@ class DemoCommandTests(unittest.TestCase):
         blocked_steps = [step for step in payload["steps"] if step.get("block_marker")]
         self.assertEqual(len(blocked_steps), 1)
         self.assertEqual(blocked_steps[0]["offending_path"], "deploy/production.yml")
+        transcript = json.dumps(payload)
+        self.assertNotIn("Docs: missing", transcript)
+        self.assertNotIn("receipt record RECEIPT-ID", transcript)
+        self.assertNotIn("evidence record EVIDENCE-ID", transcript)
+        self.assertTrue(
+            any("agent advance WORK-0003" in step["command"] for step in payload["steps"])
+        )
 
     def test_demo_writes_only_inside_target_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -43,7 +50,8 @@ class DemoCommandTests(unittest.TestCase):
 
             self.assertEqual([path.name for path in parent.iterdir()], ["demo"])
             self.assertTrue((demo_dir / "workspace.json").exists())
-            self.assertTrue((demo_dir / ".palari" / "claims" / "WORK-0003.json").exists())
+            self.assertFalse((demo_dir / ".palari" / "claims" / "WORK-0003.json").exists())
+            self.assertTrue(any((demo_dir / ".palari" / "packets").iterdir()))
             self.assertTrue((demo_dir / "docs" / "product" / "company-os.md").exists())
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
