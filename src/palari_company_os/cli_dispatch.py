@@ -790,28 +790,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             0 if payload.get("ok") else 2,
         )
 
-    if args.command == "desktop-prototype":
-        from .desktop_prototype import generate_desktop_prototype
-
-        return CommandResult(
-            "desktop-prototype",
-            generate_desktop_prototype(args.out),
-            args.json,
-        )
-
-    if args.command == "desktop-serve":
-        from .desktop_server import serve_desktop_prototype
-
-        return CommandResult(
-            "desktop-serve",
-            serve_desktop_prototype(
-                args.out,
-                host=args.host,
-                port=args.port,
-            ),
-            False,
-        )
-
     if args.command == "serve":
         from .mission_control import serve_mission_control
 

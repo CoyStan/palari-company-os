@@ -213,7 +213,7 @@ It should include:
 - agent command changes update agent contract
 - source/receipt changes update source-of-truth or relevant product docs
 - gate changes update authority-and-gates
-- example behavior changes update quickstart/showcase docs where needed
+- example behavior changes update quickstart and example docs where needed
 
 ## Path-Specific Guidance
 
@@ -289,7 +289,7 @@ Gate recommendations can reference docs as review aids:
 - source-boundary -> source and receipt docs
 - external-write -> integration and outbox docs
 - deploy-runtime -> release and operations docs
-- product-overclaim -> README/showcase/docs maturity guidance
+- product-overclaim -> README/example/docs maturity guidance
 
 The gate still remains read-only and advisory.
 

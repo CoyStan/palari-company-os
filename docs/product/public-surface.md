@@ -28,14 +28,12 @@ boundaries. Everything else should serve that kernel.
 | Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
 | Slack/GitHub/Jira/email providers | future | Dry-run planning only; no live provider execution. |
 | Mission Control and local serve | visual | Local supervision surface, not core kernel. |
-| Desktop prototype and desktop serve | visual | Product prototype surface, not core kernel. |
-| ACME and desktop demo workspaces | example | Fixtures and examples for local use. |
-| AI Work Vignettes | example | Optional narrative examples. |
+| ACME workspace | example | Current local example and packaged starter data. |
 | Archived plans and research | archive | Historical context, not active operator guidance. |
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **144**.
+Current CLI command count from parser inspection: **142**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary

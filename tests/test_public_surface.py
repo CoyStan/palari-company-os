@@ -17,7 +17,7 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 144)
+        self.assertEqual(len(actual), 142)
         self.assertEqual(actual, expected)
 
     def test_default_help_leads_with_the_ordinary_journey(self) -> None:
@@ -41,7 +41,7 @@ class PublicSurfaceTests(unittest.TestCase):
             _read("src/palari_company_os/data/schemas/workspace.schema.json"),
         )
 
-    def test_public_surface_doc_classifies_core_and_visual_surfaces(self) -> None:
+    def test_public_surface_doc_classifies_core_and_supported_visual_surface(self) -> None:
         surface = _read("docs/product/public-surface.md")
 
         self.assertIn(
@@ -50,10 +50,8 @@ class PublicSurfaceTests(unittest.TestCase):
         )
         self.assertIn("receipts/evidence/review/acceptance + integration outbox", surface)
         self.assertIn("| Mission Control and local serve | visual |", surface)
-        self.assertIn("| Desktop prototype and desktop serve | visual |", surface)
-        self.assertNotRegex(surface, r"(?i)dashboard and local serve")
-        self.assertNotRegex(surface, r"(?i)desktop prototype and desktop serve \| core")
-        self.assertIn("Current CLI command count from parser inspection: **144**.", surface)
+        self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
+        self.assertIn("Current CLI command count from parser inspection: **142**.", surface)
 
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")

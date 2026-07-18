@@ -52,7 +52,6 @@ palari_company_os = [
     "py.typed",
     "data/examples/acme-company-os/*.json",
     "data/examples/acme-company-os/*.md",
-    "data/examples/desktop-demo/*.json",
     "data/schemas/*.json",
 ]
 

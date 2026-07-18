@@ -162,7 +162,7 @@ Implemented now:
 - strict workspace schema and validation
 - goals, humans, Palaris, workbenches, sources, work items, attempts, receipts,
   evidence, reviews, human decisions, outcomes, and history
-- queue, detail, state, history, Mission Control, and desktop prototype views
+- queue, detail, state, history, and Mission Control views
 - agent packets for bounded AI-agent context
 - local packet persistence and lightweight claims for `agent start`
 - deterministic next-safe selection and claiming through `agent start --next`
@@ -265,18 +265,6 @@ Or prepare the demo workspace and open the same live view in one command:
 
 ```bash
 ./bin/palari demo --serve
-```
-
-Generate the standalone desktop prototype:
-
-```bash
-./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-```
-
-Then open:
-
-```text
-/tmp/palari-desktop-prototype/index.html
 ```
 
 ## Agent Workflow
@@ -399,10 +387,8 @@ goal -> workbench -> selected sources -> work item -> attempt
 ./bin/palari docs map
 ./bin/palari docs init --dry-run --json
 
-# Visual supervision and prototypes
+# Local human supervision
 ./bin/palari serve --as HUMAN-FOUNDER
-./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
 ```
 
 Use `--json` when wiring Palari into agents, scripts, or other tools.
@@ -417,7 +403,6 @@ examples/acme-company-os/          Small example workspace
 workspaces/palari-company-os/      Repo dogfood workspace
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and invariants
-docs/showcase/                     Optional public examples and vignettes
 docs/archive/                      Historical plans and speculative research
 scripts/verify.sh                  Full local verification
 scripts/install_smoke.sh           Isolated package install smoke
@@ -453,7 +438,6 @@ Start here:
 
 Then go deeper:
 
-- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md)
 - [Core Objects](docs/product/core-objects.md)
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)

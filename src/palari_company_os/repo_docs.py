@@ -33,7 +33,6 @@ MAJOR_COMMAND_GROUPS = [
     "integration",
     "review",
     "decision",
-    "desktop-prototype",
 ]
 
 MAJOR_SCHEMA_COLLECTIONS = [

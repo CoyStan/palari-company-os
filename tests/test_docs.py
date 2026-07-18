@@ -143,7 +143,6 @@ class DocumentationTests(unittest.TestCase):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         start_here = readme.split("Start here:", 1)[1].split("Then go deeper:", 1)[0]
         self.assertNotIn("docs/archive/", start_here)
-        self.assertNotIn("docs/showcase/ai-work-vignettes.md", start_here)
         self.assertIn("docs/archive/", readme)
         self.assertIn("## Golden Paths", readme)
 

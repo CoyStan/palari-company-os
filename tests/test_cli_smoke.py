@@ -264,7 +264,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertTrue(journal["ok"])
         self.assertGreaterEqual(int(journal["committed_transactions"]), 4)
 
-    def test_scope_maintainer_and_desktop_prototype_smokes(self) -> None:
+    def test_scope_and_maintainer_smokes(self) -> None:
         allowed = self.run_json(
             "scope", "WORK-0001", "--changed", "examples/acme-company-os/workspace.json", "--json"
         )
@@ -276,17 +276,6 @@ class CliSmokeTests(unittest.TestCase):
         self.assertTrue(allowed["allowed"])
         self.assertFalse(blocked["allowed"])
         self.assertIn("repo", maintainer)
-
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory)
-            prototype = self.run_json(
-                "desktop-prototype", "--out", str(output / "desktop-prototype"), "--json"
-            )
-            prototype_html = Path(prototype["index_path"]).read_text(encoding="utf-8")
-
-        self.assertIn("Palari Desktop Shell Prototype", prototype_html)
-        self.assertIn("External writes", prototype_html)
-        self.assertIn('data-mobile-target="chat"', prototype_html)
 
     def test_retired_dashboard_command_is_rejected(self) -> None:
         env = os.environ.copy()

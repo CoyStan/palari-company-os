@@ -65,8 +65,6 @@ palari git status
 palari mcp
 palari mcp serve
 palari history
-palari desktop-prototype
-palari desktop-serve
 palari serve
 palari goal
 palari goal create

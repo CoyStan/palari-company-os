@@ -109,7 +109,6 @@ When adding a command, update parser, dispatch, output, tests, and
   baseline, capability classifications, and test/CI inventory.
 - `docs/agent/`: agent-ready repo documentation.
 - `docs/product/`: product and operator documentation.
-- `docs/showcase/`: public-facing examples and vignettes.
 
 ## Examples And Workspaces
 

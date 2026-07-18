@@ -20,10 +20,6 @@ class PackagingTests(unittest.TestCase):
                 "src/palari_company_os/data/examples/acme-company-os/README.md",
             ),
             (
-                "examples/desktop-demo/workspace.json",
-                "src/palari_company_os/data/examples/desktop-demo/workspace.json",
-            ),
-            (
                 "schemas/workspace.schema.json",
                 "src/palari_company_os/data/schemas/workspace.schema.json",
             ),

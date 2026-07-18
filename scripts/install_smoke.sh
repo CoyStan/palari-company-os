@@ -59,8 +59,6 @@ PY
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" detail WORK-0001 --json >"$log_dir/integration-detail.json"
 "$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" history --json >"$log_dir/integration-history.json"
 "$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >"$log_dir/explicit-validate.json"
-"$tmp_dir/venv/bin/palari" desktop-prototype --out "$tmp_dir/desktop" --json >"$log_dir/desktop.json"
-
 cp -R "$repo_dir/spec/pcaw/v1/vectors/valid/accepted" "$tmp_dir/proof-bundle"
 mkdir "$tmp_dir/offline-python"
 printf '%s\n' \
@@ -75,5 +73,4 @@ printf '%s\n' \
     >"$log_dir/pcaw-offline-verify.json"
 )
 
-test -f "$tmp_dir/desktop/index.html"
 printf 'Palari Company OS wheel install smoke passed.\n'

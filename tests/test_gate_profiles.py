@@ -260,7 +260,7 @@ class GateProfileTests(unittest.TestCase):
         work["allowed_resources"] = [
             "docs/product/company-os.md",
             "README.md",
-            "docs/showcase/ai-work-vignettes.md",
+            "docs/product/quickstart.md",
         ]
 
 

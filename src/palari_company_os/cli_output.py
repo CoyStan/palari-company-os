@@ -300,14 +300,6 @@ def print_result(result: CommandResult) -> None:
             print_history_restoration(result.payload)
         return
 
-    if result.kind == "desktop-prototype":
-        print_desktop_prototype(result.payload, result.as_json)
-        return
-
-    if result.kind == "desktop-serve":
-        print_desktop_serve(result.payload)
-        return
-
     if result.kind == "mission-control-serve":
         print_mission_control_serve(result.payload)
         return
@@ -576,27 +568,6 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
     print("Major command groups:")
     print("  " + ", ".join(payload["major_command_groups"]))
-
-
-def print_desktop_prototype(result: Any, as_json: bool) -> None:
-    payload = {
-        "title": result.title,
-        "output_dir": result.output_dir,
-        "index_path": result.index_path,
-        "assets": result.assets,
-    }
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Desktop prototype generated: {result.index_path}")
-    print(f"Title: {result.title}")
-    for asset in result.assets:
-        print(f"Asset: {asset}")
-
-
-def print_desktop_serve(payload: dict[str, Any]) -> None:
-    print(f"Desktop server stopped: {payload['url']}")
-    print(f"Prototype files: {payload['output_dir']}")
 
 
 def print_mission_control_serve(payload: dict[str, Any]) -> None:

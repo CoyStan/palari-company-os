@@ -1134,20 +1134,6 @@ Important boundaries:
 `palari demo --serve` prepares the throwaway demo workspace, runs the blocked
 write scenario, and opens the same local UI against that demo state.
 
-## Desktop Prototype
-
-```bash
-./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype
-```
-
-`desktop-prototype` generates static read-only HTML, CSS, and JavaScript from
-`examples/desktop-demo/workspace.json`.
-
-`desktop-serve` generates the same files and serves them locally for design
-review. It does not expose external runner endpoints, connect Google Drive, or
-mutate the workspace model.
-
 ## Authoring Commands
 
 All authoring commands validate the full workspace before writing.
@@ -1223,9 +1209,8 @@ This file is intentionally ignored by git.
 ./scripts/verify.sh
 ```
 
-Runs unit tests, Python compilation, JSON validity checks, and CLI smoke checks
-for queue, detail, state, validate, scope, maintainer status, playbooks, and the
-desktop prototype generator.
+Runs unit tests, Python compilation, JSON validity checks, PCAW conformance,
+and focused CLI boundary smokes.
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs the same command
 on pushes to `main` and on pull requests.

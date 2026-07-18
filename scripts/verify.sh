@@ -47,7 +47,6 @@ run_smoke ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --
 run_smoke ./bin/palari --workspace examples/acme-company-os agent next --json >$verify_output_dir/palari-company-agent-next.json
 run_smoke ./bin/palari docs check --json >$verify_output_dir/palari-company-docs-check.json
 run_smoke ./bin/palari playbooks recommend WORK-0003 --json >$verify_output_dir/palari-company-playbooks.json
-run_smoke ./bin/palari desktop-prototype --out "$verify_output_dir/desktop" --json >$verify_output_dir/palari-company-desktop.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os validate --json >$verify_output_dir/palari-company-dogfood-validate.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os queue --json >$verify_output_dir/palari-company-dogfood-queue.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001 --json >$verify_output_dir/palari-company-dogfood-detail.json
