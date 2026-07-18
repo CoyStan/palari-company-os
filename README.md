@@ -435,6 +435,8 @@ tests/                             Unit and fixture tests
 
 Start here:
 
+- [Current Product](docs/product/current-product.md) for the supported product,
+  lifecycle, storage, adapters, and compatibility policy
 - [Quickstart](docs/product/quickstart.md) for the shortest command path
 - [Glossary](docs/product/glossary.md) for plain-language definitions
 - [Product Model](docs/product/company-os.md) for the larger concept

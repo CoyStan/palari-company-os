@@ -104,6 +104,10 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `AGENTS.md`: compact root agent entrypoint.
 - `CLAUDE.md`: thin Claude adapter that points to shared repo truth.
+- `docs/product/current-product.md`: normative supported-product boundary,
+  lifecycle, storage, adapters, and compatibility policy.
+- `docs/product/current-product-recovery-inventory.md`: measured recovery
+  baseline, capability classifications, and test/CI inventory.
 - `docs/agent/`: agent-ready repo documentation.
 - `docs/product/`: product and operator documentation.
 - `docs/showcase/`: public-facing examples and vignettes.
