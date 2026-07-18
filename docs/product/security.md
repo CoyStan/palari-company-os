@@ -157,8 +157,11 @@ Authority rules:
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked
   proof remains readable, but later writes to the retired contract or its
-  attempts, receipts, evidence, reviews, decisions, acceptances, outcomes, and
-  external-action records fail before the workspace or journal is replaced.
+  adopted proposal, attempts, receipts, evidence, reviews, decisions,
+  acceptances, outcomes, and external-action records fail before the workspace
+  or journal is replaced. The storage transaction creating retirement cannot
+  append authority or proof, and successful terminal work cannot be relabeled
+  as retired.
 - Proof creation necessarily mutates `workspace.json`, legacy history, and the
   governance journal. When one of those projection files is itself a declared
   artifact, verification reads its bytes from the evidence's exact Git commit

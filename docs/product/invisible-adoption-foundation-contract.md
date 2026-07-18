@@ -68,7 +68,9 @@ not four branch-specific approval ceremonies.
     `0e72d370c9fede44361340e60e1f2f97f032612c`,
     `54bb18e117208932da05617315b0ec2ded53a3c8`,
     `06551e64c4d056a6c55fbbcb1ba960e63e599710`, and
-    `44597e83a27797ae81067dc8f3f94e31bbdef3c6`.
+    `44597e83a27797ae81067dc8f3f94e31bbdef3c6`, with atomic retirement
+    transition and proposal sealing at
+    `ef22a65d11a60b362a7cd959d54f7444b24ba267`.
 
 - [x] **Any supported agent can adopt the same bounded loop**
   - Required outcome: one honest host adoption action installs portable
@@ -83,7 +85,8 @@ not four branch-specific approval ceremonies.
     `485cb7bb4b85f4364e6fe1e19f4e05be975b75b8`,
     `8ea7816fee11fe753345f122f23c48a5f89771d0`,
     `06551e64c4d056a6c55fbbcb1ba960e63e599710`, and
-    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`, with foreign-command
+    preservation at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
 
 - [ ] **One coherent, verified, review-accepted candidate**
   - Required outcome: all four slices compose on one exact committed head,

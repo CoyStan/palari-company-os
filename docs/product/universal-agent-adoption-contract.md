@@ -39,7 +39,8 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Exact committed evidence when completed: `3bf74e9a874df0cac4a999fc921836ca5c3078ac`,
     executable-wrapper proof at `bd1dde8506ef83974bf7f3419ed5f0e3bbb3ab10`,
     and atomic executable-hook/foreign-command repairs at
-    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
+    `53400beeb3ab833b22fc3eb056ae0d7549874141` and
+    `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
 
 - [x] **Proven native session adapters only**
   - Required outcome: Claude keeps its existing structural hook adapter; Codex
@@ -58,7 +59,8 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Exact committed evidence when completed: `92bca37449246ba9f34d301028157640d96794e4`,
     integrated native routing at `8ea7816fee11fe753345f122f23c48a5f89771d0`,
     and duplicate-workspace/compound-hook hardening at
-    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`, with exact executable-token
+    classification at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`.
 
 - [x] **Complete agent loop over MCP**
   - Required outcome: MCP clients can select/start the next work item, request

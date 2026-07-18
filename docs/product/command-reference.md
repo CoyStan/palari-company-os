@@ -425,7 +425,9 @@ non-empty `terminal_reason`; `successor_work_item_id` is optional but must name
 a distinct existing work item. Cycles and dependencies that still point to a
 retired prerequisite fail closed. Retirement is also rejected while the item
 has an active attempt, open linked decision, pending integration plan, or queued
-external action.
+external action. The retirement transaction may change only the terminal
+fields; it cannot add proof or authority at the same time. Afterward, the work
+contract, its adopted proposal, and all linked lifecycle records are immutable.
 
 Default `queue`, `agent next`, and `queue --approval-inbox` views omit retired
 work. `queue --include-closed` and `detail WORK-ID` retain its exact status,
@@ -1061,6 +1063,12 @@ hazard. The check scans every committed projection after the earliest matching
 checkpoint digest, so a later reset/removal—or already being back at the target
 bytes—cannot hide an intervening effect. Record any external compensation
 separately and create a new governed checkpoint instead.
+
+Restoration also respects non-success retirement as a temporal boundary. It
+cannot rewind `superseded` or `abandoned` work to an active projection, relabel
+successfully completed work as retired, or mutate the retired work's linked
+audit subgraph. Create explicit successor work when the old objective must be
+continued.
 
 ## Proof-Carrying AI Work
 
