@@ -513,12 +513,12 @@ def _check_work_complete(
     from .governance_kernel import evaluate_governance_case
     from .pcaw_workspace import governance_case_from_workspace
 
-    governance_case, _ = governance_case_from_workspace(workspace, work_id)
-    governance_case = replace(
-        governance_case,
-        claimed_state="completed",
-        contract=replace(governance_case.contract, status="completed"),
+    governance_case, _ = governance_case_from_workspace(
+        workspace,
+        work_id,
+        projected_contract_status="completed",
     )
+    governance_case = replace(governance_case, claimed_state="completed")
     governance = evaluate_governance_case(governance_case)
     if governance.derived_state != "completed" or not governance.fully_verified:
         first_error = governance.errors[0] if governance.errors else None

@@ -50,8 +50,15 @@ def governance_case_from_workspace(
     work_id: str,
     *,
     inspect_external: bool = True,
+    projected_contract_status: str = "",
 ) -> tuple[GovernanceCase, list[dict[str, str]]]:
-    """Normalize one workspace lifecycle into the provider-neutral PCAW case."""
+    """Normalize one workspace lifecycle into the provider-neutral PCAW case.
+
+    ``projected_contract_status`` is used only by the authoritative transition
+    gate to evaluate a proposed status change.  Applying it before review,
+    decision, and acceptance snapshots are normalized keeps every canonical
+    digest bound to the same projected case.
+    """
 
     work = workspace.work_item(work_id)
     if work is None:
@@ -72,7 +79,7 @@ def governance_case_from_workspace(
         parent_work_item_id=work.parent_work_item_id,
         risk=work.risk,
         intensity=work.intensity,
-        status=work.status,
+        status=projected_contract_status or work.status,
         scope=work.scope,
         allowed_resources=tuple(sorted(work.allowed_resources)),
         allowed_sources=tuple(sorted(work.allowed_sources)),

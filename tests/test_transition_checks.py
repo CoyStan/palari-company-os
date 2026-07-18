@@ -18,6 +18,10 @@ from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
 )
+from palari_company_os.governance_binding import (
+    current_review_binding,
+    review_proof_hash,
+)
 from palari_company_os.workspace import Workspace
 
 
@@ -70,6 +74,102 @@ class TransitionCheckTests(unittest.TestCase):
                 attempts=raw["attempts"],
             )
             raw["evidence_runs"] = [evidence]
+            workspace = Workspace.from_raw(raw, root)
+
+            result = check_transition(workspace, "work_complete", "WORK-1")
+
+        self.assertTrue(result.ok, result.to_dict())
+
+    def test_work_complete_projects_one_terminal_case_for_bound_authority(self) -> None:
+        raw = json.loads(
+            (REPO_ROOT / "tests/fixtures/workspaces/valid-source-receipt-loop.json")
+            .read_text(encoding="utf-8")
+        )
+        work = raw["work_items"][0]
+        work.update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "status": "in-review",
+                "required_approval_count": 1,
+                "required_approval_capability": "product",
+            }
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            output = root / "notes/summary.md"
+            output.parent.mkdir(parents=True)
+            output.write_text("Current exact summary.\n", encoding="utf-8")
+            receipt = stamp_receipt_record(raw["receipts"][0], [])
+            raw["receipts"] = [receipt]
+            evidence = stamp_evidence_record(
+                {
+                    "id": "EVIDENCE-1",
+                    "work_item_id": "WORK-1",
+                    "attempt_id": "ATTEMPT-1",
+                    "head_sha": "head-1",
+                    "status": "passed",
+                    "commands": ["python3 -m unittest tests.test_governance_kernel"],
+                    "artifacts": ["notes/summary.md"],
+                    "receipt_hash": receipt["receipt_hash"],
+                    "summary": "Focused verification passed.",
+                    "freshness": "exact-head",
+                    "timestamp": "2026-06-19T04:06:00Z",
+                },
+                root,
+                attempts=raw["attempts"],
+            )
+            raw["evidence_runs"] = [evidence]
+            proof_workspace = Workspace.from_raw(raw, root)
+            binding, errors = current_review_binding(
+                proof_workspace,
+                "WORK-1",
+                require_output_coverage=True,
+            )
+            self.assertEqual(errors, [])
+            review = {
+                "id": "REVIEW-1",
+                "work_item_id": "WORK-1",
+                "reviewed_head": "head-1",
+                "reviewer": "HUMAN-1",
+                "verdict": "accept-ready",
+                "timestamp": "2026-06-19T04:07:00Z",
+                **binding,
+            }
+            review["proof_hash"] = review_proof_hash(review)
+            raw["review_verdicts"] = [review]
+            raw["human_decisions"] = [
+                {
+                    "id": "HUMAN-DECISION-1",
+                    "work_item_id": "WORK-1",
+                    "human_id": "HUMAN-1",
+                    "reviewed_head": "head-1",
+                    "decision": "accepted",
+                    "status": "accepted",
+                    "acceptance_mode": "human",
+                    "quorum_status": "met",
+                    "evidence_reference": "EVIDENCE-1",
+                    "review_reference": "REVIEW-1",
+                    "timestamp": "2026-06-19T04:08:00Z",
+                }
+            ]
+            raw["acceptance_records"] = [
+                {
+                    "id": "ACCEPTANCE-1",
+                    "work_item_id": "WORK-1",
+                    "human_id": "HUMAN-1",
+                    "reviewed_head": "head-1",
+                    "status": "accepted",
+                    "decision_id": "HUMAN-DECISION-1",
+                    "evidence_reference": "EVIDENCE-1",
+                    "review_reference": "REVIEW-1",
+                    "receipt_hash": receipt["receipt_hash"],
+                    "authority_profile": "team-safe",
+                    "quorum_status": "met",
+                    "reason": "Exact reviewed proof accepted.",
+                    "accepted_at": "2026-06-19T04:09:00Z",
+                }
+            ]
             workspace = Workspace.from_raw(raw, root)
 
             result = check_transition(workspace, "work_complete", "WORK-1")
