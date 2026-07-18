@@ -2,7 +2,7 @@
 
 Work item: `WORK-BF48A3D891A7428FB91AA80BF53856AA`
 
-Integration owner: `WORK-3B7821F3452B40B283784832E86234C3`
+Integration owner: `WORK-E6AE25B296B340F89F24380B209DC64B`
 
 Baseline: `f6e2cf9b3f59e4074ca459368103d802a4eb3b81`
 
@@ -100,11 +100,13 @@ Every completed checkbox names exact committed proof. The product rule is:
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/verify.sh`, `./scripts/install_smoke.sh`, and review artifact.
   - Current status: implementation verified through
-    `1c3664c0de12c5eb8eed5f718a168b66d904288a`. An architecture review accepted
-    the earlier implementation head, then exact-head review found an
-    installed-package Git-hook gap and a generated-documentation preflight gap.
-    Both committed repairs passed focused tests. Fresh exact-head and durable
-    lifecycle review recording remain pending in the integration item.
+    `1c3664c0de12c5eb8eed5f718a168b66d904288a`. Exact-head reviews found an
+    installed-package Git-hook gap and a generated-documentation preflight gap;
+    both repairs passed focused tests, and a fresh independent reviewer returned
+    ACCEPT for exact integrated code head
+    `54b0995d26470c103316b46b1787ab3009cb021a`. Durable lifecycle review
+    recording remains pending on successor integration item
+    `WORK-E6AE25B296B340F89F24380B209DC64B`.
   - Exact committed evidence when completed: pending. Isolated installed-package
     compatibility is committed at `6c2d70324e97326397478c336fb047d5d750c32a`;
     its complete gate passed 946 tests in three runs with a 111.86-second

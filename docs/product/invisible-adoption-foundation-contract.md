@@ -1,6 +1,8 @@
 # Invisible Adoption Foundation v1 — Integration Contract
 
-Integration work item: `WORK-3B7821F3452B40B283784832E86234C3`
+Integration work item: `WORK-E6AE25B296B340F89F24380B209DC64B`
+
+Superseded pre-expansion item: `WORK-3B7821F3452B40B283784832E86234C3`
 
 Bounded precursors:
 
@@ -18,9 +20,11 @@ modules, style, trusted-code accounting (5 files / 2,405 SLOC), and 18/18 PCAW
 vectors in 113.59 seconds with 358,556 KB peak RSS.
 
 Status vocabulary is `pending`, `in progress`, `completed`, or `blocked`.
-Every completed checkbox names exact committed proof. One integrated claim owns
-the final Git range so the founder receives one presentation-bound action,
-not four branch-specific approval ceremonies.
+Every completed checkbox names exact committed proof. The approved immutable
+successor owns final proof; the earlier claim and its narrower contract remain
+auditable rather than being silently rebaselined. The founder still receives
+one final presentation-bound acceptance action, not four branch-specific
+approval ceremonies.
 
 ## Required Outcomes
 
@@ -104,23 +108,25 @@ not four branch-specific approval ceremonies.
   - Verification command or artifact: `./bin/palari validate --json`,
     `./bin/palari docs check --json`, PCAW conformance, `./scripts/verify.sh`,
     `./scripts/install_smoke.sh`, agent check/advance/handoff, and review history.
-  - Current status: blocked at the next gate by explicit human scope decision
-    `DECISION-FOUNDATION-AUTHORING-SCOPE`. Independent repair moved terminal
-    lifecycle enforcement into `src/palari_company_os/authoring.py` after the
-    integration packet was claimed, so exact commit-range proof correctly
-    refuses to conceal that added path. All currently attributable implementation
-    checks and precursor retirement are complete. After the decision, corrected
-    packet proof and a fresh exact-head review remain required.
+  - Current status: in progress. Human decision
+    `DECISION-FOUNDATION-AUTHORING-SCOPE` approved the exact additional path.
+    Palari then refused to rewrite the already-claimed contract, so the old item
+    was restored to its original boundary, auditably superseded, and linked to
+    immutable successor `WORK-E6AE25B296B340F89F24380B209DC64B`. The successor
+    is claimed and ready for deterministic proof derivation; durable lifecycle
+    review and human acceptance remain pending.
   - Exact committed evidence when completed: not yet complete. Candidate code
     is exact head `1c3664c0de12c5eb8eed5f718a168b66d904288a`; installed-hook and
-    generated-documentation preflight repairs pass focused tests, while fresh
-    exact-head lifecycle review remains pending. All four precursors are
-    auditably superseded by the
-    integration item
+    generated-documentation preflight repairs pass focused tests. A fresh
+    independent implementation reviewer returned ACCEPT for exact head
+    `54b0995d26470c103316b46b1787ab3009cb021a`. All four precursors are
+    auditably superseded by the integration lineage
     at `cc96d088d42ac1b3bf4bb4565c3496d87b3aff11`; the fail-closed scope
-    decision is committed at `70407b50faf8c7ada29e128ff300f71811b5367f`.
-    Final proof and presentation remain unavailable until that decision is made
-    by a human and the corrected packet completes normal review.
+    decision and approved scope are committed at
+    `8b02b87f09bae6bd91b4bfe54874434136d49fd2`; immutable successor creation
+    and old-item retirement are committed at
+    `a3f203a1699dcde3190550401502466da56ee289`. Final proof and presentation
+    remain unavailable until the successor completes normal durable review.
 
 ## Complete-Gate Timing
 
@@ -128,10 +134,11 @@ not four branch-specific approval ceremonies.
 | --- | ---: | ---: | ---: | --- |
 | Baseline `f6e2cf9` | 876 | 113.59 s | 358,556 KB | single recorded baseline |
 | Implementation `6c2d703` | 946 | 111.86 s | 218,180 KB | three-run median; 1.52% lower wall time and 39.2% lower RSS than the recorded baseline |
+| Exact reviewed code `54b0995` | 949 | 110.83 s | 224,248 KB | single exact-head run; 2.43% lower wall time and 37.46% lower RSS than the recorded baseline |
 
-The implementation adds 70 tests while remaining inside the performance
-budget. Because the baseline is one recorded run and the candidate value is a
-three-run median, the comparison is directional rather than a like-for-like
-distribution. The authoritative gate is still `./scripts/verify.sh`; focused
-profiles exist only to shorten development feedback, not to replace acceptance
-checks.
+The exact reviewed code adds 73 tests while remaining inside the performance
+budget. Because the baseline and exact-head values are individual runs while
+the middle row is a three-run median, these comparisons are directional rather
+than like-for-like distributions. The authoritative gate is still
+`./scripts/verify.sh`; focused profiles exist only to shorten development
+feedback, not to replace acceptance checks.
