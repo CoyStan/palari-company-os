@@ -5130,7 +5130,8 @@
         "./scripts/install_smoke.sh"
       ],
       "required_approval_count": 1,
-      "parent_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3"
+      "parent_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3",
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94"
     }
   ],
   "attempts": [
@@ -9424,6 +9425,133 @@
         "src/palari_company_os/agent_runtime.py",
         "tests/test_agent_advance.py",
         "tests/test_agent_packets.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94",
+      "work_item_id": "WORK-E6AE25B296B340F89F24380B209DC64B",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-v03-foundation",
+      "base_sha": "a3f203a1699dcde3190550401502466da56ee289",
+      "allowed_paths": [
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/read_model_commands.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/agent_adoption.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/mcp_server.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_demo.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_public_surface.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_git_hooks.py",
+        "tests/test_mcp_server.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/quickstart.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/public-surface.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/verification.md",
+        "docs/product/golden-path-repair-contract.md",
+        "docs/product/compact-journal-v2-contract.md",
+        "docs/product/invisible-product-surface-contract.md",
+        "docs/product/universal-agent-adoption-contract.md",
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "src/palari_company_os/authoring.py"
+      ],
+      "started_at": "2026-07-18T18:56:03Z",
+      "head_sha": "313f482bfb940df81e4d0943258174d561e46fff",
+      "commits": [
+        "313f482bfb940df81e4d0943258174d561e46fff"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-18T18:56:03Z",
+      "changed_files": [
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "docs/product/universal-agent-adoption-contract.md"
+      ],
+      "output_targets": [
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_next.py",
+        "src/palari_company_os/read_models.py",
+        "src/palari_company_os/read_model_commands.py",
+        "src/palari_company_os/workspace_read_models.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/agent_adoption.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/git_hooks.py",
+        "src/palari_company_os/mcp_server.py",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/data/schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_demo.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_validation.py",
+        "tests/test_workspace_read_models.py",
+        "tests/test_public_surface.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_git_hooks.py",
+        "tests/test_mcp_server.py",
+        "README.md",
+        "AGENTS.md",
+        "docs/product/quickstart.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/public-surface.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/verification.md",
+        "docs/product/golden-path-repair-contract.md",
+        "docs/product/compact-journal-v2-contract.md",
+        "docs/product/invisible-product-surface-contract.md",
+        "docs/product/universal-agent-adoption-contract.md",
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "src/palari_company_os/authoring.py"
       ]
     }
   ],
@@ -14494,6 +14622,41 @@
       "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:e571ba3350473a72ebe965602450773dbda263a0f4a87a43c14baee90bfd9213"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94",
+      "work_item_id": "WORK-E6AE25B296B340F89F24380B209DC64B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94",
+      "head_sha": "313f482bfb940df81e4d0943258174d561e46fff",
+      "status": "passed",
+      "base_ref": "a3f203a1699dcde3190550401502466da56ee289",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-CFF4754A2B104173 sha256:1ebc9a340cfea8ca21969a291ac755d29c03e96dc29b153fcff4754a2b104173",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-436BAA3B531E8D3B sha256:0fd7a296ddef65d02d97f6318b91ba5f54d58b2ac0784cd6436baa3b531e8d3b",
+        "docs-check attestation VERIFY-DOCS-CHECK-52DD10D32BC00578 sha256:ea031ca74172aaf4f3ca5016aea8a85f588d2e5c6c3bcd6952dd10d32bc00578"
+      ],
+      "artifacts": [
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "docs/product/universal-agent-adoption-contract.md"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/product/invisible-adoption-foundation-contract.md",
+          "sha256": "sha256:0e407adae752050672da7e435325c6c5502ca06d2d3be148791eeb0f443a5d04",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/universal-agent-adoption-contract.md",
+          "sha256": "sha256:b75b0ff6b32e765e3d3c69086b4765dd24f0679be942b8540057711720e67c27",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-18T18:56:03Z",
+      "receipt_hash": "sha256:fc25e4b8f204679730f16a4d0dbf407127ce4bd74f4553f4f43fdcc2b5dd6e55",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:a2d69a3fc53593ca0ffde430dee1718ef2ccaba8da7dd2a8a91688bab2120ae3"
     }
   ],
   "review_verdicts": [
@@ -15114,6 +15277,14 @@
       "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061",
       "work_contract_hash": "sha256:de561637b3e50927c625a64e416ec323022a62fde4ba379d4d0e9198e47a04ab",
       "proof_hash": "sha256:7c437b0611f3f57cddfb5e949f1601324648f4b037688201a2eccbabcff415fb"
+    },
+    {
+      "id": "REVIEW-FOUNDATION-SUCCESSOR-ARCHITECT-313F482-CHANGES",
+      "work_item_id": "WORK-E6AE25B296B340F89F24380B209DC64B",
+      "reviewed_head": "313f482bfb940df81e4d0943258174d561e46fff",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "changes-requested",
+      "timestamp": "2026-07-18T19:08:49.165708Z"
     }
   ],
   "human_decisions": [
@@ -18750,6 +18921,32 @@
       ],
       "timestamp": "2026-07-18T00:57:20Z",
       "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94",
+      "work_item_id": "WORK-E6AE25B296B340F89F24380B209DC64B",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-313F482BFB94",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 2 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "docs/product/universal-agent-adoption-contract.md"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/invisible-adoption-foundation-contract.md",
+        "docs/product/universal-agent-adoption-contract.md"
+      ],
+      "timestamp": "2026-07-18T18:56:03Z",
+      "receipt_hash": "sha256:fc25e4b8f204679730f16a4d0dbf407127ce4bd74f4553f4f43fdcc2b5dd6e55"
     }
   ],
   "decisions": [
