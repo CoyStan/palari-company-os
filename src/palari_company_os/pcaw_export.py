@@ -21,6 +21,20 @@ def export_pcaw_statement(
 
     workspace = Workspace.load(workspace_path)
     governance_case, artifact_subjects = governance_case_from_workspace(workspace, work_id)
+    absent_artifacts = sorted(
+        item.path
+        for item in (
+            governance_case.evidence.artifact_hashes
+            if governance_case.evidence is not None
+            else ()
+        )
+        if item.status == "absent"
+    )
+    if absent_artifacts:
+        raise WorkspaceError(
+            "PCAW v1 proves present artifact bytes only; local deletion tombstones "
+            "cannot be exported: " + ", ".join(absent_artifacts)
+        )
     output = Path(output_path).expanduser().resolve()
     for item in artifact_subjects:
         artifact = (workspace.path / item["name"]).resolve()

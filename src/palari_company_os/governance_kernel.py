@@ -65,6 +65,25 @@ class PropertyResult:
 
 
 @dataclass(frozen=True)
+class ArtifactExpectation:
+    """Local final-state expectation for one governed artifact path.
+
+    PCAW v1 has no portable deletion-proof claim.  Expectations therefore live
+    in evaluator context rather than in the serialized governance case.
+    """
+
+    path: str
+    status: str
+
+
+@dataclass(frozen=True)
+class GovernanceEvaluationContext:
+    """Trusted local context that is deliberately excluded from PCAW proofs."""
+
+    artifact_expectations: tuple[ArtifactExpectation, ...] = ()
+
+
+@dataclass(frozen=True)
 class GovernanceEvaluation:
     schema_version: str
     claimed_state: str
@@ -88,9 +107,14 @@ class GovernanceEvaluation:
         }
 
 
-def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
+def evaluate_governance_case(
+    case: GovernanceCase,
+    *,
+    context: GovernanceEvaluationContext | None = None,
+) -> GovernanceEvaluation:
     """Evaluate one normalized case without filesystem, clock, Git, or workspace state."""
 
+    context = context or GovernanceEvaluationContext()
     errors: list[Diagnostic] = []
     warnings: list[Diagnostic] = []
     properties: dict[str, PropertyResult] = {}
@@ -105,7 +129,13 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
 
     receipt_result = _receipt_property(case, errors)
     properties["receipt_binding"] = receipt_result
-    evidence_result = _evidence_property(case, receipt_result, errors, warnings)
+    evidence_result = _evidence_property(
+        case,
+        receipt_result,
+        context,
+        errors,
+        warnings,
+    )
     properties["evidence_freshness"] = evidence_result
 
     evidence_complete_low_risk_completion = _evidence_complete_low_risk_completion(
@@ -335,6 +365,7 @@ def _receipt_property(case: GovernanceCase, errors: list[Diagnostic]) -> Propert
 def _evidence_property(
     case: GovernanceCase,
     receipt_result: PropertyResult,
+    context: GovernanceEvaluationContext,
     errors: list[Diagnostic],
     warnings: list[Diagnostic],
 ) -> PropertyResult:
@@ -417,26 +448,48 @@ def _evidence_property(
             "Repair the receipt and refresh evidence.",
         )
 
+    expected_statuses = _artifact_expectation_statuses(case, context, errors)
     hashes = {item.path: item for item in evidence.artifact_hashes}
-    if len(hashes) != len(evidence.artifact_hashes) or len(set(evidence.artifacts)) != len(
-        evidence.artifacts
+    if (
+        len(hashes) != len(evidence.artifact_hashes)
+        or len(set(evidence.artifacts)) != len(evidence.artifacts)
+        or set(hashes) != set(evidence.artifacts)
     ):
         _error(
             errors,
             "PCAW_EVIDENCE_DUPLICATE_ARTIFACT",
             "$.evidence.artifact_hashes",
-            "artifact paths must be unique",
-            "Keep one digest for each output artifact.",
+            "artifact paths and digests must form one exact unique set",
+            "Keep exactly one digest for each output artifact.",
         )
     for path in evidence.artifacts:
         item = hashes.get(path)
-        if item is None or item.status != "present" or not _valid_digest(item.sha256):
+        expected_status = expected_statuses.get(path, "present")
+        if expected_status == "absent":
+            verified = (
+                item is not None
+                and item.status == "absent"
+                and item.sha256 == "absent"
+            )
+            message = f"artifact does not prove its expected absence: {path}"
+            next_action = (
+                "Record exact local deletion evidence and verify the governed Git range."
+            )
+        else:
+            verified = (
+                item is not None
+                and item.status == "present"
+                and _valid_digest(item.sha256)
+            )
+            message = f"artifact lacks a current SHA-256 digest: {path}"
+            next_action = "Hash the current artifact bytes and refresh evidence."
+        if not verified:
             _error(
                 errors,
                 "PCAW_EVIDENCE_ARTIFACT_UNVERIFIED",
                 "$.evidence.artifact_hashes",
-                f"artifact lacks a current SHA-256 digest: {path}",
-                "Hash the current artifact bytes and refresh evidence.",
+                message,
+                next_action,
             )
     if case.receipt is not None:
         missing_outputs = sorted(set(case.receipt.outputs_created) - set(evidence.artifacts))
@@ -461,6 +514,71 @@ def _evidence_property(
     else:
         status = observation.status
     return PropertyResult("evidence_freshness", status, ("$.attempt", "$.evidence"))
+
+
+def _artifact_expectation_statuses(
+    case: GovernanceCase,
+    context: GovernanceEvaluationContext,
+    errors: list[Diagnostic],
+) -> dict[str, str]:
+    """Validate local expectations and return exact per-path status overrides."""
+
+    statuses: dict[str, str] = {}
+    for index, expectation in enumerate(context.artifact_expectations):
+        if not isinstance(expectation, ArtifactExpectation):
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"artifact expectation {index} is malformed",
+                "Use one typed final-state expectation for each artifact path.",
+            )
+            continue
+        path = expectation.path
+        label = f"artifact expectation {index}"
+        if not isinstance(path, str) or not _safe_path(path):
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"{label} has an unsafe path: {path!r}",
+                "Use one canonical workspace-relative artifact expectation.",
+            )
+            continue
+        if not isinstance(expectation.status, str) or expectation.status not in {
+            "present",
+            "absent",
+        }:
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"{label} has unsupported status: {expectation.status!r}",
+                "Expect each local artifact to be either present or absent.",
+            )
+            continue
+        if path in statuses:
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"local artifact expectation is duplicated: {path}",
+                "Keep one final-state expectation for each artifact path.",
+            )
+            continue
+        statuses[path] = expectation.status
+
+    evidence_paths = set(case.evidence.artifacts if case.evidence is not None else ())
+    unexpected = sorted(set(statuses) - evidence_paths)
+    if unexpected:
+        _error(
+            errors,
+            "PCAW_EVIDENCE_EXPECTATION_INVALID",
+            "$.evidence.artifacts",
+            "local artifact expectations lack evidence: " + ", ".join(unexpected),
+            "Include exact evidence for every local artifact expectation.",
+        )
+    return statuses
 
 
 def _review_property(

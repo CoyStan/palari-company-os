@@ -28,7 +28,12 @@ from palari_company_os.governance_case import (
     SourceBoundary,
     WorkContract,
 )
-from palari_company_os.governance_kernel import PROPERTY_NAMES, evaluate_governance_case
+from palari_company_os.governance_kernel import (
+    PROPERTY_NAMES,
+    ArtifactExpectation,
+    GovernanceEvaluationContext,
+    evaluate_governance_case,
+)
 
 
 ARTIFACT_DIGEST = "a" * 64
@@ -211,6 +216,37 @@ def evidence_complete_low_risk_case() -> GovernanceCase:
         humans=(),
         human_decisions=(),
         acceptance_records=(),
+    )
+
+
+def accepted_deletion_case() -> GovernanceCase:
+    case = accepted_case()
+    tombstone = ArtifactDigest("out/result.txt", "absent", status="absent")
+    case = replace(
+        case,
+        evidence=replace(case.evidence, artifact_hashes=(tombstone,)),
+    )
+    case = replace(
+        case,
+        review=replace(case.review, evidence_digest=case.evidence_digest()),
+    )
+    review_digest = case.review_digest()
+    return replace(
+        case,
+        human_decisions=(
+            replace(
+                case.human_decisions[0],
+                evidence_digest=case.evidence_digest(),
+                review_digest=review_digest,
+            ),
+        ),
+        acceptance_records=(
+            replace(
+                case.acceptance_records[0],
+                evidence_digest=case.evidence_digest(),
+                review_digest=review_digest,
+            ),
+        ),
     )
 
 
@@ -573,6 +609,58 @@ class GovernanceKernelTests(unittest.TestCase):
             "PCAW_EVIDENCE_ARTIFACT_UNVERIFIED",
             {item.code for item in result.errors},
         )
+
+    def test_absence_tombstone_requires_explicit_local_expectation(self) -> None:
+        case = accepted_deletion_case()
+
+        portable_result = evaluate_governance_case(
+            replace(case, claimed_state="blocked")
+        )
+        local_result = evaluate_governance_case(
+            case,
+            context=GovernanceEvaluationContext(
+                (ArtifactExpectation("out/result.txt", "absent"),)
+            ),
+        )
+
+        self.assertEqual(portable_result.derived_state, "blocked")
+        self.assertIn(
+            "PCAW_EVIDENCE_ARTIFACT_UNVERIFIED",
+            {item.code for item in portable_result.errors},
+        )
+        self.assertEqual(local_result.derived_state, "accepted")
+        self.assertTrue(local_result.fully_verified)
+        self.assertEqual(local_result.errors, ())
+
+    def test_malformed_local_artifact_expectations_fail_closed(self) -> None:
+        case = accepted_deletion_case()
+        contexts = (
+            GovernanceEvaluationContext(
+                (
+                    ArtifactExpectation("out/result.txt", "absent"),
+                    ArtifactExpectation("out/result.txt", "present"),
+                )
+            ),
+            GovernanceEvaluationContext(
+                (ArtifactExpectation("out/missing.txt", "absent"),)
+            ),
+            GovernanceEvaluationContext(
+                (ArtifactExpectation("out/result.txt", "deleted"),)
+            ),
+        )
+
+        for context in contexts:
+            with self.subTest(context=context):
+                result = evaluate_governance_case(
+                    replace(case, claimed_state="blocked"),
+                    context=context,
+                )
+
+                self.assertEqual(result.derived_state, "blocked")
+                self.assertIn(
+                    "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                    {item.code for item in result.errors},
+                )
 
     def test_zero_numeric_quorum_still_binds_explicit_human_acceptance(self) -> None:
         result = evaluate_governance_case(accepted_zero_quorum_case())

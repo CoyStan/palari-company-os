@@ -80,6 +80,94 @@ class TransitionCheckTests(unittest.TestCase):
 
         self.assertTrue(result.ok, result.to_dict())
 
+    def test_work_complete_accepts_exact_local_deletion_tombstone(self) -> None:
+        raw = json.loads(
+            (REPO_ROOT / "tests/fixtures/workspaces/valid-source-receipt-loop.json")
+            .read_text(encoding="utf-8")
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.name", "Palari Test"],
+                check=True,
+            )
+            output = root / "notes/summary.md"
+            output.parent.mkdir(parents=True)
+            output.write_text("Obsolete summary.\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "add obsolete output"],
+                check=True,
+            )
+            base_sha = subprocess.check_output(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                text=True,
+            ).strip()
+            output.unlink()
+            subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "delete bounded output"],
+                check=True,
+            )
+            head_sha = subprocess.check_output(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                text=True,
+            ).strip()
+
+            path_intents = [{"path": "notes/summary.md", "intent": "delete"}]
+            raw["work_items"][0]["path_intents"] = path_intents
+            raw["attempts"][0].update(
+                {
+                    "base_sha": base_sha,
+                    "head_sha": head_sha,
+                    "commits": [head_sha],
+                    "workspace_path": str(root),
+                    "allowed_paths": ["notes/summary.md"],
+                }
+            )
+            receipt = stamp_receipt_record(raw["receipts"][0], [])
+            raw["receipts"][0] = receipt
+            evidence = stamp_evidence_record(
+                {
+                    "id": "EVIDENCE-1",
+                    "work_item_id": "WORK-1",
+                    "attempt_id": "ATTEMPT-1",
+                    "base_ref": base_sha,
+                    "head_sha": head_sha,
+                    "status": "passed",
+                    "commands": ["python3 -m unittest tests.test_governance_kernel"],
+                    "artifacts": ["notes/summary.md"],
+                    "receipt_hash": receipt["receipt_hash"],
+                    "summary": "Exact deletion verification passed.",
+                    "freshness": "exact-head",
+                    "timestamp": "2026-06-19T04:06:00Z",
+                },
+                root,
+                attempts=raw["attempts"],
+                path_intents=path_intents,
+            )
+            raw["evidence_runs"] = [evidence]
+            workspace = Workspace.from_raw(raw, root)
+
+            result = check_transition(workspace, "work_complete", "WORK-1")
+
+        self.assertEqual(
+            evidence["artifact_hashes"],
+            [
+                {
+                    "path": "notes/summary.md",
+                    "sha256": "sha256:absent",
+                    "status": "absent",
+                }
+            ],
+        )
+        self.assertTrue(result.ok, result.to_dict())
+
     def test_work_complete_projects_one_terminal_case_for_bound_authority(self) -> None:
         raw = json.loads(
             (REPO_ROOT / "tests/fixtures/workspaces/valid-source-receipt-loop.json")

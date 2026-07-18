@@ -26,7 +26,11 @@ from .governance_case import (
     SourceBoundary,
     WorkContract,
 )
-from .governance_kernel import evaluate_governance_case
+from .governance_kernel import (
+    ArtifactExpectation,
+    GovernanceEvaluationContext,
+    evaluate_governance_case,
+)
 from .pcaw_canonical import canonical_sha256
 from .pcaw_subjects import SubjectError, hash_subject, validate_subject_name
 from .record_order import record_time_key, timestamp_order
@@ -42,7 +46,31 @@ def evaluate_workspace_governance(
     governance_case, _ = governance_case_from_workspace(
         workspace, work_id, inspect_external=inspect_external
     )
-    return evaluate_governance_case(governance_case)
+    return evaluate_governance_case(
+        governance_case,
+        context=governance_context_from_workspace(workspace, work_id),
+    )
+
+
+def governance_context_from_workspace(
+    workspace: Workspace,
+    work_id: str,
+) -> GovernanceEvaluationContext:
+    """Project local path intents without adding them to portable PCAW v1."""
+
+    work = workspace.work_item(work_id)
+    if work is None:
+        raise WorkspaceError(f"unknown work item: {work_id}")
+    statuses = {"create": "present", "modify": "present", "delete": "absent"}
+    return GovernanceEvaluationContext(
+        artifact_expectations=tuple(
+            ArtifactExpectation(
+                path=str(item.get("path", "")),
+                status=statuses.get(str(item.get("intent", "")), ""),
+            )
+            for item in work.path_intents
+        )
+    )
 
 
 def governance_case_from_workspace(
@@ -142,7 +170,17 @@ def governance_case_from_workspace(
     )
 
     if inspect_external:
-        subject_observation, artifact_subjects = _artifact_subjects(workspace, evidence)
+        context = governance_context_from_workspace(workspace, work_id)
+        expected_absent_paths = {
+            item.path
+            for item in context.artifact_expectations
+            if item.status == "absent"
+        }
+        subject_observation, artifact_subjects = _artifact_subjects(
+            workspace,
+            evidence,
+            expected_absent_paths=expected_absent_paths,
+        )
         evidence_observation = _evidence_observation(workspace, evidence)
         journal_observation = _journal_observation(workspace)
     else:
@@ -399,10 +437,14 @@ def _finding(value: dict[str, Any]) -> Finding:
 
 
 def _artifact_subjects(
-    workspace: Workspace, evidence: Any | None
+    workspace: Workspace,
+    evidence: Any | None,
+    *,
+    expected_absent_paths: set[str] | None = None,
 ) -> tuple[IntegrityObservation, list[dict[str, str]]]:
     if evidence is None or not evidence.artifacts:
         return IntegrityObservation("not-required"), []
+    expected_absent = expected_absent_paths or set()
     try:
         root = evidence_artifact_root(
             workspace.path,
@@ -415,7 +457,14 @@ def _artifact_subjects(
     details: list[str] = []
     subjects: list[dict[str, str]] = []
     seen: set[str] = set()
-    for index, raw_name in enumerate(sorted(evidence.artifacts)):
+    # Absence has no bytes to hash. Full local evaluation verifies those paths
+    # through evidence/Git observations; PCAW export rejects the tombstones.
+    portable_artifacts = [
+        raw_name
+        for raw_name in sorted(evidence.artifacts)
+        if raw_name not in expected_absent
+    ]
+    for index, raw_name in enumerate(portable_artifacts):
         try:
             name = validate_subject_name(raw_name)
             if name in seen:
@@ -424,7 +473,14 @@ def _artifact_subjects(
             subjects.append({"name": name, "sha256": hash_subject(root, name)})
         except (OSError, SubjectError, ValueError) as exc:
             details.append(f"artifact[{index}] {raw_name}: {exc}")
-    status = "verified" if not details and len(subjects) == len(evidence.artifacts) else "failed"
+    if not portable_artifacts and not details:
+        status = "not-required"
+    else:
+        status = (
+            "verified"
+            if not details and len(subjects) == len(portable_artifacts)
+            else "failed"
+        )
     return IntegrityObservation(status, tuple(details)), subjects
 
 

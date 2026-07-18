@@ -511,7 +511,10 @@ def _check_work_complete(
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
     from .governance_kernel import evaluate_governance_case
-    from .pcaw_workspace import governance_case_from_workspace
+    from .pcaw_workspace import (
+        governance_case_from_workspace,
+        governance_context_from_workspace,
+    )
 
     governance_case, _ = governance_case_from_workspace(
         workspace,
@@ -519,7 +522,10 @@ def _check_work_complete(
         projected_contract_status="completed",
     )
     governance_case = replace(governance_case, claimed_state="completed")
-    governance = evaluate_governance_case(governance_case)
+    governance = evaluate_governance_case(
+        governance_case,
+        context=governance_context_from_workspace(workspace, work_id),
+    )
     if governance.derived_state != "completed" or not governance.fully_verified:
         first_error = governance.errors[0] if governance.errors else None
         blockers.append(
