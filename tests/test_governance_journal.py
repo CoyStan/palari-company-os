@@ -18,7 +18,10 @@ from palari_company_os.governance_journal import (
     MutationMetadata,
     append_record_fsync,
     checkpoint_workspace_journal,
+    commit_record,
     journal_file_path,
+    journal_projection_for_digest,
+    legacy_journal_file_path,
     logical_changes,
     prepare_record,
     record_digest,
@@ -27,7 +30,9 @@ from palari_company_os.governance_journal import (
     transact,
     verify_journal,
     verify_workspace_journal,
+    v2_journal_file_path,
     workspace_digest,
+    _prepare_v2_record,
 )
 from palari_company_os.store import workspace_write_lock
 from palari_company_os.workspace import WorkspaceError
@@ -37,6 +42,149 @@ TIMESTAMP = "2026-07-14T12:00:00Z"
 
 
 class GovernanceJournalTests(unittest.TestCase):
+    def test_v1_remains_readable_and_explicit_checkpoint_seals_it_into_v2(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = root / "workspace.json"
+            initial = workspace("V1 initial")
+            updated = workspace("V1 updated")
+            run_v1_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            run_v1_change(data_path, before=initial, after=updated)
+            v1_path = legacy_journal_file_path(data_path)
+            sealed_bytes = v1_path.read_bytes()
+
+            before_activation = verify_journal(data_path, updated)
+            activated = checkpoint_workspace_journal(
+                root,
+                "PALARI-STEWARD",
+                reason="Activate compact journal v2",
+                timestamp=TIMESTAMP,
+            )
+            repeated = checkpoint_workspace_journal(
+                root, "PALARI-STEWARD", timestamp=TIMESTAMP
+            )
+
+            self.assertEqual(before_activation["journal_schema_version"], "palari.governance-journal.v1")
+            self.assertEqual(activated["journal_schema_version"], "palari.governance-journal.v2")
+            self.assertTrue(activated["ok"])
+            self.assertEqual(activated["predecessor"]["record_count"], 4)
+            self.assertEqual(v1_path.read_bytes(), sealed_bytes)
+            self.assertEqual(repeated["record_count"], activated["record_count"])
+            self.assertTrue(v2_journal_file_path(data_path).exists())
+
+            final = workspace("V2 compact")
+            report = run_change(data_path, before=updated, after=final)
+            active_records = read_records(data_path)
+            replayed_v1 = journal_projection_for_digest(
+                data_path, workspace_digest(initial)
+            )
+            replayed_v2 = journal_projection_for_digest(
+                data_path, workspace_digest(final)
+            )
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(active_records[-2]["delta"], [
+            {"op": "replace", "path": "/name", "value": "V2 compact"}
+        ])
+        self.assertNotIn("after_projection", active_records[-2])
+        self.assertEqual(replayed_v1, initial)
+        self.assertEqual(replayed_v2, final)
+
+    def test_v2_fails_closed_when_sealed_v1_predecessor_bytes_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = root / "workspace.json"
+            data = workspace("Sealed")
+            run_v1_change(
+                data_path,
+                before=None,
+                after=data,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            self.assertTrue(checkpoint_workspace_journal(root, "PALARI-STEWARD")["ok"])
+            with legacy_journal_file_path(data_path).open("ab") as handle:
+                handle.write(b"\n")
+
+            report = verify_journal(data_path, data)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(
+            report["diagnostics"][0]["code"],
+            "JOURNAL_PREDECESSOR_CONTENT_MISMATCH",
+        )
+
+    def test_v2_verification_streams_without_v1_record_materialization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            data = workspace("Streaming")
+            run_change(
+                data_path,
+                before=None,
+                after=data,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            with patch(
+                "palari_company_os.governance_journal._read_records",
+                side_effect=AssertionError("v2 verifier materialized records"),
+            ):
+                report = verify_journal(data_path, data)
+
+        self.assertTrue(report["ok"])
+
+    def test_compact_mutation_does_not_repeat_large_unchanged_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = workspace("Large")
+            initial["unchanged"] = "x" * 200_000
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            updated = dict(initial)
+            updated["name"] = "Small delta"
+            run_change(data_path, before=initial, after=updated)
+            mutation = read_records(data_path)[-2]
+            encoded = json.dumps(mutation, separators=(",", ":")).encode()
+
+        self.assertLess(len(encoded), 4_000)
+        self.assertNotIn("unchanged", encoded.decode())
+
+    def test_corrupt_or_non_applicable_v2_delta_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = workspace("Initial")
+            updated = workspace("Updated")
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            run_change(data_path, before=initial, after=updated)
+            records = read_records(data_path)
+            records[2]["delta"][0]["path"] = "/missing"
+            records[2]["record_digest"] = record_digest(records[2])
+            write_records(data_path, records)
+
+            report = verify_journal(data_path, updated)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(
+            report["diagnostics"][0]["code"], "JOURNAL_DELTA_APPLY_FAILED"
+        )
+
     def test_request_local_verification_reuses_only_exact_unchanged_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -103,7 +251,11 @@ class GovernanceJournalTests(unittest.TestCase):
         self.assertEqual(records[1]["previous_record_digest"], records[0]["record_digest"])
         self.assertEqual(records[2]["previous_record_digest"], records[1]["record_digest"])
         self.assertEqual(records[3]["previous_record_digest"], records[2]["record_digest"])
-        self.assertEqual(records[2]["logical_changes"], [{"op": "replace", "path": "/name"}])
+        self.assertEqual(
+            records[2]["delta"],
+            [{"op": "replace", "path": "/name", "value": "Updated"}],
+        )
+        self.assertNotIn("after_projection", records[2])
         self.assertEqual(second["replay_workspace_digest"], workspace_digest(updated))
         self.assertEqual(second["committed_transactions"], 2)
 
@@ -168,6 +320,25 @@ class GovernanceJournalTests(unittest.TestCase):
             {"op": "remove", "path": "/removed"},
             {"op": "replace", "path": "/z"},
         ])
+
+    def test_v2_delta_orders_escaped_json_pointers_canonically(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = {"schema_version": 2, "/": 1, "0": 1, "~": 1}
+            updated = {"schema_version": 2, "/": 2, "0": 2, "~": 2}
+            run_change(
+                data_path,
+                before=None,
+                after=initial,
+                event_kind="checkpoint",
+                coverage="complete",
+            )
+            run_change(data_path, before=initial, after=updated)
+            delta = read_records(data_path)[-2]["delta"]
+
+        self.assertEqual(
+            [item["path"] for item in delta], ["/0", "/~0", "/~1"]
+        )
 
     def test_legacy_checkpoint_is_explicit_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -235,7 +406,7 @@ class GovernanceJournalTests(unittest.TestCase):
                 coverage="complete",
             )
             records = read_records(data_path)
-            records[0]["after_projection"]["name"] = "Tampered"
+            records[0]["checkpoint_projection"]["name"] = "Tampered"
             write_records(data_path, records)
 
             report = verify_journal(data_path, data)
@@ -334,7 +505,7 @@ class GovernanceJournalTests(unittest.TestCase):
                 coverage="complete",
             )
             updated = workspace("Pending")
-            prepared = prepare_record(
+            prepared = _prepare_v2_record(
                 sequence=2,
                 previous_record_digest=read_records(data_path)[-1]["record_digest"],
                 event_kind="mutation",
@@ -343,10 +514,8 @@ class GovernanceJournalTests(unittest.TestCase):
                 before_workspace_digest=workspace_digest(initial),
                 after_projection=updated,
                 metadata=metadata(),
+                before_projection=initial,
             )
-            prepared["logical_changes"] = logical_changes(initial, updated)
-            prepared["transaction_id"] = transaction_id_for_test(prepared)
-            prepared["record_digest"] = record_digest(prepared)
             append_record_fsync(data_path, prepared)
 
             pending = verify_journal(data_path, initial)
@@ -541,7 +710,44 @@ def run_change(
         apply=apply,
         event_kind=event_kind,
         coverage=coverage,
+        _force_v2=(before is None and event_kind == "checkpoint"),
     )
+
+
+def run_v1_change(
+    data_path: Path,
+    *,
+    before: dict[str, object] | None,
+    after: dict[str, object],
+    event_kind: str = "mutation",
+    coverage: str = "continuous",
+) -> dict[str, object]:
+    records = (
+        [json.loads(line) for line in legacy_journal_file_path(data_path).read_text().splitlines()]
+        if legacy_journal_file_path(data_path).exists()
+        else []
+    )
+    previous = records[-1]["record_digest"] if records else None
+    prepared = prepare_record(
+        sequence=len(records),
+        previous_record_digest=previous,
+        event_kind=event_kind,
+        coverage=coverage,
+        expected_before_workspace_digest=workspace_digest(before) if records else None,
+        before_workspace_digest=workspace_digest(before) if records else None,
+        after_projection=after,
+        metadata=metadata(),
+        before_projection=before,
+    )
+    append_record_fsync(data_path, prepared)
+    data_path.write_text(json.dumps(after), encoding="utf-8")
+    committed = commit_record(
+        prepared,
+        sequence=len(records) + 1,
+        previous_record_digest=prepared["record_digest"],
+    )
+    append_record_fsync(data_path, committed)
+    return verify_journal(data_path, after)
 
 
 def read_records(data_path: Path) -> list[dict[str, object]]:

@@ -41,10 +41,21 @@ human action. Include durable `agent release` success, foreign/malformed/missing
 interrupted-release retry, and changed-state rejection. Record interaction
 counts separately from test-process time.
 
-The append-only governance journal still has linear verification cost. A
+For governance-journal changes run:
+
+```bash
+python3 -m unittest tests.test_governance_journal \
+  tests.test_governance_journal_crash tests.test_store_journal_integration
+./bin/palari history --verify --json
+```
+
+Active v1 verification still parses linearly. Compact v2 verification hashes
+the sealed v1 bytes and streams the v2 checkpoint/tail with bounded memory. A
 request-local context should keep one aggregate operation to one verified scan,
-but performance assertions must not skip continuity checks or promote a
-persistent cache into authority.
+but performance assertions must include predecessor continuity and current
+workspace comparison; they must not promote a persistent cache into authority.
+Report raw journal verification separately from full `agent next`, `queue`, and
+`state` time so unrelated workspace validation/read-model cost is attributable.
 
 ## CLI Smokes
 

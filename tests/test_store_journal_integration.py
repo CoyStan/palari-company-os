@@ -14,6 +14,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.governance_journal import (
     checkpoint_workspace_journal,
     journal_file_path,
+    legacy_journal_file_path,
+    v2_journal_file_path,
     verify_workspace_journal,
 )
 from palari_company_os.store import WorkspaceStore, load_store, write_store
@@ -37,6 +39,7 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             second = verify_workspace_journal(data_path)
 
         self.assertTrue(first["ok"])
+        self.assertEqual(first["journal_schema_version"], "palari.governance-journal.v1")
         self.assertEqual(first["continuity"]["initial_coverage"], "complete")
         self.assertTrue(second["ok"])
         self.assertEqual(second["committed_transactions"], 2)
@@ -52,9 +55,14 @@ class StoreJournalIntegrationTests(unittest.TestCase):
 
             self.assertFalse(journal_file_path(data_path).exists())
             checkpoint = checkpoint_workspace_journal(data_path, "HUMAN-OPERATOR")
+            self.assertEqual(
+                journal_file_path(data_path), legacy_journal_file_path(data_path)
+            )
+            self.assertFalse(v2_journal_file_path(data_path).exists())
 
         self.assertTrue(checkpoint["ok"])
         self.assertEqual(checkpoint["continuity"]["initial_coverage"], "from-checkpoint")
+        self.assertEqual(checkpoint["journal_schema_version"], "palari.governance-journal.v1")
 
     def test_manual_divergence_blocks_next_journaled_write(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
