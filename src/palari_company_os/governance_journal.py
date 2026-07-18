@@ -1986,8 +1986,10 @@ def _validate_value_delta(value: list[Any], path: str) -> None:
                 "delta paths must be unique and lexicographically ordered",
                 path=f"{item_path}.path",
             )
-        for earlier in seen:
-            if pointer.startswith(earlier + "/") or earlier.startswith(pointer + "/"):
+        prefix = ""
+        for component in pointer.split("/")[1:-1]:
+            prefix = f"{prefix}/{component}"
+            if prefix in seen:
                 raise JournalError(
                     "JOURNAL_DELTA_NONCANONICAL",
                     "delta paths must be prefix-disjoint",
