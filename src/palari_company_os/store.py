@@ -169,6 +169,7 @@ def has_collection_files(data: dict[str, Any]) -> bool:
 
 
 _WORK_LINKED_COLLECTIONS = {
+    "proposals": "linked_work",
     "attempts": "work_item_id",
     "evidence_runs": "work_item_id",
     "review_verdicts": "work_item_id",
@@ -209,9 +210,37 @@ def _assert_retired_work_immutable(
             raise WorkspaceError(
                 f"retired work {work_id} is immutable; create successor work instead"
             )
-    if not retired:
+    retiring: dict[str, dict[str, Any]] = {}
+    for work_id, candidate in after_work.items():
+        if candidate.get("status") not in {"superseded", "abandoned"}:
+            continue
+        record = before_work.get(work_id)
+        if record is None or work_id in retired:
+            continue
+        if record.get("status") in {"completed", "closed", "done"}:
+            raise WorkspaceError(
+                f"successfully completed work {work_id} cannot be relabeled as "
+                f"{candidate.get('status')}"
+            )
+        if not _same_json_value(
+            _without_retirement_fields(record),
+            _without_retirement_fields(candidate),
+        ):
+            raise WorkspaceError(
+                f"retiring work {work_id} may change only status, terminal_reason, "
+                "and successor_work_item_id"
+            )
+        retiring[work_id] = candidate
+    newly_retired = {
+        work_id: candidate
+        for work_id, candidate in after_work.items()
+        if work_id not in before_work
+        and candidate.get("status") in {"superseded", "abandoned"}
+    }
+    protected = {**retired, **retiring, **newly_retired}
+    if not protected:
         return
-    retired_ids = set(retired)
+    retired_ids = set(protected)
     for collection, field in _WORK_LINKED_COLLECTIONS.items():
         before_records = _linked_records_by_work(
             before, collection, field, retired_ids
@@ -219,7 +248,7 @@ def _assert_retired_work_immutable(
         after_records = _linked_records_by_work(
             after, collection, field, retired_ids
         )
-        for work_id in retired:
+        for work_id in protected:
             if not _same_json_value(
                 before_records.get(work_id, []),
                 after_records.get(work_id, []),
@@ -227,6 +256,14 @@ def _assert_retired_work_immutable(
                 raise WorkspaceError(
                     f"retired work {work_id} is audit-only; {collection} cannot change"
                 )
+
+
+def _without_retirement_fields(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in record.items()
+        if key not in {"status", "terminal_reason", "successor_work_item_id"}
+    }
 
 
 def _linked_records_by_work(
