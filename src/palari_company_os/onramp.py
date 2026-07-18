@@ -100,6 +100,7 @@ def initialize_starter_workspace(
     *,
     name: str = "",
     palari_name: str = "Claude",
+    host: str = "",
 ) -> dict[str, Any]:
     """Create a starter workspace ready for ``work add`` and ``agent start``."""
     directory = Path(target).expanduser().resolve()
@@ -110,6 +111,17 @@ def initialize_starter_workspace(
             "use the existing workspace or initialize a different directory"
         )
     _validate_agent_doc_paths(directory)
+    selected_host = host.strip().lower()
+    if selected_host:
+        from .agent_adoption import SUPPORTED_HOSTS
+
+        if selected_host not in SUPPORTED_HOSTS:
+            raise WorkspaceError(
+                "host must be one of: " + ", ".join(SUPPORTED_HOSTS)
+            )
+    bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
+        directory, selected_host
+    )
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
     palari_id = _palari_id(palari_label)
@@ -193,9 +205,50 @@ def initialize_starter_workspace(
 
     workspace = write_store(WorkspaceStore(data_path=workspace_file, data=data))
     agent_docs = _write_missing_agent_docs(directory)
+    adoption: dict[str, Any] = {
+        "schema_version": "palari.agent_adoption.v1",
+        "status": "not-requested",
+        "host": "",
+        "changed": False,
+        "changed_files": [],
+        "message": "No host profile requested; the portable workspace remains active.",
+    }
+    if selected_host:
+        if bootstrap_adoption_blocker:
+            adoption = {
+                "schema_version": "palari.agent_adoption.v1",
+                "status": "blocked",
+                "host": selected_host,
+                "changed": False,
+                "changed_files": [],
+                "message": bootstrap_adoption_blocker,
+            }
+        else:
+            from .agent_adoption import adopt_agent_host
+
+            try:
+                adoption = adopt_agent_host(
+                    workspace_file,
+                    project_dir=directory,
+                    host=selected_host,
+                    palari_id=palari_id,
+                )
+            except WorkspaceError as exc:
+                adoption = {
+                    "schema_version": "palari.agent_adoption.v1",
+                    "status": "blocked",
+                    "host": selected_host,
+                    "changed": False,
+                    "changed_files": [],
+                    "message": str(exc),
+                }
+    anchor_paths = list(agent_docs["created"])
+    for path in adoption.get("changed_files", []):
+        if path not in anchor_paths:
+            anchor_paths.append(path)
     authority_anchor = _anchor_starter_authority(
         workspace_file,
-        created_docs=agent_docs["created"],
+        created_docs=anchor_paths,
     )
     workspace_arg = _workspace_cli_argument(directory)
     next_commands = [
@@ -204,6 +257,11 @@ def initialize_starter_workspace(
     ]
     if authority_anchor["status"] == "blocked":
         next_commands = [authority_anchor["next_command"]]
+    elif adoption["status"] == "blocked":
+        next_commands = [
+            f"palari{workspace_arg} agent adopt --host {selected_host} "
+            f"--project-dir {quote(str(directory))} --as {palari_id} --json"
+        ]
     return {
         "schema_version": "palari.init.v1",
         "workspace": workspace.name,
@@ -215,12 +273,18 @@ def initialize_starter_workspace(
         "workbench": WORKBENCH_ID,
         "source": SOURCE_ID,
         "agent_docs": agent_docs,
+        "adoption": adoption,
         "authority_anchor": authority_anchor,
         "next_commands": next_commands,
         "message": (
             f"Starter workspace '{workspace.name}' created. Add a bounded work "
             "item with: palari work add \"Title\" --write PATH. "
             + str(authority_anchor["message"])
+            + (
+                f" Host adoption: {adoption.get('status', 'unknown')}."
+                if selected_host
+                else ""
+            )
         ),
     }
 
@@ -443,6 +507,35 @@ def _write_missing_agent_docs(directory: Path) -> dict[str, Any]:
         "preserved": preserved,
         "status": "ready",
     }
+
+
+def _bootstrap_adoption_blocker(directory: Path, host: str) -> str:
+    if not host:
+        return ""
+    agents = directory / "AGENTS.md"
+    if agents.exists() or agents.is_symlink():
+        try:
+            from .agent_adoption import has_portable_agent_contract
+
+            if agents.is_symlink() or not agents.is_file():
+                return "existing AGENTS.md is not a regular project file"
+            if not has_portable_agent_contract(agents.read_text(encoding="utf-8")):
+                return (
+                    "existing AGENTS.md is preserved; review it, then run the returned "
+                    "agent adopt command separately"
+                )
+        except (OSError, UnicodeError) as exc:
+            return f"existing AGENTS.md cannot be inspected safely: {exc}"
+    host_file = {
+        "codex": directory / ".codex" / "hooks.json",
+        "claude": directory / ".claude" / "settings.json",
+    }.get(host)
+    if host_file is not None and (host_file.exists() or host_file.is_symlink()):
+        return (
+            f"existing {host_file.relative_to(directory)} is preserved; run the "
+            "returned agent adopt command separately to merge reviewed hooks"
+        )
+    return ""
 
 
 def _validate_agent_doc_paths(directory: Path) -> None:

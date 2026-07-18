@@ -79,6 +79,25 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertEqual(first["enforcement"]["session_boundary"], "advisory")
         self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
 
+    def test_adoption_reuses_equivalent_existing_portable_guidance(self) -> None:
+        agents = self.tmp / "AGENTS.md"
+        existing = (
+            "# Existing Palari guidance\n\n"
+            "Run palari agent start --next before edits. Run palari agent advance "
+            "after the commit, and stop for human review.\n"
+        )
+        agents.write_text(existing, encoding="utf-8")
+
+        result = adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="generic",
+            palari_id="PALARI-STEWARD",
+        )
+
+        self.assertEqual(agents.read_text(encoding="utf-8"), existing)
+        self.assertNotIn("AGENTS.md", result["changed_files"])
+
     def test_unproven_hosts_are_honestly_advisory_and_commit_gated(self) -> None:
         for host in ("cursor", "devin", "glm"):
             with self.subTest(host=host):

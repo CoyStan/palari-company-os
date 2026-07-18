@@ -368,8 +368,23 @@ def _merge_agents_contract(existing: str, palari_id: str) -> str:
         start = existing.index(AGENTS_START)
         end = existing.index(AGENTS_END, start) + len(AGENTS_END)
         return existing[:start] + block + existing[end:]
+    if has_portable_agent_contract(existing):
+        return existing
     prefix = existing.rstrip()
     return (prefix + "\n\n" if prefix else "") + block + "\n"
+
+
+def has_portable_agent_contract(content: str) -> bool:
+    """Return whether existing guidance already declares the core safe loop."""
+    lowered = content.lower()
+    return all(
+        phrase in lowered
+        for phrase in (
+            "palari agent start --next",
+            "palari agent advance",
+            "human",
+        )
+    )
 
 
 def _agents_contract(palari_id: str) -> str:

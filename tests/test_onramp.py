@@ -143,6 +143,55 @@ class InitTests(unittest.TestCase):
         self.assertIn("AGENTS.md", result["agent_docs"]["preserved"])
         self.assertNotIn("AGENTS.md", result["agent_docs"]["created"])
 
+    def test_init_can_install_and_anchor_codex_in_one_action(self) -> None:
+        self._prepare_adoptable_git_project()
+
+        result = initialize_starter_workspace(
+            self.project,
+            palari_name="Agent",
+            host="codex",
+        )
+
+        self.assertEqual(result["adoption"]["status"], "ready")
+        self.assertEqual(result["adoption"]["host"], "codex")
+        self.assertEqual(
+            result["adoption"]["enforcement"]["session_activation"],
+            "requires-project-hook-trust",
+        )
+        self.assertIn(".codex/hooks.json", result["authority_anchor"]["paths"])
+        self.assertTrue((self.project / ".git" / "hooks" / "pre-commit").is_file())
+        self.assertEqual(self.git_output("status", "--short"), "")
+        agents = (self.project / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertEqual(agents.count("palari agent start --next"), 1)
+        self.assertNotIn("palari:agent-contract:start", agents)
+
+    def test_init_preserves_existing_host_files_and_returns_one_recovery_action(self) -> None:
+        self._prepare_adoptable_git_project()
+        agents = self.project / "AGENTS.md"
+        agents.write_text("# Existing project instructions\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.project), "add", "AGENTS.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "-qm", "existing guidance"],
+            check=True,
+        )
+
+        result = initialize_starter_workspace(
+            self.project,
+            palari_name="Agent",
+            host="codex",
+        )
+
+        self.assertEqual(result["adoption"]["status"], "blocked")
+        self.assertIn("existing AGENTS.md is preserved", result["adoption"]["message"])
+        self.assertEqual(len(result["next_commands"]), 1)
+        self.assertIn("agent adopt --host codex", result["next_commands"][0])
+        self.assertEqual(agents.read_text(encoding="utf-8"), "# Existing project instructions\n")
+        self.assertFalse((self.project / ".codex" / "hooks.json").exists())
+        self.assertEqual(self.git_output("status", "--short"), "")
+
     def test_init_rejects_agent_documentation_symlink_escape_before_workspace_write(
         self,
     ) -> None:
@@ -165,6 +214,36 @@ class InitTests(unittest.TestCase):
             text=True,
         )
         return result.stdout.strip()
+
+    def _prepare_adoptable_git_project(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.name", "Test"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.project),
+                "config",
+                "user.email",
+                "test@example.invalid",
+            ],
+            check=True,
+        )
+        wrapper = self.project / "bin" / "palari"
+        wrapper.parent.mkdir()
+        wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        wrapper.chmod(0o755)
+        subprocess.run(
+            ["git", "-C", str(self.project), "add", "bin/palari"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "-qm", "initial"],
+            check=True,
+        )
 
 
 class WorkAddTests(unittest.TestCase):

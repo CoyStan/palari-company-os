@@ -68,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="Claude",
         help="Name for the starter AI partner. Defaults to Claude.",
     )
+    init_parser.add_argument(
+        "--host",
+        choices=["claude", "codex", "cursor", "devin", "glm", "generic"],
+        default="",
+        help="Also install and anchor one honest local agent-host profile.",
+    )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")

@@ -944,7 +944,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
         return CommandResult(
             "init",
-            initialize_starter_workspace(args.path, name=args.name, palari_name=args.palari),
+            initialize_starter_workspace(
+                args.path,
+                name=args.name,
+                palari_name=args.palari,
+                host=args.host,
+            ),
             args.json,
         )
 

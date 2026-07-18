@@ -816,6 +816,18 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
         f"{payload['palari']['id']} ({payload['palari']['name']}), "
         f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
     )
+    adoption = payload.get("adoption") or {}
+    if adoption.get("status") != "not-requested":
+        print(
+            f"Host adoption: {adoption.get('host', '')} "
+            f"[{adoption.get('status', 'unknown')}]"
+        )
+        if adoption.get("status") == "blocked":
+            print(f"Why: {adoption.get('message', '')}")
+        else:
+            host = adoption.get("host_adapter") or {}
+            if host.get("next_action"):
+                print(f"Activation: {host['next_action']}")
     print("Next commands:")
     for command in payload["next_commands"]:
         print(f"  {command}")
