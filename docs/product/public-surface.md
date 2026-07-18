@@ -35,7 +35,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **154**.
+Current CLI command count from parser inspection: **155**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
@@ -46,7 +46,9 @@ init -> work add -> agent start --next -> agent advance
 -> queue --approval-inbox -> proof verify
 ```
 
-All 154 command paths remain parseable for compatibility and expert recovery;
+All 154 prior command paths remain parseable for compatibility and expert
+recovery. One additive action, `agent adopt`, installs the portable agent
+contract and the strongest honestly supported local host profile;
 direct `COMMAND --help` still documents them. The broad primitive surface is
 therefore secondary without being removed or silently deprecated. New commands
 should remain rare. Prefer an existing command shape unless a new command

@@ -15,9 +15,12 @@ from palari_company_os.cli_parser import build_parser
 class PublicSurfaceTests(unittest.TestCase):
     def test_public_command_surface_matches_snapshot(self) -> None:
         expected = _fixture_lines("public_commands.txt")
+        # The 154-command compatibility snapshot remains unchanged; universal
+        # adoption earns one explicit additive agent action.
+        expected.insert(expected.index("palari agent next"), "palari agent adopt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 154)
+        self.assertEqual(len(actual), 155)
         self.assertEqual(actual, expected)
 
     def test_default_help_leads_with_the_ordinary_journey(self) -> None:
@@ -31,6 +34,9 @@ class PublicSurfaceTests(unittest.TestCase):
             self.assertRegex(help_text, rf"(?m)^    {command}\s")
         self.assertNotIn("desktop-prototype", help_text)
         self.assertNotIn("human-decision      ", help_text)
+
+        agent_help = _subparser("agent").format_help()
+        self.assertRegex(agent_help, r"(?m)^    adopt\s")
 
     def test_workspace_schema_copies_remain_identical(self) -> None:
         self.assertEqual(
@@ -50,7 +56,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("| Desktop prototype and desktop serve | visual |", surface)
         self.assertNotRegex(surface, r"(?i)dashboard and local serve")
         self.assertNotRegex(surface, r"(?i)desktop prototype and desktop serve \| core")
-        self.assertIn("Current CLI command count from parser inspection: **154**.", surface)
+        self.assertIn("Current CLI command count from parser inspection: **155**.", surface)
 
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")
@@ -97,6 +103,14 @@ def _collect_commands() -> list[str]:
 
     walk(build_parser())
     return commands
+
+
+def _subparser(name: str) -> Any:
+    for action in build_parser()._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and name in choices:
+            return choices[name]
+    raise AssertionError(f"missing subparser: {name}")
 
 
 def _fixture_lines(name: str) -> list[str]:

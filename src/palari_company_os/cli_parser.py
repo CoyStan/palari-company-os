@@ -483,7 +483,7 @@ def _add_agent_parser(subparsers: Any) -> None:
 
     actions = {action.dest: action for action in nested._choices_actions}
     nested._choices_actions = [
-        actions[name] for name in ("start", "advance", "release", "doctor")
+        actions[name] for name in ("adopt", "start", "advance", "release", "doctor")
     ]
 
 
