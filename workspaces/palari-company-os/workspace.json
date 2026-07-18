@@ -18683,6 +18683,27 @@
       "linked_work": "WORK-D18949EABBAC41AA9C0FB3D57BD4B88F",
       "linked_palari": "PALARI-STEWARD",
       "result": "approve scope expansion"
+    },
+    {
+      "id": "DECISION-FOUNDATION-AUTHORING-SCOPE",
+      "question": "Should scope expand for WORK-3B7821F3452B40B283784832E86234C3?",
+      "status": "open",
+      "context": "Reason: An independent lifecycle repair moved terminal-work enforcement into the shared authoring boundary after the integration packet was claimed; exact commit-range proof must name that file rather than hide it.\nRequested write paths: src/palari_company_os/authoring.py",
+      "options": [
+        "approve scope expansion",
+        "reject scope expansion",
+        "split into new work"
+      ],
+      "tradeoffs": [
+        "Approving changes the declared work boundary.",
+        "Rejecting keeps the current attempt inside its packet.",
+        "Splitting preserves parallel safety for unrelated changes."
+      ],
+      "recommendation": "Do not expand scope until a human reviews the new boundary.",
+      "safe_default": "reject scope expansion",
+      "linked_goal": "GOAL-REPO-0002",
+      "linked_work": "WORK-3B7821F3452B40B283784832E86234C3",
+      "linked_palari": "PALARI-STEWARD"
     }
   ],
   "outcomes": [
