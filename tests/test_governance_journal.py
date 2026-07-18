@@ -33,6 +33,7 @@ from palari_company_os.governance_journal import (
     v2_journal_file_path,
     workspace_digest,
     _prepare_v2_record,
+    _validate_value_delta,
 )
 from palari_company_os.store import workspace_write_lock
 from palari_company_os.workspace import WorkspaceError
@@ -184,6 +185,17 @@ class GovernanceJournalTests(unittest.TestCase):
         self.assertEqual(
             report["diagnostics"][0]["code"], "JOURNAL_DELTA_APPLY_FAILED"
         )
+
+    def test_v2_delta_rejects_prefix_overlap_even_with_interleaved_path(self) -> None:
+        with self.assertRaisesRegex(JournalError, "prefix-disjoint"):
+            _validate_value_delta(
+                [
+                    {"op": "remove", "path": "/a"},
+                    {"op": "remove", "path": "/a-foo"},
+                    {"op": "remove", "path": "/a/x"},
+                ],
+                "$.delta",
+            )
 
     def test_request_local_verification_reuses_only_exact_unchanged_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
