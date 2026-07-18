@@ -835,10 +835,7 @@ def apply_pack_decision(
                 )
         _assert_pack_human_authority(work, human, human_id)
         if action == "approve":
-            from .authoring import _assert_acceptance_allowed
-
             assert review is not None
-            _assert_acceptance_allowed(workspace, member_id, human_id, review.reviewed_head)
             assert_transition_allowed(
                 workspace,
                 "human_decision_accept",

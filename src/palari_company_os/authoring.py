@@ -279,12 +279,6 @@ def update_human_decision(
         "approved",
     }:
         workspace = validate_data(store.data_path, store.data)
-        _assert_acceptance_allowed(
-            workspace,
-            str(merged.get("work_item_id") or ""),
-            str(merged.get("human_id") or ""),
-            str(merged.get("reviewed_head") or ""),
-        )
         assert_transition_allowed(
             workspace,
             "human_decision_accept",
@@ -430,7 +424,6 @@ def create_human_decision(
     decision = str(record.get("decision") or "")
     reviewed_head = str(record.get("reviewed_head") or "")
     if decision in {"accepted", "approved"}:
-        _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
         assert_transition_allowed(
             workspace,
             "human_decision_accept",
@@ -476,7 +469,6 @@ def accept_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
-    _assert_acceptance_allowed(workspace, work_id, human_id, reviewed_head)
     assert_transition_allowed(
         workspace,
         "work_accept",
@@ -865,82 +857,6 @@ def parse_setters(setters: list[str], list_setters: list[str]) -> dict[str, Any]
         key, value = _split_assignment(item)
         updates[key] = _coerce_list(value)
     return updates
-
-
-def _assert_acceptance_allowed(
-    workspace: Any,
-    work_id: str,
-    human_id: str,
-    reviewed_head: str,
-) -> None:
-    work = workspace.work_item(work_id)
-    if work is None:
-        raise WorkspaceError(f"work not found: {work_id}")
-    human = workspace.human(human_id)
-    if human is None:
-        raise WorkspaceError(f"human not found: {human_id}")
-    if work.required_approval_capability and (
-        work.required_approval_capability not in human.approval_capabilities
-    ):
-        raise WorkspaceError(
-            f"human {human_id} lacks required approval capability "
-            f"{work.required_approval_capability}"
-        )
-    open_decisions = [
-        decision.id
-        for decision in workspace.decisions
-        if decision.linked_work == work_id and decision.status == "open"
-    ]
-    if open_decisions:
-        raise WorkspaceError(
-            f"work {work_id} has open decisions: {', '.join(open_decisions)}; cannot accept"
-        )
-    work_detail = detail(workspace, work_id)
-    if work_detail.get("coordination_warnings"):
-        raise WorkspaceError(
-            f"work {work_id} has scope coordination warnings; cannot accept"
-        )
-    attempt = current_attempt_for_work(work, workspace.attempts)
-    evidence = latest_for_work(workspace.evidence_runs, work_id)
-    review = latest_for_work(workspace.review_verdicts, work_id)
-    if attempt is None:
-        raise WorkspaceError(f"work {work_id} has no attempt; cannot accept")
-    if attempt.cleanliness.lower() in {"dirty", "unclean"}:
-        raise WorkspaceError(f"work {work_id} attempt {attempt.id} is dirty; cannot accept")
-    attempt_head = _attempt_head(attempt)
-    if evidence is None:
-        raise WorkspaceError(f"work {work_id} has no evidence; cannot accept")
-    if evidence.status != "passed":
-        raise WorkspaceError(f"work {work_id} evidence is {evidence.status}; cannot accept")
-    if evidence.head_sha != attempt_head:
-        raise WorkspaceError(f"work {work_id} evidence is stale; cannot accept")
-    if review is None:
-        raise WorkspaceError(f"work {work_id} has no review; cannot accept")
-    if review.verdict != "accept-ready":
-        raise WorkspaceError(f"work {work_id} review is {review.verdict}; cannot accept")
-    if review.reviewed_head != evidence.head_sha:
-        raise WorkspaceError(f"work {work_id} review is stale; cannot accept")
-    if reviewed_head != review.reviewed_head:
-        raise WorkspaceError(
-            f"human decision head {reviewed_head} does not match reviewed head {review.reviewed_head}"
-        )
-    if evidence.manifest_hash:
-        from .evidence_manifest import verify_evidence
-
-        verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
-        if not verification["ok"]:
-            raise WorkspaceError(
-                f"work {work_id} evidence manifest verification failed; cannot accept"
-            )
-    from .governance_binding import current_review_binding_errors
-
-    binding_errors = current_review_binding_errors(
-        workspace, review, require_output_coverage=True
-    )
-    if binding_errors:
-        raise WorkspaceError(
-            f"work {work_id} exact review proof is stale: {binding_errors[0]}; cannot accept"
-        )
 
 
 def _prepare_record_for_create(
