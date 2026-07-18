@@ -89,7 +89,9 @@ not four branch-specific approval ceremonies.
     preservation at `f9620da7a8d6728c35e27e09b0c2d820c214f80a`, installed and legacy-host
     compatibility at `6c2d70324e97326397478c336fb047d5d750c32a`, executable ownership at
     `4ced628bfcc6988c914db81b0cf2bd69b05b5cd4`, and final symlink-boundary
-    compatibility at `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`.
+    compatibility at `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`. Exact installed-executable
+    binding for the structural Git gate is committed at
+    `5358cdef47336515694de7df2fbf61c5a607d37e`.
 
 - [ ] **One coherent, verified, review-accepted candidate**
   - Required outcome: all four slices compose on one exact committed head,
@@ -110,8 +112,10 @@ not four branch-specific approval ceremonies.
     checks and precursor retirement are complete. After the decision, corrected
     packet proof and a fresh exact-head review remain required.
   - Exact committed evidence when completed: not yet complete. Candidate code
-    is exact head `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d` with architecture-review
-    ACCEPT; all four precursors are auditably superseded by the integration item
+    is exact head `5358cdef47336515694de7df2fbf61c5a607d37e`; its final installed-hook
+    repair passed independent read-only review, while fresh exact-head lifecycle
+    review remains pending. All four precursors are auditably superseded by the
+    integration item
     at `cc96d088d42ac1b3bf4bb4565c3496d87b3aff11`; the fail-closed scope
     decision is committed at `70407b50faf8c7ada29e128ff300f71811b5367f`.
     Final proof and presentation remain unavailable until that decision is made

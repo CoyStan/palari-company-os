@@ -29,7 +29,9 @@ Every completed checkbox names exact committed proof. The product rule is:
     surface is committed at `06551e64c4d056a6c55fbbcb1ba960e63e599710`.
     Nested-root preflight and installed-package compatibility are proven at
     `569f37d7f8bc9bcc578f0e04251f49f8a84ec7d3` and
-    `6c2d70324e97326397478c336fb047d5d750c32a`.
+    `6c2d70324e97326397478c336fb047d5d750c32a`; exact installed-executable
+    binding for the structural Git gate is committed at
+    `5358cdef47336515694de7df2fbf61c5a607d37e`.
 
 - [x] **Portable contract plus structural commit boundary**
   - Required outcome: adoption writes a bounded, managed `AGENTS.md` block and
@@ -46,7 +48,9 @@ Every completed checkbox names exact committed proof. The product rule is:
     `f9620da7a8d6728c35e27e09b0c2d820c214f80a`, followed by stable
     executable ownership at `4ced628bfcc6988c914db81b0cf2bd69b05b5cd4`
     and unrelated-bin compatibility at
-    `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`.
+    `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`. Installed-package hook
+    execution with no Palari `PATH` entry is proven at
+    `5358cdef47336515694de7df2fbf61c5a607d37e`.
 
 - [x] **Proven native session adapters only**
   - Required outcome: Claude keeps its existing structural hook adapter; Codex
@@ -93,9 +97,11 @@ Every completed checkbox names exact committed proof. The product rule is:
     isolated install smoke, changed-path check, and exact-head review.
   - Verification command or artifact: `./bin/palari docs check --json`,
     `./scripts/verify.sh`, `./scripts/install_smoke.sh`, and review artifact.
-  - Current status: implementation verified; a fresh architecture reviewer
-    returned ACCEPT with no substantive findings for exact implementation head
-    `c5e148abc4bfef7cd2d57d1cb57d25d386e50e2d`, but durable review and proof
+  - Current status: implementation verified through
+    `5358cdef47336515694de7df2fbf61c5a607d37e`. An architecture review accepted
+    the earlier implementation head, then exact-head review found an
+    installed-package Git-hook gap; the committed repair passed focused tests
+    and read-only repair review. Fresh exact-head and durable lifecycle review
     recording remain pending in the integration item.
   - Exact committed evidence when completed: pending. Isolated installed-package
     compatibility is committed at `6c2d70324e97326397478c336fb047d5d750c32a`;
