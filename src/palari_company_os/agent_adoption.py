@@ -854,12 +854,12 @@ def _assert_local_target(root: Path, target: Path) -> None:
 
 def _assert_palari_executable(root: Path) -> str:
     local = root / "bin" / "palari"
-    if local.is_symlink():
-        raise WorkspaceError(
-            f"project-local Palari wrapper must not be a symlink: {local}"
-        )
-    _assert_local_target(root, local)
     if local.exists() or local.is_symlink():
+        if local.is_symlink():
+            raise WorkspaceError(
+                f"project-local Palari wrapper must not be a symlink: {local}"
+            )
+        _assert_local_target(root, local)
         if not local.is_file() or not os.access(local, os.X_OK):
             raise WorkspaceError(f"project-local Palari wrapper is not executable: {local}")
         try:

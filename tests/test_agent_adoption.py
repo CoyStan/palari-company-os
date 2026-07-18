@@ -187,6 +187,32 @@ class AgentAdoptionTests(unittest.TestCase):
         )
         self.assertNotIn("hooks", claude)
 
+    def test_unrelated_symlinked_bin_does_not_block_running_entrypoint(self) -> None:
+        (self.tmp / "bin" / "palari").unlink()
+        (self.tmp / "bin").rmdir()
+        unrelated_bin = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, unrelated_bin, True)
+        (self.tmp / "bin").symlink_to(unrelated_bin, target_is_directory=True)
+        entrypoint_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, entrypoint_root, True)
+        entrypoint = entrypoint_root / "palari"
+        entrypoint.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        entrypoint.chmod(0o755)
+
+        with mock.patch.object(sys, "argv", [str(entrypoint)]), mock.patch(
+            "palari_company_os.agent_adoption.shutil.which",
+            return_value=None,
+        ):
+            result = adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertFalse((unrelated_bin / "palari").exists())
+
     def test_adoption_rejects_workspace_file_symlink_escape_before_writing(self) -> None:
         outside_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, outside_dir, True)
