@@ -5,6 +5,11 @@ commands intentionally write to `workspace.json` after validation. No command
 merges, pushes, deploys, activates policy, executes broker side effects, uses
 secrets, or bypasses human authority.
 
+Running `palari --help` shows the small ordinary surface and its golden journey.
+Primitive compatibility and recovery commands are intentionally omitted from
+that first screen but remain available and parseable; use direct
+`palari COMMAND --help` when operating below the ordinary loop.
+
 ## Two-Minute Onramp
 
 ```bash
@@ -386,6 +391,29 @@ exists, it projects the derived acceptance record in memory, runs the complete
 gate against that projection, and writes acceptance plus terminal state only if
 the whole transition passes. Missing, stale, contradictory, or insufficient
 authority never produces terminal work.
+
+## Supersede Or Abandon Obsolete Work
+
+```bash
+./bin/palari work update WORK-OLD --status superseded \
+  --terminal-reason "WORK-NEW owns the narrower objective." \
+  --successor-work-item-id WORK-NEW --json
+./bin/palari work update WORK-OLD --status abandoned \
+  --terminal-reason "This experiment will not continue." --json
+```
+
+`superseded` and `abandoned` are explicit audit-only terminal states. They do
+not assert completion and do not manufacture lifecycle proof. Both require a
+non-empty `terminal_reason`; `successor_work_item_id` is optional but must name
+a distinct existing work item. Cycles and dependencies that still point to a
+retired prerequisite fail closed. Retirement is also rejected while the item
+has an active attempt, open linked decision, pending integration plan, or queued
+external action.
+
+Default `queue`, `agent next`, and `queue --approval-inbox` views omit retired
+work. `queue --include-closed` and `detail WORK-ID` retain its exact status,
+reason, successor, and historical records. Existing successful terminal states
+(`completed`, `closed`, and `done`) retain their proof requirements.
 
 ## Agent Packets
 

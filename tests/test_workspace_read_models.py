@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -172,6 +173,120 @@ class WorkspaceReadModelTests(unittest.TestCase):
             build.call_args.kwargs["selected_work_ids"],
             ("WORK-0001",),
         )
+
+    def test_retired_work_is_closed_in_queue_but_remains_detailed(self) -> None:
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            lambda raw: raw["work_items"][0].update(
+                {
+                    "status": "superseded",
+                    "terminal_reason": "A successor now owns the objective.",
+                }
+            ),
+        )
+
+        item = queue_items(workspace)[0]
+        payload = detail(workspace, item.id)
+
+        self.assertEqual(item.attention, "closed")
+        self.assertEqual(item.next_step_type, "closed")
+        self.assertFalse(item.ai_safe_to_proceed)
+        self.assertEqual(item.terminal_disposition, "superseded")
+        self.assertIn("successor", item.why.lower())
+        self.assertEqual(
+            payload["work_item"]["terminal_reason"],
+            "A successor now owns the objective.",
+        )
+
+    def test_approval_inbox_narrows_away_retired_work(self) -> None:
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            lambda raw: raw["work_items"][0].update(
+                {
+                    "status": "abandoned",
+                    "terminal_reason": "No longer worth operator attention.",
+                }
+            ),
+        )
+        workspace.work_items.append(
+            workspace.work_items[0].__class__.from_record(
+                {
+                    "id": "WORK-ACTIVE",
+                    "title": "Still active",
+                    "goal": workspace.work_items[0].goal,
+                    "palari": workspace.work_items[0].palari,
+                    "status": "active",
+                }
+            )
+        )
+        expected = {"schema_version": "test.approval-inbox"}
+
+        with (
+            patch(
+                "palari_company_os.workspace_read_models.load_store",
+                return_value=SimpleNamespace(data={}),
+            ),
+            patch(
+                "palari_company_os.workspace_read_models.build_approval_inbox",
+                return_value=expected,
+            ) as build,
+        ):
+            result = approval_inbox(workspace)
+
+        self.assertEqual(result, expected)
+        self.assertEqual(
+            build.call_args.kwargs["selected_work_ids"],
+            ("WORK-ACTIVE",),
+        )
+
+    def test_all_retired_approval_inbox_cannot_emit_an_authority_action(self) -> None:
+        workspace = self.modified_fixture_workspace(
+            "valid-source-receipt-loop.json",
+            lambda raw: raw["work_items"][0].update(
+                {
+                    "status": "abandoned",
+                    "terminal_reason": "No active objective remains.",
+                }
+            ),
+        )
+        built = {
+            "schema_version": "test.approval-inbox",
+            "individual_items": [{"id": "WORK-1"}],
+            "packs": [{"pack_id": "PACK-UNSAFE"}],
+            "approval_commands": [{"command": "must disappear"}],
+            "counts": {
+                "items": 1,
+                "packs": 1,
+                "eligible": 1,
+                "blocked": 0,
+                "stale": 0,
+                "non_batchable": 0,
+            },
+            "primary_action": {
+                "available": True,
+                "count": 1,
+                "commands": ["must disappear"],
+            },
+        }
+
+        with (
+            patch(
+                "palari_company_os.workspace_read_models.load_store",
+                return_value=SimpleNamespace(data={}),
+            ),
+            patch(
+                "palari_company_os.workspace_read_models.build_approval_inbox",
+                return_value=built,
+            ),
+        ):
+            result = approval_inbox(workspace)
+
+        self.assertEqual(result["individual_items"], [])
+        self.assertEqual(result["packs"], [])
+        self.assertEqual(result["approval_commands"], [])
+        self.assertEqual(result["counts"]["items"], 0)
+        self.assertFalse(result["primary_action"]["available"])
+        self.assertEqual(result["primary_action"]["commands"], [])
 
     def test_ready_to_report_does_not_recommend_redundant_validation(self) -> None:
         directive = compile_agent_directive(
@@ -816,6 +931,115 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
 
         self.assertIn("closed", {item["attention"] for item in payload["queue"]})
+
+    def test_cli_retirement_leaves_default_operating_surfaces_but_stays_auditable(self) -> None:
+        with self.temp_workspace() as workspace:
+            self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "create",
+                "WORK-RETIRE",
+                "--title",
+                "Obsolete experiment",
+                "--goal",
+                "GOAL-0001",
+                "--palari",
+                "PALARI-SOFIA",
+                "--status",
+                "active",
+                "--json",
+            )
+            update = self.run_cli_in_workspace(
+                workspace,
+                "work",
+                "update",
+                "WORK-RETIRE",
+                "--status",
+                "abandoned",
+                "--terminal-reason",
+                "The experiment no longer earns attention.",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(update.returncode, 0, update.stderr)
+            self.run_cli_in_workspace(
+                workspace,
+                "history",
+                "--checkpoint",
+                "--actor",
+                "PALARI-SOFIA",
+                "--reason",
+                "Activate replayable history for the retirement read-model test.",
+                "--json",
+            )
+            queue = json.loads(
+                self.run_cli_in_workspace(workspace, "queue", "--json").stdout
+            )
+            audit_queue = json.loads(
+                self.run_cli_in_workspace(
+                    workspace,
+                    "queue",
+                    "--include-closed",
+                    "--json",
+                ).stdout
+            )
+            agent_next = json.loads(
+                self.run_cli_in_workspace(
+                    workspace,
+                    "agent",
+                    "next",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--json",
+                ).stdout
+            )
+            explicit_start = self.run_cli_in_workspace(
+                workspace,
+                "agent",
+                "start",
+                "WORK-RETIRE",
+                "--as",
+                "PALARI-SOFIA",
+                "--json",
+                check=False,
+            )
+            inbox_result = self.run_cli_in_workspace(
+                workspace,
+                "queue",
+                "--approval-inbox",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(inbox_result.returncode, 0, inbox_result.stderr)
+            inbox = json.loads(inbox_result.stdout)
+            item = json.loads(
+                self.run_cli_in_workspace(
+                    workspace,
+                    "detail",
+                    "WORK-RETIRE",
+                    "--json",
+                ).stdout
+            )
+
+        self.assertEqual(json.loads(update.stdout)["action"], "updated")
+        self.assertNotIn("WORK-RETIRE", {entry["id"] for entry in queue["queue"]})
+        retired = {entry["id"]: entry for entry in audit_queue["queue"]}["WORK-RETIRE"]
+        self.assertEqual(retired["terminal_disposition"], "abandoned")
+        self.assertNotIn(
+            "WORK-RETIRE",
+            {entry["work_item_id"] for entry in agent_next["candidates"]},
+        )
+        explicit_start_payload = json.loads(explicit_start.stdout)
+        self.assertNotEqual(
+            explicit_start_payload.get("start", {}).get("status"),
+            "claimed",
+        )
+        self.assertNotEqual(explicit_start_payload.get("status"), "ready")
+        self.assertNotIn(
+            "WORK-RETIRE",
+            {entry["id"] for entry in inbox["individual_items"]},
+        )
+        self.assertEqual(item["work_item"]["status"], "abandoned")
 
     def test_cli_detail_json(self) -> None:
         result = self.run_cli("detail", "WORK-0004", "--json")

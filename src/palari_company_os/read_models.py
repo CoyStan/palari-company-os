@@ -39,6 +39,9 @@ class QueueItem:
     agent_loop_command: str
     agent_handoff_command: str
     status: str
+    terminal_disposition: str
+    terminal_reason: str
+    successor_work_item_id: str
     risk: str
     intensity: str
     goal: str
@@ -348,6 +351,9 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         agent_loop_command=agent_loop_command(work),
         agent_handoff_command=agent_handoff_command(work, next_step_type),
         status=work.status,
+        terminal_disposition=work.terminal_disposition,
+        terminal_reason=work.terminal_reason,
+        successor_work_item_id=work.successor_work_item_id,
         risk=work.risk,
         intensity=work.intensity,
         goal=work.goal,
@@ -387,6 +393,19 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             "needs-human-decision",
             f"Decision {open_decision.id} is open for this work item.",
             f"Answer decision: {open_decision.question}",
+        )
+
+    if work.terminal_disposition:
+        successor = work.successor_work_item_id
+        next_action = (
+            f"Inspect successor {successor}; this historical item remains audit-visible."
+            if successor
+            else "Inspect the retirement reason or create new work if the objective returns."
+        )
+        return (
+            "closed",
+            f"The work item was {work.terminal_disposition}: {work.terminal_reason}",
+            next_action,
         )
 
     if work.status in {"closed", "completed", "done"}:

@@ -78,6 +78,35 @@ the exact explicit `history --checkpoint` activation action and no retroactive
 continuity claim. The commands below remain available as lower-level authoring
 and recovery surfaces; they are not the ordinary agent ceremony.
 
+## Retire Obsolete Work Without Pretending It Completed
+
+When an unclaimed item is genuinely obsolete, close attention explicitly
+through the existing governed update path:
+
+```bash
+palari work update WORK-OLD \
+  --status superseded \
+  --terminal-reason "A narrower contract now owns the objective." \
+  --successor-work-item-id WORK-NEW --json
+
+palari work update WORK-EXPERIMENT \
+  --status abandoned \
+  --terminal-reason "The experiment no longer earns operator attention." --json
+```
+
+These dispositions are audit terminalization, not successful completion. They
+create no attempt, receipt, evidence, review, human decision, acceptance, or
+outcome. A reason is mandatory and the successor is optional, but any successor
+must be an existing distinct work item. Successor cycles, retirement with an
+active attempt, open decision, or unresolved external action, and dependencies
+that still point at retired work all fail closed. Rebind a dependent to the
+explicit successor before retiring its old prerequisite.
+
+Retired work is absent from the ordinary queue, `agent next`, and Approval
+Inbox. It remains visible through `queue --include-closed` and `detail`, and an
+explicit `agent start` cannot claim it. Historical proof and review records are
+preserved rather than rewritten.
+
 ## Create Intent And Actors
 
 ```bash

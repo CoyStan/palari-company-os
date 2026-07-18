@@ -145,6 +145,8 @@ ALLOWED_RECORD_FIELDS = {
         "risk",
         "intensity",
         "status",
+        "terminal_reason",
+        "successor_work_item_id",
         "scope",
         "allowed_resources",
         "allowed_sources",
@@ -453,9 +455,12 @@ WORK_STATUSES = {
     "completed",
     "closed",
     "done",
+    "superseded",
+    "abandoned",
 }
 WORKBENCH_STATUSES = {"active", "paused", "completed", "closed", "archived"}
 TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
+RETIRED_WORK_STATUSES = {"superseded", "abandoned"}
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}
 PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
@@ -617,6 +622,8 @@ def validate_workspace_contract(workspace: Any) -> None:
             PARALLEL_POLICIES,
         )
         _validate_path_intents(work)
+
+    _validate_work_retirement_graph(work_by_id)
 
     for integration in workspace.integrations:
         _validate_integration(integration)
@@ -863,7 +870,9 @@ def validate_workspace_contract(workspace: Any) -> None:
         _require_allowed_value("outcomes", outcome.id, "status", outcome.status, OUTCOME_STATUSES)
 
     for work in workspace.work_items:
-        if work.status in TERMINAL_WORK_STATUSES:
+        if work.terminal_disposition:
+            _validate_retired_work(workspace, work)
+        elif work.status in TERMINAL_WORK_STATUSES:
             _validate_completed_work(workspace, work, attempts_by_id)
 
     # Exercise the same pure evaluator used by transitions and PCAW verification.
@@ -1810,6 +1819,107 @@ def _validate_completed_work(
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but approval quorum is "
             f"{count}/{work.required_approval_count}"
+        )
+
+
+def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
+    """Validate explicit non-success terminalization without treating it as completion."""
+
+    for work in work_by_id.values():
+        if not work.terminal_disposition:
+            if work.terminal_reason or work.successor_work_item_id:
+                raise WorkspaceError(
+                    f"work_items.{work.id} has retirement metadata without "
+                    "a superseded or abandoned status; active authority would be ambiguous"
+                )
+            continue
+        if work.terminal_disposition not in RETIRED_WORK_STATUSES:
+            raise WorkspaceError(
+                f"work_items.{work.id}.terminal_disposition is invalid"
+            )
+        if not work.terminal_reason.strip():
+            raise WorkspaceError(
+                f"work_items.{work.id}.terminal_reason is required when "
+                f"status is {work.terminal_disposition}"
+            )
+        successor_id = work.successor_work_item_id
+        if successor_id:
+            if successor_id == work.id:
+                raise WorkspaceError(
+                    f"work_items.{work.id}.successor_work_item_id must reference a "
+                    "distinct work item"
+                )
+            if successor_id not in work_by_id:
+                raise WorkspaceError(
+                    f"work_items.{work.id}.successor_work_item_id references missing "
+                    f"id {successor_id}"
+                )
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(work_id: str) -> None:
+        if work_id in visiting:
+            raise WorkspaceError("work_items successor graph contains a cycle")
+        if work_id in visited:
+            return
+        visiting.add(work_id)
+        successor_id = work_by_id[work_id].successor_work_item_id
+        if successor_id:
+            visit(successor_id)
+        visiting.remove(work_id)
+        visited.add(work_id)
+
+    for work_id in sorted(work_by_id):
+        visit(work_id)
+
+    retired_ids = {
+        work.id for work in work_by_id.values() if work.terminal_disposition
+    }
+    for work in work_by_id.values():
+        retired_dependencies = sorted(set(work.dependency_ids) & retired_ids)
+        if retired_dependencies:
+            raise WorkspaceError(
+                f"work_items.{work.id}.dependency_ids references retired work: "
+                f"{', '.join(retired_dependencies)}; bind the dependency to the explicit "
+                "successor or remove the obsolete edge"
+            )
+
+
+def _validate_retired_work(
+    workspace: Any,
+    work: WorkItem,
+) -> None:
+    if _open_linked_decision(workspace, work.id) is not None:
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired with open decisions"
+        )
+    active_attempts = sorted(
+        attempt.id
+        for attempt in workspace.attempts
+        if attempt.work_item_id == work.id and attempt.status == "active"
+    )
+    if active_attempts:
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired with active attempts: "
+            f"{', '.join(active_attempts)}"
+        )
+    pending_plans = sorted(
+        plan.id
+        for plan in workspace.integration_plans
+        if plan.work_item_id == work.id
+        and plan.status in {"planned", "pending-approval"}
+    )
+    queued_actions = sorted(
+        item.id
+        for item in workspace.integration_outbox
+        if item.work_item_id == work.id and item.status == "queued"
+    )
+    if pending_plans or queued_actions:
+        records = ", ".join([*pending_plans, *queued_actions])
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired while external action "
+            f"authority is unresolved: {records}"
         )
 
 

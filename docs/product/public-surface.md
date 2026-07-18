@@ -37,10 +37,28 @@ boundaries. Everything else should serve that kernel.
 
 Current CLI command count from parser inspection: **154**.
 
-The command surface is intentionally broad because Palari exposes primitive
-record operations directly. New commands should be rare. Prefer docs, examples,
-or an existing command shape unless the command exposes a core governance
-primitive or removes repeated operator confusion.
+The default help is intentionally narrow. It leads with `init`, `work`,
+`agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
+journey:
+
+```text
+init -> work add -> agent start --next -> agent advance
+-> queue --approval-inbox -> proof verify
+```
+
+All 154 command paths remain parseable for compatibility and expert recovery;
+direct `COMMAND --help` still documents them. The broad primitive surface is
+therefore secondary without being removed or silently deprecated. New commands
+should remain rare. Prefer an existing command shape unless a new command
+exposes a core governance primitive or removes repeated operator confusion.
+
+`superseded` and `abandoned` are explicit non-success dispositions, not aliases
+for completion. They leave the default queue, agent candidate list, and Approval
+Inbox, while `queue --include-closed` and `detail` preserve their reason and
+optional successor for audit.
+
+The bounded implementation evidence is tracked in the
+[Invisible Product Surface v1 Completion Contract](invisible-product-surface-contract.md).
 
 ## Provider Boundary
 
