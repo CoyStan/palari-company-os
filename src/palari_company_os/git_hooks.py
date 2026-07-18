@@ -191,6 +191,7 @@ def install_git_hook(
     workspace_path: Path | str,
     *,
     remove: bool = False,
+    palari_executable: Path | str | None = None,
 ) -> dict[str, Any]:
     """Install or remove the Palari pre-commit hook in ``.git/hooks/``.
 
@@ -227,7 +228,11 @@ def install_git_hook(
             "hook_path": str(hook_path),
         }
     workspace_arg = shlex.quote(_workspace_argument(root, workspace_path))
-    executable = _palari_executable(root)
+    executable = (
+        shlex.quote(str(palari_executable))
+        if palari_executable is not None
+        else _palari_executable(root)
+    )
 
     if remove:
         if hook_path.exists() and _is_managed_hook(hook_path):

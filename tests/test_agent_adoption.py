@@ -98,8 +98,13 @@ class AgentAdoptionTests(unittest.TestCase):
         entrypoint_root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, entrypoint_root, True)
         entrypoint = entrypoint_root / "bin" / "palari"
+        invocation = entrypoint_root / "hook-invocation.txt"
         entrypoint.parent.mkdir(parents=True)
-        entrypoint.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        entrypoint.write_text(
+            "#!/bin/sh\n"
+            f"printf '%s\\n' \"$@\" > {shlex.quote(str(invocation))}\n",
+            encoding="utf-8",
+        )
         entrypoint.chmod(0o755)
 
         with mock.patch.object(sys, "argv", [str(entrypoint)]), mock.patch(
@@ -123,6 +128,21 @@ class AgentAdoptionTests(unittest.TestCase):
             tokens = shlex.split(next_command)
             self.assertEqual(tokens[0], str(entrypoint.resolve()))
             self.assertEqual(tokens[tokens.index("--workspace") + 1], str(self.workspace))
+
+        hook = self.tmp / ".git" / "hooks" / "pre-commit"
+        completed = subprocess.run(
+            [str(hook)],
+            cwd=self.tmp,
+            env={**self.env, "PATH": "/usr/bin:/bin"},
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            invocation.read_text(encoding="utf-8").splitlines(),
+            ["--workspace", "workspaces/test", "git", "pre-commit"],
+        )
 
     def test_symlinked_running_entrypoint_remains_managed_and_removable(self) -> None:
         (self.tmp / "bin" / "palari").unlink()

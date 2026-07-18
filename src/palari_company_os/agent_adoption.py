@@ -117,7 +117,11 @@ def adopt_agent_host(
         # Install the cross-host structural gate last. If it refuses a foreign
         # or non-local target, restore the exact instruction/configuration bytes
         # instead of leaving a half-installed profile.
-        git_result = install_git_hook(root, workspace_path)
+        git_result = install_git_hook(
+            root,
+            workspace_path,
+            palari_executable=executable,
+        )
         if git_result.get("status") == "error":
             raise WorkspaceError(
                 str(git_result.get("message", "Git hook installation failed"))
