@@ -50,6 +50,7 @@ class McpServerTests(unittest.TestCase):
                 "palari_agent_brief",
                 "palari_agent_start",
                 "palari_agent_check",
+                "palari_agent_advance",
                 "palari_agent_finish",
                 "palari_agent_handoff",
                 "palari_agent_loop",
@@ -58,7 +59,12 @@ class McpServerTests(unittest.TestCase):
                 "palari_docs_check",
             },
         )
-        mutating_local_tools = {"palari_agent_start", "palari_agent_release"}
+        mutating_local_tools = {
+            "palari_agent_start",
+            "palari_agent_advance",
+            "palari_agent_release",
+        }
+        non_idempotent_tools = {"palari_agent_start", "palari_agent_release"}
         for tool in tool_definitions():
             self.assertEqual(
                 tool["annotations"]["readOnlyHint"],
@@ -67,7 +73,7 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(tool["annotations"]["destructiveHint"], False)
             self.assertEqual(
                 tool["annotations"]["idempotentHint"],
-                tool["name"] not in mutating_local_tools,
+                tool["name"] not in non_idempotent_tools,
             )
 
     def test_tools_call_returns_structured_content_and_text_fallback(self) -> None:
@@ -96,6 +102,33 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(structured["status"], "ready")
         self.assertEqual(structured["packet_id"], "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
         self.assertEqual(text["packet_id"], structured["packet_id"])
+
+    def test_agent_brief_can_return_portable_session_contract(self) -> None:
+        response = handle_mcp_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 21,
+                "method": "tools/call",
+                "params": {
+                    "name": "palari_agent_brief",
+                    "arguments": {
+                        "work_id": "WORK-0003",
+                        "palari_id": "PALARI-SOFIA",
+                        "session_contract": True,
+                    },
+                },
+            },
+            self.context(),
+        )
+
+        self.assertIsNotNone(response)
+        result = response["result"]
+        self.assertEqual(result["isError"], False)
+        self.assertEqual(
+            result["structuredContent"]["schema_version"],
+            "palari.agent_session_contract.v1",
+        )
+        self.assertIn("contract_digest", result["structuredContent"])
 
     def test_tool_execution_error_stays_inside_tool_result(self) -> None:
         response = handle_mcp_message(
@@ -147,6 +180,26 @@ class McpServerTests(unittest.TestCase):
             self.assertTrue(packet_path.exists())
             self.assertTrue(claim_path.exists())
 
+            advance_response = handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 12,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "palari_agent_advance",
+                        "arguments": {
+                            "work_id": "WORK-0003",
+                            "palari_id": "PALARI-SOFIA",
+                            "dry_run": True,
+                        },
+                    },
+                },
+                self.context(workspace_file),
+            )
+            self.assertIsNotNone(advance_response)
+            self.assertEqual(advance_response["result"]["isError"], False)
+            self.assertTrue(advance_response["result"]["structuredContent"]["dry_run"])
+
             release_response = handle_mcp_message(
                 {
                     "jsonrpc": "2.0",
@@ -170,6 +223,29 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(release_payload["status"], "released")
             self.assertFalse(claim_path.exists())
             self.assertTrue(packet_path.exists())
+
+    def test_agent_start_next_uses_same_deterministic_selection_policy(self) -> None:
+        with self.temporary_workspace() as workspace_file:
+            response = handle_mcp_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 13,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "palari_agent_start",
+                        "arguments": {
+                            "next": True,
+                            "palari_id": "PALARI-SOFIA",
+                        },
+                    },
+                },
+                self.context(workspace_file),
+            )
+
+            self.assertIsNotNone(response)
+            result = response["result"]
+            self.assertEqual(result["isError"], False)
+            self.assertEqual(result["structuredContent"]["start"]["status"], "claimed")
 
     def test_agent_lifecycle_read_only_tools_return_structured_packets(self) -> None:
         expected_versions = {

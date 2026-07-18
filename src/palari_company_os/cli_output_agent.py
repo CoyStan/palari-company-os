@@ -27,6 +27,30 @@ _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
 )
 
 
+def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    enforcement = payload.get("enforcement") or {}
+    host = payload.get("host_adapter") or {}
+    git_gate = payload.get("git_gate") or {}
+    print(f"Agent adoption: {payload.get('host', 'generic')}")
+    print(f"Status: {payload.get('status', 'unknown')}")
+    print(f"Contract: {payload.get('contract_file', '')}")
+    print(f"Commit boundary: {git_gate.get('status', 'unknown')}")
+    print(
+        "Session boundary: "
+        f"{enforcement.get('session_boundary', 'advisory')} "
+        f"({enforcement.get('session_activation', 'unknown')})"
+    )
+    if host.get("next_action"):
+        print(f"Activation: {host['next_action']}")
+    print(f"MCP: {(payload.get('mcp') or {}).get('command', '')}")
+    commands = payload.get("next_commands") or []
+    if commands:
+        print(f"Next: {commands[0]}")
+
+
 def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)

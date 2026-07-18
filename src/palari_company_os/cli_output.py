@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from .cli_output_agent import (
+    print_agent_adopt,
     print_agent_brief,
     print_agent_check,
     print_agent_doctor,
@@ -145,6 +146,14 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-brief":
         print_agent_brief(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-adopt":
+        print_agent_adopt(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-hook":
+        print(json.dumps(result.payload))
         return
 
     if result.kind == "agent-start":
