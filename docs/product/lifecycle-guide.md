@@ -36,12 +36,12 @@ palari agent start --next --as PALARI-ID --json
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
 
-`--host` accepts `claude`, `codex`, `cursor`, `devin`, `glm`, or `generic` and
-folds new portable instructions plus the claim-bound Git gate into the starter
+`--host` accepts `claude` or `codex` and folds new portable instructions, the
+claim-bound Git gate, and a tested session-hook adapter into the starter
 anchor. Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as
 PALARI-ID --json`; without an explicit host, initialization still refuses an
-existing workspace. Only Claude and Codex currently have tested session-hook adapters;
-other profiles are explicitly advisory at session time.
+existing workspace. Other harnesses can consume the provider-neutral contract
+without being advertised as supported session profiles.
 
 The compatible `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` instead when exact mutation class

@@ -34,13 +34,13 @@ def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
     enforcement = payload.get("enforcement") or {}
     host = payload.get("host_adapter") or {}
     git_gate = payload.get("git_gate") or {}
-    print(f"Agent adoption: {payload.get('host', 'generic')}")
+    print(f"Agent adoption: {payload.get('host', 'unknown')}")
     print(f"Status: {payload.get('status', 'unknown')}")
     print(f"Contract: {payload.get('contract_file', '')}")
     print(f"Commit boundary: {git_gate.get('status', 'unknown')}")
     print(
         "Session boundary: "
-        f"{enforcement.get('session_boundary', 'advisory')} "
+        f"{enforcement.get('session_boundary', 'unknown')} "
         f"({enforcement.get('session_activation', 'unknown')})"
     )
     if host.get("next_action"):

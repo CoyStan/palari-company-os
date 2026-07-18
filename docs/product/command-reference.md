@@ -25,13 +25,11 @@ refuses to overwrite an existing `workspace.json`. When the current directory
 contains a `workspace.json`, every command uses it as the default workspace,
 so no `--workspace` flag is needed after `init`.
 
-Add `--host claude|codex|cursor|devin|glm|generic` to make first adoption one
-anchored action. Every host profile installs or reuses the portable repository
-contract and installs the claim-bound Git commit gate. Claude and Codex also
-receive tested project-local session hooks; Codex requires explicit `/hooks`
-review before they activate. Cursor, Devin, GLM, and generic profiles are
-reported as advisory at session time. Existing workspaces use the same `init`
-action with an explicit path and host:
+Add `--host claude` or `--host codex` to make first adoption one anchored
+action. Both profiles install or reuse the portable repository contract,
+install the claim-bound Git commit gate, and add tested project-local session
+hooks. Codex requires explicit `/hooks` review before its hooks activate.
+Existing workspaces use the same `init` action with an explicit path and host:
 
 ```bash
 palari init WORKSPACE-DIR --host codex --as PALARI-ID --json

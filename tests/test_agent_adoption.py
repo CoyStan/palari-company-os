@@ -58,20 +58,20 @@ class AgentAdoptionTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_generic_adoption_is_idempotent_and_preserves_existing_instructions(self) -> None:
+    def test_supported_adoption_is_idempotent_and_preserves_existing_instructions(self) -> None:
         agents = self.tmp / "AGENTS.md"
         agents.write_text("# Existing rules\n\nKeep this.\n", encoding="utf-8")
 
         first = adopt_agent_host(
             self.workspace,
             project_dir=self.tmp,
-            host="generic",
+            host="claude",
             palari_id="PALARI-STEWARD",
         )
         second = adopt_agent_host(
             self.workspace,
             project_dir=self.tmp,
-            host="generic",
+            host="claude",
             palari_id="PALARI-STEWARD",
         )
 
@@ -82,7 +82,7 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertTrue(first["changed"])
         self.assertFalse(second["changed"])
         self.assertEqual(first["enforcement"]["commit_boundary"], "structural")
-        self.assertEqual(first["enforcement"]["session_boundary"], "advisory")
+        self.assertEqual(first["enforcement"]["session_boundary"], "structural")
         self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
 
     def test_adoption_uses_the_absolute_running_entrypoint_when_path_is_absent(self) -> None:
@@ -257,29 +257,27 @@ class AgentAdoptionTests(unittest.TestCase):
         result = adopt_agent_host(
             self.workspace,
             project_dir=self.tmp,
-            host="generic",
+            host="claude",
             palari_id="PALARI-STEWARD",
         )
 
         self.assertEqual(agents.read_text(encoding="utf-8"), existing)
         self.assertNotIn("AGENTS.md", result["changed_files"])
 
-    def test_unproven_hosts_are_honestly_advisory_and_commit_gated(self) -> None:
-        for host in ("cursor", "devin", "glm"):
+    def test_removed_host_profiles_are_rejected_before_writing(self) -> None:
+        for host in ("cursor", "devin", "glm", "generic"):
             with self.subTest(host=host):
-                result = adopt_agent_host(
-                    self.workspace,
-                    project_dir=self.tmp,
-                    host=host,
-                    palari_id="PALARI-STEWARD",
-                )
-                self.assertEqual(result["host"], host)
-                self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
-                self.assertEqual(result["enforcement"]["commit_boundary"], "structural")
-                self.assertEqual(
-                    result["host_adapter"]["activation"],
-                    "no-proven-session-hook",
-                )
+                with self.assertRaisesRegex(WorkspaceError, "claude, codex"):
+                    adopt_agent_host(
+                        self.workspace,
+                        project_dir=self.tmp,
+                        host=host,
+                        palari_id="PALARI-STEWARD",
+                    )
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".claude").exists())
+        self.assertFalse((self.tmp / ".codex").exists())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
 
     def test_adoption_refuses_malformed_managed_block_without_installing_hook(self) -> None:
         (self.tmp / "AGENTS.md").write_text(
@@ -291,7 +289,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="generic",
+                host="claude",
                 palari_id="PALARI-STEWARD",
             )
 
@@ -304,7 +302,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="generic",
+                host="claude",
                 palari_id="PALARI-STEWARD",
             )
 
@@ -319,7 +317,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="generic",
+                host="claude",
                 palari_id="PALARI-STEWARD",
             )
 
@@ -333,7 +331,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="generic",
+                host="claude",
                 palari_id="PALARI-STEWARD",
             )
 
@@ -345,7 +343,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="cursor",
+                host="codex",
                 palari_id="PALARI-STEWARD",
             )
 
@@ -699,7 +697,7 @@ class AgentAdoptionTests(unittest.TestCase):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
-                host="generic",
+                host="claude",
                 palari_id="PALARI-STEWARD",
             )
         self.assertEqual(outside_agents.read_text(encoding="utf-8"), "outside\n")
@@ -722,7 +720,7 @@ class AgentAdoptionTests(unittest.TestCase):
                 "init",
                 str(self.workspace),
                 "--host",
-                "devin",
+                "codex",
                 "--as",
                 "PALARI-STEWARD",
                 "--json",
@@ -736,7 +734,8 @@ class AgentAdoptionTests(unittest.TestCase):
 
         payload = json.loads(result.stdout)
         self.assertEqual(payload["schema_version"], "palari.agent_adoption.v1")
-        self.assertEqual(payload["host"], "devin")
+        self.assertEqual(payload["host"], "codex")
+        self.assertEqual(payload["enforcement"]["session_boundary"], "structural")
         self.assertEqual(len(payload["next_commands"]), 2)
 
         plain = subprocess.run(
@@ -745,7 +744,7 @@ class AgentAdoptionTests(unittest.TestCase):
                 "init",
                 str(self.workspace),
                 "--host",
-                "devin",
+                "codex",
                 "--as",
                 "PALARI-STEWARD",
             ],
@@ -755,7 +754,7 @@ class AgentAdoptionTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
         )
-        self.assertIn("Agent adoption: devin", plain.stdout)
+        self.assertIn("Agent adoption: codex", plain.stdout)
 
     def test_adoption_rolls_back_when_git_hook_cannot_be_executable(self) -> None:
         with mock.patch.object(Path, "chmod", side_effect=OSError("chmod denied")):

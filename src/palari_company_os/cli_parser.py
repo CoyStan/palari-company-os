@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
+from .agent_adoption import SUPPORTED_HOSTS
 from .workspace import default_workspace_path
 
 
@@ -70,9 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "--host",
-        choices=["claude", "codex", "cursor", "devin", "glm", "generic"],
+        choices=SUPPORTED_HOSTS,
         default="",
-        help="Also install and anchor one honest local agent-host profile.",
+        help="Also install and anchor one tested local agent-host profile.",
     )
     init_parser.add_argument(
         "--as",

@@ -134,11 +134,12 @@ An adapter cannot widen scope, accept work, combine builder and reviewer,
 create human authority, bypass evidence, or turn a queued external action into
 an executed one.
 
-Advisory Cursor/Devin/GLM/generic session profiles and provider-specific
-Slack/GitHub/Jira/email previews are unsupported experiments. The separate
-desktop prototype, demo schema, showcase narrative, and Pages deployment were
-removed; Mission Control is the one supported local human UI. Historical
-completion contracts do not define the current product.
+The former advisory Cursor/Devin/GLM/generic session-profile aliases and the
+provider-specific Slack/GitHub/Jira/email preview shapes were removed as
+unsupported experiments. The separate desktop prototype, demo schema,
+showcase narrative, and Pages deployment were also removed; Mission Control is
+the one supported local human UI. Historical completion contracts do not
+define the current product.
 
 ## Non-goals and compatibility
 

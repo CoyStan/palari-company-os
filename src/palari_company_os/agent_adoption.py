@@ -7,8 +7,8 @@ Adoption installs only local, inspectable guardrails:
 * a native session hook only for hosts whose protocol Palari implements.
 
 It never writes user-global configuration, credentials, provider state, or
-human authority.  Host profiles are deliberately explicit about which
-properties are structural and which remain advisory.
+human authority. Only hosts with a tested native session protocol are exposed
+as supported profiles.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from .workspace import Workspace, WorkspaceError
 AGENTS_START = "<!-- palari:agent-contract:start -->"
 AGENTS_END = "<!-- palari:agent-contract:end -->"
 HOOK_TIMEOUT_SECONDS = 20
-SUPPORTED_HOSTS = ("claude", "codex", "cursor", "devin", "glm", "generic")
+SUPPORTED_HOSTS = ("claude", "codex")
 PROJECT_WRAPPER = """#!/usr/bin/env bash
 set -euo pipefail
 
@@ -47,7 +47,7 @@ def adopt_agent_host(
     workspace_path: Path | str,
     *,
     project_dir: Path | str = ".",
-    host: str = "generic",
+    host: str,
     palari_id: str = "",
 ) -> dict[str, Any]:
     """Install the strongest honest local profile available for ``host``.
@@ -85,18 +85,15 @@ def adopt_agent_host(
         raise WorkspaceError(f"{agents_path} cannot be inspected safely: {exc}") from exc
     agents_after = _merge_agents_contract(agents_before, actor)
 
-    codex_plan: tuple[Path, dict[str, Any], dict[str, Any]] | None = None
-    claude_plan: tuple[Path, dict[str, Any], dict[str, Any]] | None = None
     if selected_host == "codex":
-        codex_plan = _prepare_codex_hooks(root, workspace_path, executable)
-    elif selected_host == "claude":
-        claude_plan = _prepare_claude_hooks(root, workspace_path, executable)
+        host_plan = _prepare_codex_hooks(root, workspace_path, executable)
+    else:
+        host_plan = _prepare_claude_hooks(root, workspace_path, executable)
 
-    host_plan = codex_plan or claude_plan
-    host_target = host_plan[0] if host_plan else None
-    host_existed = bool(host_target and host_target.exists())
+    host_target = host_plan[0]
+    host_existed = host_target.exists()
     host_before_text = ""
-    if host_target and host_existed:
+    if host_existed:
         try:
             host_before_text = host_target.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
@@ -107,12 +104,11 @@ def adopt_agent_host(
         if agents_after != agents_before:
             agents_path.write_text(agents_after, encoding="utf-8")
             changed_files.append(_relative(agents_path, root))
-        if host_plan is not None:
-            target, before, after = host_plan
-            if after != before:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(json.dumps(after, indent=2) + "\n", encoding="utf-8")
-                changed_files.append(_relative(target, root))
+        target, before, after = host_plan
+        if after != before:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(after, indent=2) + "\n", encoding="utf-8")
+            changed_files.append(_relative(target, root))
 
         # Install the cross-host structural gate last. If it refuses a foreign
         # or non-local target, restore the exact instruction/configuration bytes
@@ -128,47 +124,31 @@ def adopt_agent_host(
             )
     except Exception as exc:  # noqa: BLE001 - restore exact pre-adoption state
         _restore_local_file(agents_path, existed=agents_existed, content=agents_before, root=root)
-        if host_target is not None:
-            _restore_local_file(
-                host_target,
-                existed=host_existed,
-                content=host_before_text,
-                root=root,
-            )
+        _restore_local_file(
+            host_target,
+            existed=host_existed,
+            content=host_before_text,
+            root=root,
+        )
         if isinstance(exc, WorkspaceError):
             raise
         raise WorkspaceError(f"agent adoption failed safely and was rolled back: {exc}") from exc
 
-    host_result: dict[str, Any]
+    target, before, after = host_plan
+    changed = after != before
     if selected_host == "claude":
-        assert claude_plan is not None
-        target, before, after = claude_plan
-        changed = after != before
-        host_result = {
-            "status": "installed" if changed else "unchanged",
-            "changed": changed,
-            "settings_file": str(target),
-            "activation": "active",
-            "next_action": "Start a new Claude Code session in this repository.",
-        }
-    elif selected_host == "codex":
-        assert codex_plan is not None
-        target, before, after = codex_plan
-        changed = after != before
-        host_result = {
-            "status": "installed" if changed else "unchanged",
-            "changed": changed,
-            "settings_file": str(target),
-            "activation": "review-project-hooks-in-codex",
-            "next_action": "Open /hooks in Codex and trust the reviewed project hook definition.",
-        }
+        activation = "active"
+        next_action = "Start a new Claude Code session in this repository."
     else:
-        host_result = {
-            "status": "portable",
-            "changed": False,
-            "activation": "no-proven-session-hook",
-            "next_action": "Start the host in this repository; it must follow AGENTS.md.",
-        }
+        activation = "review-project-hooks-in-codex"
+        next_action = "Open /hooks in Codex and trust the reviewed project hook definition."
+    host_result = {
+        "status": "installed" if changed else "unchanged",
+        "changed": changed,
+        "settings_file": str(target),
+        "activation": activation,
+        "next_action": next_action,
+    }
 
     profile = _host_profile(selected_host)
     return {
@@ -210,7 +190,7 @@ def run_agent_hook(
 ) -> dict[str, Any]:
     """Run one internal host hook and return the host-native decision JSON."""
     selected = host.strip().lower()
-    if selected not in {"claude", "codex"}:
+    if selected not in SUPPORTED_HOSTS:
         return {"systemMessage": f"Unsupported Palari agent hook host: {selected}"}
     try:
         raw = (stdin if stdin is not None else sys.stdin).read()
@@ -788,18 +768,14 @@ def _resolve_palari(workspace: Workspace, explicit: str) -> str:
 
 
 def _host_profile(host: str) -> dict[str, Any]:
-    session = "structural" if host in {"claude", "codex"} else "advisory"
-    activation = "active"
-    if host == "codex":
-        activation = "requires-project-hook-trust"
-    elif session == "advisory":
-        activation = "unsupported-by-proven-host-adapter"
     return {
         "profile": f"palari.{host}.v1",
         "portable_contract": "declared",
         "commit_boundary": "structural",
-        "session_boundary": session,
-        "session_activation": activation,
+        "session_boundary": "structural",
+        "session_activation": (
+            "requires-project-hook-trust" if host == "codex" else "active"
+        ),
         "human_authority": "palari-enforced",
         "external_write_authority": "palari-enforced",
     }

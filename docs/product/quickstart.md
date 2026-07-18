@@ -79,23 +79,23 @@ external-effect, or safety boundary; it never manufactures that judgment.
 
 ## One-Action Host Adoption
 
-Fresh repositories can pass `--host claude`, `codex`, `cursor`, `devin`, `glm`,
-or `generic` to `init`. Existing Palari workspaces use the same explicit action:
+Fresh repositories can pass `--host claude` or `--host codex` to `init`.
+Existing Palari workspaces use the same explicit action:
 
 ```bash
 palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 ```
 
-Every profile installs the portable repository contract and structural Git
-commit boundary. Claude and Codex also receive tested session hooks. Codex
-requires one host-native `/hooks` review before its project hooks activate.
-Cursor, Devin, GLM, and generic profiles are honestly reported as advisory at
-session time until a native protocol is separately proven. No profile grants
-review, human acceptance, merge, push, deployment, provider, or external-write
-authority. Nested workspaces install at the enclosing Git root; existing root
-instructions or host configuration are preserved outside the bootstrap anchor
-and require the one returned review/adoption action. Existing `palari claude
-install` remains compatible. See [Claude Code
+Both profiles install the portable repository contract, structural Git commit
+boundary, and tested session hooks. Codex requires one host-native `/hooks`
+review before its project hooks activate. Other harnesses can consume the
+provider-neutral contract and host-neutral Git gate without being advertised
+as supported session profiles. No profile grants review, human acceptance,
+merge, push, deployment, provider, or external-write authority. Nested
+workspaces install at the enclosing Git root; existing root instructions or
+host configuration are preserved outside the bootstrap anchor and require the
+one returned review/adoption action. Existing `palari claude install` remains
+compatible. See [Claude Code
 Integration](claude-code-integration.md).
 
 ## Optional Local Desk

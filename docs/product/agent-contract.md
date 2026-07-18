@@ -37,26 +37,25 @@ needs its own deterministic branch and worktree.
 
 For first adoption in a Git worktree, `palari init` writes only missing
 agent-ready guidance and makes one path-limited local commit of the new
-governance projection plus those generated docs. Add `--host HOST` to install
-the portable contract, claim-bound Git gate, and any proven project-local host
-hooks in the same anchored action. Existing guidance, host configuration, and
-unrelated staged or unstaged paths are preserved rather than absorbed into the
-bootstrap commit. This is an immutable baseline bootstrap, not review,
-acceptance, or authenticated human attribution.
+governance projection plus those generated docs. Add `--host claude` or
+`--host codex` to install the portable contract, claim-bound Git gate, and the
+selected tested project-local host hooks in the same anchored action. Existing
+guidance, host configuration, and unrelated staged or unstaged paths are
+preserved rather than absorbed into the bootstrap commit. This is an immutable
+baseline bootstrap, not review, acceptance, or authenticated human attribution.
 `palari work add` idempotently recovers a missing starter anchor before changing
 the work declaration. If a manually assembled workspace still has no committed
 authority origin, `agent start` fails closed with one exact `git add` plus
 path-limited `git commit --only` recovery action.
 
 An existing Palari workspace uses the same idempotent action: `palari init
-WORKSPACE-DIR --host HOST --as PALARI-ID --json`. Without explicit `--host`,
-`init` still refuses an existing workspace. Claude and Codex have tested native
-session adapters; Codex
-project hooks require explicit `/hooks` trust. Cursor, Devin, GLM, and generic
-profiles install the portable contract and structural commit boundary but
-remain explicitly advisory at session time. Adoption grants no review, human
-decision, acceptance, merge, push, deployment, provider, or external-write
-authority.
+WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude` or
+`codex`. Without explicit `--host`, `init` still refuses an existing workspace.
+Both profiles have tested native session adapters; Codex project hooks require
+explicit `/hooks` trust. Other harnesses may consume the provider-neutral
+contract and host-neutral Git gate without a named session profile. Adoption
+grants no review, human decision, acceptance, merge, push, deployment,
+provider, or external-write authority.
 
 The ordinary loop is deliberately short:
 

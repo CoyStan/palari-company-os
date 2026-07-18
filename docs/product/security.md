@@ -155,12 +155,12 @@ Authority rules:
   complete scan.
 - `palari init --host HOST` creates and adopts a fresh workspace; `palari init
   WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
-  one. Both install or reuse the portable contract and claim-bound Git commit
-  gate without granting authority. Claude and Codex have tested project-local session adapters;
-  Codex hooks activate only after explicit host `/hooks` review. Cursor, Devin,
-  GLM, and generic profiles are labeled advisory at session time. No profile is
-  an OS sandbox, and an unrestricted same-user process can still rewrite local
-  files or Git metadata. Nested workspace adoption resolves and preflights the
+  one; `HOST` is `claude` or `codex`. Both install or reuse the portable
+  contract and claim-bound Git commit gate without granting authority. Claude
+  and Codex have tested project-local session adapters; Codex hooks activate
+  only after explicit host `/hooks` review. No profile is an OS sandbox, and
+  an unrestricted same-user process can still rewrite local files or Git
+  metadata. Nested workspace adoption resolves and preflights the
   enclosing Git root before any write, so existing root instructions or host
   configuration cannot be silently absorbed into the bootstrap commit.
   A symlinked workspace file or escaping managed target fails before the

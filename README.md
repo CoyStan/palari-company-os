@@ -69,9 +69,9 @@ path-limited bootstrap commit containing only the new governance projection and
 newly generated agent docs. With `--host`, the same commit also anchors new
 project-local host configuration and installs the claim-bound Git commit gate.
 That commit is an immutable execution-authority anchor, not human approval;
-unrelated staged and unstaged work is excluded. Choose `claude`, `codex`,
-`cursor`, `devin`, `glm`, or `generic`. Codex asks you to review the exact
-project hook once through `/hooks`; Palari cannot manufacture that host trust.
+unrelated staged and unstaged work is excluded. Choose `claude` or `codex`.
+Codex asks you to review the exact project hook once through `/hooks`; Palari
+cannot manufacture that host trust.
 For a workspace nested inside a repository, adoption targets the enclosing Git
 root. Existing root instructions or host configuration remain untouched and
 uncommitted; `init` returns one separate review/adoption action instead of
@@ -93,10 +93,10 @@ Do not infer a sequential work ID. For a repository that already has a Palari
 workspace, run `palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json`
 once. Existing-workspace initialization is accepted only when `--host` makes
 the idempotent adoption intent explicit; it never rewrites the workspace.
-Claude and Codex receive tested session hooks; Cursor, Devin, GLM, and generic
-hosts receive the portable contract plus structural commit-time enforcement
-and are labeled advisory at session time. The core packet, claim, proof,
-review, and human-decision flow remains provider-neutral.
+Claude and Codex receive tested session hooks. Other harnesses can follow the
+provider-neutral repository contract and use the host-neutral Git gate, but
+Palari does not expose an unproven session profile for them. The core packet,
+claim, proof, review, and human-decision flow remains provider-neutral.
 
 Adoption preflights `workspace.json` and every managed target before writing.
 A workspace-file symlink, parent escape, malformed managed target, or unmanaged
@@ -176,8 +176,7 @@ Implemented now:
 - canonical path/symlink enforcement and metadata-only start baselines that
   distinguish unchanged pre-existing dirt from agent changes
 - one-action host adoption with a provider-neutral contract and claim-bound
-  Git gate; Claude and Codex also receive tested project-local session hooks,
-  while other host profiles remain explicitly advisory at session time
+  Git gate plus tested project-local Claude and Codex session hooks
 - source and receipt trust records
 - exact attempt/receipt/evidence/work-contract review binding, immutable bound
   reviews, and latest-decision quorum revocation

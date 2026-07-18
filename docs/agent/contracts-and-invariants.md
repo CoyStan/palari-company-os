@@ -226,11 +226,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and destructive protected-path or standard Claude-settings ancestors require
   review. Git pathspec magic/globs, dash-prefixed operands after `--`, and
   agent-safe Palari mutations pointed at another workspace also require review.
-- Universal host adoption always installs or reuses the portable repository
-  contract and claim-bound Git commit gate. Only Claude and Codex currently
-  have tested session adapters; Codex requires explicit project-hook trust.
-  Cursor, Devin, GLM, and generic profiles must remain labeled advisory at
-  session time, and no profile may grant review or human authority.
+- Supported host adoption always installs or reuses the portable repository
+  contract and claim-bound Git commit gate. Claude and Codex are the two tested
+  session adapters; Codex requires explicit project-hook trust. No profile may
+  grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git

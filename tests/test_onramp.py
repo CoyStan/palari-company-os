@@ -294,7 +294,7 @@ class InitTests(unittest.TestCase):
             initialize_starter_workspace(
                 self.project,
                 palari_name="Agent",
-                host="generic",
+                host="codex",
             )
 
         self.assertEqual(docs.read_bytes(), b"existing non-directory\n")

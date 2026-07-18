@@ -32,8 +32,13 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertNotIn("desktop-prototype", help_text)
         self.assertNotIn("human-decision      ", help_text)
 
-        init_help = _subparser("init").format_help()
+        init_parser = _subparser("init")
+        init_help = init_parser.format_help()
         self.assertIn("--host", init_help)
+        host_action = next(
+            action for action in init_parser._actions if "--host" in action.option_strings
+        )
+        self.assertEqual(tuple(host_action.choices), ("claude", "codex"))
 
     def test_workspace_schema_copies_remain_identical(self) -> None:
         self.assertEqual(

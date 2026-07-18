@@ -48,11 +48,11 @@ python3 -m unittest tests.test_agent_adoption tests.test_git_hooks \
   tests.test_mcp_server tests.test_agent_session_contract
 ```
 
-Exercise every declared host profile in an isolated Git repository. Preserve
+Exercise both declared host profiles in isolated Git repositories. Preserve
 existing instructions/configuration, reject malformed or foreign managed
-state, and keep hosts without a proven native session protocol explicitly
-advisory. MCP tests must prove deterministic advance stops before review,
-human authority, and external effects.
+state, and reject profile labels without a proven native session protocol.
+MCP tests must prove deterministic advance stops before review, human
+authority, and external effects.
 
 For governance-journal changes run:
 
