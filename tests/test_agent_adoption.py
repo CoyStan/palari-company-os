@@ -36,6 +36,7 @@ class AgentAdoptionTests(unittest.TestCase):
         (self.tmp / "README.md").write_text("test\n", encoding="utf-8")
         (self.tmp / "bin").mkdir()
         (self.tmp / "bin" / "palari").write_text("#!/bin/sh\n", encoding="utf-8")
+        (self.tmp / "bin" / "palari").chmod(0o755)
         self.env = {
             **os.environ,
             "GIT_AUTHOR_NAME": "Test",
@@ -109,6 +110,20 @@ class AgentAdoptionTests(unittest.TestCase):
                 palari_id="PALARI-STEWARD",
             )
 
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+    def test_adoption_refuses_a_non_executable_local_wrapper(self) -> None:
+        (self.tmp / "bin" / "palari").chmod(0o644)
+
+        with self.assertRaisesRegex(WorkspaceError, "not executable"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="generic",
+                palari_id="PALARI-STEWARD",
+            )
+
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
 
     def test_adoption_never_overwrites_an_unmanaged_git_hook(self) -> None:

@@ -14,7 +14,9 @@ properties are structural and which remain advisory.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, TextIO
@@ -62,6 +64,7 @@ def adopt_agent_host(
         raise WorkspaceError(
             "agent adoption requires the Palari workspace to be inside the project"
         )
+    _assert_palari_executable(root)
     actor = _resolve_palari(workspace, palari_id)
 
     agents_path = root / "AGENTS.md"
@@ -467,6 +470,18 @@ def _assert_local_target(root: Path, target: Path) -> None:
             raise WorkspaceError(f"adoption target uses a symlink: {cursor}")
     if target.exists() and not target.is_file():
         raise WorkspaceError(f"adoption target is not a regular file: {target}")
+
+
+def _assert_palari_executable(root: Path) -> None:
+    local = root / "bin" / "palari"
+    if local.exists():
+        if local.is_file() and os.access(local, os.X_OK):
+            return
+        raise WorkspaceError(f"project-local Palari wrapper is not executable: {local}")
+    if shutil.which("palari") is None:
+        raise WorkspaceError(
+            "Palari is not on PATH and this project has no executable bin/palari wrapper"
+        )
 
 
 def _relative(path: Path, root: Path) -> str:
