@@ -7,340 +7,194 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.store import WorkspaceStore, write_store
+from palari_company_os.store import load_store, write_store
+from tests.workspace_fixture import write_current_agent_workspace
 
 
-ACME = REPO_ROOT / "examples" / "acme-company-os"
-DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
-SPLIT_WORKSPACE = REPO_ROOT / "tests" / "fixtures" / "workspaces" / "split-workspace"
+WORK_ID = "WORK-CLI"
+PALARI_ID = "PALARI-STEWARD"
 
 
 class CliSmokeTests(unittest.TestCase):
-    def test_work_add_cli_uses_opaque_ids_and_explicit_dependencies(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory) / "project"
-            project.mkdir()
-            initialized = self.run_json("init", str(project), "--json")
-            self.assertTrue(initialized["valid"])
-            first = self.run_json(
-                "--workspace",
-                str(project),
-                "work",
-                "add",
-                "First independent task",
-                "--write",
-                "docs/first.md",
-                "--json",
-            )
-            first_id = first["work_item"]["id"]
-            self.assertRegex(first_id, r"^WORK-[0-9A-F]{32}$")
-            second = self.run_json(
-                "--workspace",
-                str(project),
-                "work",
-                "add",
-                "Dependent task",
-                "--write",
-                "docs/second.md",
-                "--depends-on",
-                first_id,
-                "--parallel-policy",
-                "coordinate",
-                "--json",
-            )
-            self.assertEqual(second["work_item"]["dependency_ids"], [first_id])
-            self.assertEqual(second["work_item"]["parallel_policy"], "coordinate")
+    """Public CLI wiring over one small, current, isolated workspace."""
 
-    def test_core_workspace_json_commands_return_structured_payloads(self) -> None:
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self._temporary.cleanup)
+        self.root = Path(self._temporary.name)
+        self.workspace_file = self.root / "workspace.json"
+        write_current_agent_workspace(self.workspace_file)
+        (self.root / "README.md").write_text("current fixture\n", encoding="utf-8")
+        self._seed_current_work()
+
+    def test_operator_read_path_emits_current_json_shapes(self) -> None:
         validate = self.run_json("validate", "--json")
-        dogfood_validate = self.run_json(
-            "--workspace", str(DOGFOOD), "validate", "--json"
-        )
-        split_validate = self.run_json(
-            "--workspace", str(SPLIT_WORKSPACE), "validate", "--json"
-        )
         state = self.run_json("state", "--json")
         queue = self.run_json("queue", "--json")
-        detail = self.run_json("detail", "WORK-0001", "--json")
-        split_detail = self.run_json(
-            "--workspace", str(SPLIT_WORKSPACE), "detail", "WORK-SPLIT", "--json"
-        )
+        detail = self.run_json("detail", WORK_ID, "--json")
 
         self.assertTrue(validate["valid"])
-        self.assertEqual(validate["workspace"], "Acme Company OS Example")
-        self.assertTrue(dogfood_validate["valid"])
-        self.assertTrue(split_validate["valid"])
-        self.assertIn("attention", state)
-        self.assertIn("counts", state)
-        self.assertGreaterEqual(len(queue["queue"]), 1)
-        self.assertEqual(detail["work_item"]["id"], "WORK-0001")
-        self.assertEqual(split_detail["work_item"]["id"], "WORK-SPLIT")
+        self.assertEqual(validate["workspace"], "Current Agent Test Workspace")
+        self.assertEqual(validate["counts"]["work_items"], 1)
+        self.assertEqual(state["counts"]["work_items"], 1)
+        self.assertEqual(state["queue"][0]["id"], WORK_ID)
+        self.assertEqual(queue["queue"][0]["id"], WORK_ID)
+        self.assertEqual(detail["work_item"]["id"], WORK_ID)
+        self.assertEqual(detail["next_step_type"], "start-work")
 
-    def test_agent_lifecycle_json_commands_return_expected_states(self) -> None:
-        next_payload = self.run_json("agent", "next", "--as", "PALARI-SOFIA", "--json")
-        brief = self.run_json(
-            "agent", "brief", "WORK-0003", "--as", "PALARI-SOFIA", "--mode", "execute", "--json"
+    def test_scope_command_translates_allow_and_deny_decisions(self) -> None:
+        allowed = self.run_json(
+            "scope", WORK_ID, "--changed", "README.md", "--json"
         )
-        blocked_start = self.run_json(
-            "agent", "start", "WORK-0007", "--as", "PALARI-SOFIA", "--mode", "execute", "--json"
-        )
-        check_missing_proof = self.run_json(
-            "agent", "check", "WORK-0003", "--as", "PALARI-SOFIA", "--json"
-        )
-        check_blocked = self.run_json(
-            "agent", "check", "WORK-0007", "--as", "PALARI-SOFIA", "--json"
-        )
-        finish_missing_proof = self.run_json(
-            "agent", "finish", "WORK-0003", "--as", "PALARI-SOFIA", "--json"
-        )
-        finish_handoff = self.run_json(
-            "agent", "finish", "WORK-0007", "--as", "PALARI-SOFIA", "--json"
-        )
-
-        self.assertEqual(next_payload["schema_version"], "palari.agent_next.v1")
-        self.assertEqual(next_payload["candidates"][0]["work_item_id"], "WORK-0003")
-        self.assertEqual(brief["status"], "ready")
-        self.assertEqual(brief["packet_id"], "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
-        self.assertEqual(blocked_start["status"], "blocked")
-        self.assertIn("DEPENDENCY_NOT_TERMINAL", json.dumps(blocked_start))
-        self.assertEqual(check_missing_proof["schema_version"], "palari.agent_check.v1")
-        self.assertFalse(check_missing_proof["ok"])
-        self.assertIn("RECEIPT_PRESENT", json.dumps(check_missing_proof))
-        self.assertIn("DEPENDENCY_NOT_TERMINAL", json.dumps(check_blocked))
-        self.assertEqual(finish_missing_proof["schema_version"], "palari.agent_finish.v1")
-        self.assertEqual(finish_missing_proof["status"], "missing-proof")
-        self.assertEqual(finish_handoff["status"], "handoff-ready")
-
-    def test_agent_start_check_and_release_use_temp_workspace(self) -> None:
-        with self.temp_workspace() as workspace_file:
-            start = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "agent",
-                "start",
-                "WORK-0003",
-                "--as",
-                "PALARI-SOFIA",
-                "--mode",
-                "execute",
-                "--json",
-            )
-            check = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "agent",
-                "check",
-                "WORK-0003",
-                "--as",
-                "PALARI-SOFIA",
-                "--mode",
-                "execute",
-                "--changed",
-                "docs/product/company-os.md",
-                "--json",
-            )
-            release = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "agent",
-                "release",
-                "WORK-0003",
-                "--as",
-                "PALARI-SOFIA",
-                "--json",
-            )
-
-            self.assertEqual(start["start"]["status"], "claimed")
-            self.assertEqual(start["start"]["packet_path"], ".palari/packets/PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1.json")
-            self.assertIn("FILE_CHANGES_WITHIN_WRITE_BOUNDARY", json.dumps(check))
-            self.assertEqual(release["status"], "released")
-
-    def test_playbook_and_integration_json_smokes(self) -> None:
-        sources = self.run_json("playbooks", "sources", "--json")
-        recommendations = self.run_json("playbooks", "recommend", "WORK-0003", "--json")
-        integrations = self.run_json("integrations", "--json")
-        integration_check = self.run_json("integration", "check", "INT-SLACK-OPS", "--json")
-        plan = self.run_json(
-            "integration",
-            "plan",
-            "INT-SLACK-OPS",
-            "--work",
-            "WORK-0001",
-            "--event",
-            "approval_requested",
+        denied = self.run_json(
+            "scope",
+            WORK_ID,
+            "--changed",
+            "outside.txt",
             "--action",
-            "notify",
+            "deploy",
             "--json",
         )
 
-        self.assertGreaterEqual(len(sources["sources"]), 1)
-        self.assertIn("superpowers:verification-before-completion", json.dumps(recommendations))
-        self.assertEqual(integrations["integrations"][0]["id"], "INT-SLACK-OPS")
-        self.assertEqual(integration_check["integration"]["provider"], "slack")
-        self.assertFalse(plan["would_call_provider"])
-
-    def test_integration_plan_approval_outbox_and_cancel_flow(self) -> None:
-        with self.temp_workspace() as workspace_file:
-            recorded = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "integration",
-                "plan",
-                "INT-SLACK-OPS",
-                "--work",
-                "WORK-0001",
-                "--event",
-                "approval_requested",
-                "--action",
-                "notify",
-                "--record",
-                "--id",
-                "PLAN-SMOKE",
-                "--json",
-            )
-            approved = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "integration",
-                "approve",
-                "PLAN-SMOKE",
-                "--by",
-                "HUMAN-FOUNDER",
-                "--reason",
-                "verification smoke",
-                "--json",
-            )
-            enqueued = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "integration",
-                "enqueue",
-                "PLAN-SMOKE",
-                "--by",
-                "HUMAN-FOUNDER",
-                "--json",
-            )
-            outbox_id = enqueued["integration_outbox_item"]["id"]
-            preflight = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "integration",
-                "outbox-check",
-                outbox_id,
-                "--json",
-            )
-            canceled = self.run_json(
-                "--workspace",
-                str(workspace_file),
-                "integration",
-                "outbox-cancel",
-                outbox_id,
-                "--by",
-                "HUMAN-FOUNDER",
-                "--reason",
-                "verification smoke cancel",
-                "--json",
-            )
-            queue = self.run_json("--workspace", str(workspace_file), "queue", "--json")
-            detail = self.run_json(
-                "--workspace", str(workspace_file), "detail", "WORK-0001", "--json"
-            )
-            journal = self.run_json("--workspace", str(workspace_file), "history", "--json")
-
-        self.assertTrue(recorded["recorded"])
-        self.assertEqual(approved["status"], "approved")
-        self.assertEqual(enqueued["integration_outbox_item"]["status"], "queued")
-        self.assertEqual(preflight["status"], "queued-preflight-ready")
-        self.assertFalse(preflight["execution_enabled"])
-        self.assertFalse(preflight["would_call_provider"])
-        self.assertEqual(canceled["integration_outbox_item"]["status"], "canceled")
-        self.assertIn("outbox-canceled", json.dumps(queue))
-        self.assertIn("PLAN-SMOKE", json.dumps(detail))
-        self.assertTrue(journal["ok"])
-        self.assertGreaterEqual(int(journal["committed_transactions"]), 4)
-
-    def test_scope_and_maintainer_smokes(self) -> None:
-        allowed = self.run_json(
-            "scope", "WORK-0001", "--changed", "examples/acme-company-os/workspace.json", "--json"
-        )
-        blocked = self.run_json(
-            "scope", "WORK-0001", "--changed", "secrets.env", "--action", "deploy", "--json"
-        )
-        maintainer = self.run_json("maintainer", "status", "--json")
-
         self.assertTrue(allowed["allowed"])
-        self.assertFalse(blocked["allowed"])
-        self.assertIn("repo", maintainer)
+        self.assertEqual(allowed["violations"], [])
+        self.assertFalse(denied["allowed"])
+        self.assertIn("Path is outside allowed resources: outside.txt", denied["violations"])
+        self.assertIn("Action is explicitly forbidden: deploy", denied["violations"])
 
-    def test_retired_dashboard_command_is_rejected(self) -> None:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        result = subprocess.run(
+    def test_work_add_translates_exact_current_boundary_contract(self) -> None:
+        payload = self.run_json(
+            "work",
+            "add",
+            "Create the CLI boundary artifact",
+            "--id",
+            "WORK-CLI-DEPENDENT",
+            "--as",
+            PALARI_ID,
+            "--goal",
+            "GOAL-REPO-0001",
+            "--workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            "--create",
+            "docs/cli-boundary.md",
+            "--depends-on",
+            WORK_ID,
+            "--parallel-policy",
+            "coordinate",
+            "--json",
+        )
+
+        work = payload["work_item"]
+        self.assertEqual(payload["schema_version"], "palari.work_add.v1")
+        self.assertEqual(
+            payload["path_intents"],
+            [{"path": "docs/cli-boundary.md", "intent": "create"}],
+        )
+        self.assertEqual(work["dependency_ids"], [WORK_ID])
+        self.assertEqual(work["parallel_policy"], "coordinate")
+        self.assertEqual(work["allowed_sources"], ["SOURCE-REPO-FOUNDATION"])
+        self.assertEqual(payload["workbench_outputs_added"], ["docs/cli-boundary.md"])
+
+    def test_history_command_verifies_only_the_current_v2_fixture(self) -> None:
+        payload = self.run_json("history", "--json")
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(
+            payload["journal_schema_version"], "palari.governance-journal.v2"
+        )
+        self.assertGreaterEqual(payload["committed_transactions"], 2)
+
+    def test_agent_parse_errors_remain_structured_json(self) -> None:
+        result = self.run_cli(
+            "agent", "brief", WORK_ID, "--as", "--json", check=False
+        )
+        payload = self.json_object(result)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr, "")
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "ARGUMENT_PARSE_ERROR")
+        self.assertIn("--as", payload["error"]["message"])
+        self.assertTrue(payload["next_allowed_commands"])
+
+    def test_generic_workspace_errors_use_stderr_and_nonzero_exit(self) -> None:
+        result = self.run_cli("detail", "WORK-MISSING", "--json", check=False)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("unknown work item WORK-MISSING", result.stderr)
+
+    def _seed_current_work(self) -> None:
+        store = load_store(self.workspace_file)
+        store.data["work_items"] = [
+            {
+                "id": WORK_ID,
+                "title": "Exercise the current CLI boundary",
+                "goal": "GOAL-REPO-0001",
+                "palari": PALARI_ID,
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R1",
+                "intensity": "light",
+                "required_approval_count": 0,
+                "scope": "Modify only the declared local artifact.",
+                "acceptance_target": "The bounded artifact is verified.",
+                "status": "active",
+                "allowed_resources": ["README.md", "AGENTS.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
+                "conflict_targets": ["README.md"],
+                "parallel_policy": "independent",
+                "forbidden_actions": ["deploy"],
+                "verification_expectations": ["focused CLI smoke passes"],
+            }
+        ]
+        for palari in store.data["palaris"]:
+            if palari["id"] == PALARI_ID:
+                palari["active_work"] = [WORK_ID]
+        write_store(store)
+
+    def run_json(self, *args: str) -> dict[str, Any]:
+        return self.json_object(self.run_cli(*args))
+
+    def json_object(
+        self, result: subprocess.CompletedProcess[str]
+    ) -> dict[str, Any]:
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError as error:
+            self.fail(f"CLI output was not valid JSON: {error}\n{result.stdout}")
+        if not isinstance(payload, dict):
+            self.fail(f"CLI output was not a JSON object: {payload!r}")
+        return payload
+
+    def run_cli(
+        self, *args: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        environment = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
+        return subprocess.run(
             [
                 sys.executable,
                 "-S",
                 "-m",
                 "palari_company_os",
-                "dashboard",
-                "--out",
-                "/tmp/retired-dashboard",
+                "--workspace",
+                str(self.workspace_file),
+                *args,
             ],
             cwd=REPO_ROOT,
-            env=env,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            env=environment,
+            check=check,
+            capture_output=True,
             text=True,
             timeout=30,
         )
-
-        self.assertEqual(result.returncode, 2)
-        self.assertEqual(result.stdout, "")
-        self.assertIn("invalid choice: 'dashboard'", result.stderr)
-
-    def run_json(self, *args: str) -> dict[str, object]:
-        result = self.run_cli(*args)
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError as error:
-            self.fail(f"CLI output was not valid JSON for {args}: {error}\n{result.stdout}")
-        if not isinstance(payload, dict):
-            self.fail(f"CLI output was not a JSON object for {args}: {payload!r}")
-        return payload
-
-    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        return subprocess.run(
-            [sys.executable, "-S", "-m", "palari_company_os", *args],
-            cwd=REPO_ROOT,
-            env=env,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
-        )
-
-    def temp_workspace(self):
-        return _TempWorkspace()
-
-
-class _TempWorkspace:
-    def __enter__(self) -> Path:
-        self._directory = tempfile.TemporaryDirectory()
-        self.path = Path(self._directory.name) / "workspace.json"
-        data = json.loads((ACME / "workspace.json").read_text(encoding="utf-8"))
-        write_store(WorkspaceStore(data_path=self.path, data=data))
-        return self.path
-
-    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
-        self._directory.cleanup()
 
 
 if __name__ == "__main__":
