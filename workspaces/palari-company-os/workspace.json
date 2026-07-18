@@ -15475,6 +15475,23 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-18T19:08:49.165708Z"
+    },
+    {
+      "id": "REVIEW-FOUNDATION-FINAL-ARCHITECT-50507BA-ACCEPT",
+      "work_item_id": "WORK-E6AE25B296B340F89F24380B209DC64B",
+      "reviewed_head": "50507ba11f94913adc1d2fef098265f73c266210",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-18T19:33:17.839131Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-50507BA11F94",
+      "attempt_hash": "sha256:5cc395e93fe78c6c311a52e117870c66885175cf6768ebb5f2bc2d3a491cd727",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-50507BA11F94",
+      "evidence_manifest_hash": "sha256:8c35e8e678464e2886b53160a4b43d630724b5c7d086fd496aaaf89ad9ba5876",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-E6AE25B296B340F89F24380B209DC64B-50507BA11F94",
+      "receipt_hash": "sha256:510b7e39b1fe98e0a5b981827e16efa92106697ed1f82702c535ea95575603c5",
+      "work_contract_hash": "sha256:52b8965e642062d46c8336c1ec632a933c5726ee2597ae16006396a6fa4f59b4",
+      "proof_hash": "sha256:0e951d23617e9b480e4f0c2deafbd6c27581ed846c11d710b97a2e53615dd0f7"
     }
   ],
   "human_decisions": [
