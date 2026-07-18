@@ -29,7 +29,6 @@ boundaries. Everything else should serve that kernel.
 | Slack/GitHub/Jira/email providers | future | Dry-run planning only; no live provider execution. |
 | Mission Control and local serve | visual | Local supervision surface, not core kernel. |
 | ACME workspace | example | Current local example and packaged starter data. |
-| Archived plans and research | archive | Historical context, not active operator guidance. |
 
 ## Command Surface
 
@@ -60,9 +59,6 @@ linked proposal, attempt, proof, review, decision, acceptance, outcome, and
 external-action records are storage-level immutable; follow-up belongs in
 explicit successor work. The retirement transaction itself may change only the
 terminal fields and cannot bundle new proof or authority.
-
-The bounded implementation evidence is tracked in the
-[Invisible Product Surface v1 Completion Contract](invisible-product-surface-contract.md).
 
 ## Provider Boundary
 

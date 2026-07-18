@@ -403,7 +403,6 @@ examples/acme-company-os/          Small example workspace
 workspaces/palari-company-os/      Repo dogfood workspace
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and invariants
-docs/archive/                      Historical plans and speculative research
 scripts/verify.sh                  Full local verification
 scripts/install_smoke.sh           Isolated package install smoke
 tests/                             Unit and fixture tests

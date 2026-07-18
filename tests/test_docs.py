@@ -54,20 +54,6 @@ class DocumentationTests(unittest.TestCase):
                 self.assertGreater(path.stat().st_size, 1000)
         self.assertTrue((REPO_ROOT / "scripts" / "make_demo_assets.sh").exists())
 
-    def test_demo_recording_script_is_literal_enough_for_human(self) -> None:
-        script = (
-            REPO_ROOT / "docs" / "archive" / "plans" / "demo-recording-script.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("./bin/palari demo", script)
-        self.assertIn("*** BLOCKED: file change is outside Sofia's write boundary ***", script)
-        self.assertIn("deploy/production.yml", script)
-        self.assertIn("docs/product/company-os.md", script)
-        self.assertIn("The file boundary passes; proof is still needed", script)
-        self.assertIn("0:00-0:08", script)
-        self.assertIn("1:17-1:30", script)
-        self.assertIn("Human Finish Step", script)
-
     def test_glossary_covers_core_object_headings(self) -> None:
         core = (REPO_ROOT / "docs/product/core-objects.md").read_text(encoding="utf-8")
         glossary = (REPO_ROOT / "docs/product/glossary.md").read_text(encoding="utf-8")
@@ -125,25 +111,36 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(forbidden_growth, contract)
 
-    def test_heavy_plans_and_research_are_archived(self) -> None:
-        archived = [
-            REPO_ROOT / "docs/archive/plans/demo-recording-script.md",
-            REPO_ROOT / "docs/archive/plans/launch-quality-plan.md",
-            REPO_ROOT
-            / "docs/archive/research/gpt-5-5-pro-agent-packet-critique-2026-06-21.md",
-            REPO_ROOT / "docs/archive/research/ai-ops-memory-roadmap-review.md",
-        ]
-        for path in archived:
-            with self.subTest(path=path):
-                self.assertTrue(path.exists())
+    def test_historical_implementation_docs_are_not_current_product_docs(self) -> None:
+        archive = REPO_ROOT / "docs/archive"
+        self.assertEqual(
+            [path for path in archive.rglob("*") if path.is_file()],
+            [],
+        )
         self.assertFalse((REPO_ROOT / "docs/plans").exists())
         self.assertFalse((REPO_ROOT / "docs/research").exists())
         self.assertFalse((REPO_ROOT / "docs/product/ai-ops-memory-roadmap-review.md").exists())
 
+        product_docs = REPO_ROOT / "docs/product"
+        historical_patterns = (
+            "approval-packs-*",
+            "compact-journal-*",
+            "deterministic-agent-*",
+            "golden-path-*",
+            "governance-hardening-*",
+            "invisible-*",
+            "opaque-*",
+            "portable-*",
+            "presentation-*",
+            "proof-carrying-governance-*",
+            "universal-agent-*",
+        )
+        for pattern in historical_patterns:
+            with self.subTest(pattern=pattern):
+                self.assertEqual(list(product_docs.glob(pattern)), [])
+
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-        start_here = readme.split("Start here:", 1)[1].split("Then go deeper:", 1)[0]
-        self.assertNotIn("docs/archive/", start_here)
-        self.assertIn("docs/archive/", readme)
+        self.assertNotIn("docs/archive/", readme)
         self.assertIn("## Golden Paths", readme)
 
     def test_linear_operating_loop_is_linked_and_stays_minimal(self) -> None:

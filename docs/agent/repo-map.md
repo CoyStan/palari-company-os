@@ -108,7 +108,9 @@ When adding a command, update parser, dispatch, output, tests, and
 - `docs/product/current-product-recovery-inventory.md`: measured recovery
   baseline, capability classifications, and test/CI inventory.
 - `docs/agent/`: agent-ready repo documentation.
-- `docs/product/`: product and operator documentation.
+- `docs/product/`: current product and operator documentation. Completed
+  implementation contracts remain available through Git history rather than as
+  supported runtime documentation.
 
 ## Examples And Workspaces
 

@@ -63,7 +63,6 @@ STALE_ORCHESTRATOR_TERMS = [
 
 ALLOW_STALE_TERM_PATHS = {
     "docs/product/agent-ready-repo-documentation.md",
-    "docs/archive/research/gpt-5-5-pro-agent-packet-critique-2026-06-21.md",
 }
 
 
