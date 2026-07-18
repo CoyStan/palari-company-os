@@ -184,6 +184,60 @@ class InitTests(unittest.TestCase):
         self.assertEqual(committed, anchored)
         self.assertEqual(self.git_output("status", "--short"), "")
 
+    def test_nested_init_does_not_absorb_existing_repo_root_host_config(self) -> None:
+        self._prepare_adoptable_git_project()
+        hooks_file = self.project / ".codex" / "hooks.json"
+        hooks_file.parent.mkdir()
+        foreign = '{"foreign_uncommitted": "do not anchor me"}\n'
+        hooks_file.write_text(foreign, encoding="utf-8")
+
+        result = initialize_starter_workspace(
+            self.project / "companies" / "acme",
+            palari_name="Agent",
+            host="codex",
+        )
+
+        self.assertEqual(result["adoption"]["status"], "blocked")
+        self.assertIn("existing .codex/hooks.json", result["adoption"]["message"])
+        self.assertEqual(hooks_file.read_text(encoding="utf-8"), foreign)
+        self.assertNotIn(".codex/hooks.json", result["authority_anchor"]["paths"])
+        show = subprocess.run(
+            ["git", "-C", str(self.project), "show", "HEAD:.codex/hooks.json"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertNotEqual(show.returncode, 0)
+        self.assertIn("?? .codex/", self.git_output("status", "--short"))
+        self.assertEqual(len(result["next_commands"]), 1)
+
+    def test_nested_init_does_not_absorb_existing_repo_root_guidance(self) -> None:
+        self._prepare_adoptable_git_project()
+        agents = self.project / "AGENTS.md"
+        foreign = "# Unreviewed root instructions\n"
+        agents.write_text(foreign, encoding="utf-8")
+
+        result = initialize_starter_workspace(
+            self.project / "companies" / "acme",
+            palari_name="Agent",
+            host="codex",
+        )
+
+        self.assertEqual(result["adoption"]["status"], "blocked")
+        self.assertIn("existing AGENTS.md is preserved", result["adoption"]["message"])
+        self.assertEqual(agents.read_text(encoding="utf-8"), foreign)
+        self.assertNotIn("AGENTS.md", result["authority_anchor"]["paths"])
+        show = subprocess.run(
+            ["git", "-C", str(self.project), "show", "HEAD:AGENTS.md"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertNotEqual(show.returncode, 0)
+        self.assertIn("?? AGENTS.md", self.git_output("status", "--short"))
+
     def test_init_preserves_existing_host_files_and_returns_one_recovery_action(self) -> None:
         self._prepare_adoptable_git_project()
         agents = self.project / "AGENTS.md"

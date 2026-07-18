@@ -104,6 +104,7 @@ def initialize_starter_workspace(
 ) -> dict[str, Any]:
     """Create a starter workspace ready for ``work add`` and ``agent start``."""
     directory = Path(target).expanduser().resolve()
+    adoption_root = _adoption_project_root(directory)
     workspace_file = directory / "workspace.json"
     if workspace_file.exists():
         raise WorkspaceError(
@@ -120,7 +121,7 @@ def initialize_starter_workspace(
                 "host must be one of: " + ", ".join(SUPPORTED_HOSTS)
             )
     bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
-        directory, selected_host
+        directory, adoption_root, selected_host
     )
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
@@ -229,7 +230,7 @@ def initialize_starter_workspace(
             try:
                 adoption = adopt_agent_host(
                     workspace_file,
-                    project_dir=directory,
+                    project_dir=adoption_root,
                     host=selected_host,
                     palari_id=palari_id,
                 )
@@ -510,9 +511,25 @@ def _write_missing_agent_docs(directory: Path) -> dict[str, Any]:
     }
 
 
-def _bootstrap_adoption_blocker(directory: Path, host: str) -> str:
+def _bootstrap_adoption_blocker(
+    directory: Path,
+    adoption_root: Path,
+    host: str,
+) -> str:
     if not host:
         return ""
+    roots: list[Path] = []
+    for candidate in (adoption_root, directory):
+        if candidate not in roots:
+            roots.append(candidate)
+    for root in roots:
+        blocker = _bootstrap_adoption_blocker_at(root, host)
+        if blocker:
+            return blocker
+    return ""
+
+
+def _bootstrap_adoption_blocker_at(directory: Path, host: str) -> str:
     agents = directory / "AGENTS.md"
     if agents.exists() or agents.is_symlink():
         try:
@@ -537,6 +554,24 @@ def _bootstrap_adoption_blocker(directory: Path, host: str) -> str:
             "returned host-adoption action separately to merge reviewed hooks"
         )
     return ""
+
+
+def _nearest_existing_directory(target: Path) -> Path:
+    candidate = target
+    while not candidate.is_dir() and candidate != candidate.parent:
+        candidate = candidate.parent
+    return candidate
+
+
+def _adoption_project_root(directory: Path) -> Path:
+    repo_root = _git_root(_nearest_existing_directory(directory))
+    if repo_root is None:
+        return directory
+    try:
+        directory.relative_to(repo_root)
+    except ValueError:
+        return directory
+    return repo_root
 
 
 def _validate_agent_doc_paths(directory: Path) -> None:

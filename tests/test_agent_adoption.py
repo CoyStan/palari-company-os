@@ -340,6 +340,48 @@ class AgentAdoptionTests(unittest.TestCase):
                                             "--hook-event pre-tool-use"
                                         ),
                                     },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "$(foreign-check)/palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "`foreign-check`/palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "$PALARI_ROOT/palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "~/palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "*/palari agent adopt --host codex "
+                                            "--hook-event pre-tool-use"
+                                        ),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            "'/tmp/static repo (safe)/palari' agent adopt "
+                                            "--host codex --hook-event pre-tool-use"
+                                        ),
+                                    },
                                 ],
                             }
                         ]
@@ -368,10 +410,66 @@ class AgentAdoptionTests(unittest.TestCase):
             "foreign-check palari agent adopt --host codex --hook-event pre-tool-use",
             commands,
         )
+        self.assertIn(
+            "$(foreign-check)/palari agent adopt --host codex --hook-event pre-tool-use",
+            commands,
+        )
+        self.assertIn(
+            "`foreign-check`/palari agent adopt --host codex --hook-event pre-tool-use",
+            commands,
+        )
+        self.assertIn(
+            "$PALARI_ROOT/palari agent adopt --host codex --hook-event pre-tool-use",
+            commands,
+        )
+        self.assertIn(
+            "~/palari agent adopt --host codex --hook-event pre-tool-use",
+            commands,
+        )
+        self.assertIn(
+            "*/palari agent adopt --host codex --hook-event pre-tool-use",
+            commands,
+        )
+        self.assertNotIn(
+            "'/tmp/static repo (safe)/palari' agent adopt --host codex "
+            "--hook-event pre-tool-use",
+            commands,
+        )
         self.assertEqual(
             sum(" init " in item and "--host codex --hook-event" in item for item in commands),
             1,
         )
+
+    def test_codex_adoption_is_idempotent_in_shell_metacharacter_repo_path(self) -> None:
+        moved = self.tmp.with_name(self.tmp.name + " [static]")
+        self.tmp.rename(moved)
+        self.tmp = moved
+        self.workspace = self.tmp / "workspaces" / "test"
+
+        adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="codex",
+            palari_id="PALARI-STEWARD",
+        )
+        second = adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="codex",
+            palari_id="PALARI-STEWARD",
+        )
+
+        hooks = json.loads(
+            (self.tmp / ".codex" / "hooks.json").read_text(encoding="utf-8")
+        )
+        commands = [
+            hook["command"]
+            for entries in hooks["hooks"].values()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        self.assertFalse(second["host_adapter"]["changed"])
+        self.assertEqual(sum("--hook-event pre-tool-use" in item for item in commands), 1)
 
     def test_generated_commands_quote_adversarial_workspace_path_as_data(self) -> None:
         malicious = self.tmp / "ws$(touch PWNED)"

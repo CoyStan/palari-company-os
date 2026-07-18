@@ -570,7 +570,11 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         return False
     if not tokens or any(_is_shell_control(token) for token in tokens):
         return False
-    if Path(tokens[0]).name != "palari":
+    executable = tokens[0]
+    if (
+        not _has_canonical_executable_word(command, executable)
+        or Path(executable).name != "palari"
+    ):
         return False
     arguments = tokens[1:]
     if arguments[:1] == ["--workspace"] and len(arguments) >= 2:
@@ -608,6 +612,14 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         and arguments[2] == "pre-tool-use"
         and arguments[3] == "--strict"
     )
+
+
+def _has_canonical_executable_word(command: str, executable: str) -> bool:
+    """Accept only the static shell word emitted by :func:`shlex.join`."""
+
+    expected = shlex.quote(executable)
+    stripped = command.lstrip()
+    return stripped == expected or stripped.startswith(expected + " ")
 
 
 def _hook_payload_security_error(payload: dict[str, Any]) -> str:
