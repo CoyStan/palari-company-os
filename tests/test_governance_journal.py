@@ -33,6 +33,8 @@ from palari_company_os.governance_journal import (
     v2_journal_file_path,
     workspace_digest,
     _prepare_v2_record,
+    _scan_records,
+    _transaction_id,
     _validate_value_delta,
 )
 from palari_company_os.store import workspace_write_lock
@@ -123,22 +125,77 @@ class GovernanceJournalTests(unittest.TestCase):
 
     def test_v2_verification_streams_without_v1_record_materialization(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            data_path = Path(directory) / "workspace.json"
+            root = Path(directory)
+            data_path = root / "workspace.json"
             data = workspace("Streaming")
-            run_change(
+            run_v1_change(
                 data_path,
                 before=None,
                 after=data,
                 event_kind="checkpoint",
                 coverage="complete",
             )
+            self.assertTrue(checkpoint_workspace_journal(root, "PALARI-STEWARD")["ok"])
             with patch(
-                "palari_company_os.governance_journal._read_records",
-                side_effect=AssertionError("v2 verifier materialized records"),
-            ):
+                "palari_company_os.governance_journal._scan_records",
+                wraps=_scan_records,
+            ) as scan_records:
                 report = verify_journal(data_path, data)
 
         self.assertTrue(report["ok"])
+        self.assertTrue(
+            any(
+                not isinstance(call.args[0], list)
+                and call.kwargs.get("retain_records") is False
+                for call in scan_records.call_args_list
+            )
+        )
+
+    def test_v2_rejects_rehashed_false_v1_predecessor_summary_fields(self) -> None:
+        replacements = {
+            "head_record_digest": "sha256:" + "0" * 64,
+            "record_count": 12,
+            "replay_workspace_digest": "sha256:" + "0" * 64,
+            "committed_transactions": 7,
+            "aborted_transactions": 3,
+            "initial_coverage": "from-checkpoint",
+            "historical_continuity": False,
+            "break_sequences": [0],
+        }
+        for field, replacement in replacements.items():
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                data_path = root / "workspace.json"
+                data = workspace("Sealed summary")
+                run_v1_change(
+                    data_path,
+                    before=None,
+                    after=data,
+                    event_kind="checkpoint",
+                    coverage="complete",
+                )
+                self.assertTrue(checkpoint_workspace_journal(root, "PALARI-STEWARD")["ok"])
+                records = read_records(data_path)
+                records[0]["predecessor"][field] = replacement
+                records[0]["transaction_id"] = _transaction_id(records[0])
+                records[0]["record_digest"] = record_digest(records[0])
+                records[1]["transaction_id"] = records[0]["transaction_id"]
+                records[1]["previous_record_digest"] = records[0]["record_digest"]
+                records[1]["prepared_record_digest"] = records[0]["record_digest"]
+                records[1]["record_digest"] = record_digest(records[1])
+                write_records(data_path, records)
+
+                report = verify_journal(data_path, data)
+
+            self.assertFalse(report["ok"])
+            self.assertEqual(
+                report["diagnostics"][0]["code"],
+                "JOURNAL_PREDECESSOR_STATE_MISMATCH",
+            )
+            self.assertEqual(
+                report["diagnostics"][0]["path"],
+                f"$[0].predecessor.{field}",
+            )
 
     def test_compact_mutation_does_not_repeat_large_unchanged_projection(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

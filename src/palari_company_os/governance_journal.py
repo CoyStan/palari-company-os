@@ -542,26 +542,47 @@ def _scan_active_path(data_path: Path | str, path: Path) -> _JournalState:
     schema = _journal_schema(path)
     if schema == V2_SCHEMA_VERSION:
         return _scan_v2_records(data_path, path=path)
-    return _scan_records(list(_iter_records(path)))
+    return _scan_records(_iter_records(path), retain_records=False)
 
 
 def _v1_predecessor_binding(
     data_path: Path | str,
     state: _JournalState,
 ) -> dict[str, Any]:
-    if state.journal_schema_version != SCHEMA_VERSION or state.pending is not None:
-        raise JournalError(
-            "JOURNAL_PREDECESSOR_INVALID",
-            "only a fully committed v1 journal can be sealed as a v2 predecessor",
-        )
-    if state.head_digest is None or state.replay_digest is None:
-        raise JournalError("JOURNAL_PREDECESSOR_INVALID", "v1 predecessor has no committed head")
-    content_digest, byte_length = _file_content_digest(legacy_journal_file_path(data_path))
+    verified_state, content_digest, byte_length = _verified_v1_predecessor(
+        legacy_journal_file_path(data_path)
+    )
+    for field in _PREDECESSOR_STATE_FIELDS:
+        if _predecessor_state_value(state, field) != _predecessor_state_value(
+            verified_state, field
+        ):
+            raise JournalError(
+                "JOURNAL_CHANGED_DURING_VERIFICATION",
+                "v1 predecessor changed before its v2 binding was created",
+                path=f"$.predecessor.{field}",
+                next_action="Retry activation against one stable exact journal state.",
+            )
+    return _predecessor_binding_from_state(
+        verified_state,
+        content_digest=content_digest,
+        byte_length=byte_length,
+    )
+
+
+_PREDECESSOR_STATE_FIELDS = (
+    "head_record_digest",
+    "record_count",
+    "replay_workspace_digest",
+    "committed_transactions",
+    "aborted_transactions",
+    "initial_coverage",
+    "historical_continuity",
+    "break_sequences",
+)
+
+
+def _predecessor_state_value(state: _JournalState, field: str) -> Any:
     return {
-        "schema_version": SCHEMA_VERSION,
-        "journal_file": JOURNAL_RELATIVE_PATH,
-        "content_digest": content_digest,
-        "byte_length": byte_length,
         "head_record_digest": state.head_digest,
         "record_count": state.record_count,
         "replay_workspace_digest": state.replay_digest,
@@ -570,6 +591,31 @@ def _v1_predecessor_binding(
         "initial_coverage": state.coverage,
         "historical_continuity": not state.continuity_breaks,
         "break_sequences": list(state.continuity_breaks),
+    }[field]
+
+
+def _predecessor_binding_from_state(
+    state: _JournalState,
+    *,
+    content_digest: str,
+    byte_length: int,
+) -> dict[str, Any]:
+    if state.journal_schema_version != SCHEMA_VERSION or state.pending is not None:
+        raise JournalError(
+            "JOURNAL_PREDECESSOR_INVALID",
+            "only a fully committed v1 journal can be sealed as a v2 predecessor",
+        )
+    if state.head_digest is None or state.replay_digest is None:
+        raise JournalError("JOURNAL_PREDECESSOR_INVALID", "v1 predecessor has no committed head")
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "journal_file": JOURNAL_RELATIVE_PATH,
+        "content_digest": content_digest,
+        "byte_length": byte_length,
+        **{
+            field: _predecessor_state_value(state, field)
+            for field in _PREDECESSOR_STATE_FIELDS
+        },
     }
 
 
@@ -1044,17 +1090,20 @@ def transact(
     return verify_journal(data_path, after_data)
 
 
-def _scan_records(records: list[dict[str, Any]]) -> _JournalState:
-    if not records:
-        raise JournalError(
-            "JOURNAL_MISSING_CHECKPOINT",
-            "governance journal is empty and has no checkpoint",
-            next_action="Create an explicit checkpoint.",
-        )
+def _scan_records(
+    records: Iterable[dict[str, Any]],
+    *,
+    retain_records: bool = True,
+) -> _JournalState:
     state = _empty_state()
+    retained: list[dict[str, Any]] = []
     transaction_ids: set[str] = set()
     terminal_ids: set[str] = set()
+    found = False
     for index, record in enumerate(records):
+        found = True
+        if retain_records:
+            retained.append(record)
         _validate_record_shape(record, index)
         if record["sequence"] != index:
             raise JournalError(
@@ -1123,8 +1172,14 @@ def _scan_records(records: list[dict[str, Any]]) -> _JournalState:
             state.aborted += 1
             terminal_ids.add(record["transaction_id"])
         state.head_digest = record["record_digest"]
-    state.records = records
-    state.record_count = len(records)
+        state.record_count = index + 1
+    if not found:
+        raise JournalError(
+            "JOURNAL_MISSING_CHECKPOINT",
+            "governance journal is empty and has no checkpoint",
+            next_action="Create an explicit checkpoint.",
+        )
+    state.records = retained
     return state
 
 
@@ -2131,6 +2186,7 @@ def _verify_predecessor_binding(data_path: Path | str, value: dict[str, Any], pa
             "sealed v1 predecessor journal is missing",
             path=path,
         )
+    before = _file_witness(legacy_path)
     content_digest, byte_length = _file_content_digest(legacy_path)
     if content_digest != value["content_digest"] or byte_length != value["byte_length"]:
         raise JournalError(
@@ -2139,6 +2195,42 @@ def _verify_predecessor_binding(data_path: Path | str, value: dict[str, Any], pa
             path=path,
             next_action="Restore the exact sealed v1 bytes; do not rebase the v2 checkpoint.",
         )
+    state = _scan_records(_iter_records(legacy_path), retain_records=False)
+    if _file_witness(legacy_path) != before:
+        raise JournalError(
+            "JOURNAL_CHANGED_DURING_VERIFICATION",
+            "sealed predecessor changed while its state was being verified",
+            next_action="Retry against one stable exact journal state.",
+        )
+    expected = _predecessor_binding_from_state(
+        state,
+        content_digest=content_digest,
+        byte_length=byte_length,
+    )
+    for field in _PREDECESSOR_STATE_FIELDS:
+        if value[field] != expected[field]:
+            raise JournalError(
+                "JOURNAL_PREDECESSOR_STATE_MISMATCH",
+                f"sealed v1 predecessor {field} does not match verified journal state",
+                path=f"{path}.{field}",
+                next_action=(
+                    "Restore or recreate the v2 activation from the exact sealed v1 journal; "
+                    "do not alter the sealed v1 bytes."
+                ),
+            )
+
+
+def _verified_v1_predecessor(path: Path) -> tuple[_JournalState, str, int]:
+    before = _file_witness(path)
+    content_digest, byte_length = _file_content_digest(path)
+    state = _scan_records(_iter_records(path), retain_records=False)
+    if _file_witness(path) != before:
+        raise JournalError(
+            "JOURNAL_CHANGED_DURING_VERIFICATION",
+            "sealed predecessor changed while its state was being verified",
+            next_action="Retry against one stable exact journal state.",
+        )
+    return state, content_digest, byte_length
 
 
 def _file_content_digest(path: Path) -> tuple[str, int]:
