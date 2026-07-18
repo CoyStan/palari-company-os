@@ -20,13 +20,12 @@ from .governance_binding import (
 from .governance_journal import (
     JournalVerificationContext,
     MutationMetadata,
-    pending_journal_prepare,
+    pending_workspace_journal_context,
     recover_pending,
     utc_timestamp,
     verify_journal,
     workspace_digest,
 )
-from .history import append_history_event
 from .path_policy import validate_workspace_path
 from .pcaw_canonical import canonical_json_bytes, canonical_sha256
 from .record_order import record_time_key
@@ -634,7 +633,8 @@ def apply_pack_decision(
     journal = verify_journal(store.data_path, store.data)
     if journal.get("pending"):
         if journal["pending"].get("workspace_position") == "before":
-            pending = pending_journal_prepare(store.data_path)
+            pending_context = pending_workspace_journal_context(store.data_path)
+            pending = pending_context["prepare"] if pending_context is not None else None
             if pending is None or not _pending_matches_request(
                 pending,
                 pack_digest=pack_digest,
@@ -900,7 +900,6 @@ def apply_pack_decision(
         )
     workspace_after_decisions = validate_data(store.data_path, store.data)
     executed: list[str] = []
-    work_history: list[tuple[dict[str, Any], dict[str, Any]]] = []
     acceptance_ids_before = {
         str(item.get("id") or "") for item in store.data.get("acceptance_records", [])
     }
@@ -921,19 +920,18 @@ def apply_pack_decision(
             assert_work_completion_ready,
         )
 
-        assert_work_completion_ready(workspace_after_decisions, member_id, actor=human_id)
-        raw_work = next(
-            item for item in store.data["work_items"] if item.get("id") == member_id
-        )
-        before = deepcopy(raw_work)
-        raw_work["status"] = "completed"
         _ensure_acceptance_record_for_completion(
             store,
             workspace_after_decisions,
             member_id,
             human_id,
         )
-        work_history.append((before, deepcopy(raw_work)))
+        workspace_after_decisions = validate_data(store.data_path, store.data)
+        assert_work_completion_ready(workspace_after_decisions, member_id, actor=human_id)
+        raw_work = next(
+            item for item in store.data["work_items"] if item.get("id") == member_id
+        )
+        raw_work["status"] = "completed"
         workspace_after_decisions = validate_data(store.data_path, store.data)
         executed.append(member_id)
 
@@ -943,6 +941,14 @@ def apply_pack_decision(
     ] + [
         {"type": "work", "collection": "work_items", "id": work_id}
         for work_id in executed
+    ] + [
+        {
+            "type": "acceptance",
+            "collection": "acceptance_records",
+            "id": str(item.get("id") or ""),
+        }
+        for item in store.data.get("acceptance_records", [])
+        if str(item.get("id") or "") not in acceptance_ids_before
     ]
     metadata = MutationMetadata(
         command=command,
@@ -952,33 +958,7 @@ def apply_pack_decision(
         objects=tuple(objects),
         reason=reason,
     )
-    workspace_after = write_store(store, metadata=metadata, crash_hook=crash_hook)
-    for decision in created:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace_after.schema_version,
-            command=command,
-            action=decision["approval_pack_action"],
-            object_type="human-decision",
-            object_collection="human_decisions",
-            object_id=decision["id"],
-            actor=human_id,
-            before=None,
-            after=decision,
-        )
-    for before, after in work_history:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace_after.schema_version,
-            command=command,
-            action="completed",
-            object_type="work",
-            object_collection="work_items",
-            object_id=str(after["id"]),
-            actor=human_id,
-            before=before,
-            after=after,
-        )
+    write_store(store, metadata=metadata, crash_hook=crash_hook)
     return {
         "schema_version": "palari.approval-pack-decision-result.v1",
         "status": "applied",

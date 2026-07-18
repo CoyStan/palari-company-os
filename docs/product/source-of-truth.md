@@ -26,26 +26,26 @@ warnings, but those warnings are still derived from declared records. `state`,
 `validate`, and `scope` are also derived views/checks; they do not mutate
 authority state.
 
-Mutating commands also append audit events to:
+Current workspaces use one replayable mutation journal:
 
 ```text
-.palari/history.jsonl
+.palari/governance-journal.v2.jsonl
 ```
 
-The history file is append-only local audit evidence for successful mutations.
-It remains compatible and is not used to rebuild `workspace.json`.
-
-New workspaces, and legacy workspaces after an explicit checkpoint, also use:
-
-```text
-.palari/governance-journal.v1.jsonl
-```
-
-This separate hash-chained journal is replayable. Its prepared record is
+The hash-chained journal is replayable. Its prepared record is
 fsynced before the atomic workspace replacement and its commit marker is
 fsynced afterward. It detects pending transactions, corruption, truncation,
 reordering, forks, and workspace divergence. A manual-repair checkpoint keeps
 the continuity break visible instead of rewriting history.
+
+A committed `.palari/governance-journal.v1.jsonl` is accepted only as a sealed,
+strictly verified predecessor for explicit v2 activation. A committed
+`.palari/history.jsonl` is historical evidence only; current runtime code never
+reads, appends, or imports it.
+
+New workspaces create v2 directly. Existing workspaces without a journal reject
+ordinary writes until an explicit checkpoint creates v2; the v1 path never
+accepts a v2 record.
 
 Writes to `workspace.json` use an ownership-bound local lock plus optimistic
 change detection. Fsynced atomic replace prevents partial files; the loaded-file
@@ -63,12 +63,13 @@ inspectable source formats. The rule should stay the same:
 - generated views are derived
 - evidence is tied to a specific head or artifact state
 - review and human decision are separate records
-- successful mutations leave an append-only audit event
+- successful mutations leave one append-only journal transaction
 - queue/detail commands do not secretly mutate authority state
 
 Current authoring commands intentionally refuse split workspaces so they do not
-silently collapse or corrupt external collection files. The versioned migration
-command is the narrow write exception and preserves the declared file layout.
+silently collapse or corrupt external collection files. The retained split-file
+reader is parked compatibility; there is no current split-file writer or schema
+migration exception.
 
 ## What Must Not Become Implicit
 

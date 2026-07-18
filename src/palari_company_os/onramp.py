@@ -18,13 +18,11 @@ import os
 import re
 import subprocess
 import sys
-from copy import deepcopy
 from pathlib import Path
 from shlex import quote
 from typing import Any
 
 from .governance_journal import MutationMetadata, utc_timestamp
-from .history import append_history_event
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
 from .validation import COLLECTION_FILE_KEYS
@@ -371,7 +369,6 @@ def quick_add_work(
     allowed_sources: list[str] = []
     workbench_outputs_added: list[str] = []
     bench: dict[str, Any] | None = None
-    before_bench: dict[str, Any] | None = None
     if workbench:
         bench = _find_record(store.data, "workbenches", workbench)
         allowed_sources = [str(item) for item in (bench or {}).get("source_ids", [])]
@@ -380,7 +377,6 @@ def quick_add_work(
         existing_outputs = [str(item) for item in (bench or {}).get("output_target_ids", [])]
         workbench_outputs_added = [path for path in write_paths if path not in existing_outputs]
         if workbench_outputs_added:
-            before_bench = deepcopy(bench)
             assert bench is not None
             bench["output_target_ids"] = existing_outputs + workbench_outputs_added
 
@@ -451,32 +447,6 @@ def quick_add_work(
             objects=tuple(objects),
         ),
     )
-    if workbench_outputs_added and bench is not None:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="work add",
-            action="updated",
-            object_type="workbench",
-            object_collection="workbenches",
-            object_id=workbench,
-            actor=palari,
-            before=before_bench,
-            after=bench,
-        )
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="work add",
-        action="created",
-        object_type="work",
-        object_collection="work_items",
-        object_id=resolved_id,
-        actor=palari,
-        before=None,
-        after=record,
-    )
-
     return {
         "schema_version": "palari.work_add.v1",
         "workspace_file": str(store.data_path),
@@ -673,7 +643,7 @@ def _anchor_starter_authority(
 
     candidate_paths = [
         workspace_file,
-        workspace_file.parent / ".palari" / "history.jsonl",
+        workspace_file.parent / ".palari" / "governance-journal.v2.jsonl",
         workspace_file.parent / ".palari" / "governance-journal.v1.jsonl",
         *(workspace_file.parent / relative for relative in created_docs),
         *(additional_files or []),

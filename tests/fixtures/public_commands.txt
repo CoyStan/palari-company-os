@@ -64,7 +64,6 @@ palari git pre-commit
 palari git status
 palari mcp
 palari mcp serve
-palari migrate
 palari history
 palari desktop-prototype
 palari desktop-serve

@@ -716,8 +716,8 @@ def _normalize_retry_observation(
 def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
     if root is None:
         return [
+            ".palari/governance-journal.v2.jsonl",
             ".palari/governance-journal.v1.jsonl",
-            ".palari/history.jsonl",
             ".palari/claims/**",
             ".palari/locks/**",
             ".palari/packets/**",
@@ -730,8 +730,8 @@ def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
         return []
     base = f"{prefix}/" if prefix != "." else ""
     return [
+        f"{base}.palari/governance-journal.v2.jsonl",
         f"{base}.palari/governance-journal.v1.jsonl",
-        f"{base}.palari/history.jsonl",
         f"{base}.palari/claims/**",
         f"{base}.palari/locks/**",
         f"{base}.palari/packets/**",
@@ -826,7 +826,7 @@ def _result_payload(
             "observation": observation,
         },
         "journal": journal or {
-            "journal_file": ".palari/governance-journal.v1.jsonl",
+            "journal_file": ".palari/governance-journal.v2.jsonl",
             "workspace_digest": after_digest,
         },
         "claim_released": bool(claim_release and claim_release.get("released")),

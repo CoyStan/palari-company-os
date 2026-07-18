@@ -208,7 +208,7 @@ the first fast read model for the whole workspace.
 ```
 
 Shows where workspace data lives without adding a memory engine or live
-connector. The map summarizes `workspace.json`, `.palari/history.jsonl`,
+connector. The map summarizes `workspace.json`, the active governance journal,
 collection counts, declared external providers, sources, integrations, Palari
 memory-source references, dry-run integration activity, and what Palari does
 not store, such as raw tokens, provider responses, OAuth state, vector indexes,
@@ -1018,8 +1018,7 @@ receipt cannot imply a canceled write is still waiting to execute.
 
 ```bash
 ./bin/palari history
-./bin/palari history --limit 10 --json
-./bin/palari history --verify --json
+./bin/palari history --json
 ./bin/palari history --checkpoint --actor HUMAN-ID --json
 ./bin/palari history --recover --json
 ./bin/palari history --checkpoints --json
@@ -1027,18 +1026,17 @@ receipt cannot imply a canceled write is still waiting to execute.
   --reason "Return to reviewed S1" --json
 ```
 
-Shows recent append-only audit events from `.palari/history.jsonl` beside the
-workspace file. Mutating authoring commands append events only
-after the workspace write validates and succeeds. Failed mutations do not append
-success events. The versioned governance journal is separate from legacy
-`.palari/history.jsonl`. New workspaces start it automatically; legacy
-workspaces opt in with an explicit checkpoint. `--verify` checks its hash chain
-and workspace projection. `--checkpoint --acknowledge-break` records, rather
+Bare `history` verifies the governance-journal hash chain and exact workspace
+projection. Current mutations and their command, actor, action, and affected
+objects are recorded in the same atomic journal transaction; there is no second
+operational audit-log writer. The committed `.palari/history.jsonl` file is
+historical evidence only and is never read, appended, or imported at runtime.
+`--checkpoint --acknowledge-break` records, rather
 than hides, a legitimate continuity break after a manual edit. `--recover`
 idempotently resolves a prepared transaction when the on-disk projection makes
 the safe result unambiguous.
 
-The v1 journal remains append-only JSONL. An explicit valid-v1 checkpoint can
+The v1 journal is a sealed read-only predecessor. An explicit valid-v1 checkpoint can
 activate compact v2 without rewriting its predecessor: the v2 checkpoint seals
 the exact v1 bytes, replay digest, head, and counts, then subsequent events use
 deterministic value deltas. Verification streams the v2 checkpoint/tail with
@@ -1149,21 +1147,6 @@ write scenario, and opens the same local UI against that demo state.
 `desktop-serve` generates the same files and serves them locally for design
 review. It does not expose external runner endpoints, connect Google Drive, or
 mutate the workspace model.
-
-## Migration
-
-```bash
-./bin/palari migrate
-./bin/palari migrate --write
-```
-
-Upgrades unversioned, v0, and v1 workspaces to schema v2 and ensures required
-collections exist. Legacy unbound accept-ready proof is blocked, its dependent
-acceptance is revoked, and affected governed terminal work is reopened for a
-fresh exact review. Split workspaces are migrated in place without collapsing
-included collections: included files are written before the root version is
-advanced, and any concurrent root or included-file change blocks the write.
-Without `--write`, the command previews all changes.
 
 ## Authoring Commands
 

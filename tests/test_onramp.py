@@ -565,12 +565,10 @@ class WorkAddTests(unittest.TestCase):
 
     def test_work_add_validation_failure_leaves_workspace_and_journal_unchanged(self) -> None:
         workspace_file = self.project / "workspace.json"
-        journal_file = self.project / ".palari" / "governance-journal.v1.jsonl"
-        history_file = self.project / ".palari" / "history.jsonl"
+        journal_file = self.project / ".palari" / "governance-journal.v2.jsonl"
         before = {
             "workspace": workspace_file.read_bytes(),
             "journal": journal_file.read_bytes(),
-            "history": history_file.read_bytes() if history_file.exists() else b"",
         }
 
         with self.assertRaisesRegex(WorkspaceError, "unknown goal"):
@@ -583,10 +581,6 @@ class WorkAddTests(unittest.TestCase):
 
         self.assertEqual(workspace_file.read_bytes(), before["workspace"])
         self.assertEqual(journal_file.read_bytes(), before["journal"])
-        self.assertEqual(
-            history_file.read_bytes() if history_file.exists() else b"",
-            before["history"],
-        )
 
     def test_requires_at_least_one_write_path(self) -> None:
         with self.assertRaises(WorkspaceError):

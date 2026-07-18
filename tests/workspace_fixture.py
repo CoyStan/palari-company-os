@@ -4,16 +4,15 @@ import json
 from pathlib import Path
 
 
-PORTABLE_AGENT_WORK_IDS = {"WORK-0001", "WORK-0007"}
+PORTABLE_AGENT_WORK_IDS: set[str] = set()
 
 
 def write_portable_agent_workspace(source: Path, destination: Path) -> None:
-    """Write the stable legacy slice used by agent and Git-hook tests.
+    """Write foundation records without importing historical lifecycle state.
 
     The dogfood workspace contains exact artifact bindings to its repository
-    root. Copying those accepted records to a temporary directory must fail
-    validation, so tests that need only legacy agent fixtures must not import
-    the unrelated live lifecycle state.
+    root. Agent tests currently reuse its identities and source contracts, but
+    they construct their own current work and proof in the temporary workspace.
     """
 
     raw = json.loads(source.read_text(encoding="utf-8"))

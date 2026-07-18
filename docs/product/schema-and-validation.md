@@ -46,11 +46,9 @@ for the collection named in the manifest.
 Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
 split workspaces. Authoring write commands
 currently refuse split workspaces with a clear error instead of silently
-collapsing or corrupting collection files. Schema migration is the narrow
-exception: it validates the consolidated records, preserves each record's root
-or included-file placement, writes included files first, and advances the root
-schema version last so an interrupted migration remains fail closed and
-retryable.
+collapsing or corrupting collection files. This split-file reader is parked
+compatibility; there is no current split-file writer or schema migration
+exception.
 
 The CLI validation path uses the Python models and strict workspace checks:
 
@@ -202,50 +200,40 @@ fail closed so typos and hidden state cannot quietly enter the source of truth.
 
 ## Governance Journal Formats
 
-`palari.governance-journal.v1` remains a supported strict JSONL format. Its
-prepare records retain complete `after_projection` values so existing tools and
-workspaces remain readable and crash-recoverable without an implicit rewrite.
+`palari.governance-journal.v1` is a supported strict, read-only predecessor
+format because committed product data contains it. Its prepare records retain
+complete `after_projection` values. The current runtime may verify a fully
+committed v1 chain and bind it during explicit activation, but it never creates
+or appends a v1 record. A pending v1 transaction fails closed; current recovery
+does not manufacture its missing terminal record.
 
-`palari.governance-journal.v2` is a staged compact format. Its first committed
-prepare is a full content-bound checkpoint. Later mutation prepares replace
-the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
+`palari.governance-journal.v2` is the sole current writer format and
+`.palari/governance-journal.v2.jsonl` is its only supported path. Its first
+committed prepare is a full content-bound checkpoint. Later mutation prepares
+replace the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
 `add` and `replace` carry the exact value; `remove` carries no value. Applying
 the delta must reproduce the recorded workspace digest and the delta must equal
 the deterministic minimal diff, otherwise verification fails closed.
 
 An already-journaled v1 workspace activates v2 only through an explicit,
 idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified
-v1 file as a predecessor and does not edit or rename it. A workspace with no
-journal first creates the ordinary v1 checkpoint; a second explicit checkpoint
-performs the v2 activation. This staged rule preserves existing raw-journal and
-Git artifact compatibility. New v2 records may retain the established v1
-filename only in isolated test/API construction; the record schema, never the
-filename, determines validation behavior.
+v1 file as a predecessor and does not edit or rename it. An existing workspace
+with no journal rejects ordinary mutations until an explicit checkpoint creates
+v2 directly. A newly created workspace starts directly with a complete v2
+checkpoint. V2 records in the v1 filename fail closed; there is no compatibility
+filename or implicit activation path.
 
 V2 verification reads one JSONL record at a time and retains only the current
 workspace projection, pending prepare, and fixed-size chain state. When a v1
 predecessor exists, its bytes are streamed through SHA-256 on every verification
-and compared with the authoritative binding in the v2 checkpoint; they are not
-reparsed and no advisory cache can authorize a transition.
+and its strict records are replayed without materializing the full journal. The
+derived state is compared with the authoritative binding in the v2 checkpoint;
+no advisory cache can authorize a transition.
 
-Migration:
-
-```bash
-./bin/palari migrate
-./bin/palari migrate --write
-```
-
-`migrate` upgrades unversioned, v0, and v1 workspaces to schema v2 and ensures
-known collections exist, including optional governance collections such as
-`capabilities`, `authority_profiles`, `proposals`, and `acceptance_records`.
-Migration fails safe: legacy unbound `accept-ready` reviews become `blocked`,
-accepting decisions tied to them become blocked, matching acceptance records
-are revoked, and governed terminal work is reopened for a fresh exact-bound
-review. Missing or ambiguous human-decision timestamps are assigned stable,
-UTC-normalized values. Split workspaces retain their collection-file layout;
-concurrent changes to the root or any included file block the write. A preview
-lists every migration action before `--write` persists it. Workspaces with a
-newer schema version fail closed until this code supports them.
+Unversioned, v0, v1, and newer workspace schemas fail closed. There is no
+supported runtime schema migration because no committed real stored fixture
+requires one. An old workspace must be converted outside the current runtime
+and validated as schema v2 before Palari will load it.
 
 Schema v2 deliberately makes the exact review binding non-optional for
 `accept-ready`. Historical unbound non-accepting verdicts remain inspectable,

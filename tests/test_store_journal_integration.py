@@ -42,32 +42,42 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             store.data["name"] = "Journal mutation"
             write_store(store)
             second = verify_workspace_journal(data_path)
+            self.assertEqual(journal_file_path(data_path), v2_journal_file_path(data_path))
+            self.assertTrue(v2_journal_file_path(data_path).exists())
+            self.assertFalse(legacy_journal_file_path(data_path).exists())
 
         self.assertTrue(first["ok"])
-        self.assertEqual(first["journal_schema_version"], "palari.governance-journal.v1")
+        self.assertEqual(first["journal_schema_version"], "palari.governance-journal.v2")
         self.assertEqual(first["continuity"]["initial_coverage"], "complete")
         self.assertTrue(second["ok"])
         self.assertEqual(second["committed_transactions"], 2)
         self.assertEqual(second["replay_workspace_digest"], second["current_workspace_digest"])
 
-    def test_legacy_workspace_remains_unjournaled_until_checkpoint(self) -> None:
+    def test_existing_unjournaled_workspace_requires_explicit_v2_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = Path(directory) / "workspace.json"
             shutil.copy(FIXTURE, data_path)
+            original = data_path.read_bytes()
             store = load_store(data_path)
-            store.data["name"] = "Legacy compatible"
-            write_store(store)
+            store.data["name"] = "Blocked before checkpoint"
 
+            with self.assertRaisesRegex(WorkspaceError, "JOURNAL_MISSING_CHECKPOINT"):
+                write_store(store)
+
+            self.assertEqual(data_path.read_bytes(), original)
             self.assertFalse(journal_file_path(data_path).exists())
             checkpoint = checkpoint_workspace_journal(data_path, "HUMAN-OPERATOR")
             self.assertEqual(
-                journal_file_path(data_path), legacy_journal_file_path(data_path)
+                journal_file_path(data_path), v2_journal_file_path(data_path)
             )
-            self.assertFalse(v2_journal_file_path(data_path).exists())
+            self.assertFalse(legacy_journal_file_path(data_path).exists())
+            continued = load_store(data_path)
+            continued.data["name"] = "Current v2 continuation"
+            write_store(continued)
 
         self.assertTrue(checkpoint["ok"])
         self.assertEqual(checkpoint["continuity"]["initial_coverage"], "from-checkpoint")
-        self.assertEqual(checkpoint["journal_schema_version"], "palari.governance-journal.v1")
+        self.assertEqual(checkpoint["journal_schema_version"], "palari.governance-journal.v2")
 
     def test_manual_divergence_blocks_next_journaled_write(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

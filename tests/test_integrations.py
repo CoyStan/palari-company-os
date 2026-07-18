@@ -12,8 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.integrations import check_integration, plan_integration
-from palari_company_os.history import read_history
 from palari_company_os.read_models import detail, queue_items
+from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -218,7 +218,7 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(check["integration"]["provider"], "slack")
         self.assertFalse(plan["would_call_provider"])
 
-    def test_recorded_plan_is_visible_in_queue_detail_and_history(self) -> None:
+    def test_recorded_plan_is_visible_in_queue_and_detail(self) -> None:
         with self.temp_workspace() as workspace_path:
             payload = json.loads(
                 self.run_cli_in_workspace(
@@ -243,7 +243,6 @@ class IntegrationRegistryTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             queue = {item.id: item for item in queue_items(workspace)}
             work_detail = detail(workspace, "WORK-0001")
-            history = read_history(workspace_path)
 
         self.assertTrue(payload["recorded"])
         self.assertFalse(payload["would_call_provider"])
@@ -252,8 +251,6 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(queue["WORK-0001"].integration_state, "pending-plan")
         self.assertIn("Integration plan PLAN-TEST", queue["WORK-0001"].why)
         self.assertEqual(work_detail["integration_plans"][0]["id"], "PLAN-TEST")
-        self.assertEqual(history["events"][-1]["object_type"], "integration-plan")
-        self.assertEqual(history["events"][-1]["object_id"], "PLAN-TEST")
 
     def test_plan_approval_records_human_decision_without_provider_call(self) -> None:
         with self.temp_workspace() as workspace_path:
@@ -289,7 +286,6 @@ class IntegrationRegistryTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             queue = {item.id: item for item in queue_items(workspace)}
             work_detail = detail(workspace, "WORK-0001")
-            history = read_history(workspace_path)
 
         self.assertEqual(payload["status"], "approved")
         self.assertFalse(payload["would_call_provider"])
@@ -298,8 +294,6 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(workspace.integration_plan("PLAN-APPROVE").status, "approved")
         self.assertEqual(queue["WORK-0001"].integration_state, "plan-approved")
         self.assertEqual(work_detail["integration_plans"][0]["status"], "approved")
-        self.assertEqual(history["events"][-1]["action"], "approved")
-        self.assertEqual(history["events"][-1]["actor"], "HUMAN-FOUNDER")
 
     def test_plan_reject_and_cancel_states_do_not_call_provider(self) -> None:
         for command, expected_status in (("reject", "rejected"), ("cancel", "canceled")):
@@ -460,7 +454,6 @@ class IntegrationRegistryTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             queue = {item.id: item for item in queue_items(workspace)}
             work_detail = detail(workspace, "WORK-0001")
-            history = read_history(workspace_path)
 
         outbox = payload["integration_outbox_item"]
         self.assertEqual(payload["status"], "queued")
@@ -471,8 +464,6 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(queue["WORK-0001"].attention, "ready-to-integrate")
         self.assertEqual(queue["WORK-0001"].integration_state, "outbox-queued")
         self.assertEqual(work_detail["integration_outbox"][0]["plan_id"], "PLAN-ENQUEUE")
-        self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
-        self.assertEqual(history["events"][-1]["action"], "queued")
 
     def test_outbox_check_preflights_queued_item_without_provider_call(self) -> None:
         with self.temp_workspace() as workspace_path:
@@ -524,7 +515,6 @@ class IntegrationRegistryTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             queue = {item.id: item for item in queue_items(workspace)}
             work_detail = detail(workspace, "WORK-0001")
-            history = read_history(workspace_path)
 
         outbox = payload["integration_outbox_item"]
         self.assertEqual(payload["status"], "canceled")
@@ -536,9 +526,6 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertEqual(queue["WORK-0001"].integration_state, "outbox-canceled")
         self.assertEqual(queue["WORK-0001"].attention, "needs-human-decision")
         self.assertEqual(work_detail["integration_outbox"][0]["status"], "canceled")
-        self.assertEqual(history["events"][-1]["object_type"], "integration-outbox")
-        self.assertEqual(history["events"][-1]["action"], "canceled")
-        self.assertIn("cancel_reason", history["events"][-1]["changed_fields"])
 
     def test_outbox_check_blocks_canceled_item_without_provider_call(self) -> None:
         with self.temp_workspace() as workspace_path:
@@ -764,7 +751,7 @@ class IntegrationRegistryTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("lacks authority", result.stderr)
 
-    def test_plain_plan_preview_does_not_write_history(self) -> None:
+    def test_plain_plan_preview_does_not_write_workspace_state(self) -> None:
         with self.temp_workspace() as workspace_path:
             payload = json.loads(
                 self.run_cli_in_workspace(
@@ -782,11 +769,9 @@ class IntegrationRegistryTests(unittest.TestCase):
                 ).stdout
             )
             workspace = Workspace.load(workspace_path)
-            history = read_history(workspace_path)
 
         self.assertFalse(payload["recorded"])
         self.assertEqual(workspace.integration_plans, [])
-        self.assertEqual(history["events"], [])
 
     def test_plan_record_with_disabled_integration_fails_closed(self) -> None:
         def disabled_plan(data: dict[str, object]) -> None:
@@ -1267,7 +1252,7 @@ class _TempWorkspace:
         self._directory = tempfile.TemporaryDirectory()
         self.path = Path(self._directory.name)
         source = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        (self.path / "workspace.json").write_text(json.dumps(source), encoding="utf-8")
+        write_store(WorkspaceStore(data_path=self.path / "workspace.json", data=source))
         return self.path
 
     def __exit__(self, *_args: object) -> None:

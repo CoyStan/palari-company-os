@@ -451,7 +451,6 @@ def _governance_projection_paths(workspace_path: Path | str, git_root: Path) -> 
     data_path = load_store(workspace_path).data_path.resolve()
     candidates = {
         data_path,
-        data_path.parent / ".palari" / "history.jsonl",
         journal_file_path(data_path),
     }
     paths: list[str] = []

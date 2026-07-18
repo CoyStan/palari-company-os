@@ -1391,12 +1391,12 @@ def _capture_governance_projection_snapshot(
         raise WorkspaceError(
             f"workspace projection escapes the claim Git repository: {exc}"
         ) from exc
-    projection_paths = _governance_projection_paths(relative_data)
+    projection_candidates = _governance_projection_paths(relative_data)
     if not _git_ancestor(root_text, base_sha, session_head):
         raise WorkspaceError(
             "claim session head does not descend from the immutable proof baseline"
         )
-    touched = _git_range_paths(root_text, base_sha, session_head, projection_paths)
+    touched = _git_range_paths(root_text, base_sha, session_head, projection_candidates)
     if touched is None:
         raise WorkspaceError("cannot inspect governance projection commit history")
     if scope_authority is None:
@@ -1418,32 +1418,26 @@ def _capture_governance_projection_snapshot(
     ):
         return None
 
+    history_error = _governance_journal_history_error(
+        root_text, base_sha, session_head, projection_candidates
+    )
+    if history_error:
+        raise WorkspaceError(history_error)
+    projection_paths = [
+        path
+        for path in projection_candidates
+        if _git_blob_bytes(root_text, session_head, path) is not None
+    ]
     files: list[dict[str, str]] = []
     for path in projection_paths:
         payload = _git_blob_bytes(root_text, session_head, path)
         if payload is None:
             return None
-        baseline_payload = _git_blob_bytes(root_text, base_sha, path)
-        if baseline_payload is None:
-            return None
-        if (
-            path in touched
-            and path.endswith(("/.palari/history.jsonl", "/.palari/governance-journal.v1.jsonl"))
-            and baseline_payload is not None
-            and not payload.startswith(baseline_payload)
-        ):
-            raise WorkspaceError(
-                f"governance projection path {path} is not an append-only extension of its baseline"
-            )
         files.append(
             {
                 "path": path,
                 "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
-                "classification": (
-                    "legacy-audit-companion"
-                    if path.endswith("/.palari/history.jsonl")
-                    else "governance-projection"
-                ),
+                "classification": "governance-projection",
             }
         )
 
@@ -1535,7 +1529,17 @@ def governance_projection_snapshot_error(
         )
         if authority_error:
             return authority_error
-    projection_paths = _governance_projection_paths(relative_data)
+    projection_candidates = _governance_projection_paths(relative_data)
+    history_error = _governance_journal_history_error(
+        root_text, base_sha, session_head, projection_candidates
+    )
+    if history_error:
+        return history_error
+    projection_paths = [
+        path
+        for path in projection_candidates
+        if _git_blob_bytes(root_text, session_head, path) is not None
+    ]
     files = snapshot.get("files")
     if not isinstance(files, list) or len(files) != len(projection_paths):
         return "governance projection snapshot file manifest is incomplete"
@@ -1552,7 +1556,7 @@ def governance_projection_snapshot_error(
         manifest[path] = item
     if set(manifest) != set(projection_paths):
         return "governance projection snapshot file manifest does not match exact paths"
-    touched = _git_range_paths(root_text, base_sha, session_head, projection_paths)
+    touched = _git_range_paths(root_text, base_sha, session_head, projection_candidates)
     declared = snapshot.get("changed_paths")
     if touched is None or not isinstance(declared, list) or sorted(declared) != sorted(touched):
         return "governance projection snapshot changed-path history is not exact"
@@ -1583,12 +1587,40 @@ def _governance_projection_snapshot_digest(snapshot: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _governance_journal_history_error(
+    root: str,
+    base_sha: str,
+    session_head: str,
+    projection_paths: list[str],
+) -> str:
+    for path in projection_paths:
+        if not path.endswith(
+            (
+                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
+            )
+        ):
+            continue
+        baseline = _git_blob_bytes(root, base_sha, path)
+        current = _git_blob_bytes(root, session_head, path)
+        if path.endswith(".palari/governance-journal.v1.jsonl"):
+            if baseline is None and current is not None:
+                return f"sealed v1 governance predecessor appeared after the immutable baseline: {path}"
+            if baseline is not None and current != baseline:
+                return f"sealed v1 governance predecessor changed after the immutable baseline: {path}"
+        elif baseline is not None and (
+            current is None or not current.startswith(baseline)
+        ):
+            return f"governance projection path {path} is not an append-only extension of its baseline"
+    return ""
+
+
 def _governance_projection_paths(relative_data: str) -> list[str]:
     parent = Path(relative_data).parent.as_posix()
     prefix = "" if parent == "." else parent + "/"
     return [
         relative_data,
-        f"{prefix}.palari/history.jsonl",
+        f"{prefix}.palari/governance-journal.v2.jsonl",
         f"{prefix}.palari/governance-journal.v1.jsonl",
     ]
 
@@ -2521,7 +2553,7 @@ def _missing_workspace_anchor_command(root: Path, relative_data: str) -> str:
     prefix = "" if parent == "." else parent + "/"
     candidates = [
         relative_data,
-        f"{prefix}.palari/history.jsonl",
+        f"{prefix}.palari/governance-journal.v2.jsonl",
         f"{prefix}.palari/governance-journal.v1.jsonl",
     ]
     paths = [

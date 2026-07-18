@@ -34,6 +34,7 @@ from palari_company_os.linear_webhook import (
     process_linear_webhook,
     verify_linear_webhook_payload,
 )
+from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace
 
 
@@ -441,7 +442,11 @@ class TempWorkspace:
         self._tmp = tempfile.TemporaryDirectory()
         root = Path(self._tmp.name)
         shutil.copytree(WORKSPACE, root / "workspace")
-        return str(root / "workspace" / "workspace.json")
+        data_path = root / "workspace" / "workspace.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data_path.unlink()
+        write_store(WorkspaceStore(data_path=data_path, data=data))
+        return str(data_path)
 
     def __exit__(self, *_args: object) -> None:
         self._tmp.cleanup()

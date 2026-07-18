@@ -35,6 +35,7 @@ from palari_company_os.linear_adapter import (
     parse_palari_block,
 )
 from palari_company_os.read_models import detail, queue_items
+from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -275,12 +276,13 @@ class LinearAdapterTests(unittest.TestCase):
             outbox_id = enqueued["integration_outbox_item"]["id"]
 
             workspace_file = Path(workspace_path)
-            data = json.loads(workspace_file.read_text(encoding="utf-8"))
+            store = load_store(workspace_file)
+            data = store.data
             for collection in ("integration_plans", "integration_outbox"):
                 preview = data[collection][0]["payload_preview"]
                 preview["issue_id"] = "linear-issue-drifted"
                 preview["json"]["issueId"] = "linear-issue-drifted"
-            workspace_file.write_text(json.dumps(data), encoding="utf-8")
+            write_store(store.with_data(data))
 
             with self.assertRaisesRegex(WorkspaceError, "issueId drifted"):
                 linear_send(
@@ -1078,7 +1080,11 @@ class TempWorkspace:
         self._tmp = tempfile.TemporaryDirectory()
         root = Path(self._tmp.name)
         shutil.copytree(WORKSPACE, root / "workspace")
-        return str(root / "workspace" / "workspace.json")
+        data_path = root / "workspace" / "workspace.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data_path.unlink()
+        write_store(WorkspaceStore(data_path=data_path, data=data))
+        return str(data_path)
 
     def __exit__(self, *_args: object) -> None:
         self._tmp.cleanup()

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .history import append_history_event
 from .read_models import detail, queue_items
 from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
@@ -184,18 +183,14 @@ def create_record(
     _assert_record_transition_allowed(store, kind, record)
     record = _prepare_record_for_create(store, kind, record)
     records.append(record)
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or f"{kind} create",
-        action="created",
-        object_type=kind,
-        object_collection=collection,
-        object_id=record_id,
-        actor=_event_actor(record, actor),
-        before=None,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or f"{kind} create",
+            _event_actor(record, actor),
+            "created",
+            ((kind, collection, record_id),),
+        ),
     )
     return MutationResult("created", collection, record_id, workspace.name)
 
@@ -217,25 +212,20 @@ def update_record(
         raise WorkspaceError(f"{kind} not found: {record_id}")
     _reject_active_claim_work_update(store.data_path, kind, record_id, updates)
     _reject_generic_trust_transition(kind, record_id, record, updates)
-    before = deepcopy(record)
     merged = dict(record)
     merged.update(updates)
     if _record_update_needs_transition(kind, updates):
         _assert_record_transition_allowed(store, kind, merged, allow_existing=True)
     record.update(updates)
     _prepare_record_for_update(store, kind, record, updates)
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or f"{kind} update",
-        action="updated",
-        object_type=kind,
-        object_collection=collection,
-        object_id=record_id,
-        actor=_event_actor(record, actor),
-        before=before,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or f"{kind} update",
+            _event_actor(record, actor),
+            "updated",
+            ((kind, collection, record_id),),
+        ),
     )
     return MutationResult("updated", collection, record_id, workspace.name)
 
@@ -305,20 +295,15 @@ def update_human_decision(
                 "reviewed_head": str(merged.get("reviewed_head") or ""),
             },
         )
-    before = deepcopy(record)
     record.update(updates)
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or "human-decision update",
-        action="updated",
-        object_type="human-decision",
-        object_collection="human_decisions",
-        object_id=record_id,
-        actor=_event_actor(record, actor),
-        before=before,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or "human-decision update",
+            _event_actor(record, actor),
+            "updated",
+            (("human-decision", "human_decisions", record_id),),
+        ),
     )
     result = MutationResult("updated", "human_decisions", record_id, workspace.name)
     if automatic_convergence and (
@@ -353,26 +338,30 @@ def complete_work(
         )
     if current.status in {"completed", "closed", "done"}:
         return MutationResult("completed", "work_items", work_id, workspace.name)
+    acceptance_ids_before = {
+        str(item.get("id") or "") for item in _records(store, "acceptance_records")
+    }
     _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
     projected_workspace = validate_data(store.data_path, store.data)
     assert_work_completion_ready(projected_workspace, work_id, actor=actor)
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
-    before = deepcopy(work)
     work["status"] = status
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or "work complete",
-        action="completed",
-        object_type="work",
-        object_collection="work_items",
-        object_id=work_id,
-        actor=_event_actor(work, actor),
-        before=before,
-        after=work,
+    objects: list[tuple[str, str, str]] = [("work", "work_items", work_id)]
+    objects.extend(
+        ("acceptance", "acceptance_records", str(item.get("id") or ""))
+        for item in _records(store, "acceptance_records")
+        if str(item.get("id") or "") not in acceptance_ids_before
+    )
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or "work complete",
+            _event_actor(work, actor),
+            "completed",
+            tuple(objects),
+        ),
     )
     return MutationResult("completed", "work_items", work_id, workspace.name)
 
@@ -548,18 +537,17 @@ def accept_work(
     }
     human_decisions.append(decision)
     acceptance_records.append(acceptance)
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or "work accept",
-        action="accepted",
-        object_type="acceptance",
-        object_collection="acceptance_records",
-        object_id=acceptance_id,
-        actor=human_id,
-        before=None,
-        after=acceptance,
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or "work accept",
+            human_id,
+            "accepted",
+            (
+                ("human-decision", "human_decisions", decision_id),
+                ("acceptance", "acceptance_records", acceptance_id),
+            ),
+        ),
     )
     return _with_automatic_convergence(
         MutationResult("accepted", "acceptance_records", acceptance_id, workspace.name),
@@ -600,7 +588,6 @@ def closeout_attempt(
             "allow_missing_evidence": allow_missing_evidence,
         },
     )
-    before = deepcopy(attempt)
     attempt["status"] = status
     attempt["head_sha"] = head_sha
     commits = list(attempt.get("commits", []))
@@ -625,18 +612,14 @@ def closeout_attempt(
             raise WorkspaceError(
                 f"attempt {attempt_id} cannot close out without evidence for head {head_sha}"
             )
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=command or "attempt closeout",
-        action="closed-out",
-        object_type="attempt",
-        object_collection="attempts",
-        object_id=attempt_id,
-        actor=actor or str(attempt.get("actor") or ""),
-        before=before,
-        after=attempt,
+    workspace = write_store(
+        store,
+        metadata=_mutation_metadata(
+            command or "attempt closeout",
+            actor or str(attempt.get("actor") or ""),
+            "closed-out",
+            (("attempt", "attempts", attempt_id),),
+        ),
     )
     return MutationResult("closed-out", "attempts", attempt_id, workspace.name, next_action=work_id)
 
@@ -719,7 +702,6 @@ def reconcile_agent_proof(
     raw_work = _find(work_records, work_id)
     if raw_work is None:
         raise WorkspaceError(f"work not found: {work_id}")
-    before_work = deepcopy(raw_work)
     if raw_work.get("current_attempt") != attempt_id:
         raw_work["current_attempt"] = attempt_id
         steps.append({"step": "work-attempt-bind", "id": work_id, "status": "updated"})
@@ -852,18 +834,6 @@ def reconcile_agent_proof(
                     "workspace changed before the proof transaction acquired its writer lock"
                 ) from exc
             raise
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="agent advance",
-            action="reconciled-proof",
-            object_type="work",
-            object_collection="work_items",
-            object_id=work_id,
-            actor=palari_id,
-            before=before_work,
-            after=raw_work,
-        )
     return {
         "attempt_id": attempt_id,
         "receipt_id": receipt_id,
@@ -1401,8 +1371,36 @@ def _coerce_list(value: str) -> list[str]:
     return [] if value == "" else [part.strip() for part in value.split(",")]
 
 
+def _mutation_metadata(
+    command: str,
+    actor: str,
+    action: str,
+    objects: tuple[tuple[str, str, str], ...],
+) -> Any:
+    from .governance_journal import MutationMetadata, utc_timestamp
+    from .mutation_context import current_mutation_identity
+
+    _, context_actor, _ = current_mutation_identity()
+
+    return MutationMetadata(
+        command=command,
+        actor=actor or context_actor,
+        action=action,
+        timestamp=utc_timestamp(),
+        objects=tuple(
+            {"type": kind, "collection": collection, "id": object_id}
+            for kind, collection, object_id in objects
+        ),
+    )
+
+
 def _event_actor(record: dict[str, Any], actor: str) -> str:
-    return actor or str(record.get("human_id") or record.get("actor") or "")
+    return actor or str(
+        record.get("human_id")
+        or record.get("reviewer")
+        or record.get("actor")
+        or ""
+    )
 
 
 def _timestamp() -> str:

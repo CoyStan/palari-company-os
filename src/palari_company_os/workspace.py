@@ -130,15 +130,15 @@ class Workspace:
         schema_version = raw.get("schema_version")
         if schema_version is None:
             raise WorkspaceError(
-                "workspace schema_version is missing; run `palari migrate --write` "
-                f"or add schema_version: {CURRENT_SCHEMA_VERSION}"
+                "workspace schema_version is missing; only schema_version "
+                f"{CURRENT_SCHEMA_VERSION} is supported"
             )
         if type(schema_version) is not int:
             raise WorkspaceError("workspace schema_version must be an integer")
         if schema_version < CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
                 f"workspace schema_version {schema_version} is older than supported "
-                f"version {CURRENT_SCHEMA_VERSION}; run `palari migrate --write`"
+                f"version {CURRENT_SCHEMA_VERSION}"
             )
         if schema_version > CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -14,9 +15,7 @@ from palari_company_os.governance_journal import (
     MutationMetadata,
     _active_state,
     _v1_predecessor_binding,
-    append_record_fsync,
-    commit_record,
-    prepare_record,
+    legacy_journal_file_path,
     recover_pending,
     transact,
     verify_journal,
@@ -24,6 +23,16 @@ from palari_company_os.governance_journal import (
 
 
 TIMESTAMP = "2026-07-14T12:00:00Z"
+COMMITTED_V1_FIXTURE = (
+    REPO_ROOT
+    / "workspaces"
+    / "palari-company-os"
+    / ".palari"
+    / "governance-journal.v1.jsonl"
+)
+COMMITTED_V1_PAIR_SHA256 = (
+    "2a9adc1844c3eeb710087dd35032fb978845da80bb0230b433686eba8de6218b"
+)
 
 
 class InjectedCrash(RuntimeError):
@@ -40,28 +49,7 @@ class GovernanceJournalCrashTests(unittest.TestCase):
         }.items():
             with self.subTest(point=point), tempfile.TemporaryDirectory() as directory:
                 data_path = Path(directory) / "workspace.json"
-                data = workspace("Legacy v1")
-                prepared = prepare_record(
-                    sequence=0,
-                    previous_record_digest=None,
-                    event_kind="checkpoint",
-                    coverage="complete",
-                    expected_before_workspace_digest=None,
-                    before_workspace_digest=None,
-                    after_projection=data,
-                    before_projection=None,
-                    metadata=metadata(),
-                )
-                append_record_fsync(data_path, prepared)
-                write_workspace(data_path, data)
-                append_record_fsync(
-                    data_path,
-                    commit_record(
-                        prepared,
-                        sequence=1,
-                        previous_record_digest=prepared["record_digest"],
-                    ),
-                )
+                data, sealed_v1 = install_committed_v1_predecessor(data_path)
                 predecessor = _v1_predecessor_binding(data_path, _active_state(data_path))
 
                 with self.assertRaisesRegex(InjectedCrash, point):
@@ -74,27 +62,17 @@ class GovernanceJournalCrashTests(unittest.TestCase):
                         event_kind="checkpoint",
                         coverage="continuous",
                         crash_hook=crash_at(point),
-                        _force_v2=True,
                         _predecessor=predecessor,
                     )
 
                 pending = verify_journal(data_path, data)
-                if expected == "pending-prepare":
-                    recovered = transact(
-                        data_path,
-                        before_data=data,
-                        after_data=data,
-                        metadata=metadata(action="activated-v2"),
-                        apply=lambda: None,
-                        event_kind="checkpoint",
-                        coverage="continuous",
-                        _predecessor=predecessor,
-                    )
-                else:
-                    recovered = recover_pending(data_path, data)
+                recovered = recover_pending(data_path, data)
 
                 self.assertEqual(pending["status"], expected)
                 self.assertTrue(recovered["ok"])
+                self.assertEqual(
+                    legacy_journal_file_path(data_path).read_bytes(), sealed_v1
+                )
 
     def test_initial_checkpoint_crash_boundaries_are_detectable(self) -> None:
         expectations = {
@@ -334,6 +312,27 @@ def metadata(
 
 def write_workspace(data_path: Path, data: dict[str, object]) -> None:
     data_path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def install_committed_v1_predecessor(
+    data_path: Path,
+) -> tuple[dict[str, object], bytes]:
+    with COMMITTED_V1_FIXTURE.open("rb") as source:
+        pair = source.readline() + source.readline()
+    if hashlib.sha256(pair).hexdigest() != COMMITTED_V1_PAIR_SHA256:
+        raise AssertionError("tracked v1 predecessor fixture changed")
+    records = [json.loads(line) for line in pair.splitlines()]
+    projection = records[0].get("after_projection")
+    if (
+        [record.get("record_type") for record in records] != ["prepare", "commit"]
+        or not isinstance(projection, dict)
+    ):
+        raise AssertionError("bounded v1 fixture is not one committed transaction")
+    legacy = legacy_journal_file_path(data_path)
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_bytes(pair)
+    write_workspace(data_path, projection)
+    return projection, pair
 
 
 if __name__ == "__main__":

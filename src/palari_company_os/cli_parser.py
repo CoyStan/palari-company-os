@@ -160,27 +160,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_git_parser(subparsers)
     _add_mcp_parser(subparsers)
 
-    migrate_parser = subparsers.add_parser(
-        "migrate", help="Migrate a workspace to the current schema."
-    )
-    migrate_parser.add_argument("--write", action="store_true", help="Write migration result.")
-    migrate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
     history_parser = subparsers.add_parser(
-        "history", help="Show history or inspect the replayable governance journal."
-    )
-    history_parser.add_argument(
-        "--limit",
-        type=int,
-        default=20,
-        help="Number of recent events to show. Use 0 for none.",
+        "history", help="Verify or manage the replayable governance journal."
     )
     history_mode = history_parser.add_mutually_exclusive_group()
-    history_mode.add_argument(
-        "--verify",
-        action="store_true",
-        help="Verify the governance journal chain and workspace projection.",
-    )
     history_mode.add_argument(
         "--checkpoint",
         action="store_true",

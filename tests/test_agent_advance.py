@@ -539,6 +539,8 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         palari = self.temp_dir / ".palari"
         if palari.exists():
             shutil.rmtree(palari)
+        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
+        self.assertTrue(checkpoint["ok"])
         self.work_id = "WORK-TEST-ADVANCE"
         create_record(
             str(self.temp_dir),
@@ -564,8 +566,32 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             },
             command="test setup",
         )
-        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
-        self.assertTrue(checkpoint["ok"])
+        self.dependency_id = "WORK-TEST-DEPENDENCY"
+        create_record(
+            str(self.temp_dir),
+            "work",
+            {
+                "id": self.dependency_id,
+                "title": "Finished dependency fixture",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R1",
+                "intensity": "light",
+                "required_approval_count": 0,
+                "scope": "Represent one already retired dependency",
+                "acceptance_target": "No current execution is required.",
+                "status": "superseded",
+                "terminal_reason": "Test-only dependency is already retired.",
+                "successor_work_item_id": self.work_id,
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy", "human_review"],
+                "verification_expectations": ["repository verification"],
+            },
+            command="test dependency setup",
+        )
         (self.temp_dir / "README.md").write_text("before\n", encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(self.temp_dir)], check=True)
         subprocess.run(
@@ -621,8 +647,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )
@@ -639,8 +664,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )
@@ -782,8 +806,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(
             snapshot["changed_paths"],
             [
-                ".palari/governance-journal.v1.jsonl",
-                ".palari/history.jsonl",
+                ".palari/governance-journal.v2.jsonl",
                 "workspace.json",
             ],
         )
@@ -801,8 +824,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(
             [item["path"] for item in preflight["verified_governance_projection_changes"]],
             [
-                ".palari/governance-journal.v1.jsonl",
-                ".palari/history.jsonl",
+                ".palari/governance-journal.v2.jsonl",
                 "workspace.json",
             ],
         )
@@ -874,8 +896,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(
             snapshot["changed_paths"],
             [
-                ".palari/governance-journal.v1.jsonl",
-                ".palari/history.jsonl",
+                ".palari/governance-journal.v2.jsonl",
                 "workspace.json",
             ],
         )
@@ -1048,8 +1069,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )
@@ -1225,7 +1245,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             self.work_id,
             {
                 "status": "proposed",
-                "dependency_ids": ["WORK-0001"],
+                "dependency_ids": [self.dependency_id],
             },
             command="test uncommitted pre-claim lifecycle authority expansion",
             actor="HUMAN-FOUNDER",
@@ -1284,8 +1304,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )
@@ -1343,7 +1362,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_preclaim_projection_tamper_after_claim_fails_closed(self) -> None:
         self._start_preclaim_projection()
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         journal.write_bytes(journal.read_bytes() + b"{}\n")
 
         result = agent_advance(
@@ -1403,10 +1422,9 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         outside = self.temp_dir.parent / f"{self.temp_dir.name}-projection-outside"
         moved = self.temp_dir / ".palari-real"
         outside.mkdir()
-        shutil.copy2(palari / "history.jsonl", outside / "history.jsonl")
         shutil.copy2(
-            palari / "governance-journal.v1.jsonl",
-            outside / "governance-journal.v1.jsonl",
+            palari / "governance-journal.v2.jsonl",
+            outside / "governance-journal.v2.jsonl",
         )
         palari.rename(moved)
         os.symlink(outside, palari, target_is_directory=True)
@@ -2969,14 +2987,14 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
         self.assertIsNone(transition)
 
-    def test_refresh_transition_reports_uniform_projection_records(self) -> None:
+    def test_refresh_transition_rejects_changed_historical_artifact(self) -> None:
         transition = _refresh_artifact_transition(
             self.temp_dir,
             self.temp_dir,
-            [".palari/history.jsonl", "workspace.json"],
+            ["historical-proof.jsonl", "workspace.json"],
             [
                 {
-                    "path": ".palari/history.jsonl",
+                    "path": "historical-proof.jsonl",
                     "sha256": "sha256:" + "1" * 64,
                     "status": "present",
                 },
@@ -2988,7 +3006,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ],
             [
                 {
-                    "path": ".palari/history.jsonl",
+                    "path": "historical-proof.jsonl",
                     "sha256": "sha256:" + "3" * 64,
                     "status": "present",
                 },
@@ -3000,39 +3018,11 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             ],
         )
 
-        self.assertIsNotNone(transition)
-        assert transition is not None
-        self.assertEqual(
-            transition["projection_artifacts_unchanged"],
-            [
-                {
-                    "path": "workspace.json",
-                    "transition": "unchanged",
-                    "previous_sha256": "sha256:" + "2" * 64,
-                    "previous_status": "present",
-                    "current_sha256": "sha256:" + "2" * 64,
-                    "current_status": "present",
-                }
-            ],
-        )
-        self.assertEqual(
-            transition["projection_artifacts_rebound"],
-            [
-                {
-                    "path": ".palari/history.jsonl",
-                    "transition": "rebound",
-                    "previous_sha256": "sha256:" + "1" * 64,
-                    "previous_status": "present",
-                    "current_sha256": "sha256:" + "3" * 64,
-                    "current_status": "present",
-                }
-            ],
-        )
+        self.assertIsNone(transition)
 
-    def test_refresh_transition_sorts_three_unchanged_projection_records(self) -> None:
+    def test_refresh_transition_sorts_current_projection_records(self) -> None:
         paths = [
-            ".palari/governance-journal.v1.jsonl",
-            ".palari/history.jsonl",
+            ".palari/governance-journal.v2.jsonl",
             "workspace.json",
         ]
         hashes = [
@@ -3072,20 +3062,15 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             "current_status": "present",
         }
         narration = _refresh_proof_narration(
-            3,
+            2,
             {
                 "ordinary_artifacts_unchanged": [],
                 "projection_artifacts_unchanged": [
                     {"path": "workspace.json", "transition": "unchanged", **record},
-                    {
-                        "path": ".palari/history.jsonl",
-                        "transition": "unchanged",
-                        **record,
-                    },
                 ],
                 "projection_artifacts_rebound": [
                     {
-                        "path": ".palari/governance-journal.v1.jsonl",
+                        "path": ".palari/governance-journal.v2.jsonl",
                         "transition": "rebound",
                         **record,
                         "current_sha256": "sha256:" + "2" * 64,
@@ -3095,12 +3080,11 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
 
         actions = " ".join(narration["actions_taken"])
-        self.assertIn("Confirmed 2", actions)
+        self.assertIn("Confirmed 1", actions)
         self.assertIn("Rebound 1", actions)
-        self.assertNotIn("Rebound 3", actions)
-        self.assertIn("2 self-mutating governance projection", narration["evidence_summary"])
-        self.assertIn("retained identical exact Git bytes", narration["evidence_summary"])
+        self.assertNotIn("Rebound 2", actions)
         self.assertIn("1 self-mutating governance projection", narration["evidence_summary"])
+        self.assertIn("retained identical exact Git bytes", narration["evidence_summary"])
         self.assertIn("were rebound", narration["evidence_summary"])
         self.assertIn("after the evidence head", narration["evidence_summary"])
 
@@ -3996,7 +3980,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         }
 
         def rename_then_reconcile(*args, **kwargs):
-            (self.temp_dir / ".palari" / "governance-journal.v1.jsonl").unlink()
+            (self.temp_dir / ".palari" / "governance-journal.v2.jsonl").unlink()
             subprocess.run(
                 [
                     "git",
@@ -4004,7 +3988,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     str(self.temp_dir),
                     "mv",
                     "VALUABLE.md",
-                    ".palari/governance-journal.v1.jsonl",
+                    ".palari/governance-journal.v2.jsonl",
                 ],
                 check=True,
             )
@@ -4420,7 +4404,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         assert completed is not None
         self.assertEqual(completed.status, "completed")
 
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         with journal.open("a", encoding="utf-8") as stream:
             stream.write("{}\n")
         with self.assertRaisesRegex(WorkspaceError, "valid journal continuity"):
@@ -4468,7 +4452,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_pending_recovery_failed_fresh_verification_never_mutates_journal(self) -> None:
         self._crash_reconciliation("after_apply")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         def failed(_workspace, _root, profile, context, **_kwargs):
@@ -4498,7 +4482,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_pending_recovery_rechecks_scope_after_fresh_verification(self) -> None:
         self._crash_reconciliation("after_apply")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
         calls = 0
 
@@ -4530,7 +4514,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_pending_prepare_rechecks_scope_after_fresh_verification(self) -> None:
         self._crash_reconciliation("before_apply")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
         calls = 0
 
@@ -4612,7 +4596,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def test_completed_proof_resume_rejects_dirty_allowed_path(self) -> None:
         self._crash_reconciliation("after_apply")
         (self.temp_dir / "README.md").write_text("dirty after proof\n", encoding="utf-8")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -4629,7 +4613,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def test_completed_proof_resume_rejects_dirty_unapproved_path(self) -> None:
         self._crash_reconciliation("after_apply")
         (self.temp_dir / "unapproved.txt").write_text("dirty after proof\n", encoding="utf-8")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -4646,7 +4630,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def test_pending_prepare_rejects_dirty_scope_without_journal_mutation(self) -> None:
         self._crash_reconciliation("before_apply")
         (self.temp_dir / "unapproved.txt").write_text("dirty during prepare\n", encoding="utf-8")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -4662,7 +4646,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_unrelated_pending_commit_is_never_recovered(self) -> None:
         self._unrelated_pending_transaction("after_apply")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -4678,7 +4662,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
 
     def test_unrelated_pending_prepare_is_never_aborted(self) -> None:
         self._unrelated_pending_transaction("before_apply")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -4812,7 +4796,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         protected = self.temp_dir / "docs" / "company"
         protected.mkdir(parents=True)
         (protected / "private.md").write_text("must remain outside scope\n", encoding="utf-8")
-        journal = self.temp_dir / ".palari" / "governance-journal.v1.jsonl"
+        journal = self.temp_dir / ".palari" / "governance-journal.v2.jsonl"
         before_journal = journal.read_bytes()
 
         result = agent_advance(
@@ -5210,8 +5194,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )
@@ -5267,8 +5250,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 for item in planned["preflight"]["verified_governance_projection_changes"]
             ],
             [
-                ".palari/governance-journal.v1.jsonl",
-                ".palari/history.jsonl",
+                ".palari/governance-journal.v2.jsonl",
                 "workspace.json",
             ],
         )
@@ -5330,8 +5312,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 str(self.temp_dir),
                 "add",
                 "workspace.json",
-                ".palari/history.jsonl",
-                ".palari/governance-journal.v1.jsonl",
+                ".palari/governance-journal.v2.jsonl",
             ],
             check=True,
         )

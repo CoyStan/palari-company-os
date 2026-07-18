@@ -10,6 +10,11 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from palari_company_os.store import WorkspaceStore, write_store
+
+
 ACME = REPO_ROOT / "examples" / "acme-company-os"
 DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
 SPLIT_WORKSPACE = REPO_ROOT / "tests" / "fixtures" / "workspaces" / "split-workspace"
@@ -245,7 +250,7 @@ class CliSmokeTests(unittest.TestCase):
             detail = self.run_json(
                 "--workspace", str(workspace_file), "detail", "WORK-0001", "--json"
             )
-            history = self.run_json("--workspace", str(workspace_file), "history", "--json")
+            journal = self.run_json("--workspace", str(workspace_file), "history", "--json")
 
         self.assertTrue(recorded["recorded"])
         self.assertEqual(approved["status"], "approved")
@@ -256,24 +261,20 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(canceled["integration_outbox_item"]["status"], "canceled")
         self.assertIn("outbox-canceled", json.dumps(queue))
         self.assertIn("PLAN-SMOKE", json.dumps(detail))
-        self.assertIn("PLAN-SMOKE", json.dumps(history))
-        self.assertIn("canceled", json.dumps(history))
+        self.assertTrue(journal["ok"])
+        self.assertGreaterEqual(int(journal["committed_transactions"]), 4)
 
-    def test_scope_history_and_desktop_prototype_smokes(self) -> None:
+    def test_scope_maintainer_and_desktop_prototype_smokes(self) -> None:
         allowed = self.run_json(
             "scope", "WORK-0001", "--changed", "examples/acme-company-os/workspace.json", "--json"
         )
         blocked = self.run_json(
             "scope", "WORK-0001", "--changed", "secrets.env", "--action", "deploy", "--json"
         )
-        history = self.run_json("history", "--json")
-        dogfood_history = self.run_json("--workspace", str(DOGFOOD), "history", "--json")
         maintainer = self.run_json("maintainer", "status", "--json")
 
         self.assertTrue(allowed["allowed"])
         self.assertFalse(blocked["allowed"])
-        self.assertIn("events", history)
-        self.assertIn("events", dogfood_history)
         self.assertIn("repo", maintainer)
 
         with tempfile.TemporaryDirectory() as directory:
@@ -345,7 +346,8 @@ class _TempWorkspace:
     def __enter__(self) -> Path:
         self._directory = tempfile.TemporaryDirectory()
         self.path = Path(self._directory.name) / "workspace.json"
-        self.path.write_text((ACME / "workspace.json").read_text(encoding="utf-8"), encoding="utf-8")
+        data = json.loads((ACME / "workspace.json").read_text(encoding="utf-8"))
+        write_store(WorkspaceStore(data_path=self.path, data=data))
         return self.path
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:

@@ -91,6 +91,10 @@ The supported current durable workspace format is:
 - `workspace.json` with `schema_version: 2`; and
 - `.palari/governance-journal.v2.jsonl` as the sole current mutation journal.
 
+New workspaces write v2 directly. Existing unjournaled workspaces require an
+explicit v2 checkpoint before mutation. The v1 filename accepts only strict
+legacy records and is never a compatibility path for v2 output.
+
 Packet, claim, session-contract, cache, and Git-witness files are local runtime
 state, not alternate company truth. `.palari/history.jsonl` is a preserved
 historical artifact, not a current writer or authority. Full journal audit is

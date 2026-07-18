@@ -179,7 +179,7 @@ class ApprovalPackTests(unittest.TestCase):
             store = load_store(data_path)
             workspace = Workspace.load(data_path)
             context = JournalVerificationContext()
-            journal_path = data_path.parent / ".palari" / "governance-journal.v1.jsonl"
+            journal_path = data_path.parent / ".palari" / "governance-journal.v2.jsonl"
 
             with patch(
                 "palari_company_os.governance_journal.verify_workspace_journal",
@@ -869,7 +869,7 @@ def make_ready_workspace(
     raw["proposals"] = []
     root.mkdir(parents=True, exist_ok=True)
     dependencies = dependencies or {}
-    base_time = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
     for index in range(1, count + 1):
         work_id = f"WORK-{index:03d}"

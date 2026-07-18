@@ -14,7 +14,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .authoring import create_human_decision
-from .history import read_history
 from .integrations import decide_integration_plan
 from .read_models import detail, queue_items
 from .store import workspace_file_path
@@ -272,7 +271,6 @@ def _render_page(config: MissionControlConfig) -> str:
     needs = [item for item in items if item.waiting_on_human or item.attention == "blocked"]
     selected = needs[0] if needs else (items[0] if items else None)
     selected_detail = detail(workspace, selected.id) if selected else None
-    history = read_history(config.workspace_path, limit=30)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -297,10 +295,6 @@ def _render_page(config: MissionControlConfig) -> str:
     <section class="panel" id="boundary-view">
       <span class="eyebrow">Boundary View</span>
       {_boundary_view(selected_detail)}
-    </section>
-    <section class="panel" id="activity-feed">
-      <span class="eyebrow">Live Activity</span>
-      {_activity_feed(history)}
     </section>
     <section class="panel" id="receipt-drawer">
       <span class="eyebrow">Receipt Drawer</span>
@@ -438,18 +432,6 @@ def _boundary_view(work_detail: dict[str, Any] | None) -> str:
     """
 
 
-def _activity_feed(history: dict[str, Any]) -> str:
-    events = list(reversed(history.get("events") or []))
-    if not events:
-        return '<p class="empty">No activity yet. Claims, checks, finishes, handoffs, and decisions appear here.</p>'
-    return "<ol class=\"timeline\">" + "".join(
-        f"<li><strong>{_e(event.get('action', 'event'))}</strong> "
-        f"{_e(event.get('object_type', 'object'))}/{_e(event.get('object_id', ''))} "
-        f"<span>{_e(event.get('timestamp', ''))}</span></li>"
-        for event in events[:12]
-    ) + "</ol>"
-
-
 def _receipt_drawer(work_detail: dict[str, Any] | None) -> str:
     if not work_detail or not work_detail.get("receipt"):
         return '<p class="empty">No receipt for the selected work yet.</p>'
@@ -477,7 +459,7 @@ def _styles() -> str:
     :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f6f8fa;font-size:14px;line-height:1.45}
     *{box-sizing:border-box}body{margin:0}.topbar{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #d0d7de;background:#fff;position:sticky;top:0;z-index:5}.topbar span{margin-left:10px;color:#57606a}.badge{border:1px solid #d0d7de;border-radius:999px;padding:4px 10px;color:#57606a;background:#f6f8fa}
     .shell{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:12px;padding:12px;max-width:1280px}.panel{border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:14px}.hero{grid-column:1/-1;border-left:4px solid #cf222e}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.eyebrow{display:block;color:#57606a;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.06em}h1,h2,h3,p{margin:0}h1{font-size:20px}h2{font-size:16px;margin-top:4px}h3{font-size:12px;text-transform:uppercase;color:#57606a;margin-bottom:6px}.count{color:#cf222e;font-weight:700}.need-card{display:flex;justify-content:space-between;gap:16px;border:1px solid #d0d7de;border-radius:7px;padding:12px;margin-top:12px}.item-id{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#57606a}.next{margin-top:6px;color:#57606a}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.button{min-height:36px;border:1px solid #8c959f;background:#fff;border-radius:6px;padding:0 12px;font-weight:700;cursor:pointer}.button-approve{border-color:#1a7f37;color:#116329;background:#dafbe1}.button-reject{border-color:#bf8700;color:#9a6700;background:#fff8c5}.button-cancel{border-color:#8c959f;color:#57606a;background:#f6f8fa}
-    .fence-grid,.receipt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.receipt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fence-grid>div,.receipt-grid>div{border:1px solid #d0d7de;border-radius:6px;padding:10px;background:#f6f8fa}ul{margin:0;padding-left:18px}.timeline{margin:12px 0 0;padding-left:18px}.timeline li{margin-bottom:8px}.timeline span{display:block;color:#57606a;font-size:12px}.empty,.muted{color:#57606a}@media(max-width:760px){.shell{grid-template-columns:1fr;padding:8px}.need-card{display:grid}.fence-grid,.receipt-grid{grid-template-columns:1fr}.topbar{height:auto;align-items:flex-start;gap:8px;padding:10px;flex-direction:column}}
+    .fence-grid,.receipt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.receipt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fence-grid>div,.receipt-grid>div{border:1px solid #d0d7de;border-radius:6px;padding:10px;background:#f6f8fa}ul{margin:0;padding-left:18px}.empty,.muted{color:#57606a}@media(max-width:760px){.shell{grid-template-columns:1fr;padding:8px}.need-card{display:grid}.fence-grid,.receipt-grid{grid-template-columns:1fr}.topbar{height:auto;align-items:flex-start;gap:8px;padding:10px;flex-direction:column}}
     """
 
 

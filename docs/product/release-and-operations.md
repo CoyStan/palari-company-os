@@ -15,7 +15,7 @@ Python 3.10+
 Compatibility:
 
 - workspace schema v2 is the current supported schema
-- unversioned, v0, and v1 workspaces can be migrated to v2 with `palari migrate`
+- unversioned, v0, and v1 workspaces fail closed; no runtime migration is supported
 - newer schema versions fail closed until the code supports them
 
 Release checklist:
@@ -49,5 +49,5 @@ workflow `release.yml`). No API token is stored in the repository.
 Workspace backup guidance:
 
 - `workspace.json` is the source of truth
-- copy the workspace directory before migrations
+- back up the complete workspace directory, including `.palari`, together
 - do not store secrets in workspace files

@@ -51,7 +51,7 @@ class DataMapTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         self.assertIn("Palari Data Map: Acme Company OS Example", result.stdout)
-        self.assertIn("history: .palari/history.jsonl", result.stdout)
+        self.assertIn("journal: .palari/governance-journal", result.stdout)
         self.assertIn("readiness: data=internal", result.stdout)
         self.assertIn("redaction required", result.stdout)
         self.assertIn("live execution: disabled", result.stdout)

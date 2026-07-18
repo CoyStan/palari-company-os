@@ -461,7 +461,7 @@ receipt claims so a human can inspect the right thing without parsing JSON
 first. Agent-safe read commands remain separate from `human_action_commands`, so
 a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
-decisions, receipts, evidence, claims, or history events. Handoff packets also
+decisions, receipts, evidence, claims, or journal mutations. Handoff packets also
 include `human_action_boundary`, which marks every `human_action_commands`
 entry as human-only. Eligible Palari review commands are instead listed under
 `agent_action_commands`, paired with the required review-packet command and an

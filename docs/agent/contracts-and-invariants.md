@@ -11,16 +11,18 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Work-item IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin a replayable v1-compatible governance journal. Legacy
-  workspaces keep working until an operator explicitly checkpoints them.
-  A second explicit checkpoint on a valid v1 head activates compact v2 without
-  rewriting v1: the v2 checkpoint content-binds the exact sealed predecessor,
-  then deterministic value deltas form the streamed tail. Prepared and
+- New workspaces begin a replayable v2 governance journal. A workspace with a
+  committed valid v1 journal is read-only until an operator explicitly
+  activates v2. That activation does not rewrite v1: the v2 checkpoint
+  content-binds the exact sealed predecessor, then deterministic value deltas
+  form the streamed tail. Existing unjournaled workspaces also require an
+  explicit v2 checkpoint; no current record is written under the v1 filename.
+  Prepared and
   committed records still bracket the atomic, fsynced workspace replacement;
   divergence, corruption, pending transactions, and continuity breaks remain
   visible.
-- Evidence for self-mutating governance projection files (`workspace.json`,
-  legacy history, and the governance journal) binds their bytes at the exact
+- Evidence for self-mutating governance projection files (`workspace.json` and
+  the current governance journal) binds their bytes at the exact
   evidence Git head. The live journal is verified separately against the
   current workspace, so recording proof does not stale itself and journal
   corruption or projection divergence still fails closed. Ordinary artifacts
@@ -35,15 +37,15 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   same unchanged journal independently.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
-  Schema migration preserves record placement, detects concurrent changes to
-  every participating file, and advances the root version last.
+  This reader is parked compatibility, not a supported write or migration
+  surface.
 - Collection file paths must be workspace-relative and must not contain `..`.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
   delete requires an absent exact path plus an observed Git deletion. Legacy
   work without intents retains its presence-required output behavior.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
-- Active v1 verification is linear in parsed append-only history. V2 hashes the
+- Sealed v1 predecessor verification is linear in parsed journal records. V2 hashes the
   sealed v1 predecessor as bytes and strictly streams only its compact segment,
   retaining one replay projection rather than all records or projections.
   Request-local reuse may remove duplicate scans only while workspace, v1, and
@@ -72,8 +74,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but
-  rejects unbound `accept-ready`; v1 migration blocks those legacy verdicts and
-  revokes their dependent acceptance.
+  rejects unbound `accept-ready`. Older workspace schema versions fail closed;
+  current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; contradictory or ambiguous ordering fails closed.
 - Gates recommend what to inspect; they do not grant acceptance authority.

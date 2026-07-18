@@ -59,10 +59,10 @@ For governance-journal changes run:
 ```bash
 python3 -m unittest tests.test_governance_journal \
   tests.test_governance_journal_crash tests.test_store_journal_integration
-./bin/palari history --verify --json
+./bin/palari history --json
 ```
 
-Active v1 verification still parses linearly. Compact v2 verification hashes
+Sealed v1 predecessor verification still parses linearly. Compact v2 verification hashes
 and state-validates the sealed v1 predecessor without retaining its record
 payloads (transaction-identity sets still scale with transaction count), then
 streams the v2 checkpoint/tail. A

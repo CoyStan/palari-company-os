@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .errors import WorkspaceError
-from .history import append_history_event
+from .governance_journal import MutationMetadata
 from .integration_contracts import PROVIDER_ACTIONS
 from .models import Human, Integration, IntegrationPlan, WorkItem, to_plain
 from .store import load_store, validate_data, write_store
@@ -106,23 +106,18 @@ def record_integration_plan(
     if any(isinstance(item, dict) and item.get("id") == record["id"] for item in records):
         raise WorkspaceError(f"integration plan already exists: {record['id']}")
     records.append(record)
-    workspace = write_store(store)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration plan",
-        action="planned",
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=str(record["id"]),
-        actor=str(record["actor"]),
-        before=None,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration plan",
+            str(record["actor"]),
+            "planned",
+            (("integration-plan", "integration_plans", str(record["id"])),),
+        ),
     )
     refreshed = plan_integration(workspace, integration_id, work_id, event, action)
     refreshed["recorded"] = True
     refreshed["integration_plan"] = record
-    refreshed["history_event"] = history_event
     return refreshed
 
 
@@ -175,7 +170,6 @@ def decide_integration_plan(
     )
     if record is None:
         raise WorkspaceError(f"integration plan record not found: {plan_id}")
-    before = deepcopy(record)
     now = _timestamp()
     record.update(
         {
@@ -186,21 +180,18 @@ def decide_integration_plan(
         }
     )
 
-    workspace = write_store(store)
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            f"integration {decision}",
+            human.id,
+            target_status,
+            (("integration-plan", "integration_plans", plan_id),),
+            reason=reason,
+        ),
+    )
     after_plan = workspace.integration_plan(plan_id)
     after = to_plain(after_plan) if after_plan is not None else deepcopy(record)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=f"integration {decision}",
-        action=target_status,
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=plan_id,
-        actor=human.id,
-        before=before,
-        after=after,
-    )
     return {
         "workspace": workspace.name,
         "dry_run": True,
@@ -214,7 +205,6 @@ def decide_integration_plan(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": _decision_next_action(target_status),
     }
 
@@ -279,18 +269,14 @@ def enqueue_integration_plan(
         "notes": "Queued for a future execution boundary only. No provider call was made.",
     }
     records.append(record)
-    workspace = write_store(store)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration enqueue",
-        action="queued",
-        object_type="integration-outbox",
-        object_collection="integration_outbox",
-        object_id=str(record["id"]),
-        actor=human.id,
-        before=None,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration enqueue",
+            human.id,
+            "queued",
+            (("integration-outbox", "integration_outbox", str(record["id"])),),
+        ),
     )
     return {
         "workspace": workspace.name,
@@ -305,7 +291,6 @@ def enqueue_integration_plan(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": "Outbox item queued for future execution wiring; no provider call was made.",
     }
 
@@ -353,7 +338,6 @@ def cancel_integration_outbox_item(
     )
     if record is None:
         raise WorkspaceError(f"integration outbox record not found: {outbox_id}")
-    before = deepcopy(record)
     now = _timestamp()
     record.update(
         {
@@ -364,21 +348,18 @@ def cancel_integration_outbox_item(
         }
     )
 
-    workspace = write_store(store)
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration outbox-cancel",
+            human.id,
+            "canceled",
+            (("integration-outbox", "integration_outbox", outbox_id),),
+            reason=reason,
+        ),
+    )
     after_item = workspace.integration_outbox_item(outbox_id)
     after = to_plain(after_item) if after_item is not None else deepcopy(record)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration outbox-cancel",
-        action="canceled",
-        object_type="integration-outbox",
-        object_collection="integration_outbox",
-        object_id=outbox_id,
-        actor=human.id,
-        before=before,
-        after=after,
-    )
     return {
         "workspace": workspace.name,
         "dry_run": True,
@@ -392,7 +373,6 @@ def cancel_integration_outbox_item(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": "Outbox item canceled. No provider call was made.",
     }
 
@@ -748,6 +728,27 @@ def _plan_record(
         "timestamp": timestamp,
         "notes": "Dry-run only. No provider call was made and no secret value was read.",
     }
+
+
+def _journal_metadata(
+    command: str,
+    actor: str,
+    action: str,
+    objects: tuple[tuple[str, str, str], ...],
+    *,
+    reason: str = "",
+) -> MutationMetadata:
+    return MutationMetadata(
+        command=command,
+        actor=actor or "local-operator",
+        action=action,
+        timestamp=_timestamp(),
+        objects=tuple(
+            {"type": kind, "collection": collection, "id": object_id}
+            for kind, collection, object_id in objects
+        ),
+        reason=reason,
+    )
 
 
 def _timestamp() -> str:

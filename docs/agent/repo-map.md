@@ -97,7 +97,6 @@ When adding a command, update parser, dispatch, output, tests, and
   records.
 - `src/palari_company_os/decision_guides.py`: read-only decision guides.
 - `src/palari_company_os/scope.py`: declared scope checks.
-- `src/palari_company_os/history.py`: append-only workspace history.
 - `spec/pcaw/v1/`: normative PCAW v1 schemas, vectors, and black-box runner.
 
 ## Docs And Agent Orientation
@@ -138,7 +137,7 @@ runtime state.
 - `tests/test_approval_packs.py`: batching, staleness, authority, policy, and
   crash recovery.
 - `tests/test_reversible_checkpoints.py`: exact projection restoration,
-  append-only history, non-guarantees, and crash recovery.
+  append-only journal behavior, non-guarantees, and crash recovery.
 
 Prefer focused regression tests for a discovered failure mode, then run the full
 verification stack before claiming done.

@@ -15,8 +15,8 @@ from .workspace import Workspace, WorkspaceError
 
 HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
-GOVERNANCE_HISTORY_RELATIVE_PATH = ".palari/history.jsonl"
-GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
+GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v2.jsonl"
+LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
 
 
 def git_artifact_state(
@@ -110,8 +110,8 @@ def _governance_projection_paths(root: Path, workspace_path: Path) -> set[str]:
         data_path /= "workspace.json"
     candidates = {
         data_path,
-        data_path.parent / ".palari" / "history.jsonl",
-        data_path.parent / ".palari" / "governance-journal.v1.jsonl",
+        data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
+        data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
     }
     paths: set[str] = set()
     for candidate in candidates:
@@ -686,13 +686,16 @@ def _governance_projection_artifacts(
     data_path = Path(workspace_path).expanduser().resolve(strict=False)
     if data_path.is_dir():
         data_path /= "workspace.json"
-    journal_path = data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH
-    if not journal_path.exists():
-        return []
     projection_paths = {
         data_path,
-        data_path.parent / GOVERNANCE_HISTORY_RELATIVE_PATH,
-        journal_path,
+        *(
+            path
+            for path in (
+                data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
+                data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
+            )
+            if path.exists()
+        ),
     }
     matches: list[str] = []
     for artifact in artifacts:

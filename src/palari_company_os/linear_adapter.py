@@ -9,7 +9,7 @@ from typing import Any
 
 from .agent_runtime import start_agent
 from .errors import WorkspaceError
-from .history import append_history_event
+from .governance_journal import MutationMetadata
 from .integrations import _human_can_decide_plan, check_integration_outbox
 from .linear_blocks import (
     PalariBlock,
@@ -184,18 +184,14 @@ def linear_connect(
     upgraded = _upgrade_linear_integration_record(integration_record)
     workspace = validate_data(store.data_path, store.data)
     if integration_before is None or upgraded:
-        workspace = write_store(store)
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="linear connect",
-            action="created" if integration_before is None else "updated",
-            object_type="integration",
-            object_collection="integrations",
-            object_id=str(integration_record["id"]),
-            actor=actor,
-            before=integration_before if upgraded else None,
-            after=deepcopy(integration_record),
+        workspace = write_store(
+            store,
+            metadata=_journal_metadata(
+                "linear connect",
+                actor,
+                "created" if integration_before is None else "updated",
+                (("integration", "integrations", str(integration_record["id"])),),
+            ),
         )
 
     connection: dict[str, Any] = {"verified": False}
@@ -360,7 +356,7 @@ def linear_push(
         workspace,
         actor,
     )
-    _upgrade_linear_integration_record(integration_record)
+    integration_upgraded = _upgrade_linear_integration_record(integration_record)
     workspace = validate_data(store.data_path, store.data)
     integration = workspace.integration(str(integration_record["id"]))
     if integration is None:
@@ -442,31 +438,17 @@ def linear_push(
         "notes": "Linear issue creation preview only. No provider call was made.",
     }
     plans.append(plan)
-    workspace = write_store(store)
-    if integration_before is None:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="linear push",
-            action="created",
-            object_type="integration",
-            object_collection="integrations",
-            object_id=integration.id,
-            actor=actor,
-            before=None,
-            after=deepcopy(integration_record),
-        )
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="linear push",
-        action="planned",
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=str(plan["id"]),
-        actor=actor,
-        before=None,
-        after=plan,
+    objects = [("integration-plan", "integration_plans", str(plan["id"]))]
+    if integration_before is None or integration_upgraded:
+        objects.insert(0, ("integration", "integrations", integration.id))
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "linear push",
+            actor,
+            "planned",
+            tuple(objects),
+        ),
     )
     return {
         "schema_version": "palari.linear_push.v1",
@@ -478,7 +460,6 @@ def linear_push(
         "integration_plan": plan,
         "payload_preview": payload_preview,
         "source_boundary": source_boundary,
-        "history_event": history_event,
         "next_action": (
             f"Approve with `palari integration approve {plan['id']} --by HUMAN-ID "
             "--reason REASON --json`, then enqueue before sending."
@@ -624,12 +605,10 @@ def linear_import(
 
     fields = _proposal_fields_from_issue(workspace, issue, block, palari_id, goal_id)
     if proposal is None:
-        before = None
         proposal = {"id": proposal_id, "created_at": _timestamp(), **fields}
         proposals.append(proposal)
         action = "created"
     else:
-        before = deepcopy(proposal)
         if proposal.get("status") == "adopted":
             proposal.update(_adopted_proposal_sync_fields(fields))
         else:
@@ -641,21 +620,20 @@ def linear_import(
         if proposal.get("status") == "adopted":
             work["title"] = proposal["title"]
 
-    workspace = write_store(store)
+    objects = [("proposal", "proposals", str(proposal["id"]))]
+    if work is not None:
+        objects.append(("work", "work_items", str(work["id"])))
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "linear import",
+            palari_id,
+            action,
+            tuple(objects),
+        ),
+    )
     refreshed = workspace.proposal(str(proposal["id"]))
     refreshed_work = _workspace_linear_work(workspace, issue)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="linear import",
-        action=action,
-        object_type="proposal",
-        object_collection="proposals",
-        object_id=str(proposal["id"]),
-        actor=palari_id,
-        before=before,
-        after=to_plain(refreshed) if refreshed is not None else deepcopy(proposal),
-    )
     return {
         "schema_version": "palari.linear_import.v1",
         "provider": "linear",
@@ -665,7 +643,6 @@ def linear_import(
         "proposal": to_plain(refreshed) if refreshed is not None else deepcopy(proposal),
         "work_item": to_plain(refreshed_work) if refreshed_work is not None else None,
         "governance": _block_payload(block),
-        "history_event": history_event,
         "next_action": _import_next_action(block, str(proposal["id"]), work_id),
     }
 
@@ -837,8 +814,9 @@ def linear_post_gate(
         workspace,
         actor,
     )
+    integration_upgraded = False
     if action == "update_issue":
-        _upgrade_linear_integration_record(integration_record)
+        integration_upgraded = _upgrade_linear_integration_record(integration_record)
     workspace = validate_data(store.data_path, store.data)
     integration = workspace.integration(str(integration_record["id"]))
     if integration is None:
@@ -888,31 +866,17 @@ def linear_post_gate(
         ),
     }
     plans.append(plan)
-    workspace = write_store(store)
-    if integration_before is None:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="linear post-gate",
-            action="created",
-            object_type="integration",
-            object_collection="integrations",
-            object_id=integration.id,
-            actor=actor,
-            before=None,
-            after=integration_record,
-        )
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="linear post-gate",
-        action="planned",
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=str(plan["id"]),
-        actor=actor,
-        before=None,
-        after=plan,
+    objects = [("integration-plan", "integration_plans", str(plan["id"]))]
+    if integration_before is None or integration_upgraded:
+        objects.insert(0, ("integration", "integrations", integration.id))
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "linear post-gate",
+            actor,
+            "planned",
+            tuple(objects),
+        ),
     )
     return {
         "schema_version": "palari.linear_post_gate.v1",
@@ -925,7 +889,6 @@ def linear_post_gate(
         "integration_plan": plan,
         "payload_preview": payload_preview,
         "source_boundary": source_boundary,
-        "history_event": history_event,
         "next_action": (
             f"Approve with `palari integration approve {plan['id']} --by HUMAN-ID "
             "--reason REASON --json`, then enqueue before sending."
@@ -969,7 +932,6 @@ def linear_send(
     record = _record_by_id(records, outbox_id)
     if record is None:
         raise WorkspaceError(f"integration outbox record not found: {outbox_id}")
-    before = deepcopy(record)
     try:
         assert_transition_allowed(
             workspace,
@@ -992,19 +954,16 @@ def linear_send(
     except WorkspaceError as exc:
         if record.get("status") == "queued":
             _mark_outbox_failed(record, human, exc)
-        workspace = write_store(store)
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="linear send",
-            action="failed",
-            object_type="integration-outbox",
-            object_collection="integration_outbox",
-            object_id=outbox_id,
-            actor=human.id,
-            before=before,
-            after=record,
-        )
+            write_store(
+                store,
+                metadata=_journal_metadata(
+                    "linear send",
+                    human.id,
+                    "failed",
+                    (("integration-outbox", "integration_outbox", outbox_id),),
+                    reason=str(exc),
+                ),
+            )
         raise
 
     record.update(
@@ -1029,21 +988,20 @@ def linear_send(
         linked_work_event = _link_work_to_created_issue(
             store.data, work.id, provider_response
         )
-    workspace = write_store(store)
+    objects = [("integration-outbox", "integration_outbox", outbox_id)]
+    if linked_work_event is not None:
+        objects.append(("work", "work_items", work.id))
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "linear send",
+            human.id,
+            "sent",
+            tuple(objects),
+        ),
+    )
     after_item = workspace.integration_outbox_item(outbox_id)
     after = to_plain(after_item) if after_item is not None else deepcopy(record)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="linear send",
-        action="sent",
-        object_type="integration-outbox",
-        object_collection="integration_outbox",
-        object_id=outbox_id,
-        actor=human.id,
-        before=before,
-        after=after,
-    )
     return {
         "schema_version": "palari.linear_send.v1",
         "ok": True,
@@ -1053,7 +1011,6 @@ def linear_send(
         "integration_outbox_item": after,
         "provider_response": _provider_response_summary(item.action, provider_response),
         "linked_work_item": linked_work_event,
-        "history_event": history_event,
         "next_action": _send_next_action(item.action, provider_response),
     }
 
@@ -1812,6 +1769,27 @@ def _linear_plan_id(issue_key: str, event: str, timestamp: str) -> str:
     safe_issue = re.sub(r"[^A-Za-z0-9]+", "-", issue_key.upper()).strip("-")
     safe_event = re.sub(r"[^A-Za-z0-9]+", "-", event.upper()).strip("-")
     return f"PLAN-LINEAR-{safe_issue}-{safe_event}-{compact}-{uuid.uuid4().hex[:8].upper()}"
+
+
+def _journal_metadata(
+    command: str,
+    actor: str,
+    action: str,
+    objects: tuple[tuple[str, str, str], ...],
+    *,
+    reason: str = "",
+) -> MutationMetadata:
+    return MutationMetadata(
+        command=command,
+        actor=actor or "local-operator",
+        action=action,
+        timestamp=_timestamp(),
+        objects=tuple(
+            {"type": kind, "collection": collection, "id": object_id}
+            for kind, collection, object_id in objects
+        ),
+        reason=reason,
+    )
 
 
 def _timestamp() -> str:

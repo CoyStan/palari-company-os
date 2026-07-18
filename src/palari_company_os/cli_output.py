@@ -279,21 +279,6 @@ def print_result(result: CommandResult) -> None:
     if result.kind == "mcp-server":
         return
 
-    if result.kind == "migration":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_migration(result.payload)
-        return
-
-    if result.kind == "history":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_history(result.payload)
-        return
-
-
     if result.kind == "history-journal":
         if result.as_json:
             print_json(result.payload)
@@ -418,13 +403,6 @@ def print_governance_payload(payload: dict[str, Any]) -> None:
             print(f"  - {blocker}")
 
 
-def print_migration(payload: dict[str, Any]) -> None:
-    print(f"Workspace migration: {payload['workspace_file']}")
-    print(f"Write: {'yes' if payload['write'] else 'no'}")
-    for change in payload["changes"]:
-        print(f"  {change}")
-
-
 def print_demo(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -464,24 +442,6 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
     print("Try next:")
     for command in payload["try_next_commands"]:
         print(f"  {command}")
-
-
-def print_history(payload: dict[str, Any]) -> None:
-    print(f"Workspace history: {payload['workspace_file']}")
-    print(f"History file: {payload['history_file']}")
-    events = payload["events"]
-    if not events:
-        print("No history events recorded.")
-        return
-    for event in events:
-        print(
-            f"{event['timestamp']} {event['action']} "
-            f"{event['object_type']}/{event['object_id']} by {event['actor']}"
-        )
-        print(f"  command: {event['command']}")
-        changed_fields = event.get("changed_fields") or {}
-        if changed_fields:
-            print(f"  changed: {', '.join(sorted(changed_fields))}")
 
 
 def print_history_journal(payload: dict[str, Any]) -> None:

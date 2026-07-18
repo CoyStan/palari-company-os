@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -734,9 +733,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
-    if args.command == "migrate":
-        return CommandResult("migration", migrate_workspace(args.workspace, args.write), args.json)
-
     if args.command == "history":
         if args.checkpoints:
             from .checkpoints import list_checkpoints
@@ -761,42 +757,38 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 ),
                 args.json,
             )
-        if args.verify or args.checkpoint or args.recover:
-            from .governance_journal import (
-                checkpoint_workspace_journal,
-                recover_workspace_journal,
-                verify_workspace_journal,
-            )
-            from .store import workspace_write_lock
-
-            if args.checkpoint:
-                with workspace_write_lock(args.workspace):
-                    payload = checkpoint_workspace_journal(
-                        args.workspace,
-                        actor=args.actor or "local-operator",
-                        acknowledge_break=args.acknowledge_break,
-                        reason=args.reason,
-                    )
-            elif args.recover:
-                with workspace_write_lock(args.workspace):
-                    payload = recover_workspace_journal(args.workspace, actor=args.actor)
-            else:
-                payload = verify_workspace_journal(args.workspace)
-            return CommandResult(
-                "history-journal",
-                payload,
-                args.json,
-                0 if payload.get("ok") else 2,
-            )
-
-        if args.acknowledge_break or args.actor or args.reason:
+        if not (args.checkpoint or args.recover) and (
+            args.acknowledge_break or args.actor or args.reason
+        ):
             raise WorkspaceError(
                 "--actor, --reason, and --acknowledge-break require a journal mode"
             )
+        from .governance_journal import (
+            checkpoint_workspace_journal,
+            recover_workspace_journal,
+            verify_workspace_journal,
+        )
+        from .store import workspace_write_lock
 
-        from .history import read_history
-
-        return CommandResult("history", read_history(args.workspace, args.limit), args.json)
+        if args.checkpoint:
+            with workspace_write_lock(args.workspace):
+                payload = checkpoint_workspace_journal(
+                    args.workspace,
+                    actor=args.actor or "local-operator",
+                    acknowledge_break=args.acknowledge_break,
+                    reason=args.reason,
+                )
+        elif args.recover:
+            with workspace_write_lock(args.workspace):
+                payload = recover_workspace_journal(args.workspace, actor=args.actor)
+        else:
+            payload = verify_workspace_journal(args.workspace)
+        return CommandResult(
+            "history-journal",
+            payload,
+            args.json,
+            0 if payload.get("ok") else 2,
+        )
 
     if args.command == "desktop-prototype":
         from .desktop_prototype import generate_desktop_prototype
@@ -1087,36 +1079,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
     raise WorkspaceError("unknown command")
-
-
-def migrate_workspace(workspace_path: str, write: bool) -> dict[str, Any]:
-    from .history import append_history_event
-    from .store import load_store, migrate_store
-
-    store = load_store(workspace_path)
-    before = deepcopy(store.data)
-    migrated, changes, workspace = migrate_store(store, write=write)
-    payload = {
-        "workspace_file": str(store.data_path),
-        "write": write,
-        "changes": changes,
-    }
-    if write:
-        if workspace is None:
-            raise WorkspaceError("migration write did not produce a workspace")
-        after = load_store(store.data_path).data
-        append_history_event(
-            store.data_path,
-            schema_version=workspace.schema_version,
-            command="migrate --write",
-            action="migrated",
-            object_type="workspace",
-            object_collection="workspace",
-            object_id=workspace.name,
-            before=before,
-            after=after,
-        )
-    return payload
 
 
 def run_authoring_command(args: argparse.Namespace) -> Any:

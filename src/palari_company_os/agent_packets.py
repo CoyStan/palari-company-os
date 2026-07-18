@@ -785,7 +785,6 @@ def _omitted_context(workspace: Workspace) -> dict[str, Any]:
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),
             "sources": len(workspace.sources),
-            "history_events": "not included",
         },
     }
 

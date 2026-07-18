@@ -3,7 +3,6 @@ from __future__ import annotations
 import http.client
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,7 +19,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.authoring import create_record
-from palari_company_os.history import read_history
 from palari_company_os.integrations import record_integration_plan
 from palari_company_os.models import to_plain
 from palari_company_os.mission_control import (
@@ -29,6 +27,7 @@ from palari_company_os.mission_control import (
     host_security_warning,
     workspace_hash,
 )
+from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace
 
 
@@ -52,7 +51,6 @@ class MissionControlTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("Needs You", body)
         self.assertIn("Boundary View", body)
-        self.assertIn("Live Activity", body)
         self.assertIn("Receipt Drawer", body)
         self.assertIn("Approve", body)
 
@@ -227,10 +225,6 @@ class MissionControlTests(unittest.TestCase):
             ui_data = Workspace.load(ui_workspace)
             cli_data = Workspace.load(cli_workspace)
             self.assertEqual(to_records(ui_data.human_decisions), to_records(cli_data.human_decisions))
-            self.assertEqual(
-                normalize_history(read_history(ui_workspace)["events"][-1]),
-                normalize_history(read_history(cli_workspace)["events"][-1]),
-            )
 
     def test_pending_integration_plans_render_and_can_be_decided(self) -> None:
         with temp_workspace() as workspace_file:
@@ -331,7 +325,8 @@ def temp_workspace() -> Any:
 
 
 def record_bound_work_0001(workspace_file: Path) -> None:
-    raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+    store = load_store(workspace_file)
+    raw = store.data
     attempt = next(item for item in raw["attempts"] if item["id"] == "ATTEMPT-0001")
     attempt["workspace_path"] = str(workspace_file.parent)
     attempt["allowed_paths"] = [
@@ -348,7 +343,7 @@ def record_bound_work_0001(workspace_file: Path) -> None:
     raw["acceptance_records"] = [
         item for item in raw["acceptance_records"] if item["work_item_id"] != "WORK-0001"
     ]
-    workspace_file.write_text(json.dumps(raw), encoding="utf-8")
+    write_store(store.with_data(raw))
     artifact = workspace_file.parent / "docs" / "product" / "company-os.md"
     artifact.parent.mkdir(parents=True)
     artifact.write_text("mission-control proof\n", encoding="utf-8")
@@ -404,7 +399,8 @@ class _TempWorkspace:
     def __enter__(self) -> Path:
         self._directory = tempfile.TemporaryDirectory()
         self.path = Path(self._directory.name) / "workspace.json"
-        shutil.copy(ACME / "workspace.json", self.path)
+        data = json.loads((ACME / "workspace.json").read_text(encoding="utf-8"))
+        write_store(WorkspaceStore(data_path=self.path, data=data))
         return self.path
 
     def __exit__(self, *_exc: object) -> None:
@@ -468,13 +464,6 @@ def to_records(records: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         raise TypeError("expected list of records")
     return value
-
-
-def normalize_history(event: dict[str, object]) -> dict[str, object]:
-    normalized = dict(event)
-    normalized.pop("event_id", None)
-    normalized.pop("timestamp", None)
-    return normalized
 
 
 def decisions_for_work(workspace_file: Path, work_id: str) -> list[object]:

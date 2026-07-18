@@ -42,7 +42,6 @@ run_smoke ./bin/palari state --json >$verify_output_dir/palari-company-state.jso
 run_smoke ./bin/palari queue --json >$verify_output_dir/palari-company-queue.json
 run_smoke ./bin/palari detail WORK-0001 --json >$verify_output_dir/palari-company-detail.json
 run_smoke ./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json --json >$verify_output_dir/palari-company-scope.json
-run_smoke ./bin/palari history --json >$verify_output_dir/palari-company-history.json
 run_smoke ./bin/palari maintainer status --json >$verify_output_dir/palari-company-maintainer-status.json
 run_smoke ./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >$verify_output_dir/palari-company-agent-brief-ready.json
 run_smoke ./bin/palari --workspace examples/acme-company-os agent next --json >$verify_output_dir/palari-company-agent-next.json
@@ -52,7 +51,6 @@ run_smoke ./bin/palari desktop-prototype --out "$verify_output_dir/desktop" --js
 run_smoke ./bin/palari --workspace workspaces/palari-company-os validate --json >$verify_output_dir/palari-company-dogfood-validate.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os queue --json >$verify_output_dir/palari-company-dogfood-queue.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001 --json >$verify_output_dir/palari-company-dogfood-detail.json
-run_smoke ./bin/palari --workspace workspaces/palari-company-os history --json >$verify_output_dir/palari-company-dogfood-history.json
 run_smoke ./bin/palari --workspace workspaces/palari-company-os linear doctor --json >$verify_output_dir/palari-company-linear-doctor.json
 run_smoke ./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate --json >$verify_output_dir/palari-company-split-validate.json
 run_smoke ./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT --json >$verify_output_dir/palari-company-split-detail.json

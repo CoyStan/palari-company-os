@@ -93,17 +93,15 @@ The test suite covers:
 - stale evidence
 - stale review
 - scope allow/block behavior
-- append-only history events for successful mutations
-- failed mutations do not append history events
+- atomic journal transactions for successful mutations
+- failed mutations leave workspace and journal unchanged
 - human authority and approval capability
 - quorum completion gates
 - valid accepted/completed work
 - authoring commands
 - direct evidence, review, decision, completion, and outcome commands
-- migration from legacy unversioned workspaces
 - read-only split workspace collection files
 - write refusal for split workspaces
-- in-place split-workspace migration with stale-proof invalidation
 - coordinated claim/packet/baseline rehash rejection and Git witness history
 - claimless changes-requested proof refresh preview and execution, including
   truthful ordinary-unchanged versus self-mutating-projection rebound status,

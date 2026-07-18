@@ -173,8 +173,8 @@ class _JournalState:
     coverage: str
     continuity_breaks: list[int]
     record_count: int = 0
-    journal_file: str = JOURNAL_RELATIVE_PATH
-    journal_schema_version: str = SCHEMA_VERSION
+    journal_file: str = V2_JOURNAL_RELATIVE_PATH
+    journal_schema_version: str = V2_SCHEMA_VERSION
     predecessor: dict[str, Any] | None = None
 
 
@@ -222,10 +222,10 @@ class JournalVerificationContext:
 
 
 def journal_file_path(data_path: Path | str) -> Path:
-    """Return the active journal path, preferring v2 when it is present.
+    """Return the active journal path, preferring the current v2 segment.
 
     A workspace with only v1 remains on v1 until an explicit checkpoint
-    activates v2. A workspace without a journal keeps the established path.
+    activates v2. A workspace without a journal starts directly on v2.
     """
 
     workspace_file = Path(data_path).expanduser()
@@ -238,10 +238,7 @@ def journal_file_path(data_path: Path | str) -> Path:
         return v2
     if v1.exists():
         return v1
-    # Keep the established filename for new workspaces. The record schema,
-    # not the compatibility filename, identifies compact v2. Existing v1
-    # workspaces activate a separate v2 segment explicitly.
-    return v1
+    return v2
 
 
 def legacy_journal_file_path(data_path: Path | str) -> Path:
@@ -261,17 +258,13 @@ def v2_journal_file_path(data_path: Path | str) -> Path:
 
 
 def _journal_path_for_record(data_path: Path | str, record: dict[str, Any]) -> Path:
-    legacy = legacy_journal_file_path(data_path)
-    v2 = v2_journal_file_path(data_path)
     if record.get("schema_version") != V2_SCHEMA_VERSION:
-        return legacy
-    if v2.exists():
-        return v2
-    if not legacy.exists():
-        return legacy
-    if _journal_schema(legacy) == V2_SCHEMA_VERSION:
-        return legacy
-    return v2
+        raise JournalError(
+            "JOURNAL_V1_READ_ONLY",
+            "the v1 governance journal is a sealed read-only predecessor",
+            next_action="Activate the v2 journal with an explicit checkpoint.",
+        )
+    return v2_journal_file_path(data_path)
 
 
 def _journal_schema(path: Path) -> str | None:
@@ -299,49 +292,6 @@ def logical_changes(
     changes: list[dict[str, Any]] = []
     _collect_changes(before, after, "", changes)
     return changes
-
-
-def prepare_record(
-    *,
-    sequence: int,
-    previous_record_digest: str | None,
-    event_kind: str,
-    coverage: str,
-    expected_before_workspace_digest: str | None,
-    before_workspace_digest: str | None,
-    after_projection: dict[str, Any],
-    metadata: MutationMetadata | dict[str, Any],
-    before_projection: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    if event_kind not in EVENT_KINDS:
-        raise JournalError("JOURNAL_INVALID_EVENT_KIND", f"unsupported event kind: {event_kind}")
-    if coverage not in COVERAGE_MODES:
-        raise JournalError("JOURNAL_INVALID_COVERAGE", f"unsupported coverage: {coverage}")
-    metadata_dict = metadata.as_dict() if isinstance(metadata, MutationMetadata) else deepcopy(metadata)
-    if isinstance(metadata_dict, dict) and isinstance(metadata_dict.get("objects"), list):
-        metadata_dict["objects"] = _sorted_metadata_objects(metadata_dict["objects"])
-    _validate_metadata(metadata_dict, "$.metadata")
-    projection = deepcopy(after_projection)
-    after_digest = workspace_digest(projection)
-    record = {
-        "schema_version": SCHEMA_VERSION,
-        "sequence": sequence,
-        "record_type": "prepare",
-        "transaction_id": "",
-        "previous_record_digest": previous_record_digest,
-        "event_kind": event_kind,
-        "coverage": coverage,
-        "expected_before_workspace_digest": expected_before_workspace_digest,
-        "before_workspace_digest": before_workspace_digest,
-        "after_workspace_digest": after_digest,
-        "logical_changes": logical_changes(before_projection, projection),
-        "after_projection": projection,
-        "metadata": metadata_dict,
-        "record_digest": "",
-    }
-    record["transaction_id"] = _transaction_id(record)
-    record["record_digest"] = record_digest(record)
-    return record
 
 
 def _prepare_v2_record(
@@ -462,6 +412,12 @@ def append_record_fsync(
     record: dict[str, Any],
     crash_hook: CrashHook | None = None,
 ) -> None:
+    if record.get("schema_version") != V2_SCHEMA_VERSION:
+        raise JournalError(
+            "JOURNAL_V1_READ_ONLY",
+            "the v1 governance journal is a sealed read-only predecessor",
+            next_action="Activate the v2 journal with an explicit checkpoint.",
+        )
     _validate_record_shape(record, -1)
     if record_digest(record) != record.get("record_digest"):
         raise JournalError(
@@ -540,9 +496,29 @@ def _active_state(data_path: Path | str) -> _JournalState:
 
 def _scan_active_path(data_path: Path | str, path: Path) -> _JournalState:
     schema = _journal_schema(path)
-    if schema == V2_SCHEMA_VERSION:
+    legacy = legacy_journal_file_path(data_path)
+    current = v2_journal_file_path(data_path)
+    if path == current:
+        if schema not in {None, V2_SCHEMA_VERSION}:
+            raise JournalError(
+                "JOURNAL_PATH_SCHEMA_MISMATCH",
+                "the v2 journal path contains a record from another schema",
+                path="$[0].schema_version",
+            )
         return _scan_v2_records(data_path, path=path)
-    return _scan_records(_iter_records(path), retain_records=False)
+    if path == legacy:
+        if schema not in {None, SCHEMA_VERSION}:
+            raise JournalError(
+                "JOURNAL_PATH_SCHEMA_MISMATCH",
+                "the v1 predecessor path contains a record from another schema",
+                path="$[0].schema_version",
+                next_action="Do not place current v2 records in the sealed v1 path.",
+            )
+        return _scan_records(_iter_records(path), retain_records=False)
+    raise JournalError(
+        "JOURNAL_PATH_INVALID",
+        "governance journal is outside the supported control paths",
+    )
 
 
 def _v1_predecessor_binding(
@@ -713,15 +689,6 @@ def journal_projection_for_digest(
     return deepcopy(matches[-1]["projection"]) if matches else None
 
 
-def pending_journal_prepare(data_path: Path | str) -> dict[str, Any] | None:
-    """Return the exact verified pending prepare for safe command-level retry."""
-
-    if not journal_file_path(data_path).exists():
-        return None
-    state = _active_state(data_path)
-    return deepcopy(state.pending)
-
-
 def pending_workspace_journal_context(
     workspace_path: Path | str,
 ) -> dict[str, Any] | None:
@@ -791,7 +758,6 @@ def _checkpoint_workspace_journal(
     journal_path = journal_file_path(data_path)
     coverage = "from-checkpoint"
     predecessor: dict[str, Any] | None = None
-    activate_v2 = False
     if journal_path.exists():
         state = _active_state(data_path)
         if state.pending is not None:
@@ -803,7 +769,6 @@ def _checkpoint_workspace_journal(
         current_digest = workspace_digest(current_data)
         if state.journal_schema_version == SCHEMA_VERSION:
             predecessor = _v1_predecessor_binding(data_path, state)
-            activate_v2 = True
             coverage = "continuous"
         elif current_digest == state.replay_digest:
             return _operator_report(_state_report(data_path, state, current_data))
@@ -830,7 +795,6 @@ def _checkpoint_workspace_journal(
         apply=lambda: None,
         event_kind="checkpoint",
         coverage=coverage,
-        _force_v2=activate_v2,
         _predecessor=predecessor,
     )
     return _operator_report(report)
@@ -940,6 +904,15 @@ def recover_pending(
     if action not in {"auto", "abort"}:
         raise JournalError("JOURNAL_RECOVERY_ACTION_INVALID", f"unsupported recovery action: {action}")
     state = _active_state(data_path)
+    if state.journal_schema_version == SCHEMA_VERSION and state.pending is not None:
+        raise JournalError(
+            "JOURNAL_V1_READ_ONLY",
+            "a pending v1 transaction cannot be completed by the current writer",
+            next_action=(
+                "Restore a fully committed v1 predecessor before explicitly "
+                "activating the v2 journal."
+            ),
+        )
     if state.pending is None:
         return _state_report(data_path, state, current_data)
 
@@ -981,17 +954,35 @@ def transact(
     event_kind: str = "mutation",
     coverage: str = "continuous",
     crash_hook: CrashHook | None = None,
-    _force_v2: bool = False,
     _predecessor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     active_path = journal_file_path(data_path)
-    state = _empty_state() if _force_v2 or not active_path.exists() else _active_state(data_path)
-    use_v2 = _force_v2 or (
-        active_path.exists() and state.journal_schema_version == V2_SCHEMA_VERSION
-    )
-    if use_v2:
-        state.journal_file = V2_JOURNAL_RELATIVE_PATH
-        state.journal_schema_version = V2_SCHEMA_VERSION
+    if active_path.exists():
+        active_state = _active_state(data_path)
+        if active_state.journal_schema_version == SCHEMA_VERSION:
+            if _predecessor is None:
+                raise JournalError(
+                    "JOURNAL_V2_ACTIVATION_REQUIRED",
+                    "the current writer cannot append to the sealed v1 journal",
+                    next_action="Activate the v2 journal with an explicit checkpoint.",
+                )
+            state = _empty_state()
+        else:
+            if _predecessor is not None:
+                raise JournalError(
+                    "JOURNAL_PREDECESSOR_INVALID",
+                    "a v1 predecessor can only be bound by the first v2 checkpoint",
+                )
+            state = active_state
+    else:
+        if _predecessor is not None:
+            raise JournalError(
+                "JOURNAL_PREDECESSOR_MISSING",
+                "v2 activation requires the exact v1 predecessor bytes",
+            )
+        state = _empty_state()
+    state.journal_file = V2_JOURNAL_RELATIVE_PATH
+    state.journal_schema_version = V2_SCHEMA_VERSION
     current_digest = workspace_digest(before_data)
 
     if state.pending is not None:
@@ -1047,7 +1038,6 @@ def transact(
     candidate_previous_digest = (
         state.pending["previous_record_digest"] if state.pending is not None else state.head_digest
     )
-    prepare = _prepare_v2_record if use_v2 else prepare_record
     prepare_kwargs: dict[str, Any] = {
         "sequence": state.record_count,
         "previous_record_digest": candidate_previous_digest,
@@ -1059,11 +1049,10 @@ def transact(
         "metadata": metadata,
         "before_projection": state.replay_projection,
     }
-    if use_v2:
-        prepare_kwargs["predecessor"] = (
-            state.pending.get("predecessor") if state.pending is not None else _predecessor
-        )
-    prepared = prepare(**prepare_kwargs)
+    prepare_kwargs["predecessor"] = (
+        state.pending.get("predecessor") if state.pending is not None else _predecessor
+    )
+    prepared = _prepare_v2_record(**prepare_kwargs)
 
     if state.pending is not None:
         if prepared["transaction_id"] != state.pending["transaction_id"]:
@@ -1096,6 +1085,8 @@ def _scan_records(
     retain_records: bool = True,
 ) -> _JournalState:
     state = _empty_state()
+    state.journal_file = JOURNAL_RELATIVE_PATH
+    state.journal_schema_version = SCHEMA_VERSION
     retained: list[dict[str, Any]] = []
     transaction_ids: set[str] = set()
     terminal_ids: set[str] = set()
@@ -1338,6 +1329,12 @@ def _verify_v2_prepare(
                 path=f"$[{index}].event_kind",
             )
         if predecessor is None:
+            if legacy_journal_file_path(data_path).exists():
+                raise JournalError(
+                    "JOURNAL_PREDECESSOR_REQUIRED",
+                    "the first v2 checkpoint must bind the existing v1 predecessor",
+                    path=f"$[{index}].predecessor",
+                )
             if record["coverage"] not in {"complete", "from-checkpoint"}:
                 raise JournalError(
                     "JOURNAL_INVALID_COVERAGE",
@@ -1592,7 +1589,7 @@ def _state_report(
     diagnostics: list[dict[str, str]] = []
     status = "valid"
     chain_valid = True
-    writable = state.pending is None
+    writable = state.pending is None and state.journal_schema_version == V2_SCHEMA_VERSION
     pending_payload: dict[str, Any] | None = None
 
     if state.pending is not None:
@@ -1641,6 +1638,16 @@ def _state_report(
                 "JOURNAL_CONTINUITY_BREAK",
                 "journal contains an acknowledged continuity break",
                 "Treat history before the latest break as discontinuous.",
+                severity="warning",
+            )
+        )
+
+    if state.journal_schema_version == SCHEMA_VERSION:
+        diagnostics.append(
+            _diagnostic(
+                "JOURNAL_V2_ACTIVATION_REQUIRED",
+                "v1 is a sealed read-only predecessor",
+                "Activate the v2 journal with an explicit checkpoint before writing.",
                 severity="warning",
             )
         )
@@ -2469,8 +2476,8 @@ def _report_not_enabled(data_path: Path | str) -> dict[str, Any]:
         "status": "not-enabled",
         "ok": False,
         "chain_valid": False,
-        "writable": True,
-        "journal_file": JOURNAL_RELATIVE_PATH,
+        "writable": False,
+        "journal_file": V2_JOURNAL_RELATIVE_PATH,
         "journal_schema_version": V2_SCHEMA_VERSION,
         "record_count": 0,
         "committed_transactions": 0,
@@ -2489,7 +2496,7 @@ def _report_not_enabled(data_path: Path | str) -> dict[str, Any]:
             _diagnostic(
                 "JOURNAL_NOT_ENABLED",
                 "workspace has no governance journal checkpoint",
-                "Create an explicit history checkpoint to begin continuity coverage.",
+                "Create an explicit checkpoint to begin v2 continuity coverage.",
                 severity="warning",
             )
         ],
@@ -2506,10 +2513,17 @@ def _error_report(data_path: Path | str, error: JournalError) -> dict[str, Any]:
         "journal_file": (
             V2_JOURNAL_RELATIVE_PATH
             if v2_journal_file_path(data_path).exists()
-            else JOURNAL_RELATIVE_PATH
+            else (
+                JOURNAL_RELATIVE_PATH
+                if legacy_journal_file_path(data_path).exists()
+                else V2_JOURNAL_RELATIVE_PATH
+            )
         ),
         "journal_schema_version": (
-            V2_SCHEMA_VERSION if v2_journal_file_path(data_path).exists() else SCHEMA_VERSION
+            V2_SCHEMA_VERSION
+            if v2_journal_file_path(data_path).exists()
+            or not legacy_journal_file_path(data_path).exists()
+            else SCHEMA_VERSION
         ),
         "record_count": 0,
         "committed_transactions": 0,

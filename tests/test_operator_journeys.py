@@ -357,7 +357,7 @@ class OperatorJourneyTests(unittest.TestCase):
             ]
             self.assertEqual(len(parked_attempts), 1)
             self.assertIsNotNone(read_claim(workspace_file, WORK_ID))
-            journal_path = root / ".palari/governance-journal.v1.jsonl"
+            journal_path = root / ".palari/governance-journal.v2.jsonl"
             journal_before_retry = journal_path.read_bytes()
 
             result = park_agent(

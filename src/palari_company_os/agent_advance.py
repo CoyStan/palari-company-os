@@ -815,10 +815,6 @@ def _preflight(
         try:
             relative_data = data_path.relative_to(root.resolve()).as_posix()
             proof_projection_paths.add(relative_data)
-            history_path = data_path.parent / ".palari" / "history.jsonl"
-            proof_projection_paths.add(
-                history_path.relative_to(root.resolve()).as_posix()
-            )
         except ValueError:
             return _blocked_preflight(
                 "workspace proof paths escape the Git repository boundary"
@@ -2390,7 +2386,7 @@ def _projection_artifact_paths(
     base = relative_data.removesuffix("workspace.json")
     return {
         relative_data,
-        f"{base}.palari/history.jsonl",
+        f"{base}.palari/governance-journal.v2.jsonl",
         f"{base}.palari/governance-journal.v1.jsonl",
     }
 
@@ -3376,9 +3372,7 @@ def _governed_artifacts(paths: list[str]) -> list[str]:
         path
         for path in set(paths)
         if not path.endswith("/workspace.json")
-        and not path.endswith("/.palari/history.jsonl")
         and path != "workspace.json"
-        and path != ".palari/history.jsonl"
     )
 
 

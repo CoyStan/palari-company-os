@@ -1,17 +1,14 @@
 # Troubleshooting
 
-## `workspace schema_version is missing`
+## `workspace schema_version is missing` or `older than supported`
 
-The workspace is from an older unversioned format. Preview the migration:
-
-```bash
-./bin/palari --workspace /path/to/workspace migrate
-```
-
-Write it:
+The current runtime accepts only workspace schema v2. Unversioned, v0, and v1
+workspaces fail closed, and Palari does not provide an in-place migration
+command. Restore a current backup or convert the data outside Palari, then
+validate the complete schema-v2 workspace before ordinary use:
 
 ```bash
-./bin/palari --workspace /path/to/workspace migrate --write
+./bin/palari --workspace /path/to/workspace validate
 ```
 
 ## `references missing id`

@@ -179,7 +179,7 @@ Authority rules:
   or journal is replaced. The storage transaction creating retirement cannot
   append authority or proof, and successful terminal work cannot be relabeled
   as retired.
-- Proof creation necessarily mutates `workspace.json`, legacy history, and the
+- Proof creation necessarily mutates `workspace.json` and the
   governance journal. When one of those projection files is itself a declared
   artifact, verification reads its bytes from the evidence's exact Git commit
   instead of the later live file, then independently requires the live journal
@@ -215,15 +215,21 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-Governance journal v1 remains strictly readable and appendable until an
-operator explicitly runs another `history --checkpoint` against its valid,
-fully committed head. That one-time activation verifies the complete v1 chain,
-leaves its bytes untouched, and starts a compact v2 segment whose first
+Governance journal v1 is a strictly read-only predecessor. An operator may run
+`history --checkpoint` against its valid, fully committed head exactly to
+activate the current writer; pending v1 state cannot be completed by appending
+a current record. Activation verifies the complete v1 chain, leaves its bytes
+untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
 checkpoint binds the exact v1 file SHA-256, byte length, head record digest,
 record count, replay digest, transaction counts, and continuity state. Every
 later verification re-hashes the sealed v1 bytes and streams the strict v2
 JSONL tail from its content-bound workspace checkpoint. It does not trust a
 persistent advisory cache.
+
+New workspaces and explicit checkpoints for existing unjournaled workspaces
+write v2 directly. Ordinary mutation of an existing unjournaled workspace
+fails closed until that checkpoint exists. V2 records are never written to or
+accepted from the v1 filename.
 
 V2 mutation prepares contain deterministic add/remove/replace values rather
 than another full workspace projection. A checkpoint still contains one full
