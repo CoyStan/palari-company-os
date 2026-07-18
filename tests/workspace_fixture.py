@@ -1,57 +1,99 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
+from palari_company_os.store import WorkspaceStore, write_store
+from palari_company_os.validation import COLLECTION_FILE_KEYS
 
-PORTABLE_AGENT_WORK_IDS: set[str] = set()
 
+def write_current_agent_workspace(destination: Path) -> None:
+    """Write the smallest current workspace shared by agent adapter tests."""
 
-def write_portable_agent_workspace(source: Path, destination: Path) -> None:
-    """Write foundation records without importing historical lifecycle state.
-
-    The dogfood workspace contains exact artifact bindings to its repository
-    root. Agent tests currently reuse its identities and source contracts, but
-    they construct their own current work and proof in the temporary workspace.
-    """
-
-    raw = json.loads(source.read_text(encoding="utf-8"))
-    raw["work_items"] = [
-        item for item in raw.get("work_items", []) if item.get("id") in PORTABLE_AGENT_WORK_IDS
+    data: dict[str, object] = {
+        "schema_version": 2,
+        "name": "Current Agent Test Workspace",
+    }
+    for collection in COLLECTION_FILE_KEYS:
+        data[collection] = []
+    data["humans"] = [
+        {
+            "id": "HUMAN-FOUNDER",
+            "name": "Test Founder",
+            "role": "Product authority",
+            "authority_level": "admin",
+            "approval_capabilities": ["architecture", "merge", "product"],
+            "availability": "active",
+        }
     ]
-    for collection in ("attempts", "receipts"):
-        raw[collection] = [
-            item
-            for item in raw.get(collection, [])
-            if item.get("work_item_id") in PORTABLE_AGENT_WORK_IDS
-        ]
-    for collection in (
-        "acceptance_records",
-        "decisions",
-        "evidence_runs",
-        "human_decisions",
-        "integration_outbox",
-        "integration_plans",
-        "outcomes",
-        "proposals",
-        "review_verdicts",
-    ):
-        raw[collection] = []
-    for palari in raw.get("palaris", []):
-        palari["active_work"] = [
-            work_id
-            for work_id in palari.get("active_work", [])
-            if work_id in PORTABLE_AGENT_WORK_IDS
-        ]
-        palari["outcomes"] = []
-    for goal in raw.get("goals", []):
-        goal["linked_work"] = [
-            work_id
-            for work_id in goal.get("linked_work", [])
-            if work_id in PORTABLE_AGENT_WORK_IDS
-        ]
-        goal["linked_decisions"] = []
-    destination.write_text(
-        json.dumps(raw, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    data["palaris"] = [
+        {
+            "id": "PALARI-STEWARD",
+            "name": "Steward",
+            "role": "Repository steward",
+            "scope": "Perform bounded repository work.",
+            "owner_human": "HUMAN-FOUNDER",
+            "linked_goals": ["GOAL-REPO-0001"],
+            "memory_sources": ["SOURCE-REPO-FOUNDATION"],
+            "forbidden_actions": ["deploy"],
+        },
+        {
+            "id": "PALARI-ARCHITECT",
+            "name": "Architect",
+            "role": "Independent architecture reviewer",
+            "scope": "Review exact bounded proof independently.",
+            "owner_human": "HUMAN-FOUNDER",
+            "linked_goals": ["GOAL-REPO-0001"],
+            "memory_sources": ["SOURCE-REPO-FOUNDATION"],
+            "forbidden_actions": ["deploy"],
+        },
+    ]
+    data["goals"] = [
+        {
+            "id": "GOAL-REPO-0001",
+            "title": "Verify current bounded agent work",
+            "owner": "HUMAN-FOUNDER",
+            "status": "active",
+            "priority": "high",
+            "success_criteria": ["Current boundary tests pass."],
+            "linked_palaris": ["PALARI-ARCHITECT", "PALARI-STEWARD"],
+        },
+        {
+            "id": "GOAL-REPO-0002",
+            "title": "Exercise independent review boundaries",
+            "owner": "HUMAN-FOUNDER",
+            "status": "active",
+            "priority": "normal",
+            "success_criteria": ["Authority changes fail closed."],
+            "linked_palaris": [],
+        },
+    ]
+    data["sources"] = [
+        {
+            "id": "SOURCE-REPO-FOUNDATION",
+            "label": "Temporary repository",
+            "kind": "repo",
+            "provider": "local",
+            "uri": ".",
+            "access_mode": "read",
+            "selected": True,
+            "owner_human": "HUMAN-FOUNDER",
+            "allowed_palaris": ["PALARI-ARCHITECT", "PALARI-STEWARD"],
+            "data_class": "internal",
+            "authority": "company_owned",
+            "steward_human": "HUMAN-FOUNDER",
+        }
+    ]
+    data["workbenches"] = [
+        {
+            "id": "WORKBENCH-REPO-FOUNDATION",
+            "label": "Repository",
+            "summary": "Temporary bounded repository work.",
+            "goal_ids": ["GOAL-REPO-0001"],
+            "palari_ids": ["PALARI-ARCHITECT", "PALARI-STEWARD"],
+            "human_ids": ["HUMAN-FOUNDER"],
+            "source_ids": ["SOURCE-REPO-FOUNDATION"],
+            "output_target_ids": ["AGENTS.md", "README.md"],
+            "status": "active",
+        }
+    ]
+    write_store(WorkspaceStore(data_path=destination, data=data))

@@ -23,10 +23,7 @@ from palari_company_os.agent_adoption import (
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.authoring import create_record
 from palari_company_os.workspace import Workspace, WorkspaceError
-from tests.workspace_fixture import write_portable_agent_workspace
-
-
-DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
+from tests.workspace_fixture import write_current_agent_workspace
 
 
 class AgentAdoptionTests(unittest.TestCase):
@@ -34,11 +31,7 @@ class AgentAdoptionTests(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.workspace = self.tmp / "workspaces" / "test"
         self.workspace.mkdir(parents=True)
-        write_portable_agent_workspace(
-            DOGFOOD / "workspace.json",
-            self.workspace / "workspace.json",
-        )
-        shutil.rmtree(self.workspace / ".palari", ignore_errors=True)
+        write_current_agent_workspace(self.workspace / "workspace.json")
         (self.tmp / "README.md").write_text("test\n", encoding="utf-8")
         (self.tmp / "bin").mkdir()
         (self.tmp / "bin" / "palari").write_text(
