@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .read_models import detail, queue_items
+from .read_models import queue_items
 from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
@@ -368,42 +368,13 @@ def assert_work_completion_ready(
 ) -> dict[str, Any]:
     """Apply the authoritative completion checks without mutating workspace state."""
 
-    work_detail = detail(workspace, work_id)
-    blocker = _completion_blocker(work_detail)
-    if blocker:
-        raise WorkspaceError(
-            f"work {work_id} cannot be completed: {blocker}; "
-            f"next action is {work_detail['next_action']}"
-        )
-    integrity_blocker = _completion_integrity_blocker(workspace, work_id)
-    if integrity_blocker:
-        raise WorkspaceError(f"work {work_id} cannot be completed: {integrity_blocker}")
-    assert_transition_allowed(
+    transition = assert_transition_allowed(
         workspace,
         "work_complete",
         work_id,
         actor=actor,
     )
-    return work_detail
-
-
-def _completion_blocker(work_detail: dict[str, Any]) -> str:
-    if work_detail["attention"] == "blocked":
-        return work_detail["why"]
-    integration_state = work_detail["safety"]["integration_state"]
-    return "" if integration_state == "ready" else f"integration_state is {integration_state}"
-
-
-def _completion_integrity_blocker(workspace: Any, work_id: str) -> str:
-    evidence = latest_for_work(workspace.evidence_runs, work_id)
-    if evidence is None or not evidence.manifest_hash:
-        return "current exact evidence is missing"
-    from .evidence_manifest import verify_evidence
-
-    verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
-    if verification["ok"]:
-        return ""
-    return "evidence manifest verification failed"
+    return transition.to_dict()
 
 
 def create_human_decision(
@@ -1021,13 +992,25 @@ def _ensure_acceptance_record_for_completion(
     actor: str,
 ) -> None:
     work = workspace.work_item(work_id)
-    if work is None or work.risk in {"R1", "R2"} and work.required_approval_count == 0:
+    if work is None:
+        return
+    receipt = latest_for_work(workspace.receipts, work_id)
+    from .governance_kernel import low_risk_completion_policy_applies
+
+    if low_risk_completion_policy_applies(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+        planned_external_writes=receipt.planned_external_writes if receipt else (),
+        queued_external_writes=receipt.queued_external_writes if receipt else (),
+        external_writes=receipt.external_writes if receipt else (),
+    ):
         return
     if any(item.get("work_item_id") == work_id for item in _records(store, "acceptance_records")):
         return
     review = latest_for_work(workspace.review_verdicts, work_id)
     evidence = latest_for_work(workspace.evidence_runs, work_id)
-    receipt = latest_for_work(workspace.receipts, work_id)
     if review is None or evidence is None:
         return
     matching_decisions = [
