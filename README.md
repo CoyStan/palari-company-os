@@ -42,7 +42,8 @@ palari demo
 ```
 
 The demo is offline and uses a throwaway temp directory. It shows the blocked
-file change, a passing in-bound change, and the human handoff.
+file change, a committed in-bound change, and one `agent advance` deriving the
+receipt and evidence needed to close safe low-risk local work.
 
 Then open the live local supervision desk:
 
@@ -61,6 +62,12 @@ palari init --palari Agent --json
 palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
+
+`init` creates missing `AGENTS.md` and `docs/agent/` orientation without
+overwriting existing guidance. In a Git worktree it also creates one local,
+path-limited bootstrap commit containing only the new governance projection and
+newly generated agent docs. That commit is an immutable execution-authority
+anchor, not human approval; unrelated staged and unstaged work is excluded.
 
 Use the declared identity returned by `init` (`PALARI-AGENT` for the command
 above), then use the opaque work ID returned by `start` after doing and
@@ -258,6 +265,12 @@ Most days have three short journeys.
    palari work add "Clean up launch notes" --write docs/notes.md
    palari agent start --next --as PALARI-CLAUDE --json
    ```
+
+   On first adoption, `init` generates only missing agent-ready documentation
+   and anchors the exact starter governance files in one path-limited local Git
+   commit. Existing project instructions and unrelated changes are preserved.
+   `work add` safely recovers that bootstrap if initialization was interrupted,
+   so the documented flow needs no extra hand-written Git ceremony.
 
    The final command selects exactly one eligible item using the existing queue
    policy, persists its packet and portable session contract, and claims it.

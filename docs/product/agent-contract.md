@@ -35,6 +35,16 @@ ready packet and claim. It does not infer new authority or silently choose
 blocked work. Use explicit `start WORK-ID --isolate` when a committed work item
 needs its own deterministic branch and worktree.
 
+For first adoption in a Git worktree, `palari init` writes only missing
+agent-ready guidance and makes one path-limited local commit of the new
+governance projection plus those generated docs. Existing guidance and
+unrelated staged or unstaged paths are excluded. This is an immutable baseline
+bootstrap, not review, acceptance, or authenticated human attribution.
+`palari work add` idempotently recovers a missing starter anchor before changing
+the work declaration. If a manually assembled workspace still has no committed
+authority origin, `agent start` fails closed with one exact `git add` plus
+path-limited `git commit --only` recovery action.
+
 The ordinary loop is deliberately short:
 
 1. Run `palari agent start --next --as PALARI-ID --json` and continue only when

@@ -7,12 +7,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.agent_runtime import start_agent
 from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
 from palari_company_os.work_identity import generate_work_id, is_opaque_work_id
@@ -40,6 +42,10 @@ class InitTests(unittest.TestCase):
         self.assertEqual(workspace.palaris[0].default_worker, "claude-code")
         self.assertTrue(any("work add" in cmd for cmd in result["next_commands"]))
         self.assertTrue(any("agent start --next" in cmd for cmd in result["next_commands"]))
+        self.assertEqual(result["agent_docs"]["status"], "ready")
+        self.assertEqual(result["authority_anchor"]["status"], "not-required")
+        self.assertTrue((self.project / "AGENTS.md").is_file())
+        self.assertTrue((self.project / "docs/agent/verification.md").is_file())
 
     def test_init_refuses_existing_workspace(self) -> None:
         initialize_starter_workspace(self.project)
@@ -68,6 +74,98 @@ class InitTests(unittest.TestCase):
         workspace = Workspace.load(self.project)
         self.assertEqual(workspace.palaris[0].default_worker, "codex")
 
+    def test_init_anchors_only_generated_adoption_files_in_a_committed_repo(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.name", "Test"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.project),
+                "config",
+                "user.email",
+                "test@example.invalid",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "--allow-empty", "-qm", "initial"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "commit.gpgSign", "true"],
+            check=True,
+        )
+        hook = self.project / ".git" / "hooks" / "pre-commit"
+        hook.write_text(
+            "#!/bin/sh\nprintf invoked > hook-ran\nexit 99\n",
+            encoding="utf-8",
+        )
+        hook.chmod(0o755)
+        unrelated = self.project / "unrelated.txt"
+        unrelated.write_text("pre-existing staged work\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.project), "add", "unrelated.txt"],
+            check=True,
+        )
+
+        with patch.dict(
+            os.environ,
+            {"GIT_INDEX_FILE": str(self.project / "attacker-controlled-index")},
+        ):
+            result = initialize_starter_workspace(self.project, palari_name="Agent")
+
+        anchor = result["authority_anchor"]
+        self.assertEqual(anchor["status"], "anchored")
+        self.assertEqual(anchor["commit"], self.git_output("rev-parse", "HEAD"))
+        changed = set(
+            self.git_output("show", "--format=", "--name-only", "HEAD").splitlines()
+        )
+        self.assertEqual(changed, set(anchor["paths"]))
+        self.assertNotIn("unrelated.txt", changed)
+        self.assertIn("A  unrelated.txt", self.git_output("status", "--short"))
+        self.assertFalse((self.project / "hook-ran").exists())
+        self.assertEqual(
+            self.git_output("show", "HEAD:workspace.json").strip(),
+            (self.project / "workspace.json").read_text(encoding="utf-8").strip(),
+        )
+
+    def test_init_preserves_existing_agent_guidance(self) -> None:
+        agents = self.project / "AGENTS.md"
+        agents.write_text("# Existing project instructions\n", encoding="utf-8")
+
+        result = initialize_starter_workspace(self.project)
+
+        self.assertEqual(agents.read_text(encoding="utf-8"), "# Existing project instructions\n")
+        self.assertIn("AGENTS.md", result["agent_docs"]["preserved"])
+        self.assertNotIn("AGENTS.md", result["agent_docs"]["created"])
+
+    def test_init_rejects_agent_documentation_symlink_escape_before_workspace_write(
+        self,
+    ) -> None:
+        outside = self.project.parent / "outside-docs"
+        outside.mkdir()
+        (self.project / "docs").symlink_to(outside, target_is_directory=True)
+
+        with self.assertRaisesRegex(WorkspaceError, "documentation path is unsafe"):
+            initialize_starter_workspace(self.project)
+
+        self.assertFalse((self.project / "workspace.json").exists())
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def git_output(self, *args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(self.project), *args],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return result.stdout.strip()
+
 
 class WorkAddTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -94,6 +192,44 @@ class WorkAddTests(unittest.TestCase):
             result["next_commands"],
             ["palari agent start --next --as PALARI-CLAUDE --mode execute --json"],
         )
+
+    def test_work_add_idempotently_recovers_an_unanchored_git_workspace(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "--allow-empty", "-qm", "initial"],
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "Test",
+                "GIT_AUTHOR_EMAIL": "test@example.invalid",
+                "GIT_COMMITTER_NAME": "Test",
+                "GIT_COMMITTER_EMAIL": "test@example.invalid",
+            },
+        )
+
+        result = quick_add_work(
+            self.project,
+            "Recovered task",
+            write=["docs/recovered.md"],
+        )
+        work_id = result["work_item"]["id"]
+
+        self.assertEqual(result["authority_anchor"]["status"], "anchored")
+        self.assertEqual(
+            quick_add_work(
+                self.project,
+                "Second task",
+                write=["docs/second.md"],
+            )["authority_anchor"]["commit"],
+            result["authority_anchor"]["commit"],
+        )
+        started = start_agent(
+            Workspace.load(self.project),
+            self.project,
+            work_id,
+            "PALARI-CLAUDE",
+        )
+        self.assertEqual(started["start"]["status"], "claimed")
 
     def test_write_paths_become_boundary_and_reads_stay_read_only(self) -> None:
         result = quick_add_work(
