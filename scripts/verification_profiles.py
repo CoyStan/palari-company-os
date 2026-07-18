@@ -76,7 +76,6 @@ SOURCE_TESTS = {
     "store.py": (
         "tests.test_store_journal_integration",
         "tests.test_validation",
-        "tests.test_workspace_init",
     ),
     "mutation_context.py": ("tests.test_store_journal_integration",),
     "transition_checks.py": (

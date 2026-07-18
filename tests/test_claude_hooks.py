@@ -22,7 +22,6 @@ from palari_company_os.claude_hooks import (
     bash_write_targets,
     handle_hook_event,
     hooks_status,
-    install_hooks,
     run_hook,
 )
 from palari_company_os.agent_file_changes import capture_git_baseline
@@ -1360,7 +1359,7 @@ class RunHookFailureTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
-class InstallTests(unittest.TestCase):
+class StatusTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
@@ -1370,123 +1369,49 @@ class InstallTests(unittest.TestCase):
         _write_hook_workspace(self.workspace)
         self.settings = self.project / ".claude" / "settings.json"
 
-    def _settings_data(self) -> dict[str, Any]:
-        return json.loads(self.settings.read_text(encoding="utf-8"))
-
-    def test_install_writes_all_three_hooks(self) -> None:
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "installed")
-        data = self._settings_data()
-        self.assertEqual(set(data["hooks"]), {"PreToolUse", "Stop", "SessionStart"})
-        pre = data["hooks"]["PreToolUse"][0]
-        self.assertEqual(pre["matcher"], "Write|Edit|NotebookEdit|Bash")
-        self.assertIn(
-            'palari --workspace "$CLAUDE_PROJECT_DIR/ws" claude hook pre-tool-use',
-            pre["hooks"][0]["command"],
-        )
-
-    def test_install_is_idempotent(self) -> None:
-        install_hooks(self.project, self.workspace)
-        before = self.settings.read_text(encoding="utf-8")
-
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "unchanged")
-        self.assertEqual(self.settings.read_text(encoding="utf-8"), before)
-
-    def test_strict_flag_is_baked_into_pre_tool_use(self) -> None:
-        install_hooks(self.project, self.workspace, strict=True)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertIn("--strict", pre["hooks"][0]["command"])
-
-    def test_install_preserves_foreign_hooks_and_settings(self) -> None:
+    def test_status_reports_current_managed_hooks_and_claims(self) -> None:
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text(
             json.dumps(
                 {
-                    "permissions": {"allow": ["Bash(npm test)"]},
                     "hooks": {
                         "PreToolUse": [
-                            {"matcher": "Bash", "hooks": [{"type": "command", "command": "lint"}]}
-                        ]
+                            {
+                                "matcher": "Write|Edit|NotebookEdit|Bash",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook pre-tool-use --strict",
+                                    }
+                                ],
+                            }
+                        ],
+                        "Stop": [
+                            {
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook stop",
+                                    }
+                                ]
+                            }
+                        ],
+                        "SessionStart": [
+                            {
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook session-start",
+                                    }
+                                ]
+                            }
+                        ],
                     },
                 }
-            ),
+            )
+            + "\n",
             encoding="utf-8",
         )
-
-        install_hooks(self.project, self.workspace)
-
-        data = self._settings_data()
-        self.assertEqual(data["permissions"], {"allow": ["Bash(npm test)"]})
-        commands = [
-            hook["command"]
-            for entry in data["hooks"]["PreToolUse"]
-            for hook in entry["hooks"]
-        ]
-        self.assertIn("lint", commands)
-        self.assertEqual(len(data["hooks"]["PreToolUse"]), 2)
-
-    def test_remove_deletes_only_palari_hooks(self) -> None:
-        self.settings.parent.mkdir(parents=True)
-        self.settings.write_text(
-            json.dumps(
-                {
-                    "hooks": {
-                        "Stop": [{"hooks": [{"type": "command", "command": "notify-send done"}]}]
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
-        install_hooks(self.project, self.workspace)
-
-        result = install_hooks(self.project, self.workspace, remove=True)
-
-        self.assertEqual(result["status"], "removed")
-        data = self._settings_data()
-        self.assertEqual(set(data["hooks"]), {"Stop"})
-        self.assertEqual(data["hooks"]["Stop"][0]["hooks"][0]["command"], "notify-send done")
-
-    def test_local_writes_settings_local_json(self) -> None:
-        install_hooks(self.project, self.workspace, local=True)
-
-        self.assertTrue((self.project / ".claude" / "settings.local.json").exists())
-        self.assertFalse(self.settings.exists())
-
-    def test_workspace_at_project_root_uses_bare_placeholder(self) -> None:
-        (self.project / "workspace.json").write_text("{}", encoding="utf-8")
-
-        install_hooks(self.project, self.project)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertIn('--workspace "$CLAUDE_PROJECT_DIR"', pre["hooks"][0]["command"])
-
-    def test_project_local_wrapper_is_preferred(self) -> None:
-        wrapper = self.project / "bin" / "palari"
-        wrapper.parent.mkdir(parents=True)
-        wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
-
-        install_hooks(self.project, self.workspace)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertTrue(
-            pre["hooks"][0]["command"].startswith('"$CLAUDE_PROJECT_DIR/bin/palari"')
-        )
-
-    def test_invalid_settings_json_is_not_clobbered(self) -> None:
-        self.settings.parent.mkdir(parents=True)
-        self.settings.write_text("{broken", encoding="utf-8")
-
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "error")
-        self.assertEqual(self.settings.read_text(encoding="utf-8"), "{broken")
-
-    def test_status_reports_install_and_claims(self) -> None:
-        install_hooks(self.project, self.workspace, strict=True)
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
         status = hooks_status(self.project, self.workspace)

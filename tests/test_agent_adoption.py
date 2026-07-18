@@ -22,7 +22,6 @@ from palari_company_os.agent_adoption import (
 )
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.authoring import create_record
-from palari_company_os.claude_hooks import install_hooks as install_legacy_claude_hooks
 from palari_company_os.workspace import Workspace, WorkspaceError
 from tests.workspace_fixture import write_portable_agent_workspace
 
@@ -252,35 +251,6 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertFalse((self.tmp / "AGENTS.md").exists())
         self.assertFalse((self.tmp / ".codex").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
-
-    def test_claude_adoption_replaces_and_removes_legacy_managed_hooks(self) -> None:
-        install_legacy_claude_hooks(self.tmp, self.workspace)
-        legacy = json.loads(
-            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
-        )
-        legacy_command = legacy["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-        self.assertIn('"$CLAUDE_PROJECT_DIR/bin/palari"', legacy_command)
-
-        install_claude_host_hooks(self.tmp, self.workspace)
-
-        settings = json.loads(
-            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
-        )
-        commands = [
-            hook["command"]
-            for entries in settings["hooks"].values()
-            for entry in entries
-            for hook in entry["hooks"]
-        ]
-        self.assertEqual(len(commands), 3)
-        self.assertFalse(any("$CLAUDE_PROJECT_DIR/bin/palari" in item for item in commands))
-
-        install_claude_host_hooks(self.tmp, self.workspace, remove=True)
-
-        removed = json.loads(
-            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
-        )
-        self.assertNotIn("hooks", removed)
 
     def test_adoption_reuses_equivalent_existing_portable_guidance(self) -> None:
         agents = self.tmp / "AGENTS.md"

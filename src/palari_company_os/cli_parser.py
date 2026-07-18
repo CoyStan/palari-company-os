@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Ordinary journey: init -> work add -> agent start --next -> agent advance -> "
             "queue --approval-inbox -> proof verify.\n"
-            "All compatibility and expert commands remain available through direct --help."
+            "Additional expert and recovery commands remain available through direct --help."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
@@ -158,7 +158,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_agent_parser(subparsers)
     _add_claude_parser(subparsers)
     _add_git_parser(subparsers)
-    _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
     migrate_parser = subparsers.add_parser(
@@ -266,7 +265,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_human_decision_parser(subparsers)
     _add_receipt_parser(subparsers)
     _add_outcome_parser(subparsers)
-    _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
     _add_playbooks_parser(subparsers)
     _add_gate_parser(subparsers)
@@ -629,15 +627,6 @@ def _add_proof_parser(subparsers: Any) -> None:
         help="Verify governance consistency without reading artifact subjects.",
     )
     verify.add_argument("--json", action="store_true", help="Emit structured diagnostics.")
-
-
-def _add_workspace_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("workspace", help="Initialize or inspect workspaces.")
-    nested = parser.add_subparsers(dest="workspace_command", required=True)
-    init = nested.add_parser("init", help="Create a blank valid workspace.json.")
-    init.add_argument("path", help="Workspace directory or workspace.json path to create.")
-    init.add_argument("--name", required=True, help="Human-facing workspace name.")
-    init.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_mcp_parser(subparsers: Any) -> None:
@@ -1541,60 +1530,6 @@ def _add_gate_parser(subparsers: Any) -> None:
     recommend = nested.add_parser("recommend", help="Recommend review gates for one work item.")
     recommend.add_argument("work_id")
     recommend.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_lifecycle_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser(
-        "lifecycle", help="Lifecycle aliases for evidence, review, decision, completion, and outcome."
-    )
-    nested = parser.add_subparsers(dest="lifecycle_command", required=True)
-    evidence = nested.add_parser("evidence", help="Record lifecycle evidence.")
-    evidence.add_argument("id")
-    evidence.add_argument("--work-item-id", required=True)
-    evidence.add_argument("--attempt-id", required=True)
-    evidence.add_argument("--head-sha", required=True)
-    evidence.add_argument("--status", required=True, choices=["passed", "failed", "skipped"])
-    evidence.add_argument("--summary", default="")
-    evidence.add_argument("--timestamp", default="")
-    _add_common_mutation_args(evidence)
-    review = nested.add_parser("review", help="Record lifecycle review.")
-    review.add_argument("id")
-    review.add_argument("--work-item-id", required=True)
-    review.add_argument("--reviewed-head", required=True)
-    review.add_argument("--reviewer", required=True)
-    review.add_argument(
-        "--verdict",
-        required=True,
-        choices=["accept-ready", "changes-requested", "needs-human-decision", "blocked"],
-    )
-    review.add_argument("--timestamp", default="")
-    _add_common_mutation_args(review)
-    decide = nested.add_parser("decide", help="Record lifecycle human decision.")
-    decide.add_argument("id")
-    decide.add_argument("--work-item-id", required=True)
-    decide.add_argument("--human-id", required=True)
-    decide.add_argument("--reviewed-head", required=True)
-    decide.add_argument("--decision", required=True)
-    decide.add_argument("--status", default="recorded")
-    decide.add_argument("--acceptance-mode", default="human")
-    decide.add_argument("--quorum-status", default="")
-    decide.add_argument("--evidence-reference", default="")
-    decide.add_argument("--review-reference", default="")
-    decide.add_argument("--timestamp", default="")
-    _add_common_mutation_args(decide)
-    complete = nested.add_parser("complete", help="Complete lifecycle work.")
-    complete.add_argument("work_id")
-    complete.add_argument("--status", default="completed")
-    complete.add_argument("--json", action="store_true")
-    outcome = nested.add_parser("outcome", help="Record lifecycle outcome.")
-    outcome.add_argument("id")
-    outcome.add_argument("--work-item-id", required=True)
-    outcome.add_argument("--summary", required=True)
-    outcome.add_argument("--status", default="captured")
-    outcome.add_argument("--what-happened", default="")
-    outcome.add_argument("--what-changed", default="")
-    outcome.add_argument("--timestamp", default="")
-    _add_common_mutation_args(outcome)
 
 
 def _add_maintainer_parser(subparsers: Any) -> None:

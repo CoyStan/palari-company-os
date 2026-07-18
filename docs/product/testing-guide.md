@@ -99,7 +99,7 @@ The test suite covers:
 - quorum completion gates
 - valid accepted/completed work
 - authoring commands
-- lifecycle commands
+- direct evidence, review, decision, completion, and outcome commands
 - migration from legacy unversioned workspaces
 - read-only split workspace collection files
 - write refusal for split workspaces

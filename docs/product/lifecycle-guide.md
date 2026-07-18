@@ -154,7 +154,7 @@ preserved rather than rewritten.
   --list actions_taken="drafted the bounded note" \
   --list outputs_created=docs/product/company-os.md
 
-./bin/palari lifecycle evidence EVIDENCE-X \
+./bin/palari evidence record EVIDENCE-X \
   --work-item-id WORK-X \
   --attempt-id ATTEMPT-X \
   --head-sha head-x \
@@ -167,13 +167,13 @@ preserved rather than rewritten.
   --cleanliness clean \
   --changed docs/product/company-os.md
 
-./bin/palari lifecycle review REVIEW-X \
+./bin/palari review record REVIEW-X \
   --work-item-id WORK-X \
   --reviewed-head head-x \
   --reviewer HUMAN-X \
   --verdict accept-ready
 
-./bin/palari lifecycle decide HUMAN-DECISION-X \
+./bin/palari human-decision record HUMAN-DECISION-X \
   --work-item-id WORK-X \
   --human-id HUMAN-X \
   --reviewed-head head-x \
@@ -218,9 +218,9 @@ deletion history.
 ## Complete Work And Record Outcome
 
 ```bash
-./bin/palari lifecycle complete WORK-X
+./bin/palari work complete WORK-X
 
-./bin/palari lifecycle outcome OUTCOME-X \
+./bin/palari outcome record OUTCOME-X \
   --work-item-id WORK-X \
   --summary "The onboarding note was accepted."
 ```

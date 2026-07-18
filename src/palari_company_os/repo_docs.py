@@ -18,7 +18,6 @@ CANONICAL_AGENT_DOCS = [
 ROOT_ENTRYPOINTS = ["AGENTS.md", "CLAUDE.md"]
 
 MAJOR_COMMAND_GROUPS = [
-    "workspace",
     "mcp",
     "queue",
     "state",
@@ -34,7 +33,6 @@ MAJOR_COMMAND_GROUPS = [
     "integration",
     "review",
     "decision",
-    "lifecycle",
     "desktop-prototype",
 ]
 

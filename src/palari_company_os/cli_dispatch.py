@@ -474,16 +474,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 args.json,
             )
 
-    if args.command == "workspace":
-        from .workspace_init import initialize_workspace
-
-        if args.workspace_command == "init":
-            return CommandResult(
-                "workspace-init",
-                initialize_workspace(args.path, args.name),
-                args.json,
-            )
-
     if args.command == "mcp" and args.mcp_command == "serve":
         from .mcp_server import serve_mcp
 
@@ -1064,9 +1054,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         return CommandResult("mutation", run_authoring_command(args), args.json)
 
-    if args.command == "lifecycle":
-        return CommandResult("mutation", run_lifecycle_command(args), args.json)
-
     if args.command == "maintainer" and args.maintainer_command == "status":
         from .maintainer import status as maintainer_status
 
@@ -1184,23 +1171,6 @@ def run_authoring_command(args: argparse.Namespace) -> Any:
     raise WorkspaceError(f"unsupported authoring command: {args.command} {args.object_command}")
 
 
-def run_lifecycle_command(args: argparse.Namespace) -> Any:
-    from .authoring import complete_work, create_human_decision, create_record
-
-    command = f"lifecycle {args.lifecycle_command}"
-    if args.lifecycle_command == "evidence":
-        return create_record(args.workspace, "evidence", _record_from_args(args), command=command)
-    if args.lifecycle_command == "review":
-        return create_record(args.workspace, "review", _record_from_args(args), command=command)
-    if args.lifecycle_command == "decide":
-        return create_human_decision(args.workspace, _record_from_args(args), command=command)
-    if args.lifecycle_command == "complete":
-        return complete_work(args.workspace, args.work_id, args.status, command=command)
-    if args.lifecycle_command == "outcome":
-        return create_record(args.workspace, "outcome", _record_from_args(args), command=command)
-    raise WorkspaceError(f"unsupported lifecycle command: {args.lifecycle_command}")
-
-
 def _record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     record = _parse_setters(args.set, args.list)
     _apply_known_args(args, record, include_id=True)
@@ -1218,7 +1188,6 @@ def _apply_known_args(args: argparse.Namespace, record: dict[str, Any], include_
         if key in {
             "command",
             "object_command",
-            "lifecycle_command",
             "authority_command",
             "workspace",
             "json",

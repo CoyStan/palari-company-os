@@ -44,7 +44,7 @@ contain `..` fail closed. Each collection file contains a JSON array of records
 for the collection named in the manifest.
 
 Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
-split workspaces. Authoring and lifecycle write commands
+split workspaces. Authoring write commands
 currently refuse split workspaces with a clear error instead of silently
 collapsing or corrupting collection files. Schema migration is the narrow
 exception: it validates the consolidated records, preserves each record's root

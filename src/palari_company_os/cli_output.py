@@ -276,10 +276,6 @@ def print_result(result: CommandResult) -> None:
             print_git_readiness(result.payload)
         return
 
-    if result.kind == "workspace-init":
-        print_workspace_init(result.payload, result.as_json)
-        return
-
     if result.kind == "mcp-server":
         return
 
@@ -427,17 +423,6 @@ def print_migration(payload: dict[str, Any]) -> None:
     print(f"Write: {'yes' if payload['write'] else 'no'}")
     for change in payload["changes"]:
         print(f"  {change}")
-
-
-def print_workspace_init(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Workspace initialized: {payload['workspace']}")
-    print(f"File: {payload['workspace_file']}")
-    print("Next commands:")
-    for command in payload["next_commands"]:
-        print(f"  {command}")
 
 
 def print_demo(payload: dict[str, Any], as_json: bool) -> None:

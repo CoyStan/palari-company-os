@@ -1214,7 +1214,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("focused_tests_run", payload)
         self.assertIn("focused_tests_source", payload)
 
-    def test_cli_authoring_and_lifecycle_on_temp_workspace(self) -> None:
+    def test_cli_authoring_on_temp_workspace(self) -> None:
         with self.temp_workspace() as workspace:
             self.run_cli_in_workspace(workspace, "goal", "create", "GOAL-X", "--title", "Improve onboarding")
             self.run_cli_in_workspace(
@@ -1363,8 +1363,8 @@ class CliTests(unittest.TestCase):
             )
             self.run_cli_in_workspace(
                 workspace,
-                "lifecycle",
                 "evidence",
+                "record",
                 "EVIDENCE-X",
                 "--work-item-id",
                 "WORK-X",
@@ -1383,8 +1383,8 @@ class CliTests(unittest.TestCase):
             )
             self.run_cli_in_workspace(
                 workspace,
-                "lifecycle",
                 "review",
+                "record",
                 "REVIEW-X",
                 "--work-item-id",
                 "WORK-X",
@@ -1397,8 +1397,8 @@ class CliTests(unittest.TestCase):
             )
             self.run_cli_in_workspace(
                 workspace,
-                "lifecycle",
-                "decide",
+                "human-decision",
+                "record",
                 "HUMAN-DECISION-X",
                 "--work-item-id",
                 "WORK-X",
@@ -1415,11 +1415,11 @@ class CliTests(unittest.TestCase):
                 "--review-reference",
                 "REVIEW-X",
             )
-            complete = self.run_cli_in_workspace(workspace, "lifecycle", "complete", "WORK-X", "--json")
+            complete = self.run_cli_in_workspace(workspace, "work", "complete", "WORK-X", "--json")
             self.run_cli_in_workspace(
                 workspace,
-                "lifecycle",
                 "outcome",
+                "record",
                 "OUTCOME-X",
                 "--work-item-id",
                 "WORK-X",

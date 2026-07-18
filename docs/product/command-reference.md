@@ -1,12 +1,12 @@
 # Command Reference
 
-Most commands are read-only. Workspace initialization, authoring, and lifecycle
-commands intentionally write to `workspace.json` after validation. No command
+Most commands are read-only. Initialization and authoring commands intentionally
+write to `workspace.json` after validation. No command
 merges, pushes, deploys, activates policy, executes broker side effects, uses
 secrets, or bypasses human authority.
 
 Running `palari --help` shows the small ordinary surface and its golden journey.
-Primitive compatibility and recovery commands are intentionally omitted from
+Expert and recovery commands are intentionally omitted from
 that first screen but remain available and parseable; use direct
 `palari COMMAND --help` when operating below the ordinary loop.
 
@@ -86,19 +86,6 @@ portable contract, and claims it. Existing `agent next`, `brief`, and explicit
 `start WORK-ID` commands remain the inspectable compatibility surfaces.
 `palari claude install` remains the compatible Claude-only adapter command; it
 is not a requirement for the provider-neutral loop.
-
-## Workspace Init
-
-```bash
-./bin/palari workspace init workspaces/new-company --name "New Company"
-./bin/palari workspace init workspaces/new-company --name "New Company" --json
-```
-
-Creates a blank, single-file `workspace.json` with the current schema version
-and all known collections present. The command validates the file before
-writing success output and refuses to overwrite an existing workspace. It does
-not create humans, Palaris, goals, authority records, receipts, or external
-connections by itself.
 
 ## Queue
 
@@ -1041,7 +1028,7 @@ receipt cannot imply a canceled write is still waiting to execute.
 ```
 
 Shows recent append-only audit events from `.palari/history.jsonl` beside the
-workspace file. Mutating authoring and lifecycle commands append events only
+workspace file. Mutating authoring commands append events only
 after the workspace write validates and succeeds. Failed mutations do not append
 success events. The versioned governance journal is separate from legacy
 `.palari/history.jsonl`. New workspaces start it automatically; legacy
@@ -1181,7 +1168,7 @@ Without `--write`, the command previews all changes.
 ## Authoring Commands
 
 All authoring commands validate the full workspace before writing.
-For now, authoring and lifecycle write commands support single-file workspaces
+For now, authoring write commands support single-file workspaces
 only. If a workspace declares non-empty `collection_files`, write commands fail
 closed instead of rewriting `workspace.json` and risking data loss in split
 collection files.
@@ -1215,19 +1202,6 @@ collection files.
 
 Use `--set FIELD=VALUE` for scalar fields and `--list FIELD=A,B,C` for list
 fields. The authoring surface is intentionally simple and dependency-free.
-
-## Lifecycle Commands
-
-Lifecycle commands are aliases around evidence, review, decision, completion,
-and outcome records.
-
-```bash
-./bin/palari lifecycle evidence EVIDENCE-X --work-item-id WORK-X --attempt-id ATTEMPT-X --head-sha head-x --status passed
-./bin/palari lifecycle review REVIEW-X --work-item-id WORK-X --reviewed-head head-x --reviewer HUMAN-X --verdict accept-ready
-./bin/palari lifecycle decide HUMAN-DECISION-X --work-item-id WORK-X --human-id HUMAN-X --reviewed-head head-x --decision accepted --status accepted
-./bin/palari lifecycle complete WORK-X
-./bin/palari lifecycle outcome OUTCOME-X --work-item-id WORK-X --summary "What happened."
-```
 
 Accepted human decisions fail closed if:
 

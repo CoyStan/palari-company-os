@@ -23,7 +23,7 @@ boundaries. Everything else should serve that kernel.
 | Integration plans and outbox | core | Human-approved external-write boundary. |
 | Queue, detail, state, history | operator | Derived read models and replayable journal checks for humans and agents. |
 | PCAW proof export and verification | core | Deterministic, offline proof statements and artifact integrity checks. |
-| Authoring and lifecycle commands | operator | Explicit local mutations of workspace records. |
+| Authoring commands | operator | Explicit local mutations of workspace records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
 | Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
 | Slack/GitHub/Jira/email providers | future | Dry-run planning only; no live provider execution. |
@@ -35,7 +35,7 @@ boundaries. Everything else should serve that kernel.
 
 ## Command Surface
 
-Current CLI command count from parser inspection: **153**.
+Current CLI command count from parser inspection: **145**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary

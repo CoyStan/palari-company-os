@@ -62,8 +62,6 @@ palari git
 palari git install
 palari git pre-commit
 palari git status
-palari workspace
-palari workspace init
 palari mcp
 palari mcp serve
 palari migrate
@@ -137,12 +135,6 @@ palari receipt update
 palari outcome
 palari outcome record
 palari outcome update
-palari lifecycle
-palari lifecycle evidence
-palari lifecycle review
-palari lifecycle decide
-palari lifecycle complete
-palari lifecycle outcome
 palari maintainer
 palari maintainer status
 palari playbooks

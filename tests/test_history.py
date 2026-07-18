@@ -47,7 +47,7 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(events[1]["command"], "goal update")
         self.assertEqual(events[1]["changed_fields"]["priority"]["after"], "high")
 
-    def test_lifecycle_decide_complete_and_outcome_append_events(self) -> None:
+    def test_decision_completion_and_outcome_commands_append_events(self) -> None:
         with self.fixture_workspace("valid-workspace.json") as workspace:
             workspace_file = workspace / "workspace.json"
             raw = json.loads(workspace_file.read_text(encoding="utf-8"))
@@ -111,8 +111,8 @@ class HistoryTests(unittest.TestCase):
             history_file_path(workspace).unlink()
             self.run_cli(
                 workspace,
-                "lifecycle",
-                "decide",
+                "human-decision",
+                "record",
                 "HUMAN-DECISION-1",
                 "--work-item-id",
                 "WORK-1",
@@ -129,11 +129,11 @@ class HistoryTests(unittest.TestCase):
                 "--review-reference",
                 "REVIEW-BOUND",
             )
-            self.run_cli(workspace, "lifecycle", "complete", "WORK-1")
+            self.run_cli(workspace, "work", "complete", "WORK-1")
             self.run_cli(
                 workspace,
-                "lifecycle",
                 "outcome",
+                "record",
                 "OUTCOME-1",
                 "--work-item-id",
                 "WORK-1",
@@ -144,9 +144,9 @@ class HistoryTests(unittest.TestCase):
             Workspace.load(workspace)
 
         self.assertEqual([event["command"] for event in events], [
-            "lifecycle decide",
-            "lifecycle complete",
-            "lifecycle outcome",
+            "human-decision record",
+            "work complete",
+            "outcome record",
         ])
         self.assertEqual(events[0]["actor"], "HUMAN-PRODUCT")
         self.assertEqual(events[1]["action"], "completed")
