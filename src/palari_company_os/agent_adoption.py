@@ -854,11 +854,12 @@ def _assert_local_target(root: Path, target: Path) -> None:
 
 def _assert_palari_executable(root: Path) -> str:
     local = root / "bin" / "palari"
+    if local.is_symlink():
+        raise WorkspaceError(
+            f"project-local Palari wrapper must not be a symlink: {local}"
+        )
+    _assert_local_target(root, local)
     if local.exists() or local.is_symlink():
-        if local.is_symlink():
-            raise WorkspaceError(
-                f"project-local Palari wrapper must not be a symlink: {local}"
-            )
         if not local.is_file() or not os.access(local, os.X_OK):
             raise WorkspaceError(f"project-local Palari wrapper is not executable: {local}")
         try:
@@ -885,10 +886,7 @@ def _assert_palari_executable(root: Path) -> str:
         raise WorkspaceError(
             "Palari is not on PATH and this project has no executable bin/palari wrapper"
         )
-    resolved = Path(installed).expanduser().resolve()
-    if not resolved.is_file() or not os.access(resolved, os.X_OK):
-        raise WorkspaceError(f"Palari executable is not a regular executable file: {resolved}")
-    return str(resolved)
+    return str(_validated_palari_invocation(Path(installed), source="PATH"))
 
 
 def _current_palari_executable() -> Path | None:
@@ -898,12 +896,26 @@ def _current_palari_executable() -> Path | None:
     if invoked.name != "palari" or not invoked.is_absolute():
         return None
     try:
-        resolved = invoked.resolve(strict=True)
-    except OSError:
+        return _validated_palari_invocation(invoked, source="current entrypoint")
+    except WorkspaceError:
         return None
-    if not resolved.is_file() or not os.access(resolved, os.X_OK):
-        return None
-    return resolved
+
+
+def _validated_palari_invocation(invoked: Path, *, source: str) -> Path:
+    invocation = invoked.expanduser()
+    if not invocation.is_absolute():
+        invocation = (Path.cwd() / invocation).absolute()
+    if invocation.name != "palari":
+        raise WorkspaceError(f"Palari {source} must be invoked through a path named palari")
+    try:
+        target = invocation.resolve(strict=True)
+    except OSError as exc:
+        raise WorkspaceError(f"Palari {source} cannot be resolved safely: {exc}") from exc
+    if not target.is_file() or not os.access(target, os.X_OK):
+        raise WorkspaceError(
+            f"Palari {source} is not a regular executable file: {invocation}"
+        )
+    return invocation
 
 
 def _restore_local_file(

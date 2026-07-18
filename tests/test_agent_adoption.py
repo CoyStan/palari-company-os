@@ -124,6 +124,69 @@ class AgentAdoptionTests(unittest.TestCase):
             self.assertEqual(tokens[0], str(entrypoint.resolve()))
             self.assertEqual(tokens[tokens.index("--workspace") + 1], str(self.workspace))
 
+    def test_symlinked_running_entrypoint_remains_managed_and_removable(self) -> None:
+        (self.tmp / "bin" / "palari").unlink()
+        entrypoint_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, entrypoint_root, True)
+        target = entrypoint_root / "actual-entrypoint"
+        target.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        target.chmod(0o755)
+        entrypoint = entrypoint_root / "palari"
+        entrypoint.symlink_to(target)
+
+        with mock.patch.object(sys, "argv", [str(entrypoint)]), mock.patch(
+            "palari_company_os.agent_adoption.shutil.which",
+            return_value=None,
+        ):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+            second_codex = adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="claude",
+                palari_id="PALARI-STEWARD",
+            )
+            second_claude = adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="claude",
+                palari_id="PALARI-STEWARD",
+            )
+            removed = install_claude_host_hooks(
+                self.tmp,
+                self.workspace,
+                remove=True,
+            )
+
+        codex = json.loads(
+            (self.tmp / ".codex" / "hooks.json").read_text(encoding="utf-8")
+        )
+        codex_commands = [
+            hook["command"]
+            for entries in codex["hooks"].values()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        self.assertFalse(second_codex["host_adapter"]["changed"])
+        self.assertEqual(len(codex_commands), 3)
+        self.assertTrue(all(shlex.split(item)[0] == str(entrypoint) for item in codex_commands))
+        self.assertFalse(second_claude["host_adapter"]["changed"])
+        self.assertEqual(removed["status"], "removed")
+        claude = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        self.assertNotIn("hooks", claude)
+
     def test_adoption_rejects_workspace_file_symlink_escape_before_writing(self) -> None:
         outside_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, outside_dir, True)
