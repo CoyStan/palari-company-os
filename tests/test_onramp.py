@@ -618,26 +618,16 @@ class WorkAddTests(unittest.TestCase):
 
 
 class DefaultWorkspaceTests(unittest.TestCase):
-    def test_cwd_workspace_json_is_preferred(self) -> None:
+    def test_current_directory_is_the_only_implicit_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "proj"
             project.mkdir()
-            initialize_starter_workspace(project)
             original = os.getcwd()
             os.chdir(project)
             try:
                 self.assertEqual(default_workspace_path(), project.resolve())
-            finally:
-                os.chdir(original)
-
-    def test_falls_back_to_example_without_local_workspace(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            original = os.getcwd()
-            os.chdir(tmp)
-            try:
-                self.assertTrue(
-                    str(default_workspace_path()).endswith("acme-company-os")
-                )
+                with self.assertRaisesRegex(WorkspaceError, "workspace file not found"):
+                    Workspace.load(default_workspace_path())
             finally:
                 os.chdir(original)
 

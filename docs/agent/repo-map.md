@@ -116,7 +116,6 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `examples/acme-company-os/`: small example workspace.
 - `workspaces/palari-company-os/`: dogfood workspace for this repo.
-- `src/palari_company_os/data/examples/`: packaged example data.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.

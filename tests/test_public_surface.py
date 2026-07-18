@@ -40,12 +40,6 @@ class PublicSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(tuple(host_action.choices), ("claude", "codex"))
 
-    def test_workspace_schema_copies_remain_identical(self) -> None:
-        self.assertEqual(
-            _read("schemas/workspace.schema.json"),
-            _read("src/palari_company_os/data/schemas/workspace.schema.json"),
-        )
-
     def test_public_surface_doc_classifies_core_and_supported_visual_surface(self) -> None:
         surface = _read("docs/product/public-surface.md")
 

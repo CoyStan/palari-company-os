@@ -24,6 +24,9 @@ repository milestones, not a production Company OS release.
 
 ### Changed
 
+- Removed the hidden packaged ACME workspace and schema copies. Commands now
+  use an explicit workspace or the current directory, while the isolated wheel
+  smoke owns the package boundary.
 - Removed the superseded `palari agent done` command and receipt-only
   completion lifecycle. `palari agent advance` is now the sole current
   execution-to-proof path, every completion requires current exact evidence,

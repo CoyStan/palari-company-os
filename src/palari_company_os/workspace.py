@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, TypeVar
 
@@ -726,14 +725,9 @@ class Workspace:
 
 
 def default_workspace_path() -> Path:
-    local = Path.cwd() / "workspace.json"
-    if local.is_file():
-        return Path.cwd()
-    repo_root = Path(__file__).resolve().parents[2]
-    repo_fixture = repo_root / "examples" / "acme-company-os"
-    if repo_fixture.exists():
-        return repo_fixture
-    return _packaged_data_path("examples", "acme-company-os")
+    """Use only the operator's current directory as implicit workspace context."""
+
+    return Path.cwd()
 
 
 def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Attempt | None:
@@ -762,10 +756,6 @@ def latest_for_work(records: Iterable[T], work_id: str) -> T | None:
             latest = record
             latest_key = key
     return latest
-
-
-def _packaged_data_path(*parts: str) -> Path:
-    return Path(str(files("palari_company_os").joinpath("data", *parts)))
 
 
 def _items(raw: dict[str, object], key: str) -> list[dict[str, object]]:
