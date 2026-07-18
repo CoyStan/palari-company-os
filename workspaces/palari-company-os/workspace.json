@@ -4325,6 +4325,112 @@
       ],
       "required_approval_count": 1,
       "current_attempt": "ATTEMPT-ADVANCE-WORK-D18949EABBAC41AA9C0FB3D57BD4B88F-D875D37A9894"
+    },
+    {
+      "id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "title": "Repair immutable authority continuity and projection parking recovery",
+      "goal": "GOAL-REPO-0002",
+      "palari": "PALARI-STEWARD",
+      "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+      "dependency_ids": [],
+      "risk": "R4",
+      "intensity": "high",
+      "status": "active",
+      "scope": "Repair WORK-D18949EABBAC41AA9C0FB3D57BD4B88F through an immutable successor: bind every Git claim to exact scope authority and make projection-bound parking crash recovery exact and idempotent.",
+      "allowed_resources": [
+        "AGENTS.md",
+        "README.md",
+        "docs",
+        "src/palari_company_os",
+        "tests",
+        "scripts",
+        "bin",
+        "pyproject.toml",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "output_targets": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "conflict_targets": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "parallel_policy": "coordinate",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Every complete Git claim rejects changed authority, current-only work is catalog-bound, exact parking recovery permits only the recorded blocked-status transition, all gates pass, and fresh independent review accepts the committed head.",
+      "verification_expectations": [
+        "python3 -m unittest tests.test_agent_advance tests.test_agent_packets tests.test_agent_session_contract tests.test_agent_done tests.test_git_hooks tests.test_claude_hooks",
+        "python3 -m unittest tests.test_filesystem_security tests.test_governance_journal tests.test_governance_completion tests.test_pcaw_protocol",
+        "./scripts/verify.sh",
+        "./scripts/install_smoke.sh"
+      ],
+      "required_approval_count": 1,
+      "path_intents": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/invisible-operator-loop-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/security.md",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_packets.py",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
