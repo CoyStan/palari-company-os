@@ -50,11 +50,15 @@ approval ceremonies.
   - Verification command or artifact: journal/crash/store suites and recorded
     dogfood-copy timings.
   - Current status: completed; compactness, crash, corruption, canonicality,
-    product-flow, and timing tests pass.
+    product-flow, and timing tests pass. A later exact-predecessor repair
+    streams and validates every sealed v1 state claim instead of trusting the
+    v2 summary; its deliberately attributed legacy-history cost is recorded in
+    the compact-journal safety amendment.
   - Exact committed evidence when completed: `13c7be140e8adaf2dba90a9aa26a33314696a45f`,
     `af4412597dcd1000010ef082b05a07cc55ed2106`,
     `a2b99fbdcb3c0e2b3f5e0a11f06b4eef6d08a2f2`, and
-    `53400beeb3ab833b22fc3eb056ae0d7549874141`.
+    `53400beeb3ab833b22fc3eb056ae0d7549874141`, with exact predecessor-state
+    enforcement at `cb67ab67c48a49b238936b87d3b02cd36dfd5bde`.
 
 - [x] **Ordinary product surface exposes concepts, not ceremony**
   - Required outcome: default help and operator views foreground init, work,
@@ -127,6 +131,11 @@ approval ceremonies.
     and old-item retirement are committed at
     `a3f203a1699dcde3190550401502466da56ee289`. Final proof and presentation
     remain unavailable until the successor completes normal durable review.
+    Durable review at `313f482bfb940df81e4d0943258174d561e46fff`
+    requested exact sealed-v1 summary validation; the repair and eight-field
+    negative coverage are committed at
+    `cb67ab67c48a49b238936b87d3b02cd36dfd5bde` and await attributable complete
+    verification plus fresh review.
 
 ## Complete-Gate Timing
 

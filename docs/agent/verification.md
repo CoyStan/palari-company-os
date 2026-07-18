@@ -63,8 +63,9 @@ python3 -m unittest tests.test_governance_journal \
 ```
 
 Active v1 verification still parses linearly. Compact v2 verification hashes
-and state-validates the sealed v1 predecessor, then streams the v2
-checkpoint/tail with bounded memory. A
+and state-validates the sealed v1 predecessor without retaining its record
+payloads (transaction-identity sets still scale with transaction count), then
+streams the v2 checkpoint/tail. A
 request-local context should keep one aggregate operation to one verified scan,
 but performance assertions must include predecessor continuity and current
 workspace comparison; they must not promote a persistent cache into authority.

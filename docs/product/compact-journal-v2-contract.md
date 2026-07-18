@@ -8,6 +8,38 @@ The contract distinguishes journal cost from the complete operator command.
 Safety requirements are gates; performance targets are measured claims and are
 not permission to skip validation.
 
+## Exact Predecessor Safety Amendment
+
+The timing claims below remain exact measurements of their cited historical
+heads. They are not claims about the later predecessor-state repair. Exact v2
+verification must derive the sealed v1 journal's declared state rather than
+trusting a self-reported summary merely because the file bytes still match.
+
+- [x] **Outcome:** all eight v1 state-summary fields in a v2 predecessor
+  binding are recomputed from strict sealed history; a rehashed v2 statement
+  cannot substitute false head, count, replay, transaction, coverage, or
+  continuity claims. **Objective evidence:** one negative subtest independently
+  changes and rehashes each field; every case fails at its exact JSON path with
+  `JOURNAL_PREDECESSOR_STATE_MISMATCH`. **Verification:** `python3 -m unittest
+  tests.test_governance_journal tests.test_governance_journal_crash
+  tests.test_store_journal_integration`. **Status:** implemented; 42 focused
+  tests pass. **Exact committed proof:**
+  `cb67ab67c48a49b238936b87d3b02cd36dfd5bde`.
+
+- [x] **Outcome:** the correctness cost of exact legacy verification is
+  measured and attributed rather than hidden or optimized by trusting a
+  persisted cache. **Objective evidence:** the 61 MB / 222-record dogfood v1
+  journal verifies directly in 9.29 seconds / 32,288 KB RSS; after activation
+  on a temporary copy, linked-v2 verification takes 9.83 seconds / 36,356 KB
+  RSS. **Verification:** `/usr/bin/time` around `palari history --verify
+  --json`, before and after `history --checkpoint` on the temporary copy.
+  **Status:** safety repair intentionally supersedes the historical subsecond
+  linked-v2 claim; full parsing is required to reject a fabricated but
+  internally rehashed summary. No persisted cache authorizes governance.
+  **Exact committed proof:** implementation
+  `cb67ab67c48a49b238936b87d3b02cd36dfd5bde`; measurement applies to that
+  exact code.
+
 - [x] **Outcome:** v2 mutations store deterministic value deltas instead of a
   repeated full `after_projection`, while every checkpoint remains an
   authoritative content-bound replay base. **Objective evidence:** compactness,
