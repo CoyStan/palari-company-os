@@ -4454,7 +4454,7 @@
       "dependency_ids": [],
       "risk": "R3",
       "intensity": "high",
-      "status": "active",
+      "status": "superseded",
       "scope": "Make the documented fresh-Git-repository adoption journey executable and idempotent, with actionable immutable-authority bootstrap diagnostics and a demo of the real start-to-advance loop.",
       "allowed_resources": [
         "src/palari_company_os/onramp.py",
@@ -4505,7 +4505,9 @@
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "terminal_reason": "Integrated by Invisible Adoption Foundation v1.",
+      "successor_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3"
     },
     {
       "id": "WORK-A06D321334B74BFD878154776F299E57",
@@ -4516,7 +4518,7 @@
       "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "superseded",
       "scope": "Add a continuity-preserving compact journal format with bounded-memory verification and fast operator reads while retaining strict v1 read and migration compatibility.",
       "allowed_resources": [
         "src/palari_company_os/governance_journal.py",
@@ -4567,7 +4569,9 @@
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "terminal_reason": "Integrated by Invisible Adoption Foundation v1.",
+      "successor_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3"
     },
     {
       "id": "WORK-31D9DD73A7A045BC8236FA561291D064",
@@ -4578,7 +4582,7 @@
       "dependency_ids": [],
       "risk": "R3",
       "intensity": "high",
-      "status": "active",
+      "status": "superseded",
       "scope": "Make the ordinary operator surface concise and lifecycle-aware while retaining primitive commands as compatible advanced interfaces and preserving historical audit truth.",
       "allowed_resources": [
         "src/palari_company_os/models.py",
@@ -4656,7 +4660,9 @@
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "terminal_reason": "Integrated by Invisible Adoption Foundation v1.",
+      "successor_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3"
     },
     {
       "id": "WORK-BF48A3D891A7428FB91AA80BF53856AA",
@@ -4664,13 +4670,10 @@
       "goal": "GOAL-REPO-0002",
       "palari": "PALARI-STEWARD",
       "workbench_id": "WORKBENCH-REPO-FOUNDATION",
-      "dependency_ids": [
-        "WORK-C11EE25A4D42414BBAD382121E89E070",
-        "WORK-31D9DD73A7A045BC8236FA561291D064"
-      ],
+      "dependency_ids": [],
       "risk": "R4",
       "intensity": "high",
-      "status": "active",
+      "status": "superseded",
       "scope": "Compile and install one provider-neutral local adoption bundle from the current session contract, with deterministic host descriptors and honest structural, commit-time, or advisory enforcement labels.",
       "allowed_resources": [
         "src/palari_company_os/agent_adoption.py",
@@ -4745,7 +4748,9 @@
         "./scripts/verify.sh",
         "./scripts/install_smoke.sh"
       ],
-      "required_approval_count": 1
+      "required_approval_count": 1,
+      "terminal_reason": "Integrated by Invisible Adoption Foundation v1.",
+      "successor_work_item_id": "WORK-3B7821F3452B40B283784832E86234C3"
     },
     {
       "id": "WORK-3B7821F3452B40B283784832E86234C3",
