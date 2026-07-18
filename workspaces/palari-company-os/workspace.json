@@ -4430,7 +4430,8 @@
           "path": "tests/test_agent_packets.py",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69"
     }
   ],
   "attempts": [
@@ -8676,6 +8677,54 @@
         "AGENTS.md",
         "README.md",
         "docs/product/quickstart.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "actor": "PALARI-STEWARD",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-dashboard-retirement",
+      "base_sha": "170b1475afd2426e2d466af4cb448511913480b5",
+      "allowed_paths": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "started_at": "2026-07-18T00:57:20Z",
+      "head_sha": "0f762ef5cb6932ffb7debe0873b49a055d83d29c",
+      "commits": [
+        "0f762ef5cb6932ffb7debe0873b49a055d83d29c"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-07-18T00:57:20Z",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "output_targets": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
       ]
     }
   ],
@@ -13669,6 +13718,83 @@
       "receipt_hash": "sha256:1c9fb2db5efc795b2f0e4b793920883b21548209131b77a7dce4f193fce551a4",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:3b9c2f6db0f2154412f6873ac5ef0ca8a7fd46d951b3123cfc70000f0c697ffc"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "head_sha": "0f762ef5cb6932ffb7debe0873b49a055d83d29c",
+      "status": "passed",
+      "base_ref": "170b1475afd2426e2d466af4cb448511913480b5",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-E2F826105F584255 sha256:6324ae2a5b2bec54f7eee69f552fe6d537de34d47ed8689ae2f826105f584255",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-BB6B64B589EBC085 sha256:962b049b47b2e87ac682c6a9d7ead667d396d33949197a39bb6b64b589ebc085",
+        "docs-check attestation VERIFY-DOCS-CHECK-111FF8F3DAC191F4 sha256:c6f0e6bd042591e59f430fcfac2e83bcc67ce7c59dcdf13c111ff8f3dac191f4"
+      ],
+      "artifacts": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:3042c14f40b8a8d2fcc0a906014193afd80c83ea68b83425c9b68faed52e86ae",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:024c813fb1710fcfe1800994c9c66a0a0ee08d6426268c2a2aa42a04f0a98173",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:9fca4ab5752dbb845e05832296e7bd93b318d3876cd49adc27a1d7b187056267",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/invisible-operator-loop-contract.md",
+          "sha256": "sha256:29c83ff2337c384b1478c8acb4947789468250e60617ac8758321e43c38b0c8a",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:8c2bb167b01240d768b1410749e6658207f943a4a9212e94aeacbf936aacf756",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "sha256": "sha256:15b81497ef3bc07180ab3dd9df8e66befd2a4255c31ba1b3928ee1c06cf8cd94",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:14328451cdb0ecb55de68b33a4a406494469f8d8f9a4e1f2959b3bb864c506f6",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:97f219c3f57ce190eb4c83aafc2bb7529b85dbe764037562c368ded71d3f18f3",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_packets.py",
+          "sha256": "sha256:b5055f59ad8885afb78149bbae43f3ab1c0a9cd569187027abd1179941a92f51",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-07-18T00:57:20Z",
+      "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:e571ba3350473a72ebe965602450773dbda263a0f4a87a43c14baee90bfd9213"
     }
   ],
   "review_verdicts": [
@@ -14272,6 +14398,23 @@
       "reviewer": "PALARI-ARCHITECT",
       "verdict": "changes-requested",
       "timestamp": "2026-07-17T19:02:53.041832Z"
+    },
+    {
+      "id": "REVIEW-AUTHORITY-SUCCESSOR-ARCHITECT-0F762EF-ACCEPT",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "reviewed_head": "0f762ef5cb6932ffb7debe0873b49a055d83d29c",
+      "reviewer": "PALARI-ARCHITECT",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-18T01:11:16.026982Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "attempt_hash": "sha256:43cbc3251e226a18b8f3b3f28c09619e48f3a05c2d0c7ae589c054e8891b995a",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "evidence_manifest_hash": "sha256:e571ba3350473a72ebe965602450773dbda263a0f4a87a43c14baee90bfd9213",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061",
+      "work_contract_hash": "sha256:de561637b3e50927c625a64e416ec323022a62fde4ba379d4d0e9198e47a04ab",
+      "proof_hash": "sha256:7c437b0611f3f57cddfb5e949f1601324648f4b037688201a2eccbabcff415fb"
     }
   ],
   "human_decisions": [
@@ -17855,6 +17998,46 @@
       "timestamp": "2026-07-17T18:55:15Z",
       "previous_receipt_hash": "sha256:10114448659ccfe0f69976b29cd25b92a59ccf52651e8fe03049aeacea9fc5c6",
       "receipt_hash": "sha256:1c9fb2db5efc795b2f0e4b793920883b21548209131b77a7dce4f193fce551a4"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "work_item_id": "WORK-1E6CC071418B42709B60CDA3FED2D952",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-1E6CC071418B42709B60CDA3FED2D952-0F762EF5CB69",
+      "actor": "PALARI-STEWARD",
+      "sources_used": [
+        "SOURCE-REPO-FOUNDATION"
+      ],
+      "actions_taken": [
+        "Changed 9 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/invisible-operator-loop-contract.md",
+        "docs/product/security.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_packets.py"
+      ],
+      "timestamp": "2026-07-18T00:57:20Z",
+      "receipt_hash": "sha256:b67745459ac968f54dca180d56b05d1f8d1e0bf9597f3cb12d43b30b3370f061"
     }
   ],
   "decisions": [
