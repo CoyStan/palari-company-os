@@ -191,26 +191,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
 
-        if args.agent_command == "adopt":
-            from .agent_adoption import adopt_agent_host, run_agent_hook
-
-            if args.hook_event:
-                return CommandResult(
-                    "agent-hook",
-                    run_agent_hook(args.host, args.hook_event, args.workspace),
-                    True,
-                )
-
-            return CommandResult(
-                "agent-adopt",
-                adopt_agent_host(
-                    args.workspace,
-                    project_dir=args.project_dir,
-                    host=args.host,
-                    palari_id=args.palari_id,
-                ),
-                args.json,
-            )
         if args.agent_command == "advance" and args.dry_run:
             from .agent_advance import agent_advance_dry_run
 
@@ -949,7 +929,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "init":
+        from .agent_adoption import adopt_agent_host, run_agent_hook
         from .onramp import initialize_starter_workspace
+        from .store import workspace_file_path
+
+        if args.hook_event:
+            if not args.host:
+                raise WorkspaceError("--hook-event requires --host")
+            return CommandResult(
+                "agent-hook",
+                run_agent_hook(args.host, args.hook_event, args.path),
+                True,
+            )
+
+        if workspace_file_path(args.path).exists() and args.host:
+            return CommandResult(
+                "agent-adopt",
+                adopt_agent_host(
+                    args.path,
+                    project_dir=workspace_file_path(args.path).parent,
+                    host=args.host,
+                    palari_id=args.palari_id,
+                ),
+                args.json,
+            )
+        if args.palari_id:
+            raise WorkspaceError("--as is only valid when adopting an existing workspace")
 
         return CommandResult(
             "init",

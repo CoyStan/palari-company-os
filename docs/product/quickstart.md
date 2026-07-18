@@ -80,10 +80,10 @@ external-effect, or safety boundary; it never manufactures that judgment.
 ## One-Action Host Adoption
 
 Fresh repositories can pass `--host claude`, `codex`, `cursor`, `devin`, `glm`,
-or `generic` to `init`. Existing Palari workspaces use one explicit action:
+or `generic` to `init`. Existing Palari workspaces use the same explicit action:
 
 ```bash
-palari agent adopt --host codex --as PALARI-AGENT --json
+palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 ```
 
 Every profile installs the portable repository contract and structural Git

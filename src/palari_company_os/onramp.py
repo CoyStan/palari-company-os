@@ -260,8 +260,8 @@ def initialize_starter_workspace(
         next_commands = [authority_anchor["next_command"]]
     elif adoption["status"] == "blocked":
         next_commands = [
-            f"palari{workspace_arg} agent adopt --host {selected_host} "
-            f"--project-dir {quote(str(directory))} --as {palari_id} --json"
+            f"palari init {quote(str(directory))} --host {selected_host} "
+            f"--as {palari_id} --json"
         ]
     return {
         "schema_version": "palari.init.v1",
@@ -523,7 +523,7 @@ def _bootstrap_adoption_blocker(directory: Path, host: str) -> str:
             if not has_portable_agent_contract(agents.read_text(encoding="utf-8")):
                 return (
                     "existing AGENTS.md is preserved; review it, then run the returned "
-                    "agent adopt command separately"
+                    "host-adoption action separately"
                 )
         except (OSError, UnicodeError) as exc:
             return f"existing AGENTS.md cannot be inspected safely: {exc}"
@@ -534,7 +534,7 @@ def _bootstrap_adoption_blocker(directory: Path, host: str) -> str:
     if host_file is not None and (host_file.exists() or host_file.is_symlink()):
         return (
             f"existing {host_file.relative_to(directory)} is preserved; run the "
-            "returned agent adopt command separately to merge reviewed hooks"
+            "returned host-adoption action separately to merge reviewed hooks"
         )
     return ""
 

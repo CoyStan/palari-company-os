@@ -82,7 +82,9 @@ palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
 Do not infer a sequential work ID. For a repository that already has a Palari
-workspace, run `palari agent adopt --host HOST --as PALARI-ID --json` once.
+workspace, run `palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json`
+once. Existing-workspace initialization is accepted only when `--host` makes
+the idempotent adoption intent explicit; it never rewrites the workspace.
 Claude and Codex receive tested session hooks; Cursor, Devin, GLM, and generic
 hosts receive the portable contract plus structural commit-time enforcement
 and are labeled advisory at session time. The core packet, claim, proof,
@@ -194,9 +196,10 @@ Not implemented yet:
 - autonomous acceptance, merge, push, or deploy
 - portable deletion-history proof in PCAW v1 (local declared deletion
   tombstones are enforced, but the protocol does not export that history yet)
-- constant-time large-journal verification; the append-only JSONL scan is
-  linear, and the current roughly 40 MB dogfood journal can still take several
-  seconds and hundreds of MB of peak memory despite request-local scan reuse
+- constant-time journal verification; compact v2 instead seals the untouched
+  v1 predecessor, streams a bounded-memory checkpoint/delta tail, and uses
+  request-local pure path normalization, but complete continuity verification
+  still reads the authenticated journal bytes
 - live external writes outside the approved Linear path (Linear comment sends,
   issue status updates, and issue creation are the only live writes, and each
   requires an approved plan first)

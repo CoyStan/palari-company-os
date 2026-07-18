@@ -564,6 +564,14 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
     marker = f"agent adopt --host {host} --hook-event"
     if marker in command:
         return True
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = []
+    if "init" in tokens and "--host" in tokens and "--hook-event" in tokens:
+        host_index = tokens.index("--host")
+        if host_index + 1 < len(tokens) and tokens[host_index + 1] == host:
+            return True
     return host == "claude" and "palari" in command and " claude hook " in command
 
 
@@ -580,8 +588,8 @@ def _host_hook_command(
             executable,
             "--workspace",
             workspace,
-            "agent",
-            "adopt",
+            "init",
+            workspace,
             "--host",
             host,
             "--hook-event",

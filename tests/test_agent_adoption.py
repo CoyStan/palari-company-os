@@ -236,7 +236,10 @@ class AgentAdoptionTests(unittest.TestCase):
         ]
         self.assertIn("custom-check", commands)
         self.assertEqual(
-            sum("agent adopt --host codex --hook-event" in command for command in commands),
+            sum(
+                " init " in command and "--host codex --hook-event" in command
+                for command in commands
+            ),
             1,
         )
         self.assertEqual(hooks_file.read_text(encoding="utf-8"), rendered_once)
@@ -367,7 +370,10 @@ class AgentAdoptionTests(unittest.TestCase):
         )
 
         self.assertFalse((self.tmp / "PWNED").exists())
-        self.assertIn(str(malicious), shlex.split(command))
+        command_tokens = shlex.split(command)
+        self.assertIn("init", command_tokens)
+        self.assertNotIn("adopt", command_tokens)
+        self.assertIn(str(malicious), command_tokens)
         self.assertIn(str(malicious), shlex.split(result["mcp"]["command"]))
 
     def test_claude_adoption_preserves_settings_and_installs_structural_profile(self) -> None:
@@ -431,14 +437,10 @@ class AgentAdoptionTests(unittest.TestCase):
         result = subprocess.run(
             [
                 str(REPO_ROOT / "bin" / "palari"),
-                "--workspace",
+                "init",
                 str(self.workspace),
-                "agent",
-                "adopt",
                 "--host",
                 "devin",
-                "--project-dir",
-                str(self.tmp),
                 "--as",
                 "PALARI-STEWARD",
                 "--json",
@@ -454,6 +456,24 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "palari.agent_adoption.v1")
         self.assertEqual(payload["host"], "devin")
         self.assertEqual(len(payload["next_commands"]), 2)
+
+        plain = subprocess.run(
+            [
+                str(REPO_ROOT / "bin" / "palari"),
+                "init",
+                str(self.workspace),
+                "--host",
+                "devin",
+                "--as",
+                "PALARI-STEWARD",
+            ],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertIn("Agent adoption: devin", plain.stdout)
 
     def test_codex_hook_denies_outside_patch_and_allows_exact_claim_path(self) -> None:
         adopt_agent_host(

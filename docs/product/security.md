@@ -145,9 +145,10 @@ Authority rules:
   repeated packet/check/journal work; they do not replace transition checks or
   cache authority across requests. A changed journal witness forces a fresh
   complete scan.
-- `palari init --host HOST` and `palari agent adopt --host HOST` install or
-  reuse the portable contract and claim-bound Git commit gate without granting
-  authority. Claude and Codex have tested project-local session adapters;
+- `palari init --host HOST` creates and adopts a fresh workspace; `palari init
+  WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
+  one. Both install or reuse the portable contract and claim-bound Git commit
+  gate without granting authority. Claude and Codex have tested project-local session adapters;
   Codex hooks activate only after explicit host `/hooks` review. Cursor, Devin,
   GLM, and generic profiles are labeled advisory at session time. No profile is
   an OS sandbox, and an unrestricted same-user process can still rewrite local

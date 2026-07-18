@@ -48,8 +48,10 @@ the work declaration. If a manually assembled workspace still has no committed
 authority origin, `agent start` fails closed with one exact `git add` plus
 path-limited `git commit --only` recovery action.
 
-An existing Palari workspace uses `palari agent adopt --host HOST --as
-PALARI-ID --json`. Claude and Codex have tested native session adapters; Codex
+An existing Palari workspace uses the same idempotent action: `palari init
+WORKSPACE-DIR --host HOST --as PALARI-ID --json`. Without explicit `--host`,
+`init` still refuses an existing workspace. Claude and Codex have tested native
+session adapters; Codex
 project hooks require explicit `/hooks` trust. Cursor, Devin, GLM, and generic
 profiles install the portable contract and structural commit boundary but
 remain explicitly advisory at session time. Adoption grants no review, human

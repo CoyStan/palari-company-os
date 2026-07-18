@@ -74,6 +74,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Also install and anchor one honest local agent-host profile.",
     )
+    init_parser.add_argument(
+        "--as",
+        dest="palari_id",
+        default="",
+        help="Existing Palari identity for idempotent host adoption.",
+    )
+    init_parser.add_argument(
+        "--hook-event",
+        choices=["pre-tool-use", "stop", "session-start"],
+        default="",
+        help=argparse.SUPPRESS,
+    )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     queue_parser = subparsers.add_parser("queue", help="Show work needing attention.")
@@ -288,34 +300,6 @@ def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
 def _add_agent_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("agent", help="Compile bounded packets for AI agents.")
     nested = parser.add_subparsers(dest="agent_command", required=True, metavar="ACTION")
-    adopt = nested.add_parser(
-        "adopt",
-        help="Install Palari's portable contract and honest host guardrails.",
-    )
-    adopt.add_argument(
-        "--host",
-        choices=["claude", "codex", "cursor", "devin", "glm", "generic"],
-        default="generic",
-        help="Agent host profile. Defaults to generic.",
-    )
-    adopt.add_argument(
-        "--project-dir",
-        default=".",
-        help="Git project root. Defaults to the current repository.",
-    )
-    adopt.add_argument(
-        "--as",
-        dest="palari_id",
-        default="",
-        help="Palari identity to embed; inferred only when exactly one exists.",
-    )
-    adopt.add_argument(
-        "--hook-event",
-        choices=["pre-tool-use", "stop", "session-start"],
-        default="",
-        help=argparse.SUPPRESS,
-    )
-    adopt.add_argument("--json", action="store_true", help="Emit JSON.")
     next_parser = nested.add_parser(
         "next",
         help="Show the next safe work candidates for one Palari or all Palaris.",
@@ -489,7 +473,7 @@ def _add_agent_parser(subparsers: Any) -> None:
 
     actions = {action.dest: action for action in nested._choices_actions}
     nested._choices_actions = [
-        actions[name] for name in ("adopt", "start", "advance", "release", "doctor")
+        actions[name] for name in ("start", "advance", "release", "doctor")
     ]
 
 

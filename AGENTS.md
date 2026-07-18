@@ -132,8 +132,9 @@ command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
 Fresh Git projects may use `palari init --host HOST`; existing workspaces use
-`palari agent adopt --host HOST --as PALARI-ID`. Every profile installs the
-portable contract and commit-time Git boundary. Claude and Codex also receive
+the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`.
+Every profile installs the portable contract and commit-time Git boundary.
+Claude and Codex also receive
 tested session hooks; Codex requires explicit `/hooks` trust. Cursor, Devin,
 GLM, and generic profiles remain advisory at session time rather than claiming
 an unproven native enforcement boundary. Existing `palari claude install`

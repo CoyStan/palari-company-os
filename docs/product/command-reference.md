@@ -30,13 +30,14 @@ anchored action. Every host profile installs or reuses the portable repository
 contract and installs the claim-bound Git commit gate. Claude and Codex also
 receive tested project-local session hooks; Codex requires explicit `/hooks`
 review before they activate. Cursor, Devin, GLM, and generic profiles are
-reported as advisory at session time. Existing workspaces use `palari agent
-adopt` instead:
+reported as advisory at session time. Existing workspaces use the same `init`
+action with an explicit path and host:
 
 ```bash
-palari agent adopt --host codex --as PALARI-ID --json
+palari init WORKSPACE-DIR --host codex --as PALARI-ID --json
 ```
 
+Without `--host`, `init` still refuses to overwrite an existing workspace.
 Adoption preserves existing instructions and host configuration. It grants no
 review, human decision, acceptance, merge, push, deployment, provider, or
 external-write authority.
@@ -1040,13 +1041,15 @@ than hides, a legitimate continuity break after a manual edit. `--recover`
 idempotently resolves a prepared transaction when the on-disk projection makes
 the safe result unambiguous.
 
-The v1 journal is append-only JSONL and complete verification remains linear in
-the journal size. Request-local operation contexts reuse one verified scan
-while the file identity and size/time witnesses remain unchanged, but no
-persistent cache may authorize governance. On the current roughly 40 MB
-dogfood journal a full scan can still take several seconds and hundreds of MB
-of peak memory; journaled mutations may require more than one scan. This is a
-known performance limit, not a reason to skip continuity checks.
+The v1 journal remains append-only JSONL. An explicit valid-v1 checkpoint can
+activate compact v2 without rewriting its predecessor: the v2 checkpoint seals
+the exact v1 bytes, replay digest, head, and counts, then subsequent events use
+deterministic value deltas. Verification streams the v2 checkpoint/tail with
+bounded memory and validates the sealed predecessor. Request-local operation
+contexts reuse one verified scan and pure path-normalization results only while
+their exact witnesses remain unchanged; no persistent cache may authorize
+governance. Complete verification still reads authenticated journal bytes and
+therefore does not claim constant time.
 
 `--checkpoints` lists every committed journal projection by content digest.
 `--restore` requires a declared human and reason, then appends a restoration

@@ -13,7 +13,7 @@ Every completed checkbox names exact committed proof. The product rule is:
 ## Required Outcomes
 
 - [ ] **One provider-neutral adoption action**
-  - Required outcome: one `palari agent adopt` action installs the portable
+  - Required outcome: one `palari init WORKSPACE-DIR --host HOST` action installs the portable
     repository contract and strongest honest local enforcement profile for
     Claude Code, Codex, Cursor, Devin, GLM, or a generic agent host.
   - Objective evidence: isolated-project tests prove each named profile,
@@ -82,4 +82,3 @@ Every completed checkbox names exact committed proof. The product rule is:
   commit-gate profiles until their native protocols are separately proven.
 - Declared Palari actor IDs do not authenticate a human or agent against a
   hostile process running as the same OS user.
-
