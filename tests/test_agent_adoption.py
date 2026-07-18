@@ -15,9 +15,14 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.agent_adoption import adopt_agent_host, run_agent_hook
+from palari_company_os.agent_adoption import (
+    adopt_agent_host,
+    install_claude_host_hooks,
+    run_agent_hook,
+)
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.authoring import create_record
+from palari_company_os.claude_hooks import install_hooks as install_legacy_claude_hooks
 from palari_company_os.workspace import Workspace, WorkspaceError
 from tests.workspace_fixture import write_portable_agent_workspace
 
@@ -87,6 +92,86 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertEqual(first["enforcement"]["commit_boundary"], "structural")
         self.assertEqual(first["enforcement"]["session_boundary"], "advisory")
         self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
+
+    def test_adoption_uses_the_absolute_running_entrypoint_when_path_is_absent(self) -> None:
+        (self.tmp / "bin" / "palari").unlink()
+        entrypoint_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, entrypoint_root, True)
+        entrypoint = entrypoint_root / "bin" / "palari"
+        entrypoint.parent.mkdir(parents=True)
+        entrypoint.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        entrypoint.chmod(0o755)
+
+        with mock.patch.object(sys, "argv", [str(entrypoint)]), mock.patch(
+            "palari_company_os.agent_adoption.shutil.which",
+            return_value=None,
+        ):
+            result = adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "ready")
+        hooks = json.loads(
+            (self.tmp / ".codex" / "hooks.json").read_text(encoding="utf-8")
+        )
+        command = hooks["hooks"]["SessionStart"][-1]["hooks"][0]["command"]
+        self.assertEqual(shlex.split(command)[0], str(entrypoint.resolve()))
+        for next_command in result["next_commands"]:
+            tokens = shlex.split(next_command)
+            self.assertEqual(tokens[0], str(entrypoint.resolve()))
+            self.assertEqual(tokens[tokens.index("--workspace") + 1], str(self.workspace))
+
+    def test_adoption_rejects_workspace_file_symlink_escape_before_writing(self) -> None:
+        outside_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, outside_dir, True)
+        outside = outside_dir / "workspace.json"
+        shutil.copy2(self.workspace / "workspace.json", outside)
+        (self.workspace / "workspace.json").unlink()
+        (self.workspace / "workspace.json").symlink_to(outside)
+
+        with self.assertRaisesRegex(WorkspaceError, "workspace to be inside the project"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="codex",
+                palari_id="PALARI-STEWARD",
+            )
+
+        self.assertFalse((self.tmp / "AGENTS.md").exists())
+        self.assertFalse((self.tmp / ".codex").exists())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+    def test_claude_adoption_replaces_and_removes_legacy_managed_hooks(self) -> None:
+        install_legacy_claude_hooks(self.tmp, self.workspace)
+        legacy = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        legacy_command = legacy["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        self.assertIn('"$CLAUDE_PROJECT_DIR/bin/palari"', legacy_command)
+
+        install_claude_host_hooks(self.tmp, self.workspace)
+
+        settings = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        commands = [
+            hook["command"]
+            for entries in settings["hooks"].values()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        self.assertEqual(len(commands), 3)
+        self.assertFalse(any("$CLAUDE_PROJECT_DIR/bin/palari" in item for item in commands))
+
+        install_claude_host_hooks(self.tmp, self.workspace, remove=True)
+
+        removed = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        self.assertNotIn("hooks", removed)
 
     def test_adoption_reuses_equivalent_existing_portable_guidance(self) -> None:
         agents = self.tmp / "AGENTS.md"

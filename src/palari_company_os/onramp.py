@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from shlex import quote
@@ -252,16 +253,17 @@ def initialize_starter_workspace(
         created_docs=list(agent_docs["created"]),
         additional_files=adoption_anchor_files,
     )
+    command_name = str(adoption.get("executable") or _current_cli_executable())
     workspace_arg = _workspace_cli_argument(directory)
     next_commands = [
-        f'palari{workspace_arg} work add "First task" --write docs/notes.md',
-        f"palari{workspace_arg} agent start --next --as {palari_id} --json",
+        f'{quote(command_name)}{workspace_arg} work add "First task" --write docs/notes.md',
+        f"{quote(command_name)}{workspace_arg} agent start --next --as {palari_id} --json",
     ]
     if authority_anchor["status"] == "blocked":
         next_commands = [authority_anchor["next_command"]]
     elif adoption["status"] == "blocked":
         next_commands = [
-            f"palari init {quote(str(directory))} --host {selected_host} "
+            f"{quote(command_name)} init {quote(str(directory))} --host {selected_host} "
             f"--as {palari_id} --json"
         ]
     return {
@@ -890,6 +892,16 @@ def _workspace_cli_argument(directory: Path) -> str:
     if directory == Path.cwd():
         return ""
     return f" --workspace {quote(str(directory))}"
+
+
+def _current_cli_executable() -> str:
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.name == "palari" and invoked.is_absolute():
+        try:
+            return str(invoked.resolve(strict=True))
+        except OSError:
+            pass
+    return "palari"
 
 
 def _normalized_paths(paths: list[str], flag: str) -> list[str]:

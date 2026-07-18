@@ -68,11 +68,11 @@ def adopt_agent_host(
     if repo_root is None:
         raise WorkspaceError("agent adoption requires a Git repository")
     root = repo_root
-    workspace = Workspace.load(workspace_path)
     if not _workspace_inside_project(workspace_path, root):
         raise WorkspaceError(
             "agent adoption requires the Palari workspace to be inside the project"
         )
+    workspace = Workspace.load(workspace_path)
     executable = _assert_palari_executable(root)
     actor = _resolve_palari(workspace, palari_id)
 
@@ -172,6 +172,7 @@ def adopt_agent_host(
         "status": "ready",
         "host": selected_host,
         "project": str(root),
+        "executable": executable,
         "workspace": workspace.name,
         "palari_id": actor,
         "changed": bool(changed_files or git_result.get("changed")),
@@ -185,10 +186,7 @@ def adopt_agent_host(
             "command": _mcp_command(executable, workspace_path),
             "authority": "agent-loop-only; no human acceptance or external-write authority",
         },
-        "next_commands": [
-            f"palari agent start --next --as {actor} --json",
-            f"palari agent next --as {actor} --json",
-        ],
+        "next_commands": _agent_next_commands(executable, workspace_path, actor),
         "limitations": [
             "Git enforcement applies at commit time and is not a filesystem sandbox.",
             "Project-local host hooks may require the host user to review and trust them.",
@@ -572,7 +570,10 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         return False
     executable = tokens[0]
     if (
-        not _has_canonical_executable_word(command, executable)
+        not (
+            _has_canonical_executable_word(command, executable)
+            or _has_legacy_claude_executable_word(command, executable, host)
+        )
         or Path(executable).name != "palari"
     ):
         return False
@@ -620,6 +621,22 @@ def _has_canonical_executable_word(command: str, executable: str) -> bool:
     expected = shlex.quote(executable)
     stripped = command.lstrip()
     return stripped == expected or stripped.startswith(expected + " ")
+
+
+def _has_legacy_claude_executable_word(
+    command: str,
+    executable: str,
+    host: str,
+) -> bool:
+    """Recognize the exact project-variable launcher emitted before v0.2."""
+
+    expected = '"$CLAUDE_PROJECT_DIR/bin/palari"'
+    stripped = command.lstrip()
+    return (
+        host == "claude"
+        and executable == "$CLAUDE_PROJECT_DIR/bin/palari"
+        and (stripped == expected or stripped.startswith(expected + " "))
+    )
 
 
 def _hook_payload_security_error(payload: dict[str, Any]) -> str:
@@ -789,12 +806,31 @@ def _mcp_command(executable: str, workspace_path: Path | str) -> str:
     return shlex.join([executable, "--workspace", workspace, "mcp", "serve"])
 
 
+def _agent_next_commands(
+    executable: str,
+    workspace_path: Path | str,
+    actor: str,
+) -> list[str]:
+    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    base = [executable, "--workspace", workspace, "agent"]
+    return [
+        shlex.join([*base, "start", "--next", "--as", actor, "--json"]),
+        shlex.join([*base, "next", "--as", actor, "--json"]),
+    ]
+
+
 def _workspace_inside_project(workspace_path: Path | str, root: Path) -> bool:
+    candidate = Path(workspace_path).expanduser()
+    if candidate.is_dir():
+        candidate = candidate / "workspace.json"
+    if candidate.is_symlink():
+        return False
     try:
-        workspace_file_path(workspace_path).parent.resolve().relative_to(root.resolve())
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root.resolve(strict=True))
     except (OSError, ValueError):
         return False
-    return True
+    return resolved.is_file()
 
 
 def _assert_local_target(root: Path, target: Path) -> None:
@@ -841,6 +877,9 @@ def _assert_palari_executable(root: Path) -> str:
                 "restore the packaged wrapper or remove it and install palari on PATH"
             )
         return str(local.resolve())
+    current = _current_palari_executable()
+    if current is not None:
+        return str(current)
     installed = shutil.which("palari")
     if installed is None:
         raise WorkspaceError(
@@ -850,6 +889,21 @@ def _assert_palari_executable(root: Path) -> str:
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
         raise WorkspaceError(f"Palari executable is not a regular executable file: {resolved}")
     return str(resolved)
+
+
+def _current_palari_executable() -> Path | None:
+    """Return the absolute entrypoint that is already running, when inspectable."""
+
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.name != "palari" or not invoked.is_absolute():
+        return None
+    try:
+        resolved = invoked.resolve(strict=True)
+    except OSError:
+        return None
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        return None
+    return resolved
 
 
 def _restore_local_file(
