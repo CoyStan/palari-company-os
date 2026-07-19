@@ -7,7 +7,11 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from .governance_journal import JournalVerificationContext
+from .governance_journal import (
+    JOURNAL_RELATIVE_PATH,
+    V2_JOURNAL_RELATIVE_PATH,
+    JournalVerificationContext,
+)
 from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
@@ -15,8 +19,8 @@ from .workspace import Workspace, WorkspaceError
 
 HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
-GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v2.jsonl"
-LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
+GOVERNANCE_JOURNAL_RELATIVE_PATH = V2_JOURNAL_RELATIVE_PATH
+LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH = JOURNAL_RELATIVE_PATH
 
 
 def git_artifact_state(

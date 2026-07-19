@@ -25,6 +25,7 @@ from .agent_runtime import (
     read_claim_packet,
     release_agent,
 )
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .governance_journal import (
     JournalError,
     MutationMetadata,
@@ -41,7 +42,6 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_parking.v1"
 RESULT_SCHEMA_VERSION = "palari.agent_parking_record.v1"
-_TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 
 
 def park_agent(
@@ -95,7 +95,7 @@ def park_agent(
             f"cannot park {work_id}: its execute claim has expired; inspect the claim "
             "before starting a new claim epoch"
         )
-    if str(work_record.get("status") or "") in _TERMINAL_WORK_STATUSES:
+    if str(work_record.get("status") or "") in TERMINAL_WORK_STATUSES:
         raise WorkspaceError(
             f"cannot park terminal work {work_id} with status {work_record.get('status')}"
         )

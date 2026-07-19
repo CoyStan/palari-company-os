@@ -969,7 +969,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
 def print_approval_pack_decision(payload: dict[str, Any]) -> None:
     print(f"Approval Pack decision: {payload['status']}")
     print(f"Pack: {payload['pack_digest']}")
-    print(f"Presentation: {payload.get('presentation_digest', 'legacy-unbound')}")
+    print(f"Presentation: {payload['presentation_digest']}")
     print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
     if payload.get("approved"):
         print(f"Approved: {', '.join(payload['approved'])}")

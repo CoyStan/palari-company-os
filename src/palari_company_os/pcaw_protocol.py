@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .governance_case import GovernanceCase
-from .governance_kernel import evaluate_governance_case
+from .governance_kernel import PROPERTY_NAMES, evaluate_governance_case
 from .pcaw_canonical import (
     CanonicalJSONError,
     canonical_json_bytes,
@@ -21,16 +21,6 @@ STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 PREDICATE_TYPE = "https://palari.dev/pcaw/v1"
 PREDICATE_SCHEMA = "pcaw.v1"
 REPORT_SCHEMA = "pcaw.verification.v1"
-PROPERTY_NAMES = (
-    "scope_compliance",
-    "subject_integrity",
-    "evidence_freshness",
-    "receipt_binding",
-    "independent_review",
-    "human_quorum",
-    "acceptance_currency",
-    "journal_continuity",
-)
 SECURITY_LIMITATIONS = [
     "actor-attribution-declared-not-authenticated",
     "no-signatures-or-key-custody",

@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .governance_kernel import EXTERNAL_WRITE_ACTIONS
+from .governance_kernel import EXTERNAL_WRITE_ACTIONS, TERMINAL_WORK_STATUSES
 from .integration_contracts import (
     SUPPORTED_INTEGRATION_ACTIONS,
     human_can_decide_integration_plan,
@@ -467,7 +467,6 @@ WORK_STATUSES = {
     "abandoned",
 }
 WORKBENCH_STATUSES = {"active", "paused", "completed", "closed", "archived"}
-TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 RETIRED_WORK_STATUSES = {"superseded", "abandoned"}
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}

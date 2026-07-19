@@ -6,7 +6,7 @@ from typing import Any
 from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
-from .agent_packets import TERMINAL_WORK_STATUSES
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate

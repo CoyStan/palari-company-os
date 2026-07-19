@@ -10,12 +10,12 @@ from .evidence_manifest import (
     verify_evidence,
 )
 from .governance_journal import JournalVerificationContext
+from .governance_kernel import TERMINAL_ATTEMPT_STATUSES
 from .workspace import current_attempt_for_work, latest_for_work
 
 
 BINDING_VERSION = "palari.review_binding.v1"
 HASH_PREFIX = "sha256:"
-TERMINAL_ATTEMPT_STATUSES = {"complete", "completed"}
 CLEAN_ATTEMPT_STATES = {"clean", "pristine"}
 
 

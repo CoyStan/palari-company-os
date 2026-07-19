@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable
 
+from .pcaw_canonical import IJSON_MAX_INTEGER
+
 
 SCHEMA_VERSION = "palari.governance-journal.v1"
 V2_SCHEMA_VERSION = "palari.governance-journal.v2"
@@ -25,7 +27,6 @@ VERIFY_SCHEMA_VERSION = "palari.governance-journal.verify.v1"
 JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
 V2_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v2.jsonl"
 HASH_PREFIX = "sha256:"
-IJSON_INTEGER_MAX = 9_007_199_254_740_991
 
 EVENT_KINDS = {"checkpoint", "mutation", "restoration"}
 COVERAGE_MODES = {"complete", "from-checkpoint", "continuous", "continuity-break"}
@@ -2322,7 +2323,7 @@ def _validate_json_value(value: Any, path: str) -> None:
                 ) from exc
         return
     if type(value) is int:
-        if not -IJSON_INTEGER_MAX <= value <= IJSON_INTEGER_MAX:
+        if not -IJSON_MAX_INTEGER <= value <= IJSON_MAX_INTEGER:
             raise JournalError(
                 "JOURNAL_INTEGER_OUT_OF_RANGE",
                 "integer is outside the interoperable JSON range",

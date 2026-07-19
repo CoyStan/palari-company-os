@@ -7,6 +7,7 @@ from typing import Any
 
 from .governance_kernel import (
     EXTERNAL_WRITE_ACTIONS,
+    TERMINAL_WORK_STATUSES,
     low_risk_completion_policy_applies,
 )
 from .read_models import detail
@@ -16,7 +17,6 @@ from .workspace import Workspace
 
 
 SUPPORTED_MODES = {"execute", "review"}
-TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 
 
 def build_agent_brief(

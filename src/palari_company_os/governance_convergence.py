@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .governance_journal import journal_file_path, workspace_digest
 from .pcaw_workspace import evaluate_workspace_completion_authority
 from .store import load_store, validate_data
@@ -13,7 +14,6 @@ from .workspace import WorkspaceError
 
 
 SCHEMA_VERSION = "palari.governance_convergence.v1"
-_TERMINAL = {"completed", "closed", "done"}
 
 
 @dataclass(frozen=True)
@@ -285,7 +285,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             code="ACTOR_NOT_ASSIGNED",
             message=f"Automatic reconciliation actor {actor} is not assigned to {work_id}.",
         )
-    if work.status in _TERMINAL:
+    if work.status in TERMINAL_WORK_STATUSES:
         return ConvergenceObservation(
             digest=digest,
             status="completed",

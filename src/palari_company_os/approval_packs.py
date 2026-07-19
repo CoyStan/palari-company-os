@@ -15,7 +15,7 @@ from .governance_binding import (
     attempt_state_hash,
     work_contract_hash,
 )
-from .governance_kernel import evaluate_governance_case
+from .governance_kernel import TERMINAL_WORK_STATUSES, evaluate_governance_case
 from .governance_journal import (
     JournalVerificationContext,
     MutationMetadata,
@@ -40,7 +40,6 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
-TERMINAL_WORK_STATUSES = {"closed", "completed", "done"}
 BAD_DEPENDENCY_STATES = {
     "blocked",
     "deferred",
