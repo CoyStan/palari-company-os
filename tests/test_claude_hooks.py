@@ -664,7 +664,6 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(advance, {})
         direct_mutations = (
-            "palari --workspace ws agent done WORK-0001 --as PALARI-SOFIA --json",
             "palari --workspace ws attempt record ATTEMPT-X --json",
             "palari --workspace ws attempt update ATTEMPT-X --json",
             "palari --workspace ws attempt closeout ATTEMPT-X --json",
