@@ -9,10 +9,22 @@ import time
 import unittest
 from pathlib import Path
 from typing import Any, Callable
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.evidence_manifest import (
+    OUTPUT_BINDING_VERSION,
+    evidence_manifest_hash,
+    stamp_receipt_record,
+)
+from palari_company_os.governance_binding import (
+    attempt_state_hash,
+    review_proof_hash,
+    work_contract_hash,
+)
+from palari_company_os.pcaw_workspace import recorded_governance_projection
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -22,6 +34,77 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "workspaces"
 
 def fixture_data(name: str = "valid-source-receipt-loop.json") -> dict[str, Any]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def current_completed_workspace_data() -> dict[str, Any]:
+    """Build current exact terminal proof from the committed migration fixture."""
+
+    data = fixture_data("valid-accepted-completed-work.json")
+    work = data["work_items"][0]
+    work.update(
+        {
+            "scope": "Create one local checklist.",
+            "allowed_actions": ["local_write"],
+            "output_targets": ["notes/output.md"],
+            "path_intents": [{"path": "notes/output.md", "intent": "modify"}],
+            "forbidden_actions": ["external_write"],
+        }
+    )
+    attempt = data["attempts"][0]
+    attempt.update(
+        {
+            "changed_files": ["notes/output.md"],
+            "output_targets": ["notes/output.md"],
+        }
+    )
+    receipt = data["receipts"][0]
+    receipt["outputs_created"] = ["notes/output.md"]
+    data["receipts"][0] = stamp_receipt_record(receipt, [])
+    receipt = data["receipts"][0]
+    evidence = data["evidence_runs"][0]
+    evidence.update(
+        {
+            "artifacts": ["notes/output.md"],
+            "artifact_hashes": [
+                {
+                    "path": "notes/output.md",
+                    "sha256": "sha256:" + ("a" * 64),
+                    "status": "present",
+                }
+            ],
+            "output_binding_version": OUTPUT_BINDING_VERSION,
+            "receipt_hash": receipt["receipt_hash"],
+        }
+    )
+    evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+
+    proof_records = (
+        data["review_verdicts"],
+        data["human_decisions"],
+        data["acceptance_records"],
+    )
+    data["review_verdicts"] = []
+    data["human_decisions"] = []
+    data["acceptance_records"] = []
+    work["status"] = "active"
+    structural_workspace = Workspace.from_raw(data, FIXTURES)
+    data["review_verdicts"], data["human_decisions"], data["acceptance_records"] = (
+        proof_records
+    )
+    work["status"] = "completed"
+
+    review = data["review_verdicts"][0]
+    review.update(
+        {
+            "attempt_hash": attempt_state_hash(structural_workspace.attempts[0]),
+            "evidence_manifest_hash": evidence["manifest_hash"],
+            "receipt_hash": receipt["receipt_hash"],
+            "work_contract_hash": work_contract_hash(structural_workspace.work_items[0]),
+        }
+    )
+    review["proof_hash"] = review_proof_hash(review)
+    data["acceptance_records"][0]["receipt_hash"] = receipt["receipt_hash"]
+    return data
 
 
 def bounded_workspace_data() -> dict[str, Any]:
@@ -60,6 +143,72 @@ class WorkspaceContractTests(unittest.TestCase):
         self.assertEqual(historical.evidence_runs[0].output_binding_version, "")
         self.assertEqual(historical.review_verdicts[0].binding_version, "")
         self.assertEqual(historical.review_verdicts[0].verdict, "blocked")
+
+    def test_unversioned_terminal_fixture_loads_only_through_historical_boundary(self) -> None:
+        with patch(
+            "palari_company_os.pcaw_workspace.recorded_governance_projection",
+            side_effect=AssertionError("historical migration must not claim current proof"),
+        ):
+            historical = Workspace.load(
+                FIXTURES / "valid-accepted-completed-work.json"
+            )
+
+        self.assertEqual(historical.work_items[0].status, "completed")
+        self.assertEqual(historical.evidence_runs[0].output_binding_version, "")
+
+    def test_current_terminal_decision_drift_fails_closed_in_kernel(self) -> None:
+        data = current_completed_workspace_data()
+        decision = data["human_decisions"][0]
+        decision["acceptance_mode"] = ""
+        decision["quorum_status"] = "pending"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "current recorded proof does not derive completed",
+        ):
+            Workspace.from_raw(data, FIXTURES)
+
+    def test_current_terminal_load_routes_through_recorded_kernel(self) -> None:
+        with patch(
+            "palari_company_os.pcaw_workspace.recorded_governance_projection",
+            wraps=recorded_governance_projection,
+        ) as projection:
+            workspace = Workspace.from_raw(current_completed_workspace_data(), FIXTURES)
+
+        projection.assert_called_once_with(workspace, "WORK-1")
+        self.assertEqual(workspace.work_items[0].status, "completed")
+
+    def test_nonterminal_acceptance_load_does_not_inspect_external_state(self) -> None:
+        data = current_completed_workspace_data()
+        data["work_items"][0]["status"] = "in-review"
+
+        with (
+            patch(
+                "palari_company_os.evidence_manifest.verify_evidence",
+                side_effect=AssertionError("load must not inspect artifact files"),
+            ),
+            patch(
+                "palari_company_os.governance_journal.verify_workspace_journal",
+                side_effect=AssertionError("load must not audit the journal"),
+            ),
+            patch(
+                "subprocess.run",
+                side_effect=AssertionError("load must not spawn Git or subprocesses"),
+            ),
+        ):
+            workspace = Workspace.from_raw(data, FIXTURES)
+
+        self.assertEqual(workspace.work_items[0].status, "in-review")
+
+    def test_unbound_historical_review_cannot_grant_accept_ready_authority(self) -> None:
+        data = fixture_data("valid-workspace.json")
+        data["review_verdicts"][0]["verdict"] = "accept-ready"
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "accept-ready requires exact proof binding",
+        ):
+            Workspace.from_raw(data, FIXTURES)
 
     def test_workspace_json_parser_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

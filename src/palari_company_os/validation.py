@@ -1645,23 +1645,12 @@ def _validate_acceptance_record(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
-    if work.status in TERMINAL_WORK_STATUSES:
-        stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
-        if stored_errors:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
-                f"evidence or receipt integrity: {stored_errors[0]}"
-            )
-    else:
-        from .evidence_manifest import verify_evidence
-
-        # Before execution, approval is always bound to current artifact bytes.
-        verification = verify_evidence(workspace, evidence.id, require_output_coverage=None)
-        if not verification["ok"]:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
-                "evidence or receipt integrity"
-            )
+    stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
+    if stored_errors:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
+            f"evidence or receipt integrity: {stored_errors[0]}"
+        )
     if acceptance.evidence_reference != review.evidence_reference:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference does not match "
@@ -1755,10 +1744,50 @@ def _validate_completed_work(
     work: WorkItem,
     attempts_by_id: dict[str, Attempt],
 ) -> None:
+    evidence = _latest_for_work(workspace.evidence_runs, work.id)
+    if evidence is None:
+        raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
+    if not evidence.output_binding_version:
+        _validate_historical_completed_work(workspace, work, attempts_by_id, evidence)
+        return
+
+    from .pcaw_workspace import recorded_governance_projection
+
+    projection = recorded_governance_projection(workspace, work.id)
+    evaluation = projection.evaluation
+    if (
+        evaluation.derived_state == "completed"
+        and not projection.recorded_proof_errors
+        and not evaluation.errors
+    ):
+        return
+
+    if projection.recorded_proof_errors:
+        reason = projection.recorded_proof_errors[0]
+    elif evaluation.errors:
+        reason = evaluation.errors[0].message
+    else:
+        reason = f"governance kernel derives {evaluation.derived_state}"
+    raise WorkspaceError(
+        f"work_items.{work.id}.status is terminal but current recorded proof "
+        f"does not derive completed: {reason}"
+    )
+
+
+def _validate_historical_completed_work(
+    workspace: Any,
+    work: WorkItem,
+    attempts_by_id: dict[str, Attempt],
+    evidence: EvidenceRun,
+) -> None:
+    """Load the one committed unversioned terminal format for migration only."""
+
     if _open_linked_decision(workspace, work.id) is not None:
         raise WorkspaceError(f"work_items.{work.id}.status cannot be terminal with open decisions")
     if not work.current_attempt:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but current_attempt is missing")
+        raise WorkspaceError(
+            f"work_items.{work.id}.status is terminal but current_attempt is missing"
+        )
     attempt = attempts_by_id[work.current_attempt]
     unfinished_dependencies = _unfinished_dependency_ids(workspace, work)
     if unfinished_dependencies:
@@ -1776,29 +1805,13 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but current attempt "
             f"{attempt.id} is not clean"
         )
-    evidence = _latest_for_work(workspace.evidence_runs, work.id)
-    if evidence is None:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
     if evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but latest evidence is "
             f"not for current attempt {work.current_attempt}"
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
-    if evidence.output_binding_version:
-        integrity_errors = _stored_evidence_integrity_errors(workspace, evidence)
-        if integrity_errors:
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but exact evidence proof is stale: "
-                f"{integrity_errors[0]}"
-            )
-    if evidence.output_binding_version and _completed_via_evidence_complete_low_risk(
-        workspace, work, attempt
-    ):
-        return
-    if not evidence.output_binding_version and _historical_low_risk_completion(
-        workspace, work, attempt
-    ):
+    if _historical_low_risk_completion(workspace, work, attempt):
         return
     review = _latest_for_work(workspace.review_verdicts, work.id)
     if review is None:
@@ -1807,9 +1820,9 @@ def _validate_completed_work(
     if review.binding_version:
         from .governance_binding import review_binding_integrity_errors, work_contract_hash
 
-        # Exact output coverage is mandatory for versioned evidence. Terminal
-        # records with genuinely unversioned evidence remain loadable as
-        # legacy state, but a v1 record cannot use that compatibility path.
+        # The committed migration fixture pairs unversioned evidence with a
+        # versioned review. Validate that stored binding without promoting the
+        # historical evidence format to current completion authority.
         binding_errors = review_binding_integrity_errors(workspace, review)
         if review.work_contract_hash != work_contract_hash(work):
             binding_errors.append(f"review {review.id} work contract is stale")
@@ -1838,7 +1851,7 @@ def _validate_completed_work(
                 f"work_items.{work.id}.status is terminal but latest acceptance record "
                 "does not match current exact proof"
             )
-    count = _qualified_approval_count(workspace, work, review)
+    count = _historical_qualified_approval_count(workspace, work, review)
     if count < work.required_approval_count:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but approval quorum is "
@@ -1959,7 +1972,7 @@ def _stored_evidence_integrity_errors(
     workspace: Any,
     evidence: EvidenceRun,
 ) -> list[str]:
-    """Validate terminal proof records without rebinding them to a later checkout."""
+    """Validate recorded proof structure without inspecting external state."""
 
     from .evidence_manifest import stored_evidence_integrity_errors
 
@@ -1978,33 +1991,6 @@ def _stored_evidence_integrity_errors(
         path_intents=work.path_intents if work is not None else [],
         require_output_coverage=versioned,
         require_version=versioned,
-    )
-
-
-def _completed_via_evidence_complete_low_risk(
-    workspace: Any,
-    work: WorkItem,
-    attempt: Attempt,
-) -> bool:
-    """Load current evidence-complete work under the narrow kernel policy."""
-
-    from .governance_kernel import low_risk_completion_policy_applies
-
-    if attempt.status not in {"complete", "completed"}:
-        return False
-    if _unfinished_dependency_ids(workspace, work):
-        return False
-    receipt = _latest_for_work(workspace.receipts, work.id)
-    if receipt is None or receipt.attempt_id != work.current_attempt:
-        return False
-    return low_risk_completion_policy_applies(
-        risk=work.risk,
-        intensity=work.intensity,
-        required_approval_count=work.required_approval_count,
-        allowed_actions=work.allowed_actions,
-        external_writes=receipt.external_writes,
-        planned_external_writes=receipt.planned_external_writes,
-        queued_external_writes=receipt.queued_external_writes,
     )
 
 
@@ -2216,7 +2202,7 @@ def _require_fresh_accept_ready_review(
         raise WorkspaceError(f"work_items.{work_id} review {review.id} is stale")
 
 
-def _qualified_approval_count(
+def _historical_qualified_approval_count(
     workspace: Any,
     work: WorkItem,
     review: ReviewVerdict,
