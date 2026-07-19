@@ -114,117 +114,30 @@ Inbox. It remains visible through `queue --include-closed` and `detail`, and an
 explicit `agent start` cannot claim it. Historical proof and review records are
 preserved rather than rewritten.
 
-## Create Intent And Actors
+## Parked Expert Authoring
 
-```bash
-./bin/palari goal create GOAL-X --title "Improve onboarding"
-./bin/palari human create HUMAN-X --name "X Human" --list approval_capabilities=product
-./bin/palari palari create PALARI-X --name Xena --role "Onboarding partner" --owner-human HUMAN-X --list linked_goals=GOAL-X
-```
+The broad record-by-record authoring commands remain available for explicit
+workspace repair and expert fixture construction. They are parked surfaces,
+not a second supported lifecycle, an agent fallback, or a compatibility
+promise. The command reference lists them separately from the ordinary path.
 
-## Create Work
+Supported agent hooks may prepare a proposal or scope-expansion decision, but
+they cannot directly manufacture attempts, receipts, evidence, reviews,
+acceptance, human decisions, or outcomes. Use `agent advance` to derive agent
+proof and the exact Approval Inbox action for human authority.
 
-```bash
-./bin/palari work create WORK-X \
-  --title "Draft onboarding note" \
-  --goal GOAL-X \
-  --palari PALARI-X \
-  --risk R2 \
-  --intensity standard \
-  --list allowed_resources=docs/product/company-os.md \
-  --list forbidden_actions=deploy \
-  --required-approval-capability product
-```
+Every current terminal transition is evaluated by the same governance kernel:
+proof must be complete and current, artifact and contract bindings must match,
+required review must be independent, required human authority must be exact,
+and dependencies and external effects must be safe. A substantive mutation
+invalidates derived acceptance and completion.
 
-## Record Attempt, Receipt, Evidence, Review, And Human Decision
+PCAW v1 is the supported portable proof format. `proof export` creates a
+canonical statement, and `proof verify` derives its state locally and offline
+without trusting the claimed result. Workspace `create`, `modify`, and `delete`
+path intents remain local proof: PCAW v1 does not claim portable deletion
+history.
 
-```bash
-./bin/palari attempt record ATTEMPT-X \
-  --work-item-id WORK-X \
-  --actor PALARI-X \
-  --list commits=head-x \
-  --list changed_files=docs/product/company-os.md
-
-./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X
-
-./bin/palari receipt record RECEIPT-X \
-  --work-item-id WORK-X \
-  --attempt-id ATTEMPT-X \
-  --actor PALARI-X \
-  --list actions_taken="drafted the bounded note" \
-  --list outputs_created=docs/product/company-os.md
-
-./bin/palari evidence record EVIDENCE-X \
-  --work-item-id WORK-X \
-  --attempt-id ATTEMPT-X \
-  --head-sha head-x \
-  --status passed \
-  --summary "Focused verification passed." \
-  --list "commands=python3 -m unittest discover -s tests"
-
-./bin/palari attempt closeout ATTEMPT-X \
-  --head-sha head-x \
-  --cleanliness clean \
-  --changed docs/product/company-os.md
-
-./bin/palari review record REVIEW-X \
-  --work-item-id WORK-X \
-  --reviewed-head head-x \
-  --reviewer HUMAN-X \
-  --verdict accept-ready
-
-./bin/palari human-decision record HUMAN-DECISION-X \
-  --work-item-id WORK-X \
-  --human-id HUMAN-X \
-  --reviewed-head head-x \
-  --decision accepted \
-  --status accepted \
-  --evidence-reference EVIDENCE-X \
-  --review-reference REVIEW-X
-```
-
-Acceptance fails closed if the human lacks the required capability, evidence is
-missing or stale, review is missing or stale, or the decision head does not
-match the reviewed head. An `accept-ready` review is automatically bound to the
-exact terminal attempt, receipt, evidence manifest, reviewed head, and work
-contract. Any later substantive change requires refreshed proof and a new
-review.
-
-For a coherent set, use `queue --approval-inbox` and the human-only
-`human-decision pack` surface. Agents may prepare or summarize a pack but may
-not record that decision. A pack with incomplete quorum records the qualified
-vote and leaves execution parked; a later qualified human must act on the same
-stored exact manifest.
-
-The journal also exposes content-addressed state checkpoints. Restoring an
-earlier checkpoint appends a new transition and reason. It reproduces local
-governed state but does not erase history. If an external effect occurred after
-that checkpoint, restoration is blocked before mutation because rewinding an
-outbox or receipt could invite duplicate execution.
-
-`palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
-An offline verifier derives `blocked`, `review-required`,
-`human-decision-required`, `accept-ready`, `accepted`, or `completed` from the
-included records rather than trusting the claimed state. Legacy lifecycle
-records remain loadable, but absent artifact digests or stage timestamps are
-reported honestly and cannot become PCAW acceptance verification.
-
-Workspace work items may declare exact `create`, `modify`, and `delete` path
-intents. A delete succeeds only as an absent-path tombstone corroborated by Git;
-it is not treated as a missing required output. This is local lifecycle proof,
-not a new PCAW v1 portability claim: the v1 protocol does not encode portable
-deletion history.
-
-## Complete Work And Record Outcome
-
-```bash
-./bin/palari work complete WORK-X
-
-./bin/palari outcome record OUTCOME-X \
-  --work-item-id WORK-X \
-  --summary "The onboarding note was accepted."
-```
-
-Completion fails closed unless the trusted transition re-evaluates current
-exact proof, dependencies, review, human authority, and external-effect state.
-Queue and detail report that result; they do not authorize the transition.
+Journal restoration and full continuity audit are explicit recovery actions.
+They append history rather than rewriting it, and fail closed when restoration
+could replay an external effect.

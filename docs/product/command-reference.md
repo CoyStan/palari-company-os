@@ -373,7 +373,12 @@ requires a real human id and creates the work item explicitly. Scope expansion
 does not mutate a work item; it creates an open decision linked to the work so
 the queue blocks until a human answers.
 
-## Evidence, Attempts, And Acceptance
+## Parked Expert Proof Authoring And Recovery
+
+These low-level commands exist for explicit workspace repair, audit fixture
+construction, and deterministic recovery. They are not the ordinary agent or
+operator path. Agents derive proof with `agent advance`; humans grant authority
+only through the exact Approval Inbox action.
 
 ```bash
 ./bin/palari attempt closeout ATTEMPT-0001 --head-sha HEAD --cleanliness clean --changed docs/output.md
@@ -401,11 +406,12 @@ Pre-PCAW evidence without `output_binding_version` remains readable and reports
 the legacy limitation, but every refreshed evidence record and every new
 review or acceptance requires `palari.evidence_outputs.v1` coverage.
 
-`work accept` is the explicit human acceptance gate. It requires fresh passing
-evidence, fresh accept-ready review, qualified human authority, no open linked
-decision, no scope-overlap warning, and a valid exact evidence/receipt/review
-binding. New accept-ready reviews receive that binding automatically and become
-immutable; substantive changes require a new review record.
+`work accept` is a parked single-item human recovery gate. It requires fresh
+passing evidence, fresh accept-ready review, qualified human authority, no open
+linked decision, no scope-overlap warning, and a valid exact
+evidence/receipt/review binding. New accept-ready reviews receive that binding
+automatically and become immutable; substantive changes require a new review
+record.
 It records both a human decision and an acceptance record, then invokes the
 bounded deterministic convergence driver. When the exact proof remains current,
 `work accept` therefore normally reaches terminal state in the same human
@@ -1093,7 +1099,7 @@ not carry a portable deletion-history proof. Workspace `delete` tombstones are
 enforced locally against exact Git state; exporting them as a protocol
 guarantee requires a future versioned PCAW extension.
 
-## Receipts
+## Parked Receipt Authoring
 
 ```bash
 ./bin/palari receipt record RECEIPT-X \
@@ -1107,7 +1113,9 @@ guarantee requires a future versioned PCAW extension.
   --list queued_external_writes=OUTBOX-X
 ```
 
-Receipts are human-facing trust records. `queued_external_writes` points to an
+Direct receipt authoring is reserved for expert repair and fixture work; the
+ordinary agent path derives receipts through `agent advance`. Receipts are
+human-facing trust records. `queued_external_writes` points to an
 approved integration plan that has been placed in the outbox, not to a live
 provider call. Use it when a human needs to see that an external write is queued
 at the future execution boundary and can still be canceled or reviewed.
@@ -1143,9 +1151,12 @@ Important boundaries:
 `palari demo --serve` prepares the throwaway demo workspace, runs the blocked
 write scenario, and opens the same local UI against that demo state.
 
-## Authoring Commands
+## Parked Expert Authoring Commands
 
-All authoring commands validate the full workspace before writing.
+These record-by-record commands are retained as an explicit expert repair and
+fixture surface. They are not a second supported lifecycle, a compatibility
+layer, or an agent fallback. All authoring commands validate the full workspace
+before writing.
 For now, authoring write commands support single-file workspaces
 only. If a workspace declares non-empty `collection_files`, write commands fail
 closed instead of rewriting `workspace.json` and risking data loss in split
@@ -1181,7 +1192,10 @@ collection files.
 Use `--set FIELD=VALUE` for scalar fields and `--list FIELD=A,B,C` for list
 fields. The authoring surface is intentionally simple and dependency-free.
 
-Accepted human decisions fail closed if:
+Raw human-decision authoring is not the supported authority path; ordinary
+human authority uses the exact command emitted by `queue --approval-inbox`.
+When an expert uses the parked surface for recovery, accepted decisions still
+fail closed if:
 
 - the human lacks the required approval capability
 - evidence is missing, failed, or stale
