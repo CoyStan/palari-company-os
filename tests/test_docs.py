@@ -15,8 +15,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.repo_docs import check_docs, init_docs
 from palari_company_os.workspace import Workspace
-
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+from tests.workspace_fixture import current_recommendation_data
 
 
 class DocumentationTests(unittest.TestCase):
@@ -271,9 +270,9 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
 
     def test_agent_packet_includes_compact_doc_hints(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
+        workspace = Workspace.from_raw(current_recommendation_data(), REPO_ROOT)
 
-        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
+        packet = build_agent_brief(workspace, "WORK-1", "PALARI-1", "execute")
 
         self.assertEqual(packet["documentation_state"]["status"], "ready")
         paths = {item["path"] for item in packet["recommended_docs"]}
