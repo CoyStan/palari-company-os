@@ -1,91 +1,133 @@
 from __future__ import annotations
 
-import json
-import os
-import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.data_map import build_data_map
+from palari_company_os.data_map import build_data_map, format_data_map
+from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace
-
-
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+from tests.workspace_fixture import write_current_agent_workspace
 
 
 class DataMapTests(unittest.TestCase):
-    def test_data_map_summarizes_sources_integrations_and_memory(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-        payload = build_data_map(workspace)
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self._temporary.cleanup)
+        self.root = Path(self._temporary.name)
+        self.workspace_file = self.root / "workspace.json"
+        write_current_agent_workspace(self.workspace_file)
+        self._seed_mapping_records()
 
-        self.assertEqual(payload["workspace"]["name"], "Acme Company OS Example")
+    def test_data_map_projects_storage_source_and_integration_boundaries(self) -> None:
+        payload = build_data_map(Workspace.load(self.workspace_file))
+
+        self.assertEqual(payload["workspace"], {
+            "name": "Current Agent Test Workspace",
+            "schema_version": 2,
+        })
         self.assertEqual(payload["storage"]["workspace_file"], "workspace.json")
+        self.assertTrue(payload["storage"]["journal_enabled"])
         self.assertEqual(payload["storage"]["cache_index_status"], "none")
         self.assertIn("raw provider tokens or secrets", payload["not_stored"])
 
-        source_ids = [source["id"] for source in payload["sources"]]
-        self.assertEqual(source_ids, ["SOURCE-0001", "SOURCE-0002", "SOURCE-0003"])
-        source_by_id = {source["id"]: source for source in payload["sources"]}
-        self.assertEqual(source_by_id["SOURCE-0001"]["data_class"], "internal")
-        self.assertEqual(source_by_id["SOURCE-0001"]["authority"], "company_owned")
-        self.assertEqual(source_by_id["SOURCE-0003"]["steward_human"], "HUMAN-OPS")
-        self.assertTrue(source_by_id["SOURCE-0003"]["redaction_required"])
+        sources = {item["id"]: item for item in payload["sources"]}
+        local = sources["SOURCE-REPO-FOUNDATION"]
+        self.assertEqual(local["data_class"], "internal")
+        self.assertEqual(local["authority"], "company_owned")
+        self.assertEqual(local["used_by_work_items"], ["WORK-DATA-MAP"])
+        self.assertEqual(
+            local["used_by_workbenches"],
+            ["WORKBENCH-REPO-FOUNDATION"],
+        )
+        self.assertEqual(
+            local["memory_for_palaris"],
+            ["PALARI-ARCHITECT", "PALARI-STEWARD"],
+        )
+        self.assertTrue(sources["SOURCE-REDACTED"]["redaction_required"])
 
-        provider_names = [provider["provider"] for provider in payload["external_systems"]]
-        self.assertIn("local_note", provider_names)
-        self.assertIn("slack", provider_names)
-
-        memory_by_palari = {
-            item["palari_id"]: item["source_ids"]
-            for item in payload["memory"]["palari_memory_sources"]
+        providers = {
+            item["provider"]: item["declared_by"]
+            for item in payload["external_systems"]
         }
-        self.assertEqual(memory_by_palari["PALARI-SOFIA"], ["SOURCE-0001", "SOURCE-0002"])
+        self.assertEqual(providers, {
+            "linear": ["integration"],
+            "local": ["source"],
+        })
+        integration = payload["integrations"][0]
+        self.assertEqual(integration["provider"], "linear")
+        self.assertEqual(integration["secret_ref"], "env_reference")
+        self.assertEqual(integration["live_execution"], "disabled")
         self.assertEqual(payload["integration_activity"]["live_provider_calls"], "disabled")
 
-    def test_cli_data_map_text_names_boundaries(self) -> None:
-        result = self.run_cli("data", "map")
+    def test_text_formatter_names_the_same_read_only_boundaries(self) -> None:
+        lines = format_data_map(build_data_map(Workspace.load(self.workspace_file)))
+        rendered = "\n".join(lines)
 
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("Palari Data Map: Acme Company OS Example", result.stdout)
-        self.assertIn("journal: .palari/governance-journal", result.stdout)
-        self.assertIn("readiness: data=internal", result.stdout)
-        self.assertIn("redaction required", result.stdout)
-        self.assertIn("live execution: disabled", result.stdout)
-        self.assertIn("Not Stored", result.stdout)
+        self.assertIn("Palari Data Map: Current Agent Test Workspace", rendered)
+        self.assertIn("journal: .palari/governance-journal.v2.jsonl (enabled)", rendered)
+        self.assertIn("readiness: data=internal", rendered)
+        self.assertIn("redaction required", rendered)
+        self.assertIn("live execution: disabled", rendered)
+        self.assertIn("Not Stored", rendered)
 
-    def test_cli_data_map_json_is_machine_readable(self) -> None:
-        result = self.run_cli("data", "map", "--json")
-
-        self.assertEqual(result.returncode, 0)
-        payload = json.loads(result.stdout)
-        self.assertEqual(payload["workspace"]["schema_version"], 2)
-        self.assertEqual(payload["memory"]["memory_provider_adapters"], "not implemented")
-
-    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        return subprocess.run(
-            [
-                sys.executable,
-                "-S",
-                "-m",
-                "palari_company_os",
-                "--workspace",
-                str(WORKSPACE),
-                *args,
-            ],
-            cwd=REPO_ROOT,
-            env=env,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
+    def _seed_mapping_records(self) -> None:
+        store = load_store(self.workspace_file)
+        store.data["sources"].append(
+            {
+                "id": "SOURCE-REDACTED",
+                "label": "Redacted local note",
+                "kind": "note",
+                "provider": "local",
+                "uri": "notes/redacted.md",
+                "access_mode": "read",
+                "selected": True,
+                "owner_human": "HUMAN-FOUNDER",
+                "allowed_palaris": ["PALARI-STEWARD"],
+                "data_class": "restricted",
+                "authority": "company_owned",
+                "steward_human": "HUMAN-FOUNDER",
+                "redaction_required": True,
+            }
         )
+        store.data["work_items"] = [
+            {
+                "id": "WORK-DATA-MAP",
+                "title": "Map declared data boundaries",
+                "goal": "GOAL-REPO-0001",
+                "palari": "PALARI-STEWARD",
+                "risk": "R1",
+                "intensity": "light",
+                "status": "active",
+                "scope": "Read the declared sources only.",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["external_write"],
+                "required_approval_count": 0,
+            }
+        ]
+        store.data["integrations"] = [
+            {
+                "id": "INTEGRATION-DATA-MAP",
+                "provider": "linear",
+                "label": "Declared issue notification",
+                "mode": "notify",
+                "owner_human": "HUMAN-FOUNDER",
+                "enabled": True,
+                "allowed_events": ["approval_requested"],
+                "allowed_actions": ["notify"],
+                "secret_ref": "env:LINEAR_API_KEY",
+                "risk_level": "standard",
+                "source_ids": ["SOURCE-REDACTED"],
+            }
+        ]
+        write_store(store)
 
 
 if __name__ == "__main__":
