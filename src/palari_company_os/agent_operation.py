@@ -41,7 +41,6 @@ class AgentOperation:
                 self.work_id,
                 self.palari_id,
                 self.mode,
-                journal_context=self.journal_context,
             )
         return self._brief
 

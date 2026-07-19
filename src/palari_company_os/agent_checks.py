@@ -7,7 +7,6 @@ from typing import Any
 from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
 from .agent_runtime import claim_check, read_claim
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -17,7 +16,6 @@ def build_agent_check(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     changed_paths: list[str] | None = None,
     git_diff: bool = False,
     cwd: Path | str | None = None,
@@ -27,7 +25,6 @@ def build_agent_check(
         work_id,
         palari_id,
         mode,
-        journal_context=journal_context,
     )
     checks = _packet_boundary_checks(packet)
     if packet.get("status") == "ready":

@@ -573,6 +573,27 @@ class GovernanceKernelTests(unittest.TestCase):
         self.assertEqual(result.derived_state, "review-required")
         self.assertIn("PCAW_REVIEWER_NOT_INDEPENDENT", {item.code for item in result.errors})
 
+    def test_only_a_current_exact_negative_review_blocks_the_attempt(self) -> None:
+        case = accepted_case(claimed_state="blocked")
+        current_negative = replace(
+            case,
+            review=replace(case.review, verdict="changes-requested"),
+        )
+        stale_negative = replace(
+            current_negative,
+            claimed_state="review-required",
+            review=replace(current_negative.review, reviewed_head="stale-head"),
+        )
+
+        blocked = evaluate_governance_case(current_negative)
+        stale = evaluate_governance_case(stale_negative)
+
+        self.assertEqual(blocked.derived_state, "blocked")
+        self.assertTrue(blocked.current_review_bound)
+        self.assertEqual(stale.derived_state, "review-required")
+        self.assertFalse(stale.current_review_bound)
+        self.assertNotIn("current_review_bound", blocked.to_dict())
+
     def test_later_negative_decision_revokes_quorum(self) -> None:
         case = accepted_case(claimed_state="human-decision-required")
         negative = replace(

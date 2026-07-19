@@ -370,13 +370,14 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     ) and review_prerequisites_met(check)
     if review_needed:
         _prioritize(commands, [handoff_command, review_command])
-    if any(
+    automatic_reconciliation = bool(blocker_codes & AUTOMATIC_BLOCKERS) or any(
         blocker.get("code") == "INTEGRATION_BOUNDARY"
         and str(blocker.get("message") or "").startswith(
             "Human decision is recorded"
         )
         for blocker in check.get("blockers", [])
-    ):
+    )
+    if automatic_reconciliation:
         _prioritize(
             commands,
             [f"palari agent advance {work_id} --as {palari_id} --json"],

@@ -9,7 +9,6 @@ from .governance_kernel import (
     EXTERNAL_WRITE_ACTIONS,
     low_risk_completion_policy_applies,
 )
-from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
@@ -25,8 +24,6 @@ def build_agent_brief(
     work_id: str,
     palari_id: str,
     mode: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     mode = mode or "execute"
     created_at = _timestamp()
@@ -53,7 +50,7 @@ def build_agent_brief(
     if work is None or palari is None or mode not in SUPPORTED_MODES:
         return _finalize_packet(packet, blockers)
 
-    work_detail = detail(workspace, work.id, journal_context=journal_context)
+    work_detail = detail(workspace, work.id)
     review_context = (
         _review_context(workspace, work.id, mode)
         if mode == "review"
@@ -284,6 +281,14 @@ def _work_blockers(
         blockers.append(_blocker("WORK_BLOCKED", work_detail["why"], missing="unblocked work"))
     elif attention == "closed":
         blockers.append(_blocker("WORK_CLOSED", work_detail["why"], missing="open work item"))
+    elif attention == "ready-to-complete":
+        blockers.append(
+            _blocker(
+                "TERMINALIZATION_PENDING",
+                work_detail["why"],
+                missing="deterministic terminal reconciliation",
+            )
+        )
     elif attention == "ready-to-integrate":
         blockers.append(
             _blocker(

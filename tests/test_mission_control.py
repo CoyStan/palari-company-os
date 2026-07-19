@@ -21,6 +21,17 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_parser import build_parser
+from palari_company_os.evidence_manifest import (
+    OUTPUT_BINDING_VERSION,
+    evidence_manifest_hash,
+    stamp_receipt_record,
+)
+from palari_company_os.governance_binding import (
+    BINDING_VERSION,
+    attempt_state_hash,
+    review_proof_hash,
+    work_contract_hash,
+)
 from palari_company_os.mission_control import (
     create_mission_control_server,
     host_security_warning,
@@ -346,39 +357,75 @@ def add_mission_control_records(
             "actor": "PALARI-STEWARD",
             "status": "complete",
             "head_sha": "head-1",
+            "commits": ["head-1"],
             "changed_files": ["notes/result.md"],
             "allowed_paths": ["notes/result.md"],
+            "output_targets": ["notes/result.md"],
+            "cleanliness": "clean",
+            "started_at": "2026-07-18T10:00:00Z",
+            "updated_at": "2026-07-18T10:01:00Z",
         }
     ]
-    raw["receipts"] = [
+    receipt = stamp_receipt_record(
         {
             "id": "RECEIPT-1",
             "work_item_id": WORK_ID,
             "attempt_id": ATTEMPT_ID,
             "actor": "PALARI-STEWARD",
             "sources_used": ["SOURCE-REPO-FOUNDATION"],
+            "actions_taken": ["created the bounded result"],
             "outputs_created": ["notes/result.md"],
             "not_done": ["No external writes."],
-        }
-    ]
-    raw["evidence_runs"] = [
-        {
-            "id": EVIDENCE_ID,
-            "work_item_id": WORK_ID,
-            "attempt_id": ATTEMPT_ID,
-            "head_sha": "head-1",
-            "status": "passed",
-        }
-    ]
-    raw["review_verdicts"] = [
-        {
-            "id": REVIEW_ID,
-            "work_item_id": WORK_ID,
-            "reviewed_head": "head-1",
-            "reviewer": "PALARI-ARCHITECT",
-            "verdict": "needs-human-decision",
-        }
-    ]
+            "timestamp": "2026-07-18T10:02:00Z",
+        },
+        [],
+    )
+    raw["receipts"] = [receipt]
+    evidence = {
+        "id": EVIDENCE_ID,
+        "work_item_id": WORK_ID,
+        "attempt_id": ATTEMPT_ID,
+        "head_sha": "head-1",
+        "status": "passed",
+        "commands": ["python3 -m unittest tests.test_mission_control"],
+        "artifacts": ["notes/result.md"],
+        "artifact_hashes": [
+            {
+                "path": "notes/result.md",
+                "sha256": "sha256:" + ("a" * 64),
+                "status": "present",
+            }
+        ],
+        "output_binding_version": OUTPUT_BINDING_VERSION,
+        "receipt_hash": receipt["receipt_hash"],
+        "summary": "Mission Control boundary fixture passed.",
+        "freshness": "exact-head",
+        "timestamp": "2026-07-18T10:03:00Z",
+    }
+    evidence["manifest_hash"] = evidence_manifest_hash(evidence)
+    raw["evidence_runs"] = [evidence]
+    workspace = Workspace.from_raw(raw, Path("/tmp/palari-mission-control-fixture"))
+    review = {
+        "id": REVIEW_ID,
+        "work_item_id": WORK_ID,
+        "reviewed_head": "head-1",
+        "reviewer": "PALARI-ARCHITECT",
+        "verdict": "needs-human-decision",
+        "findings": [],
+        "checks_inspected": list(evidence["commands"]),
+        "residual_risks": [],
+        "timestamp": "2026-07-18T10:04:00Z",
+        "binding_version": BINDING_VERSION,
+        "attempt_id": ATTEMPT_ID,
+        "attempt_hash": attempt_state_hash(workspace.attempts[0]),
+        "evidence_reference": EVIDENCE_ID,
+        "evidence_manifest_hash": evidence["manifest_hash"],
+        "receipt_reference": receipt["id"],
+        "receipt_hash": receipt["receipt_hash"],
+        "work_contract_hash": work_contract_hash(workspace.work_items[0]),
+    }
+    review["proof_hash"] = review_proof_hash(review)
+    raw["review_verdicts"] = [review]
     raw["integrations"] = [
         {
             "id": "INT-GENERIC",

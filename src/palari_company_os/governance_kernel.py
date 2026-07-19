@@ -95,6 +95,7 @@ class GovernanceEvaluation:
     warnings: tuple[Diagnostic, ...]
     security_limitations: tuple[str, ...]
     qualified_human_ids: tuple[str, ...] = ()
+    current_review_bound: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -144,6 +145,7 @@ def evaluate_governance_case(
         case, properties, context
     )
     qualified_humans: set[str] = set()
+    current_review_bound = False
     if evidence_complete_low_risk_completion:
         properties["independent_review"] = PropertyResult(
             "independent_review", "not-required", ("$.contract.risk",)
@@ -156,7 +158,7 @@ def evaluate_governance_case(
         )
         derived_state = "completed"
     else:
-        review_result = _review_property(
+        review_result, current_review_bound = _review_property(
             case,
             evidence_result,
             receipt_result,
@@ -177,7 +179,16 @@ def evaluate_governance_case(
             errors,
         )
         properties["acceptance_currency"] = acceptance_result
-        derived_state = _derive_state(case, properties, context)
+        derived_state = _derive_state(
+            case,
+            properties,
+            context,
+            current_negative_review=bool(
+                current_review_bound
+                and case.review is not None
+                and case.review.verdict in NEGATIVE_REVIEW_VERDICTS
+            ),
+        )
 
     ordered_properties = tuple(properties[name] for name in PROPERTY_NAMES)
     if case.claimed_state != derived_state:
@@ -226,6 +237,7 @@ def evaluate_governance_case(
             "subject bytes, not who created the statement.",
         ),
         qualified_human_ids=tuple(sorted(qualified_humans)),
+        current_review_bound=current_review_bound,
     )
 
 
@@ -599,24 +611,11 @@ def _review_property(
     receipt_result: PropertyResult,
     context: GovernanceEvaluationContext,
     errors: list[Diagnostic],
-) -> PropertyResult:
+) -> tuple[PropertyResult, bool]:
     review = case.review
     if review is None:
-        return PropertyResult("independent_review", "failed")
+        return PropertyResult("independent_review", "failed"), False
     before = len(errors)
-    if review.verdict != "accept-ready":
-        code = (
-            "PCAW_REVIEW_NEGATIVE"
-            if review.verdict in NEGATIVE_REVIEW_VERDICTS
-            else "PCAW_REVIEW_NOT_READY"
-        )
-        _error(
-            errors,
-            code,
-            "$.review.verdict",
-            f"review verdict is {review.verdict!r}, not 'accept-ready'",
-            "Obtain a fresh independent accept-ready review.",
-        )
     humans = {human.id: human for human in case.humans}
     reviewer_authorities = {authority.id for authority in case.reviewer_authorities}
     if review.reviewer not in humans and review.reviewer not in reviewer_authorities:
@@ -669,11 +668,28 @@ def _review_property(
         "$.review.timestamp",
         errors,
     )
+    current_binding = len(errors) == before
+    if review.verdict != "accept-ready":
+        code = (
+            "PCAW_REVIEW_NEGATIVE"
+            if review.verdict in NEGATIVE_REVIEW_VERDICTS
+            else "PCAW_REVIEW_NOT_READY"
+        )
+        _error(
+            errors,
+            code,
+            "$.review.verdict",
+            f"review verdict is {review.verdict!r}, not 'accept-ready'",
+            "Obtain a fresh independent accept-ready review.",
+        )
     status = "failed" if len(errors) != before else "verified"
     authority_path = (
         "$.humans" if review.reviewer in humans else "$.reviewer_authorities"
     )
-    return PropertyResult("independent_review", status, ("$.review", authority_path))
+    return (
+        PropertyResult("independent_review", status, ("$.review", authority_path)),
+        current_binding,
+    )
 
 
 def _quorum_property(
@@ -952,6 +968,8 @@ def _derive_state(
     case: GovernanceCase,
     properties: dict[str, PropertyResult],
     context: GovernanceEvaluationContext,
+    *,
+    current_negative_review: bool,
 ) -> str:
     if case.contract.status in {"proposed", "active"} and (
         case.attempt is None or case.attempt.status == "active"
@@ -969,7 +987,7 @@ def _derive_state(
         or not _evidence_ready(properties["evidence_freshness"], context)
     ):
         return "blocked"
-    if case.review is not None and case.review.verdict in NEGATIVE_REVIEW_VERDICTS:
+    if current_negative_review:
         return "blocked"
     if properties["independent_review"].status != "verified":
         return "review-required"

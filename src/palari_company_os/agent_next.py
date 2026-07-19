@@ -102,7 +102,7 @@ def _build_agent_next(
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
     journal_context = JournalVerificationContext()
-    queue = queue_items(workspace, journal_context=journal_context)
+    queue = queue_items(workspace)
     leases = git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
@@ -156,7 +156,7 @@ def _candidates(
     queue_records = (
         queue
         if queue is not None
-        else queue_items(workspace, journal_context=operation_journal)
+        else queue_items(workspace)
     )
     for rank, item in enumerate(queue_records, start=1):
         if item.attention == "closed":

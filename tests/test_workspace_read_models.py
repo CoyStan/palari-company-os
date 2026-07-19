@@ -237,18 +237,12 @@ def _add_exact_proof(
     raw["evidence_runs"].append(evidence)
 
 
-def _add_exact_acceptance(raw: dict[str, Any]) -> None:
+def _add_bound_review(
+    raw: dict[str, Any],
+    *,
+    verdict: str = "accept-ready",
+) -> dict[str, Any]:
     work = _work(raw)
-    work.update(
-        {
-            "risk": "R2",
-            "intensity": "standard",
-            "status": "in-review",
-            "required_approval_count": 1,
-            "required_approval_capability": "product",
-        }
-    )
-    _add_exact_proof(raw)
     workspace = Workspace.from_raw(raw, Path("/tmp/palari-read-model-contract"))
     attempt = workspace.attempts[0]
     evidence = workspace.evidence_runs[0]
@@ -258,7 +252,7 @@ def _add_exact_acceptance(raw: dict[str, Any]) -> None:
         "work_item_id": work["id"],
         "reviewed_head": evidence.head_sha,
         "reviewer": "HUMAN-REVIEWER",
-        "verdict": "accept-ready",
+        "verdict": verdict,
         "findings": [],
         "checks_inspected": list(evidence.commands),
         "residual_risks": [],
@@ -274,17 +268,35 @@ def _add_exact_acceptance(raw: dict[str, Any]) -> None:
     }
     review["proof_hash"] = review_proof_hash(review)
     raw["review_verdicts"] = [review]
+    return review
+
+
+def _add_exact_acceptance(raw: dict[str, Any]) -> None:
+    work = _work(raw)
+    work.update(
+        {
+            "risk": "R2",
+            "intensity": "standard",
+            "status": "in-review",
+            "required_approval_count": 1,
+            "required_approval_capability": "product",
+        }
+    )
+    _add_exact_proof(raw)
+    review = _add_bound_review(raw)
+    evidence = raw["evidence_runs"][0]
+    receipt = raw["receipts"][0]
     raw["human_decisions"] = [
         {
             "id": "HUMAN-DECISION-1",
             "work_item_id": work["id"],
             "human_id": "HUMAN-1",
-            "reviewed_head": evidence.head_sha,
+            "reviewed_head": evidence["head_sha"],
             "decision": "accepted",
             "status": "accepted",
             "acceptance_mode": "human",
             "quorum_status": "met",
-            "evidence_reference": evidence.id,
+            "evidence_reference": evidence["id"],
             "review_reference": review["id"],
             "timestamp": "2026-07-18T10:05:00Z",
         }
@@ -294,12 +306,12 @@ def _add_exact_acceptance(raw: dict[str, Any]) -> None:
             "id": "ACCEPTANCE-1",
             "work_item_id": work["id"],
             "human_id": "HUMAN-1",
-            "reviewed_head": evidence.head_sha,
+            "reviewed_head": evidence["head_sha"],
             "status": "accepted",
             "decision_id": "HUMAN-DECISION-1",
-            "evidence_reference": evidence.id,
+            "evidence_reference": evidence["id"],
             "review_reference": review["id"],
-            "receipt_hash": receipt.receipt_hash,
+            "receipt_hash": receipt["receipt_hash"],
             "quorum_status": "met",
             "accepted_at": "2026-07-18T10:06:00Z",
         }
@@ -356,7 +368,7 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertEqual(item.next_step_type, "check-active-proof")
         self.assertEqual(item.evidence_state, "invalid")
         self.assertEqual(item.integration_state, "not-ready")
-        self.assertIn("not a current exact proof", item.why)
+        self.assertIn("proof is not current", item.why)
 
     def test_proof_for_an_old_head_fails_closed_as_stale(self) -> None:
         workspace = _workspace(
@@ -414,20 +426,7 @@ class QueueProjectionTests(unittest.TestCase):
         def request_changes(raw: dict[str, Any]) -> None:
             _work(raw).update({"risk": "R2", "intensity": "standard"})
             _add_exact_proof(raw)
-            raw["review_verdicts"].append(
-                {
-                    "id": "REVIEW-1",
-                    "work_item_id": "WORK-1",
-                    "reviewed_head": "head-1",
-                    "reviewer": "HUMAN-REVIEWER",
-                    "verdict": "changes-requested",
-                    "findings": [],
-                    "checks_inspected": [
-                        "python3 -m unittest tests.test_governance_kernel"
-                    ],
-                    "timestamp": "2026-07-18T10:04:00Z",
-                }
-            )
+            _add_bound_review(raw, verdict="changes-requested")
 
         item = queue_items(_workspace(request_changes))[0]
 
@@ -476,6 +475,71 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertEqual(item.next_step_type, "closed")
         self.assertEqual(item.integration_state, "closed")
         self.assertFalse(item.ai_safe_to_proceed)
+
+    def test_current_acceptance_uses_kernel_quorum_and_completion_state(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+        workspace.work_items[0] = replace(workspace.work_items[0], status="in-review")
+
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "ready-to-complete")
+        self.assertEqual(item.approval_progress, "1/1")
+        self.assertEqual(item.acceptance_state, "accepted")
+        self.assertEqual(item.integration_state, "ready")
+
+    def test_later_negative_decision_revokes_projected_quorum(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+        workspace.work_items[0] = replace(workspace.work_items[0], status="needs-human")
+        workspace.human_decisions.append(
+            replace(
+                workspace.human_decisions[0],
+                id="HUMAN-DECISION-2",
+                decision="changes-requested",
+                status="changes-requested",
+                timestamp="2026-07-18T10:07:00Z",
+            )
+        )
+
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "needs-human-decision")
+        self.assertEqual(item.approval_progress, "0/1")
+        self.assertEqual(item.acceptance_state, "stale")
+        self.assertEqual(item.integration_state, "not-ready")
+
+    def test_terminal_status_without_current_recorded_proof_fails_closed(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+        workspace.evidence_runs[0] = replace(
+            workspace.evidence_runs[0],
+            commands=(*workspace.evidence_runs[0].commands, "unbound command"),
+        )
+
+        item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "needs-evidence")
+        self.assertEqual(item.evidence_state, "invalid")
+        self.assertNotEqual(item.integration_state, "closed")
+
+    def test_queue_projection_never_reobserves_external_proof(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+
+        with (
+            patch(
+                "palari_company_os.governance_binding.verify_evidence",
+                side_effect=AssertionError("queue must not inspect files"),
+            ),
+            patch(
+                "palari_company_os.governance_journal.verify_workspace_journal",
+                side_effect=AssertionError("queue must not audit the journal"),
+            ),
+            patch(
+                "subprocess.run",
+                side_effect=AssertionError("queue must not spawn subprocesses"),
+            ),
+        ):
+            item = queue_items(workspace)[0]
+
+        self.assertEqual(item.attention, "closed")
 
 
 class RecordedBindingNormalizationTests(unittest.TestCase):

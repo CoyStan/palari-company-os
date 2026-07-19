@@ -236,7 +236,7 @@ def _human_approval_handoff(
     *,
     journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
-    payload = detail(workspace, work_id, journal_context=journal_context)
+    payload = detail(workspace, work_id)
     work = payload["work_item"]
     evidence = payload.get("evidence") or {}
     review = payload.get("review") or {}
