@@ -31,8 +31,8 @@
         "typing"
       ],
       "path": "src/palari_company_os/governance_kernel.py",
-      "sha256": "6d17ca64f181712da902efd3eb11a431e4f793cbd325c445fc085f427419cf3a",
-      "source_lines": 979
+      "sha256": "af51f067e9d01ff11c523c3a7c344317f3e7226853f18239df6531daa4a26028",
+      "source_lines": 1406
     },
     {
       "direct_external_dependencies": [],
@@ -65,8 +65,8 @@
         "typing"
       ],
       "path": "src/palari_company_os/pcaw_protocol.py",
-      "sha256": "f04ede8d95c896d0fd3106d50e0770d4afb7b39fd9cde3979de96b5f3448f0b1",
-      "source_lines": 585
+      "sha256": "4cd8ccb3d893e770336d87dae633807fbf205094ba9690b13d39550b2eae5829",
+      "source_lines": 575
     },
     {
       "direct_external_dependencies": [],
@@ -86,5 +86,5 @@
   ],
   "runtime_dependencies": [],
   "schema_version": "pcaw.trusted_code.v1",
-  "total_source_lines": 2405
+  "total_source_lines": 2822
 }
