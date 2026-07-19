@@ -8,8 +8,7 @@ version = "0.2.0"
 description = "Local governance kernel for bounded, human-supervised AI work."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 authors = [{name = "CoyStan"}]
 keywords = ["ai", "company-os", "governance", "workflow", "cli"]
 classifiers = [
