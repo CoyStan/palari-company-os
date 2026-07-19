@@ -90,10 +90,11 @@ class MissionControlTests(unittest.TestCase):
         self.assertIn("notes/result.md", page.body)
         self.assertIn("Receipt Drawer", page.body)
         self.assertIn("No external writes.", page.body)
-        self.assertIn('action="/human-decision"', page.body)
-        self.assertIn(">Approve</button>", page.body)
-        self.assertIn(">Reject</button>", page.body)
-        self.assertIn(">Defer</button>", page.body)
+        self.assertIn("Use the exact action emitted by the Approval Inbox.", page.body)
+        self.assertNotIn('action="/human-decision"', page.body)
+        self.assertNotIn(">Approve</button>", page.body)
+        self.assertNotIn(">Reject</button>", page.body)
+        self.assertNotIn(">Defer</button>", page.body)
         self.assertIn("setInterval(pollStateHash, 2000)", page.body)
         self.assertNotIn("http://", page.body)
         self.assertNotIn("https://", page.body)
@@ -102,64 +103,22 @@ class MissionControlTests(unittest.TestCase):
         self.assertEqual(before, touched)
         self.assertNotEqual(before, changed)
 
-    def test_human_reject_and_defer_persist_exact_authority_records(self) -> None:
-        for action, decision_value in (("reject", "rejected"), ("defer", "deferred")):
-            with self.subTest(action=action), stored_workspace() as workspace_file:
-                server = create_mission_control_server(
-                    workspace_file,
-                    HUMAN_ID,
-                    port=0,
-                    csrf_token=CSRF_TOKEN,
-                )
-                decision_id = f"HUMAN-DECISION-{action.upper()}"
-                try:
-                    response = post_form(
-                        server,
-                        "/human-decision",
-                        {
-                            "csrf_token": CSRF_TOKEN,
-                            "workspace_hash": workspace_hash(workspace_file),
-                            "work_id": WORK_ID,
-                            "action": action,
-                            "decision_id": decision_id,
-                            "timestamp": "2026-07-18T12:00:00Z",
-                        },
-                    )
-                finally:
-                    server.server_close()
-                decision = Workspace.load(workspace_file).human_decisions[0]
-
-                self.assertEqual(response.status, 200)
-                self.assertEqual(response.headers["Cache-Control"], "no-store")
-                self.assertEqual(json.loads(response.body)["record_id"], decision_id)
-                self.assertEqual(decision.id, decision_id)
-                self.assertEqual(decision.work_item_id, WORK_ID)
-                self.assertEqual(decision.human_id, HUMAN_ID)
-                self.assertEqual(decision.reviewed_head, "head-1")
-                self.assertEqual(decision.decision, decision_value)
-                self.assertEqual(decision.status, decision_value)
-                self.assertEqual(decision.acceptance_mode, "human")
-                self.assertEqual(decision.quorum_status, "not-met")
-                self.assertEqual(decision.evidence_reference, EVIDENCE_ID)
-                self.assertEqual(decision.review_reference, REVIEW_ID)
-                self.assertEqual(decision.timestamp, "2026-07-18T12:00:00Z")
-
-    def test_csrf_and_workspace_cas_block_mutation_before_authoring(self) -> None:
-        with stored_workspace() as workspace_file:
+    def test_csrf_and_workspace_cas_block_integration_plan_mutation(self) -> None:
+        with stored_workspace(include_plan=True) as workspace_file:
             server = create_mission_control_server(
                 workspace_file,
                 HUMAN_ID,
                 port=0,
                 csrf_token=CSRF_TOKEN,
             )
-            with patch("palari_company_os.mission_control.create_human_decision") as create:
+            with patch("palari_company_os.mission_control.decide_integration_plan") as decide:
                 try:
                     missing_csrf = post_form(
                         server,
-                        "/human-decision",
+                        "/integration-plan",
                         {
                             "workspace_hash": workspace_hash(workspace_file),
-                            "work_id": WORK_ID,
+                            "plan_id": PLAN_ID,
                             "action": "approve",
                         },
                     )
@@ -172,11 +131,11 @@ class MissionControlTests(unittest.TestCase):
                     )
                     stale_workspace = post_form(
                         server,
-                        "/human-decision",
+                        "/integration-plan",
                         {
                             "csrf_token": CSRF_TOKEN,
                             "workspace_hash": stale_hash,
-                            "work_id": WORK_ID,
+                            "plan_id": PLAN_ID,
                             "action": "approve",
                         },
                     )
@@ -187,7 +146,7 @@ class MissionControlTests(unittest.TestCase):
         self.assertIn("invalid CSRF token", missing_csrf.body)
         self.assertEqual(stale_workspace.status, 409)
         self.assertIn("workspace changed", stale_workspace.body)
-        create.assert_not_called()
+        decide.assert_not_called()
 
     def test_generic_integration_plan_translates_to_local_decision_service(self) -> None:
         with stored_workspace(include_plan=True) as workspace_file:
@@ -220,6 +179,10 @@ class MissionControlTests(unittest.TestCase):
         self.assertIn("Integration plan waiting for approval", page.body)
         self.assertIn(PLAN_ID, page.body)
         self.assertIn("No provider call will happen from this UI.", page.body)
+        self.assertEqual(page.body.count('action="/integration-plan"'), 3)
+        self.assertIn(">Approve</button>", page.body)
+        self.assertIn(">Reject</button>", page.body)
+        self.assertIn(">Cancel</button>", page.body)
         self.assertEqual(response.status, 200)
         decide.assert_called_once_with(
             str(workspace_file),
@@ -241,12 +204,13 @@ class MissionControlTests(unittest.TestCase):
                 index = request(server, "GET", "/index.html")
                 missing_get = request(server, "GET", "/missing")
                 missing_post = request(server, "POST", "/missing")
+                removed_human_decision = request(server, "POST", "/human-decision")
                 unsupported_method = request(server, "DELETE", "/")
             finally:
                 server.server_close()
 
         self.assertEqual(index.status, 200)
-        for response in (missing_get, missing_post):
+        for response in (missing_get, missing_post, removed_human_decision):
             self.assertEqual(response.status, 404)
             self.assertEqual(response.headers["Cache-Control"], "no-store")
             self.assertEqual(

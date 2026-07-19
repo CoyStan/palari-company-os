@@ -1143,9 +1143,13 @@ Important boundaries:
 - It binds to `127.0.0.1` by default.
 - `--host` values outside localhost print a warning because this v1 server has
   no login/auth layer.
+- Human-decision work is read-only in Mission Control. A qualified human uses
+  the exact presentation-bound action emitted by `queue --approval-inbox`;
+  Mission Control exposes no raw decision-record endpoint or form.
 - Mutating requests require a per-session CSRF token embedded in the page.
-- Every write goes through the normal authoring/store path, including workspace
-  validation, stale-write conflict checks, and the workspace write lock.
+- Integration-plan decisions go through the governed integration service,
+  including workspace validation, stale-write conflict checks, and the
+  workspace write lock.
 - Files remain the source of truth; `/state-hash` changes only when the
   workspace file content changes.
 - The server uses polling rather than SSE/WebSockets so the implementation

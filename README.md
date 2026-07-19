@@ -480,8 +480,9 @@ compatibility checks.
   surface may omit independent review and human acceptance.
 - **Read models do not mutate authority.** Queue, detail, and state translate
   recorded workspace data without re-verifying files or journal history.
-  Mission Control displays those projections, while its explicit human actions
-  mutate only through the same trusted transition paths as the CLI.
+  Mission Control displays those projections and routes only guarded
+  integration-plan decisions; exact human acceptance stays bound to the
+  Approval Inbox action.
 - **Ordinary software maintenance wins.** The repo should stay simple,
   inspectable, dependency-light, and easy for humans and agents to work on.
 

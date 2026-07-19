@@ -79,8 +79,9 @@ When adding a command, update parser, dispatch, output, tests, and
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
-- `src/palari_company_os/mission_control.py`: optional local human supervision
-  over current read models and exact human actions.
+- `src/palari_company_os/mission_control.py`: optional local read-only
+  supervision plus guarded integration-plan decisions. Exact human authority
+  remains bound to the Approval Inbox action.
 - `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
   of the packet write boundary (PreToolUse deny, Stop backstop, SessionStart
   context); the core operating loop is provider-neutral.

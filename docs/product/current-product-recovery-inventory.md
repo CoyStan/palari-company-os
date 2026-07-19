@@ -91,7 +91,7 @@ decision; it does not promote the item into the supported product.
 | HISTORICAL-ONLY | Removed Cursor, Devin, GLM, and generic session-profile aliases | No native adapter, committed configuration fixture, or stored workspace field distinguished these labels. They duplicated the host-neutral contract and Git gate while exposing an unsupported compatibility surface; Git preserves their history. |
 | CURRENT-ADAPTER | Linear issue/comment/webhook adapter | `linear-operating-loop.md` is an explicit current adapter contract. Provider writes are downstream of the core plan/approval/outbox boundary. Adapter tests should cover translation, redaction, signature/deduplication, and capability limits only. |
 | EXPERIMENTAL | Slack, GitHub, Jira, and email provider preview shapes | `public-surface.md` labels them future and no live adapter exists. Generic plan/outbox behavior does not require permanent provider-specific pseudo-support. |
-| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It delegates to core authoring and integration decisions. Preserve only while it remains a thin exact-authority UI. |
+| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It projects current read models and delegates integration-plan decisions to the governed integration service. Its duplicate raw decision synthesis was removed; exact human acceptance remains exclusive to the Approval Inbox action. |
 | EXPERIMENTAL | Static desktop prototype, desktop server, assets, desktop demo, and Pages deployment | The desktop contract explicitly calls this a static prototype rather than a supported backend or schema. It is not part of the thesis and creates a separate visual compatibility obligation. |
 | CURRENT-ADAPTER | Agent-ready repository docs (`docs check/init/map`) | This reachable optional adapter produces and validates repository orientation used by adoption. It must not govern product state. |
 | CURRENT-ADAPTER | Network-free demo and ACME example | The primary first-run path exercises the current route in a temporary Git workspace. It is a boundary smoke/example, not a second lifecycle. |
@@ -185,7 +185,7 @@ journal, subprocess, or installation work is justified.
 | `test_workspace_init.py` | Duplicate initialization command | Delete with `workspace init`; top-level onramp tests own initialization. |
 | `test_data_map.py` | Optional legacy-history visualization | Delete or park with the unsupported view; it currently depends on the duplicate history log. |
 | `test_playbooks.py` | Optional recommendation UX | Keep outside core only if the adapter receives an explicit current contract. |
-| `test_mission_control.py` | Local human UI/server/CSRF/CAS | Retain as optional adapter tests only while the UI remains supported and exact-authority-bound. |
+| `test_mission_control.py` | Local read-only UI plus integration-plan server/CSRF/CAS | Retain as optional adapter wiring tests only while the UI remains supported; exact human acceptance stays outside this surface. |
 | `test_desktop_prototype.py` | Static prototype rendering/JavaScript | Delete with the experimental prototype. |
 | `test_demo.py` | Temporary first-run story | Retain one boundary smoke outside the kernel suite if the demo remains the first-run path. |
 | `test_docs.py` | Normative documentation and generated agent docs | Retain a narrower current-doc contract after historical completion documents are removed. |

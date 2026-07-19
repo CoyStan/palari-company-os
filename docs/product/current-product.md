@@ -21,9 +21,9 @@ The governance kernel derives the lifecycle state. Storage, CLI, packets,
 hooks, MCP, read models, UIs, and provider adapters translate that result; they
 MUST NOT implement their own lifecycle or authority policy.
 
-Palari guarantees that:
+Within Palari-governed operations, Palari guarantees that:
 
-1. an agent cannot read or write outside declared scope;
+1. an agent cannot gain authority to read or write outside declared scope;
 2. completion always requires current evidence bound to the exact attempt and
    artifact state;
 3. required review is independent and bound to the same exact proof;
@@ -33,6 +33,14 @@ Palari guarantees that:
 6. governance history is replayable and tamper-evident;
 7. proof can be verified locally and offline; and
 8. ordinary operation is deterministic and understandable.
+
+This is an authority and acceptance boundary, not a claim that the portable
+contract is an OS sandbox. Palari rejects undeclared sources, out-of-scope
+outputs, and commits observed by its supported adapters; an unrestricted
+same-user process can still access or alter host files before those checks.
+Hard prevention of arbitrary host access requires a separately proven host
+sandbox. Such access never becomes valid Palari proof or authority by being
+possible at the operating-system layer.
 
 Risk changes which authority is required, never whether evidence is required.
 R1/light work with zero required approvals and no external effect may complete
@@ -129,7 +137,8 @@ Supported adapters are thin consumers of the kernel:
 - MCP stdio with explicit capability limits;
 - Linear issue/comment/webhook translation through the governed
   plan/approval/outbox boundary;
-- local Mission Control for an exact human action; and
+- local Mission Control for read-only supervision and guarded integration-plan
+  decisions; and
 - agent-ready repository documentation plus the network-free demo.
 
 An adapter cannot widen scope, accept work, combine builder and reviewer,
