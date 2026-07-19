@@ -197,16 +197,16 @@ def _assert_retired_work_immutable(
     for work_id, candidate in after_work.items():
         if candidate.get("status") not in {"superseded", "abandoned"}:
             continue
-        record = before_work.get(work_id)
-        if record is None or work_id in retired:
+        previous = before_work.get(work_id)
+        if previous is None or work_id in retired:
             continue
-        if record.get("status") in {"completed", "closed", "done"}:
+        if previous.get("status") in {"completed", "closed", "done"}:
             raise WorkspaceError(
                 f"successfully completed work {work_id} cannot be relabeled as "
                 f"{candidate.get('status')}"
             )
         if not _same_json_value(
-            _without_retirement_fields(record),
+            _without_retirement_fields(previous),
             _without_retirement_fields(candidate),
         ):
             raise WorkspaceError(
@@ -258,7 +258,9 @@ def _linked_records_by_work(
     records = data.get(collection, [])
     if not isinstance(records, list):
         return {}
-    linked = {work_id: [] for work_id in work_ids}
+    linked: dict[str, list[dict[str, Any]]] = {
+        work_id: [] for work_id in work_ids
+    }
     for record in records:
         if not isinstance(record, dict):
             continue

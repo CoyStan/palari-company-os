@@ -906,16 +906,19 @@ def apply_pack_decision(
         if member_id not in approve_ids:
             continue
         work = workspace_after_decisions.work_item(member_id)
-        decision = next(
-            (
-                item
-                for item in created
-                if item["work_item_id"] == member_id
+        approval_decision: dict[str, Any] | None = None
+        for item in created:
+            if (
+                item["work_item_id"] == member_id
                 and item["approval_pack_action"] == "approve"
-            ),
-            None,
-        )
-        if work is None or decision is None or decision["quorum_status"] != "met":
+            ):
+                approval_decision = item
+                break
+        if (
+            work is None
+            or approval_decision is None
+            or approval_decision["quorum_status"] != "met"
+        ):
             continue
         from .authoring import assert_work_completion_ready
         from .pcaw_workspace import evaluate_workspace_human_authority_candidate
@@ -928,10 +931,10 @@ def apply_pack_decision(
             authority = evaluate_workspace_human_authority_candidate(
                 workspace_after_decisions,
                 member_id,
-                decision_id=str(decision["id"]),
+                decision_id=str(approval_decision["id"]),
                 human_id=human_id,
-                reviewed_head=str(decision["reviewed_head"]),
-                timestamp=str(decision["timestamp"]),
+                reviewed_head=str(approval_decision["reviewed_head"]),
+                timestamp=str(approval_decision["timestamp"]),
                 acceptance_mode="approval-pack",
                 acceptance_id=acceptance_id,
                 accepted_at=timestamp,
@@ -966,7 +969,7 @@ def apply_pack_decision(
                     "human_id": human_id,
                     "reviewed_head": review.reviewed_head,
                     "status": "accepted",
-                    "decision_id": decision["id"],
+                    "decision_id": approval_decision["id"],
                     "evidence_reference": evidence.id,
                     "review_reference": review.id,
                     "receipt_hash": receipt.receipt_hash if receipt else "",

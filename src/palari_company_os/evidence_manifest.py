@@ -5,7 +5,7 @@ import json
 import subprocess
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .governance_journal import (
     JOURNAL_RELATIVE_PATH,
@@ -267,8 +267,11 @@ def stored_evidence_integrity_errors(
 def _plain_record(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return dict(value)
-    if is_dataclass(value):
-        return asdict(value)
+    if is_dataclass(value) and not isinstance(value, type):
+        # ``is_dataclass`` also accepts dataclass classes, while stored proof
+        # records must be concrete instances.  The runtime guard supplies the
+        # distinction that the typeshed overload cannot currently express.
+        return asdict(cast(Any, value))
     raise TypeError("stored evidence records must be mappings or dataclasses")
 
 

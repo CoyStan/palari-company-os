@@ -585,7 +585,11 @@ def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
         review is not None
         and candidate.current_review_bound
     )
-    if review_matches_evidence and review.verdict == "changes-requested":
+    if (
+        review is not None
+        and review_matches_evidence
+        and review.verdict == "changes-requested"
+    ):
         return _LifecycleView(
             attention="changes-requested",
             why=f"Review {review.id} requested changes.",
@@ -593,7 +597,11 @@ def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
             integration_ready=False,
             **common,
         )
-    if review_matches_evidence and review.verdict in {"blocked", "needs-human-decision"}:
+    if (
+        review is not None
+        and review_matches_evidence
+        and review.verdict in {"blocked", "needs-human-decision"}
+    ):
         return _LifecycleView(
             attention="needs-human-decision",
             why=f"Review {review.id} requires human judgment.",

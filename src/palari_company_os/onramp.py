@@ -437,7 +437,7 @@ def quick_add_work(
             0,
             {"type": "workbench", "collection": "workbenches", "id": workbench},
         )
-    workspace = write_store(
+    write_store(
         store,
         metadata=MutationMetadata(
             command="work add",

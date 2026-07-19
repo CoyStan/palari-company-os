@@ -187,10 +187,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
 
-        workspace: Workspace | None = None
+        agent_workspace: Workspace | None = None
         if args.agent_command == "advance":
             advance_workspace = Workspace.load(args.workspace)
-            workspace = advance_workspace
+            agent_workspace = advance_workspace
             advance_work = advance_workspace.work_item(args.work_id)
             if advance_work is not None and advance_work.terminal_disposition:
                 return CommandResult(
@@ -241,23 +241,23 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 ),
                 args.json,
             )
-        if workspace is None:
-            workspace = Workspace.load(args.workspace)
+        if agent_workspace is None:
+            agent_workspace = Workspace.load(args.workspace)
         if args.agent_command == "next":
             if args.all or not args.palari_id:
                 return CommandResult(
                     "agent-next-all",
-                    build_agent_next_all(workspace, args.mode, args.limit),
+                    build_agent_next_all(agent_workspace, args.mode, args.limit),
                     args.json,
                 )
             return CommandResult(
                 "agent-next",
-                build_agent_next(workspace, args.palari_id, args.mode, args.limit),
+                build_agent_next(agent_workspace, args.palari_id, args.mode, args.limit),
                 args.json,
             )
         if args.agent_command == "brief":
             packet = build_agent_brief(
-                workspace,
+                agent_workspace,
                 args.work_id,
                 args.palari_id,
                 args.mode,
@@ -289,7 +289,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 return CommandResult(
                     "agent-start",
                     start_next_agent(
-                        workspace,
+                        agent_workspace,
                         args.workspace,
                         args.palari_id,
                         args.mode,
@@ -315,7 +315,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "agent-start",
                 start_agent(
-                    workspace,
+                    agent_workspace,
                     args.workspace,
                     args.work_id,
                     args.palari_id,
@@ -327,14 +327,14 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         if args.agent_command == "release":
             return CommandResult(
                 "agent-release",
-                release_agent(workspace, args.workspace, args.work_id, args.palari_id),
+                release_agent(agent_workspace, args.workspace, args.work_id, args.palari_id),
                 args.json,
             )
         if args.agent_command == "check":
             return CommandResult(
                 "agent-check",
                 build_agent_check(
-                    workspace,
+                    agent_workspace,
                     args.work_id,
                     args.palari_id,
                     args.mode,
@@ -342,32 +342,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     git_diff=args.git_diff,
                     # Bind Git observation to the checkout that contains the
                     # selected workspace, not an arbitrary caller directory.
-                    cwd=workspace.path,
+                    cwd=agent_workspace.path,
                 ),
                 args.json,
             )
         if args.agent_command == "finish":
             return CommandResult(
                 "agent-finish",
-                build_agent_finish(workspace, args.work_id, args.palari_id, args.mode),
+                build_agent_finish(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "handoff":
             return CommandResult(
                 "agent-handoff",
-                build_agent_handoff(workspace, args.work_id, args.palari_id, args.mode),
+                build_agent_handoff(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "loop":
             return CommandResult(
                 "agent-loop",
-                build_agent_loop(workspace, args.work_id, args.palari_id, args.mode),
+                build_agent_loop(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "doctor":
             return CommandResult(
                 "agent-doctor",
-                build_agent_doctor(workspace, args.work_id, args.palari_id, args.mode),
+                build_agent_doctor(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "advance":
@@ -376,7 +376,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "agent-advance",
                 agent_advance(
-                    workspace,
+                    agent_workspace,
                     args.workspace,
                     args.work_id,
                     args.palari_id,

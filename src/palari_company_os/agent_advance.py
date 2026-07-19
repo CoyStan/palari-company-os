@@ -7,7 +7,7 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, TypeGuard, cast
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_handoff import build_agent_handoff
@@ -1397,12 +1397,13 @@ def _completed_projection(
         pending_scope_workspace, pending_scope_error = (
             _pending_scope_authority_workspace(pending, workspace_path)
         )
-        if pending_scope_error:
+        if pending_scope_error or pending_scope_workspace is None:
             return _resume_blocked(
                 workspace,
                 work_id,
                 "PENDING_TRANSACTION_MISMATCH",
-                pending_scope_error,
+                pending_scope_error
+                or "The pending journal before projection cannot be reconstructed safely.",
             )
         recovery_preflight = _resume_preflight(
             workspace,
@@ -1499,12 +1500,13 @@ def _completed_projection(
         pending_scope_workspace, pending_scope_error = (
             _pending_scope_authority_workspace(pending, workspace_path)
         )
-        if pending_scope_error:
+        if pending_scope_error or pending_scope_workspace is None:
             return _resume_blocked(
                 workspace,
                 work_id,
                 "PENDING_TRANSACTION_MISMATCH",
-                pending_scope_error,
+                pending_scope_error
+                or "The pending journal before projection cannot be reconstructed safely.",
             )
         recovery_preflight = _resume_preflight(
             workspace,
@@ -2654,7 +2656,7 @@ def _refresh_proof_narration(
     }
 
 
-def _exact_sha256_digest(value: Any) -> bool:
+def _exact_sha256_digest(value: Any) -> TypeGuard[str]:
     if not isinstance(value, str) or not value.startswith("sha256:"):
         return False
     digest = value.removeprefix("sha256:")

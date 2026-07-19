@@ -350,7 +350,9 @@ def _ensure_journal(workspace_path: Path | str, palari_id: str) -> None:
         and report.get("writable")
         and report.get("current_workspace_digest") == report.get("replay_workspace_digest")
     ):
-        diagnostic = next(iter(report.get("errors") or report.get("diagnostics") or []), {})
+        diagnostic: dict[str, Any] = next(
+            iter(report.get("errors") or report.get("diagnostics") or []), {}
+        )
         message = diagnostic.get("message") or report.get("status") or "journal is not writable"
         raise WorkspaceError(f"cannot park work without a current governance journal: {message}")
 
@@ -393,7 +395,9 @@ def _current_journal(data_path: Path) -> dict[str, Any]:
         and report.get("writable")
         and report.get("current_workspace_digest") == report.get("replay_workspace_digest")
     ):
-        diagnostic = next(iter(report.get("errors") or report.get("diagnostics") or []), {})
+        diagnostic: dict[str, Any] = next(
+            iter(report.get("errors") or report.get("diagnostics") or []), {}
+        )
         message = diagnostic.get("message") or report.get("status") or "journal is not current"
         raise WorkspaceError(f"cannot release parked claim: {message}")
     return {

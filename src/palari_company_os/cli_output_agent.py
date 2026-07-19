@@ -499,7 +499,8 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
         return
     work = payload["work_item"]
     agent = payload["agent"]
-    resolution = payload.get("resolution_summary") or {}
+    resolution_value = payload.get("resolution_summary")
+    resolution = resolution_value if isinstance(resolution_value, dict) else {}
     owner_by_class = {
         "human-authority": "human",
         "independent-review": "reviewer",
@@ -507,8 +508,9 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
         "automatic-reconciliation": "system",
         "terminal": "none",
     }
+    primary_class = resolution.get("primary_class")
     owner = payload.get("owner") or owner_by_class.get(
-        resolution.get("primary_class"),
+        primary_class if isinstance(primary_class, str) else "",
         "agent" if payload.get("agent_safe") else "operator",
     )
     next_action = payload.get("next_action") or {}

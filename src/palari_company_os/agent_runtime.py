@@ -274,6 +274,11 @@ def start_agent(
                     f"persisted Git baseline for {work_id}: {witness_error}"
                 )
         if projection_snapshot_captured:
+            if not isinstance(projection_snapshot, dict):
+                raise WorkspaceError(
+                    "governance projection snapshot became unavailable while "
+                    "the claim was starting; retry safely"
+                )
             snapshot_head = str(projection_snapshot.get("session_start_head") or "")
             if _exact_git_head(str(git_baseline.get("git_root") or "")) != snapshot_head:
                 raise WorkspaceError(
@@ -2200,7 +2205,7 @@ def _scope_authority_digest(
     actor_eligible = not any(
         item.get("code") == "PALARI_NOT_ASSIGNED" for item in blockers
     )
-    actor_authority = {
+    actor_authority: dict[str, str | list[str] | bool] = {
         "id": _scope_authority_text(agent.get("id"), "agent.id"),
         "name": _scope_authority_text(agent.get("name"), "agent.name"),
         "role": _scope_authority_text(agent.get("role"), "agent.role"),
