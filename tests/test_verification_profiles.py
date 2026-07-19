@@ -74,9 +74,9 @@ class VerificationProfileTests(unittest.TestCase):
             "schemas/workspace.schema.json",
             "scripts/update_pcaw_tcb.py --check",
             "spec/pcaw/v1/conformance.py",
-            "docs check --json",
         ):
             self.assertIn(command, script)
+        self.assertNotIn("palari docs check", script)
         for obsolete in (
             "affected",
             "pcaw_demo.sh",

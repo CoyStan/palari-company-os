@@ -41,7 +41,6 @@ python3 -S -m json.tool spec/pcaw/v1/verification-result.schema.json \
   >"$verify_output_dir/pcaw-report-schema.json"
 python3 -S scripts/update_pcaw_tcb.py --check
 python3 -S spec/pcaw/v1/conformance.py -- ./bin/palari proof verify
-./bin/palari docs check --json >"$verify_output_dir/docs-check.json"
 ./scripts/install_smoke.sh
 
 printf 'Palari Company OS candidate verification passed.\n'

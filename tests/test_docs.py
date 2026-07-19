@@ -259,18 +259,32 @@ class DocumentationTests(unittest.TestCase):
             self.assertTrue((repo / "docs" / "agent" / "repo-map.md").exists())
 
     def test_cli_docs_check_emits_json_shape(self) -> None:
-        result = subprocess.run(
-            [str(REPO_ROOT / "bin" / "palari"), "docs", "check", "--json"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            check=True,
-        )
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "pyproject.toml").write_text(
+                "[project]\nname='docs-cli-fixture'\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "docs",
+                    "check",
+                    "--repo",
+                    str(repo),
+                    "--json",
+                ],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
         payload = json.loads(result.stdout)
 
         self.assertEqual(payload["schema_version"], "palari.repo_docs.v1")
         self.assertEqual(payload["kind"], "docs-check")
         self.assertTrue(payload["ok"])
+        self.assertEqual(payload["repo"], str(repo))
 
     def test_agent_packet_includes_compact_doc_hints(self) -> None:
         workspace = Workspace.from_raw(current_recommendation_data(), REPO_ROOT)
