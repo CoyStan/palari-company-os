@@ -37,7 +37,7 @@ from .transition_checks import assert_transition_allowed
 from .workspace import Workspace
 
 
-SUPPORTED_RUNNERS = {"codex", "claude-code", "cursor", "generic"}
+SUPPORTED_RUNNERS = {"codex", "claude-code"}
 LIVE_PROVIDER_COMMANDS = [
     "connect",
     "issue",
@@ -1398,8 +1398,6 @@ def _runner_note(runner: str) -> str:
     return {
         "codex": "Emit this governed packet for Codex; Palari does not launch Codex.",
         "claude-code": "Emit this governed packet for Claude Code; Palari does not launch it.",
-        "cursor": "Emit this governed packet for Cursor; Palari does not launch Cursor.",
-        "generic": "Emit this governed packet for any compatible harness.",
     }[runner]
 
 
