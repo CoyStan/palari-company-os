@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any
@@ -29,6 +29,7 @@ TERMINAL_ATTEMPT_STATUSES = {"complete", "completed"}
 APPROVAL_VALUES = {"accepted", "approved"}
 NEGATIVE_REVIEW_VERDICTS = {"changes-requested", "needs-human-decision", "blocked"}
 PROPERTY_STATUSES = {"verified", "failed", "not-checked", "not-required"}
+EXTERNAL_WRITE_ACTIONS = frozenset({"external_write"})
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,27 @@ class PropertyResult:
 
 
 @dataclass(frozen=True)
+class ArtifactExpectation:
+    """Local final-state expectation for one governed artifact path.
+
+    PCAW v1 has no portable deletion-proof claim.  Expectations therefore live
+    in evaluator context rather than in the serialized governance case.
+    """
+
+    path: str
+    status: str
+
+
+@dataclass(frozen=True)
+class GovernanceEvaluationContext:
+    """Trusted local context that is deliberately excluded from PCAW proofs."""
+
+    artifact_expectations: tuple[ArtifactExpectation, ...] = ()
+    projection_only_recorded_evidence_current: bool = False
+    candidate_projection: bool = False
+
+
+@dataclass(frozen=True)
 class GovernanceEvaluation:
     schema_version: str
     claimed_state: str
@@ -73,6 +95,10 @@ class GovernanceEvaluation:
     errors: tuple[Diagnostic, ...]
     warnings: tuple[Diagnostic, ...]
     security_limitations: tuple[str, ...]
+    qualified_human_ids: tuple[str, ...] = ()
+    qualified_decision_ids: tuple[str, ...] = ()
+    current_review_bound: bool = False
+    human_decision_ready: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,9 +113,57 @@ class GovernanceEvaluation:
         }
 
 
-def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
+@dataclass(frozen=True)
+class HumanAuthorityCandidate:
+    """One proposed approving decision and its optional acceptance event.
+
+    The candidate is deliberately separate from the portable PCAW statement:
+    it is a local transition proposal evaluated against an already normalized
+    case, not historical proof that an event occurred.
+    """
+
+    decision: HumanDecisionSnapshot
+    acceptance: AcceptanceSnapshot | None = None
+    human_active: bool = True
+
+
+@dataclass(frozen=True)
+class HumanAuthorityCandidateEvaluation:
+    """Pure result for a proposed human-authority transition."""
+
+    governance: GovernanceEvaluation
+    decision_allowed: bool
+    quorum_met: bool
+    acceptance_allowed: bool
+    errors: tuple[Diagnostic, ...]
+
+
+@dataclass(frozen=True)
+class ApprovalBatchPolicyEvaluation:
+    """Pure decision about whether one governed item may share an approval action."""
+
+    policy_class: str
+    batchable: bool
+    reversibility: str
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "class": self.policy_class,
+            "batchable": self.batchable,
+            "reversibility": self.reversibility,
+            "reason": self.reason,
+        }
+
+
+def evaluate_governance_case(
+    case: GovernanceCase,
+    *,
+    context: GovernanceEvaluationContext | None = None,
+) -> GovernanceEvaluation:
     """Evaluate one normalized case without filesystem, clock, Git, or workspace state."""
 
+    context = context or GovernanceEvaluationContext()
     errors: list[Diagnostic] = []
     warnings: list[Diagnostic] = []
     properties: dict[str, PropertyResult] = {}
@@ -104,14 +178,22 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
 
     receipt_result = _receipt_property(case, errors)
     properties["receipt_binding"] = receipt_result
-    evidence_result = _evidence_property(case, receipt_result, errors, warnings)
+    evidence_result = _evidence_property(
+        case,
+        receipt_result,
+        context,
+        errors,
+        warnings,
+    )
     properties["evidence_freshness"] = evidence_result
 
-    legacy_receipt_completion = _legacy_receipt_completion(case, properties, errors)
-    if legacy_receipt_completion:
-        properties["evidence_freshness"] = PropertyResult(
-            "evidence_freshness", "not-required", ("$.receipt",)
-        )
+    evidence_complete_low_risk_completion = _evidence_complete_low_risk_completion(
+        case, properties, context
+    )
+    qualified_humans: set[str] = set()
+    current_decisions: dict[str, HumanDecisionSnapshot] = {}
+    current_review_bound = False
+    if evidence_complete_low_risk_completion:
         properties["independent_review"] = PropertyResult(
             "independent_review", "not-required", ("$.contract.risk",)
         )
@@ -123,7 +205,13 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
         )
         derived_state = "completed"
     else:
-        review_result = _review_property(case, evidence_result, receipt_result, errors)
+        review_result, current_review_bound = _review_property(
+            case,
+            evidence_result,
+            receipt_result,
+            context,
+            errors,
+        )
         properties["independent_review"] = review_result
         quorum_result, current_decisions, qualified_humans = _quorum_property(
             case, review_result, errors
@@ -138,10 +226,19 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
             errors,
         )
         properties["acceptance_currency"] = acceptance_result
-        derived_state = _derive_state(case, properties)
+        derived_state = _derive_state(
+            case,
+            properties,
+            context,
+            current_negative_review=bool(
+                current_review_bound
+                and case.review is not None
+                and case.review.verdict in NEGATIVE_REVIEW_VERDICTS
+            ),
+        )
 
     ordered_properties = tuple(properties[name] for name in PROPERTY_NAMES)
-    if case.claimed_state != derived_state:
+    if case.claimed_state != derived_state and not context.candidate_projection:
         errors.append(
             Diagnostic(
                 "PCAW_CLAIMED_STATE_MISMATCH",
@@ -169,6 +266,8 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
             )
         )
         fully_verified = False
+    if context.projection_only_recorded_evidence_current:
+        fully_verified = False
 
     return GovernanceEvaluation(
         schema_version=EVALUATION_SCHEMA_VERSION,
@@ -184,6 +283,160 @@ def evaluate_governance_case(case: GovernanceCase) -> GovernanceEvaluation:
             "Unsigned PCAW v1 verifies internal consistency and supplied "
             "subject bytes, not who created the statement.",
         ),
+        qualified_human_ids=tuple(sorted(qualified_humans)),
+        qualified_decision_ids=tuple(
+            sorted(
+                current_decisions[human_id].id
+                for human_id in qualified_humans
+                if human_id in current_decisions
+            )
+        ),
+        current_review_bound=current_review_bound,
+        human_decision_ready=_human_decision_ready(
+            case,
+            properties,
+            current_review_bound=current_review_bound,
+        ),
+    )
+
+
+def evaluate_human_authority_candidate(
+    case: GovernanceCase,
+    candidate: HumanAuthorityCandidate,
+    *,
+    context: GovernanceEvaluationContext | None = None,
+) -> HumanAuthorityCandidateEvaluation:
+    """Evaluate a proposed approving decision/acceptance without side effects.
+
+    A decision may be recorded before the full quorum is met.  That expected
+    intermediate state is the only kernel diagnostic that does not block the
+    decision itself.  Acceptance remains fail-closed and requires the complete
+    current proof, independent review, qualified quorum, and exact candidate
+    binding in one evaluation.
+    """
+
+    context = replace(
+        context or GovernanceEvaluationContext(),
+        candidate_projection=True,
+    )
+    errors: list[Diagnostic] = []
+    decision = candidate.decision
+    acceptance = candidate.acceptance
+    humans = {item.id: item for item in case.humans}
+    human = humans.get(decision.human_id)
+    authority_error: tuple[str, str] | None = None
+    if human is None:
+        authority_error = (
+            "PCAW_CANDIDATE_HUMAN_UNKNOWN",
+            f"human authority is not declared: {decision.human_id}",
+        )
+    elif not candidate.human_active:
+        authority_error = (
+            "PCAW_CANDIDATE_HUMAN_INACTIVE",
+            f"human {decision.human_id} is inactive",
+        )
+    elif (
+        case.contract.required_approval_capability
+        and case.contract.required_approval_capability
+        not in human.approval_capabilities
+    ):
+        authority_error = (
+            "PCAW_CANDIDATE_HUMAN_UNQUALIFIED",
+            f"human {decision.human_id} lacks required approval capability "
+            f"{case.contract.required_approval_capability}",
+        )
+    if authority_error is not None:
+        _error(
+            errors,
+            authority_error[0],
+            "$.candidate.decision.human_id",
+            authority_error[1],
+            "Use a current human with the required approval capability.",
+        )
+
+    projected_decisions = tuple(
+        item for item in case.human_decisions if item.id != decision.id
+    )
+    projected_decisions = (*projected_decisions, decision)
+    projected_acceptances: tuple[AcceptanceSnapshot, ...] = ()
+    if acceptance is not None:
+        projected_acceptances = tuple(
+            item for item in case.acceptance_records if item.id != acceptance.id
+        )
+        projected_acceptances = (*projected_acceptances, acceptance)
+
+    projected = replace(
+        case,
+        human_decisions=projected_decisions,
+        acceptance_records=projected_acceptances,
+    )
+    governance = evaluate_governance_case(projected, context=context)
+    candidate_qualified = decision.id in governance.qualified_decision_ids
+    if not candidate_qualified and not errors:
+        _error(
+            errors,
+            "PCAW_CANDIDATE_DECISION_STALE",
+            "$.candidate.decision",
+            "proposed decision is not current qualified authority for the exact proof",
+            "Bind a later qualified decision to the current review and evidence.",
+        )
+    decision_errors = [
+        item
+        for item in governance.errors
+        if item.code != "PCAW_HUMAN_QUORUM_INCOMPLETE"
+    ]
+    decision_allowed = bool(
+        not errors
+        and not decision_errors
+        and candidate_qualified
+        and governance.human_decision_ready
+    )
+    quorum = next(item for item in governance.properties if item.name == "human_quorum")
+    quorum_met = quorum.status in {"verified", "not-required"}
+    acceptance_allowed = bool(
+        acceptance is not None
+        and not errors
+        and not governance.errors
+        and candidate_qualified
+        and governance.current_review_bound
+        and governance.fully_verified
+        and governance.derived_state in {"accepted", "completed"}
+    )
+    combined = tuple(_unique_diagnostics([*errors, *governance.errors]))
+    return HumanAuthorityCandidateEvaluation(
+        governance=governance,
+        decision_allowed=decision_allowed,
+        quorum_met=quorum_met,
+        acceptance_allowed=acceptance_allowed,
+        errors=combined,
+    )
+
+
+def _human_decision_ready(
+    case: GovernanceCase,
+    properties: dict[str, PropertyResult],
+    *,
+    current_review_bound: bool,
+) -> bool:
+    required = {
+        "scope_compliance",
+        "subject_integrity",
+        "evidence_freshness",
+        "receipt_binding",
+        "independent_review",
+        "journal_continuity",
+    }
+    return bool(
+        current_review_bound
+        and not case.open_decisions
+        and case.attempt is not None
+        and case.attempt.status in TERMINAL_ATTEMPT_STATUSES
+        and case.attempt.cleanliness.lower() in {"clean", "pristine"}
+        and all(
+            item.status in {"verified", "not-required"}
+            for item in properties.values()
+            if item.name in required
+        )
     )
 
 
@@ -335,6 +588,7 @@ def _receipt_property(case: GovernanceCase, errors: list[Diagnostic]) -> Propert
 def _evidence_property(
     case: GovernanceCase,
     receipt_result: PropertyResult,
+    context: GovernanceEvaluationContext,
     errors: list[Diagnostic],
     warnings: list[Diagnostic],
 ) -> PropertyResult:
@@ -417,26 +671,48 @@ def _evidence_property(
             "Repair the receipt and refresh evidence.",
         )
 
+    expected_statuses = _artifact_expectation_statuses(case, context, errors)
     hashes = {item.path: item for item in evidence.artifact_hashes}
-    if len(hashes) != len(evidence.artifact_hashes) or len(set(evidence.artifacts)) != len(
-        evidence.artifacts
+    if (
+        len(hashes) != len(evidence.artifact_hashes)
+        or len(set(evidence.artifacts)) != len(evidence.artifacts)
+        or set(hashes) != set(evidence.artifacts)
     ):
         _error(
             errors,
             "PCAW_EVIDENCE_DUPLICATE_ARTIFACT",
             "$.evidence.artifact_hashes",
-            "artifact paths must be unique",
-            "Keep one digest for each output artifact.",
+            "artifact paths and digests must form one exact unique set",
+            "Keep exactly one digest for each output artifact.",
         )
     for path in evidence.artifacts:
         item = hashes.get(path)
-        if item is None or item.status != "present" or not _valid_digest(item.sha256):
+        expected_status = expected_statuses.get(path, "present")
+        if expected_status == "absent":
+            verified = (
+                item is not None
+                and item.status == "absent"
+                and item.sha256 == "absent"
+            )
+            message = f"artifact does not prove its expected absence: {path}"
+            next_action = (
+                "Record exact local deletion evidence and verify the governed Git range."
+            )
+        else:
+            verified = (
+                item is not None
+                and item.status == "present"
+                and _valid_digest(item.sha256)
+            )
+            message = f"artifact lacks a current SHA-256 digest: {path}"
+            next_action = "Hash the current artifact bytes and refresh evidence."
+        if not verified:
             _error(
                 errors,
                 "PCAW_EVIDENCE_ARTIFACT_UNVERIFIED",
                 "$.evidence.artifact_hashes",
-                f"artifact lacks a current SHA-256 digest: {path}",
-                "Hash the current artifact bytes and refresh evidence.",
+                message,
+                next_action,
             )
     if case.receipt is not None:
         missing_outputs = sorted(set(case.receipt.outputs_created) - set(evidence.artifacts))
@@ -463,29 +739,82 @@ def _evidence_property(
     return PropertyResult("evidence_freshness", status, ("$.attempt", "$.evidence"))
 
 
+def _artifact_expectation_statuses(
+    case: GovernanceCase,
+    context: GovernanceEvaluationContext,
+    errors: list[Diagnostic],
+) -> dict[str, str]:
+    """Validate local expectations and return exact per-path status overrides."""
+
+    statuses: dict[str, str] = {}
+    for index, expectation in enumerate(context.artifact_expectations):
+        if not isinstance(expectation, ArtifactExpectation):
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"artifact expectation {index} is malformed",
+                "Use one typed final-state expectation for each artifact path.",
+            )
+            continue
+        path = expectation.path
+        label = f"artifact expectation {index}"
+        if not isinstance(path, str) or not _safe_path(path):
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"{label} has an unsafe path: {path!r}",
+                "Use one canonical workspace-relative artifact expectation.",
+            )
+            continue
+        if not isinstance(expectation.status, str) or expectation.status not in {
+            "present",
+            "absent",
+        }:
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"{label} has unsupported status: {expectation.status!r}",
+                "Expect each local artifact to be either present or absent.",
+            )
+            continue
+        if path in statuses:
+            _error(
+                errors,
+                "PCAW_EVIDENCE_EXPECTATION_INVALID",
+                "$.evidence.artifacts",
+                f"local artifact expectation is duplicated: {path}",
+                "Keep one final-state expectation for each artifact path.",
+            )
+            continue
+        statuses[path] = expectation.status
+
+    evidence_paths = set(case.evidence.artifacts if case.evidence is not None else ())
+    unexpected = sorted(set(statuses) - evidence_paths)
+    if unexpected:
+        _error(
+            errors,
+            "PCAW_EVIDENCE_EXPECTATION_INVALID",
+            "$.evidence.artifacts",
+            "local artifact expectations lack evidence: " + ", ".join(unexpected),
+            "Include exact evidence for every local artifact expectation.",
+        )
+    return statuses
+
+
 def _review_property(
     case: GovernanceCase,
     evidence_result: PropertyResult,
     receipt_result: PropertyResult,
+    context: GovernanceEvaluationContext,
     errors: list[Diagnostic],
-) -> PropertyResult:
+) -> tuple[PropertyResult, bool]:
     review = case.review
     if review is None:
-        return PropertyResult("independent_review", "failed")
+        return PropertyResult("independent_review", "failed"), False
     before = len(errors)
-    if review.verdict != "accept-ready":
-        code = (
-            "PCAW_REVIEW_NEGATIVE"
-            if review.verdict in NEGATIVE_REVIEW_VERDICTS
-            else "PCAW_REVIEW_NOT_READY"
-        )
-        _error(
-            errors,
-            code,
-            "$.review.verdict",
-            f"review verdict is {review.verdict!r}, not 'accept-ready'",
-            "Obtain a fresh independent accept-ready review.",
-        )
     humans = {human.id: human for human in case.humans}
     reviewer_authorities = {authority.id for authority in case.reviewer_authorities}
     if review.reviewer not in humans and review.reviewer not in reviewer_authorities:
@@ -524,7 +853,7 @@ def _review_property(
                 f"review {field} does not match the current exact proof",
                 "Obtain a new review against the current exact proof.",
             )
-    if evidence_result.status != "verified" or receipt_result.status != "verified":
+    if not _evidence_ready(evidence_result, context) or receipt_result.status != "verified":
         _error(
             errors,
             "PCAW_REVIEW_PREREQUISITE_INVALID",
@@ -538,11 +867,28 @@ def _review_property(
         "$.review.timestamp",
         errors,
     )
+    current_binding = len(errors) == before
+    if review.verdict != "accept-ready":
+        code = (
+            "PCAW_REVIEW_NEGATIVE"
+            if review.verdict in NEGATIVE_REVIEW_VERDICTS
+            else "PCAW_REVIEW_NOT_READY"
+        )
+        _error(
+            errors,
+            code,
+            "$.review.verdict",
+            f"review verdict is {review.verdict!r}, not 'accept-ready'",
+            "Obtain a fresh independent accept-ready review.",
+        )
     status = "failed" if len(errors) != before else "verified"
     authority_path = (
         "$.humans" if review.reviewer in humans else "$.reviewer_authorities"
     )
-    return PropertyResult("independent_review", status, ("$.review", authority_path))
+    return (
+        PropertyResult("independent_review", status, ("$.review", authority_path)),
+        current_binding,
+    )
 
 
 def _quorum_property(
@@ -758,34 +1104,34 @@ def _acceptance_property(
     return PropertyResult("acceptance_currency", status, ("$.acceptance_records",))
 
 
-def _legacy_receipt_completion(
+def _evidence_complete_low_risk_completion(
     case: GovernanceCase,
     properties: dict[str, PropertyResult],
-    errors: list[Diagnostic],
+    context: GovernanceEvaluationContext,
 ) -> bool:
     if not (
         case.contract.status in TERMINAL_WORK_STATUSES
-        and case.contract.risk in {"R1", "R2"}
-        and case.contract.required_approval_count == 0
+        and low_risk_completion_policy_applies(
+            risk=case.contract.risk,
+            intensity=case.contract.intensity,
+            required_approval_count=case.contract.required_approval_count,
+            allowed_actions=case.contract.allowed_actions,
+            planned_external_writes=(
+                case.receipt.planned_external_writes if case.receipt else ()
+            ),
+            queued_external_writes=(
+                case.receipt.queued_external_writes if case.receipt else ()
+            ),
+            external_writes=case.receipt.external_writes if case.receipt else (),
+        )
         and case.attempt is not None
         and case.attempt.status in TERMINAL_ATTEMPT_STATUSES
+        and case.attempt.cleanliness.lower() in {"clean", "pristine"}
         and case.receipt is not None
         and properties["scope_compliance"].status == "verified"
         and properties["receipt_binding"].status == "verified"
+        and _evidence_ready(properties["evidence_freshness"], context)
     ):
-        return False
-    if (
-        case.receipt.external_writes
-        or case.receipt.planned_external_writes
-        or case.receipt.queued_external_writes
-    ):
-        _error(
-            errors,
-            "PCAW_RECEIPT_PATH_EXTERNAL_WRITE",
-            "$.receipt",
-            "low-risk receipt completion cannot include external writes",
-            "Use the governed review and human-acceptance path.",
-        )
         return False
     if case.open_decisions or any(
         item.status not in TERMINAL_WORK_STATUSES for item in case.dependencies
@@ -794,7 +1140,76 @@ def _legacy_receipt_completion(
     return True
 
 
-def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -> str:
+def low_risk_completion_policy_applies(
+    *,
+    risk: str,
+    intensity: str,
+    required_approval_count: int,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    planned_external_writes: tuple[str, ...] | list[str] = (),
+    queued_external_writes: tuple[str, ...] | list[str] = (),
+    external_writes: tuple[str, ...] | list[str] = (),
+) -> bool:
+    """Return whether exact evidence may replace review and human acceptance."""
+
+    return bool(
+        risk == "R1"
+        and intensity == "light"
+        and required_approval_count == 0
+        and not (set(allowed_actions) & EXTERNAL_WRITE_ACTIONS)
+        and not planned_external_writes
+        and not queued_external_writes
+        and not external_writes
+    )
+
+
+def evaluate_approval_batch_policy(
+    *,
+    risk: str,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    external_effects: tuple[str, ...] | list[str] = (),
+) -> ApprovalBatchPolicyEvaluation:
+    """Derive Approval Pack batching authority from declared governance facts."""
+
+    if external_effects or set(allowed_actions) & EXTERNAL_WRITE_ACTIONS:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="external-effect",
+            batchable=False,
+            reversibility="compensating-action-required",
+            reason=(
+                "declared external-write authority or a recorded external effect "
+                "requires individual human authority"
+            ),
+        )
+    if risk in {"R1", "R2"}:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="local-work",
+            batchable=True,
+            reversibility="reversible-local",
+            reason="R1/R2 local work without external effects is eligible for batched approval",
+        )
+    if risk in {"R3", "R4", "R5"}:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="elevated-risk",
+            batchable=False,
+            reversibility="reversible-local",
+            reason=f"{risk} work requires individual human authority",
+        )
+    return ApprovalBatchPolicyEvaluation(
+        policy_class="unknown-risk",
+        batchable=False,
+        reversibility="reversible-local",
+        reason="unknown risk classifications fail closed to individual human authority",
+    )
+
+
+def _derive_state(
+    case: GovernanceCase,
+    properties: dict[str, PropertyResult],
+    context: GovernanceEvaluationContext,
+    *,
+    current_negative_review: bool,
+) -> str:
     if case.contract.status in {"proposed", "active"} and (
         case.attempt is None or case.attempt.status == "active"
     ):
@@ -808,10 +1223,10 @@ def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -
         or case.attempt.cleanliness.lower() not in {"clean", "pristine"}
         or properties["scope_compliance"].status != "verified"
         or properties["receipt_binding"].status != "verified"
-        or properties["evidence_freshness"].status != "verified"
+        or not _evidence_ready(properties["evidence_freshness"], context)
     ):
         return "blocked"
-    if case.review is not None and case.review.verdict in NEGATIVE_REVIEW_VERDICTS:
+    if current_negative_review:
         return "blocked"
     if properties["independent_review"].status != "verified":
         return "review-required"
@@ -824,6 +1239,18 @@ def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -
     if case.contract.status in TERMINAL_WORK_STATUSES:
         return "completed"
     return "accepted"
+
+
+def _evidence_ready(
+    result: PropertyResult,
+    context: GovernanceEvaluationContext,
+) -> bool:
+    """Allow structurally current stored evidence to drive read-only projection."""
+
+    return result.status == "verified" or bool(
+        context.projection_only_recorded_evidence_current
+        and result.status == "not-checked"
+    )
 
 
 def _observation_property(

@@ -1,378 +1,591 @@
 from __future__ import annotations
 
-import json
-import os
-import shutil
+from copy import deepcopy
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.authoring import update_record
+from palari_company_os.evidence_manifest import (
+    stamp_evidence_record,
+    stamp_receipt_record,
+    verify_evidence,
+)
+from palari_company_os.governance_binding import (
+    current_review_binding,
+    review_proof_hash,
+)
+from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.transition_checks import check_transition
-from palari_company_os.workspace import Workspace
-
-
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+from palari_company_os.workspace import Workspace, WorkspaceError
+from tests.workspace_fixture import current_recommendation_data
 
 
 class TransitionCheckTests(unittest.TestCase):
-    def test_work_accept_transition_is_the_hard_acceptance_choke_point(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
+    def test_low_risk_completion_translates_exact_kernel_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            without_evidence = _workspace(_current_data(), root)
+            blocked = check_transition(without_evidence, "work_complete", "WORK-1")
 
-        ready = check_transition(
-            workspace,
-            "work_accept",
-            "WORK-0001",
-            actor="HUMAN-FOUNDER",
-            context={"reviewed_head": "abc1234"},
+            raw = _current_data()
+            _add_exact_evidence(raw, root)
+            ready = check_transition(_workspace(raw, root), "work_complete", "WORK-1")
+
+        self.assertIn(
+            "GOVERNANCE_PROOF_INCOMPLETE",
+            {blocker.code for blocker in blocked.blockers},
         )
-        unqualified = check_transition(
-            workspace,
-            "work_accept",
-            "WORK-0001",
-            actor="HUMAN-OPS",
-            context={"reviewed_head": "abc1234"},
+        self.assertTrue(ready.ok, ready.to_dict())
+
+    def test_completion_accepts_exact_local_deletion_tombstone(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "config", "user.name", "Palari Test"],
+                check=True,
+            )
+            output = root / "notes/summary.md"
+            output.parent.mkdir(parents=True)
+            output.write_text("Obsolete summary.\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "add obsolete output"],
+                check=True,
+            )
+            base_sha = _git_head(root)
+            output.unlink()
+            subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "delete bounded output"],
+                check=True,
+            )
+            head_sha = _git_head(root)
+
+            raw = _current_data()
+            path_intents = [{"path": "notes/summary.md", "intent": "delete"}]
+            raw["work_items"][0]["path_intents"] = path_intents
+            raw["attempts"][0].update(
+                {
+                    "base_sha": base_sha,
+                    "head_sha": head_sha,
+                    "commits": [head_sha],
+                    "workspace_path": str(root),
+                    "allowed_paths": ["notes/summary.md"],
+                }
+            )
+            raw["evidence_runs"] = [
+                stamp_evidence_record(
+                    _evidence_record(raw, head_sha=head_sha, base_ref=base_sha),
+                    root,
+                    attempts=raw["attempts"],
+                    path_intents=path_intents,
+                )
+            ]
+
+            result = check_transition(_workspace(raw, root), "work_complete", "WORK-1")
+
+        self.assertEqual(
+            raw["evidence_runs"][0]["artifact_hashes"],
+            [
+                {
+                    "path": "notes/summary.md",
+                    "sha256": "sha256:absent",
+                    "status": "absent",
+                }
+            ],
         )
+        self.assertTrue(result.ok, result.to_dict())
 
-        self.assertFalse(ready.ok)
-        self.assertEqual(ready.to_dict()["schema_version"], "palari.transition_check.v1")
-        self.assertEqual(ready.blockers[0].code, "REVIEW_PROOF_STALE")
-        self.assertIn("manifest verification failed", ready.blockers[0].message)
-        self.assertFalse(unqualified.ok)
-        self.assertEqual(unqualified.blockers[0].code, "HUMAN_LACKS_CAPABILITY")
+    def test_completion_projects_bound_terminal_authority_once(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            review = _add_bound_review(raw, root)
+            raw["human_decisions"] = [
+                {
+                    "id": "DECISION-1",
+                    "work_item_id": "WORK-1",
+                    "human_id": "HUMAN-OWNER",
+                    "reviewed_head": "head-1",
+                    "decision": "accepted",
+                    "status": "accepted",
+                    "acceptance_mode": "human",
+                    "quorum_status": "met",
+                    "evidence_reference": "EVIDENCE-1",
+                    "review_reference": review["id"],
+                    "timestamp": "2026-07-18T00:03:00Z",
+                }
+            ]
+            raw["acceptance_records"] = [
+                {
+                    "id": "ACCEPTANCE-1",
+                    "work_item_id": "WORK-1",
+                    "human_id": "HUMAN-OWNER",
+                    "reviewed_head": "head-1",
+                    "status": "accepted",
+                    "decision_id": "DECISION-1",
+                    "evidence_reference": "EVIDENCE-1",
+                    "review_reference": review["id"],
+                    "receipt_hash": raw["receipts"][0]["receipt_hash"],
+                    "authority_profile": "team-safe",
+                    "quorum_status": "met",
+                    "reason": "Exact independently reviewed proof accepted.",
+                    "accepted_at": "2026-07-18T00:04:00Z",
+                }
+            ]
 
-    def test_inactive_human_cannot_create_new_acceptance(self) -> None:
-        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        founder = next(item for item in raw["humans"] if item["id"] == "HUMAN-FOUNDER")
-        founder["availability"] = "inactive"
-        workspace = Workspace.from_raw(raw, WORKSPACE)
+            result = check_transition(_workspace(raw, root), "work_complete", "WORK-1")
 
-        result = check_transition(
-            workspace,
-            "work_accept",
-            "WORK-0001",
-            actor="HUMAN-FOUNDER",
-            context={"reviewed_head": "abc1234"},
+        self.assertTrue(result.ok, result.to_dict())
+
+    def test_work_accept_enforces_current_human_capability_and_availability(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            _add_bound_review(raw, root)
+            workspace = _workspace(raw, root)
+
+            qualified = check_transition(
+                workspace,
+                "work_accept",
+                "WORK-1",
+                actor="HUMAN-OWNER",
+                context={"reviewed_head": "head-1"},
+            )
+            unqualified = check_transition(
+                workspace,
+                "work_accept",
+                "WORK-1",
+                actor="HUMAN-OBSERVER",
+                context={"reviewed_head": "head-1"},
+            )
+            inactive = check_transition(
+                workspace,
+                "work_accept",
+                "WORK-1",
+                actor="HUMAN-INACTIVE",
+                context={"reviewed_head": "head-1"},
+            )
+
+        self.assertTrue(qualified.ok, qualified.to_dict())
+        self.assertIn(
+            "HUMAN_LACKS_CAPABILITY",
+            {blocker.code for blocker in unqualified.blockers},
         )
+        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in inactive.blockers})
 
-        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in result.blockers})
+    def test_accept_ready_review_requires_current_exact_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = _workspace(_review_required_data(), Path(directory))
 
-    def test_review_record_transition_blocks_accept_ready_without_evidence(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-
-        result = check_transition(
-            workspace,
-            "review_record",
-            "REVIEW-NO-EVIDENCE",
-            actor="HUMAN-OPS",
-            context={
-                "work_item_id": "WORK-0003",
-                "reviewed_head": "def5678",
-                "verdict": "accept-ready",
-            },
-        )
+            result = _check_review(
+                workspace,
+                reviewer="HUMAN-OWNER",
+                verdict="accept-ready",
+            )
 
         self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
         self.assertIn("agent doctor", result.blockers[0].next_command)
 
-    def test_review_record_requires_existing_reviewer_authority(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
+    def test_review_authority_enforces_identity_independence_and_source_scope(self) -> None:
+        raw = _review_required_data()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cases = [
+                ("missing identity", "HUMAN-MISSING", raw, "REVIEWER_MISSING"),
+                ("inactive human", "HUMAN-INACTIVE", raw, "HUMAN_INACTIVE"),
+                ("attempt actor", "PALARI-BUILDER", raw, "REVIEWER_NOT_INDEPENDENT"),
+                (
+                    "source denied",
+                    "PALARI-REVIEWER",
+                    _with_source_reviewers(raw, ["PALARI-BUILDER"]),
+                    "REVIEWER_SOURCE_NOT_ALLOWED",
+                ),
+            ]
+            for label, reviewer, candidate, expected in cases:
+                with self.subTest(label=label):
+                    result = _check_review(_workspace(candidate, root), reviewer=reviewer)
+                    self.assertIn(expected, {blocker.code for blocker in result.blockers})
 
-        result = check_transition(
-            workspace,
-            "review_record",
-            "REVIEW-MISSING-HUMAN",
-            actor="HUMAN-MISSING",
-            context={
-                "work_item_id": "WORK-0003",
-                "reviewed_head": "def5678",
-                "verdict": "changes-requested",
-            },
-        )
+            allowed = _check_review(
+                _workspace(raw, root),
+                reviewer="PALARI-REVIEWER",
+            )
+        self.assertTrue(allowed.ok, allowed.to_dict())
 
-        self.assertFalse(result.ok)
-        self.assertEqual(result.blockers[0].code, "REVIEWER_MISSING")
+    def test_evidence_record_rejects_a_head_other_than_its_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = _workspace(_current_data(), Path(directory))
 
-    def test_review_record_rejects_inactive_human_reviewer(self) -> None:
-        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        founder = next(item for item in raw["humans"] if item["id"] == "HUMAN-FOUNDER")
-        founder["availability"] = "inactive"
-        workspace = Workspace.from_raw(raw, WORKSPACE)
+            result = check_transition(
+                workspace,
+                "evidence_record",
+                "EVIDENCE-WRONG-HEAD",
+                context={
+                    "work_item_id": "WORK-1",
+                    "attempt_id": "ATTEMPT-1",
+                    "head_sha": "wrong-head",
+                },
+            )
 
-        result = check_transition(
-            workspace,
-            "review_record",
-            "REVIEW-INACTIVE-HUMAN",
-            actor="HUMAN-FOUNDER",
-            context={
-                "work_item_id": "WORK-0003",
-                "reviewed_head": "def5678",
-                "verdict": "changes-requested",
-            },
-        )
-
-        self.assertFalse(result.ok)
-        self.assertIn("HUMAN_INACTIVE", {blocker.code for blocker in result.blockers})
-
-    def test_review_record_allows_distinct_source_authorized_palari(self) -> None:
-        raw = json.loads((WORKSPACE / "workspace.json").read_text(encoding="utf-8"))
-        for source in raw["sources"]:
-            if source["id"] in {"SOURCE-0001", "SOURCE-0002"}:
-                source["allowed_palaris"].append("PALARI-ALFRED")
-        workspace = Workspace.from_raw(raw, WORKSPACE)
-
-        result = check_transition(
-            workspace,
-            "review_record",
-            "REVIEW-PALARI",
-            actor="PALARI-ALFRED",
-            context={
-                "work_item_id": "WORK-0007",
-                "reviewed_head": "abc1234",
-                "verdict": "changes-requested",
-            },
-        )
-
-        self.assertTrue(result.ok)
-
-    def test_review_record_rejects_palari_without_source_access(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-
-        result = check_transition(
-            workspace,
-            "review_record",
-            "REVIEW-PALARI-DENIED",
-            actor="PALARI-ALFRED",
-            context={
-                "work_item_id": "WORK-0007",
-                "reviewed_head": "abc1234",
-                "verdict": "changes-requested",
-            },
-        )
-
-        self.assertFalse(result.ok)
-        self.assertIn(
-            "REVIEWER_SOURCE_NOT_ALLOWED", {blocker.code for blocker in result.blockers}
-        )
-
-    def test_evidence_record_transition_blocks_wrong_attempt_head(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-
-        result = check_transition(
-            workspace,
-            "evidence_record",
-            "EVIDENCE-WRONG-HEAD",
-            context={
-                "work_item_id": "WORK-0001",
-                "attempt_id": "ATTEMPT-0001",
-                "head_sha": "wrong-head",
-            },
-        )
-
-        self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "EVIDENCE_STALE_HEAD")
 
-    def test_cli_review_record_uses_transition_gate(self) -> None:
-        with self.temp_workspace() as workspace:
-            result = self.run_cli(
-                workspace,
-                "review",
-                "record",
-                "REVIEW-NO-EVIDENCE",
-                "--work-item-id",
-                "WORK-0003",
-                "--reviewed-head",
-                "def5678",
-                "--reviewer",
-                "HUMAN-OPS",
-                "--verdict",
-                "accept-ready",
-                "--json",
-                check=False,
+    def test_authoring_trust_updates_cannot_bypass_transition_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "evidence"
+            raw = _current_data()
+            _add_exact_evidence(raw, root)
+            _write_workspace(root, raw)
+
+            with self.assertRaisesRegex(WorkspaceError, "does not match attempt head head-1"):
+                update_record(root, "evidence", "EVIDENCE-1", {"head_sha": "wrong-head"})
+            self.assertEqual(
+                _stored_record(root, "evidence_runs", "EVIDENCE-1")["head_sha"],
+                "head-1",
             )
-            data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("accept-ready review requires complete exact proof", result.stderr)
-        self.assertNotIn("REVIEW-NO-EVIDENCE", json.dumps(data["review_verdicts"]))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "review"
+            raw = _review_required_data()
+            raw["review_verdicts"] = [_unbound_review()]
+            _write_workspace(root, raw)
 
-    def test_cli_review_update_cannot_bypass_transition_gate(self) -> None:
-        with self.temp_workspace() as workspace:
-            self.run_cli(
-                workspace,
-                "review",
-                "record",
-                "REVIEW-CHANGES-FIRST",
-                "--work-item-id",
-                "WORK-0003",
-                "--reviewed-head",
-                "def5678",
-                "--reviewer",
-                "HUMAN-OPS",
-                "--verdict",
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "accept-ready review requires complete exact proof",
+            ):
+                update_record(root, "review", "REVIEW-HISTORICAL", {"verdict": "accept-ready"})
+            self.assertEqual(
+                _stored_record(root, "review_verdicts", "REVIEW-HISTORICAL")["verdict"],
                 "changes-requested",
-                "--json",
-            )
-            result = self.run_cli(
-                workspace,
-                "review",
-                "update",
-                "REVIEW-CHANGES-FIRST",
-                "--set",
-                "verdict=accept-ready",
-                "--json",
-                check=False,
-            )
-            data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
-            review = next(item for item in data["review_verdicts"] if item["id"] == "REVIEW-CHANGES-FIRST")
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("accept-ready review requires complete exact proof", result.stderr)
-        self.assertEqual(review["verdict"], "changes-requested")
-
-    def test_cli_exact_bound_review_is_immutable(self) -> None:
-        with self.temp_workspace() as workspace:
-            result = self.run_cli(
-                workspace,
-                "review",
-                "update",
-                "REVIEW-0001",
-                "--set",
-                "residual_risks=changed after review",
-                "--json",
-                check=False,
             )
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("exact-proof-bound and immutable", result.stderr)
+    def test_bound_review_is_immutable_and_later_metadata_edits_fail_closed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "bound"
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            _add_bound_review(raw, root)
+            _write_workspace(root, raw)
 
-    def test_cli_evidence_record_uses_transition_gate(self) -> None:
-        with self.temp_workspace() as workspace:
-            result = self.run_cli(
-                workspace,
+            with self.assertRaisesRegex(WorkspaceError, "exact-proof-bound and immutable"):
+                update_record(
+                    root,
+                    "review",
+                    "REVIEW-1",
+                    {"residual_risks": ["changed after exact review"]},
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "bound-evidence"
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            _add_bound_review(raw, root)
+            _write_workspace(root, raw)
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "evidence manifest changed after review",
+            ):
+                update_record(
+                    root,
+                    "evidence",
+                    "EVIDENCE-1",
+                    {"summary": "Current proof note clarified."},
+                )
+            evidence = _stored_record(root, "evidence_runs", "EVIDENCE-1")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "historical-metadata"
+            raw = _current_data()
+            _add_exact_evidence(raw, root)
+            raw["review_verdicts"] = [_unbound_review()]
+            _write_workspace(root, raw)
+
+            update_record(
+                root,
                 "evidence",
-                "record",
-                "EVIDENCE-WRONG-HEAD",
-                "--work-item-id",
-                "WORK-0001",
-                "--attempt-id",
-                "ATTEMPT-0001",
-                "--head-sha",
-                "wrong-head",
-                "--status",
-                "passed",
-                "--json",
-                check=False,
+                "EVIDENCE-1",
+                {"summary": "Current proof note clarified."},
             )
-            data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("does not match attempt head abc1234", result.stderr)
-        self.assertNotIn("EVIDENCE-WRONG-HEAD", json.dumps(data["evidence_runs"]))
-
-    def test_cli_evidence_update_cannot_bypass_transition_gate(self) -> None:
-        with self.temp_workspace() as workspace:
-            result = self.run_cli(
-                workspace,
-                "evidence",
-                "update",
-                "EVIDENCE-0001",
-                "--set",
-                "head_sha=wrong-head",
-                "--json",
-                check=False,
-            )
-            data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
-            evidence = next(item for item in data["evidence_runs"] if item["id"] == "EVIDENCE-0001")
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("does not match attempt head abc1234", result.stderr)
-        self.assertEqual(evidence["head_sha"], "abc1234")
-
-    def test_non_trust_metadata_updates_do_not_reopen_historical_gates(self) -> None:
-        with self.temp_workspace() as workspace:
-            evidence_result = self.run_cli(
-                workspace,
-                "evidence",
-                "update",
-                "EVIDENCE-0005",
-                "--set",
-                "summary=Historical note clarified.",
-                "--json",
-            )
-            review_result = self.run_cli(
-                workspace,
+            update_record(
+                root,
                 "review",
-                "update",
-                "REVIEW-0006",
-                "--list",
-                "residual_risks=Review must still be rerun.",
-                "--json",
+                "REVIEW-HISTORICAL",
+                {"residual_risks": ["Review must still be rerun."]},
             )
-            data = json.loads((workspace / "workspace.json").read_text(encoding="utf-8"))
-            evidence = next(item for item in data["evidence_runs"] if item["id"] == "EVIDENCE-0005")
-            review = next(item for item in data["review_verdicts"] if item["id"] == "REVIEW-0006")
 
-        self.assertEqual(evidence_result.returncode, 0)
-        self.assertEqual(review_result.returncode, 0)
-        self.assertEqual(evidence["summary"], "Historical note clarified.")
+            edited_evidence = _stored_record(root, "evidence_runs", "EVIDENCE-1")
+            review = _stored_record(root, "review_verdicts", "REVIEW-HISTORICAL")
+            workspace = Workspace.load(root)
+            verification = verify_evidence(workspace, "EVIDENCE-1")
+
+        self.assertEqual(evidence["summary"], "Focused exact verification passed.")
+        self.assertEqual(edited_evidence["summary"], "Current proof note clarified.")
+        self.assertTrue(verification["ok"], verification)
         self.assertEqual(review["residual_risks"], ["Review must still be rerun."])
 
-    def test_public_command_surface_is_unchanged(self) -> None:
-        from palari_company_os.cli_parser import build_parser
 
-        commands: list[str] = []
+def _current_data() -> dict[str, Any]:
+    raw = current_recommendation_data()
+    raw["name"] = "Current transition boundary"
+    raw["goals"][0]["title"] = "Prove bounded local work"
+    raw["humans"][0].update(
+        {
+            "id": "HUMAN-OWNER",
+            "name": "Product owner",
+            "availability": "active",
+        }
+    )
+    raw["humans"].extend(
+        [
+            {
+                "id": "HUMAN-OBSERVER",
+                "name": "Observer",
+                "approval_capabilities": ["operations"],
+                "availability": "active",
+            },
+            {
+                "id": "HUMAN-INACTIVE",
+                "name": "Former product owner",
+                "approval_capabilities": ["product"],
+                "availability": "inactive",
+            },
+        ]
+    )
+    raw["palaris"][0].update(
+        {
+            "id": "PALARI-BUILDER",
+            "name": "Builder",
+            "role": "Bounded local worker",
+            "owner_human": "HUMAN-OWNER",
+        }
+    )
+    raw["palaris"].append(
+        {
+            "id": "PALARI-REVIEWER",
+            "name": "Independent reviewer",
+            "role": "Review current exact proof",
+            "owner_human": "HUMAN-OWNER",
+            "linked_goals": ["GOAL-1"],
+        }
+    )
+    raw["sources"][0].update(
+        {
+            "owner_human": "HUMAN-OWNER",
+            "steward_human": "HUMAN-OWNER",
+            "allowed_palaris": ["PALARI-BUILDER", "PALARI-REVIEWER"],
+        }
+    )
+    raw["work_items"][0].update(
+        {
+            "title": "Create a bounded local summary",
+            "palari": "PALARI-BUILDER",
+            "risk": "R1",
+            "intensity": "light",
+            "scope": "Use the selected source to create one local summary.",
+            "allowed_actions": ["local_write"],
+            "output_targets": ["notes/summary.md"],
+            "acceptance_target": "Exact local evidence is current.",
+            "verification_expectations": [],
+            "current_attempt": "ATTEMPT-1",
+            "required_approval_count": 0,
+            "required_approval_capability": "",
+        }
+    )
+    receipt = stamp_receipt_record(
+        {
+            "id": "RECEIPT-1",
+            "work_item_id": "WORK-1",
+            "attempt_id": "ATTEMPT-1",
+            "actor": "PALARI-BUILDER",
+            "sources_used": ["SOURCE-1"],
+            "actions_taken": ["created bounded local summary"],
+            "outputs_created": ["notes/summary.md"],
+            "external_writes": [],
+            "not_done": ["No external writes."],
+            "undo_refs": ["delete notes/summary.md"],
+            "timestamp": "2026-07-18T00:01:00Z",
+        },
+        [],
+    )
+    raw.update(
+        {
+            "attempts": [
+                {
+                    "id": "ATTEMPT-1",
+                    "work_item_id": "WORK-1",
+                    "actor": "PALARI-BUILDER",
+                    "status": "complete",
+                    "commits": ["head-1"],
+                    "changed_files": ["notes/summary.md"],
+                    "cleanliness": "clean",
+                    "result": "Bounded local summary created.",
+                }
+            ],
+            "evidence_runs": [],
+            "review_verdicts": [],
+            "human_decisions": [],
+            "acceptance_records": [],
+            "receipts": [receipt],
+            "decisions": [],
+            "outcomes": [],
+            "integration_plans": [],
+            "integration_outbox": [],
+        }
+    )
+    return raw
 
-        def walk(parser: object, prefix: str = "palari") -> None:
-            for action in getattr(parser, "_actions", []):
-                choices = getattr(action, "choices", None)
-                if not isinstance(choices, dict):
-                    continue
-                for name, subparser in choices.items():
-                    if not hasattr(subparser, "_actions"):
-                        continue
-                    command = f"{prefix} {name}"
-                    commands.append(command)
-                    walk(subparser, command)
 
-        walk(build_parser())
-
-        self.assertEqual(len(commands), 154)
-
-    def temp_workspace(self) -> object:
-        return _TempWorkspace()
-
-    def run_cli(
-        self,
-        workspace: Path,
-        *args: str,
-        check: bool = True,
-    ) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        return subprocess.run(
-            [sys.executable, "-S", "-m", "palari_company_os", "--workspace", str(workspace), *args],
-            cwd=REPO_ROOT,
-            env=env,
-            check=check,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+def _review_required_data() -> dict[str, Any]:
+    raw = _current_data()
+    raw["work_items"][0].update(
+        {
+            "risk": "R2",
+            "intensity": "standard",
+            "status": "in-review",
+            "required_approval_count": 1,
+            "required_approval_capability": "product",
+        }
+    )
+    return raw
 
 
-class _TempWorkspace:
-    def __enter__(self) -> Path:
-        self._tempdir = tempfile.TemporaryDirectory()
-        target = Path(self._tempdir.name) / "acme-company-os"
-        shutil.copytree(WORKSPACE, target)
-        return target
+def _evidence_record(
+    raw: dict[str, Any],
+    *,
+    head_sha: str = "head-1",
+    base_ref: str = "",
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "id": "EVIDENCE-1",
+        "work_item_id": "WORK-1",
+        "attempt_id": "ATTEMPT-1",
+        "head_sha": head_sha,
+        "status": "passed",
+        "commands": ["python3 -m unittest tests.test_governance_kernel"],
+        "artifacts": ["notes/summary.md"],
+        "receipt_hash": raw["receipts"][0]["receipt_hash"],
+        "summary": "Focused exact verification passed.",
+        "freshness": "exact-head",
+        "timestamp": "2026-07-18T00:02:00Z",
+    }
+    if base_ref:
+        record["base_ref"] = base_ref
+    return record
 
-    def __exit__(self, *args: object) -> None:
-        self._tempdir.cleanup()
+
+def _add_exact_evidence(raw: dict[str, Any], root: Path) -> dict[str, Any]:
+    output = root / "notes/summary.md"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("Current exact summary.\n", encoding="utf-8")
+    evidence = stamp_evidence_record(
+        _evidence_record(raw),
+        root,
+        attempts=raw["attempts"],
+    )
+    raw["evidence_runs"] = [evidence]
+    return evidence
+
+
+def _add_bound_review(raw: dict[str, Any], root: Path) -> dict[str, Any]:
+    workspace = _workspace(raw, root)
+    binding, errors = current_review_binding(
+        workspace,
+        "WORK-1",
+        require_output_coverage=True,
+    )
+    if errors:
+        raise AssertionError(errors)
+    review = {
+        "id": "REVIEW-1",
+        "work_item_id": "WORK-1",
+        "reviewed_head": "head-1",
+        "reviewer": "PALARI-REVIEWER",
+        "verdict": "accept-ready",
+        "timestamp": "2026-07-18T00:02:30Z",
+        **binding,
+    }
+    review["proof_hash"] = review_proof_hash(review)
+    raw["review_verdicts"] = [review]
+    return review
+
+
+def _unbound_review() -> dict[str, Any]:
+    return {
+        "id": "REVIEW-HISTORICAL",
+        "work_item_id": "WORK-1",
+        "reviewed_head": "head-1",
+        "reviewer": "PALARI-REVIEWER",
+        "verdict": "changes-requested",
+        "findings": [],
+        "residual_risks": ["Current exact review is still required."],
+        "timestamp": "2026-07-17T00:00:00Z",
+    }
+
+
+def _check_review(
+    workspace: Workspace,
+    *,
+    reviewer: str,
+    verdict: str = "changes-requested",
+) -> Any:
+    return check_transition(
+        workspace,
+        "review_record",
+        "REVIEW-NEW",
+        actor=reviewer,
+        context={
+            "work_item_id": "WORK-1",
+            "reviewed_head": "head-1",
+            "verdict": verdict,
+        },
+    )
+
+
+def _with_source_reviewers(raw: dict[str, Any], reviewers: list[str]) -> dict[str, Any]:
+    candidate = deepcopy(raw)
+    candidate["sources"][0]["allowed_palaris"] = reviewers
+    return candidate
+
+
+def _workspace(raw: dict[str, Any], root: Path) -> Workspace:
+    return Workspace.from_raw(deepcopy(raw), root)
+
+
+def _write_workspace(root: Path, raw: dict[str, Any]) -> None:
+    write_store(WorkspaceStore(data_path=root / "workspace.json", data=deepcopy(raw)))
+
+
+def _stored_record(root: Path, collection: str, record_id: str) -> dict[str, Any]:
+    records = load_store(root).data[collection]
+    return next(record for record in records if record["id"] == record_id)
+
+
+def _git_head(root: Path) -> str:
+    return subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+
+
+if __name__ == "__main__":
+    unittest.main()

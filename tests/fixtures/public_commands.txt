@@ -53,7 +53,6 @@ palari agent finish
 palari agent handoff
 palari agent loop
 palari agent doctor
-palari agent done
 palari agent advance
 palari claude
 palari claude install
@@ -63,14 +62,9 @@ palari git
 palari git install
 palari git pre-commit
 palari git status
-palari workspace
-palari workspace init
 palari mcp
 palari mcp serve
-palari migrate
 palari history
-palari desktop-prototype
-palari desktop-serve
 palari serve
 palari goal
 palari goal create
@@ -138,12 +132,6 @@ palari receipt update
 palari outcome
 palari outcome record
 palari outcome update
-palari lifecycle
-palari lifecycle evidence
-palari lifecycle review
-palari lifecycle decide
-palari lifecycle complete
-palari lifecycle outcome
 palari maintainer
 palari maintainer status
 palari playbooks

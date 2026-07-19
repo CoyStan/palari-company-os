@@ -153,7 +153,7 @@ It should include:
 - schema and validation locations
 - examples and dogfood workspace locations
 - test organization
-- Mission Control/prototype locations
+- Mission Control and other supported visual-surface locations
 - docs that must be updated for common changes
 
 #### `docs/agent/contracts-and-invariants.md`
@@ -199,7 +199,7 @@ It should include:
 - focused test patterns
 - install smoke
 - JSON smoke expectations
-- when browser/prototype verification matters
+- when browser-visible surface verification matters
 - how to report skipped checks honestly
 
 #### `docs/agent/documentation-freshness.md`
@@ -213,7 +213,7 @@ It should include:
 - agent command changes update agent contract
 - source/receipt changes update source-of-truth or relevant product docs
 - gate changes update authority-and-gates
-- example behavior changes update quickstart/showcase docs where needed
+- example behavior changes update quickstart and example docs where needed
 
 ## Path-Specific Guidance
 
@@ -289,7 +289,7 @@ Gate recommendations can reference docs as review aids:
 - source-boundary -> source and receipt docs
 - external-write -> integration and outbox docs
 - deploy-runtime -> release and operations docs
-- product-overclaim -> README/showcase/docs maturity guidance
+- product-overclaim -> README/example/docs maturity guidance
 
 The gate still remains read-only and advisory.
 
@@ -535,7 +535,8 @@ This system fits the current model:
 - attempts remain concrete executions
 - receipts remain human-facing trust records
 - evidence/review/human decisions remain separate governance records
-- integrations remain dry-run until future live execution is explicitly designed
+- generic integrations remain dry-run; a supported live adapter still requires
+  the explicit plan, approval, outbox, and send boundaries
 - gates remain read-only review recommendations
 - agent packets remain bounded execution contracts
 

@@ -11,10 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.approval_packs import apply_pack_decision, build_approval_inbox
-from palari_company_os.approval_presentations import (
-    approval_presentation_digest,
-    canonical_presentation_bytes,
-)
+from palari_company_os.approval_presentations import approval_presentation_digest
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -33,8 +30,10 @@ class ApprovalPresentationTests(unittest.TestCase):
             first_presentation = first["presentations"][0]
 
             self.assertEqual(
-                canonical_presentation_bytes(first_presentation, first_pack),
-                canonical_presentation_bytes(second["presentations"][0], second["packs"][0]),
+                approval_presentation_digest(first_presentation, first_pack),
+                approval_presentation_digest(
+                    second["presentations"][0], second["packs"][0]
+                ),
             )
             original_digest = first["approval_commands"][0]["presentation_digest"]
             (root / OUTPUT).write_text("one governed byte changed\n", encoding="utf-8")
@@ -104,7 +103,7 @@ class ApprovalPresentationTests(unittest.TestCase):
     def test_blocked_and_non_batchable_presentations_do_not_offer_approval(self) -> None:
         cases = (
             ("blocked", {}),
-            ("non-batchable", {"scope": "Approve a legal filing."}),
+            ("non-batchable", {"risk": "R3"}),
         )
         for expected_state, options in cases:
             with self.subTest(state=expected_state), tempfile.TemporaryDirectory() as directory:
@@ -131,7 +130,7 @@ class ApprovalPresentationTests(unittest.TestCase):
                 )
                 self.assertFalse(inbox["primary_action"]["available"])
 
-    def test_pack_v2_decision_cannot_downgrade_or_transplant_its_presentation(self) -> None:
+    def test_pack_decision_cannot_downgrade_or_transplant_its_presentation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             data_path = make_ready_workspace(root, count=1)
@@ -156,7 +155,7 @@ class ApprovalPresentationTests(unittest.TestCase):
             "approval_presentation",
         ):
             decision.pop(field, None)
-        with self.assertRaisesRegex(WorkspaceError, "pack v2 requires presentation binding"):
+        with self.assertRaisesRegex(WorkspaceError, "pack requires presentation binding"):
             Workspace.from_raw(downgraded, root)
 
         transplanted = deepcopy(raw)
@@ -184,41 +183,6 @@ class ApprovalPresentationTests(unittest.TestCase):
             "--presentation-digest " + inbox["approval_commands"][0]["presentation_digest"],
             inbox["approval_commands"][0]["approve_eligible"],
         )
-
-    def test_historical_pack_v1_decision_remains_readable(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            data_path = make_ready_workspace(root, count=1)
-            store = load_store(data_path)
-            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
-            pack = inbox["packs"][0]
-            apply_pack_decision(
-                str(data_path),
-                pack_digest=pack["pack_digest"],
-                presentation_digest=inbox["approval_commands"][0]["presentation_digest"],
-                human_id="HUMAN-PRODUCT",
-                approve_eligible=True,
-            )
-            historical = load_store(data_path).data
-
-        decision = historical["human_decisions"][0]
-        manifest = decision["approval_pack_manifest"]
-        manifest["schema_version"] = "palari.approval-pack.v1"
-        manifest["pack_digest"] = canonical_sha256(
-            {key: value for key, value in manifest.items() if key != "pack_digest"}
-        )
-        decision["approval_pack_digest"] = manifest["pack_digest"]
-        for field in (
-            "approval_presentation_schema_version",
-            "approval_presentation_digest",
-            "approval_presentation_surface",
-            "approval_presentation",
-        ):
-            decision.pop(field, None)
-
-        loaded = Workspace.from_raw(historical, root)
-        self.assertEqual(loaded.human_decisions[0].approval_presentation_digest, "")
-
 
 if __name__ == "__main__":
     unittest.main()

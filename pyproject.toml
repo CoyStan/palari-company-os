@@ -5,11 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "palari-company-os"
 version = "0.2.0"
-description = "Queue-first operating layer for AI-assisted company work."
+description = "Local governance kernel for bounded, human-supervised AI work."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 authors = [{name = "CoyStan"}]
 keywords = ["ai", "company-os", "governance", "workflow", "cli"]
 classifiers = [
@@ -48,13 +47,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-palari_company_os = [
-    "py.typed",
-    "data/examples/acme-company-os/*.json",
-    "data/examples/acme-company-os/*.md",
-    "data/examples/desktop-demo/*.json",
-    "data/schemas/*.json",
-]
+palari_company_os = ["py.typed"]
 
 [tool.ruff]
 target-version = "py310"

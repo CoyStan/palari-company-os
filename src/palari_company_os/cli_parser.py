@@ -3,13 +3,20 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
+from .agent_adoption import SUPPORTED_HOSTS
 from .workspace import default_workspace_path
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="palari",
-        description="Palari Company OS CLI",
+        description="Bounded AI work with inspectable proof and explicit human authority.",
+        epilog=(
+            "Ordinary journey: init -> work add -> agent start --next -> agent advance -> "
+            "queue --approval-inbox -> proof verify.\n"
+            "Additional expert and recovery commands remain available through direct --help."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -17,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(default_workspace_path()),
         help="Workspace directory or workspace.json file.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     demo_parser = subparsers.add_parser(
         "demo",
@@ -61,6 +68,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--palari",
         default="Claude",
         help="Name for the starter AI partner. Defaults to Claude.",
+    )
+    init_parser.add_argument(
+        "--host",
+        choices=SUPPORTED_HOSTS,
+        default="",
+        help="Also install and anchor one tested local agent-host profile.",
+    )
+    init_parser.add_argument(
+        "--as",
+        dest="palari_id",
+        default="",
+        help="Existing Palari identity for idempotent host adoption.",
+    )
+    init_parser.add_argument(
+        "--hook-event",
+        choices=["pre-tool-use", "stop", "session-start"],
+        default="",
+        help=argparse.SUPPRESS,
     )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -134,30 +159,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_agent_parser(subparsers)
     _add_claude_parser(subparsers)
     _add_git_parser(subparsers)
-    _add_workspace_parser(subparsers)
     _add_mcp_parser(subparsers)
 
-    migrate_parser = subparsers.add_parser(
-        "migrate", help="Migrate a workspace to the current schema."
-    )
-    migrate_parser.add_argument("--write", action="store_true", help="Write migration result.")
-    migrate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
     history_parser = subparsers.add_parser(
-        "history", help="Show history or inspect the replayable governance journal."
-    )
-    history_parser.add_argument(
-        "--limit",
-        type=int,
-        default=20,
-        help="Number of recent events to show. Use 0 for none.",
+        "history", help="Verify or manage the replayable governance journal."
     )
     history_mode = history_parser.add_mutually_exclusive_group()
-    history_mode.add_argument(
-        "--verify",
-        action="store_true",
-        help="Verify the governance journal chain and workspace projection.",
-    )
     history_mode.add_argument(
         "--checkpoint",
         action="store_true",
@@ -195,29 +202,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     history_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
-    desktop_prototype_parser = subparsers.add_parser(
-        "desktop-prototype",
-        help="Generate a static Palari Desktop shell prototype with demo data.",
-    )
-    desktop_prototype_parser.add_argument(
-        "--out",
-        required=True,
-        help="Output directory for generated prototype files.",
-    )
-    desktop_prototype_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    desktop_serve_parser = subparsers.add_parser(
-        "desktop-serve",
-        help="Serve the static Palari Desktop prototype locally.",
-    )
-    desktop_serve_parser.add_argument(
-        "--out",
-        required=True,
-        help="Output directory for generated prototype files.",
-    )
-    desktop_serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
-    desktop_serve_parser.add_argument("--port", type=int, default=0, help="Port to bind.")
-
     serve_parser = subparsers.add_parser(
         "serve",
         help="Serve live local Mission Control for one human operator.",
@@ -242,13 +226,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_human_decision_parser(subparsers)
     _add_receipt_parser(subparsers)
     _add_outcome_parser(subparsers)
-    _add_lifecycle_parser(subparsers)
     _add_maintainer_parser(subparsers)
     _add_playbooks_parser(subparsers)
     _add_gate_parser(subparsers)
 
+    _focus_default_help(subparsers)
     _disable_argument_abbreviations(parser)
     return parser
+
+
+def _focus_default_help(subparsers: Any) -> None:
+    """Keep expert commands parseable while making the ordinary journey obvious."""
+
+    ordinary = ("init", "work", "agent", "queue", "detail", "proof", "validate", "docs")
+    actions = {action.dest: action for action in subparsers._choices_actions}
+    subparsers._choices_actions = [actions[name] for name in ordinary]
 
 
 def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
@@ -266,7 +258,7 @@ def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
 
 def _add_agent_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("agent", help="Compile bounded packets for AI agents.")
-    nested = parser.add_subparsers(dest="agent_command", required=True)
+    nested = parser.add_subparsers(dest="agent_command", required=True, metavar="ACTION")
     next_parser = nested.add_parser(
         "next",
         help="Show the next safe work candidates for one Palari or all Palaris.",
@@ -389,32 +381,6 @@ def _add_agent_parser(subparsers: Any) -> None:
     doctor.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
     doctor.add_argument("--mode", default="execute", help="Packet mode.")
     doctor.add_argument("--json", action="store_true", help="Emit JSON.")
-    done = nested.add_parser(
-        "done",
-        help="Auto-record proof and complete an R1/light work item in one step.",
-    )
-    done.add_argument("work_id")
-    done.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
-    done.add_argument(
-        "--changed",
-        action="append",
-        default=[],
-        metavar="PATH",
-        help="Changed path to record. Repeat for multiple paths.",
-    )
-    done.add_argument(
-        "--head-sha",
-        dest="head_sha",
-        default="",
-        help="Head SHA for attempt closeout. Defaults to empty.",
-    )
-    done.add_argument(
-        "--model-or-worker",
-        dest="model_or_worker",
-        default="",
-        help="Model or worker label for the attempt record.",
-    )
-    done.add_argument("--json", action="store_true", help="Emit JSON.")
     advance = nested.add_parser(
         "advance",
         help="Deterministically verify and reconcile proof to the next authority boundary.",
@@ -427,16 +393,16 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Return the exact plan without verification or mutation.",
     )
     advance.add_argument(
-        "--summary",
-        default="",
-        help="Reserved for compatibility; governed receipts use deterministic actions.",
-    )
-    advance.add_argument(
         "--refresh-verification",
         action="store_true",
         help="Ignore advisory cached records and rerun the required exact profiles.",
     )
     advance.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    actions = {action.dest: action for action in nested._choices_actions}
+    nested._choices_actions = [
+        actions[name] for name in ("start", "advance", "release", "doctor")
+    ]
 
 
 def _add_claude_parser(subparsers: Any) -> None:
@@ -619,21 +585,12 @@ def _add_proof_parser(subparsers: Any) -> None:
     verify.add_argument("--json", action="store_true", help="Emit structured diagnostics.")
 
 
-def _add_workspace_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("workspace", help="Initialize or inspect workspaces.")
-    nested = parser.add_subparsers(dest="workspace_command", required=True)
-    init = nested.add_parser("init", help="Create a blank valid workspace.json.")
-    init.add_argument("path", help="Workspace directory or workspace.json path to create.")
-    init.add_argument("--name", required=True, help="Human-facing workspace name.")
-    init.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
 def _add_mcp_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("mcp", help="Serve Palari tools through MCP.")
     nested = parser.add_subparsers(dest="mcp_command", required=True)
     serve = nested.add_parser(
         "serve",
-        help="Run a read-only stdio MCP server for Palari agent tools.",
+        help="Run a local stdio MCP server for Palari agent tools.",
     )
     serve.add_argument(
         "--repo",
@@ -773,8 +730,8 @@ def _add_linear_parser(subparsers: Any) -> None:
     start.add_argument("issue_key")
     start.add_argument(
         "--runner",
-        choices=["codex", "claude-code", "cursor", "generic"],
-        default="generic",
+        choices=["codex", "claude-code"],
+        default="codex",
         help="Harness label for output packets. Palari does not launch the runner.",
     )
     start.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")
@@ -1205,7 +1162,7 @@ def _add_work_parser(subparsers: Any) -> None:
     nested, create, update = _add_create_update(
         subparsers,
         "work",
-        "Create, update, or complete work items.",
+        "Add bounded work or explicitly retire obsolete work.",
         [
             ("title", {"required": True, "help": "Work title."}),
             ("goal", {"required": True, "help": "Goal id."}),
@@ -1213,6 +1170,17 @@ def _add_work_parser(subparsers: Any) -> None:
             ("risk", {"default": "R1", "help": "Risk level."}),
             ("intensity", {"default": "light", "help": "Operating intensity."}),
             ("status", {"default": "proposed", "help": "Work status."}),
+            (
+                "terminal_reason",
+                {
+                    "default": "",
+                    "help": "Required reason when status is superseded or abandoned.",
+                },
+            ),
+            (
+                "successor_work_item_id",
+                {"default": "", "help": "Optional distinct successor work item id."},
+            ),
             ("scope", {"default": "", "help": "Work scope."}),
             ("acceptance_target", {"default": "", "help": "Acceptance target."}),
             ("current_attempt", {"default": "", "help": "Current attempt id."}),
@@ -1329,6 +1297,10 @@ def _add_work_parser(subparsers: Any) -> None:
     expand.add_argument("--action", action="append", default=[], help="Requested action.")
     expand.add_argument("--reason", required=True, help="Why the existing scope is insufficient.")
     expand.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    nested.metavar = "ACTION"
+    actions = {action.dest: action for action in nested._choices_actions}
+    nested._choices_actions = [actions[name] for name in ("add", "update")]
 
 
 def _add_attempt_parser(subparsers: Any) -> None:
@@ -1514,60 +1486,6 @@ def _add_gate_parser(subparsers: Any) -> None:
     recommend = nested.add_parser("recommend", help="Recommend review gates for one work item.")
     recommend.add_argument("work_id")
     recommend.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_lifecycle_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser(
-        "lifecycle", help="Lifecycle aliases for evidence, review, decision, completion, and outcome."
-    )
-    nested = parser.add_subparsers(dest="lifecycle_command", required=True)
-    evidence = nested.add_parser("evidence", help="Record lifecycle evidence.")
-    evidence.add_argument("id")
-    evidence.add_argument("--work-item-id", required=True)
-    evidence.add_argument("--attempt-id", required=True)
-    evidence.add_argument("--head-sha", required=True)
-    evidence.add_argument("--status", required=True, choices=["passed", "failed", "skipped"])
-    evidence.add_argument("--summary", default="")
-    evidence.add_argument("--timestamp", default="")
-    _add_common_mutation_args(evidence)
-    review = nested.add_parser("review", help="Record lifecycle review.")
-    review.add_argument("id")
-    review.add_argument("--work-item-id", required=True)
-    review.add_argument("--reviewed-head", required=True)
-    review.add_argument("--reviewer", required=True)
-    review.add_argument(
-        "--verdict",
-        required=True,
-        choices=["accept-ready", "changes-requested", "needs-human-decision", "blocked"],
-    )
-    review.add_argument("--timestamp", default="")
-    _add_common_mutation_args(review)
-    decide = nested.add_parser("decide", help="Record lifecycle human decision.")
-    decide.add_argument("id")
-    decide.add_argument("--work-item-id", required=True)
-    decide.add_argument("--human-id", required=True)
-    decide.add_argument("--reviewed-head", required=True)
-    decide.add_argument("--decision", required=True)
-    decide.add_argument("--status", default="recorded")
-    decide.add_argument("--acceptance-mode", default="human")
-    decide.add_argument("--quorum-status", default="")
-    decide.add_argument("--evidence-reference", default="")
-    decide.add_argument("--review-reference", default="")
-    decide.add_argument("--timestamp", default="")
-    _add_common_mutation_args(decide)
-    complete = nested.add_parser("complete", help="Complete lifecycle work.")
-    complete.add_argument("work_id")
-    complete.add_argument("--status", default="completed")
-    complete.add_argument("--json", action="store_true")
-    outcome = nested.add_parser("outcome", help="Record lifecycle outcome.")
-    outcome.add_argument("id")
-    outcome.add_argument("--work-item-id", required=True)
-    outcome.add_argument("--summary", required=True)
-    outcome.add_argument("--status", default="captured")
-    outcome.add_argument("--what-happened", default="")
-    outcome.add_argument("--what-changed", default="")
-    outcome.add_argument("--timestamp", default="")
-    _add_common_mutation_args(outcome)
 
 
 def _add_maintainer_parser(subparsers: Any) -> None:

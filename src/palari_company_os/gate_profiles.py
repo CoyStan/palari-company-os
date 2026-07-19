@@ -280,7 +280,6 @@ PRODUCT_COPY_WORDS = {
     "claims",
     "onboarding",
     "user-facing",
-    "docs/showcase",
 }
 PROMPT_WORDS = {
     "prompt",

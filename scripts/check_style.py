@@ -8,6 +8,7 @@ from pathlib import Path
 
 CHECK_SUFFIXES = {".py", ".md", ".json", ".yml", ".yaml", ".sh"}
 SKIP_DIRS = {".git", ".palari-company-os", "__pycache__", ".pytest_cache", ".mypy_cache"}
+SKIP_PREFIXES = {("workspaces", "palari-company-os")}
 
 
 def main() -> int:
@@ -34,7 +35,9 @@ def main() -> int:
 
 def _skip(path: Path, repo: Path) -> bool:
     rel = path.relative_to(repo)
-    return any(part in SKIP_DIRS for part in rel.parts)
+    return any(part in SKIP_DIRS for part in rel.parts) or any(
+        rel.parts[: len(prefix)] == prefix for prefix in SKIP_PREFIXES
+    )
 
 
 def _check_text(path: Path, repo: Path) -> list[str]:
@@ -71,4 +74,3 @@ def _check_shell_script(path: Path, repo: Path) -> list[str]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

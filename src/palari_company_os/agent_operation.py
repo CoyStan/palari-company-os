@@ -7,7 +7,6 @@ from typing import Any
 from . import agent_checks
 from .agent_directive import compile_agent_directive
 from .agent_packets import build_agent_brief
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -16,17 +15,14 @@ class AgentOperation:
     """Request-local cache for one immutable agent state observation.
 
     Aggregate read commands may render several views, but packet compilation,
-    contract checking, directive derivation, and journal verification should
-    each happen at most once for that observation.
+    contract checking, and directive derivation should each happen at most
+    once for that observation.
     """
 
     workspace: Workspace
     work_id: str
     palari_id: str
     mode: str = "execute"
-    journal_context: JournalVerificationContext = field(
-        default_factory=JournalVerificationContext
-    )
     _brief: dict[str, Any] | None = field(default=None, init=False, repr=False)
     _check: dict[str, Any] | None = field(default=None, init=False, repr=False)
     _directive: dict[str, Any] | None = field(default=None, init=False, repr=False)
@@ -41,7 +37,6 @@ class AgentOperation:
                 self.work_id,
                 self.palari_id,
                 self.mode,
-                journal_context=self.journal_context,
             )
         return self._brief
 
@@ -146,7 +141,6 @@ def ensure_agent_operation(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> AgentOperation:
     normalized_mode = mode or "execute"
@@ -156,7 +150,6 @@ def ensure_agent_operation(
             work_id=work_id,
             palari_id=palari_id,
             mode=normalized_mode,
-            journal_context=journal_context or JournalVerificationContext(),
         )
     if (
         operation.workspace is not workspace
@@ -165,6 +158,4 @@ def ensure_agent_operation(
         or operation.mode != normalized_mode
     ):
         raise ValueError("agent operation does not match the requested agent state")
-    if journal_context is not None and operation.journal_context is not journal_context:
-        raise ValueError("agent operation has a different journal verification context")
     return operation

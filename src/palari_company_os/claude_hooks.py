@@ -25,7 +25,6 @@ import json
 import os
 import shlex
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -34,11 +33,8 @@ from .agent_runtime import load_active_claim_contexts
 from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 
-HOOK_EVENTS = ("pre-tool-use", "stop", "session-start")
 FILE_WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
-PRE_TOOL_USE_MATCHER = "Write|Edit|NotebookEdit|Bash"
 HOOK_COMMAND_MARKER = "claude hook"
-HOOK_TIMEOUT_SECONDS = 20
 _REDIRECT_NO_TARGET = "\x00"
 _REDIRECT_FD_OR_TARGET = "\x01"
 BASH_WRITE_COMMANDS = {
@@ -179,10 +175,6 @@ HUMAN_ONLY_PALARI_COMMANDS = {
     ("integration", "enqueue"),
     ("integration", "outbox-cancel"),
     ("integration", "reject"),
-    ("lifecycle", "complete"),
-    ("lifecycle", "decide"),
-    ("lifecycle", "outcome"),
-    ("lifecycle", "review"),
     ("linear", "send"),
     ("outcome", "record"),
     ("outcome", "update"),
@@ -217,10 +209,10 @@ PACKET_AUTHORITY_PALARI_COMMANDS = {
 SAFE_AGENT_PALARI_COMMANDS = {
     ("agent", action)
     for action in (
+        "advance",
         "brief",
         "check",
         "doctor",
-        "done",
         "finish",
         "handoff",
         "loop",
@@ -228,8 +220,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
         "release",
         "start",
     )
-} | {
-    ("attempt", action) for action in ("closeout", "record", "update")
 } | {
     ("authority", action) for action in ("check", "profiles")
 } | {
@@ -240,8 +230,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     ("decision", "guide"),
     ("docs", "check"),
     ("docs", "map"),
-    ("evidence", "record"),
-    ("evidence", "update"),
     ("evidence", "verify"),
     ("gate", "profiles"),
     ("gate", "recommend"),
@@ -250,7 +238,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     ("integration", "check"),
     ("integration", "outbox-check"),
     ("integration", "plan"),
-    ("lifecycle", "evidence"),
     ("linear", "block-template"),
     ("linear", "doctor"),
     ("linear", "import"),
@@ -270,8 +257,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     ("playbooks", "sources"),
     ("proposal", "create"),
     ("proposal", "update"),
-    ("receipt", "record"),
-    ("receipt", "update"),
     ("review", "guide"),
     ("work", "expand-scope"),
 } | {
@@ -292,14 +277,9 @@ PALARI_SELF_PROTECTION_COMMANDS = {
     ("git", "install"),
 }
 MUTATING_AGENT_PALARI_COMMANDS = {
-    ("agent", action) for action in ("done", "release", "start")
-} | {
-    ("attempt", action) for action in ("closeout", "record", "update")
-} | {
-    ("evidence", action) for action in ("record", "update")
+    ("agent", action) for action in ("advance", "release", "start")
 } | {
     ("integration", "plan"),
-    ("lifecycle", "evidence"),
     ("linear", "import"),
     ("linear", "post-gate"),
     ("linear", "push"),
@@ -307,33 +287,9 @@ MUTATING_AGENT_PALARI_COMMANDS = {
     ("linear", "sync"),
     ("proposal", "create"),
     ("proposal", "update"),
-    ("receipt", "record"),
-    ("receipt", "update"),
     ("work", "expand-scope"),
 }
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
-
-
-def run_hook(
-    event: str,
-    workspace_path: Path | str,
-    *,
-    strict: bool = False,
-    stdin: Any = None,
-) -> dict[str, Any]:
-    """Read one Claude Code hook payload from stdin and return the decision.
-
-    Never raises: a broken payload or missing workspace degrades to an empty
-    decision so a Palari problem cannot lock up an unrelated Claude session.
-    """
-    try:
-        raw = (stdin if stdin is not None else sys.stdin).read()
-        payload = json.loads(raw) if raw.strip() else {}
-        if not isinstance(payload, dict):
-            payload = {}
-        return handle_hook_event(event, payload, workspace_path, strict=strict)
-    except Exception as exc:  # noqa: BLE001 - hooks must fail open, never block the session
-        return {"systemMessage": f"palari claude hook {event} error: {exc}"}
 
 
 def handle_hook_event(
@@ -358,20 +314,6 @@ def handle_hook_event(
     if event == "session-start":
         return _session_start(contexts, state["errors"], workspace_path)
     return {}
-
-
-def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
-    """Return active claims with their persisted packets.
-
-    Each entry has ``claim`` and ``packet`` keys. Expired leases are skipped.
-    ``PALARI_AS`` / ``PALARI_WORK_ID`` environment variables narrow the set
-    when one session among several must be pinned to a single claim.
-    """
-    return load_active_claim_contexts(
-        workspace_path,
-        pin_palari=os.environ.get("PALARI_AS", ""),
-        pin_work=os.environ.get("PALARI_WORK_ID", ""),
-    )["contexts"]
 
 
 def bash_write_targets(command: str, *, cwd: Path | None = None) -> list[str]:
@@ -983,78 +925,6 @@ def _command_arguments(tokens: list[str], command_index: int) -> list[str]:
     return arguments
 
 
-def install_hooks(
-    project_dir: Path | str,
-    workspace_path: Path | str,
-    *,
-    settings_file: str = "",
-    local: bool = False,
-    strict: bool = False,
-    remove: bool = False,
-) -> dict[str, Any]:
-    """Merge (or remove) Palari-managed hooks in Claude Code settings.
-
-    Idempotent: Palari-managed entries are recognized by their command marker
-    and replaced in place; hooks owned by other tools are preserved.
-    """
-    root = Path(project_dir).expanduser().resolve()
-    target = _settings_path(root, settings_file, local)
-    data = _read_json(target) if target.exists() else {}
-    if data is None:
-        return {
-            "schema_version": "palari.claude_install.v1",
-            "status": "error",
-            "changed": False,
-            "settings_file": str(target),
-            "message": f"{target} exists but is not valid JSON; fix or remove it first.",
-            "hooks": {},
-        }
-
-    hooks = data.get("hooks")
-    if not isinstance(hooks, dict):
-        hooks = {}
-        data["hooks"] = hooks
-
-    managed = {} if remove else _managed_hooks(root, workspace_path, strict=strict)
-    changed = False
-    for event in ("PreToolUse", "Stop", "SessionStart"):
-        entries = hooks.get(event)
-        if not isinstance(entries, list):
-            entries = []
-        kept = [entry for entry in entries if not _is_managed_entry(entry)]
-        if event in managed:
-            kept.append(managed[event])
-        if kept != entries:
-            changed = True
-        if kept:
-            hooks[event] = kept
-        elif event in hooks:
-            del hooks[event]
-            changed = True
-    if not hooks:
-        del data["hooks"]
-
-    if changed:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-
-    status = "removed" if remove else "installed"
-    if not changed:
-        status = "unchanged"
-    return {
-        "schema_version": "palari.claude_install.v1",
-        "status": status,
-        "changed": changed,
-        "settings_file": str(target),
-        "workspace": _workspace_argument(root, workspace_path),
-        "strict": strict,
-        "palari_on_path": shutil.which("palari") is not None
-        or (root / "bin" / "palari").is_file(),
-        "hooks": {event: entry["hooks"][0]["command"] for event, entry in managed.items()},
-        "message": _install_message(status, target),
-    }
-
-
 def hooks_status(
     project_dir: Path | str,
     workspace_path: Path | str,
@@ -1561,60 +1431,6 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _settings_path(root: Path, settings_file: str, local: bool) -> Path:
-    if settings_file:
-        return Path(settings_file).expanduser().resolve()
-    name = "settings.local.json" if local else "settings.json"
-    return root / ".claude" / name
-
-
-def _managed_hooks(
-    root: Path,
-    workspace_path: Path | str,
-    *,
-    strict: bool,
-) -> dict[str, dict[str, Any]]:
-    executable = _palari_executable(root)
-    workspace_argument = _workspace_argument(root, workspace_path)
-    strict_suffix = " --strict" if strict else ""
-
-    def command(event: str, suffix: str = "") -> dict[str, Any]:
-        return {
-            "type": "command",
-            "command": (
-                f'{executable} --workspace "{workspace_argument}" claude hook {event}{suffix}'
-            ),
-            "timeout": HOOK_TIMEOUT_SECONDS,
-        }
-
-    return {
-        "PreToolUse": {
-            "matcher": PRE_TOOL_USE_MATCHER,
-            "hooks": [command("pre-tool-use", strict_suffix)],
-        },
-        "Stop": {"hooks": [command("stop")]},
-        "SessionStart": {"hooks": [command("session-start")]},
-    }
-
-
-def _palari_executable(root: Path) -> str:
-    """Prefer a project-local wrapper so hooks work without a pip install."""
-    if (root / "bin" / "palari").is_file():
-        return '"$CLAUDE_PROJECT_DIR/bin/palari"'
-    return "palari"
-
-
-def _workspace_argument(root: Path, workspace_path: Path | str) -> str:
-    workspace_dir = workspace_file_path(workspace_path).parent
-    try:
-        relative = workspace_dir.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return str(workspace_dir)
-    if relative == ".":
-        return "$CLAUDE_PROJECT_DIR"
-    return f"$CLAUDE_PROJECT_DIR/{relative}"
-
-
 def _is_managed_entry(entry: Any) -> bool:
     if not isinstance(entry, dict):
         return False
@@ -1627,14 +1443,6 @@ def _is_managed_entry(entry: Any) -> bool:
         and "palari" in str(hook.get("command", ""))
         for hook in hooks
     )
-
-
-def _install_message(status: str, target: Path) -> str:
-    if status == "installed":
-        return f"Palari hooks written to {target}. Claude Code loads them on the next session."
-    if status == "removed":
-        return f"Palari hooks removed from {target}."
-    return f"{target} already matches the requested hook configuration."
 
 
 def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:

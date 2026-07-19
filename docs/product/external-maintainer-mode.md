@@ -1,7 +1,8 @@
 # External Maintainer Mode
 
-External Maintainer Mode is a deliberate lightweight path for ordinary repo
-maintenance.
+External Maintainer Mode is a parked read-only status view for repo
+maintenance. It is not current core, an acceptance gate, or a pre-1.0
+compatibility promise.
 
 It exists because Palari Company OS itself should be maintainable without
 requiring heavy process ceremony for every small code fix.

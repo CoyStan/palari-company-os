@@ -90,14 +90,6 @@ def export_policy(
     }
 
 
-def allowed_capabilities_for_packet(
-    workspace: Workspace,
-    work_id: str,
-    palari_id: str,
-) -> list[dict[str, Any]]:
-    return capability_check(workspace, work_id, palari_id)["allowed_capabilities"]
-
-
 def _capability_record(item: Any) -> dict[str, Any]:
     payload = to_plain(item)
     payload["derived"] = False

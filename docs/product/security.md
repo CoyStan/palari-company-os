@@ -1,14 +1,19 @@
 # Security Notes
 
-Palari Company OS is safe by default in this v0.2 local foundation.
+Palari Company OS is safe by default as a local governance kernel.
 
 It does not:
 
 - require secrets for local verification
-- perform broker or external side effects
+- provide generic broker execution or perform an external write without an
+  exact approved plan, queued outbox item, supported adapter, and explicit send
 - activate real policy acceptance
 - deploy anything
 - contact external systems during tests or examples
+
+Linear is the sole current live provider adapter. Its comment, issue-status,
+and issue-creation writes are separate human actions after planning, approval,
+and enqueue; generic integration commands remain local and non-executing.
 
 Authority rules:
 
@@ -16,9 +21,15 @@ Authority rules:
 - Required approval capability is checked before accepted decisions are
   recorded.
 - Quorum is checked before work can be completed.
+- Every completion requires current exact passing evidence bound to the exact
+  attempt, receipt, head, and output artifacts and evaluated against the
+  current work contract.
 - Governed acceptance requires a terminal clean attempt, mandatory
   evidence/receipt integrity, and an exact-bound independent review matching
   the current attempt, head, and work contract.
+- Independent review and human acceptance may both be omitted only for
+  R1/light/0-approval work with no allowed, planned, queued, or actual external
+  writes. That narrow policy never waives evidence.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a later negative decision revokes an earlier
   approval, while contradictory or ambiguous records fail closed.
@@ -34,7 +45,7 @@ Authority rules:
   paths, and forbidden actions.
 - Active claims hash their metadata-only dirty baseline. Unchanged pre-existing
   dirt is not attributed to the agent, while changes after claim are blocked.
-- The baseline also records the claim-start commit. `agent done` checks the
+- The baseline also records the claim-start commit. `agent advance` checks the
   entire descendant commit range, so claim restart cannot hide an earlier
   out-of-boundary commit or claim work already committed before ownership. A
   dedicated local Git ref and its oldest reflog entry independently witness
@@ -59,12 +70,15 @@ Authority rules:
   authority differences in another worktree, coordinated catalog/JSON rehashing,
   and actors added after the anchor fail closed. This is not authentication
   against a hostile same-user process that can rewrite local Git metadata.
-  Catalog-free v1 witnesses remain valid only when the baseline already contains
-  the work; a historical current-only baseline without a catalog requires a
-  successor.
-- Persisted witness ref/head/history is checked before restart lease acquisition
-  and again before claim persistence. A legacy current-only active claim without
-  a catalog is rejected by claim integrity and cannot reach advance or done.
+  Every complete Git-backed claim uses the current v2 witness, v2 lease, and v2
+  governance-projection snapshot, including an explicit empty changed-path set
+  when the projection is unchanged. Legacy v1 claim witnesses, leases, and
+  snapshots are unsupported and are not upgraded in place; a historical
+  current-only baseline without a catalog requires a successor.
+- Persisted v2 witness ref/head/history, lease, and projection-snapshot binding
+  are checked before restart lease acquisition and again before claim
+  persistence. Unsupported claim state is rejected by claim integrity and
+  cannot reach `agent advance`.
 - Durable parking crash recovery is the sole narrow exception to live status
   equality: after confirming the exact persisted parking-attempt/claim epoch, it
   normalizes current `blocked` status back to the immutable packet status and
@@ -82,7 +96,8 @@ Authority rules:
   malformed hash/status records fail closed. Refresh also discloses
   that recording refreshed proof mutates those projections after the evidence
   head. The refreshed proof invalidates prior review and human authority.
-- `agent advance` applies that same exact-range proof to every risk tier. Its
+- `agent advance` is the sole current execution-to-proof path and applies that
+  same exact-range proof to every risk tier. Its
   planner is side-effect free; executable verification profiles are fixed
   argument vectors rather than workspace prose. Run records bind the head,
   base, changed-path digest, clean state, profile, source state, interpreter,
@@ -90,9 +105,10 @@ Authority rules:
   Only current proof already reconciled into governed evidence is reusable.
   The command rechecks its plan and post-proof actor, claim, clean-tree, and
   scope boundaries, commits agent-owned proof as one journaled transaction,
-  and stops before independent review or human authority. A pending prepare is
-  aborted before a safe retry; an already-applied pending commit is completed
-  only under the exact original execution authority.
+  and either completes only under the narrow R1/light/0-approval/no-external
+  exemption or stops before required independent review or human authority. A
+  pending prepare is aborted before a safe retry; an already-applied pending
+  commit is completed only under the exact original execution authority.
 - `agent start --next` does not introduce a second eligibility policy. It
   selects the first candidate already marked safe by `agent next`, then invokes
   the same packet, portable-contract, claim, baseline, witness, and lease path
@@ -145,14 +161,33 @@ Authority rules:
   repeated packet/check/journal work; they do not replace transition checks or
   cache authority across requests. A changed journal witness forces a fresh
   complete scan.
-- Claude Code hooks are an optional host adapter. The provider-neutral Palari
-  loop, transition gates, and proof records work without them, but packets alone
-  do not install an OS sandbox or prevent an unrestricted same-user process
-  from writing files directly. Other agent hosts need their own proven adapter
-  if pre-write enforcement is required.
+- `palari init --host HOST` creates and adopts a fresh workspace; `palari init
+  WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
+  one; `HOST` is `claude` or `codex`. Both install or reuse the portable
+  contract and claim-bound Git commit gate without granting authority. Claude
+  and Codex have tested project-local session adapters; Codex hooks activate
+  only after explicit host `/hooks` review. No profile is an OS sandbox, and
+  an unrestricted same-user process can still rewrite local files or Git
+  metadata. Nested workspace adoption resolves and preflights the
+  enclosing Git root before any write, so existing root instructions or host
+  configuration cannot be silently absorbed into the bootstrap commit.
+  A symlinked workspace file or escaping managed target fails before the
+  workspace is loaded or project files are written. Generated commands use an
+  inspectable project-local launcher when present; otherwise they preserve the
+  absolute Palari entrypoint currently running or a validated `PATH` entry.
+  `palari claude install` remains the hook-only management, repair, and removal
+  surface. It manages current Palari entries without duplicating them and
+  preserves co-located foreign host hooks.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
-- Proof creation necessarily mutates `workspace.json`, legacy history, and the
+- `superseded` and `abandoned` are temporal storage boundaries. Prior linked
+  proof remains readable, but later writes to the retired contract or its
+  adopted proposal, attempts, receipts, evidence, reviews, decisions,
+  acceptances, outcomes, and external-action records fail before the workspace
+  or journal is replaced. The storage transaction creating retirement cannot
+  append authority or proof, and successful terminal work cannot be relabeled
+  as retired.
+- Proof creation necessarily mutates `workspace.json` and the
   governance journal. When one of those projection files is itself a declared
   artifact, verification reads its bytes from the evidence's exact Git commit
   instead of the later live file, then independently requires the live journal
@@ -188,11 +223,32 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-The governance journal is append-only JSONL, so complete verification cost is
-currently linear in history size. Request-local reuse removes duplicate scans
-inside one bounded operation, but the roughly 40 MB dogfood journal can still
-take several seconds and hundreds of MB of peak memory to verify. Persistent
-advisory caches never replace the scan for authority-producing decisions.
+Governance journal v1 is a strictly read-only predecessor. An operator may run
+`history --checkpoint` against its valid, fully committed head exactly to
+activate the current writer; pending v1 state cannot be completed by appending
+a current record. Activation verifies the complete v1 chain, leaves its bytes
+untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
+checkpoint binds the exact v1 file SHA-256, byte length, head record digest,
+record count, replay digest, transaction counts, and continuity state. Every
+later verification re-hashes the sealed v1 bytes and streams the strict v2
+JSONL tail from its content-bound workspace checkpoint. It does not trust a
+persistent advisory cache.
+
+New workspaces and explicit checkpoints for existing unjournaled workspaces
+write v2 directly. Ordinary mutation of an existing unjournaled workspace
+fails closed until that checkpoint exists. V2 records are never written to or
+accepted from the v1 filename.
+
+V2 mutation prepares contain deterministic add/remove/replace values rather
+than another full workspace projection. A checkpoint still contains one full
+projection so replay has an authoritative base. Record, transaction,
+before/after workspace, predecessor, and terminal digests remain fail-closed;
+truncation, reordering, duplicate terminals, malformed or non-canonical deltas,
+changed predecessor bytes, pending transactions, and workspace divergence are
+rejected. The sealed predecessor hash makes ordinary verification bounded in
+memory and avoids reparsing historical v1 JSON, but it does not authenticate
+the operator who created the checkpoint against a hostile same-user process
+that can rewrite both local journals.
 
 PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in
@@ -201,7 +257,7 @@ Palari may supply an independent advisory review, but only identities in
 behavior.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
-each member digest are persisted with the human decision. New pack-v2 actions
+each member digest are persisted with the human decision. Pack-v2 actions
 also require and persist the digest of a strict canonical decision presentation
 covering the pack, proof, boundaries, effects, available actions, execution
 order, and relevant current decisions. Current bytes, review, recursively bound
@@ -227,9 +283,9 @@ earliest occurrence of the selected content digest, including when a later
 projection removed the record or returned to the same bytes. Compensation must
 be a separate governed action; it is never inferred from local restoration.
 
-`history --restore` is human-only in the Claude shell enforcement boundary. A
-declared human id is attribution, not authority delegation: agent Bash is
-denied before the command can mutate the workspace.
+`history --restore` is human-only in the supported session-hook enforcement
+boundaries. A declared human id is attribution, not authority delegation:
+agent-issued shell commands are denied before they can mutate the workspace.
 `human-decision pack` receives the same hard denial; agent Bash cannot record
 approve, reject, or defer authority through a bare, reordered, path-qualified,
 equals-form, or compound command.

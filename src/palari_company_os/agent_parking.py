@@ -25,6 +25,7 @@ from .agent_runtime import (
     read_claim_packet,
     release_agent,
 )
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .governance_journal import (
     JournalError,
     MutationMetadata,
@@ -41,7 +42,6 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_parking.v1"
 RESULT_SCHEMA_VERSION = "palari.agent_parking_record.v1"
-_TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
 
 
 def park_agent(
@@ -95,7 +95,7 @@ def park_agent(
             f"cannot park {work_id}: its execute claim has expired; inspect the claim "
             "before starting a new claim epoch"
         )
-    if str(work_record.get("status") or "") in _TERMINAL_WORK_STATUSES:
+    if str(work_record.get("status") or "") in TERMINAL_WORK_STATUSES:
         raise WorkspaceError(
             f"cannot park terminal work {work_id} with status {work_record.get('status')}"
         )
@@ -350,7 +350,9 @@ def _ensure_journal(workspace_path: Path | str, palari_id: str) -> None:
         and report.get("writable")
         and report.get("current_workspace_digest") == report.get("replay_workspace_digest")
     ):
-        diagnostic = next(iter(report.get("errors") or report.get("diagnostics") or []), {})
+        diagnostic: dict[str, Any] = next(
+            iter(report.get("errors") or report.get("diagnostics") or []), {}
+        )
         message = diagnostic.get("message") or report.get("status") or "journal is not writable"
         raise WorkspaceError(f"cannot park work without a current governance journal: {message}")
 
@@ -393,7 +395,9 @@ def _current_journal(data_path: Path) -> dict[str, Any]:
         and report.get("writable")
         and report.get("current_workspace_digest") == report.get("replay_workspace_digest")
     ):
-        diagnostic = next(iter(report.get("errors") or report.get("diagnostics") or []), {})
+        diagnostic: dict[str, Any] = next(
+            iter(report.get("errors") or report.get("diagnostics") or []), {}
+        )
         message = diagnostic.get("message") or report.get("status") or "journal is not current"
         raise WorkspaceError(f"cannot release parked claim: {message}")
     return {
@@ -716,8 +720,8 @@ def _normalize_retry_observation(
 def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
     if root is None:
         return [
+            ".palari/governance-journal.v2.jsonl",
             ".palari/governance-journal.v1.jsonl",
-            ".palari/history.jsonl",
             ".palari/claims/**",
             ".palari/locks/**",
             ".palari/packets/**",
@@ -730,8 +734,8 @@ def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
         return []
     base = f"{prefix}/" if prefix != "." else ""
     return [
+        f"{base}.palari/governance-journal.v2.jsonl",
         f"{base}.palari/governance-journal.v1.jsonl",
-        f"{base}.palari/history.jsonl",
         f"{base}.palari/claims/**",
         f"{base}.palari/locks/**",
         f"{base}.palari/packets/**",
@@ -826,7 +830,7 @@ def _result_payload(
             "observation": observation,
         },
         "journal": journal or {
-            "journal_file": ".palari/governance-journal.v1.jsonl",
+            "journal_file": ".palari/governance-journal.v2.jsonl",
             "workspace_digest": after_digest,
         },
         "claim_released": bool(claim_release and claim_release.get("released")),

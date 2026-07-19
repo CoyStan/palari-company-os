@@ -1,5 +1,11 @@
 # Roadmap And Known Gaps
 
+Status: **AMBIGUOUS AND PARKED**. This document mixes unresolved strategy with
+named work that has since shipped. It is not the current product definition,
+release status, execution backlog, or compatibility promise. Use
+[Current Product](current-product.md) for supported behavior. Deletion remains
+parked until its prospective research value is resolved.
+
 ## North Star: Proof-Carrying AI Work
 
 Palari's direction is a small, open, provider-neutral governance kernel: given
@@ -24,8 +30,8 @@ Implemented in the v0.2 local foundation:
   staleness, and parked external effects;
 - content-addressed committed projections and append-only human restoration
   transitions with explicit external-effect non-guarantees;
-- focused, affected, complete, install, documentation, conformance, and
-  network-free demonstration checks.
+- focused and complete verification, isolated install, documentation,
+  conformance, and network-free demonstration checks.
 
 Deferred honestly:
 

@@ -1,145 +1,78 @@
 # Testing Guide
 
-The main verification command is:
+Palari has one authoritative candidate command:
 
 ```bash
-./scripts/verify.sh
+python3 -m pip install -e ".[dev]"
+./scripts/verify.sh complete
 ```
 
-This is the authoritative `complete` profile. `./scripts/verify.sh complete`
-is equivalent and is useful when a caller wants to name the profile explicitly.
+`./scripts/verify.sh` defaults to `complete`. The gate runs the current test
+suite once, static checks once, PCAW conformance once, and one isolated wheel
+build/install smoke. CI invokes this command on Python 3.12. Python 3.10, 3.11,
+3.13, and 3.14 run only source import, pure governance-kernel, and CLI-help
+compatibility checks.
 
-It runs:
+CI runs branch candidates through `pull_request` and runs `push` only on
+`main`, so an open pull request is not evaluated again merely because its branch
+was pushed. Superseded runs are cancelled.
 
-- unit tests
-- style checks with `scripts/check_style.py`
-- Python compilation
-- JSON validity checks for example workspaces and schemas
-- CLI smoke checks for core read models, agent packets, playbooks, desktop
-  prototype, documentation, integrations, and the demo
-- validation and read-model smokes for the repo dogfood and split-workspace
-  fixtures
+## What the candidate proves
 
-For faster development feedback, name tests directly or select tests from
-changed paths:
+The complete profile includes:
+
+1. exhaustive pure governance, scope, and canonicalization tests;
+2. focused filesystem, symlink, journal, proof, and required stored-format
+   reader tests;
+3. one temporary-workspace CLI golden path and structured failures;
+4. supported adapter contract tests separated from core authority tests;
+5. repository text checks, Ruff, mypy, compilation, schema checks, agent-ready
+   documentation checks, PCAW TCB accounting, and PCAW conformance; and
+6. one wheel built and installed into an isolated temporary virtual environment.
+
+The installed smoke initializes a temporary Git workspace without a host
+profile, validates the installed CLI there, and verifies a copied PCAW bundle
+with network sockets disabled. It does not depend on packaged example data and
+does not exercise integration approval or human-decision ceremony.
+
+The committed dogfood workspace is permanent historical/operator evidence. It
+is excluded from candidate style, CLI, and package checks. Full dogfood audit is
+an explicit human operator action, not a prerequisite for ordinary development.
+
+## Focused iteration
+
+Name the relevant test modules while changing a coherent slice:
 
 ```bash
-./scripts/verify.sh focused tests.test_agent_packets
+./scripts/verify.sh focused tests.test_governance_kernel
 ./scripts/verify.sh focused tests.test_validation tests.test_transition_checks
-./scripts/verify.sh affected src/palari_company_os/transition_checks.py
-./scripts/verify.sh affected --git-diff
+./scripts/verify.sh focused tests.test_integrations tests.test_linear_adapter
 ```
 
-Add `--list` to a focused or affected command to print its deterministic test
-selection. If an affected path has no safe mapping, the command runs the full
-unit suite. These profiles are iteration tools only; final acceptance still
-requires the complete profile.
+Focused mode validates and runs only the named `tests.test_*` modules. It has no
+changed-path registry and no hidden fallback to the complete suite. Run the
+complete profile only after focused repairs stabilize.
 
-Read-model performance checks should time the real CLI against the dogfood
-workspace. `agent next --json` derives both Palari queues in one operation and
-must not rescan an unchanged governance journal per work item or per Palari.
-An eligible human-approval `agent handoff` must likewise reuse one verification
-through nested evidence, review-binding, Approval Pack, and dependency
-projection calls rather than replaying the journal for each member.
-The request-local reuse path is covered by same-size, same-mtime tamper tests;
-changed bytes force a fresh fail-closed verification. A representative timing
-pair is:
-
-```bash
-/usr/bin/time -p ./bin/palari \
-  --workspace workspaces/palari-company-os agent next --json >/dev/null
-/usr/bin/time -p ./bin/palari \
-  --workspace workspaces/palari-company-os \
-  agent handoff WORK-ID --as PALARI-ID --json >/dev/null
-```
-
-The package install smoke command is:
+For the package boundary alone:
 
 ```bash
 ./scripts/install_smoke.sh
 ```
 
-It creates a unique temporary virtual environment, builds and installs a wheel,
-imports `palari_company_os`, and runs the installed `palari` command against
-temporary workspace copies. Logs and generated files are written only inside
-that unique temporary directory and are removed at exit, so concurrent runs do
-not share fixed `/tmp` paths.
+This direct command is diagnostic; a successful complete profile has already
+run the same smoke once.
 
-Focused commands:
+## Performance and fixture rules
 
-```bash
-python3 -m pip install -e .
-python3 -m unittest tests.test_agent_packets
-python3 -m compileall -q src
-python3 -m json.tool examples/acme-company-os/workspace.json
-python3 -m json.tool workspaces/palari-company-os/workspace.json
-python3 -m json.tool schemas/workspace.schema.json
-./bin/palari --workspace workspaces/palari-company-os validate
-./bin/palari --workspace workspaces/palari-company-os queue
-./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate
-./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT
-```
+- Keep lifecycle matrices pure and deterministic.
+- Use temporary current workspaces for CLI and mutation tests.
+- Create Git repositories, spawn Palari, copy workspaces, scan journals, and
+  build packages only when that operation is the behavior under test.
+- Give each retained public surface one or two translation tests rather than a
+  duplicate governance matrix.
+- Profile only the slowest meaningful areas reported by the parallel runner.
+- Never make persistent caches, the committed example, or dogfood history into
+  acceptance authority.
 
-The test suite covers:
-
-- model loading
-- strict validation fixtures
-- unknown-field rejection
-- unsupported schema version rejection
-- cross-reference validation
-- invalid lifecycle state rejection
-- queue state
-- detail assembly
-- stale evidence
-- stale review
-- scope allow/block behavior
-- append-only history events for successful mutations
-- failed mutations do not append history events
-- human authority and approval capability
-- quorum completion gates
-- valid accepted/completed work
-- authoring commands
-- lifecycle commands
-- migration from legacy unversioned workspaces
-- read-only split workspace collection files
-- write refusal for split workspaces
-- in-place split-workspace migration with stale-proof invalidation
-- coordinated claim/packet/baseline rehash rejection and Git witness history
-- claimless changes-requested proof refresh preview and execution, including
-  truthful ordinary-unchanged versus self-mutating-projection rebound status,
-  uniform previous/current projection hashes and statuses, legacy not-recorded
-  projection hashes, malformed transition inputs, and post-evidence
-  projection-mutation disclosure; active-claim, missing ordinary hash, mismatched-review,
-  changed-then-restored output (including merge-only changes), dirty-state, and
-  exact-history rejection
-- agent-shell denial for human-only and packet-authority commands, dynamic
-  shell/Git-global-option approval, composed-command masking, helper-launching
-  config/environment options, post-release workspace-truth protection, and
-  option-encoded/linked-worktree metadata paths, pager/filter helpers, and
-  compact/newline separators, ordinary directory destinations, repository or
-  ripgrep helper overrides, global-option abbreviation rejection, destructive
-  ancestor targets, unquoted pathname expansion, tree-shaped copy and hidden
-  backup outputs, path-qualified trusted-command spoofing, hook self-removal,
-  fail-closed unclassified Palari commands, external/human integration
-  mutations, Bash `|&`, assignment-position tilde expansion, abbreviated GNU
-  write and Git helper options, Git pathspec-file target imports, direct Claude
-  settings mutation, read/write redirections, and active-claim scope-change
-  rejection; quoted Git pathspec magic/globs, dash-prefixed post-`--` operands,
-  and cross-workspace agent-safe Palari mutations also fail closed
-- timezone-normalized latest-record ordering across differing ISO offsets,
-  including later failed evidence, changes-requested review, and acceptance
-  revocation; malformed, missing-while-competing, timezone-free, and
-  equivalent-instant ordering claims fail closed
-- nonterminal acceptance evidence/receipt tamper rejection
-- strict PCAW canonicalization, deterministic export, offline artifact checks,
-  18 provider-neutral conformance vectors, and verifier TCB accounting
-- journal replay, corruption/truncation/fork detection, every crash boundary,
-  idempotent recovery, legacy checkpointing, and centralized store integration
-- 1/10/100-item Approval Inbox compression with item-level proof retention,
-  dependency staleness, partial decisions, pack-transplant rejection, risk
-  policy, exact human authority, and every approval transaction crash boundary
-- content-addressed checkpoint replay and append-only restoration, including
-  human attribution, exact projection equality, external-effect non-guarantees,
-  and every restoration transaction crash boundary
-- external maintainer status
-- dogfood workspace validation and read-model smoke checks
+When a candidate fails, reproduce the exact failure with focused tests, repair
+it, and rerun the complete gate only after the focused checks are stable.

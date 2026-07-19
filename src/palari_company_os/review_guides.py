@@ -93,15 +93,13 @@ def palari_reviewer_candidate(
 
 def _status(payload: dict[str, Any]) -> str:
     review_state = payload.get("safety", {}).get("review_state", "")
-    if payload.get("attention") == "receipt-ready":
-        return "receipt-ready"
     if review_state == "stale":
         return "stale-review"
     if payload.get("evidence") is None:
         return "missing-evidence"
     if payload.get("review") is not None:
         return "has-review"
-    if payload.get("attention") in {"needs-review", "receipt-ready"}:
+    if payload.get("attention") == "needs-review":
         return "review-needed"
     return "inspect"
 
@@ -153,16 +151,7 @@ def _review_focus(payload: dict[str, Any]) -> list[str]:
     focus = [
         "Compare the attempt result and changed files against the work scope and acceptance target.",
     ]
-    if payload.get("attention") == "receipt-ready":
-        focus.append(
-            "For receipt-ready low-risk work, inspect the output and receipt before requiring heavier proof."
-        )
-        if payload.get("evidence") is not None:
-            focus.append(
-                "Use the evidence as supporting context; do not add a human-decision ceremony unless the scope or risk changed."
-            )
-    else:
-        focus.append("Confirm evidence commands and artifacts are enough for the stated risk.")
+    focus.append("Confirm evidence commands and artifacts are enough for the stated risk.")
     if payload.get("receipt") is None:
         focus.append(
             "Receipt is missing; confirm whether the work state intentionally relies on evidence and review instead."

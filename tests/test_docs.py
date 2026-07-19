@@ -15,8 +15,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.repo_docs import check_docs, init_docs
 from palari_company_os.workspace import Workspace
-
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+from tests.workspace_fixture import current_recommendation_data
 
 
 class DocumentationTests(unittest.TestCase):
@@ -33,7 +32,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue((REPO_ROOT / "scripts/make_demo_assets.sh").exists())
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
-        self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
+        self.assertIn("./bin/palari demo --serve", readme)
         for late_noun in (
             "workbench",
             "work item",
@@ -53,20 +52,6 @@ class DocumentationTests(unittest.TestCase):
                 self.assertTrue(path.exists())
                 self.assertGreater(path.stat().st_size, 1000)
         self.assertTrue((REPO_ROOT / "scripts" / "make_demo_assets.sh").exists())
-
-    def test_demo_recording_script_is_literal_enough_for_human(self) -> None:
-        script = (
-            REPO_ROOT / "docs" / "archive" / "plans" / "demo-recording-script.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("./bin/palari demo", script)
-        self.assertIn("*** BLOCKED: file change is outside Sofia's write boundary ***", script)
-        self.assertIn("deploy/production.yml", script)
-        self.assertIn("docs/product/company-os.md", script)
-        self.assertIn("The file boundary passes; proof is still needed", script)
-        self.assertIn("0:00-0:08", script)
-        self.assertIn("1:17-1:30", script)
-        self.assertIn("Human Finish Step", script)
 
     def test_glossary_covers_core_object_headings(self) -> None:
         core = (REPO_ROOT / "docs/product/core-objects.md").read_text(encoding="utf-8")
@@ -90,7 +75,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("[Glossary](docs/product/glossary.md)", readme)
         self.assertIn("[Glossary](glossary.md)", quickstart)
         self.assertLess(
-            quickstart.index("./bin/palari serve --as HUMAN-FOUNDER"),
+            quickstart.index("palari serve --as HUMAN-FOUNDER"),
             quickstart.index("## Verify The Repo"),
         )
         command_reference = (REPO_ROOT / "docs/product/command-reference.md").read_text(
@@ -125,26 +110,36 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(forbidden_growth, contract)
 
-    def test_heavy_plans_and_research_are_archived(self) -> None:
-        archived = [
-            REPO_ROOT / "docs/archive/plans/demo-recording-script.md",
-            REPO_ROOT / "docs/archive/plans/launch-quality-plan.md",
-            REPO_ROOT
-            / "docs/archive/research/gpt-5-5-pro-agent-packet-critique-2026-06-21.md",
-            REPO_ROOT / "docs/archive/research/ai-ops-memory-roadmap-review.md",
-        ]
-        for path in archived:
-            with self.subTest(path=path):
-                self.assertTrue(path.exists())
+    def test_historical_implementation_docs_are_not_current_product_docs(self) -> None:
+        archive = REPO_ROOT / "docs/archive"
+        self.assertEqual(
+            [path for path in archive.rglob("*") if path.is_file()],
+            [],
+        )
         self.assertFalse((REPO_ROOT / "docs/plans").exists())
         self.assertFalse((REPO_ROOT / "docs/research").exists())
         self.assertFalse((REPO_ROOT / "docs/product/ai-ops-memory-roadmap-review.md").exists())
 
+        product_docs = REPO_ROOT / "docs/product"
+        historical_patterns = (
+            "approval-packs-*",
+            "compact-journal-*",
+            "deterministic-agent-*",
+            "golden-path-*",
+            "governance-hardening-*",
+            "invisible-*",
+            "opaque-*",
+            "portable-*",
+            "presentation-*",
+            "proof-carrying-governance-*",
+            "universal-agent-*",
+        )
+        for pattern in historical_patterns:
+            with self.subTest(pattern=pattern):
+                self.assertEqual(list(product_docs.glob(pattern)), [])
+
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-        start_here = readme.split("Start here:", 1)[1].split("Then go deeper:", 1)[0]
-        self.assertNotIn("docs/archive/", start_here)
-        self.assertNotIn("docs/showcase/ai-work-vignettes.md", start_here)
-        self.assertIn("docs/archive/", readme)
+        self.assertNotIn("docs/archive/", readme)
         self.assertIn("## Golden Paths", readme)
 
     def test_linear_operating_loop_is_linked_and_stays_minimal(self) -> None:
@@ -195,19 +190,22 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn("docs/product/agent-loop-smoke.md", doc)
 
         required_snippets = [
-            "./bin/palari agent next --all",
-            "./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
-            "./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
-            "./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
+            'PALARI_SMOKE_ROOT="$(mktemp -d)"',
+            'cp -R examples/acme-company-os "$PALARI_SMOKE_ROOT/workspace"',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json',
             "human_action_boundary",
             "human_action_commands",
         ]
 
         for snippet in required_snippets:
             self.assertIn(snippet, smoke)
+        self.assertNotIn("--workspace workspaces/palari-company-os", smoke)
 
     def test_docs_check_current_repo_has_no_failures(self) -> None:
         result = check_docs(REPO_ROOT)
@@ -261,23 +259,37 @@ class DocumentationTests(unittest.TestCase):
             self.assertTrue((repo / "docs" / "agent" / "repo-map.md").exists())
 
     def test_cli_docs_check_emits_json_shape(self) -> None:
-        result = subprocess.run(
-            [str(REPO_ROOT / "bin" / "palari"), "docs", "check", "--json"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            check=True,
-        )
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "pyproject.toml").write_text(
+                "[project]\nname='docs-cli-fixture'\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(REPO_ROOT / "bin" / "palari"),
+                    "docs",
+                    "check",
+                    "--repo",
+                    str(repo),
+                    "--json",
+                ],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
         payload = json.loads(result.stdout)
 
         self.assertEqual(payload["schema_version"], "palari.repo_docs.v1")
         self.assertEqual(payload["kind"], "docs-check")
         self.assertTrue(payload["ok"])
+        self.assertEqual(payload["repo"], str(repo))
 
     def test_agent_packet_includes_compact_doc_hints(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
+        workspace = Workspace.from_raw(current_recommendation_data(), REPO_ROOT)
 
-        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
+        packet = build_agent_brief(workspace, "WORK-1", "PALARI-1", "execute")
 
         self.assertEqual(packet["documentation_state"]["status"], "ready")
         paths = {item["path"] for item in packet["recommended_docs"]}

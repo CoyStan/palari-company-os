@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from typing import Any, Iterable, TypeVar
 
-from .governance_binding import current_review_binding_errors
-from .governance_journal import JournalVerificationContext
 from .models import to_plain
-from .playbooks import recommend_playbooks, recommended_playbook_ids
+from .pcaw_workspace import (
+    RecordedGovernanceProjectionProvider,
+)
 from .record_order import record_time_key as _record_time_key
 from .read_model_commands import (
     agent_commands,
@@ -39,6 +38,9 @@ class QueueItem:
     agent_loop_command: str
     agent_handoff_command: str
     status: str
+    terminal_disposition: str
+    terminal_reason: str
+    successor_work_item_id: str
     risk: str
     intensity: str
     goal: str
@@ -58,12 +60,7 @@ class QueueItem:
     integration_state: str
     approval_progress: str
     acceptance_state: str
-    authority_state: str
     scope_overlap_state: str
-    recommended_intensity: str
-    intensity_reason: str
-    learning_signal: str
-    playbook_recommendations: list[str]
     workbench: str
     workbench_label: str
     active_attempts: list[dict[str, Any]]
@@ -75,11 +72,9 @@ class _ReadContext:
     goals_by_id: dict[str, Any]
     palaris_by_id: dict[str, Any]
     humans_by_id: dict[str, Any]
-    sources_by_id: dict[str, Any]
     workbenches_by_id: dict[str, Any]
     work_by_id: dict[str, Any]
     attempts_by_id: dict[str, Any]
-    outcomes_by_id: dict[str, Any]
     latest_attempt_by_work: dict[str, Any]
     current_attempt_by_work: dict[str, Any]
     latest_evidence_by_work: dict[str, Any]
@@ -95,12 +90,24 @@ class _ReadContext:
     integration_outbox_by_plan: dict[str, Any]
     latest_outcome_by_work: dict[str, Any]
     open_decision_by_work: dict[str, Any]
+    governance: RecordedGovernanceProjectionProvider
     active_parallel: list[dict[str, Any]]
     active_attempts_by_work: dict[str, list[dict[str, Any]]]
     coordination_warnings: list[dict[str, Any]]
-    journal_verification: JournalVerificationContext
-    warning_messages_by_work: dict[str, list[str]] = field(default_factory=dict)
-    review_binding_errors: dict[str, list[str]] = field(default_factory=dict)
+    warning_messages_by_work: dict[str, list[str]]
+
+
+@dataclass(frozen=True)
+class _LifecycleView:
+    attention: str
+    why: str
+    next_action: str
+    evidence_state: str
+    review_state: str
+    receipt_state: str
+    approval_progress: str
+    acceptance_state: str
+    integration_ready: bool
 
 
 ATTENTION_PRIORITY = {
@@ -109,22 +116,15 @@ ATTENTION_PRIORITY = {
     "needs-review": 2,
     "needs-evidence": 3,
     "ready-to-integrate": 4,
-    "receipt-ready": 5,
+    "ready-to-complete": 5,
     "ready-for-ai-work": 6,
     "blocked": 7,
     "closed": 8,
 }
 
-INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
-
-
-def queue_items(
-    workspace: Workspace,
-    *,
-    journal_context: JournalVerificationContext | None = None,
-) -> list[QueueItem]:
-    context = _read_context(workspace, journal_context=journal_context)
-    items = [_queue_item(workspace, work, context) for work in workspace.work_items]
+def queue_items(workspace: Workspace) -> list[QueueItem]:
+    context = _read_context(workspace)
+    items = [_queue_item(work, context) for work in workspace.work_items]
     return sorted(items, key=lambda item: (ATTENTION_PRIORITY.get(item.attention, 99), item.id))
 
 
@@ -136,13 +136,8 @@ def coordination_warnings(workspace: Workspace) -> list[dict[str, Any]]:
     return _read_context(workspace).coordination_warnings
 
 
-def detail(
-    workspace: Workspace,
-    work_id: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
-) -> dict[str, Any]:
-    context = _read_context(workspace, journal_context=journal_context)
+def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
+    context = _read_context(workspace)
     work = context.work_by_id.get(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
@@ -169,8 +164,7 @@ def detail(
         if dependency is not None
     ]
     human_decisions = context.human_decisions_by_work.get(work.id, [])
-    queue_item = _queue_item(workspace, work, context)
-    playbooks = recommend_playbooks(workspace, work.id)
+    queue_item = _queue_item(work, context)
 
     return {
         "work_item": to_plain(work),
@@ -214,12 +208,8 @@ def detail(
             "integration_state": queue_item.integration_state,
             "approval_progress": queue_item.approval_progress,
             "acceptance_state": queue_item.acceptance_state,
-            "authority_state": queue_item.authority_state,
             "scope_overlap_state": queue_item.scope_overlap_state,
-            "recommended_intensity": queue_item.recommended_intensity,
-            "intensity_reason": queue_item.intensity_reason,
         },
-        "playbooks": playbooks,
         "agent_commands": agent_commands(work, queue_item.next_step_type),
     }
 
@@ -236,19 +226,13 @@ def _external_ref(work: Any) -> dict[str, str] | None:
     }
 
 
-def _read_context(
-    workspace: Workspace,
-    *,
-    journal_context: JournalVerificationContext | None = None,
-) -> _ReadContext:
+def _read_context(workspace: Workspace) -> _ReadContext:
     goals_by_id = {goal.id: goal for goal in workspace.goals}
     palaris_by_id = {palari.id: palari for palari in workspace.palaris}
     humans_by_id = {human.id: human for human in workspace.humans}
-    sources_by_id = {source.id: source for source in workspace.sources}
     workbenches_by_id = {workbench.id: workbench for workbench in workspace.workbenches}
     work_by_id = {work.id: work for work in workspace.work_items}
     attempts_by_id = {attempt.id: attempt for attempt in workspace.attempts}
-    outcomes_by_id = {outcome.id: outcome for outcome in workspace.outcomes}
     latest_attempt_by_work = _latest_by_work(workspace.attempts)
     current_attempt_by_work = _current_attempts_by_work(
         workspace.work_items,
@@ -267,11 +251,9 @@ def _read_context(
         goals_by_id=goals_by_id,
         palaris_by_id=palaris_by_id,
         humans_by_id=humans_by_id,
-        sources_by_id=sources_by_id,
         workbenches_by_id=workbenches_by_id,
         work_by_id=work_by_id,
         attempts_by_id=attempts_by_id,
-        outcomes_by_id=outcomes_by_id,
         latest_attempt_by_work=latest_attempt_by_work,
         current_attempt_by_work=current_attempt_by_work,
         latest_evidence_by_work=_latest_by_work(workspace.evidence_runs),
@@ -293,15 +275,15 @@ def _read_context(
         },
         latest_outcome_by_work=_latest_by_work(workspace.outcomes),
         open_decision_by_work=_open_decisions_by_work(workspace.decisions),
+        governance=RecordedGovernanceProjectionProvider(workspace),
         active_parallel=active_parallel,
         active_attempts_by_work=active_attempts_by_work,
         coordination_warnings=coordination,
-        journal_verification=journal_context or JournalVerificationContext(),
         warning_messages_by_work=warning_messages_by_work,
     )
 
 
-def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> QueueItem:
+def _queue_item(work: Any, context: _ReadContext) -> QueueItem:
     goal = context.goals_by_id.get(work.goal)
     palari = context.palaris_by_id.get(work.palari)
     workbench = context.workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
@@ -310,26 +292,22 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         human = context.humans_by_id.get(palari.owner_human)
         owner = human.name if human else palari.owner_human
 
-    attention, why, next_action = _attention(workspace, work, context)
-    evidence_state = _evidence_state(work, context)
-    review_state = _review_state(workspace, work, context)
-    receipt_state = _receipt_state(work, context)
-    integration_state = _integration_state(workspace, work, context)
-    approval_progress = _approval_progress(workspace, work, context)
-    acceptance_state = _acceptance_state(workspace, work, context)
-    authority_state = _authority_state(workspace, work)
-    recommended_intensity, intensity_reason = recommend_intensity(work)
-    learning_signal = _learning_signal(context, palari)
-    playbook_recommendations = recommended_playbook_ids(workspace, work)
+    lifecycle = _lifecycle_view(work, context)
+    attention, why, next_action = _attention(work, context, lifecycle)
+    evidence_state = lifecycle.evidence_state
+    review_state = lifecycle.review_state
+    receipt_state = lifecycle.receipt_state
+    integration_state = _integration_state(work, context, lifecycle)
+    approval_progress = lifecycle.approval_progress
+    acceptance_state = lifecycle.acceptance_state
     active_attempts = _active_attempts_for_work(work, context)
     warnings = _coordination_warning_messages_for_work(work, context)
     waiting_on_human = attention == "needs-human-decision"
-    ai_safe_to_proceed = _ai_safe_to_proceed(work, attention, context)
+    ai_safe_to_proceed = _ai_safe_to_proceed(attention)
     next_step_type = _next_step_type(
         attention,
         ai_safe_to_proceed,
         evidence_state,
-        active_attempts,
     )
     return QueueItem(
         id=work.id,
@@ -348,6 +326,9 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         agent_loop_command=agent_loop_command(work),
         agent_handoff_command=agent_handoff_command(work, next_step_type),
         status=work.status,
+        terminal_disposition=work.terminal_disposition,
+        terminal_reason=work.terminal_reason,
+        successor_work_item_id=work.successor_work_item_id,
         risk=work.risk,
         intensity=work.intensity,
         goal=work.goal,
@@ -367,12 +348,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         integration_state=integration_state,
         approval_progress=approval_progress,
         acceptance_state=acceptance_state,
-        authority_state=authority_state,
         scope_overlap_state="blocked" if warnings else "clear",
-        recommended_intensity=recommended_intensity,
-        intensity_reason=intensity_reason,
-        learning_signal=learning_signal,
-        playbook_recommendations=playbook_recommendations,
         workbench=work.workbench_id,
         workbench_label=workbench.label if workbench else "",
         active_attempts=active_attempts,
@@ -380,7 +356,11 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
     )
 
 
-def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[str, str, str]:
+def _attention(
+    work: Any,
+    context: _ReadContext,
+    lifecycle: _LifecycleView,
+) -> tuple[str, str, str]:
     open_decision = context.open_decision_by_work.get(work.id)
     if open_decision is not None:
         return (
@@ -389,12 +369,21 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Answer decision: {open_decision.question}",
         )
 
-    if work.status in {"closed", "completed", "done"}:
+    if work.terminal_disposition:
+        successor = work.successor_work_item_id
+        next_action = (
+            f"Inspect successor {successor}; this historical item remains audit-visible."
+            if successor
+            else "Inspect the retirement reason or create new work if the objective returns."
+        )
         return (
             "closed",
-            "The work item is complete and has a recorded terminal status.",
-            "Review outcomes or start a follow-up only if needed.",
+            f"The work item was {work.terminal_disposition}: {work.terminal_reason}",
+            next_action,
         )
+
+    if lifecycle.attention == "closed":
+        return lifecycle.attention, lifecycle.why, lifecycle.next_action
 
     warnings = _coordination_warning_messages_for_work(work, context)
     if warnings:
@@ -444,160 +433,7 @@ def _attention(workspace: Workspace, work: Any, context: _ReadContext) -> tuple[
             f"Run `palari integration enqueue {plan.id} --by HUMAN-ID` to place it in the outbox.",
         )
 
-    attempt = _attempt_for_work(context, work)
-    if attempt is None:
-        recommended, _ = recommend_intensity(work)
-        next_action = "Start a bounded attempt using the declared scope and authority limits."
-        if recommended == "high":
-            next_action = "Inspect the high-risk scope and confirm authority before starting an attempt."
-        return (
-            "ready-for-ai-work",
-            "No execution attempt exists yet.",
-            next_action,
-        )
-
-    if _low_risk_receipt_ready(work, attempt, context):
-        return (
-            "receipt-ready",
-            "A completed low-risk attempt has a receipt showing sources, actions, outputs, and limits.",
-            "Review the output, undo it if needed, or continue with the next bounded step.",
-        )
-
-    evidence = context.latest_evidence_by_work.get(work.id)
-    if evidence is None:
-        return (
-            "needs-evidence",
-            "There is an attempt but no evidence run for it.",
-            "Run the focused verification expected for this work item.",
-        )
-    if evidence.head_sha != _attempt_head(attempt):
-        return (
-            "needs-evidence",
-            "Latest evidence is stale for the current attempt head.",
-            "Refresh evidence before requesting review or human decision.",
-        )
-    if evidence.status != "passed":
-        return (
-            "needs-evidence",
-            f"Latest evidence run {evidence.id} is {evidence.status}.",
-            "Repair the failing check or record an explicit blocker.",
-        )
-
-    review = context.latest_review_by_work.get(work.id)
-    if review is None:
-        return (
-            "needs-review",
-            "Evidence exists, but no review verdict has inspected it.",
-            "Request an independent review against the evidence head.",
-        )
-    if review.reviewed_head != evidence.head_sha:
-        return (
-            "needs-review",
-            "The latest review does not match the latest evidence head.",
-            "Refresh review before asking for a human decision.",
-        )
-    if review.verdict == "changes-requested":
-        return (
-            "changes-requested",
-            f"Review {review.id} requested changes.",
-            "Repair only the reviewed findings, then refresh evidence and review.",
-        )
-    if review.verdict in {"blocked", "needs-human-decision"}:
-        return (
-            "needs-human-decision",
-            f"Review {review.id} requires human judgment.",
-            "Resolve the human decision before continuing.",
-        )
-    binding_errors = _current_review_errors(workspace, review, context)
-    if binding_errors:
-        return (
-            "needs-review",
-            f"Review {review.id} is stale: {binding_errors[0]}.",
-            "Refresh receipt, evidence, and independent review against the current exact proof.",
-        )
-
-    human_decision = context.latest_human_decision_by_work.get(work.id)
-    if review.verdict == "accept-ready" and human_decision is None:
-        approval_progress = _approval_progress(workspace, work, context)
-        return (
-            "needs-human-decision",
-            f"Review is accept-ready, but approval quorum is incomplete ({approval_progress}).",
-            "Human accepts, requests changes, or blocks this work item.",
-        )
-    if review.verdict == "accept-ready" and not _approval_quorum_met(work, review, context):
-        return (
-            "needs-human-decision",
-            f"Review is accept-ready, but approval quorum is incomplete ({_approval_progress(workspace, work, context)}).",
-            "Collect the required human approval before integration.",
-        )
-    if human_decision and _approval_quorum_met(work, review, context):
-        return (
-            "ready-to-integrate",
-            "Human decision is recorded after fresh evidence and review.",
-            "Integrate or close according to the repo's merge policy.",
-        )
-
-    return (
-        "blocked",
-        "The current state is valid but does not map to a known next action.",
-        "Inspect the work detail and record the missing state explicitly.",
-    )
-
-
-def recommend_intensity(work: Any) -> tuple[str, str]:
-    haystack = " ".join(
-        [
-            work.id,
-            work.title,
-            work.risk,
-            work.scope,
-            " ".join(work.allowed_resources),
-            work.acceptance_target,
-        ]
-    ).lower()
-    high_terms = [
-        "r5",
-        "production",
-        "deploy",
-        "security",
-        "secret",
-        "credential",
-        "policy",
-        "broker",
-        "external",
-        "oauth",
-        "customer data",
-        "authority",
-    ]
-    standard_terms = ["r2", "r3", "schema", "shared authority", "shared standard"]
-    if work.risk in {"R5", "R4"} or any(term in haystack for term in high_terms):
-        return _intensity_recommendation(
-            work,
-            "high",
-            "external-side-effect, security, policy, broker, or authority language is present",
-        )
-    if work.risk in {"R2", "R3"} or any(term in haystack for term in standard_terms):
-        return _intensity_recommendation(
-            work,
-            "standard",
-            "normal governed work needs evidence, review, and possible human decision",
-        )
-    return _intensity_recommendation(
-        work,
-        "light",
-        "low-risk internal maintenance can use the lightest responsible proof",
-    )
-
-
-def _intensity_recommendation(work: Any, recommended: str, reason: str) -> tuple[str, str]:
-    declared = getattr(work, "intensity", "")
-    if declared in INTENSITY_RANK and declared != recommended:
-        direction = "above" if INTENSITY_RANK[recommended] > INTENSITY_RANK[declared] else "below"
-        return (
-            recommended,
-            f"Declared intensity is {declared}; heuristic is {direction} it because {reason}.",
-        )
-    return recommended, reason[0].upper() + reason[1:] + "."
+    return lifecycle.attention, lifecycle.why, lifecycle.next_action
 
 
 def _attempt_head(attempt: Any) -> str:
@@ -608,73 +444,226 @@ def _next_step_type(
     attention: str,
     ai_safe_to_proceed: bool,
     evidence_state: str,
-    active_attempts: list[dict[str, Any]],
 ) -> str:
     if (
         attention == "needs-evidence"
         and ai_safe_to_proceed
-        and evidence_state in {"missing", "stale", "failed"}
-        and active_attempts
+        and evidence_state in {"missing", "stale", "failed", "invalid"}
     ):
         return "check-active-proof"
     if attention == "changes-requested":
         return "repair"
-    if (
-        attention in {"ready-for-ai-work", "needs-evidence"}
-        and ai_safe_to_proceed
-    ):
+    if attention == "ready-for-ai-work" and ai_safe_to_proceed:
         return "start-work"
     if attention == "needs-human-decision":
         return "human-decision"
-    if attention in {"needs-review", "receipt-ready"}:
+    if attention == "needs-review":
         return "review-handoff"
+    if attention == "ready-to-complete":
+        return "automatic-reconciliation"
     if attention == "closed":
         return "closed"
     return "inspect"
 
 
-def _evidence_state(work: Any, context: _ReadContext) -> str:
+def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
+    """Translate one non-authoritative kernel projection into operator language."""
+
+    projection = context.governance.for_work(work.id)
+    current = projection.evaluation
+    candidate = projection.completion_evaluation
+    candidate_properties = {item.name: item.status for item in candidate.properties}
     attempt = _attempt_for_work(context, work)
     evidence = context.latest_evidence_by_work.get(work.id)
-    if attempt is None:
-        return "not-started"
-    if evidence is None:
-        return "missing"
-    if evidence.head_sha != _attempt_head(attempt):
-        return "stale"
-    return evidence.status
-
-
-def _review_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
-    evidence = context.latest_evidence_by_work.get(work.id)
-    review = context.latest_review_by_work.get(work.id)
-    if evidence is None:
-        return "waiting-on-evidence"
-    if review is None:
-        return "missing"
-    if review.reviewed_head != evidence.head_sha:
-        return "stale"
-    if review.verdict == "accept-ready" and _current_review_errors(
-        workspace, review, context
-    ):
-        return "stale"
-    return review.verdict
-
-
-def _receipt_state(work: Any, context: _ReadContext) -> str:
-    attempt = _attempt_for_work(context, work)
     receipt = context.latest_receipt_by_work.get(work.id)
+    review = context.latest_review_by_work.get(work.id)
+    acceptance = context.latest_acceptance_by_work.get(work.id)
+    approval_progress = (
+        f"{len(candidate.qualified_human_ids)}/{work.required_approval_count}"
+    )
+
     if attempt is None:
-        return "not-started"
+        next_action = "Start a bounded attempt using the declared scope and authority limits."
+        return _LifecycleView(
+            attention="ready-for-ai-work",
+            why="No execution attempt exists yet.",
+            next_action=next_action,
+            evidence_state="not-started",
+            review_state="waiting-on-evidence",
+            receipt_state="not-started",
+            approval_progress=approval_progress,
+            acceptance_state="pending",
+            integration_ready=False,
+        )
+
+    if evidence is None:
+        evidence_state = "missing"
+        proof_why = "There is an attempt but no evidence run for it."
+        proof_next = "Run the focused verification expected for this work item."
+    elif evidence.head_sha != _attempt_head(attempt):
+        evidence_state = "stale"
+        proof_why = "Latest evidence is stale for the current attempt head."
+        proof_next = "Refresh evidence before requesting review or human decision."
+    elif evidence.status != "passed":
+        evidence_state = evidence.status
+        proof_why = f"Latest evidence run {evidence.id} is {evidence.status}."
+        proof_next = "Repair the failing check or record an explicit blocker."
+    elif projection.recorded_proof_errors:
+        evidence_state = "invalid"
+        proof_why = (
+            "Latest recorded proof is not current: "
+            f"{projection.recorded_proof_errors[0]}."
+        )
+        proof_next = "Refresh exact passing evidence for the current attempt and receipt."
+    else:
+        evidence_state = "passed"
+        proof_why = ""
+        proof_next = ""
+
+    proof_current = evidence_state == "passed"
     if receipt is None:
-        return "missing"
-    if receipt.attempt_id != attempt.id:
-        return "stale"
-    return "ready"
+        receipt_state = "missing"
+    elif receipt.attempt_id != attempt.id:
+        receipt_state = "stale"
+    elif proof_current and candidate_properties["receipt_binding"] == "verified":
+        receipt_state = "ready"
+    else:
+        receipt_state = "invalid"
+
+    if candidate_properties["independent_review"] == "not-required":
+        review_state = "not-required"
+    elif not proof_current:
+        review_state = "waiting-on-evidence"
+    elif review is None:
+        review_state = "missing"
+    elif review.verdict in {"changes-requested", "blocked", "needs-human-decision"}:
+        review_state = review.verdict
+    elif candidate_properties["independent_review"] == "verified":
+        review_state = review.verdict
+    else:
+        review_state = "stale"
+
+    if candidate_properties["acceptance_currency"] == "not-required":
+        acceptance_state = "not-required"
+    elif candidate_properties["acceptance_currency"] == "verified":
+        acceptance_state = "accepted"
+    elif acceptance is not None and acceptance.status != "accepted":
+        acceptance_state = acceptance.status
+    elif acceptance is not None:
+        acceptance_state = "stale"
+    elif candidate.derived_state == "accept-ready":
+        acceptance_state = "ready-to-record"
+    else:
+        acceptance_state = "pending"
+
+    common = {
+        "evidence_state": evidence_state,
+        "review_state": review_state,
+        "receipt_state": receipt_state,
+        "approval_progress": approval_progress,
+        "acceptance_state": acceptance_state,
+    }
+    if not proof_current:
+        return _LifecycleView(
+            attention="needs-evidence",
+            why=proof_why,
+            next_action=proof_next,
+            integration_ready=False,
+            **common,
+        )
+
+    if work.status in {"closed", "completed", "done"} and current.derived_state == "completed":
+        return _LifecycleView(
+            attention="closed",
+            why="The recorded current proof derives the terminal lifecycle state.",
+            next_action="Review outcomes or start a follow-up only if needed.",
+            integration_ready=True,
+            **common,
+        )
+
+    review_matches_evidence = bool(
+        review is not None
+        and candidate.current_review_bound
+    )
+    if (
+        review is not None
+        and review_matches_evidence
+        and review.verdict == "changes-requested"
+    ):
+        return _LifecycleView(
+            attention="changes-requested",
+            why=f"Review {review.id} requested changes.",
+            next_action="Repair only the reviewed findings, then refresh evidence and review.",
+            integration_ready=False,
+            **common,
+        )
+    if (
+        review is not None
+        and review_matches_evidence
+        and review.verdict in {"blocked", "needs-human-decision"}
+    ):
+        return _LifecycleView(
+            attention="needs-human-decision",
+            why=f"Review {review.id} requires human judgment.",
+            next_action="Resolve the human decision before continuing.",
+            integration_ready=False,
+            **common,
+        )
+
+    state = candidate.derived_state
+    if state == "review-required":
+        why = "Current exact proof requires an independent review."
+        if review is not None:
+            diagnostic = _first_error_message(candidate)
+            why = f"Review {review.id} is not current: {diagnostic}"
+        return _LifecycleView(
+            attention="needs-review",
+            why=why,
+            next_action="Request an independent review against the current exact proof.",
+            integration_ready=False,
+            **common,
+        )
+    if state == "human-decision-required":
+        return _LifecycleView(
+            attention="needs-human-decision",
+            why=(
+                "Review is accept-ready, but approval quorum is incomplete "
+                f"({approval_progress})."
+            ),
+            next_action="Collect the required current decision from a qualified human.",
+            integration_ready=False,
+            **common,
+        )
+    if state in {"accept-ready", "accepted", "completed"}:
+        return _LifecycleView(
+            attention="ready-to-complete",
+            why="Recorded current proof satisfies the lifecycle completion candidate.",
+            next_action="Reconcile the terminal lifecycle state from externally verified proof.",
+            integration_ready=True,
+            **common,
+        )
+
+    return _LifecycleView(
+        attention="blocked",
+        why=_first_error_message(candidate),
+        next_action="Inspect the current kernel diagnostics and repair the blocked proof.",
+        integration_ready=False,
+        **common,
+    )
 
 
-def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
-    if work.status in {"closed", "completed", "done"}:
+def _first_error_message(projection: Any) -> str:
+    if projection.errors:
+        return projection.errors[0].message
+    return f"The governance kernel derives {projection.derived_state}."
+
+
+def _integration_state(
+    work: Any,
+    context: _ReadContext,
+    lifecycle: _LifecycleView,
+) -> str:
+    if lifecycle.attention == "closed":
         return "closed"
     if _pending_integration_plans_for_work(work, context):
         return "pending-plan"
@@ -685,143 +674,11 @@ def _integration_state(workspace: Workspace, work: Any, context: _ReadContext) -
     decided_state = _latest_decided_integration_plan_state_for_work(work, context)
     if decided_state:
         return decided_state
-    attempt = _attempt_for_work(context, work)
-    if attempt and _low_risk_receipt_ready(work, attempt, context):
-        return "receipt-ready"
-    review = context.latest_review_by_work.get(work.id)
-    if (
-        review
-        and review.verdict == "accept-ready"
-        and not _current_review_errors(workspace, review, context)
-        and _approval_quorum_met(work, review, context)
-    ):
+    if lifecycle.integration_ready:
         return "ready"
     if context.open_decision_by_work.get(work.id):
         return "blocked-by-decision"
     return "not-ready"
-
-
-def _approval_progress(workspace: Workspace, work: Any, context: _ReadContext) -> str:
-    review = context.latest_review_by_work.get(work.id)
-    if review is None or (
-        review.verdict == "accept-ready"
-        and _current_review_errors(workspace, review, context)
-    ):
-        return f"0/{work.required_approval_count}"
-    count = _qualified_approval_count(work, review, context)
-    return f"{count}/{work.required_approval_count}"
-
-
-def _acceptance_state(workspace: Workspace, work: Any, context: _ReadContext) -> str:
-    acceptance = context.latest_acceptance_by_work.get(work.id)
-    if acceptance is not None:
-        if acceptance.status != "accepted":
-            return acceptance.status
-        review = context.latest_review_by_work.get(work.id)
-        if review is None or _current_review_errors(workspace, review, context):
-            return "stale"
-        latest_for_human = _latest_decisions_by_human(work, review, context).get(
-            acceptance.human_id
-        )
-        if latest_for_human is not None and not _is_approval(latest_for_human):
-            return "revoked"
-        if (
-            acceptance.reviewed_head != review.reviewed_head
-            or acceptance.review_reference != review.id
-            or acceptance.evidence_reference != review.evidence_reference
-            or acceptance.receipt_hash != review.receipt_hash
-            or not _approval_quorum_met(work, review, context)
-        ):
-            return "stale"
-        return "accepted"
-    review = context.latest_review_by_work.get(work.id)
-    if (
-        review
-        and review.verdict == "accept-ready"
-        and not _current_review_errors(workspace, review, context)
-        and _approval_quorum_met(work, review, context)
-    ):
-        return "ready-to-record"
-    if work.required_approval_count == 0 and work.risk in {"R1", "R2"}:
-        return "receipt-path"
-    return "pending"
-
-
-def _authority_state(workspace: Workspace, work: Any) -> str:
-    from .authority import authority_check
-
-    result = authority_check(workspace, work.id, "team-safe")
-    return "ok" if result["ok"] else "needs-adjustment"
-
-
-def _current_review_errors(
-    workspace: Workspace,
-    review: Any,
-    context: _ReadContext,
-) -> list[str]:
-    cached = context.review_binding_errors.get(review.id)
-    if cached is None:
-        cached = current_review_binding_errors(
-            workspace,
-            review,
-            journal_context=context.journal_verification,
-        )
-        context.review_binding_errors[review.id] = cached
-    return cached
-
-
-def _approval_quorum_met(work: Any, review: Any, context: _ReadContext) -> bool:
-    if work.required_approval_count == 0:
-        return True
-    return _qualified_approval_count(work, review, context) >= work.required_approval_count
-
-
-def _qualified_approval_count(work: Any, review: Any, context: _ReadContext) -> int:
-    seen_humans: set[str] = set()
-    for decision in _latest_decisions_by_human(work, review, context).values():
-        if not _is_approval(decision):
-            continue
-        if review.binding_version and (
-            decision.review_reference != review.id
-            or decision.evidence_reference != review.evidence_reference
-        ):
-            continue
-        if work.required_approval_capability:
-            human = context.humans_by_id.get(decision.human_id)
-            if not human or work.required_approval_capability not in human.approval_capabilities:
-                continue
-        seen_humans.add(decision.human_id)
-    return len(seen_humans)
-
-
-def _latest_decisions_by_human(
-    work: Any, review: Any, context: _ReadContext
-) -> dict[str, Any]:
-    latest: dict[str, Any] = {}
-    for decision in context.human_decisions_by_work.get(work.id, []):
-        if decision.work_item_id != work.id or decision.reviewed_head != review.reviewed_head:
-            continue
-        previous = latest.get(decision.human_id)
-        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
-            latest[decision.human_id] = decision
-    return latest
-
-
-def _decision_order_key(decision: Any) -> tuple[datetime, str]:
-    try:
-        timestamp = datetime.fromisoformat(
-            str(getattr(decision, "timestamp", "")).replace("Z", "+00:00")
-        )
-    except ValueError:
-        timestamp = datetime.min.replace(tzinfo=timezone.utc)
-    return (timestamp, str(getattr(decision, "id", "")))
-
-
-def _is_approval(decision: Any) -> bool:
-    return decision.status in {"accepted", "approved"} and decision.decision in {
-        "accepted",
-        "approved",
-    }
 
 
 def _active_attempts_for_work(work: Any, context: _ReadContext) -> list[dict[str, Any]]:
@@ -870,49 +727,17 @@ def _latest_decided_integration_plan_state_for_work(work: Any, context: _ReadCon
     return f"plan-{plan.status}"
 
 
-def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> bool:
+def _ai_safe_to_proceed(attention: str) -> bool:
     if attention in {
         "needs-human-decision",
         "needs-review",
         "ready-to-integrate",
-        "receipt-ready",
+        "ready-to-complete",
         "blocked",
         "closed",
     }:
         return False
-    recommended, _ = recommend_intensity(work)
-    if recommended == "high" and _attempt_for_work(context, work) is None:
-        return False
     return True
-
-
-def _low_risk_receipt_ready(work: Any, attempt: Any, context: _ReadContext) -> bool:
-    if work.risk not in {"R1", "R2"}:
-        return False
-    if work.required_approval_count != 0:
-        return False
-    if attempt.status not in {"complete", "completed"}:
-        return False
-    receipt = context.latest_receipt_by_work.get(work.id)
-    return receipt is not None and receipt.attempt_id == attempt.id and not receipt.external_writes
-
-
-def _learning_signal(context: _ReadContext, palari: Any | None) -> str:
-    if palari is None:
-        return ""
-    linked_outcomes = [
-        context.outcomes_by_id[outcome_id]
-        for outcome_id in palari.outcomes
-        if outcome_id in context.outcomes_by_id
-    ]
-    if not linked_outcomes:
-        return ""
-    latest = max(linked_outcomes, key=_record_time_key)
-    if latest.follow_up_needed:
-        return f"Outcome follow-up: {latest.follow_up_needed[0]}"
-    if latest.model_worker_notes:
-        return f"Model note: {latest.model_worker_notes[0]}"
-    return latest.summary
 
 
 def _attempt_for_work(context: _ReadContext, work: Any) -> Any | None:

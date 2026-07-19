@@ -1,16 +1,15 @@
 from __future__ import annotations
 
+import io
 import json
-import os
-import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -22,103 +21,78 @@ from palari_company_os.agent_session_contract import (
     compile_agent_session_contract,
     session_contract_error,
 )
+from palari_company_os.cli_output_agent import print_agent_session_contract
 from palari_company_os.pcaw_canonical import canonical_sha256
+from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
+from tests.workspace_fixture import write_current_agent_workspace
 
 
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+WORK_ID = "WORK-SESSION-CONTRACT"
+PALARI_ID = "PALARI-STEWARD"
+ALLOWED_PATH = "README.md"
 
 
 class AgentSessionContractTests(unittest.TestCase):
-    def test_compiler_is_deterministic_and_omits_runtime_and_local_data(self) -> None:
-        packet = build_agent_brief(
-            Workspace.load(WORKSPACE),
-            "WORK-0003",
-            "PALARI-SOFIA",
-            "execute",
-        )
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self._temporary.cleanup)
+        self.workspace_file = Path(self._temporary.name) / "workspace.json"
+        self._write_workspace(self.workspace_file)
+
+    def test_compiler_is_deterministic_portable_and_reports_enforcement(self) -> None:
+        packet = self._packet()
         first = compile_agent_session_contract(packet)
         packet["created_at"] = "2099-12-31T23:59:59Z"
         second = compile_agent_session_contract(packet)
 
         self.assertEqual(first, second)
         self.assertEqual(first["status"], "ready")
-        self.assertFalse(first["contract"]["packet_binding"]["grants_authority"])
-        self.assertTrue(first["contract"]["packet_binding"]["claim_required"])
+        binding = first["contract"]["packet_binding"]
+        self.assertFalse(binding["grants_authority"])
+        self.assertTrue(binding["claim_required"])
+        self.assertEqual(first["contract"]["scope"]["write_paths"], [ALLOWED_PATH])
+        properties = {
+            item["id"]: item["status"]
+            for item in first["contract"]["enforcement"]["properties"]
+        }
+        self.assertEqual(properties["human-authority"], "palari-enforced")
+        self.assertEqual(properties["write-boundary-before-tool"], "adapter-required")
+        self.assertEqual(properties["read-boundary"], "advisory")
+        self.assertEqual(first["contract"]["enforcement"]["adapter"], "none")
+
         serialized = json.dumps(first, sort_keys=True)
-        self.assertNotIn(str(REPO_ROOT), serialized)
+        self.assertNotIn(str(self.workspace_file.parent), serialized)
         self.assertNotIn("created_at", serialized)
         self.assertNotIn("last_read_at", serialized)
         self.assertNotIn('"label"', serialized)
         self.assertNotIn('"notes"', serialized)
 
-    def test_cli_bytes_are_stable_across_process_timezone_and_locale(self) -> None:
-        first_env = {"TZ": "UTC", "LC_ALL": "C"}
-        second_env = {"TZ": "Pacific/Honolulu", "LC_ALL": "C.UTF-8"}
-
-        first = self.run_cli(
-            "agent",
-            "brief",
-            "WORK-0003",
-            "--as",
-            "PALARI-SOFIA",
-            "--session-contract",
-            "--json",
-            extra_env=first_env,
-        )
-        second = self.run_cli(
-            "agent",
-            "brief",
-            "WORK-0003",
-            "--as",
-            "PALARI-SOFIA",
-            "--session-contract",
-            "--json",
-            extra_env=second_env,
-        )
-
-        self.assertEqual(first.stdout, second.stdout)
-
-    def test_blocked_packet_compiles_without_execution_authority(self) -> None:
-        packet = build_agent_brief(
-            Workspace.load(WORKSPACE),
-            "WORK-DOES-NOT-EXIST",
-            "PALARI-SOFIA",
+    def test_blocked_and_unsafe_packets_fail_closed(self) -> None:
+        blocked_packet = build_agent_brief(
+            Workspace.load(self.workspace_file),
+            "WORK-MISSING",
+            PALARI_ID,
             "execute",
         )
+        blocked = compile_agent_session_contract(blocked_packet)
+        self.assertEqual(blocked["status"], "blocked")
+        self.assertEqual(blocked["contract"]["scope"]["write_paths"], [])
+        self.assertIn("MISSING_WORK_ITEM", self._blocker_codes(blocked))
 
-        contract = compile_agent_session_contract(packet)
+        for paths, message in (
+            (["../outside.txt"], "unsafe path"),
+            ([ALLOWED_PATH, ALLOWED_PATH], "duplicate paths"),
+        ):
+            with self.subTest(message=message):
+                packet = self._packet()
+                packet["allowed_paths"]["write"] = paths
+                packet["context_hash"] = _context_hash(packet)
+                with self.assertRaisesRegex(WorkspaceError, message):
+                    compile_agent_session_contract(packet)
 
-        self.assertEqual(contract["status"], "blocked")
-        self.assertEqual(
-            contract["contract"]["packet_binding"]["packet_status"],
-            "blocked",
-        )
-        self.assertEqual(contract["contract"]["scope"]["write_paths"], [])
-        self.assertIn("MISSING_WORK_ITEM", self._blocker_codes(contract))
-
-    def test_unsafe_or_duplicate_paths_fail_closed(self) -> None:
-        workspace = Workspace.load(WORKSPACE)
-        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
-        packet["allowed_paths"]["write"] = ["../outside.txt"]
-        packet["context_hash"] = _context_hash(packet)
-        with self.assertRaisesRegex(WorkspaceError, "unsafe path"):
-            compile_agent_session_contract(packet)
-
-        packet = build_agent_brief(workspace, "WORK-0003", "PALARI-SOFIA", "execute")
-        allowed = packet["allowed_paths"]["write"][0]
-        packet["allowed_paths"]["write"] = [allowed, allowed]
-        packet["context_hash"] = _context_hash(packet)
-        with self.assertRaisesRegex(WorkspaceError, "duplicate paths"):
-            compile_agent_session_contract(packet)
-
-    def test_tamper_unknown_fields_and_enforcement_upgrade_are_rejected(self) -> None:
-        packet = build_agent_brief(
-            Workspace.load(WORKSPACE),
-            "WORK-0003",
-            "PALARI-SOFIA",
-            "execute",
-        )
+    def test_schema_tamper_and_authority_substitution_are_rejected(self) -> None:
+        packet = self._packet()
         contract = compile_agent_session_contract(packet)
 
         unknown = deepcopy(contract)
@@ -140,257 +114,106 @@ class AgentSessionContractTests(unittest.TestCase):
         )
         self.assertIn("enforcement declaration", session_contract_error(upgraded))
 
-    def test_enforcement_report_distinguishes_palari_adapter_and_advisory(self) -> None:
-        packet = build_agent_brief(
-            Workspace.load(WORKSPACE),
-            "WORK-0003",
-            "PALARI-SOFIA",
-            "execute",
+        changed_packet = deepcopy(packet)
+        changed_packet["allowed_paths"]["write"] = ["docs/changed.md"]
+        changed_packet["context_hash"] = _context_hash(changed_packet)
+        self.assertIn(
+            "differs from the current packet authority",
+            session_contract_error(contract, expected_packet=changed_packet),
         )
-        contract = compile_agent_session_contract(packet)
-        properties = {
-            item["id"]: item["status"]
-            for item in contract["contract"]["enforcement"]["properties"]
-        }
 
-        self.assertEqual(properties["human-authority"], "palari-enforced")
-        self.assertEqual(properties["write-boundary-before-tool"], "adapter-required")
-        self.assertEqual(properties["read-boundary"], "advisory")
-        self.assertEqual(contract["contract"]["enforcement"]["adapter"], "none")
+    def test_started_claim_binds_and_reuses_the_exact_persisted_contract(self) -> None:
+        workspace = Workspace.load(self.workspace_file)
+        first = start_agent(workspace, self.workspace_file, WORK_ID, PALARI_ID)
+        first_claim = first["start"]["claim"]
+        contract_path = self.workspace_file.parent / first_claim["session_contract_path"]
+        first_bytes = contract_path.read_bytes()
 
-    def test_start_persists_and_claim_binds_the_exact_contract(self) -> None:
-        with self.temp_workspace_file() as workspace_file:
-            workspace = Workspace.load(workspace_file)
-            started = start_agent(
-                workspace,
-                workspace_file,
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            claim = started["start"]["claim"]
-            relative = claim["session_contract_path"]
-            path = workspace_file.parent / relative
-            persisted = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(first_claim["schema_version"], "palari.agent_claim.v2")
+        self.assertEqual(
+            json.loads(first_bytes)["contract_digest"],
+            first_claim["session_contract_digest"],
+        )
+        self.assertEqual(
+            first["start"]["session_contract"]["contract_digest"],
+            first_claim["session_contract_digest"],
+        )
+        check = build_agent_check(
+            Workspace.load(self.workspace_file), WORK_ID, PALARI_ID
+        )
+        self.assertEqual(self._check(check, "CLAIM_OWNED")["status"], "pass")
 
-            self.assertEqual(claim["schema_version"], "palari.agent_claim.v2")
-            self.assertTrue(path.is_file())
-            self.assertEqual(
-                persisted["contract_digest"],
-                claim["session_contract_digest"],
-            )
-            self.assertEqual(
-                started["start"]["session_contract"]["contract_digest"],
-                claim["session_contract_digest"],
-            )
-            check = build_agent_check(
-                Workspace.load(workspace_file),
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            self.assertEqual(self._check(check, "CLAIM_OWNED")["status"], "pass")
+        release_agent(workspace, self.workspace_file, WORK_ID, PALARI_ID)
+        second = start_agent(
+            Workspace.load(self.workspace_file),
+            self.workspace_file,
+            WORK_ID,
+            PALARI_ID,
+        )
+        second_claim = second["start"]["claim"]
+        second_bytes = (
+            self.workspace_file.parent / second_claim["session_contract_path"]
+        ).read_bytes()
+        self.assertEqual(
+            first_claim["session_contract_digest"],
+            second_claim["session_contract_digest"],
+        )
+        self.assertEqual(first_bytes, second_bytes)
 
-    def test_missing_tampered_and_duplicate_key_contracts_fail_claim_check(self) -> None:
-        mutations = ("missing", "tampered", "duplicate")
-        for mutation in mutations:
-            with self.subTest(mutation=mutation), self.temp_workspace_file() as workspace_file:
+    def test_claim_check_rejects_missing_tampered_and_escaped_contracts(self) -> None:
+        for mutation in ("missing", "tampered", "traversal", "symlink"):
+            with self.subTest(mutation=mutation), self._fresh_workspace() as workspace_file:
                 started = start_agent(
                     Workspace.load(workspace_file),
                     workspace_file,
-                    "WORK-0003",
-                    "PALARI-SOFIA",
+                    WORK_ID,
+                    PALARI_ID,
                 )
                 claim = started["start"]["claim"]
-                path = workspace_file.parent / claim["session_contract_path"]
+                contract_path = workspace_file.parent / claim["session_contract_path"]
+                claim_path = workspace_file.parent / ".palari" / "claims" / f"{WORK_ID}.json"
+
                 if mutation == "missing":
-                    path.unlink()
-                elif mutation == "tampered":
-                    contract = json.loads(path.read_text(encoding="utf-8"))
-                    contract["contract"]["scope"]["write_paths"] = ["outside.txt"]
-                    path.write_text(json.dumps(contract), encoding="utf-8")
-                else:
-                    original = path.read_text(encoding="utf-8").lstrip()
-                    path.write_text(
-                        '{"status":"ready","status":"blocked",'
-                        + original.removeprefix("{"),
-                        encoding="utf-8",
-                    )
-
-                check = build_agent_check(
-                    Workspace.load(workspace_file),
-                    "WORK-0003",
-                    "PALARI-SOFIA",
-                )
-                owned = self._check(check, "CLAIM_OWNED")
-                self.assertEqual(owned["status"], "fail")
-                message = str(owned["message"]).lower().replace("_", " ")
-                self.assertIn("session contract", message)
-                self.assertIn("agent start", str(owned["next_command"]))
-
-    def test_new_claim_cannot_drop_both_contract_binding_fields(self) -> None:
-        with self.temp_workspace_file() as workspace_file:
-            started = start_agent(
-                Workspace.load(workspace_file),
-                workspace_file,
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            claim = started["start"]["claim"]
-            claim.pop("session_contract_path")
-            claim.pop("session_contract_digest")
-            claim_path = (
-                workspace_file.parent
-                / ".palari"
-                / "claims"
-                / "WORK-0003.json"
-            )
-            claim_path.write_text(json.dumps(claim), encoding="utf-8")
-
-            check = build_agent_check(
-                Workspace.load(workspace_file),
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-
-            owned = self._check(check, "CLAIM_OWNED")
-            self.assertEqual(owned["status"], "fail")
-            message = str(owned["message"]).lower().replace("_", " ")
-            self.assertIn("session contract", message)
-            self.assertIn("agent start", str(owned["next_command"]))
-
-    def test_legacy_v1_claim_without_contract_binding_remains_readable(self) -> None:
-        with self.temp_workspace_file() as workspace_file:
-            started = start_agent(
-                Workspace.load(workspace_file),
-                workspace_file,
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            claim = started["start"]["claim"]
-            claim["schema_version"] = "palari.agent_claim.v1"
-            claim.pop("session_contract_path")
-            claim.pop("session_contract_digest")
-            claim_path = (
-                workspace_file.parent
-                / ".palari"
-                / "claims"
-                / "WORK-0003.json"
-            )
-            claim_path.write_text(json.dumps(claim), encoding="utf-8")
-
-            check = build_agent_check(
-                Workspace.load(workspace_file),
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-
-            self.assertEqual(self._check(check, "CLAIM_OWNED")["status"], "pass")
-
-    def test_contract_path_traversal_and_symlink_escape_fail_claim_check(self) -> None:
-        for mutation in ("traversal", "symlink"):
-            with self.subTest(mutation=mutation), self.temp_workspace_file() as workspace_file:
-                started = start_agent(
-                    Workspace.load(workspace_file),
-                    workspace_file,
-                    "WORK-0003",
-                    "PALARI-SOFIA",
-                )
-                claim = started["start"]["claim"]
-                claim_path = (
-                    workspace_file.parent
-                    / ".palari"
-                    / "claims"
-                    / "WORK-0003.json"
-                )
-                if mutation == "traversal":
-                    claim["session_contract_path"] = "../outside.json"
-                else:
-                    contract_path = workspace_file.parent / claim["session_contract_path"]
-                    outside_path = workspace_file.parent.parent / "outside-contract.json"
-                    outside_path.write_bytes(contract_path.read_bytes())
                     contract_path.unlink()
-                    contract_path.symlink_to(outside_path)
-                claim_path.write_text(json.dumps(claim), encoding="utf-8")
+                elif mutation == "tampered":
+                    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+                    contract["contract"]["scope"]["write_paths"] = ["outside.txt"]
+                    contract_path.write_text(json.dumps(contract), encoding="utf-8")
+                elif mutation == "traversal":
+                    claim["session_contract_path"] = "../outside.json"
+                    claim_path.write_text(json.dumps(claim), encoding="utf-8")
+                else:
+                    outside = workspace_file.parent / "outside-contract.json"
+                    outside.write_bytes(contract_path.read_bytes())
+                    contract_path.unlink()
+                    contract_path.symlink_to(outside)
 
                 check = build_agent_check(
-                    Workspace.load(workspace_file),
-                    "WORK-0003",
-                    "PALARI-SOFIA",
+                    Workspace.load(workspace_file), WORK_ID, PALARI_ID
                 )
-
                 owned = self._check(check, "CLAIM_OWNED")
                 self.assertEqual(owned["status"], "fail")
-                message = str(owned["message"]).lower().replace("_", " ")
-                self.assertIn("session contract", message)
+                self.assertIn(
+                    "session contract",
+                    str(owned["message"]).lower().replace("_", " "),
+                )
                 self.assertIn("agent start", str(owned["next_command"]))
 
-    def test_current_packet_authority_change_stales_the_claim(self) -> None:
-        with self.temp_workspace_file() as workspace_file:
-            start_agent(
-                Workspace.load(workspace_file),
-                workspace_file,
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            raw = json.loads(workspace_file.read_text(encoding="utf-8"))
-            work = next(item for item in raw["work_items"] if item["id"] == "WORK-0003")
-            work["scope"] = "Tighten example onboarding copy and the launch summary."
-            changed = Workspace.from_raw(raw, workspace_file.parent)
+    def test_text_output_is_a_thin_summary_of_the_contract(self) -> None:
+        contract = compile_agent_session_contract(self._packet())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            print_agent_session_contract(contract, False)
 
-            check = build_agent_check(changed, "WORK-0003", "PALARI-SOFIA")
+        rendered = output.getvalue()
+        self.assertIn(f"Portable session contract: {contract['contract_id']}", rendered)
+        self.assertIn("Grants authority: no", rendered)
+        self.assertIn("adapter: none", rendered)
 
-            owned = self._check(check, "CLAIM_OWNED")
-            self.assertEqual(owned["status"], "fail")
-            self.assertIn("context hash differs", str(owned["message"]))
-
-    def test_release_and_restart_reuses_identical_contract(self) -> None:
-        with self.temp_workspace_file() as workspace_file:
-            workspace = Workspace.load(workspace_file)
-            first = start_agent(workspace, workspace_file, "WORK-0003", "PALARI-SOFIA")
-            first_claim = first["start"]["claim"]
-            first_bytes = (workspace_file.parent / first_claim["session_contract_path"]).read_bytes()
-            release_agent(workspace, workspace_file, "WORK-0003", "PALARI-SOFIA")
-            second = start_agent(
-                Workspace.load(workspace_file),
-                workspace_file,
-                "WORK-0003",
-                "PALARI-SOFIA",
-            )
-            second_claim = second["start"]["claim"]
-            second_bytes = (
-                workspace_file.parent / second_claim["session_contract_path"]
-            ).read_bytes()
-
-            self.assertEqual(
-                first_claim["session_contract_digest"],
-                second_claim["session_contract_digest"],
-            )
-            self.assertEqual(first_bytes, second_bytes)
-
-    def test_cli_emits_json_and_concise_text_contracts(self) -> None:
-        json_result = self.run_cli(
-            "agent",
-            "brief",
-            "WORK-0003",
-            "--as",
-            "PALARI-SOFIA",
-            "--session-contract",
-            "--json",
+    def _packet(self) -> dict[str, Any]:
+        return build_agent_brief(
+            Workspace.load(self.workspace_file), WORK_ID, PALARI_ID, "execute"
         )
-        payload = json.loads(json_result.stdout)
-        self.assertEqual(payload["schema_version"], "palari.agent_session_contract.v1")
-        self.assertFalse(payload["contract"]["packet_binding"]["grants_authority"])
-
-        text_result = self.run_cli(
-            "agent",
-            "brief",
-            "WORK-0003",
-            "--as",
-            "PALARI-SOFIA",
-            "--session-contract",
-        )
-        self.assertIn("Portable session contract:", text_result.stdout)
-        self.assertIn("Grants authority: no", text_result.stdout)
-        self.assertIn("adapter: none", text_result.stdout)
 
     @staticmethod
     def _blocker_codes(contract: dict[str, Any]) -> set[str]:
@@ -404,37 +227,43 @@ class AgentSessionContractTests(unittest.TestCase):
         return next(item for item in payload["checks"] if item["code"] == code)
 
     @contextmanager
-    def temp_workspace_file(self) -> Iterator[Path]:
+    def _fresh_workspace(self) -> Iterator[Path]:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "workspace"
-            shutil.copytree(WORKSPACE, root, ignore=shutil.ignore_patterns(".palari"))
-            yield root / "workspace.json"
+            workspace_file = Path(directory) / "workspace.json"
+            self._write_workspace(workspace_file)
+            yield workspace_file
 
-    def run_cli(
-        self,
-        *args: str,
-        extra_env: dict[str, str] | None = None,
-    ) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        env.update(extra_env or {})
-        return subprocess.run(
-            [
-                sys.executable,
-                "-S",
-                "-m",
-                "palari_company_os",
-                "--workspace",
-                str(WORKSPACE),
-                *args,
-            ],
-            cwd=REPO_ROOT,
-            env=env,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
+    @staticmethod
+    def _write_workspace(workspace_file: Path) -> None:
+        write_current_agent_workspace(workspace_file)
+        store = load_store(workspace_file)
+        store.data["work_items"] = [
+            {
+                "id": WORK_ID,
+                "title": "Compile one portable agent contract",
+                "goal": "GOAL-REPO-0001",
+                "palari": PALARI_ID,
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R1",
+                "intensity": "light",
+                "required_approval_count": 0,
+                "scope": "Modify only the declared portable artifact.",
+                "acceptance_target": "The exact contract remains bound to the claim.",
+                "status": "active",
+                "allowed_resources": [ALLOWED_PATH],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": [ALLOWED_PATH],
+                "path_intents": [{"path": ALLOWED_PATH, "intent": "modify"}],
+                "forbidden_actions": ["deploy"],
+                "verification_expectations": ["focused contract tests pass"],
+            }
+        ]
+        for palari in store.data["palaris"]:
+            if palari["id"] == PALARI_ID:
+                palari["active_work"] = [WORK_ID]
+        write_store(store)
+        (workspace_file.parent / ALLOWED_PATH).write_text(
+            "current fixture\n", encoding="utf-8"
         )
 
 

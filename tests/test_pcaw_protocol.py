@@ -21,6 +21,7 @@ from palari_company_os.pcaw_canonical import canonical_json_bytes, canonical_sha
 from palari_company_os.pcaw_export import export_pcaw_statement
 from palari_company_os.pcaw_protocol import verify_pcaw_bytes, verify_pcaw_file
 from palari_company_os.pcaw_subjects import SubjectError, hash_subject, validate_subject_name
+from palari_company_os.workspace import WorkspaceError
 
 
 ACCEPTED_VECTOR = REPO_ROOT / "spec" / "pcaw" / "v1" / "vectors" / "valid" / "accepted"
@@ -387,6 +388,41 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertEqual(result["claimed_state"], "in-progress")
         self.assertEqual(statement["predicate"]["claimed_state"], "in-progress")
         self.assertNotEqual(result["claimed_state"], result["derived_lifecycle_state"])
+
+    def test_export_rejects_local_deletion_tombstones_before_writing(self) -> None:
+        statement = json.loads(
+            (ACCEPTED_VECTOR / "statement.json").read_text(encoding="utf-8")
+        )
+        case = GovernanceCase.from_dict(statement["predicate"]["governance_case"])
+        case = replace(
+            case,
+            evidence=replace(
+                case.evidence,
+                artifact_hashes=(
+                    replace(
+                        case.evidence.artifact_hashes[0],
+                        sha256="absent",
+                        status="absent",
+                    ),
+                ),
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            proof_file = Path(directory) / "proof.json"
+            with (
+                patch("palari_company_os.pcaw_export.Workspace.load", return_value=object()),
+                patch(
+                    "palari_company_os.pcaw_export.governance_case_from_workspace",
+                    return_value=(case, []),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    "PCAW v1 proves present artifact bytes only",
+                ):
+                    export_pcaw_statement(directory, case.contract.id, proof_file)
+
+            self.assertFalse(proof_file.exists())
 
 
 def _codes(report: dict[str, object]) -> set[str]:

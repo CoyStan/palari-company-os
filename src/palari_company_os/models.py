@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, TypeVar
+from typing import Any
 
 
 Record = dict[str, Any]
-T = TypeVar("T")
 
 
 def _string(record: Record, key: str, default: str = "") -> str:
@@ -169,7 +168,6 @@ class AuthorityProfile:
     mode: str = "custom"
     summary: str = ""
     require_human_for_risks: list[str] = field(default_factory=list)
-    receipt_ready_risks: list[str] = field(default_factory=list)
     minimum_approval_count: int = 1
     r5_approval_count: int = 2
     required_approval_capability: str = ""
@@ -184,7 +182,6 @@ class AuthorityProfile:
             mode=_string(record, "mode", "custom"),
             summary=_string(record, "summary"),
             require_human_for_risks=_strings(record, "require_human_for_risks"),
-            receipt_ready_risks=_strings(record, "receipt_ready_risks"),
             minimum_approval_count=_integer(record, "minimum_approval_count", 1),
             r5_approval_count=_integer(record, "r5_approval_count", 2),
             required_approval_capability=_string(record, "required_approval_capability"),
@@ -344,6 +341,9 @@ class WorkItem:
     risk: str = "R1"
     intensity: str = "light"
     status: str = "proposed"
+    terminal_disposition: str = ""
+    terminal_reason: str = ""
+    successor_work_item_id: str = ""
     scope: str = ""
     allowed_resources: list[str] = field(default_factory=list)
     allowed_sources: list[str] = field(default_factory=list)
@@ -367,6 +367,10 @@ class WorkItem:
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
+        declared_status = _string(record, "status", "proposed")
+        terminal_disposition = (
+            declared_status if declared_status in {"superseded", "abandoned"} else ""
+        )
         return cls(
             id=_require_id(record),
             title=_string(record, "title"),
@@ -377,7 +381,14 @@ class WorkItem:
             dependency_ids=_strings(record, "dependency_ids"),
             risk=_string(record, "risk", "R1"),
             intensity=_string(record, "intensity", "light"),
-            status=_string(record, "status", "proposed"),
+            # Non-success retirement must never satisfy consumers that treat
+            # ``closed`` as successful completion. Preserve the exact raw
+            # disposition separately for audit/output while presenting a
+            # fail-closed runtime status to legacy completion consumers.
+            status="blocked" if terminal_disposition else declared_status,
+            terminal_disposition=terminal_disposition,
+            terminal_reason=_string(record, "terminal_reason"),
+            successor_work_item_id=_string(record, "successor_work_item_id"),
             scope=_string(record, "scope"),
             allowed_resources=_strings(record, "allowed_resources"),
             allowed_sources=_strings(record, "allowed_sources"),
@@ -932,7 +943,12 @@ class Outcome:
 
 def to_plain(value: Any) -> Any:
     if hasattr(value, "__dataclass_fields__"):
-        return asdict(value)
+        record = asdict(value)
+        if isinstance(value, WorkItem):
+            disposition = record.pop("terminal_disposition", "")
+            if disposition:
+                record["status"] = disposition
+        return record
     if isinstance(value, list):
         return [to_plain(item) for item in value]
     if isinstance(value, dict):

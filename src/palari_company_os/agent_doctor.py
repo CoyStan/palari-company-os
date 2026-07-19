@@ -5,7 +5,6 @@ from typing import Any
 
 from .agent_loop import build_agent_loop
 from .agent_operation import AgentOperation, ensure_agent_operation
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -15,7 +14,6 @@ def build_agent_doctor(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
     """Explain why a work item is or is not safe for an agent right now."""
@@ -25,7 +23,6 @@ def build_agent_doctor(
         work_id,
         palari_id,
         mode,
-        journal_context=journal_context,
         operation=operation,
     )
     loop = build_agent_loop(
@@ -33,7 +30,6 @@ def build_agent_doctor(
         work_id,
         palari_id,
         mode,
-        journal_context=operation_state.journal_context,
         operation=operation_state,
     )
     diagnosis = _diagnosis(loop)

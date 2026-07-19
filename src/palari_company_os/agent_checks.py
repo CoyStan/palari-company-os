@@ -7,7 +7,6 @@ from typing import Any
 from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
 from .agent_runtime import claim_check, read_claim
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -17,7 +16,6 @@ def build_agent_check(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     changed_paths: list[str] | None = None,
     git_diff: bool = False,
     cwd: Path | str | None = None,
@@ -27,7 +25,6 @@ def build_agent_check(
         work_id,
         palari_id,
         mode,
-        journal_context=journal_context,
     )
     checks = _packet_boundary_checks(packet)
     if packet.get("status") == "ready":
@@ -125,7 +122,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             safety.get("receipt_state"),
             pass_states={"ready"},
             missing_message="A receipt is required before claiming this work is done.",
-            next_command=_receipt_command(packet),
+            next_command=_agent_advance_command(packet),
         ),
         _proof_check(
             "EVIDENCE_PRESENT",
@@ -134,7 +131,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             safety.get("evidence_state"),
             pass_states={"passed"},
             missing_message="Evidence is required before claiming this work is done.",
-            next_command=_evidence_command(packet),
+            next_command=_agent_advance_command(packet),
         ),
         _proof_check(
             "REVIEW_PRESENT",
@@ -143,7 +140,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             safety.get("review_state"),
             pass_states={"accept-ready"},
             missing_message="Review is required before claiming this work is done.",
-            next_command=_review_command(packet),
+            next_command=_agent_advance_command(packet),
         ),
         _human_decision_check(packet),
     ]
@@ -269,13 +266,14 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
             "Human decision waits for required proof before approval: "
             f"{', '.join(waiting_on)}.",
             required=True,
+            next_command=_agent_advance_command(packet),
         )
     return _check(
         "HUMAN_DECISION_PRESENT",
         "fail",
         f"Human decision quorum is incomplete ({safety.get('approval_progress', 'unknown')}).",
         required=True,
-        next_command=_human_decision_command(packet),
+        next_command=_agent_advance_command(packet),
     )
 
 
@@ -310,7 +308,7 @@ def _external_write_check(packet: dict[str, Any]) -> dict[str, Any]:
 
 def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: bool) -> list[str]:
     if ok:
-        return list(packet.get("next_allowed_commands", []))
+        return _agent_check_commands(packet.get("next_allowed_commands", []))
     commands: list[str] = []
     for check in checks:
         command = check.get("next_command", "")
@@ -318,17 +316,29 @@ def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: boo
             check.get("required")
             and check.get("status") == "fail"
             and command
-            and command not in commands
         ):
-            commands.append(command)
-    for command in packet.get("next_allowed_commands", []):
-        if command and command not in commands:
-            commands.append(command)
-    for command in packet_commands_from_checks(packet):
-        if command and command not in commands:
-            commands.append(command)
+            _append_agent_check_command(commands, command)
+    for command in (
+        list(packet.get("next_allowed_commands", []))
+        + packet_commands_from_checks(packet)
+    ):
+        _append_agent_check_command(commands, command)
     _prioritize_review_handoff(commands, packet)
     return commands
+
+
+def _agent_check_commands(commands: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for command in commands:
+        _append_agent_check_command(normalized, command)
+    return normalized
+
+
+def _append_agent_check_command(commands: list[str], command: str) -> None:
+    if not command:
+        return
+    if command not in commands:
+        commands.append(command)
 
 
 def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
@@ -363,48 +373,10 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
         commands.insert(0, command)
 
 
-def _receipt_command(packet: dict[str, Any]) -> str:
+def _agent_advance_command(packet: dict[str, Any]) -> str:
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
-    actor = packet.get("agent", {}).get("id", "PALARI-ID")
-    attempt_id = _attempt(packet).get("id", "ATTEMPT-ID")
-    return (
-        "palari receipt record RECEIPT-ID "
-        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {actor} --json"
-    )
-
-
-def _evidence_command(packet: dict[str, Any]) -> str:
-    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
-    attempt = _attempt(packet)
-    attempt_id = attempt.get("id", "ATTEMPT-ID")
-    head_sha = attempt.get("head_sha", "HEAD")
-    return (
-        "palari evidence record EVIDENCE-ID "
-        f"--work-item-id {work_id} --attempt-id {attempt_id} "
-        f"--head-sha {head_sha} --status passed --summary \"verification passed\" --json"
-    )
-
-
-def _review_command(packet: dict[str, Any]) -> str:
-    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
-    return f"palari review guide {work_id} --json"
-
-
-def _human_decision_command(packet: dict[str, Any]) -> str:
-    work_id = packet.get("work_item", {}).get("id", "WORK-ID")
-    proof = packet.get("proof_state", {})
-    evidence = proof.get("evidence") if isinstance(proof.get("evidence"), dict) else {}
-    review = proof.get("review") if isinstance(proof.get("review"), dict) else {}
-    reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or "HEAD"
-    evidence_ref = evidence.get("id", "EVIDENCE-ID")
-    review_ref = review.get("id", "REVIEW-ID")
-    return (
-        "palari human-decision record HUMAN-DECISION-ID "
-        f"--work-item-id {work_id} --human-id HUMAN-ID "
-        f"--reviewed-head {reviewed_head} --decision accepted --status accepted "
-        f"--quorum-status met --evidence-reference {evidence_ref} "
-        f"--review-reference {review_ref} --json"
-    )
+    palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
+    return f"palari agent advance {work_id} --as {palari_id} --json"
 
 
 def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:
@@ -435,11 +407,6 @@ def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:
 
 def _proof_present(record: Any, state: str | None, pass_states: set[str]) -> bool:
     return record is not None and (not state or state in pass_states)
-
-
-def _attempt(packet: dict[str, Any]) -> dict[str, Any]:
-    attempt = packet.get("proof_state", {}).get("attempt")
-    return attempt if isinstance(attempt, dict) else {}
 
 
 def _approval_progress_met(progress: str) -> bool:

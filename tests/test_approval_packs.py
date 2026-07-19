@@ -20,8 +20,8 @@ from palari_company_os.approval_packs import (
     _batch_policy,
     apply_pack_decision as _apply_pack_decision,
     build_approval_inbox,
-    canonical_pack_bytes,
     evaluate_approval_pack,
+    validate_pack_manifest,
 )
 from palari_company_os.approval_presentations import (
     approval_presentation_digest,
@@ -134,11 +134,11 @@ class ApprovalPackTests(unittest.TestCase):
                     wraps=verify_workspace_journal,
                 ) as verify_journal_once,
                 patch(
-                    "palari_company_os.approval_packs.verify_evidence",
+                    "palari_company_os.pcaw_workspace.verify_evidence",
                     wraps=verify_evidence,
                 ) as evidence_checks,
                 patch(
-                    "palari_company_os.approval_packs.current_review_binding_errors",
+                    "palari_company_os.pcaw_workspace.current_review_binding_errors",
                     wraps=current_review_binding_errors,
                 ) as review_checks,
             ):
@@ -179,7 +179,7 @@ class ApprovalPackTests(unittest.TestCase):
             store = load_store(data_path)
             workspace = Workspace.load(data_path)
             context = JournalVerificationContext()
-            journal_path = data_path.parent / ".palari" / "governance-journal.v1.jsonl"
+            journal_path = data_path.parent / ".palari" / "governance-journal.v2.jsonl"
 
             with patch(
                 "palari_company_os.governance_journal.verify_workspace_journal",
@@ -276,7 +276,27 @@ class ApprovalPackTests(unittest.TestCase):
             handoff["human_action_commands"][0]["command"],
         )
 
-    def test_cli_exposes_inbox_detail_and_one_pack_decision_surface(self) -> None:
+    def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            with patch(
+                "palari_company_os.agent_handoff.approval_inbox",
+                side_effect=WorkspaceError("journal continuity is unavailable"),
+            ):
+                handoff = build_agent_handoff(
+                    Workspace.load(data_path),
+                    "WORK-001",
+                    "PALARI-SOFIA",
+                )
+
+        approval = handoff["human_approval_handoff"]
+        self.assertFalse(approval["approval_pack"]["available"])
+        self.assertEqual(approval["approval_pack"]["mode"], "blocked")
+        self.assertEqual(handoff["human_action_commands"], [])
+        self.assertNotIn("human-decision record", json.dumps(handoff))
+        self.assertIn("journal continuity", approval["approval_pack"]["reason"])
+
+    def test_cli_exposes_inbox_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
             inbox = run_json(
@@ -295,13 +315,6 @@ class ApprovalPackTests(unittest.TestCase):
                 "--approval-inbox",
                 "--select",
                 "WORK-001",
-            )
-            detail = run_json(
-                "--workspace",
-                str(data_path),
-                "detail",
-                "WORK-001",
-                "--json",
             )
             decision = run_json(
                 "--workspace",
@@ -328,10 +341,9 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertIn("Next: palari human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
         self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
-        self.assertTrue(detail["approval_pack"]["available"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
-    def test_risk_friction_policy_keeps_governed_effects_individually_gated(self) -> None:
+    def test_batch_policy_translates_only_structured_kernel_facts(self) -> None:
         def work(**overrides: object) -> SimpleNamespace:
             values = {
                 "title": "Prepare local record",
@@ -344,12 +356,22 @@ class ApprovalPackTests(unittest.TestCase):
             values.update(overrides)
             return SimpleNamespace(**values)
 
-        self.assertEqual(_batch_policy(work(), [])["class"], "local-draft")
-        self.assertTrue(_batch_policy(work(title="Scoped memory proposal"), [])["batchable"])
-        self.assertFalse(_batch_policy(work(allowed_actions=["send email"]), [])["batchable"])
-        self.assertFalse(_batch_policy(work(scope="expand access permission"), [])["batchable"])
-        self.assertFalse(_batch_policy(work(scope="approve legal filing"), [])["batchable"])
-        self.assertFalse(_batch_policy(work(risk="R4"), [])["batchable"])
+        self.assertEqual(_batch_policy(work(), [])["class"], "local-work")
+        for prose_only_change in (
+            {"title": "Scoped memory proposal"},
+            {"allowed_actions": ["send email"]},
+            {"scope": "expand access permission"},
+            {"scope": "approve legal filing"},
+        ):
+            with self.subTest(prose_only_change):
+                self.assertTrue(_batch_policy(work(**prose_only_change), [])["batchable"])
+        self.assertFalse(
+            _batch_policy(work(allowed_actions=["external_write"]), [])["batchable"]
+        )
+        self.assertFalse(_batch_policy(work(), ["OUTBOX-1"])["batchable"])
+        for risk in ("R3", "R4", "R5", "unknown"):
+            with self.subTest(risk=risk):
+                self.assertFalse(_batch_policy(work(risk=risk), [])["batchable"])
 
     def test_one_hundred_items_keep_individual_proof_in_one_review_session(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -375,7 +397,7 @@ class ApprovalPackTests(unittest.TestCase):
             1,
         )
         self.assertEqual(len({item["member_digest"] for item in pack["members"]}), 100)
-        self.assertEqual(canonical_pack_bytes(pack), canonical_pack_bytes(second["packs"][0]))
+        self.assertEqual(pack["pack_digest"], second["packs"][0]["pack_digest"])
 
     def test_one_action_approves_and_executes_every_exact_eligible_member(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -485,7 +507,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertEqual(first["parked"], ["WORK-001"])
         self.assertEqual(evaluation["members"][0]["state"], "stale")
 
-    def test_changed_batch_policy_stales_pending_quorum(self) -> None:
+    def test_changed_member_stales_pending_quorum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
             store = load_store(data_path)
@@ -495,10 +517,10 @@ class ApprovalPackTests(unittest.TestCase):
                 pack_digest=pack["pack_digest"],
                 human_id="HUMAN-PRODUCT",
                 approve_eligible=True,
-                reason="First quorum vote before policy change.",
+                reason="First quorum vote before member change.",
             )
             changed = load_store(data_path)
-            changed.data["work_items"][0]["title"] = "Approve legal filing and payment"
+            changed.data["work_items"][0]["title"] = "Renamed local governed draft"
             write_store(changed)
 
             evaluation = evaluate_approval_pack(Workspace.load(data_path), pack)
@@ -508,7 +530,7 @@ class ApprovalPackTests(unittest.TestCase):
                     pack_digest=pack["pack_digest"],
                     human_id="HUMAN-SECOND",
                     approve_eligible=True,
-                    reason="Second vote must not reuse an older risk policy.",
+                    reason="Second vote must not reuse an older member presentation.",
                 )
             with self.assertRaisesRegex(WorkspaceError, "decision is stale"):
                 apply_pack_decision(
@@ -520,6 +542,7 @@ class ApprovalPackTests(unittest.TestCase):
                 )
 
         self.assertEqual(first["executed"], [])
+        self.assertEqual(first["parked"], ["WORK-001"])
         self.assertEqual(evaluation["members"][0]["state"], "stale")
 
     def test_stored_pack_cannot_expand_a_narrowed_member_selection(self) -> None:
@@ -703,7 +726,7 @@ class ApprovalPackTests(unittest.TestCase):
             {key: value for key, value in bad_base.items() if key != "pack_digest"}
         )
         with self.assertRaisesRegex(WorkspaceError, "base has unknown or missing fields"):
-            canonical_pack_bytes(bad_base)
+            validate_pack_manifest(bad_base)
 
         bad_member = deepcopy(pack)
         bad_member["members"][0]["unknown"] = "self-consistent but unsupported"
@@ -718,7 +741,7 @@ class ApprovalPackTests(unittest.TestCase):
             {key: value for key, value in bad_member.items() if key != "pack_digest"}
         )
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
-            canonical_pack_bytes(bad_member)
+            validate_pack_manifest(bad_member)
 
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -836,6 +859,7 @@ def make_ready_workspace(
     approvals: int = 1,
     distinct_outputs: bool = False,
     scope: str = "Prepare one bounded local draft without external effects.",
+    risk: str = "R2",
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -869,7 +893,7 @@ def make_ready_workspace(
     raw["proposals"] = []
     root.mkdir(parents=True, exist_ok=True)
     dependencies = dependencies or {}
-    base_time = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    base_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
     for index in range(1, count + 1):
         work_id = f"WORK-{index:03d}"
@@ -890,7 +914,7 @@ def make_ready_workspace(
                 "goal": "GOAL-1",
                 "palari": "PALARI-SOFIA",
                 "dependency_ids": dependencies.get(work_id, []),
-                "risk": "R2",
+                "risk": risk,
                 "intensity": "standard",
                 "status": "in-review",
                 "scope": scope,

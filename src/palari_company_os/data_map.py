@@ -3,14 +3,18 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
-from .history import read_history
+from .governance_journal import journal_file_path
 from .workspace import Workspace
 
 
 def build_data_map(workspace: Workspace) -> dict[str, Any]:
     """Return a compact read-only map of where Palari workspace data lives."""
-    history = read_history(workspace.path, limit=None)
-    history_events = history["events"]
+    data_path = workspace.path / "workspace.json"
+    journal_path = journal_file_path(data_path)
+    try:
+        journal_file = journal_path.relative_to(workspace.path).as_posix()
+    except ValueError:
+        journal_file = journal_path.name
     source_usage = _source_usage(workspace)
     providers = _providers(workspace)
     integration_statuses = Counter(plan.status for plan in workspace.integration_plans)
@@ -22,9 +26,9 @@ def build_data_map(workspace: Workspace) -> dict[str, Any]:
             "schema_version": workspace.schema_version,
         },
         "storage": {
-            "workspace_file": history["workspace_file"],
-            "history_file": history["history_file"],
-            "history_event_count": len(history_events),
+            "workspace_file": "workspace.json",
+            "journal_file": journal_file,
+            "journal_enabled": journal_path.exists(),
             "collections": _collection_counts(workspace),
             "workspace_stores": [
                 "declared goals, humans, Palaris, sources, workbenches, work items",
@@ -32,7 +36,7 @@ def build_data_map(workspace: Workspace) -> dict[str, Any]:
                 "dry-run integrations, integration plans, and integration outbox items",
             ],
             "palari_dir_stores": [
-                "append-only local history events",
+                "replayable, tamper-evident governance journal",
             ],
             "cache_index_status": "none",
             "split_collection_support": "workspace-relative collection_files are merged at load time when declared",
@@ -208,7 +212,8 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
     lines.append("")
     lines.append("Storage")
     lines.append(f"  workspace: {storage['workspace_file']} (schema v{payload['workspace']['schema_version']})")
-    lines.append(f"  history: {storage['history_file']} ({storage['history_event_count']} events)")
+    journal_state = "enabled" if storage["journal_enabled"] else "not enabled"
+    lines.append(f"  journal: {storage['journal_file']} ({journal_state})")
     lines.append(f"  collections: {counts['work_items']} work, {counts['sources']} sources, {counts['integrations']} integrations, {counts['receipts']} receipts")
     lines.append(f"  cache/indexes: {storage['cache_index_status']}")
     lines.append("")

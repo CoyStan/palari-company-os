@@ -15,11 +15,11 @@ Keep it concise and update it when file ownership changes.
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
-  human-decision projection, canonical bytes, and exact presentation digest.
+  human-decision projection, validation, and exact presentation digest.
 - `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
   and append-only human restoration.
-- `src/palari_company_os/workspace_read_models.py`: product-facing approval
-  inbox/detail adapters over workspace truth.
+- `src/palari_company_os/workspace_read_models.py`: product-facing exact
+  Approval Inbox adapter over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
   provider-neutral governance normalization contract and evaluator.
 - `src/palari_company_os/pcaw_protocol.py`: offline PCAW statement verifier.
@@ -53,8 +53,8 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
 - `src/palari_company_os/agent_directive.py`: pure state-to-owner/action
   compiler shared by agent read surfaces.
-- `src/palari_company_os/agent_operation.py`: request-local packet, check,
-  directive, and journal-observation reuse.
+- `src/palari_company_os/agent_operation.py`: request-local packet, check, and
+  directive reuse.
 - `src/palari_company_os/agent_parking.py`: durable blocked-attempt parking and
   exact idempotent claim-release recovery without proof authority.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
@@ -79,6 +79,9 @@ When adding a command, update parser, dispatch, output, tests, and
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
+- `src/palari_company_os/mission_control.py`: optional local read-only
+  supervision plus guarded integration-plan decisions. Exact human authority
+  remains bound to the Approval Inbox action.
 - `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
   of the packet write boundary (PreToolUse deny, Stop backstop, SessionStart
   context); the core operating loop is provider-neutral.
@@ -97,22 +100,25 @@ When adding a command, update parser, dispatch, output, tests, and
   records.
 - `src/palari_company_os/decision_guides.py`: read-only decision guides.
 - `src/palari_company_os/scope.py`: declared scope checks.
-- `src/palari_company_os/history.py`: append-only workspace history.
 - `spec/pcaw/v1/`: normative PCAW v1 schemas, vectors, and black-box runner.
 
 ## Docs And Agent Orientation
 
 - `AGENTS.md`: compact root agent entrypoint.
 - `CLAUDE.md`: thin Claude adapter that points to shared repo truth.
+- `docs/product/current-product.md`: normative supported-product boundary,
+  lifecycle, storage, adapters, and compatibility policy.
+- `docs/product/current-product-recovery-inventory.md`: measured recovery
+  baseline, capability classifications, and test/CI inventory.
 - `docs/agent/`: agent-ready repo documentation.
-- `docs/product/`: product and operator documentation.
-- `docs/showcase/`: public-facing examples and vignettes.
+- `docs/product/`: current product and operator documentation. Completed
+  implementation contracts remain available through Git history rather than as
+  supported runtime documentation.
 
 ## Examples And Workspaces
 
 - `examples/acme-company-os/`: small example workspace.
 - `workspaces/palari-company-os/`: dogfood workspace for this repo.
-- `src/palari_company_os/data/examples/`: packaged example data.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.
@@ -125,7 +131,7 @@ runtime state.
 - `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
   interruption recovery, and interaction-count evidence.
 - `tests/test_agent_file_changes.py`: explicit path-intent and deletion
-  tombstone enforcement plus legacy compatibility.
+  tombstone enforcement plus the committed presence-contract reader boundary.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.
@@ -134,7 +140,7 @@ runtime state.
 - `tests/test_approval_packs.py`: batching, staleness, authority, policy, and
   crash recovery.
 - `tests/test_reversible_checkpoints.py`: exact projection restoration,
-  append-only history, non-guarantees, and crash recovery.
+  append-only journal behavior, non-guarantees, and crash recovery.
 
 Prefer focused regression tests for a discovered failure mode, then run the full
 verification stack before claiming done.

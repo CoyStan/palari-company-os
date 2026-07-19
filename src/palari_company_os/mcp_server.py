@@ -14,7 +14,7 @@ from .agent_handoff import build_agent_handoff
 from .agent_loop import build_agent_loop
 from .agent_next import build_agent_next, build_agent_next_all
 from .agent_packets import build_agent_brief
-from .agent_runtime import release_agent, start_agent
+from .agent_runtime import release_agent, start_agent, start_next_agent
 from .models import to_plain
 from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .repo_docs import check_docs
@@ -37,7 +37,7 @@ def serve_mcp(
     input_stream: TextIO | None = None,
     output_stream: TextIO | None = None,
 ) -> None:
-    """Serve read-only Palari tools over MCP stdio JSON-RPC."""
+    """Serve bounded Palari agent-loop tools over MCP stdio JSON-RPC."""
     context = McpContext(
         workspace=str(workspace or default_workspace_path()),
         repo=str(repo),
@@ -131,21 +131,25 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "work_id": _string("Work item id."),
                 "palari_id": _string("Acting Palari id."),
                 "mode": _string("Agent packet mode.", default="execute"),
+                "session_contract": _boolean(
+                    "Return the portable provider-neutral session contract."
+                ),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_start",
             "Palari Agent Start",
-            "Persist the bounded agent packet and claim one ready work item locally.",
+            "Persist the bounded packet and claim an explicit or next safe work item.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Work item id."),
+                "next": _boolean("Deterministically claim the next safe work item."),
                 "palari_id": _string("Acting Palari id."),
                 "mode": _string("Agent packet mode.", default="execute"),
                 "lease_minutes": _integer("Claim lease duration in minutes.", default=30, minimum=1),
             },
-            required=["work_id", "palari_id"],
+            required=["palari_id"],
             read_only=False,
             idempotent=False,
         ),
@@ -162,6 +166,23 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "git_diff": _boolean("Inspect current git status against packet write boundaries."),
             },
             required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_advance",
+            "Palari Agent Advance",
+            "Verify and deterministically reconcile proof to the next authority boundary.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Work item id."),
+                "palari_id": _string("Acting Palari id."),
+                "dry_run": _boolean("Return the exact plan without mutation."),
+                "refresh_verification": _boolean(
+                    "Rerun required exact verification instead of using advisory cache records."
+                ),
+            },
+            required=["work_id", "palari_id"],
+            read_only=False,
+            idempotent=True,
         ),
         _tool(
             "palari_agent_finish",
@@ -288,17 +309,34 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             return build_agent_next_all(workspace, mode, limit)
         return build_agent_next(workspace, palari_id, mode, limit)
     if name == "palari_agent_brief":
-        return build_agent_brief(
+        packet = build_agent_brief(
             workspace,
             _required_string(arguments, "work_id"),
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
         )
+        if bool(arguments.get("session_contract", False)):
+            from .agent_session_contract import compile_agent_session_contract
+
+            return compile_agent_session_contract(packet)
+        return packet
     if name == "palari_agent_start":
+        work_id = str(arguments.get("work_id") or "")
+        start_next = bool(arguments.get("next", False))
+        if bool(work_id) == start_next:
+            raise ValueError("provide exactly one of work_id or next=true")
+        if start_next:
+            return start_next_agent(
+                workspace,
+                workspace_path,
+                _required_string(arguments, "palari_id"),
+                _optional_string(arguments, "mode", "execute"),
+                lease_minutes=_optional_int(arguments, "lease_minutes", 30),
+            )
         return start_agent(
             workspace,
             workspace_path,
-            _required_string(arguments, "work_id"),
+            work_id,
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
             lease_minutes=_optional_int(arguments, "lease_minutes", 30),
@@ -312,6 +350,17 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             changed_paths=_string_list(arguments.get("changed_paths", [])),
             git_diff=bool(arguments.get("git_diff", False)),
             cwd=workspace.path,
+        )
+    if name == "palari_agent_advance":
+        from .agent_advance import agent_advance
+
+        return agent_advance(
+            workspace,
+            workspace_path,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            dry_run=bool(arguments.get("dry_run", False)),
+            refresh_verification=bool(arguments.get("refresh_verification", False)),
         )
     if name == "palari_agent_finish":
         return build_agent_finish(
@@ -364,9 +413,9 @@ def _initialize_result(message: dict[str, Any]) -> dict[str, Any]:
             "version": __version__,
         },
         "instructions": (
-            "Use Palari tools to inspect workspace state and compile/check bounded "
-            "agent packets. Most tools are read-only; agent start/release only "
-            "persist or remove local packet and claim files."
+            "Use Palari tools to claim bounded work, inspect its portable contract, "
+            "check scope, and advance deterministic proof. Agent start/release only "
+            "manage local runtime claims; agent advance stops before human authority."
         ),
     }
 

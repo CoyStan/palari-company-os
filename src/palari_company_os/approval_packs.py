@@ -10,25 +10,31 @@ from .approval_presentations import (
     approval_presentation_digest,
     build_approval_presentation,
 )
-from .evidence_manifest import verify_evidence
 from .errors import WorkspaceError
 from .governance_binding import (
     attempt_state_hash,
-    current_review_binding_errors,
     work_contract_hash,
+)
+from .governance_kernel import (
+    TERMINAL_WORK_STATUSES,
+    evaluate_approval_batch_policy,
+    evaluate_governance_case,
 )
 from .governance_journal import (
     JournalVerificationContext,
     MutationMetadata,
-    pending_journal_prepare,
+    pending_workspace_journal_context,
     recover_pending,
     utc_timestamp,
     verify_journal,
     workspace_digest,
 )
-from .history import append_history_event
 from .path_policy import validate_workspace_path
-from .pcaw_canonical import canonical_json_bytes, canonical_sha256
+from .pcaw_canonical import canonical_sha256
+from .pcaw_workspace import (
+    governance_case_from_workspace,
+    governance_context_from_workspace,
+)
 from .record_order import record_time_key
 from .store import load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
@@ -36,11 +42,8 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
-LEGACY_PACK_SCHEMA_VERSION = "palari.approval-pack.v1"
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
-TERMINAL_WORK_STATUSES = {"closed", "completed", "done"}
-APPROVAL_ACTIONS = {"approve", "reject", "defer"}
 BAD_DEPENDENCY_STATES = {
     "blocked",
     "deferred",
@@ -320,11 +323,6 @@ def approval_resolution(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def canonical_pack_bytes(pack: dict[str, Any]) -> bytes:
-    validate_pack_manifest(pack)
-    return canonical_json_bytes(pack)
-
-
 def approval_interaction_measurement(
     packs: list[dict[str, Any]],
     items: list[dict[str, Any]],
@@ -367,7 +365,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] not in {PACK_SCHEMA_VERSION, LEGACY_PACK_SCHEMA_VERSION}:
+    if pack["schema_version"] != PACK_SCHEMA_VERSION:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(
@@ -634,7 +632,8 @@ def apply_pack_decision(
     journal = verify_journal(store.data_path, store.data)
     if journal.get("pending"):
         if journal["pending"].get("workspace_position") == "before":
-            pending = pending_journal_prepare(store.data_path)
+            pending_context = pending_workspace_journal_context(store.data_path)
+            pending = pending_context["prepare"] if pending_context is not None else None
             if pending is None or not _pending_matches_request(
                 pending,
                 pack_digest=pack_digest,
@@ -835,32 +834,49 @@ def apply_pack_decision(
                     f"approval pack human {human_id} must be distinct from builder and reviewer for {member_id}"
                 )
         _assert_pack_human_authority(work, human, human_id)
+        decision_record_id = _decision_id(pack_digest, human_id, member_id)
         if action == "approve":
-            from .authoring import _assert_acceptance_allowed
-
             assert review is not None
-            _assert_acceptance_allowed(workspace, member_id, human_id, review.reviewed_head)
-            assert_transition_allowed(
+            decision_transition = assert_transition_allowed(
                 workspace,
                 "human_decision_accept",
-                f"PACK-DECISION-{member_id}",
+                decision_record_id,
                 actor=human_id,
-                context={"work_item_id": member_id, "reviewed_head": review.reviewed_head},
+                context={
+                    "work_item_id": member_id,
+                    "reviewed_head": review.reviewed_head,
+                    "timestamp": timestamp,
+                    "acceptance_mode": "approval-pack",
+                    "decision": "accepted",
+                    "status": "accepted",
+                    "evidence_reference": str(
+                        member["proof"]["evidence_reference"]
+                    ),
+                    "review_reference": str(member["proof"]["review_reference"]),
+                },
             )
+        else:
+            decision_transition = None
         decision_value, decision_status, quorum = {
-            "approve": ("accepted", "accepted", "met"),
+            "approve": ("accepted", "accepted", "pending"),
             "reject": ("rejected", "rejected", "not-met"),
             "defer": ("deferred", "deferred", "not-met"),
         }[action]
         decision = {
-            "id": _decision_id(pack_digest, human_id, member_id),
+            "id": decision_record_id,
             "work_item_id": member_id,
             "human_id": human_id,
             "reviewed_head": str(member["proof"]["reviewed_head"]),
             "decision": decision_value,
             "status": decision_status,
             "acceptance_mode": "approval-pack",
-            "quorum_status": quorum,
+            "quorum_status": (
+                "met"
+                if decision_transition is not None
+                and decision_transition.authority_candidate is not None
+                and decision_transition.authority_candidate.quorum_met
+                else quorum
+            ),
             "evidence_reference": str(member["proof"]["evidence_reference"]),
             "review_reference": str(member["proof"]["review_reference"]),
             "approval_pack_id": pack["pack_id"],
@@ -882,25 +898,7 @@ def apply_pack_decision(
         created.append(decision)
 
     workspace_after_decisions = validate_data(store.data_path, store.data)
-    for decision in created:
-        if decision["approval_pack_action"] != "approve":
-            continue
-        work = workspace_after_decisions.work_item(decision["work_item_id"])
-        review = latest_for_work(
-            workspace_after_decisions.review_verdicts,
-            decision["work_item_id"],
-        )
-        if work is None or review is None:
-            continue
-        decision["quorum_status"] = (
-            "met"
-            if _qualified_pack_approvals(workspace_after_decisions, work, review)
-            >= work.required_approval_count
-            else "pending"
-        )
-    workspace_after_decisions = validate_data(store.data_path, store.data)
     executed: list[str] = []
-    work_history: list[tuple[dict[str, Any], dict[str, Any]]] = []
     acceptance_ids_before = {
         str(item.get("id") or "") for item in store.data.get("acceptance_records", [])
     }
@@ -908,32 +906,89 @@ def apply_pack_decision(
         if member_id not in approve_ids:
             continue
         work = workspace_after_decisions.work_item(member_id)
-        review = latest_for_work(workspace_after_decisions.review_verdicts, member_id)
+        approval_decision: dict[str, Any] | None = None
+        for item in created:
+            if (
+                item["work_item_id"] == member_id
+                and item["approval_pack_action"] == "approve"
+            ):
+                approval_decision = item
+                break
         if (
             work is None
-            or review is None
-            or _qualified_pack_approvals(workspace_after_decisions, work, review)
-            < work.required_approval_count
+            or approval_decision is None
+            or approval_decision["quorum_status"] != "met"
         ):
             continue
-        from .authoring import (
-            _ensure_acceptance_record_for_completion,
-            assert_work_completion_ready,
-        )
+        from .authoring import assert_work_completion_ready
+        from .pcaw_workspace import evaluate_workspace_human_authority_candidate
 
-        assert_work_completion_ready(workspace_after_decisions, member_id, actor=human_id)
+        acceptance_id = f"ACCEPTANCE-{member_id}-{human_id}"
+        if not any(
+            item.get("work_item_id") == member_id
+            for item in store.data.get("acceptance_records", [])
+        ):
+            authority = evaluate_workspace_human_authority_candidate(
+                workspace_after_decisions,
+                member_id,
+                decision_id=str(approval_decision["id"]),
+                human_id=human_id,
+                reviewed_head=str(approval_decision["reviewed_head"]),
+                timestamp=str(approval_decision["timestamp"]),
+                acceptance_mode="approval-pack",
+                acceptance_id=acceptance_id,
+                accepted_at=timestamp,
+                projected_terminal=True,
+            )
+            if not authority.acceptance_allowed:
+                message = (
+                    authority.errors[0].message
+                    if authority.errors
+                    else "governance kernel rejected terminal acceptance"
+                )
+                raise WorkspaceError(
+                    f"approval pack member {member_id} authority is stale: {message}"
+                )
+            review = latest_for_work(
+                workspace_after_decisions.review_verdicts, member_id
+            )
+            evidence = latest_for_work(
+                workspace_after_decisions.evidence_runs, member_id
+            )
+            receipt = latest_for_work(
+                workspace_after_decisions.receipts, member_id
+            )
+            if review is None or evidence is None:
+                raise WorkspaceError(
+                    f"approval pack member {member_id} lacks current proof"
+                )
+            store.data.setdefault("acceptance_records", []).append(
+                {
+                    "id": acceptance_id,
+                    "work_item_id": member_id,
+                    "human_id": human_id,
+                    "reviewed_head": review.reviewed_head,
+                    "status": "accepted",
+                    "decision_id": approval_decision["id"],
+                    "evidence_reference": evidence.id,
+                    "review_reference": review.id,
+                    "receipt_hash": receipt.receipt_hash if receipt else "",
+                    "authority_profile": "team-safe",
+                    "quorum_status": "met",
+                    "reason": reason or "approval pack authority",
+                    "accepted_at": timestamp,
+                }
+            )
+        workspace_after_decisions = validate_data(store.data_path, store.data)
+        assert_work_completion_ready(
+            workspace_after_decisions,
+            member_id,
+            actor=human_id,
+        )
         raw_work = next(
             item for item in store.data["work_items"] if item.get("id") == member_id
         )
-        before = deepcopy(raw_work)
         raw_work["status"] = "completed"
-        _ensure_acceptance_record_for_completion(
-            store,
-            workspace_after_decisions,
-            member_id,
-            human_id,
-        )
-        work_history.append((before, deepcopy(raw_work)))
         workspace_after_decisions = validate_data(store.data_path, store.data)
         executed.append(member_id)
 
@@ -943,6 +998,14 @@ def apply_pack_decision(
     ] + [
         {"type": "work", "collection": "work_items", "id": work_id}
         for work_id in executed
+    ] + [
+        {
+            "type": "acceptance",
+            "collection": "acceptance_records",
+            "id": str(item.get("id") or ""),
+        }
+        for item in store.data.get("acceptance_records", [])
+        if str(item.get("id") or "") not in acceptance_ids_before
     ]
     metadata = MutationMetadata(
         command=command,
@@ -952,33 +1015,7 @@ def apply_pack_decision(
         objects=tuple(objects),
         reason=reason,
     )
-    workspace_after = write_store(store, metadata=metadata, crash_hook=crash_hook)
-    for decision in created:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace_after.schema_version,
-            command=command,
-            action=decision["approval_pack_action"],
-            object_type="human-decision",
-            object_collection="human_decisions",
-            object_id=decision["id"],
-            actor=human_id,
-            before=None,
-            after=decision,
-        )
-    for before, after in work_history:
-        append_history_event(
-            store.data_path,
-            schema_version=workspace_after.schema_version,
-            command=command,
-            action="completed",
-            object_type="work",
-            object_collection="work_items",
-            object_id=str(after["id"]),
-            actor=human_id,
-            before=before,
-            after=after,
-        )
+    write_store(store, metadata=metadata, crash_hook=crash_hook)
     return {
         "schema_version": "palari.approval-pack-decision-result.v1",
         "status": "applied",
@@ -1076,50 +1113,32 @@ def _work_member(
         errors.append("work item is already terminal")
     if work.required_approval_count <= 0:
         errors.append("work item does not require a human approval")
-    if attempt is None:
-        errors.append("current attempt is missing")
+    try:
+        governance_case, _ = governance_case_from_workspace(
+            workspace,
+            work.id,
+            journal_context=journal_context,
+        )
+        governance = evaluate_governance_case(
+            governance_case,
+            context=governance_context_from_workspace(workspace, work.id),
+        )
+    except WorkspaceError as exc:
+        errors.append(f"governance proof validation failed: {exc}")
     else:
-        if attempt.status not in {"complete", "completed"}:
-            errors.append(f"attempt {attempt.id} is not complete")
-        if attempt.cleanliness.lower() not in {"clean", "pristine"}:
-            errors.append(f"attempt {attempt.id} is not clean")
-    if receipt is None or attempt is None or receipt.attempt_id != attempt.id:
-        errors.append("current receipt is missing")
-    if evidence is None or attempt is None or evidence.attempt_id != attempt.id:
-        errors.append("current evidence is missing")
-    elif evidence.status != "passed":
-        errors.append(f"evidence {evidence.id} is {evidence.status}")
-    else:
-        try:
-            verification = verify_evidence(
-                workspace,
-                evidence.id,
-                require_output_coverage=True,
-                journal_context=journal_context,
+        errors.extend(
+            item.message
+            for item in governance.errors
+            if item.code
+            not in {
+                "PCAW_CLAIMED_STATE_MISMATCH",
+                "PCAW_HUMAN_QUORUM_INCOMPLETE",
+            }
+        )
+        if not governance.human_decision_ready and not errors:
+            errors.append(
+                "current exact proof and independent review are not decision-ready"
             )
-        except WorkspaceError as exc:
-            errors.append(f"evidence validation failed: {exc}")
-        else:
-            if not verification["ok"]:
-                errors.append("evidence output or receipt binding is stale")
-    if review is None:
-        errors.append("independent review is missing")
-    else:
-        if review.verdict != "accept-ready":
-            errors.append(f"review {review.id} is {review.verdict}")
-        try:
-            errors.extend(
-                current_review_binding_errors(
-                    workspace,
-                    review,
-                    require_output_coverage=True,
-                    journal_context=journal_context,
-                )
-            )
-        except WorkspaceError as exc:
-            errors.append(f"review validation failed: {exc}")
-        if attempt is not None and review.reviewer == attempt.actor:
-            errors.append("builder and reviewer identities collide")
 
     artifacts = []
     if evidence is not None:
@@ -1212,37 +1231,11 @@ def _work_member(
 
 
 def _batch_policy(work: Any, external_effects: list[str]) -> dict[str, Any]:
-    haystack = " ".join(
-        [
-            work.title,
-            work.scope,
-            " ".join(work.allowed_actions),
-            " ".join(work.allowed_resources),
-            " ".join(external_effects),
-        ]
-    ).lower()
-    if any(term in haystack for term in ("payment", "financial", "legal", "filing")):
-        return _policy("financial-legal", False, "irreversible", "financial or legal effects require individual authority")
-    if any(term in haystack for term in ("access expansion", "permission", "credential", "secret")):
-        return _policy("access-expansion", False, "restoration-impossible", "access or credential expansion is not batchable")
-    if external_effects or any(term in haystack for term in ("email", "send ", "publish", "external write")):
-        return _policy("external-communication", False, "compensating-action-required", "external communications remain individually gated and cannot be undone locally")
-    if work.risk in {"R4", "R5"} or "security" in haystack:
-        return _policy("high-risk-policy", False, "restoration-impossible", "high-risk policy or security authority remains individually gated")
-    if "memory" in haystack:
-        return _policy("memory-proposal", True, "reversible-local", "scoped memory proposals may be batch-reviewed without promotion")
-    if work.risk in {"R1", "R2"}:
-        return _policy("local-draft", True, "reversible-local", "low-risk local work is eligible for batched approval")
-    return _policy("record-change", True, "reversible-local", "reviewed local record changes are eligible for batched approval")
-
-
-def _policy(policy_class: str, batchable: bool, reversibility: str, reason: str) -> dict[str, Any]:
-    return {
-        "class": policy_class,
-        "batchable": batchable,
-        "reversibility": reversibility,
-        "reason": reason,
-    }
+    return evaluate_approval_batch_policy(
+        risk=work.risk,
+        allowed_actions=work.allowed_actions,
+        external_effects=external_effects,
+    ).to_dict()
 
 
 def _external_effects(workspace: Workspace, work_id: str, receipt: Any | None) -> list[str]:
@@ -1366,37 +1359,6 @@ def _stored_pack_manifest(workspace: Workspace, pack_digest: str) -> dict[str, A
     manifest = deepcopy(manifests[0])
     validate_pack_manifest(manifest)
     return manifest
-
-
-def _qualified_pack_approvals(workspace: Workspace, work: Any, review: Any) -> int:
-    humans = {human.id: human for human in workspace.humans}
-    latest: dict[str, Any] = {}
-    for decision in workspace.human_decisions:
-        if decision.work_item_id != work.id or decision.reviewed_head != review.reviewed_head:
-            continue
-        previous = latest.get(decision.human_id)
-        if previous is None or record_time_key(decision) > record_time_key(previous):
-            latest[decision.human_id] = decision
-    qualified: set[str] = set()
-    for decision in latest.values():
-        if decision.status not in {"accepted", "approved"}:
-            continue
-        if decision.decision not in {"accepted", "approved"}:
-            continue
-        if (
-            decision.review_reference != review.id
-            or decision.evidence_reference != review.evidence_reference
-        ):
-            continue
-        human = humans.get(decision.human_id)
-        if human is None or human.availability == "inactive":
-            continue
-        if work.required_approval_capability and (
-            work.required_approval_capability not in human.approval_capabilities
-        ):
-            continue
-        qualified.add(decision.human_id)
-    return len(qualified)
 
 
 def _assert_pack_human_authority(work: Any, human: Any, human_id: str) -> None:

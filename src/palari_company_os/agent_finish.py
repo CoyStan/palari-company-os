@@ -3,21 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_directive import (
-    AUTOMATIC_BLOCKERS,
-    EXTERNAL_BLOCKERS,
-    HANDOFF_BLOCKERS,
-    HUMAN_BLOCKERS,
-    REVIEW_BLOCKERS,
-    TERMINAL_BLOCKERS,
-    classify_resolution,
-    enrich_blockers,
-    human_approval_prerequisites_met,
-    resolution_summary,
-    review_prerequisites_met,
-)
 from .agent_operation import AgentOperation, ensure_agent_operation
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -27,7 +13,6 @@ def build_agent_finish(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
     operation_state = ensure_agent_operation(
@@ -35,7 +20,6 @@ def build_agent_finish(
         work_id,
         palari_id,
         mode,
-        journal_context=journal_context,
         operation=operation,
     )
     check = operation_state.check()

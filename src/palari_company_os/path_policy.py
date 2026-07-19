@@ -1,24 +1,9 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path, PurePosixPath
 
 
 WINDOWS_DRIVE_SEPARATOR_INDEX = 1
-_PATH_TOKEN_RE = re.compile(
-    r"(?<![\w./-])(?:\.?[\w.-]+/)+[\w.@%+=:,~-]+"
-    r"|(?<![\w./-])[\w.@%+=:,~-]+\.[A-Za-z0-9]{1,12}(?![\w./-])"
-)
-
-
-def normalize_workspace_path(path: str) -> str:
-    """Return a safe normalized workspace-relative POSIX path.
-
-    This raises ``ValueError`` for absolute paths, empty paths, Windows drive
-    paths, and traversal segments. Callers that need a fail-closed boolean
-    should use ``path_allowed``.
-    """
-    return validate_workspace_path(path)
 
 
 def validate_workspace_path(path: str) -> str:
@@ -115,28 +100,6 @@ def canonical_path_allowed(
             continue
         return True
     return False
-
-
-def path_candidates(value: str) -> list[str]:
-    """Return path-like tokens from prose, preserving order."""
-    candidates: list[str] = []
-    for token in re.split(r"\s+", value):
-        candidate = token.strip("'\"`()[]{}<>,;:.")
-        if not candidate:
-            continue
-        looks_path_like = (
-            "/" in candidate
-            or "\\" in candidate
-            or bool(re.search(r"\.[A-Za-z0-9]{1,12}$", candidate))
-            or _looks_like_windows_drive(candidate)
-        )
-        if looks_path_like and candidate not in candidates:
-            candidates.append(candidate)
-    for match in _PATH_TOKEN_RE.finditer(value):
-        candidate = match.group(0).strip("'\"`()[]{}<>,;:.")
-        if candidate and candidate not in candidates:
-            candidates.append(candidate)
-    return candidates
 
 
 def _looks_like_windows_drive(part: str) -> bool:

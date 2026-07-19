@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from .history import append_history_event
+from .governance_journal import MutationMetadata, utc_timestamp
 from .store import load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
 from .workspace import WorkspaceError
@@ -40,7 +40,6 @@ def adopt_proposal(
         context={"work_id": work_id},
     )
 
-    before = deepcopy(proposal)
     work = _work_from_proposal(proposal, work_id)
     _records(store.data, "work_items").append(work)
     proposal.update(
@@ -53,18 +52,19 @@ def adopt_proposal(
     )
     if reason:
         proposal["reason"] = reason
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="proposal adopt",
-        action="adopted",
-        object_type="proposal",
-        object_collection="proposals",
-        object_id=proposal_id,
-        actor=human_id,
-        before=before,
-        after=proposal,
+    workspace = write_store(
+        store,
+        metadata=MutationMetadata(
+            command="proposal adopt",
+            actor=human_id,
+            action="adopted",
+            timestamp=utc_timestamp(),
+            objects=(
+                {"type": "proposal", "collection": "proposals", "id": proposal_id},
+                {"type": "work", "collection": "work_items", "id": work_id},
+            ),
+            reason=reason,
+        ),
     )
     return {
         "action": "adopted",
@@ -97,7 +97,6 @@ def decide_proposal(
         raise WorkspaceError(f"proposal not found: {proposal_id}")
     if proposal.get("status") == "adopted":
         raise WorkspaceError(f"proposal already adopted: {proposal_id}")
-    before = deepcopy(proposal)
     proposal.update(
         {
             "status": status,
@@ -106,18 +105,18 @@ def decide_proposal(
             "reason": reason,
         }
     )
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=f"proposal {status}",
-        action=status,
-        object_type="proposal",
-        object_collection="proposals",
-        object_id=proposal_id,
-        actor=human_id,
-        before=before,
-        after=proposal,
+    workspace = write_store(
+        store,
+        metadata=MutationMetadata(
+            command=f"proposal {status}",
+            actor=human_id,
+            action=status,
+            timestamp=utc_timestamp(),
+            objects=(
+                {"type": "proposal", "collection": "proposals", "id": proposal_id},
+            ),
+            reason=reason,
+        ),
     )
     return {
         "action": status,
@@ -165,18 +164,18 @@ def request_scope_expansion(
         "linked_palari": work.palari,
     }
     _records(store.data, "decisions").append(decision)
-    workspace = write_store(store)
-    append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="work expand-scope",
-        action="created",
-        object_type="decision",
-        object_collection="decisions",
-        object_id=decision_id,
-        actor=actor,
-        before=None,
-        after=decision,
+    workspace = write_store(
+        store,
+        metadata=MutationMetadata(
+            command="work expand-scope",
+            actor=actor or "local-operator",
+            action="created",
+            timestamp=utc_timestamp(),
+            objects=(
+                {"type": "decision", "collection": "decisions", "id": decision_id},
+            ),
+            reason=reason,
+        ),
     )
     return {
         "action": "scope-expansion-requested",

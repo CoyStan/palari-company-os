@@ -55,10 +55,11 @@ palari capability export-policy WORK-ID --json
 Authority profiles describe how much human judgment a risk tier needs. Built-in
 profiles:
 
-- `solo-founder`: lightweight founder mode; R3+ work needs human acceptance.
-- `team-safe`: default team mode; R3+ work needs human acceptance and R5 needs
-  two approvals.
-- `strict`: every risk tier needs human acceptance.
+- `solo-founder`: lightweight founder mode; R3+ work needs a counted human
+  approval.
+- `team-safe`: default team mode; R3+ work needs a counted human approval and
+  R5 needs two approvals.
+- `strict`: every risk tier needs a counted human approval.
 
 Use:
 
@@ -67,9 +68,12 @@ palari authority profiles --json
 palari authority check WORK-ID --profile team-safe --json
 ```
 
-The check is advisory until the work item declares the matching approval count,
-but the acceptance and completion gates still enforce fresh evidence, review,
-human decisions, open-decision blocking, and scope-overlap blocking.
+The check is advisory until the work item declares the matching approval count.
+Completion always requires current exact passing evidence. Independent review
+and human acceptance may both be omitted only for R1/light/0-approval work with
+no allowed, planned, queued, or actual external writes. Every other completion
+still enforces review, explicit human acceptance, open-decision blocking, and
+scope-overlap blocking.
 
 ## Memory Is Context, Not Authority
 
@@ -91,11 +95,12 @@ output and human or organizational authority.
 
 ## Broker Boundaries
 
-Broker/tool side effects are disabled by default in the first Palari Company OS
-slice. The model can represent that a work item would need broker access, but
-it must not imply that access is live.
+Generic broker/tool execution is disabled. Provider-neutral integration
+commands only plan, approve, and queue local records. Linear is the one current
+live provider adapter, and its explicit send path executes only an exact
+approved, queued action; a provider label alone never implies live access.
 
-Future broker integration should require:
+Any additional live adapter must require:
 
 - explicit resource/action permissions
 - inspectable evidence
@@ -127,7 +132,8 @@ none may manufacture an independent review or human decision.
 
 ## Review Gate Profiles
 
-Gate profiles are lightweight review contracts. They recover the useful part of
+Gate profiles are a parked advisory view, not current core. They are lightweight
+review contracts that recover the useful part of
 the older Palari v05 practice: a reviewer should know which failure mode they
 are hunting before they inspect work.
 
@@ -181,17 +187,21 @@ requires its matching acceptance record.
 `palari human-decision pack` is an additional human-only acceptance surface,
 not an agent shortcut. It binds one attributable action to an immutable pack
 and its canonical presentation artifact, then derives one decision record per
-selected member. Each new pack-v2 decision retains its own proof references,
+selected member. Each pack-v2 decision retains its own proof references,
 exact member/subject digest, presentation schema/surface/digest, and one
-canonical presentation artifact per action. Historical pack-v1 decisions stay
-readable but cannot be silently upgraded or mistaken for presentation-bound
-authority. The governance kernel counts `approval-pack` decisions under the
+canonical presentation artifact per action. Approval Pack v1 is unsupported;
+missing or unsupported presentation-bound authority fails closed instead of
+being upgraded. The governance kernel counts `approval-pack` decisions under the
 same capability, reviewer
 independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.
 The Approval Inbox names its available approval modes. The normal
 `approve-eligible` mode is one exact attributable action over independently
-reviewed members. External or irreversible effects remain individual. A
+reviewed members. Batch eligibility is derived only from structured governance
+facts: R1/R2 local work without canonical external-write authority or current
+external-effect records is batchable; R3/R4/R5, unknown risk, and every external
+effect remain individually gated. Titles, scopes, and other prose do not create
+or remove that authority. A
 combined review-and-accept mode is not available under the current policy:
 independent review and acceptance remain distinct roles.
 
@@ -207,13 +217,15 @@ selected source. That verdict remains advisory. Palari reviewer identities are
 never human approval candidates and never satisfy human quorum; acceptance,
 rejection, and Approval Pack actions remain attributable human authority.
 
-`palari work complete` keeps the terminal status gate. For non-receipt-ready
-work, it can derive a missing acceptance record from the latest qualified human
-decision. That record is projected before the complete gate and written in the
-same successful mutation as terminal state, so invalid or stale authority does
-not leave a partial acceptance behind. `agent advance` may invoke this
-mechanical transition after authority exists; it does not create the review or
-human decision.
+`palari work complete` keeps the terminal status gate. Outside the narrow
+evidence-complete R1/light/0-approval/no-external exemption, it can derive a
+missing acceptance record from the latest qualified human decision. That record
+is projected before the complete gate and written in the same successful
+mutation as terminal state, so invalid or stale authority does not leave a
+partial acceptance behind. `agent advance` may invoke this mechanical
+transition after authority exists; it does not create the review or human
+decision. The exemption waives only review and human acceptance, never current
+exact evidence.
 Accepted human-decision and work-accept authoring functions invoke a shared,
 bounded fixed-point driver after recording the human action. The driver applies
 only the already-authorized completion transition, detects cycles and

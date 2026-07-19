@@ -53,9 +53,11 @@ You see it when Palari checks whether R3, R4, or R5 work needs human approval.
 
 ## Integration
 
-An integration is a declared external service boundary.
+An integration is a declared external-effect boundary with an opaque provider
+identifier.
 
-You see it when Palari previews a possible Slack, GitHub, Jira, or email action.
+You see it when Palari previews a generic external action before an adapter
+translates it.
 
 ## Integration Plan
 

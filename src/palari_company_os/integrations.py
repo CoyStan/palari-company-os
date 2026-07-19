@@ -6,8 +6,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .errors import WorkspaceError
-from .history import append_history_event
-from .integration_contracts import PROVIDER_ACTIONS
+from .governance_journal import MutationMetadata
+from .integration_contracts import (
+    human_can_decide_integration_plan,
+    supported_actions_for_mode,
+)
 from .models import Human, Integration, IntegrationPlan, WorkItem, to_plain
 from .store import load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
@@ -23,7 +26,7 @@ def list_integrations(workspace: Workspace) -> dict[str, Any]:
 
 def check_integration(workspace: Workspace, integration_id: str) -> dict[str, Any]:
     integration = _integration_or_raise(workspace, integration_id)
-    supported_actions = sorted(PROVIDER_ACTIONS.get(integration.provider, set()))
+    supported_actions = sorted(supported_actions_for_mode(integration.mode))
     allowed_actions = sorted(set(integration.allowed_actions) & set(supported_actions))
     blocked_actions = sorted(set(integration.allowed_actions) - set(supported_actions))
     return {
@@ -32,7 +35,7 @@ def check_integration(workspace: Workspace, integration_id: str) -> dict[str, An
         "valid": True,
         "enabled": integration.enabled,
         "dry_run_only": True,
-        "provider_supported_actions": supported_actions,
+        "mode_supported_actions": supported_actions,
         "plannable_actions": allowed_actions,
         "blocked_actions": blocked_actions,
         "secret_ref_present": bool(integration.secret_ref),
@@ -106,23 +109,18 @@ def record_integration_plan(
     if any(isinstance(item, dict) and item.get("id") == record["id"] for item in records):
         raise WorkspaceError(f"integration plan already exists: {record['id']}")
     records.append(record)
-    workspace = write_store(store)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration plan",
-        action="planned",
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=str(record["id"]),
-        actor=str(record["actor"]),
-        before=None,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration plan",
+            str(record["actor"]),
+            "planned",
+            (("integration-plan", "integration_plans", str(record["id"])),),
+        ),
     )
     refreshed = plan_integration(workspace, integration_id, work_id, event, action)
     refreshed["recorded"] = True
     refreshed["integration_plan"] = record
-    refreshed["history_event"] = history_event
     return refreshed
 
 
@@ -175,7 +173,6 @@ def decide_integration_plan(
     )
     if record is None:
         raise WorkspaceError(f"integration plan record not found: {plan_id}")
-    before = deepcopy(record)
     now = _timestamp()
     record.update(
         {
@@ -186,21 +183,18 @@ def decide_integration_plan(
         }
     )
 
-    workspace = write_store(store)
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            f"integration {decision}",
+            human.id,
+            target_status,
+            (("integration-plan", "integration_plans", plan_id),),
+            reason=reason,
+        ),
+    )
     after_plan = workspace.integration_plan(plan_id)
     after = to_plain(after_plan) if after_plan is not None else deepcopy(record)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command=f"integration {decision}",
-        action=target_status,
-        object_type="integration-plan",
-        object_collection="integration_plans",
-        object_id=plan_id,
-        actor=human.id,
-        before=before,
-        after=after,
-    )
     return {
         "workspace": workspace.name,
         "dry_run": True,
@@ -214,7 +208,6 @@ def decide_integration_plan(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": _decision_next_action(target_status),
     }
 
@@ -279,18 +272,14 @@ def enqueue_integration_plan(
         "notes": "Queued for a future execution boundary only. No provider call was made.",
     }
     records.append(record)
-    workspace = write_store(store)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration enqueue",
-        action="queued",
-        object_type="integration-outbox",
-        object_collection="integration_outbox",
-        object_id=str(record["id"]),
-        actor=human.id,
-        before=None,
-        after=record,
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration enqueue",
+            human.id,
+            "queued",
+            (("integration-outbox", "integration_outbox", str(record["id"])),),
+        ),
     )
     return {
         "workspace": workspace.name,
@@ -305,7 +294,6 @@ def enqueue_integration_plan(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": "Outbox item queued for future execution wiring; no provider call was made.",
     }
 
@@ -353,7 +341,6 @@ def cancel_integration_outbox_item(
     )
     if record is None:
         raise WorkspaceError(f"integration outbox record not found: {outbox_id}")
-    before = deepcopy(record)
     now = _timestamp()
     record.update(
         {
@@ -364,21 +351,18 @@ def cancel_integration_outbox_item(
         }
     )
 
-    workspace = write_store(store)
+    workspace = write_store(
+        store,
+        metadata=_journal_metadata(
+            "integration outbox-cancel",
+            human.id,
+            "canceled",
+            (("integration-outbox", "integration_outbox", outbox_id),),
+            reason=reason,
+        ),
+    )
     after_item = workspace.integration_outbox_item(outbox_id)
     after = to_plain(after_item) if after_item is not None else deepcopy(record)
-    history_event = append_history_event(
-        store.data_path,
-        schema_version=workspace.schema_version,
-        command="integration outbox-cancel",
-        action="canceled",
-        object_type="integration-outbox",
-        object_collection="integration_outbox",
-        object_id=outbox_id,
-        actor=human.id,
-        before=before,
-        after=after,
-    )
     return {
         "workspace": workspace.name,
         "dry_run": True,
@@ -392,7 +376,6 @@ def cancel_integration_outbox_item(
             "authority_level": human.authority_level,
             "approval_capabilities": human.approval_capabilities,
         },
-        "history_event": history_event,
         "next_action": "Outbox item canceled. No provider call was made.",
     }
 
@@ -518,7 +501,7 @@ def _assert_human_can_decide_plan(
     integration: Integration,
     plan: IntegrationPlan,
 ) -> None:
-    if _human_can_decide_plan(human, work, integration):
+    if human_can_decide_integration_plan(human, work, integration):
         return
     if work.required_approval_capability:
         expected = work.required_approval_capability
@@ -529,24 +512,6 @@ def _assert_human_can_decide_plan(
     raise WorkspaceError(
         f"human {human.id} lacks authority to decide integration plan {plan.id}; "
         f"expected {expected}"
-    )
-
-
-def _human_can_decide_plan(
-    human: Human,
-    work: WorkItem,
-    integration: Integration,
-) -> bool:
-    if human.authority_level == "admin":
-        return True
-    if work.required_approval_capability:
-        return work.required_approval_capability in human.approval_capabilities
-    if integration.owner_human == human.id and integration.risk_level in {"low", "standard"}:
-        return True
-    if integration.risk_level in {"high", "critical"}:
-        return bool({"policy", "deploy", "security"} & set(human.approval_capabilities))
-    return bool(
-        {"operations", "product", "policy", "merge", "deploy"} & set(human.approval_capabilities)
     )
 
 
@@ -587,11 +552,10 @@ def _assert_can_plan(integration: Integration, event: str, action: str) -> None:
             f"integration {integration.id} does not allow action {action}; "
             f"allowed actions: {', '.join(integration.allowed_actions)}"
         )
-    supported = PROVIDER_ACTIONS.get(integration.provider, set())
+    supported = supported_actions_for_mode(integration.mode)
     if action not in supported:
         raise WorkspaceError(
-            f"integration {integration.id} provider {integration.provider} "
-            f"does not support action {action}"
+            f"integration {integration.id} mode {integration.mode} does not support action {action}"
         )
 
 
@@ -603,75 +567,20 @@ def _payload_preview(
     action: str,
 ) -> dict[str, Any]:
     summary = _work_summary(workspace, work, event)
-    if integration.provider == "slack":
-        return {
-            "provider": "slack",
-            "operation": "post_message",
-            "webhook_ref": integration.secret_ref,
-            "json": {
-                "text": summary,
-                "blocks": [
-                    {"type": "section", "text": {"type": "mrkdwn", "text": summary}},
-                    {
-                        "type": "context",
-                        "elements": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"Dry run only. Work: {work.id}. Event: {event}.",
-                            }
-                        ],
-                    },
-                ],
-            },
-        }
-    if integration.provider == "github":
-        return {
-            "provider": "github",
-            "operation": _github_operation(action),
-            "repository_ref": "configured outside Palari",
-            "json": {
-                "title": f"[Palari] {event}: {work.title}",
-                "body": summary,
-                "labels": ["palari", "dry-run", event],
-            },
-        }
-    if integration.provider == "jira":
-        return {
-            "provider": "jira",
-            "operation": _jira_operation(action),
-            "project_ref": "configured outside Palari",
-            "json": {
-                "summary": f"[Palari] {event}: {work.title}",
-                "description": summary,
-                "labels": ["palari", "dry-run", event],
-            },
-        }
-    if integration.provider == "email":
-        return {
-            "provider": "email",
-            "operation": "draft_notification",
-            "transport_ref": integration.secret_ref,
-            "json": {
-                "subject": f"[Palari] {event}: {work.title}",
-                "body": summary,
-            },
-        }
-    if integration.provider == "linear":
-        if action == "comment" and not work.external_id:
-            raise WorkspaceError(f"work item {work.id} is not linked to a Linear issue id")
-        return {
-            "provider": "linear",
-            "operation": "commentCreate",
-            "secret_ref": integration.secret_ref,
-            "issue_id": work.external_id,
-            "issue_key": work.external_key,
-            "issue_url": work.external_url,
-            "json": {
-                "issueId": work.external_id,
-                "body": summary,
-            },
-        }
-    raise WorkspaceError(f"unsupported integration provider: {integration.provider}")
+    return {
+        "provider": integration.provider,
+        "operation": "external_action_preview",
+        "event": event,
+        "action": action,
+        "secret_ref": integration.secret_ref,
+        "work_item": {
+            "id": work.id,
+            "title": work.title,
+            "status": work.status,
+            "risk": work.risk,
+        },
+        "summary": summary,
+    }
 
 
 def _work_summary(workspace: Workspace, work: WorkItem, event: str) -> str:
@@ -683,24 +592,6 @@ def _work_summary(workspace: Workspace, work: WorkItem, event: str) -> str:
         f"Palari {palari.name if palari else work.palari}; "
         f"goal {goal.title if goal else work.goal}."
     )
-
-
-def _github_operation(action: str) -> str:
-    if action == "create_issue":
-        return "create_issue"
-    if action == "comment":
-        return "create_issue_comment"
-    return "create_notification_issue_preview"
-
-
-def _jira_operation(action: str) -> str:
-    if action == "create_issue":
-        return "create_issue"
-    if action == "update_issue":
-        return "update_issue"
-    if action == "comment":
-        return "add_comment"
-    return "create_notification_issue_preview"
 
 
 def _source_boundary(
@@ -748,6 +639,27 @@ def _plan_record(
         "timestamp": timestamp,
         "notes": "Dry-run only. No provider call was made and no secret value was read.",
     }
+
+
+def _journal_metadata(
+    command: str,
+    actor: str,
+    action: str,
+    objects: tuple[tuple[str, str, str], ...],
+    *,
+    reason: str = "",
+) -> MutationMetadata:
+    return MutationMetadata(
+        command=command,
+        actor=actor or "local-operator",
+        action=action,
+        timestamp=_timestamp(),
+        objects=tuple(
+            {"type": kind, "collection": collection, "id": object_id}
+            for kind, collection, object_id in objects
+        ),
+        reason=reason,
+    )
 
 
 def _timestamp() -> str:

@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Any, Iterable, TypeVar
+from functools import lru_cache
+from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .integration_contracts import PROVIDER_ACTIONS, supported_actions_for_mode
+from .governance_kernel import EXTERNAL_WRITE_ACTIONS, TERMINAL_WORK_STATUSES
+from .integration_contracts import (
+    SUPPORTED_INTEGRATION_ACTIONS,
+    human_can_decide_integration_plan,
+    supported_actions_for_mode,
+)
 from .models import (
     AcceptanceRecord,
     Attempt,
@@ -21,11 +27,14 @@ from .models import (
     ReviewVerdict,
     WorkItem,
 )
-from .path_policy import path_allowed, validate_workspace_path
+from .path_policy import validate_workspace_path
 from .record_order import record_time_key, timestamp_order
 
 
 T = TypeVar("T")
+PathNormalizer = Callable[[str], str]
+
+PATH_VALIDATION_CACHE_SIZE = 4096
 
 COLLECTION_KEYS = (
     "goals",
@@ -145,6 +154,8 @@ ALLOWED_RECORD_FIELDS = {
         "risk",
         "intensity",
         "status",
+        "terminal_reason",
+        "successor_work_item_id",
         "scope",
         "allowed_resources",
         "allowed_sources",
@@ -197,7 +208,6 @@ ALLOWED_RECORD_FIELDS = {
         "mode",
         "summary",
         "require_human_for_risks",
-        "receipt_ready_risks",
         "minimum_approval_count",
         "r5_approval_count",
         "required_approval_capability",
@@ -453,9 +463,11 @@ WORK_STATUSES = {
     "completed",
     "closed",
     "done",
+    "superseded",
+    "abandoned",
 }
 WORKBENCH_STATUSES = {"active", "paused", "completed", "closed", "archived"}
-TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
+RETIRED_WORK_STATUSES = {"superseded", "abandoned"}
 RISKS = {"R1", "R2", "R3", "R4", "R5"}
 INTENSITIES = {"light", "standard", "high"}
 PARALLEL_POLICIES = {"independent", "coordinate", "exclusive"}
@@ -497,7 +509,6 @@ APPROVAL_PACK_ACTIONS = {"approve", "reject", "defer"}
 QUORUM_STATUSES = {"", "pending", "met", "not-met"}
 ACCEPTANCE_RECORD_STATUSES = {"accepted", "rejected", "revoked"}
 OUTCOME_STATUSES = {"captured", "completed", "closed"}
-INTEGRATION_PROVIDERS = {"slack", "github", "jira", "email", "linear"}
 INTEGRATION_MODES = {"notify", "read", "write", "read_write", "webhook", "dry_run"}
 INTEGRATION_RISK_LEVELS = {"low", "standard", "high", "critical"}
 SOURCE_DATA_CLASSES = {"", "public", "internal", "confidential", "restricted"}
@@ -512,7 +523,8 @@ INTEGRATION_EVENTS = {
     "work_completed",
     "work_blocked",
 }
-INTEGRATION_ACTIONS = {"notify", "comment", "create_issue", "update_issue"}
+INTEGRATION_ACTIONS = set(SUPPORTED_INTEGRATION_ACTIONS)
+INTEGRATION_PROVIDER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 SECRET_REF_RE = re.compile(r"^env:[A-Z_][A-Z0-9_]*$")
 
 
@@ -555,6 +567,7 @@ def _validate_collection(raw: dict[str, object], key: str) -> None:
 
 
 def validate_workspace_contract(workspace: Any) -> None:
+    normalize_path = _request_path_normalizer()
     attempts_by_id = {attempt.id: attempt for attempt in workspace.attempts}
     evidence_by_id = {evidence.id: evidence for evidence in workspace.evidence_runs}
     reviews_by_id = {review.id: review for review in workspace.review_verdicts}
@@ -616,7 +629,9 @@ def validate_workspace_contract(workspace: Any) -> None:
             work.parallel_policy,
             PARALLEL_POLICIES,
         )
-        _validate_path_intents(work)
+        _validate_path_intents(work, normalize_path)
+
+    _validate_work_retirement_graph(work_by_id)
 
     for integration in workspace.integrations:
         _validate_integration(integration)
@@ -636,7 +651,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for attempt in workspace.attempts:
         _require_allowed_value("attempts", attempt.id, "status", attempt.status, ATTEMPT_STATUSES)
-        _validate_attempt_boundaries(attempt, work_by_id)
+        _validate_attempt_boundaries(attempt, work_by_id, normalize_path)
 
     for evidence in workspace.evidence_runs:
         _require_allowed_value(
@@ -856,6 +871,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             sources_by_id,
             integration_plans_by_id,
             integration_outbox_by_id,
+            normalize_path,
         )
         _validate_receipt_hash_shape(receipt)
 
@@ -863,35 +879,22 @@ def validate_workspace_contract(workspace: Any) -> None:
         _require_allowed_value("outcomes", outcome.id, "status", outcome.status, OUTCOME_STATUSES)
 
     for work in workspace.work_items:
-        if work.status in TERMINAL_WORK_STATUSES:
+        if work.terminal_disposition:
+            _validate_retired_work(workspace, work)
+        elif work.status in TERMINAL_WORK_STATUSES:
             _validate_completed_work(workspace, work, attempts_by_id)
-
-    # Exercise the same pure evaluator used by transitions and PCAW verification.
-    # Existing workspace acceptance semantics remain authoritative for compatibility;
-    # PCAW property failures are reported by proof/status surfaces, not converted here.
-    from .governance_kernel import PROPERTY_NAMES
-    from .pcaw_workspace import evaluate_workspace_governance
-
-    governed_work_ids = {
-        acceptance.work_item_id for acceptance in workspace.acceptance_records
-    }
-    for work in workspace.work_items:
-        if work.status not in TERMINAL_WORK_STATUSES and work.id not in governed_work_ids:
-            continue
-        evaluation = evaluate_workspace_governance(
-            workspace, work.id, inspect_external=False
-        )
-        if tuple(item.name for item in evaluation.properties) != PROPERTY_NAMES:
-            raise WorkspaceError(
-                f"governance kernel returned an incomplete property set for {work.id}"
-            )
-
 
 def _reject_unknown_fields(label: str, record: dict[str, object], allowed: set[str]) -> None:
     unknown = sorted(set(record) - allowed)
     if unknown:
         fields = ", ".join(unknown)
         raise WorkspaceError(f"{label} has unknown field(s): {fields}")
+
+
+def _request_path_normalizer() -> PathNormalizer:
+    """Return a bounded pure path cache for one workspace validation request."""
+
+    return lru_cache(maxsize=PATH_VALIDATION_CACHE_SIZE)(validate_workspace_path)
 
 
 def _record_label(collection: str, index: int, record: dict[str, object]) -> str:
@@ -919,13 +922,10 @@ def _require_allowed_value(
 
 
 def _validate_integration(integration: Integration) -> None:
-    _require_allowed_value(
-        "integrations",
-        integration.id,
-        "provider",
-        integration.provider,
-        INTEGRATION_PROVIDERS,
-    )
+    if not INTEGRATION_PROVIDER_RE.fullmatch(integration.provider):
+        raise WorkspaceError(
+            f"integrations.{integration.id}.provider must be a non-empty lowercase identifier"
+        )
     _require_allowed_value(
         "integrations",
         integration.id,
@@ -956,12 +956,7 @@ def _validate_integration(integration: Integration) -> None:
             action,
             INTEGRATION_ACTIONS,
         )
-        if action not in PROVIDER_ACTIONS[integration.provider]:
-            raise WorkspaceError(
-                f"integrations.{integration.id}.allowed_actions includes action "
-                f"{action!r} unsupported by provider {integration.provider}"
-            )
-        if action not in supported_actions_for_mode(integration.mode, integration.provider):
+        if action not in supported_actions_for_mode(integration.mode):
             raise WorkspaceError(
                 f"integrations.{integration.id}.allowed_actions includes action "
                 f"{action!r} unsupported by mode {integration.mode}"
@@ -1001,8 +996,6 @@ def _validate_authority_profile(profile: AuthorityProfile) -> None:
     _require_allowed_value("authority_profiles", profile.id, "mode", profile.mode, AUTHORITY_MODES)
     for risk in profile.require_human_for_risks:
         _require_allowed_value("authority_profiles", profile.id, "require_human_for_risks", risk, RISKS)
-    for risk in profile.receipt_ready_risks:
-        _require_allowed_value("authority_profiles", profile.id, "receipt_ready_risks", risk, RISKS)
     if profile.minimum_approval_count < 0:
         raise WorkspaceError(
             f"authority_profiles.{profile.id}.minimum_approval_count must be zero or greater"
@@ -1124,7 +1117,7 @@ def _validate_integration_plan(
             )
         human = humans_by_id[plan.reviewed_by]
         work = work_by_id[plan.work_item_id]
-        if not _human_can_decide_integration_plan(
+        if not human_can_decide_integration_plan(
             human,
             work,
             integration,
@@ -1133,24 +1126,6 @@ def _validate_integration_plan(
                 f"integration_plans.{plan.id}.reviewed_by {human.id} lacks authority "
                 "to decide this integration plan"
             )
-
-
-def _human_can_decide_integration_plan(
-    human: Any,
-    work: WorkItem,
-    integration: Integration,
-) -> bool:
-    if human.authority_level == "admin":
-        return True
-    if work.required_approval_capability:
-        return work.required_approval_capability in human.approval_capabilities
-    if integration.owner_human == human.id and integration.risk_level in {"low", "standard"}:
-        return True
-    if integration.risk_level in {"high", "critical"}:
-        return bool({"policy", "deploy", "security"} & set(human.approval_capabilities))
-    return bool(
-        {"operations", "product", "policy", "merge", "deploy"} & set(human.approval_capabilities)
-    )
 
 
 def _validate_unique_outbox_plans(items: Iterable[IntegrationOutboxItem]) -> None:
@@ -1222,7 +1197,7 @@ def _validate_integration_outbox_item(
         )
     if item.risk != plan.risk:
         raise WorkspaceError(f"integration_outbox.{item.id}.risk does not match plan {plan.id}")
-    if not _human_can_decide_integration_plan(human, work, integration):
+    if not human_can_decide_integration_plan(human, work, integration):
         raise WorkspaceError(
             f"integration_outbox.{item.id}.enqueued_by {human.id} lacks authority "
             "to enqueue this integration plan"
@@ -1241,7 +1216,7 @@ def _validate_integration_outbox_item(
                 f"integration_outbox.{item.id}.cancel_reason is required when status is canceled"
             )
         canceling_human = humans_by_id[item.canceled_by]
-        if not _human_can_decide_integration_plan(canceling_human, work, integration):
+        if not human_can_decide_integration_plan(canceling_human, work, integration):
             raise WorkspaceError(
                 f"integration_outbox.{item.id}.canceled_by {canceling_human.id} lacks "
                 "authority to cancel this integration outbox item"
@@ -1270,7 +1245,7 @@ def _validate_integration_outbox_item(
             )
     if item.sent_by:
         sending_human = humans_by_id[item.sent_by]
-        if not _human_can_decide_integration_plan(sending_human, work, integration):
+        if not human_can_decide_integration_plan(sending_human, work, integration):
             raise WorkspaceError(
                 f"integration_outbox.{item.id}.sent_by {sending_human.id} lacks "
                 "authority to send this integration outbox item"
@@ -1325,6 +1300,7 @@ def _looks_like_secret_field(key: str, value: str) -> bool:
 def _validate_attempt_boundaries(
     attempt: Attempt,
     work_by_id: dict[str, WorkItem],
+    normalize_path: PathNormalizer,
 ) -> None:
     work = work_by_id[attempt.work_item_id]
     write_boundaries = _write_boundaries(work)
@@ -1336,18 +1312,25 @@ def _validate_attempt_boundaries(
             f"attempts.{attempt.id}.changed_files",
             changed_file,
             attempt_boundaries,
+            normalize_path,
         )
         for forbidden_path in attempt.forbidden_paths:
-            _require_changed_file_outside_forbidden_path(attempt.id, changed_file, forbidden_path)
+            _require_changed_file_outside_forbidden_path(
+                attempt.id,
+                changed_file,
+                forbidden_path,
+                normalize_path,
+            )
     for output_target in attempt.output_targets:
         _require_path_in_boundaries(
             f"attempts.{attempt.id}.output_targets",
             output_target,
             output_boundaries,
+            normalize_path,
         )
 
 
-def _validate_path_intents(work: WorkItem) -> None:
+def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> None:
     """Validate the additive exact-path mutation contract.
 
     Legacy work items omit ``path_intents`` and retain their existing
@@ -1376,7 +1359,7 @@ def _validate_path_intents(work: WorkItem) -> None:
                 "expected one of: create, delete, modify"
             )
         try:
-            normalized = validate_workspace_path(path)
+            normalized = normalize_path(path)
         except ValueError as exc:
             raise WorkspaceError(f"{label}.path contains unsafe path {path}: {exc}") from exc
         if normalized != path:
@@ -1387,24 +1370,33 @@ def _validate_path_intents(work: WorkItem) -> None:
             )
         seen.add(path)
         for other in seen - {path}:
-            if path_allowed(path, [other]) or path_allowed(other, [path]):
+            if _path_allowed(path, [other], normalize_path) or _path_allowed(
+                other,
+                [path],
+                normalize_path,
+            ):
                 raise WorkspaceError(
                     f"work_items.{work.id}.path_intents paths overlap by prefix: "
                     f"{other}, {path}"
                 )
-        if not boundaries or not path_allowed(path, boundaries):
+        if not boundaries or not _path_allowed(path, boundaries, normalize_path):
             raise WorkspaceError(
                 f"{label}.path includes path outside declared boundaries: {path}"
             )
 
 
-def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
+def _validate_receipt_boundaries(
+    receipt: Receipt,
+    work: WorkItem,
+    normalize_path: PathNormalizer,
+) -> None:
     write_boundaries = _write_boundaries(work)
     for output in receipt.outputs_created:
         _require_path_in_boundaries(
             f"receipts.{receipt.id}.outputs_created",
             output,
             write_boundaries,
+            normalize_path,
         )
     for undo_ref in receipt.undo_refs:
         undo_path = _undo_ref_path(undo_ref)
@@ -1413,6 +1405,7 @@ def _validate_receipt_boundaries(receipt: Receipt, work: WorkItem) -> None:
                 f"receipts.{receipt.id}.undo_refs",
                 undo_path,
                 write_boundaries,
+                normalize_path,
             )
 
 
@@ -1424,29 +1417,57 @@ def _output_boundaries(work: WorkItem) -> list[str]:
     return list(work.output_targets or work.allowed_resources)
 
 
-def _require_path_in_boundaries(label: str, path: str, boundaries: list[str]) -> None:
+def _require_path_in_boundaries(
+    label: str,
+    path: str,
+    boundaries: list[str],
+    normalize_path: PathNormalizer,
+) -> None:
     if not boundaries:
         raise WorkspaceError(f"{label} has no declared output or resource boundary for {path}")
     try:
-        validate_workspace_path(path)
+        normalize_path(path)
     except ValueError as exc:
         raise WorkspaceError(f"{label} contains unsafe path {path}: {exc}") from exc
-    if not path_allowed(path, boundaries):
+    if not _path_allowed(path, boundaries, normalize_path):
         raise WorkspaceError(f"{label} includes path outside declared boundaries: {path}")
+
+
+def _path_allowed(
+    path: str,
+    boundaries: Iterable[str],
+    normalize_path: PathNormalizer,
+) -> bool:
+    try:
+        normalized = normalize_path(path)
+    except ValueError:
+        return False
+
+    for boundary in boundaries:
+        try:
+            normalized_boundary = normalize_path(boundary)
+        except ValueError:
+            continue
+        if normalized == normalized_boundary or normalized.startswith(
+            f"{normalized_boundary}/"
+        ):
+            return True
+    return False
 
 
 def _require_changed_file_outside_forbidden_path(
     attempt_id: str,
     changed_file: str,
     forbidden_path: str,
+    normalize_path: PathNormalizer,
 ) -> None:
     try:
-        validate_workspace_path(forbidden_path)
+        normalize_path(forbidden_path)
     except ValueError as exc:
         raise WorkspaceError(
             f"attempts.{attempt_id}.forbidden_paths contains unsafe path {forbidden_path}: {exc}"
         ) from exc
-    if path_allowed(changed_file, [forbidden_path]):
+    if _path_allowed(changed_file, [forbidden_path], normalize_path):
         raise WorkspaceError(
             f"attempts.{attempt_id}.changed_files includes forbidden path {changed_file}"
         )
@@ -1624,23 +1645,12 @@ def _validate_acceptance_record(
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
     _require_fresh_accept_ready_review(work.id, evidence, review)
-    if work.status in TERMINAL_WORK_STATUSES:
-        stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
-        if stored_errors:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
-                f"evidence or receipt integrity: {stored_errors[0]}"
-            )
-    else:
-        from .evidence_manifest import verify_evidence
-
-        # Before execution, approval is always bound to current artifact bytes.
-        verification = verify_evidence(workspace, evidence.id, require_output_coverage=None)
-        if not verification["ok"]:
-            raise WorkspaceError(
-                f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
-                "evidence or receipt integrity"
-            )
+    stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
+    if stored_errors:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
+            f"evidence or receipt integrity: {stored_errors[0]}"
+        )
     if acceptance.evidence_reference != review.evidence_reference:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference does not match "
@@ -1734,10 +1744,50 @@ def _validate_completed_work(
     work: WorkItem,
     attempts_by_id: dict[str, Attempt],
 ) -> None:
+    evidence = _latest_for_work(workspace.evidence_runs, work.id)
+    if evidence is None:
+        raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
+    if not evidence.output_binding_version:
+        _validate_historical_completed_work(workspace, work, attempts_by_id, evidence)
+        return
+
+    from .pcaw_workspace import recorded_governance_projection
+
+    projection = recorded_governance_projection(workspace, work.id)
+    evaluation = projection.evaluation
+    if (
+        evaluation.derived_state == "completed"
+        and not projection.recorded_proof_errors
+        and not evaluation.errors
+    ):
+        return
+
+    if projection.recorded_proof_errors:
+        reason = projection.recorded_proof_errors[0]
+    elif evaluation.errors:
+        reason = evaluation.errors[0].message
+    else:
+        reason = f"governance kernel derives {evaluation.derived_state}"
+    raise WorkspaceError(
+        f"work_items.{work.id}.status is terminal but current recorded proof "
+        f"does not derive completed: {reason}"
+    )
+
+
+def _validate_historical_completed_work(
+    workspace: Any,
+    work: WorkItem,
+    attempts_by_id: dict[str, Attempt],
+    evidence: EvidenceRun,
+) -> None:
+    """Load the one committed unversioned terminal format for migration only."""
+
     if _open_linked_decision(workspace, work.id) is not None:
         raise WorkspaceError(f"work_items.{work.id}.status cannot be terminal with open decisions")
     if not work.current_attempt:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but current_attempt is missing")
+        raise WorkspaceError(
+            f"work_items.{work.id}.status is terminal but current_attempt is missing"
+        )
     attempt = attempts_by_id[work.current_attempt]
     unfinished_dependencies = _unfinished_dependency_ids(workspace, work)
     if unfinished_dependencies:
@@ -1745,8 +1795,6 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but dependencies are unfinished: "
             f"{', '.join(unfinished_dependencies)}"
         )
-    if _completed_via_low_risk_receipt(workspace, work, attempt):
-        return
     if attempt.status not in {"complete", "completed"}:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but current attempt "
@@ -1757,15 +1805,14 @@ def _validate_completed_work(
             f"work_items.{work.id}.status is terminal but current attempt "
             f"{attempt.id} is not clean"
         )
-    evidence = _latest_for_work(workspace.evidence_runs, work.id)
-    if evidence is None:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
     if evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but latest evidence is "
             f"not for current attempt {work.current_attempt}"
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
+    if _historical_low_risk_completion(workspace, work, attempt):
+        return
     review = _latest_for_work(workspace.review_verdicts, work.id)
     if review is None:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but review is missing")
@@ -1773,11 +1820,10 @@ def _validate_completed_work(
     if review.binding_version:
         from .governance_binding import review_binding_integrity_errors, work_contract_hash
 
-        # Exact output coverage is mandatory for versioned evidence. Terminal
-        # records with genuinely unversioned evidence remain loadable as
-        # legacy state, but a v1 record cannot use that compatibility path.
+        # The committed migration fixture pairs unversioned evidence with a
+        # versioned review. Validate that stored binding without promoting the
+        # historical evidence format to current completion authority.
         binding_errors = review_binding_integrity_errors(workspace, review)
-        binding_errors.extend(_stored_evidence_integrity_errors(workspace, evidence))
         if review.work_contract_hash != work_contract_hash(work):
             binding_errors.append(f"review {review.id} work contract is stale")
         if binding_errors:
@@ -1805,7 +1851,7 @@ def _validate_completed_work(
                 f"work_items.{work.id}.status is terminal but latest acceptance record "
                 "does not match current exact proof"
             )
-    count = _qualified_approval_count(workspace, work, review)
+    count = _historical_qualified_approval_count(workspace, work, review)
     if count < work.required_approval_count:
         raise WorkspaceError(
             f"work_items.{work.id}.status is terminal but approval quorum is "
@@ -1813,19 +1859,123 @@ def _validate_completed_work(
         )
 
 
+def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
+    """Validate explicit non-success terminalization without treating it as completion."""
+
+    for work in work_by_id.values():
+        if not work.terminal_disposition:
+            if work.terminal_reason or work.successor_work_item_id:
+                raise WorkspaceError(
+                    f"work_items.{work.id} has retirement metadata without "
+                    "a superseded or abandoned status; active authority would be ambiguous"
+                )
+            continue
+        if work.terminal_disposition not in RETIRED_WORK_STATUSES:
+            raise WorkspaceError(
+                f"work_items.{work.id}.terminal_disposition is invalid"
+            )
+        if not work.terminal_reason.strip():
+            raise WorkspaceError(
+                f"work_items.{work.id}.terminal_reason is required when "
+                f"status is {work.terminal_disposition}"
+            )
+        successor_id = work.successor_work_item_id
+        if successor_id:
+            if successor_id == work.id:
+                raise WorkspaceError(
+                    f"work_items.{work.id}.successor_work_item_id must reference a "
+                    "distinct work item"
+                )
+            if successor_id not in work_by_id:
+                raise WorkspaceError(
+                    f"work_items.{work.id}.successor_work_item_id references missing "
+                    f"id {successor_id}"
+                )
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(work_id: str) -> None:
+        if work_id in visiting:
+            raise WorkspaceError("work_items successor graph contains a cycle")
+        if work_id in visited:
+            return
+        visiting.add(work_id)
+        successor_id = work_by_id[work_id].successor_work_item_id
+        if successor_id:
+            visit(successor_id)
+        visiting.remove(work_id)
+        visited.add(work_id)
+
+    for work_id in sorted(work_by_id):
+        visit(work_id)
+
+    retired_ids = {
+        work.id for work in work_by_id.values() if work.terminal_disposition
+    }
+    for work in work_by_id.values():
+        retired_dependencies = sorted(set(work.dependency_ids) & retired_ids)
+        if retired_dependencies:
+            raise WorkspaceError(
+                f"work_items.{work.id}.dependency_ids references retired work: "
+                f"{', '.join(retired_dependencies)}; bind the dependency to the explicit "
+                "successor or remove the obsolete edge"
+            )
+
+
+def _validate_retired_work(
+    workspace: Any,
+    work: WorkItem,
+) -> None:
+    if _open_linked_decision(workspace, work.id) is not None:
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired with open decisions"
+        )
+    active_attempts = sorted(
+        attempt.id
+        for attempt in workspace.attempts
+        if attempt.work_item_id == work.id and attempt.status == "active"
+    )
+    if active_attempts:
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired with active attempts: "
+            f"{', '.join(active_attempts)}"
+        )
+    resolved_plan_ids = {
+        item.plan_id
+        for item in workspace.integration_outbox
+        if item.work_item_id == work.id and item.status in {"sent", "canceled"}
+    }
+    pending_plans = sorted(
+        plan.id
+        for plan in workspace.integration_plans
+        if plan.work_item_id == work.id
+        and (
+            plan.status in {"planned", "pending-approval"}
+            or (plan.status == "approved" and plan.id not in resolved_plan_ids)
+        )
+    )
+    unresolved_actions = sorted(
+        item.id
+        for item in workspace.integration_outbox
+        if item.work_item_id == work.id and item.status in {"queued", "failed"}
+    )
+    if pending_plans or unresolved_actions:
+        records = ", ".join([*pending_plans, *unresolved_actions])
+        raise WorkspaceError(
+            f"work_items.{work.id} cannot be retired while external action "
+            f"authority is unresolved: {records}"
+        )
+
+
 def _stored_evidence_integrity_errors(
     workspace: Any,
     evidence: EvidenceRun,
 ) -> list[str]:
-    """Validate terminal proof records without rebinding them to a later checkout."""
+    """Validate recorded proof structure without inspecting external state."""
 
-    from .evidence_manifest import evidence_manifest_hash, receipt_hash
-    from .models import to_plain
+    from .evidence_manifest import stored_evidence_integrity_errors
 
-    record = to_plain(evidence)
-    errors: list[str] = []
-    if not evidence.manifest_hash or evidence.manifest_hash != evidence_manifest_hash(record):
-        errors.append(f"evidence {evidence.id} manifest content changed")
     receipts = [
         receipt
         for receipt in workspace.receipts
@@ -1833,46 +1983,39 @@ def _stored_evidence_integrity_errors(
         and receipt.attempt_id == evidence.attempt_id
     ]
     receipt = max(receipts, key=record_time_key) if receipts else None
-    if receipt is None:
-        errors.append(f"evidence {evidence.id} receipt is missing")
-    else:
-        if not receipt.receipt_hash or receipt.receipt_hash != receipt_hash(to_plain(receipt)):
-            errors.append(f"receipt {receipt.id} content changed")
-        if evidence.receipt_hash != receipt.receipt_hash:
-            errors.append(f"evidence {evidence.id} receipt binding changed")
-    if evidence.output_binding_version:
-        declared_paths = sorted(evidence.artifacts)
-        hashed_paths = sorted(
-            str(item.get("path", ""))
-            for item in evidence.artifact_hashes
-            if item.get("status") == "present"
-            and re.fullmatch(r"sha256:[0-9a-f]{64}", str(item.get("sha256", "")))
-        )
-        if declared_paths != hashed_paths:
-            errors.append(f"evidence {evidence.id} output hashes are incomplete")
-        if not hashed_paths:
-            errors.append(f"evidence {evidence.id} versioned output proof is vacuous")
-        if receipt is not None and not set(receipt.outputs_created).issubset(hashed_paths):
-            errors.append(f"evidence {evidence.id} receipt outputs are not artifact-hashed")
-    return list(dict.fromkeys(errors))
+    work = workspace.work_item(evidence.work_item_id)
+    versioned = bool(evidence.output_binding_version)
+    return stored_evidence_integrity_errors(
+        evidence,
+        receipt,
+        path_intents=work.path_intents if work is not None else [],
+        require_output_coverage=versioned,
+        require_version=versioned,
+    )
 
 
-def _completed_via_low_risk_receipt(workspace: Any, work: WorkItem, attempt: Attempt) -> bool:
-    if work.risk not in {"R1", "R2"}:
-        return False
-    if work.required_approval_count != 0:
-        return False
-    if attempt.status not in {"complete", "completed"}:
-        return False
-    if _unfinished_dependency_ids(workspace, work):
+def _historical_low_risk_completion(
+    workspace: Any,
+    work: WorkItem,
+    attempt: Attempt,
+) -> bool:
+    """Load committed R1/R2 evidence history without granting current authority."""
+
+    if (
+        work.risk not in {"R1", "R2"}
+        or work.required_approval_count != 0
+        or bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
+        or attempt.status not in {"complete", "completed"}
+        or _unfinished_dependency_ids(workspace, work)
+    ):
         return False
     receipt = _latest_for_work(workspace.receipts, work.id)
-    if receipt is None or receipt.attempt_id != work.current_attempt:
-        return False
-    return not (
-        receipt.external_writes
-        or receipt.planned_external_writes
-        or receipt.queued_external_writes
+    return bool(
+        receipt is not None
+        and receipt.attempt_id == work.current_attempt
+        and not receipt.external_writes
+        and not receipt.planned_external_writes
+        and not receipt.queued_external_writes
     )
 
 
@@ -1892,6 +2035,7 @@ def _validate_receipt(
     sources_by_id: dict[str, Any],
     integration_plans_by_id: dict[str, IntegrationPlan],
     integration_outbox_by_id: dict[str, IntegrationOutboxItem],
+    normalize_path: PathNormalizer,
 ) -> None:
     work = work_by_id[receipt.work_item_id]
     attempt = attempts_by_id[receipt.attempt_id]
@@ -1916,7 +2060,7 @@ def _validate_receipt(
                 f"receipts.{receipt.id}.sources_used includes source {source_id} "
                 f"not allowed for Palari {work.palari}"
             )
-    _validate_receipt_boundaries(receipt, work)
+    _validate_receipt_boundaries(receipt, work, normalize_path)
     for plan_id in receipt.planned_external_writes:
         plan = integration_plans_by_id[plan_id]
         if plan.work_item_id != work.id:
@@ -2026,8 +2170,7 @@ def _require_hash_prefix(collection: str, record_id: str, field: str, value: str
 
 
 def _allows_external_writes(work: WorkItem) -> bool:
-    allowed = set(work.allowed_actions)
-    return bool(allowed & {"external_write", "write_external", "write"})
+    return bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
 
 
 def _require_fresh_passed_evidence(
@@ -2056,7 +2199,7 @@ def _require_fresh_accept_ready_review(
         raise WorkspaceError(f"work_items.{work_id} review {review.id} is stale")
 
 
-def _qualified_approval_count(
+def _historical_qualified_approval_count(
     workspace: Any,
     work: WorkItem,
     review: ReviewVerdict,
@@ -2213,17 +2356,16 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions approval pack {pack_digest} manifest digest does not match"
             )
-        if manifest.get("schema_version") == "palari.approval-pack.v2":
-            unbound = [
-                decision.id
-                for decision in bound
-                if not decision.approval_presentation_digest
-            ]
-            if unbound:
-                raise WorkspaceError(
-                    "human_decisions approval pack v2 requires presentation binding: "
-                    + ", ".join(sorted(unbound))
-                )
+        unbound = [
+            decision.id
+            for decision in bound
+            if not decision.approval_presentation_digest
+        ]
+        if unbound:
+            raise WorkspaceError(
+                "human_decisions approval pack requires presentation binding: "
+                + ", ".join(sorted(unbound))
+            )
         presentation_groups: dict[str, list[HumanDecision]] = {}
         for decision in bound:
             if decision.approval_presentation_digest:

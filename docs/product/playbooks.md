@@ -3,9 +3,11 @@
 Palari Company OS can link to external operating playbooks without making them
 the source of authority.
 
-The first supported pattern is Superpowers compatibility. A workspace can point
-at `obra/Superpowers`, list the specific skills it wants to allow, and then let
-Palari recommend those skills for a work item.
+This reachable recommendation surface is parked pending a product decision. It
+is not current core and carries no pre-1.0 compatibility promise. The retained
+pattern can point at `obra/Superpowers`, list the specific skills it wants to
+allow, and let Palari recommend those skills for a work item without making the
+recommendation part of the ordinary lifecycle or candidate authority.
 
 Palari still owns:
 
@@ -65,7 +67,7 @@ Work items can pin human- or Palari-selected skills:
 Validation fails closed if a work item references a missing playbook source or a
 skill not listed by that source.
 
-## Core Default Set
+## Retained Default Set
 
 Palari starts with three Superpowers skills as the default operating set for
 active repo work:

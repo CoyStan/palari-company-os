@@ -3,12 +3,11 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # The local bin/palari wrapper exports the source tree for development. An
-# isolated wheel smoke must not let that source checkout or its egg-info make
-# pip believe the package is already installed inside the fresh venv.
+# isolated wheel smoke must not import from that checkout.
 unset PYTHONPATH PYTHONHOME
 tmp_dir="$(mktemp -d)"
 log_dir="$tmp_dir/logs"
-mkdir "$log_dir"
+mkdir "$log_dir" "$tmp_dir/wheelhouse"
 
 cleanup() {
   status=$?
@@ -25,41 +24,38 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 -m venv "$tmp_dir/venv"
-"$tmp_dir/venv/bin/python" -m pip wheel --disable-pip-version-check --no-deps \
-  "$repo_dir" -w "$tmp_dir/wheelhouse" >"$log_dir/wheel.log"
-wheel_path="$(find "$tmp_dir/wheelhouse" -name 'palari_company_os-*.whl' -print -quit)"
-"$tmp_dir/venv/bin/python" -m pip install --disable-pip-version-check --no-index --no-deps \
-  "$wheel_path" >"$log_dir/install.log"
+python3 -m pip wheel --disable-pip-version-check --no-build-isolation --no-deps \
+  "$repo_dir" -w "$tmp_dir/wheelhouse" >"$log_dir/wheel.log" 2>&1
+shopt -s nullglob
+wheel_paths=("$tmp_dir"/wheelhouse/palari_company_os-*.whl)
+shopt -u nullglob
+if [[ "${#wheel_paths[@]}" -ne 1 ]]; then
+  printf 'Expected exactly one Palari wheel, found %s.\n' "${#wheel_paths[@]}" >&2
+  exit 1
+fi
+wheel_path="${wheel_paths[0]}"
 
-"$tmp_dir/venv/bin/python" -c 'import palari_company_os; print(palari_company_os.__version__)' >"$log_dir/import.log"
+python3 -m venv "$tmp_dir/venv"
+"$tmp_dir/venv/bin/python" -m pip install --disable-pip-version-check \
+  --no-index --no-deps "$wheel_path" >"$log_dir/install.log" 2>&1
+
+"$tmp_dir/venv/bin/python" -c \
+  'import palari_company_os; print(palari_company_os.__version__)' \
+  >"$log_dir/import.log"
 "$tmp_dir/venv/bin/palari" --help >"$log_dir/help.log"
-"$tmp_dir/venv/bin/palari" validate --json >"$log_dir/default-validate.json"
-"$tmp_dir/venv/bin/palari" queue --json >"$log_dir/default-queue.json"
-"$tmp_dir/venv/bin/palari" agent next --as PALARI-SOFIA --json >"$log_dir/agent-next.json"
-"$tmp_dir/venv/bin/palari" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json >"$log_dir/agent-brief.json"
-"$tmp_dir/venv/bin/palari" agent check WORK-0003 --as PALARI-SOFIA --json >"$log_dir/agent-check.json"
-"$tmp_dir/venv/bin/palari" agent finish WORK-0003 --as PALARI-SOFIA --json >"$log_dir/agent-finish.json"
-"$tmp_dir/venv/bin/palari" integrations --json >"$log_dir/integrations.json"
-"$tmp_dir/venv/bin/palari" integration check INT-SLACK-OPS --json >"$log_dir/integration-check.json"
-"$tmp_dir/venv/bin/palari" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --json >"$log_dir/integration-plan.json"
-mkdir "$tmp_dir/integration-workspace"
-cp "$repo_dir/examples/acme-company-os/workspace.json" "$tmp_dir/integration-workspace/workspace.json"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration plan INT-SLACK-OPS --work WORK-0001 --event approval_requested --action notify --record --id PLAN-INSTALL-SMOKE --json >"$log_dir/integration-plan-recorded.json"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration approve PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --reason "install smoke" --json >"$log_dir/integration-plan-approved.json"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration enqueue PLAN-INSTALL-SMOKE --by HUMAN-FOUNDER --json >"$log_dir/integration-plan-enqueued.json"
-install_smoke_outbox_id="$("$tmp_dir/venv/bin/python" - "$log_dir/integration-plan-enqueued.json" <<'PY'
-import json
-import sys
-with open(sys.argv[1], encoding="utf-8") as handle:
-    print(json.load(handle)["integration_outbox_item"]["id"])
-PY
-)"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" integration outbox-cancel "$install_smoke_outbox_id" --by HUMAN-FOUNDER --reason "install smoke cancel" --json >"$log_dir/integration-outbox-canceled.json"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" detail WORK-0001 --json >"$log_dir/integration-detail.json"
-"$tmp_dir/venv/bin/palari" --workspace "$tmp_dir/integration-workspace" history --json >"$log_dir/integration-history.json"
-"$tmp_dir/venv/bin/palari" --workspace "$repo_dir/examples/acme-company-os" validate --json >"$log_dir/explicit-validate.json"
-"$tmp_dir/venv/bin/palari" desktop-prototype --out "$tmp_dir/desktop" --json >"$log_dir/desktop.json"
+
+project_dir="$tmp_dir/current-workspace"
+mkdir "$project_dir"
+git -C "$project_dir" init -q
+git -C "$project_dir" config user.name "Palari Install Smoke"
+git -C "$project_dir" config user.email "palari-install-smoke@local.invalid"
+"$tmp_dir/venv/bin/palari" init "$project_dir" \
+  --name "Installed Palari Smoke" --palari "Install Smoke" --json \
+  >"$log_dir/init.json"
+"$tmp_dir/venv/bin/palari" --workspace "$project_dir" validate --json \
+  >"$log_dir/validate.json"
+"$tmp_dir/venv/bin/palari" --workspace "$project_dir" queue --json \
+  >"$log_dir/queue.json"
 
 cp -R "$repo_dir/spec/pcaw/v1/vectors/valid/accepted" "$tmp_dir/proof-bundle"
 mkdir "$tmp_dir/offline-python"
@@ -75,5 +71,4 @@ printf '%s\n' \
     >"$log_dir/pcaw-offline-verify.json"
 )
 
-test -f "$tmp_dir/desktop/index.html"
 printf 'Palari Company OS wheel install smoke passed.\n'

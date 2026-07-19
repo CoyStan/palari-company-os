@@ -34,7 +34,8 @@ available to the Palari; this v0 object does not connect to real providers yet.
 
 ## Playbook Source
 
-External operating guidance that Palari may recommend while preparing work.
+Parked, non-authoritative external operating guidance that Palari may recommend
+while preparing work.
 Playbook sources record label, provider, URI, pinned ref, license, enabled
 state, and the explicit list of included playbooks. Superpowers compatibility
 uses this object to link to allowed `SKILL.md` playbooks without making them
@@ -51,34 +52,38 @@ acceptance authority.
 
 Risk and quorum posture for a workspace or operating mode. Built-in profiles
 include `solo-founder`, `team-safe`, and `strict`; custom profiles can make the
-same relationship between risk, human review, receipt-ready shortcuts, and
-approval count explicit.
+relationship between risk and approval count explicit. Profiles never waive
+current exact evidence. Independent review and human acceptance may both be
+omitted only for R1/light/0-approval work with no allowed, planned, queued, or
+actual external writes.
 
 ## Integration
 
-Dry-run declaration for a possible external provider such as Slack, GitHub,
-Jira, or email. Integrations record provider, mode, owner human, enabled state,
-allowed events, allowed actions, secret reference, risk level, source boundary,
-and notes. Secret references must be references such as `env:NAME`; Palari does
-not read secret values or call providers in the v0 foundation.
+Declaration for an optional external-effect adapter. Integrations record an
+opaque provider identifier, mode, owner human, enabled state, allowed events,
+allowed actions, secret reference, risk level, source boundary, and notes.
+Secret references must be references such as `env:NAME`; the generic boundary
+does not read secret values, model provider API payloads, or call providers.
+Only a separately supported adapter may execute an exact approved and queued
+action; Linear is the sole current example.
 
 ## Integration Plan
 
 Recorded dry-run payload preview for one integration, work item, event, and
-action. Integration plans keep the exact planned payload, source boundary, risk,
-actor, timestamp, and approval requirement reviewable before any future live
-connector exists. Recording a plan appends history but still performs no live
-provider call and reads no secret value. A qualified human may later mark the
-plan approved, rejected, or canceled; that decision is history/audit state only
-and still does not execute the external provider action.
+action. Integration plans keep the exact planned payload, source boundary,
+risk, actor, timestamp, and approval requirement reviewable before any
+supported adapter may execute. Recording a plan appends the governance journal
+but performs no live provider call and reads no secret value. A qualified human
+may later mark the plan approved, rejected, or canceled; that decision is
+journaled audit state only and still does not execute the provider action.
 
 ## Integration Outbox Item
 
-Queued dry-run boundary for an approved integration plan. An outbox item copies
+Queued boundary for an approved integration plan. An outbox item copies
 the approved payload preview, source boundary, risk, work item, integration,
 event, action, enqueuing human, timestamp, and status into an auditable record.
-It means "this approved external action is waiting at the future execution
-boundary," not "the external provider was called." Duplicate outbox entries for
+It means "this approved external action is waiting at the execution boundary,"
+not "the external provider was called." Duplicate outbox entries for
 the same plan fail closed. A qualified human can cancel a queued outbox item;
 canceled items keep `canceled_by`, `canceled_at`, and `cancel_reason`, remain in
 history/detail views, and cannot be used by receipts as queued external writes.
@@ -115,8 +120,9 @@ boundary only; it conveys no human or integration authority.
 Proof attached to a work item and attempt. Evidence records commands, status,
 head SHA, artifacts, artifact hashes, manifest hash, exact receipt hash,
 summary, and timestamp. New records carry `output_binding_version`, require a
-non-empty output/artifact set, and give every receipt output a present digest.
-The manifest covers the
+non-empty output/artifact set, and give every receipt output either a present
+digest or the exact absent tombstone required by a declared delete intent. The
+manifest covers the
 receipt hash, output-binding version, artifacts, and verification fields, so
 changing either side invalidates proof. Pre-PCAW records without that version
 remain readable but cannot support a new strict review or acceptance until
@@ -136,8 +142,9 @@ manifest, receipt, reviewed head, and work contract. The binding has its own
 proof hash, which also covers the reviewer, verdict, findings, inspected
 checks, residual risks, and timestamp. Bound verdicts are immutable; a reviewer
 records a new verdict after any substantive change. Schema v2 rejects an
-unbound `accept-ready` verdict. Migration keeps legacy unbound non-accepting
-verdicts inspectable and blocks any legacy accept-ready authority.
+unbound `accept-ready` verdict. The narrow historical reader keeps unbound
+non-accepting verdicts inspectable and blocks any historical accept-ready
+authority.
 
 ## Human Decision
 
@@ -148,9 +155,11 @@ and evidence references it names.
 
 Pack-bound decisions additionally retain the exact canonical pack manifest,
 pack digest, member digest, subject digest, request digest, and per-item action.
-Exactly one decision record retains the manifest; every derived member
-decision remains independently attributable and journaled. Copying a member
-binding to another item fails validation.
+They also bind the exact canonical decision presentation schema, surface, and
+digest. Exactly one decision record retains each manifest and presentation;
+every derived member decision remains independently attributable and
+journaled. Copying a member or presentation binding to another item fails
+validation. Approval Pack v1 is unsupported and is not upgraded in place.
 
 ## Approval Pack
 
@@ -173,7 +182,8 @@ not grant authority or alter the canonical pack manifest.
 
 ## Governed Checkpoint
 
-Every committed governance-journal projection is a content-addressed
+This is a parked human-only local recovery surface, not part of the ordinary
+supported lifecycle. Every committed governance-journal projection is a content-addressed
 checkpoint. Restoring one creates a new `restoration` transaction with the old
 projection; it does not delete the original chain, later work, decisions, or
 the restoration reason. Only effect-free local chains are restorable. A later
@@ -198,7 +208,8 @@ used, what actions were taken, what outputs were created, which external writes
 were only planned, what external writes actually occurred, what was not done,
 and what undo references exist. Receipts are not governance evidence; they help
 the user review, undo, or continue bounded work. The receipt hash is also part
-of exact evidence/review proof for governed acceptance. Planned external writes must
+of exact evidence/review proof for governed acceptance. A receipt without
+current exact evidence cannot complete work. Planned external writes must
 reference approved integration plans; queued external writes must reference
 queued integration outbox items; rejected, canceled, or pending plans cannot be
 used as receipt-backed external-write claims. Canceled outbox items also cannot

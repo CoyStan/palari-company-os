@@ -12,7 +12,7 @@ into a process ritual.
 - integration plan, approval, outbox, or external-write boundaries
 - gate profile recommendations
 - examples, quickstarts, installation, or verification commands
-- public README or showcase claims
+- public README or example claims
 - PCAW schemas, diagnostics, conformance vectors, verifier TCB, or journal semantics
 
 ## Usually No Docs Update Needed

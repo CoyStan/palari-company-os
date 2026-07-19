@@ -15,19 +15,22 @@ Python 3.10+
 Compatibility:
 
 - workspace schema v2 is the current supported schema
-- unversioned, v0, and v1 workspaces can be migrated to v2 with `palari migrate`
+- unversioned, v0, and v1 workspaces fail closed; no runtime migration is supported
 - newer schema versions fail closed until the code supports them
 
 Release checklist:
 
 ```bash
-python3 -m pip install -e .
+python3 -m pip install -e ".[dev]"
 ./scripts/verify.sh
-./scripts/install_smoke.sh
 python -m build
 twine check dist/*
 git status --short
 ```
+
+The complete verification command already builds and installs one isolated
+candidate wheel. The later distribution build creates the artifacts intended
+for an explicitly authorized release.
 
 Shipping a release:
 
@@ -48,6 +51,7 @@ workflow `release.yml`). No API token is stored in the repository.
 
 Workspace backup guidance:
 
-- `workspace.json` is the source of truth
-- copy the workspace directory before migrations
+- `workspace.json` is the authoritative current-state projection
+- the v2 governance journal is the replayable mutation history
+- back up the complete workspace directory, including both, together
 - do not store secrets in workspace files

@@ -248,7 +248,6 @@
         },
         "summary": { "type": "string" },
         "require_human_for_risks": { "$ref": "#/$defs/string_list" },
-        "receipt_ready_risks": { "$ref": "#/$defs/string_list" },
         "minimum_approval_count": { "type": "integer", "minimum": 0 },
         "r5_approval_count": { "type": "integer", "minimum": 0 },
         "required_approval_capability": { "type": "string" },
@@ -262,7 +261,7 @@
       "required": ["id", "provider", "label"],
       "properties": {
         "id": { "type": "string" },
-        "provider": { "type": "string", "enum": ["slack", "github", "jira", "email", "linear"] },
+        "provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
         "label": { "type": "string" },
         "mode": {
           "type": "string",
@@ -446,9 +445,13 @@
             "blocked",
             "completed",
             "closed",
-            "done"
+            "done",
+            "superseded",
+            "abandoned"
           ]
         },
+        "terminal_reason": { "type": "string" },
+        "successor_work_item_id": { "type": "string" },
         "scope": { "type": "string" },
         "allowed_resources": { "$ref": "#/$defs/string_list" },
         "allowed_sources": { "$ref": "#/$defs/string_list" },

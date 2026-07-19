@@ -74,8 +74,8 @@ may run its emitted `human-decision pack` action once. Agents may quote that
 command for the supervisor; they must not execute it or combine review with
 acceptance.
 
-Use `--mode review` only when work is already waiting for review or is
-receipt-ready. Review packets are read-only: they include review focus,
+Use `--mode review` only when work has current exact evidence and is waiting
+for independent review. Review packets are read-only: they include review focus,
 attempt/evidence/receipt context, and review guide commands, but they do not
 record a verdict.
 
@@ -131,10 +131,12 @@ The canonical contract is in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
-Claude Code users may optionally add structural enforcement with `palari
-claude install`. Those hooks deny out-of-boundary file writes and block turn
-completion while the working tree escapes the packet boundary; they are a
-secondary host adapter, not a requirement for the provider-neutral loop. See
+Fresh Git projects may use `palari init --host HOST`; existing workspaces use
+the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
+where `HOST` is `claude` or `codex`. Both profiles install the portable
+contract, commit-time Git boundary, and tested session hooks; Codex requires
+explicit `/hooks` trust. `palari claude install` remains the hook-only
+management, repair, and removal surface; see
 `docs/product/claude-code-integration.md`.
 
 ## Agent-Ready Repo Docs

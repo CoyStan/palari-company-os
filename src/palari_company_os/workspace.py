@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, TypeVar
 
@@ -130,15 +129,15 @@ class Workspace:
         schema_version = raw.get("schema_version")
         if schema_version is None:
             raise WorkspaceError(
-                "workspace schema_version is missing; run `palari migrate --write` "
-                f"or add schema_version: {CURRENT_SCHEMA_VERSION}"
+                "workspace schema_version is missing; only schema_version "
+                f"{CURRENT_SCHEMA_VERSION} is supported"
             )
         if type(schema_version) is not int:
             raise WorkspaceError("workspace schema_version must be an integer")
         if schema_version < CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
                 f"workspace schema_version {schema_version} is older than supported "
-                f"version {CURRENT_SCHEMA_VERSION}; run `palari migrate --write`"
+                f"version {CURRENT_SCHEMA_VERSION}"
             )
         if schema_version > CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
@@ -726,14 +725,9 @@ class Workspace:
 
 
 def default_workspace_path() -> Path:
-    local = Path.cwd() / "workspace.json"
-    if local.is_file():
-        return Path.cwd()
-    repo_root = Path(__file__).resolve().parents[2]
-    repo_fixture = repo_root / "examples" / "acme-company-os"
-    if repo_fixture.exists():
-        return repo_fixture
-    return _packaged_data_path("examples", "acme-company-os")
+    """Use only the operator's current directory as implicit workspace context."""
+
+    return Path.cwd()
 
 
 def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Attempt | None:
@@ -762,10 +756,6 @@ def latest_for_work(records: Iterable[T], work_id: str) -> T | None:
             latest = record
             latest_key = key
     return latest
-
-
-def _packaged_data_path(*parts: str) -> Path:
-    return Path(str(files("palari_company_os").joinpath("data", *parts)))
 
 
 def _items(raw: dict[str, object], key: str) -> list[dict[str, object]]:

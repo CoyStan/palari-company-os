@@ -3,10 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from .governance_journal import JournalVerificationContext
+from .governance_journal import (
+    JOURNAL_RELATIVE_PATH,
+    V2_JOURNAL_RELATIVE_PATH,
+    JournalVerificationContext,
+)
 from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
@@ -14,8 +19,8 @@ from .workspace import Workspace, WorkspaceError
 
 HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
-GOVERNANCE_HISTORY_RELATIVE_PATH = ".palari/history.jsonl"
-GOVERNANCE_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v1.jsonl"
+GOVERNANCE_JOURNAL_RELATIVE_PATH = V2_JOURNAL_RELATIVE_PATH
+LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH = JOURNAL_RELATIVE_PATH
 
 
 def git_artifact_state(
@@ -109,8 +114,8 @@ def _governance_projection_paths(root: Path, workspace_path: Path) -> set[str]:
         data_path /= "workspace.json"
     candidates = {
         data_path,
-        data_path.parent / ".palari" / "history.jsonl",
-        data_path.parent / ".palari" / "governance-journal.v1.jsonl",
+        data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
+        data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
     }
     paths: set[str] = set()
     for candidate in candidates:
@@ -190,6 +195,91 @@ def receipt_hash(record: dict[str, Any]) -> str:
         if key not in {"receipt_hash"} and value not in (None, "", [], {})
     }
     return _stable_hash(payload)
+
+
+def stored_evidence_integrity_errors(
+    evidence: Any,
+    receipt: Any | None,
+    *,
+    path_intents: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    require_output_coverage: bool = True,
+    require_version: bool = True,
+) -> list[str]:
+    """Verify stored exact-proof metadata without reading artifact bytes."""
+
+    evidence_record = _plain_record(evidence)
+    receipt_record = _plain_record(receipt) if receipt is not None else None
+    evidence_id = str(evidence_record.get("id", ""))
+    errors: list[str] = []
+    if require_version and evidence_record.get("output_binding_version") != OUTPUT_BINDING_VERSION:
+        errors.append(f"evidence {evidence_id} has no current output binding version")
+    if (
+        not evidence_record.get("manifest_hash")
+        or evidence_record["manifest_hash"] != evidence_manifest_hash(evidence_record)
+    ):
+        errors.append(f"evidence {evidence_id} manifest content changed")
+    if receipt_record is None:
+        errors.append(f"evidence {evidence_id} receipt is missing")
+    else:
+        receipt_id = str(receipt_record.get("id", ""))
+        declared_receipt_hash = str(receipt_record.get("receipt_hash", ""))
+        if not declared_receipt_hash or declared_receipt_hash != receipt_hash(receipt_record):
+            errors.append(f"receipt {receipt_id} content changed")
+        if evidence_record.get("receipt_hash") != declared_receipt_hash:
+            errors.append(f"evidence {evidence_id} receipt binding changed")
+
+    artifacts = [str(path) for path in evidence_record.get("artifacts", [])]
+    artifact_hashes = evidence_record.get("artifact_hashes", [])
+    hash_records = [item for item in artifact_hashes if isinstance(item, dict)]
+    hashes = {str(item.get("path", "")): item for item in hash_records}
+    if len(hash_records) != len(artifact_hashes) or len(hashes) != len(hash_records):
+        errors.append(f"evidence {evidence_id} output hashes contain duplicate or malformed paths")
+    if set(hashes) != set(artifacts) or len(artifacts) != len(set(artifacts)):
+        errors.append(f"evidence {evidence_id} output hashes are incomplete")
+
+    delete_paths = {
+        str(item.get("path", ""))
+        for item in path_intents
+        if isinstance(item, dict) and item.get("intent") == "delete"
+    }
+    for path, item in hashes.items():
+        status = str(item.get("status", ""))
+        digest = str(item.get("sha256", ""))
+        if path in delete_paths:
+            if status != "absent" or digest != f"{HASH_PREFIX}absent":
+                errors.append(f"evidence {evidence_id} deletion proof is invalid for {path}")
+        elif status != "present" or not _exact_sha256(digest):
+            errors.append(f"evidence {evidence_id} artifact digest is invalid for {path}")
+
+    outputs = (
+        [str(path) for path in receipt_record.get("outputs_created", [])]
+        if receipt_record is not None
+        else []
+    )
+    if require_output_coverage:
+        if not artifacts:
+            errors.append(f"evidence {evidence_id} versioned output proof is vacuous")
+        if not outputs or not set(outputs).issubset(artifacts):
+            errors.append(f"evidence {evidence_id} receipt outputs are not artifact-hashed")
+    return list(dict.fromkeys(errors))
+
+
+def _plain_record(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if is_dataclass(value) and not isinstance(value, type):
+        # ``is_dataclass`` also accepts dataclass classes, while stored proof
+        # records must be concrete instances.  The runtime guard supplies the
+        # distinction that the typeshed overload cannot currently express.
+        return asdict(cast(Any, value))
+    raise TypeError("stored evidence records must be mappings or dataclasses")
+
+
+def _exact_sha256(value: str) -> bool:
+    if not value.startswith(HASH_PREFIX):
+        return False
+    digest = value.removeprefix(HASH_PREFIX)
+    return len(digest) == 64 and all(character in "0123456789abcdef" for character in digest)
 
 
 def verify_evidence(
@@ -603,13 +693,16 @@ def _governance_projection_artifacts(
     data_path = Path(workspace_path).expanduser().resolve(strict=False)
     if data_path.is_dir():
         data_path /= "workspace.json"
-    journal_path = data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH
-    if not journal_path.exists():
-        return []
     projection_paths = {
         data_path,
-        data_path.parent / GOVERNANCE_HISTORY_RELATIVE_PATH,
-        journal_path,
+        *(
+            path
+            for path in (
+                data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
+                data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
+            )
+            if path.exists()
+        ),
     }
     matches: list[str] = []
     for artifact in artifacts:

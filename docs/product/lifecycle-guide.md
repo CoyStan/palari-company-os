@@ -29,14 +29,21 @@ The normal path derives mechanical records instead of asking an agent to copy
 their ids and digests:
 
 ```bash
-palari init
+palari init --host codex
 palari work add "Draft onboarding note" --write docs/onboarding.md
 palari agent start --next --as PALARI-ID --json
 # work inside the packet and commit the bounded result
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
 
-The compatible `--write` form requires an output to exist. Use repeatable
+`--host` accepts `claude` or `codex` and folds new portable instructions, the
+claim-bound Git gate, and a tested session-hook adapter into the starter
+anchor. Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as
+PALARI-ID --json`; without an explicit host, initialization still refuses an
+existing workspace. Other harnesses can consume the provider-neutral contract
+without being advertised as supported session profiles.
+
+The presence-only `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` instead when exact mutation class
 matters; exact intents cannot be mixed with `--write`.
 
@@ -78,115 +85,59 @@ the exact explicit `history --checkpoint` activation action and no retroactive
 continuity claim. The commands below remain available as lower-level authoring
 and recovery surfaces; they are not the ordinary agent ceremony.
 
-## Create Intent And Actors
+## Retire Obsolete Work Without Pretending It Completed
+
+When an unclaimed item is genuinely obsolete, close attention explicitly
+through the existing governed update path:
 
 ```bash
-./bin/palari goal create GOAL-X --title "Improve onboarding"
-./bin/palari human create HUMAN-X --name "X Human" --list approval_capabilities=product
-./bin/palari palari create PALARI-X --name Xena --role "Onboarding partner" --owner-human HUMAN-X --list linked_goals=GOAL-X
+palari work update WORK-OLD \
+  --status superseded \
+  --terminal-reason "A narrower contract now owns the objective." \
+  --successor-work-item-id WORK-NEW --json
+
+palari work update WORK-EXPERIMENT \
+  --status abandoned \
+  --terminal-reason "The experiment no longer earns operator attention." --json
 ```
 
-## Create Work
+These dispositions are audit terminalization, not successful completion. They
+create no attempt, receipt, evidence, review, human decision, acceptance, or
+outcome. A reason is mandatory and the successor is optional, but any successor
+must be an existing distinct work item. Successor cycles, retirement with an
+active attempt, open decision, or unresolved external action, and dependencies
+that still point at retired work all fail closed. Rebind a dependent to the
+explicit successor before retiring its old prerequisite.
 
-```bash
-./bin/palari work create WORK-X \
-  --title "Draft onboarding note" \
-  --goal GOAL-X \
-  --palari PALARI-X \
-  --risk R2 \
-  --intensity standard \
-  --list allowed_resources=docs/product/company-os.md \
-  --list forbidden_actions=deploy \
-  --required-approval-capability product
-```
+Retired work is absent from the ordinary queue, `agent next`, and Approval
+Inbox. It remains visible through `queue --include-closed` and `detail`, and an
+explicit `agent start` cannot claim it. Historical proof and review records are
+preserved rather than rewritten.
 
-## Record Attempt, Receipt, Evidence, Review, And Human Decision
+## Parked Expert Authoring
 
-```bash
-./bin/palari attempt record ATTEMPT-X \
-  --work-item-id WORK-X \
-  --actor PALARI-X \
-  --list commits=head-x \
-  --list changed_files=docs/product/company-os.md
+The broad record-by-record authoring commands remain available for explicit
+workspace repair and expert fixture construction. They are parked surfaces,
+not a second supported lifecycle, an agent fallback, or a compatibility
+promise. The command reference lists them separately from the ordinary path.
 
-./bin/palari work update WORK-X --set current_attempt=ATTEMPT-X
+Supported agent hooks may prepare a proposal or scope-expansion decision, but
+they cannot directly manufacture attempts, receipts, evidence, reviews,
+acceptance, human decisions, or outcomes. Use `agent advance` to derive agent
+proof and the exact Approval Inbox action for human authority.
 
-./bin/palari receipt record RECEIPT-X \
-  --work-item-id WORK-X \
-  --attempt-id ATTEMPT-X \
-  --actor PALARI-X \
-  --list actions_taken="drafted the bounded note" \
-  --list outputs_created=docs/product/company-os.md
+Every current terminal transition is evaluated by the same governance kernel:
+proof must be complete and current, artifact and contract bindings must match,
+required review must be independent, required human authority must be exact,
+and dependencies and external effects must be safe. A substantive mutation
+invalidates derived acceptance and completion.
 
-./bin/palari lifecycle evidence EVIDENCE-X \
-  --work-item-id WORK-X \
-  --attempt-id ATTEMPT-X \
-  --head-sha head-x \
-  --status passed \
-  --summary "Focused verification passed." \
-  --list "commands=python3 -m unittest discover -s tests"
+PCAW v1 is the supported portable proof format. `proof export` creates a
+canonical statement, and `proof verify` derives its state locally and offline
+without trusting the claimed result. Workspace `create`, `modify`, and `delete`
+path intents remain local proof: PCAW v1 does not claim portable deletion
+history.
 
-./bin/palari attempt closeout ATTEMPT-X \
-  --head-sha head-x \
-  --cleanliness clean \
-  --changed docs/product/company-os.md
-
-./bin/palari lifecycle review REVIEW-X \
-  --work-item-id WORK-X \
-  --reviewed-head head-x \
-  --reviewer HUMAN-X \
-  --verdict accept-ready
-
-./bin/palari lifecycle decide HUMAN-DECISION-X \
-  --work-item-id WORK-X \
-  --human-id HUMAN-X \
-  --reviewed-head head-x \
-  --decision accepted \
-  --status accepted \
-  --evidence-reference EVIDENCE-X \
-  --review-reference REVIEW-X
-```
-
-Acceptance fails closed if the human lacks the required capability, evidence is
-missing or stale, review is missing or stale, or the decision head does not
-match the reviewed head. An `accept-ready` review is automatically bound to the
-exact terminal attempt, receipt, evidence manifest, reviewed head, and work
-contract. Any later substantive change requires refreshed proof and a new
-review.
-
-For a coherent set, use `queue --approval-inbox` and the human-only
-`human-decision pack` surface. Agents may prepare or summarize a pack but may
-not record that decision. A pack with incomplete quorum records the qualified
-vote and leaves execution parked; a later qualified human must act on the same
-stored exact manifest.
-
-The journal also exposes content-addressed state checkpoints. Restoring an
-earlier checkpoint appends a new transition and reason. It reproduces local
-governed state but does not erase history. If an external effect occurred after
-that checkpoint, restoration is blocked before mutation because rewinding an
-outbox or receipt could invite duplicate execution.
-
-`palari proof export` normalizes this same lifecycle into a PCAW v1 statement.
-An offline verifier derives `blocked`, `review-required`,
-`human-decision-required`, `accept-ready`, `accepted`, or `completed` from the
-included records rather than trusting the claimed state. Legacy lifecycle
-records remain loadable, but absent artifact digests or stage timestamps are
-reported honestly and cannot become PCAW acceptance verification.
-
-Workspace work items may declare exact `create`, `modify`, and `delete` path
-intents. A delete succeeds only as an absent-path tombstone corroborated by Git;
-it is not treated as a missing required output. This is local lifecycle proof,
-not a new PCAW v1 portability claim: the v1 protocol does not encode portable
-deletion history.
-
-## Complete Work And Record Outcome
-
-```bash
-./bin/palari lifecycle complete WORK-X
-
-./bin/palari lifecycle outcome OUTCOME-X \
-  --work-item-id WORK-X \
-  --summary "The onboarding note was accepted."
-```
-
-Completion fails closed unless the queue says the work is ready to integrate.
+Journal restoration and full continuity audit are explicit recovery actions.
+They append history rather than rewriting it, and fail closed when restoration
+could replay an external effect.

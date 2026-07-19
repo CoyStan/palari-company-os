@@ -27,6 +27,30 @@ _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
 )
 
 
+def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    enforcement = payload.get("enforcement") or {}
+    host = payload.get("host_adapter") or {}
+    git_gate = payload.get("git_gate") or {}
+    print(f"Agent adoption: {payload.get('host', 'unknown')}")
+    print(f"Status: {payload.get('status', 'unknown')}")
+    print(f"Contract: {payload.get('contract_file', '')}")
+    print(f"Commit boundary: {git_gate.get('status', 'unknown')}")
+    print(
+        "Session boundary: "
+        f"{enforcement.get('session_boundary', 'unknown')} "
+        f"({enforcement.get('session_activation', 'unknown')})"
+    )
+    if host.get("next_action"):
+        print(f"Activation: {host['next_action']}")
+    print(f"MCP: {(payload.get('mcp') or {}).get('command', '')}")
+    commands = payload.get("next_commands") or []
+    if commands:
+        print(f"Next: {commands[0]}")
+
+
 def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -158,6 +182,7 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent next: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Status: {payload['status']}")
     print(f"Mode: {payload.get('mode', 'execute')}")
+    print("Loop: start -> advance -> review -> human decision -> verify")
     print(f"Ready: {payload['ready_count']} | Blocked/waiting: {payload['blocked_count']}")
     blockers = payload.get("blockers", [])
     if blockers:
@@ -474,7 +499,8 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
         return
     work = payload["work_item"]
     agent = payload["agent"]
-    resolution = payload.get("resolution_summary") or {}
+    resolution_value = payload.get("resolution_summary")
+    resolution = resolution_value if isinstance(resolution_value, dict) else {}
     owner_by_class = {
         "human-authority": "human",
         "independent-review": "reviewer",
@@ -482,8 +508,9 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
         "automatic-reconciliation": "system",
         "terminal": "none",
     }
+    primary_class = resolution.get("primary_class")
     owner = payload.get("owner") or owner_by_class.get(
-        resolution.get("primary_class"),
+        primary_class if isinstance(primary_class, str) else "",
         "agent" if payload.get("agent_safe") else "operator",
     )
     next_action = payload.get("next_action") or {}
@@ -501,14 +528,13 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
     print("Proof details: rerun with --json.")
 
 
-def print_agent_done(payload: dict[str, Any], as_json: bool) -> None:
+def print_agent_advance(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
-    label = "Agent advance" if payload.get("schema_version") == "palari.agent_advance.v1" else "Agent done"
-    print(f"{label}: {payload['work_item']}")
+    print(f"Agent advance: {payload['work_item']}")
     print(f"Status: {payload['status']}")
-    print(f"Can done: {_yes_no(payload.get('can_done', False))}")
+    print(f"Can advance: {_yes_no(payload.get('can_advance', False))}")
     if payload.get("message"):
         print(payload["message"])
     for step in payload.get("steps", []):

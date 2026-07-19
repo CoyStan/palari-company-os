@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
 import os
 import subprocess
@@ -8,19 +7,52 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Iterator
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palari_company_os.authoring import create_record
 from palari_company_os.mcp_server import McpContext, handle_mcp_message, tool_definitions
+from tests.workspace_fixture import write_current_agent_workspace
 
 
-WORKSPACE = REPO_ROOT / "examples" / "acme-company-os"
+WORK_ID = "WORK-MCP"
+PALARI_ID = "PALARI-STEWARD"
 
 
-class McpServerTests(unittest.TestCase):
-    def test_initialize_declares_read_only_tools_capability(self) -> None:
+class McpServerContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self._temporary.cleanup)
+        self.root = Path(self._temporary.name)
+        self.workspace_file = self.root / "workspace.json"
+        write_current_agent_workspace(self.workspace_file)
+        create_record(
+            str(self.root),
+            "work",
+            {
+                "id": WORK_ID,
+                "title": "Inspect bounded MCP translation",
+                "goal": "GOAL-REPO-0001",
+                "palari": PALARI_ID,
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R3",
+                "intensity": "standard",
+                "status": "active",
+                "scope": "Read and write one declared file.",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy"],
+                "acceptance_target": "Exact proof is reviewable.",
+                "required_approval_count": 1,
+                "required_approval_capability": "product",
+            },
+            command="MCP contract fixture",
+        )
+
+    def test_initialize_and_tool_catalog_expose_bounded_capabilities(self) -> None:
         response = handle_mcp_message(
             {
                 "jsonrpc": "2.0",
@@ -37,11 +69,9 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result["capabilities"], {"tools": {"listChanged": False}})
         self.assertEqual(result["serverInfo"]["name"], "palari-company-os")
 
-    def test_tools_list_exposes_expected_lifecycle_tools(self) -> None:
-        names = {tool["name"] for tool in tool_definitions()}
-
+        tools = {tool["name"]: tool for tool in tool_definitions()}
         self.assertEqual(
-            names,
+            set(tools),
             {
                 "palari_queue",
                 "palari_state",
@@ -50,6 +80,7 @@ class McpServerTests(unittest.TestCase):
                 "palari_agent_brief",
                 "palari_agent_start",
                 "palari_agent_check",
+                "palari_agent_advance",
                 "palari_agent_finish",
                 "palari_agent_handoff",
                 "palari_agent_loop",
@@ -58,154 +89,74 @@ class McpServerTests(unittest.TestCase):
                 "palari_docs_check",
             },
         )
-        mutating_local_tools = {"palari_agent_start", "palari_agent_release"}
-        for tool in tool_definitions():
+        for name, tool in tools.items():
+            self.assertNotIn("human", name)
+            self.assertNotIn("accept", name)
+            self.assertFalse(tool["annotations"]["destructiveHint"])
             self.assertEqual(
                 tool["annotations"]["readOnlyHint"],
-                tool["name"] not in mutating_local_tools,
-            )
-            self.assertEqual(tool["annotations"]["destructiveHint"], False)
-            self.assertEqual(
-                tool["annotations"]["idempotentHint"],
-                tool["name"] not in mutating_local_tools,
+                name not in {"palari_agent_start", "palari_agent_advance", "palari_agent_release"},
             )
 
-    def test_tools_call_returns_structured_content_and_text_fallback(self) -> None:
-        response = handle_mcp_message(
+    def test_agent_brief_is_a_structured_translation_with_text_fallback(self) -> None:
+        response = self.call(
+            "palari_agent_brief",
             {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "tools/call",
-                "params": {
-                    "name": "palari_agent_brief",
-                    "arguments": {
-                        "work_id": "WORK-0003",
-                        "palari_id": "PALARI-SOFIA",
-                        "mode": "execute",
-                    },
-                },
+                "work_id": WORK_ID,
+                "palari_id": PALARI_ID,
+                "mode": "execute",
+                "session_contract": True,
             },
-            self.context(),
         )
 
-        self.assertIsNotNone(response)
         result = response["result"]
         structured = result["structuredContent"]
-        text = json.loads(result["content"][0]["text"])
-        self.assertEqual(result["isError"], False)
-        self.assertEqual(structured["status"], "ready")
-        self.assertEqual(structured["packet_id"], "PACKET-WORK-0003-PALARI-SOFIA-EXECUTE-V1")
-        self.assertEqual(text["packet_id"], structured["packet_id"])
+        self.assertFalse(result["isError"])
+        self.assertEqual(structured["schema_version"], "palari.agent_session_contract.v1")
+        self.assertEqual(json.loads(result["content"][0]["text"]), structured)
+        self.assertIn("contract_digest", structured)
 
-    def test_tool_execution_error_stays_inside_tool_result(self) -> None:
-        response = handle_mcp_message(
+    def test_start_advance_dry_run_and_release_manage_only_local_runtime_files(self) -> None:
+        start = self.call(
+            "palari_agent_start",
             {
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "tools/call",
-                "params": {
-                    "name": "palari_detail",
-                    "arguments": {"work_id": "WORK-MISSING"},
-                },
+                "work_id": WORK_ID,
+                "palari_id": PALARI_ID,
+                "mode": "execute",
+                "lease_minutes": 5,
             },
-            self.context(),
-        )
+        )["result"]
+        self.assertFalse(start["isError"])
+        start_payload = start["structuredContent"]["start"]
+        self.assertEqual(start_payload["status"], "claimed")
+        packet_path = self.root / start_payload["packet_path"]
+        claim_path = self.root / start_payload["claim_path"]
+        self.assertTrue(packet_path.is_file())
+        self.assertTrue(claim_path.is_file())
 
-        self.assertIsNotNone(response)
-        result = response["result"]
-        self.assertEqual(result["isError"], True)
-        self.assertEqual(result["structuredContent"]["ok"], False)
-        self.assertIn("unknown work item", result["structuredContent"]["error"]["message"])
+        advance = self.call(
+            "palari_agent_advance",
+            {"work_id": WORK_ID, "palari_id": PALARI_ID, "dry_run": True},
+        )["result"]
+        self.assertFalse(advance["isError"])
+        self.assertTrue(advance["structuredContent"]["dry_run"])
 
-    def test_agent_start_and_release_tools_manage_local_runtime_files(self) -> None:
-        with self.temporary_workspace() as workspace_file:
-            start_response = handle_mcp_message(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 10,
-                    "method": "tools/call",
-                    "params": {
-                        "name": "palari_agent_start",
-                        "arguments": {
-                            "work_id": "WORK-0003",
-                            "palari_id": "PALARI-SOFIA",
-                            "mode": "execute",
-                            "lease_minutes": 5,
-                        },
-                    },
-                },
-                self.context(workspace_file),
-            )
+        release = self.call(
+            "palari_agent_release",
+            {"work_id": WORK_ID, "palari_id": PALARI_ID},
+        )["result"]
+        self.assertFalse(release["isError"])
+        self.assertEqual(release["structuredContent"]["status"], "released")
+        self.assertFalse(claim_path.exists())
+        self.assertTrue(packet_path.is_file())
 
-            self.assertIsNotNone(start_response)
-            start_result = start_response["result"]
-            start_payload = start_result["structuredContent"]
-            self.assertEqual(start_result["isError"], False)
-            self.assertEqual(start_payload["start"]["status"], "claimed")
-            packet_path = workspace_file.parent / start_payload["start"]["packet_path"]
-            claim_path = workspace_file.parent / start_payload["start"]["claim_path"]
-            self.assertTrue(packet_path.exists())
-            self.assertTrue(claim_path.exists())
+    def test_tool_and_execution_errors_stay_inside_protocol_boundaries(self) -> None:
+        missing = self.call("palari_detail", {"work_id": "WORK-MISSING"})["result"]
+        self.assertTrue(missing["isError"])
+        self.assertFalse(missing["structuredContent"]["ok"])
+        self.assertIn("unknown work item", missing["structuredContent"]["error"]["message"])
 
-            release_response = handle_mcp_message(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 11,
-                    "method": "tools/call",
-                    "params": {
-                        "name": "palari_agent_release",
-                        "arguments": {
-                            "work_id": "WORK-0003",
-                            "palari_id": "PALARI-SOFIA",
-                        },
-                    },
-                },
-                self.context(workspace_file),
-            )
-
-            self.assertIsNotNone(release_response)
-            release_result = release_response["result"]
-            release_payload = release_result["structuredContent"]
-            self.assertEqual(release_result["isError"], False)
-            self.assertEqual(release_payload["status"], "released")
-            self.assertFalse(claim_path.exists())
-            self.assertTrue(packet_path.exists())
-
-    def test_agent_lifecycle_read_only_tools_return_structured_packets(self) -> None:
-        expected_versions = {
-            "palari_agent_finish": "palari.agent_finish.v1",
-            "palari_agent_handoff": "palari.agent_handoff.v1",
-            "palari_agent_loop": "palari.agent_loop.v1",
-            "palari_agent_doctor": "palari.agent_doctor.v1",
-        }
-
-        for tool_name, schema_version in expected_versions.items():
-            with self.subTest(tool_name=tool_name):
-                response = handle_mcp_message(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": 20,
-                        "method": "tools/call",
-                        "params": {
-                            "name": tool_name,
-                            "arguments": {
-                                "work_id": "WORK-0007",
-                                "palari_id": "PALARI-SOFIA",
-                                "mode": "execute",
-                            },
-                        },
-                    },
-                    self.context(),
-                )
-
-                self.assertIsNotNone(response)
-                result = response["result"]
-                self.assertEqual(result["isError"], False)
-                self.assertEqual(result["structuredContent"]["schema_version"], schema_version)
-                self.assertEqual(result["structuredContent"]["would_mutate"], False)
-
-    def test_unknown_tool_returns_protocol_error(self) -> None:
-        response = handle_mcp_message(
+        unknown = handle_mcp_message(
             {
                 "jsonrpc": "2.0",
                 "id": 4,
@@ -214,12 +165,10 @@ class McpServerTests(unittest.TestCase):
             },
             self.context(),
         )
+        self.assertIsNotNone(unknown)
+        self.assertEqual(unknown["error"]["code"], -32602)
 
-        self.assertIsNotNone(response)
-        self.assertEqual(response["error"]["code"], -32602)
-        self.assertIn("Unknown tool", response["error"]["message"])
-
-    def test_stdio_server_speaks_newline_delimited_json_rpc(self) -> None:
+    def test_stdio_transport_speaks_newline_delimited_json_rpc(self) -> None:
         messages = [
             {
                 "jsonrpc": "2.0",
@@ -233,61 +182,56 @@ class McpServerTests(unittest.TestCase):
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {
-                    "name": "palari_queue",
-                    "arguments": {"include_closed": False},
-                },
+                "params": {"name": "palari_queue", "arguments": {"include_closed": False}},
             },
         ]
-        result = self.run_mcp(messages)
-        responses = [json.loads(line) for line in result.stdout.splitlines()]
-
-        self.assertEqual(result.stderr, "")
-        self.assertEqual([response["id"] for response in responses], [1, 2, 3])
-        self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "palari-company-os")
-        self.assertIn("palari_queue", {tool["name"] for tool in responses[1]["result"]["tools"]})
-        self.assertEqual(responses[2]["result"]["isError"], False)
-        self.assertIn("queue", responses[2]["result"]["structuredContent"])
-
-    def context(self, workspace: Path | None = None) -> McpContext:
-        return McpContext(workspace=str(workspace or WORKSPACE), repo=str(REPO_ROOT))
-
-    @contextmanager
-    def temporary_workspace(self) -> Iterator[Path]:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace_file = Path(directory) / "workspace.json"
-            workspace_file.write_text(
-                (WORKSPACE / "workspace.json").read_text(encoding="utf-8"),
-                encoding="utf-8",
-            )
-            yield workspace_file
-
-    def run_mcp(self, messages: list[dict[str, object]]) -> subprocess.CompletedProcess[str]:
+        payload = "\n".join(json.dumps(message, separators=(",", ":")) for message in messages)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(REPO_ROOT / "src")
-        payload = "\n".join(json.dumps(message, separators=(",", ":")) for message in messages)
-        return subprocess.run(
+        result = subprocess.run(
             [
                 sys.executable,
                 "-S",
                 "-m",
                 "palari_company_os",
                 "--workspace",
-                str(WORKSPACE),
+                str(self.workspace_file),
                 "mcp",
                 "serve",
                 "--repo",
                 str(REPO_ROOT),
             ],
-            cwd=REPO_ROOT,
+            cwd=self.root,
             env=env,
             input=f"{payload}\n",
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=30,
+            timeout=15,
         )
+        responses = [json.loads(line) for line in result.stdout.splitlines()]
+
+        self.assertEqual(result.stderr, "")
+        self.assertEqual([response["id"] for response in responses], [1, 2, 3])
+        self.assertIn("palari_queue", {tool["name"] for tool in responses[1]["result"]["tools"]})
+        self.assertFalse(responses[2]["result"]["isError"])
+
+    def call(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
+        response = handle_mcp_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            },
+            self.context(),
+        )
+        self.assertIsNotNone(response)
+        return response
+
+    def context(self) -> McpContext:
+        return McpContext(workspace=str(self.workspace_file), repo=str(REPO_ROOT))
 
 
 if __name__ == "__main__":

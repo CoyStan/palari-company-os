@@ -5,7 +5,11 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from .governance_journal import JournalVerificationContext
+from .governance_kernel import (
+    EXTERNAL_WRITE_ACTIONS,
+    TERMINAL_WORK_STATUSES,
+    low_risk_completion_policy_applies,
+)
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
@@ -13,8 +17,6 @@ from .workspace import Workspace
 
 
 SUPPORTED_MODES = {"execute", "review"}
-TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
-EXTERNAL_WRITE_ACTIONS = {"external_write", "write_external", "write"}
 
 
 def build_agent_brief(
@@ -22,8 +24,6 @@ def build_agent_brief(
     work_id: str,
     palari_id: str,
     mode: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     mode = mode or "execute"
     created_at = _timestamp()
@@ -50,8 +50,13 @@ def build_agent_brief(
     if work is None or palari is None or mode not in SUPPORTED_MODES:
         return _finalize_packet(packet, blockers)
 
-    work_detail = detail(workspace, work.id, journal_context=journal_context)
-    review_context = _review_context(workspace, work.id, mode)
+    work_detail = detail(workspace, work.id)
+    review_context = (
+        _review_context(workspace, work.id, mode)
+        if mode == "review"
+        and work_detail["attention"] == "needs-review"
+        else None
+    )
     blockers.extend(
         _work_blockers(workspace, work_detail, palari_id, mode, review_context)
     )
@@ -88,7 +93,6 @@ def build_agent_brief(
                 palari_id,
                 status,
                 mode,
-                proof_state,
                 review_context,
             ),
             "blockers": blockers,
@@ -230,20 +234,17 @@ def _work_blockers(
 
     attention = work_detail["attention"]
     if mode == "review":
-        if attention in {"needs-review", "receipt-ready"}:
-            if work_detail.get("evidence") is None and work_detail.get("receipt") is None:
+        if attention == "needs-review":
+            if work_detail.get("evidence") is None:
                 blockers.append(
                     _blocker(
                         "REVIEW_CONTEXT_MISSING",
-                        "Review mode needs evidence or a receipt to inspect.",
-                        missing="reviewable evidence or receipt",
+                        "Review mode needs current evidence to inspect.",
+                        missing="reviewable evidence",
                     )
                 )
             return blockers
         if attention == "needs-human-decision":
-            current_review = work_detail.get("review") or {}
-            if current_review.get("verdict") == "accept-ready" and palari_id in reviewer_ids:
-                return blockers
             blockers.append(
                 _blocker(
                     "HUMAN_DECISION_REQUIRED",
@@ -258,7 +259,7 @@ def _work_blockers(
         blockers.append(
             _blocker(
                 "REVIEW_NOT_READY",
-                f"Current attention state is {attention}; review mode is for needs-review or receipt-ready work.",
+                "The work is not ready for independent review; current exact evidence is required first.",
                 missing="review-ready work",
             )
         )
@@ -276,6 +277,14 @@ def _work_blockers(
         blockers.append(_blocker("WORK_BLOCKED", work_detail["why"], missing="unblocked work"))
     elif attention == "closed":
         blockers.append(_blocker("WORK_CLOSED", work_detail["why"], missing="open work item"))
+    elif attention == "ready-to-complete":
+        blockers.append(
+            _blocker(
+                "TERMINALIZATION_PENDING",
+                work_detail["why"],
+                missing="deterministic terminal reconciliation",
+            )
+        )
     elif attention == "ready-to-integrate":
         blockers.append(
             _blocker(
@@ -292,15 +301,6 @@ def _work_blockers(
                 missing="review-mode packet",
             )
         )
-    elif attention == "receipt-ready":
-        blockers.append(
-            _blocker(
-                "RECEIPT_READY_REVIEW",
-                work_detail["why"],
-                missing="human output review or follow-up",
-            )
-        )
-
     return blockers
 
 
@@ -521,7 +521,7 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
     if mode == "review":
         return {
             "requires_receipt": False,
-            "requires_evidence": False,
+            "requires_evidence": True,
             "requires_review": False,
             "requires_human_decision": False,
             "external_writes_allowed": False,
@@ -530,20 +530,21 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
         }
     work = work_detail["work_item"]
     external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
-    low_risk_light = (
-        work.get("risk") in {"R1", "R2"}
-        and work.get("required_approval_count", 0) == 0
-        and not external_actions
+    receipt = work_detail.get("receipt") or {}
+    low_risk_light = low_risk_completion_policy_applies(
+        risk=str(work.get("risk", "")),
+        intensity=str(work.get("intensity", "")),
+        required_approval_count=int(work.get("required_approval_count", 0)),
+        allowed_actions=list(work.get("allowed_actions", [])),
+        external_writes=list(receipt.get("external_writes", [])),
+        planned_external_writes=list(receipt.get("planned_external_writes", [])),
+        queued_external_writes=list(receipt.get("queued_external_writes", [])),
     )
-    evidence_state = work_detail["safety"]["evidence_state"]
-    receipt_ready = low_risk_light and work_detail["safety"]["receipt_state"] == "ready"
     return {
         "requires_receipt": True,
-        "requires_evidence": False
-        if receipt_ready
-        else evidence_state in {"missing", "stale", "failed"} or not low_risk_light,
+        "requires_evidence": True,
         "requires_review": not low_risk_light,
-        "requires_human_decision": work.get("required_approval_count", 0) > 0,
+        "requires_human_decision": not low_risk_light,
         "external_writes_allowed": bool(external_actions),
         "external_write_actions": external_actions,
     }
@@ -588,6 +589,9 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
                 "id",
                 "attempt_id",
                 "outputs_created",
+                "planned_external_writes",
+                "queued_external_writes",
+                "external_writes",
                 "context_packet",
                 "context_hash",
                 "receipt_hash",
@@ -657,7 +661,6 @@ def _next_allowed_commands(
     palari_id: str,
     status: str,
     mode: str,
-    proof_state: dict[str, Any] | None = None,
     review_context: dict[str, Any] | None = None,
 ) -> list[str]:
     if status == "blocked":
@@ -682,21 +685,8 @@ def _next_allowed_commands(
         f"palari scope {work_id} --json",
         f"palari detail {work_id} --json",
         "palari validate --json",
-        _receipt_command(work_id, palari_id, proof_state),
+        f"palari agent advance {work_id} --as {palari_id} --json",
     ]
-
-
-def _receipt_command(
-    work_id: str,
-    palari_id: str,
-    proof_state: dict[str, Any] | None = None,
-) -> str:
-    attempt = (proof_state or {}).get("attempt")
-    attempt_id = attempt.get("id", "ATTEMPT-ID") if isinstance(attempt, dict) else "ATTEMPT-ID"
-    return (
-        "palari receipt record RECEIPT-ID "
-        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {palari_id} --json"
-    )
 
 
 def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, Any] | None:
@@ -782,7 +772,6 @@ def _omitted_context(workspace: Workspace) -> dict[str, Any]:
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),
             "sources": len(workspace.sources),
-            "history_events": "not included",
         },
     }
 

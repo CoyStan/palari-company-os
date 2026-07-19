@@ -12,21 +12,36 @@ The loop is:
 5. Ask for final report guidance.
 6. Hand off to a human when review or decision authority is required.
 
-## Execute-Mode Smoke
+## Isolated Workspace
 
-Use the ACME example when testing an agent that is doing work:
+Copy the ACME repository example before running any smoke command. The example
+is documentation, not disposable runtime state, and Palari no longer has a
+hidden packaged/default-workspace fallback.
 
 ```bash
-./bin/palari agent next --all
-./bin/palari agent next --as PALARI-SOFIA --json
-./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
-./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent release WORK-0003 --as PALARI-SOFIA --json
+PALARI_SMOKE_ROOT="$(mktemp -d)"
+cp -R examples/acme-company-os "$PALARI_SMOKE_ROOT/workspace"
+```
+
+Keep every command pointed at that explicit temporary copy. Do not run this
+smoke against the committed example, the repository root, or the dogfood
+workspace.
+
+## Execute-Mode Smoke
+
+Use the isolated copy when testing an agent that is doing work:
+
+```bash
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --as PALARI-SOFIA --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0003 --as PALARI-SOFIA --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0003 --as PALARI-SOFIA --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent release WORK-0003 --as PALARI-SOFIA --json
 ```
 
 Expected result:
@@ -52,16 +67,20 @@ present.
 
 ## Review-Handoff Smoke
 
-Use the dogfood workspace when testing a reviewer or supervisor handoff:
+Use the same isolated copy to inspect the reviewer and supervisor boundary. The
+ACME example deliberately contains historical proof states, so a command may
+report that the selected Palari lacks current review eligibility. That
+fail-closed result is part of this read-only smoke; it must not be bypassed by
+recording a review or human decision.
 
 ```bash
-./bin/palari --workspace workspaces/palari-company-os agent next --all --mode review
-./bin/palari --workspace workspaces/palari-company-os agent brief WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
-./bin/palari --workspace workspaces/palari-company-os agent check WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
-./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
-./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json
-./bin/palari --workspace workspaces/palari-company-os agent doctor WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
-./bin/palari --workspace workspaces/palari-company-os agent loop WORK-REPO-0003 --as PALARI-STEWARD --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all --mode review
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0001 --as PALARI-ALFRED --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0001 --as PALARI-ALFRED --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0001 --as PALARI-ALFRED --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0001 --as PALARI-ALFRED --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0001 --as PALARI-ALFRED --mode review --json
 ```
 
 Expected result:

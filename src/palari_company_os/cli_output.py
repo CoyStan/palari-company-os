@@ -4,10 +4,11 @@ import json
 from typing import Any
 
 from .cli_output_agent import (
+    print_agent_adopt,
     print_agent_brief,
     print_agent_check,
     print_agent_doctor,
-    print_agent_done,
+    print_agent_advance,
     print_agent_finish,
     print_agent_handoff,
     print_agent_loop,
@@ -31,9 +32,6 @@ from .cli_output_integrations import (
 from .cli_output_utils import print_json, yes_no as _yes_no
 from .models import to_plain
 from .workspace import Workspace
-
-
-INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
 
 
 def print_result(result: CommandResult) -> None:
@@ -147,6 +145,14 @@ def print_result(result: CommandResult) -> None:
         print_agent_brief(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-adopt":
+        print_agent_adopt(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-hook":
+        print(json.dumps(result.payload))
+        return
+
     if result.kind == "agent-start":
         print_agent_start(result.payload, result.as_json)
         return
@@ -191,8 +197,8 @@ def print_result(result: CommandResult) -> None:
         print_agent_doctor(result.payload, result.as_json)
         return
 
-    if result.kind == "agent-done":
-        print_agent_done(result.payload, result.as_json)
+    if result.kind == "agent-advance":
+        print_agent_advance(result.payload, result.as_json)
         return
 
     if result.kind == "review-guide":
@@ -267,27 +273,8 @@ def print_result(result: CommandResult) -> None:
             print_git_readiness(result.payload)
         return
 
-    if result.kind == "workspace-init":
-        print_workspace_init(result.payload, result.as_json)
-        return
-
     if result.kind == "mcp-server":
         return
-
-    if result.kind == "migration":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_migration(result.payload)
-        return
-
-    if result.kind == "history":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_history(result.payload)
-        return
-
 
     if result.kind == "history-journal":
         if result.as_json:
@@ -308,14 +295,6 @@ def print_result(result: CommandResult) -> None:
             print_json(result.payload)
         else:
             print_history_restoration(result.payload)
-        return
-
-    if result.kind == "desktop-prototype":
-        print_desktop_prototype(result.payload, result.as_json)
-        return
-
-    if result.kind == "desktop-serve":
-        print_desktop_serve(result.payload)
         return
 
     if result.kind == "mission-control-serve":
@@ -413,24 +392,6 @@ def print_governance_payload(payload: dict[str, Any]) -> None:
             print(f"  - {blocker}")
 
 
-def print_migration(payload: dict[str, Any]) -> None:
-    print(f"Workspace migration: {payload['workspace_file']}")
-    print(f"Write: {'yes' if payload['write'] else 'no'}")
-    for change in payload["changes"]:
-        print(f"  {change}")
-
-
-def print_workspace_init(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Workspace initialized: {payload['workspace']}")
-    print(f"File: {payload['workspace_file']}")
-    print("Next commands:")
-    for command in payload["next_commands"]:
-        print(f"  {command}")
-
-
 def print_demo(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -470,24 +431,6 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
     print("Try next:")
     for command in payload["try_next_commands"]:
         print(f"  {command}")
-
-
-def print_history(payload: dict[str, Any]) -> None:
-    print(f"Workspace history: {payload['workspace_file']}")
-    print(f"History file: {payload['history_file']}")
-    events = payload["events"]
-    if not events:
-        print("No history events recorded.")
-        return
-    for event in events:
-        print(
-            f"{event['timestamp']} {event['action']} "
-            f"{event['object_type']}/{event['object_id']} by {event['actor']}"
-        )
-        print(f"  command: {event['command']}")
-        changed_fields = event.get("changed_fields") or {}
-        if changed_fields:
-            print(f"  changed: {', '.join(sorted(changed_fields))}")
 
 
 def print_history_journal(payload: dict[str, Any]) -> None:
@@ -622,27 +565,6 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
     print("Major command groups:")
     print("  " + ", ".join(payload["major_command_groups"]))
-
-
-def print_desktop_prototype(result: Any, as_json: bool) -> None:
-    payload = {
-        "title": result.title,
-        "output_dir": result.output_dir,
-        "index_path": result.index_path,
-        "assets": result.assets,
-    }
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Desktop prototype generated: {result.index_path}")
-    print(f"Title: {result.title}")
-    for asset in result.assets:
-        print(f"Asset: {asset}")
-
-
-def print_desktop_serve(payload: dict[str, Any]) -> None:
-    print(f"Desktop server stopped: {payload['url']}")
-    print(f"Prototype files: {payload['output_dir']}")
 
 
 def print_mission_control_serve(payload: dict[str, Any]) -> None:
@@ -807,6 +729,18 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
         f"{payload['palari']['id']} ({payload['palari']['name']}), "
         f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
     )
+    adoption = payload.get("adoption") or {}
+    if adoption.get("status") != "not-requested":
+        print(
+            f"Host adoption: {adoption.get('host', '')} "
+            f"[{adoption.get('status', 'unknown')}]"
+        )
+        if adoption.get("status") == "blocked":
+            print(f"Why: {adoption.get('message', '')}")
+        else:
+            host = adoption.get("host_adapter") or {}
+            if host.get("next_action"):
+                print(f"Activation: {host['next_action']}")
     print("Next commands:")
     for command in payload["next_commands"]:
         print(f"  {command}")
@@ -937,10 +871,15 @@ def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:
     print(f"Palari Company OS Queue: {workspace.name}")
+    print("Ordinary loop: start -> advance -> review -> human decision -> verify")
     print("")
     for item in items:
         print(f"{item.id} [{item.intensity} / {item.risk}] {item.title}")
         print(f"  attention: {item.attention}")
+        print(f"  step: {item.next_step_type}")
+        print(f"  next: {item.next_action}")
+        if item.next_commands:
+            print(f"  command: {item.next_commands[0]}")
         if item.workbench_label:
             print(f"  workbench: {item.workbench_label}")
         print(f"  goal: {item.goal_title}")
@@ -959,33 +898,19 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
         )
         print(f"  integration: {item.integration_state}")
-        print(f"  step: {item.next_step_type}")
-        if item.learning_signal:
-            print(f"  learning: {item.learning_signal}")
-        if item.playbook_recommendations:
-            print(f"  playbooks: {', '.join(item.playbook_recommendations)}")
         if item.active_attempts:
             attempts = ", ".join(attempt["attempt_id"] for attempt in item.active_attempts)
             print(f"  active attempts: {attempts}")
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
-        if item.intensity != item.recommended_intensity:
-            label = "intensity note"
-            if INTENSITY_RANK.get(item.recommended_intensity, 0) > INTENSITY_RANK.get(
-                item.intensity, 0
-            ):
-                label = "intensity concern"
-            print(
-                f"  {label}: heuristic suggests {item.recommended_intensity} "
-                f"({item.intensity_reason})"
-            )
-        print(f"  next: {item.next_action}")
         if item.agent_loop_command:
             print(f"  agent loop: {item.agent_loop_command}")
         if item.agent_handoff_command:
             print(f"  agent handoff: {item.agent_handoff_command}")
-        if item.next_commands:
-            print(f"  command: {item.next_commands[0]}")
+        if item.terminal_disposition:
+            print(f"  retired: {item.terminal_disposition} ({item.terminal_reason})")
+            if item.successor_work_item_id:
+                print(f"  successor: {item.successor_work_item_id}")
         print("")
 
 
@@ -1044,7 +969,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
 def print_approval_pack_decision(payload: dict[str, Any]) -> None:
     print(f"Approval Pack decision: {payload['status']}")
     print(f"Pack: {payload['pack_digest']}")
-    print(f"Presentation: {payload.get('presentation_digest', 'legacy-unbound')}")
+    print(f"Presentation: {payload['presentation_digest']}")
     print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
     if payload.get("approved"):
         print(f"Approved: {', '.join(payload['approved'])}")
@@ -1072,6 +997,13 @@ def print_detail(payload: dict[str, Any]) -> None:
     workbench = payload.get("workbench") or {}
     print(f"{work['id']}: {work['title']}")
     print(f"Status: {work['status']} | Risk: {work['risk']} | Intensity: {work['intensity']}")
+    if work.get("status") in {"superseded", "abandoned"}:
+        print(
+            f"Retired: {work['status']} | "
+            f"Reason: {work.get('terminal_reason', '')}"
+        )
+        if work.get("successor_work_item_id"):
+            print(f"Successor: {work['successor_work_item_id']}")
     if workbench:
         print(f"Workbench: {workbench.get('label', work['workbench_id'])}")
     print(f"Goal: {goal.get('title', work['goal'])}")
@@ -1088,15 +1020,6 @@ def print_detail(payload: dict[str, Any]) -> None:
     if payload.get("agent_handoff_command"):
         print("Agent handoff:")
         print(f"  {payload['agent_handoff_command']}")
-    approval = payload.get("approval_pack") or {}
-    if approval.get("available"):
-        item = approval.get("item") or {}
-        print(
-            f"Approval Pack: {approval.get('pack_id', '')} | "
-            f"{item.get('state', 'unknown')} | {approval.get('pack_digest', '')}"
-        )
-    elif approval:
-        print(f"Approval Pack unavailable: {approval.get('reason', 'unknown reason')}")
     print(f"Safety: {payload['safety']}")
     if payload.get("agent_commands"):
         print("Agent commands:")

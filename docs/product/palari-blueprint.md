@@ -1,7 +1,7 @@
 # The Palari Blueprint — Git, but for AI Work
 
-Status: **strategy proposal, not a normative specification, product contract,
-legal opinion, or execution authority**. It consolidates the thesis, research
+Status: **EXPERIMENTAL strategy proposal, not a normative specification,
+product contract, legal opinion, or execution authority**. It consolidates the thesis, research
 snapshot, protocol direction, and candidate implementation sequence that
 Claude developed on `claude/repo-evaluation-7s05hw` at `8da6d46`, reviewed for
 integration on 2026-07-16 against repository head `682cfe9`. Repository code,

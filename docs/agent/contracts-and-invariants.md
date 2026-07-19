@@ -11,37 +11,44 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Work-item IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin a replayable governance journal. Legacy workspaces keep
-  working until an operator explicitly checkpoints them. Prepared and committed
-  journal records bracket the atomic, fsynced workspace replacement; divergence,
-  corruption, pending transactions, and continuity breaks remain visible.
-- Evidence for self-mutating governance projection files (`workspace.json`,
-  legacy history, and the governance journal) binds their bytes at the exact
+- New workspaces begin a replayable v2 governance journal. A workspace with a
+  committed valid v1 journal is read-only until an operator explicitly
+  activates v2. That activation does not rewrite v1: the v2 checkpoint
+  content-binds the exact sealed predecessor, then deterministic value deltas
+  form the streamed tail. Existing unjournaled workspaces also require an
+  explicit v2 checkpoint; no current record is written under the v1 filename.
+  Prepared and
+  committed records still bracket the atomic, fsynced workspace replacement;
+  divergence, corruption, pending transactions, and continuity breaks remain
+  visible.
+- Evidence for self-mutating governance projection files (`workspace.json` and
+  the current governance journal) binds their bytes at the exact
   evidence Git head. The live journal is verified separately against the
   current workspace, so recording proof does not stale itself and journal
   corruption or projection divergence still fails closed. Ordinary artifacts
   remain bound to current filesystem bytes.
-- One bounded read-model operation may reuse a journal-verification result only
-  through an in-memory request context. The full scan verifies record and
-  workspace SHA-256 bindings once; filesystem identity, size, modification,
-  and change-time witnesses must then remain stable. A changed witness forces
-  fresh verification; persistent advisory caches never become authority.
-  Nested queue, handoff, Approval Pack, evidence, review-binding, and dependency
-  projection calls must share that operation context rather than replaying the
-  same unchanged journal independently.
+- Ordinary queue, detail, and status operations translate recorded proof
+  through the explicitly non-authoritative kernel projection. They do not
+  inspect artifact bytes or scan journal history. Trusted transitions and
+  explicit Approval Inbox/handoff operations perform current evidence and
+  journal verification; nested verification in one such operation may share
+  only an in-memory request context. Persistent caches never become authority.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
-  Schema migration preserves record placement, detects concurrent changes to
-  every participating file, and advances the root version last.
+  This reader is parked compatibility, not a supported write or migration
+  surface.
 - Collection file paths must be workspace-relative and must not contain `..`.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
   delete requires an absent exact path plus an observed Git deletion. Legacy
   work without intents retains its presence-required output behavior.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
-- Governance-journal verification is linear in the append-only JSONL history.
-  Request-local reuse may remove duplicate scans only while filesystem witnesses
-  remain unchanged; no persistent cache may authorize a transition.
+- Sealed v1 predecessor verification is linear in parsed journal records. V2 hashes the
+  sealed v1 predecessor as bytes and strictly streams only its compact segment,
+  retaining one replay projection rather than all records or projections.
+  Request-local reuse may remove duplicate scans only while workspace, v1, and
+  v2 filesystem witnesses remain unchanged; no persistent cache may authorize
+  a transition.
 
 ## Authority
 
@@ -54,19 +61,20 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   exact proof/artifact freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
-- New Approval Pack v2 decisions bind the exact canonical presentation artifact
+- Approval Pack v2 decisions bind the exact canonical presentation artifact
   named by the human command. Relevant decision-context changes stale the old
   presentation. One action may perform only the crash-safe local convergence
   already authorized by current quorum; it cannot manufacture review, another
-  vote, external effects, or expanded authority. Historical pack v1 decisions
-  remain readable but are not presentation-bound.
+  vote, external effects, or expanded authority. Approval Pack v1 is not a
+  supported stored format; an unsupported pack or missing presentation binding
+  fails closed.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
-  pack-decision authority surface; Claude agent shells hard-deny it.
+  pack-decision authority surface; supported agent shell adapters hard-deny it.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but
-  rejects unbound `accept-ready`; v1 migration blocks those legacy verdicts and
-  revokes their dependent acceptance.
+  rejects unbound `accept-ready`. Older workspace schema versions fail closed;
+  current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; contradictory or ambiguous ordering fails closed.
 - Gates recommend what to inspect; they do not grant acceptance authority.
@@ -123,10 +131,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   itself, and labels host write/read/stop enforcement as adapter-required or
   advisory unless a separately verified adapter provides it. Missing,
   malformed, duplicate-key, digest-mismatched, path-mismatched, or
-  current-packet-mismatched contracts invalidate the claim. New claim schema v2
-  requires both binding fields, so removing both cannot fall back to legacy
-  handling. Historical claim schema v1 records without the additive binding
-  remain readable until restarted, when they are upgraded to v2.
+  current-packet-mismatched contracts invalidate the claim. Claim schema v2
+  requires both binding fields, so removing both cannot fall back to another
+  path. Claim schema v1 is unsupported and is not upgraded in place.
 - Git integration readiness compares the exact attempt commit with a target in
   an isolated temporary clone. Divergent projections always require refreshed
   exact proof even when the simulated merge is clean.
@@ -135,10 +142,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
   against the packet boundary.
-- One request-local operation context shares a packet, check, directive, and
-  journal-verification witness across aggregate read views. The pure directive
-  compiler classifies the next owner/action; transition gates remain the sole
-  mutation authority.
+- One request-local agent operation shares a packet, check, and directive
+  across aggregate read views. The pure directive compiler classifies the next
+  owner/action; transition gates remain the sole mutation authority. Exact
+  Approval Inbox and proof-binding operations own journal verification.
 - `agent release` with reason and next action durably records one claim-bound blocked attempt, exact state
   bindings, reason, observation, and next safe action before claim release.
   Exact crash retry is idempotent. A projection-bound retry recognizes only the
@@ -148,13 +155,19 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   receipt, evidence, review, human decision, acceptance, outcome, or convergence
   records. It requires an existing writable journal; legacy activation remains
   an explicit checkpoint with a visible pre-checkpoint continuity boundary.
-- `agent done` attributes every committed path from the persisted claim-start
-  head to current `HEAD`, not merely the tip commit. The claim, companion
-  baseline, Git witness ref, and original witness reflog entry must agree.
-- `agent advance` uses the same complete claim-start range and packet boundary,
+- `agent advance` is the sole current execution-to-proof path. It attributes
+  every committed path from the persisted claim-start head to current `HEAD`,
+  not merely the tip commit. The claim, companion baseline, Git witness ref,
+  and original witness reflog entry must agree.
+- `agent advance` uses that complete claim-start range and packet boundary,
   runs only built-in shell-free verification profiles, rechecks the exact plan,
-  and atomically reconciles attempt, receipt, evidence, and closeout records.
-  It may complete R1/light/0 work; higher-risk work stops at independent review.
+  and atomically reconciles attempt, receipt, current exact evidence, and
+  closeout records. Completion always requires current passing evidence bound
+  to the exact attempt, receipt, head, and output artifacts and evaluated
+  against the current work contract.
+  Only R1/light/0-approval work with no allowed, planned, queued, or actual
+  external writes may omit independent review and human acceptance; every
+  other item stops at the next required authority boundary.
   After a current separate review and qualified human decision already exist,
   the shared bounded fixed-point driver may derive the acceptance record and
   terminalize the work mechanically. Authority-producing functions invoke that
@@ -189,7 +202,7 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   coordinated claim/packet self-rehashing cannot expand current scope.
 - Generic work updates cannot change an actively claimed packet, and an active
   claim cannot renew against different current packet authority.
-- Supported agent hooks deny human-attributed and packet-authority Palari
+- Supported native agent hooks deny human-attributed and packet-authority Palari
   mutations and require a human decision for opaque interpreters, unreviewed
   or path-qualified executables, unquoted pathname expansion, recursive/tree
   writes, hidden backup outputs, hook self-modification, unclassified Palari
@@ -211,6 +224,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   and destructive protected-path or standard Claude-settings ancestors require
   review. Git pathspec magic/globs, dash-prefixed operands after `--`, and
   agent-safe Palari mutations pointed at another workspace also require review.
+- Supported host adoption always installs or reuses the portable repository
+  contract and claim-bound Git commit gate. Claude and Codex are the two tested
+  session adapters; Codex requires explicit project-hook trust. No profile may
+  grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
@@ -248,10 +265,11 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Sources define what a Palari may use; unlisted sources are out of scope.
 - Receipts are human-facing trust records: what was used, created, changed, not
   done, and undoable.
-- Governance evidence is not the same thing as a receipt.
+- Governance evidence is not the same thing as a receipt. A receipt alone can
+  never complete work; every completion path requires current exact evidence.
 - Dry-run integration plans never call providers.
-- External writes require explicit approval and an outbox boundary before future
-  live execution.
+- External writes require explicit approval and an outbox boundary before any
+  supported live execution.
 - Queued external writes are not actual external writes.
 
 ## Documentation

@@ -7,7 +7,6 @@ from typing import Any
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
-from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .review_guides import build_review_guide
 from .workspace import Workspace, WorkspaceError
@@ -20,20 +19,13 @@ def build_agent_handoff(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    operation_journal = (
-        operation.journal_context
-        if operation is not None
-        else journal_context or JournalVerificationContext()
-    )
     operation_state = ensure_agent_operation(
         workspace,
         work_id,
         palari_id,
         mode,
-        journal_context=operation_journal,
         operation=operation,
     )
     finish = build_agent_finish(
@@ -41,7 +33,6 @@ def build_agent_handoff(
         work_id,
         palari_id,
         mode,
-        journal_context=operation_journal,
         operation=operation_state,
     )
     guidance_codes = {item.get("code", "") for item in finish.get("handoff_guidance", [])}
@@ -60,29 +51,10 @@ def build_agent_handoff(
         _human_approval_handoff(
             workspace,
             work_id,
-            journal_context=operation_journal,
         )
         if human_approval_requested
         else None
     )
-    supplemental_review_required = False
-    if (
-        review_handoff is None
-        and human_approval_handoff is not None
-        and not human_approval_handoff.get("approval_candidates")
-    ):
-        current_reviewer = str(
-            human_approval_handoff.get("review", {}).get("reviewer") or ""
-        )
-        supplemental = _exclude_reviewer(
-            _review_handoff(workspace, work_id), current_reviewer
-        )
-        if any(
-            candidate.get("identity_type") == "palari"
-            for candidate in supplemental.get("reviewer_candidates", [])
-        ):
-            review_handoff = supplemental
-            supplemental_review_required = True
     human_action_commands = _human_action_commands(
         review_handoff,
         decision_handoff,
@@ -99,11 +71,7 @@ def build_agent_handoff(
         "status": finish.get("status", "blocked"),
         "handoff_available": bool(review_handoff or decision_handoff or human_approval_handoff),
         "handoff_types": _handoff_types(review_handoff, decision_handoff, human_approval_handoff),
-        "next_step_type": (
-            "review-handoff"
-            if supplemental_review_required
-            else finish.get("next_step_type", "inspect")
-        ),
+        "next_step_type": finish.get("next_step_type", "inspect"),
         "agent": finish.get("agent", {}),
         "work_item": finish.get("work_item", {}),
         "finish": _finish_summary(finish),
@@ -174,24 +142,6 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     }
 
 
-def _exclude_reviewer(handoff: dict[str, Any], reviewer_id: str) -> dict[str, Any]:
-    if not reviewer_id:
-        return handoff
-    return {
-        **handoff,
-        "reviewer_candidates": [
-            item
-            for item in handoff.get("reviewer_candidates", [])
-            if item.get("id") != reviewer_id
-        ],
-        "review_record_commands": [
-            item
-            for item in handoff.get("review_record_commands", [])
-            if item.get("reviewer") != reviewer_id
-        ],
-    }
-
-
 def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     guide = build_decision_guide(workspace, work_id)
     return {
@@ -233,10 +183,8 @@ def _has_linked_decision(workspace: Workspace, work_id: str) -> bool:
 def _human_approval_handoff(
     workspace: Workspace,
     work_id: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
-    payload = detail(workspace, work_id, journal_context=journal_context)
+    payload = detail(workspace, work_id)
     work = payload["work_item"]
     evidence = payload.get("evidence") or {}
     review = payload.get("review") or {}
@@ -255,7 +203,6 @@ def _human_approval_handoff(
     approval_pack = _approval_pack_handoff(
         workspace,
         work_id,
-        journal_context=journal_context,
     )
     command = (
         str(approval_pack["inbox_command"])
@@ -292,13 +239,6 @@ def _human_approval_handoff(
         "approval_candidates": candidates,
         "approval_focus": _approval_focus(payload),
         "approval_pack": approval_pack,
-        "human_decision_record_commands": _human_decision_record_commands(
-            work_id,
-            candidates,
-            reviewed_head,
-            evidence.get("id", ""),
-            review.get("id", ""),
-        ),
     }
 
 
@@ -396,14 +336,10 @@ def _human_action_commands(
             )
     if human_approval_handoff is not None:
         approval_pack = human_approval_handoff.get("approval_pack", {})
-        pack_commands = _pack_human_commands(
+        for item in _pack_human_commands(
             approval_pack,
             human_approval_handoff.get("approval_candidates", []),
-        )
-        source = pack_commands or human_approval_handoff.get(
-            "human_decision_record_commands", []
-        )
-        for item in source:
+        ):
             commands.append(
                 {
                     "type": item.get("type", "human-approval-record"),
@@ -505,25 +441,22 @@ def _approval_candidates(
 def _approval_pack_handoff(
     workspace: Workspace,
     work_id: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
     try:
         inbox = approval_inbox(
             workspace,
             selected_work_ids=(work_id,),
-            journal_context=journal_context,
         )
     except WorkspaceError as exc:
         return {
             "available": False,
             "work_item_id": work_id,
-            "mode": "individual-human-decision",
+            "mode": "blocked",
             "reason": str(exc),
             "next_safe_action": (
-                "Use the exact individual human-decision command, or establish "
-                "journal continuity before rebuilding an Approval Pack."
+                "Repair or checkpoint journal continuity before rebuilding the "
+                "exact presentation-bound Approval Pack."
             ),
         }
     item = next(
@@ -536,7 +469,7 @@ def _approval_pack_handoff(
     return {
         "available": available,
         "work_item_id": work_id,
-        "mode": "approve-eligible" if available else "individual-human-decision",
+        "mode": "approve-eligible" if available else "blocked",
         "inbox_command": inbox_command,
         "pack_id": pack["pack_id"] if pack else "",
         "pack_digest": pack["pack_digest"] if pack else "",
@@ -551,7 +484,7 @@ def _approval_pack_handoff(
         "next_safe_action": (
             "A qualified human may run the exact presentation-bound approve-eligible command once."
             if available
-            else "Use the individual human-decision command for this non-batchable state."
+            else "Repair the listed proof or batching blockers, then rebuild the exact Approval Pack."
         ),
     }
 
@@ -586,77 +519,6 @@ def _approval_focus(payload: dict[str, Any]) -> list[str]:
     if work.get("forbidden_actions"):
         focus.append("Confirm approval does not authorize forbidden actions without new scoped work.")
     return focus
-
-
-def _human_decision_record_commands(
-    work_id: str,
-    candidates: list[dict[str, Any]],
-    reviewed_head: str,
-    evidence_id: str,
-    review_id: str,
-) -> list[dict[str, str]]:
-    commands: list[dict[str, str]] = []
-    for candidate in candidates:
-        human_id = candidate["id"]
-        for decision, status, quorum in [
-            ("accepted", "accepted", "met"),
-            ("changes-requested", "changes-requested", "not-met"),
-            ("blocked", "blocked", "not-met"),
-        ]:
-            commands.append(
-                {
-                    "human_id": human_id,
-                    "decision": decision,
-                    "command": _human_decision_record_command(
-                        work_id,
-                        human_id,
-                        reviewed_head,
-                        decision,
-                        status,
-                        quorum,
-                        evidence_id,
-                        review_id,
-                    ),
-                }
-            )
-    return commands
-
-
-def _human_decision_record_command(
-    work_id: str,
-    human_id: str,
-    reviewed_head: str,
-    decision: str,
-    status: str,
-    quorum_status: str,
-    evidence_id: str,
-    review_id: str,
-) -> str:
-    record_id = f"HUMAN-DECISION-{_safe_id(work_id)}-{_safe_id(human_id)}-{_safe_id(decision)}"
-    parts = [
-        "palari",
-        "human-decision",
-        "record",
-        record_id,
-        "--work-item-id",
-        work_id,
-        "--human-id",
-        human_id,
-        "--reviewed-head",
-        reviewed_head or "REVIEWED-HEAD",
-        "--decision",
-        decision,
-        "--status",
-        status,
-        "--quorum-status",
-        quorum_status,
-    ]
-    if evidence_id:
-        parts.extend(["--evidence-reference", evidence_id])
-    if review_id:
-        parts.extend(["--review-reference", review_id])
-    parts.append("--json")
-    return " ".join(quote(part) for part in parts)
 
 
 def _attempt_head(attempt: dict[str, Any]) -> str:

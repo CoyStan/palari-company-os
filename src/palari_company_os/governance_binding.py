@@ -4,14 +4,18 @@ import hashlib
 import json
 from typing import Any
 
-from .evidence_manifest import receipt_hash, verify_evidence
+from .evidence_manifest import (
+    receipt_hash,
+    stored_evidence_integrity_errors,
+    verify_evidence,
+)
 from .governance_journal import JournalVerificationContext
+from .governance_kernel import TERMINAL_ATTEMPT_STATUSES
 from .workspace import current_attempt_for_work, latest_for_work
 
 
 BINDING_VERSION = "palari.review_binding.v1"
 HASH_PREFIX = "sha256:"
-TERMINAL_ATTEMPT_STATUSES = {"complete", "completed"}
 CLEAN_ATTEMPT_STATES = {"clean", "pristine"}
 
 
@@ -23,6 +27,23 @@ def current_review_binding(
     journal_context: JournalVerificationContext | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """Return the exact current proof binding and fail-closed eligibility errors."""
+    return _current_review_binding(
+        workspace,
+        work_id,
+        inspect_external=True,
+        require_output_coverage=require_output_coverage,
+        journal_context=journal_context,
+    )
+
+
+def _current_review_binding(
+    workspace: Any,
+    work_id: str,
+    *,
+    inspect_external: bool,
+    require_output_coverage: bool | None,
+    journal_context: JournalVerificationContext | None,
+) -> tuple[dict[str, str], list[str]]:
     work = workspace.work_item(work_id)
     if work is None:
         return {}, [f"work not found: {work_id}"]
@@ -55,6 +76,7 @@ def current_review_binding(
                 attempt,
                 evidence,
                 receipt,
+                inspect_external=inspect_external,
                 require_output_coverage=require_output_coverage,
                 journal_context=journal_context,
             )
@@ -63,8 +85,7 @@ def current_review_binding(
         errors.extend(_receipt_errors(receipt))
 
     if evidence is None or receipt is None:
-        return {}, errors
-
+        return {}, _unique(errors)
     binding = {
         "binding_version": BINDING_VERSION,
         "attempt_id": attempt.id,
@@ -75,7 +96,7 @@ def current_review_binding(
         "receipt_hash": receipt.receipt_hash,
         "work_contract_hash": work_contract_hash(work),
     }
-    return binding, errors
+    return binding, _unique(errors)
 
 
 def review_binding_integrity_errors(workspace: Any, review: Any) -> list[str]:
@@ -146,6 +167,52 @@ def current_review_binding_errors(
     return _unique(errors)
 
 
+def recorded_current_proof_errors(workspace: Any, work_id: str) -> list[str]:
+    """Check current proof records without reading files, Git, or the journal.
+
+    This is a projection boundary, not completion authority.  It establishes
+    only that the stored current attempt, receipt, and versioned evidence form
+    one structurally exact proof.  Mutation and portable proof boundaries must
+    still call :func:`current_review_binding` and re-observe external state.
+    """
+
+    _, errors = _current_review_binding(
+        workspace,
+        work_id,
+        inspect_external=False,
+        require_output_coverage=True,
+        journal_context=None,
+    )
+    return errors
+
+
+def recorded_current_review_binding_errors(workspace: Any, review: Any) -> list[str]:
+    """Check current exact-review metadata without reading files or Git state.
+
+    This is deliberately weaker than :func:`current_review_binding_errors`: it
+    proves that the stored receipt, evidence manifest, attempt, contract, and
+    review bind to one another, but it does not re-observe artifact bytes or
+    journal continuity.  Read-only projections may use the result to preserve
+    an existing binding; mutation and proof-export boundaries must still run
+    the full current check.
+    """
+
+    errors = review_binding_integrity_errors(workspace, review)
+    binding, current_errors = _current_review_binding(
+        workspace,
+        review.work_item_id,
+        inspect_external=False,
+        require_output_coverage=True,
+        journal_context=None,
+    )
+    errors.extend(current_errors)
+    if binding:
+        for field, expected in binding.items():
+            if getattr(review, field, "") != expected:
+                errors.append(f"review {review.id} {field} is stale")
+    return _unique(errors)
+
+
 def work_contract_hash(work: Any) -> str:
     payload = {
         "id": work.id,
@@ -203,25 +270,6 @@ def attempt_state_hash(attempt: Any) -> str:
     return _stable_hash(payload)
 
 
-def proof_binding_hash(binding: dict[str, str]) -> str:
-    """Return the hash of proof inputs only (kept for compatibility helpers)."""
-
-    payload = {
-        key: binding.get(key, "")
-        for key in (
-            "binding_version",
-            "attempt_id",
-            "attempt_hash",
-            "evidence_reference",
-            "evidence_manifest_hash",
-            "receipt_reference",
-            "receipt_hash",
-            "work_contract_hash",
-        )
-    }
-    return _stable_hash(payload)
-
-
 def review_proof_hash(review: Any) -> str:
     """Bind exact proof inputs and the reviewer-authored verdict context."""
 
@@ -252,25 +300,13 @@ def review_proof_hash(review: Any) -> str:
     return _stable_hash(payload)
 
 
-def _review_binding_dict(review: Any) -> dict[str, str]:
-    return {
-        "binding_version": review.binding_version,
-        "attempt_id": review.attempt_id,
-        "attempt_hash": review.attempt_hash,
-        "evidence_reference": review.evidence_reference,
-        "evidence_manifest_hash": review.evidence_manifest_hash,
-        "receipt_reference": review.receipt_reference,
-        "receipt_hash": review.receipt_hash,
-        "work_contract_hash": review.work_contract_hash,
-    }
-
-
 def _evidence_errors(
     workspace: Any,
     attempt: Any,
     evidence: Any,
     receipt: Any | None,
     *,
+    inspect_external: bool,
     require_output_coverage: bool | None,
     journal_context: JournalVerificationContext | None,
 ) -> list[str]:
@@ -287,7 +323,7 @@ def _evidence_errors(
         errors.append(f"evidence {evidence.id} has no timestamp")
     if not evidence.manifest_hash:
         errors.append(f"evidence {evidence.id} has no manifest hash")
-    else:
+    elif inspect_external:
         verification = verify_evidence(
             workspace,
             evidence.id,
@@ -296,6 +332,17 @@ def _evidence_errors(
         )
         if not verification["ok"]:
             errors.append(f"evidence {evidence.id} manifest verification failed")
+    else:
+        work = workspace.work_item(evidence.work_item_id)
+        errors.extend(
+            stored_evidence_integrity_errors(
+                evidence,
+                receipt,
+                path_intents=getattr(work, "path_intents", ()),
+                require_output_coverage=True,
+                require_version=True,
+            )
+        )
     artifact_statuses = {
         str(item.get("path", "")): str(item.get("status", ""))
         for item in evidence.artifact_hashes

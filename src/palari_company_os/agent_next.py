@@ -6,16 +6,11 @@ from typing import Any
 from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
-from .agent_packets import TERMINAL_WORK_STATUSES
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
-from .governance_journal import JournalVerificationContext
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
-
-
-AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready", "needs-human-decision"}
 
 
 def build_agent_next(
@@ -24,13 +19,7 @@ def build_agent_next(
     mode: str = "execute",
     limit: int = 5,
 ) -> dict[str, Any]:
-    return _build_agent_next(
-        workspace,
-        palari_id,
-        mode,
-        limit,
-        journal_context=JournalVerificationContext(),
-    )
+    return _build_agent_next(workspace, palari_id, mode, limit)
 
 
 def _build_agent_next(
@@ -41,7 +30,6 @@ def _build_agent_next(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
@@ -72,7 +60,6 @@ def _build_agent_next(
         mode or "execute",
         queue=queue,
         leases=leases,
-        journal_context=journal_context,
     )
     ordered = sorted(candidates, key=lambda item: (not item["can_start"], item["queue_rank"]))
     safe_limit = max(1, limit)
@@ -101,8 +88,7 @@ def _build_agent_next(
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
-    journal_context = JournalVerificationContext()
-    queue = queue_items(workspace, journal_context=journal_context)
+    queue = queue_items(workspace)
     leases = git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
@@ -115,7 +101,6 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
             limit,
             queue=queue,
             leases=leases,
-            journal_context=journal_context,
         )
         for palari in workspace.palaris
     ]
@@ -145,18 +130,16 @@ def _candidates(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
-    journal_context: JournalVerificationContext | None = None,
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     lease_statuses = leases or git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
     )
-    operation_journal = journal_context or JournalVerificationContext()
     queue_records = (
         queue
         if queue is not None
-        else queue_items(workspace, journal_context=operation_journal)
+        else queue_items(workspace)
     )
     for rank, item in enumerate(queue_records, start=1):
         if item.attention == "closed":
@@ -169,14 +152,13 @@ def _candidates(
             work_id=work.id,
             palari_id=palari_id,
             mode=mode,
-            journal_context=operation_journal,
         )
         packet = operation.brief()
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)
-        can_start = _can_start_agent_work(item, packet, mode) and claim_blocker is None
-        start_blockers = _start_blockers(item, packet, mode)
+        can_start = packet.get("status") == "ready" and claim_blocker is None
+        start_blockers = _start_blockers(packet)
         if claim_blocker is not None:
             start_blockers.insert(0, claim_blocker)
         start_blockers = enrich_blockers(start_blockers)
@@ -188,7 +170,6 @@ def _candidates(
             work.id,
             palari_id,
             mode,
-            journal_context=operation_journal,
             operation=operation,
         )
         handoff_guidance = finish.get("handoff_guidance", [])
@@ -361,49 +342,13 @@ def _candidate_next_commands(
     return commands
 
 
-def _can_start_agent_work(item: Any, packet: dict[str, Any], mode: str) -> bool:
-    if mode == "review":
-        return packet.get("status") == "ready" and item.attention in AGENT_REVIEWABLE_ATTENTIONS
-    return (
-        packet.get("status") == "ready"
-        and item.ai_safe_to_proceed
-        and item.attention in AGENT_STARTABLE_ATTENTIONS
-    )
-
-
-def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[str, Any]]:
+def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     if packet.get("status") != "ready":
         blockers.append(
             {
                 "code": "PACKET_BLOCKED",
                 "message": "The agent packet is blocked; inspect blocker_codes before starting.",
-            }
-        )
-    if mode == "review":
-        if item.attention not in AGENT_REVIEWABLE_ATTENTIONS:
-            blockers.append(
-                {
-                    "code": "ATTENTION_NOT_REVIEWABLE",
-                    "message": (
-                        f"Current attention state is {item.attention}; review mode is for "
-                        "review-ready work or a positive review awaiting a distinct human."
-                    ),
-                }
-            )
-        return blockers
-    if not item.ai_safe_to_proceed:
-        blockers.append(
-            {
-                "code": "QUEUE_NOT_AI_SAFE",
-                "message": "The queue does not mark this work safe for autonomous AI execution.",
-            }
-        )
-    if item.attention not in AGENT_STARTABLE_ATTENTIONS:
-        blockers.append(
-            {
-                "code": "ATTENTION_NOT_STARTABLE",
-                "message": f"Current attention state is {item.attention}; follow next_action instead.",
             }
         )
     return blockers

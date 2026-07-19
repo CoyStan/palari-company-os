@@ -35,6 +35,28 @@ ready packet and claim. It does not infer new authority or silently choose
 blocked work. Use explicit `start WORK-ID --isolate` when a committed work item
 needs its own deterministic branch and worktree.
 
+For first adoption in a Git worktree, `palari init` writes only missing
+agent-ready guidance and makes one path-limited local commit of the new
+governance projection plus those generated docs. Add `--host claude` or
+`--host codex` to install the portable contract, claim-bound Git gate, and the
+selected tested project-local host hooks in the same anchored action. Existing
+guidance, host configuration, and unrelated staged or unstaged paths are
+preserved rather than absorbed into the bootstrap commit. This is an immutable
+baseline bootstrap, not review, acceptance, or authenticated human attribution.
+`palari work add` idempotently recovers a missing starter anchor before changing
+the work declaration. If a manually assembled workspace still has no committed
+authority origin, `agent start` fails closed with one exact `git add` plus
+path-limited `git commit --only` recovery action.
+
+An existing Palari workspace uses the same idempotent action: `palari init
+WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude` or
+`codex`. Without explicit `--host`, `init` still refuses an existing workspace.
+Both profiles have tested native session adapters; Codex project hooks require
+explicit `/hooks` trust. Other harnesses may consume the provider-neutral
+contract and host-neutral Git gate without a named session profile. Adoption
+grants no review, human decision, acceptance, merge, push, deployment,
+provider, or external-write authority.
+
 The ordinary loop is deliberately short:
 
 1. Run `palari agent start --next --as PALARI-ID --json` and continue only when
@@ -45,17 +67,20 @@ The ordinary loop is deliberately short:
    exact create/modify/delete intent, runs fixed verification profiles, and
    atomically records deterministic attempt, receipt, evidence, and closeout
    state. It stops at independent review, human authority, external state, or a
-   concrete blocker; it never creates a review or human decision.
+   concrete blocker; it never creates a review or human decision. Every
+   completion requires current exact passing evidence. Only R1/light work with
+   zero required approvals and no allowed, planned, queued, or actual external
+   writes may complete without independent review and human acceptance.
 3. Follow the one command returned at that boundary. After a separate current
    review, a qualified human opens `palari queue --approval-inbox --json`,
    inspects the exact presentation, and may run its bound `human-decision pack`
    command once. Current authority can trigger only deterministic local
    terminal bookkeeping.
 
-Use `agent advance --dry-run` to inspect the plan, `agent check`, `finish`,
-`handoff`, `doctor`, and `loop` for detailed diagnosis, and `agent done` as the
-compatible R1/light/zero-approval shortcut. Proof refresh remains an explicit
-claimless recovery path: `agent advance --refresh-verification --dry-run`
+`agent advance` is the sole current execution-to-proof and closeout path. Use
+`agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
+`handoff`, `doctor`, and `loop` for detailed diagnosis. Proof refresh remains
+an explicit claimless recovery path: `agent advance --refresh-verification --dry-run`
 previews it, and the non-dry-run form creates fresh exact-head proof only when
 ordinary governed outputs remain byte-identical. Prior review and human
 authority never carry forward.
@@ -79,12 +104,10 @@ mutation with the exact `history --checkpoint` activation command; it never
 silently claims continuity for earlier history.
 
 For independent inspection work, use `--mode review` after a work item is in
-`needs-review` or `receipt-ready`. A distinct source-authorized Palari may also
-open a supplemental review packet when a positive human review is waiting on a
-different acceptance identity. The packet is read-only with respect to work
-outputs. It includes the review guide focus, attempt, evidence, receipt,
-suggested verdicts, and typed reviewer candidates. A matching Palari reviewer
-may record only its advisory verdict; it cannot create human acceptance.
+`needs-review`. The packet is read-only with respect to work outputs. It
+includes the review guide focus, attempt, evidence, receipt, suggested
+verdicts, and typed reviewer candidates. A matching Palari reviewer may record
+only its advisory verdict; it cannot create human acceptance.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 
@@ -108,12 +131,12 @@ workflow from many separate commands. A packet answers:
 The packet must not dump the whole workspace. It includes only directly related
 records and explicit omitted-context notes.
 
-Aggregate agent views share one request-local packet, check, directive, and
-journal-verification observation. A pure directive compiler turns that current
-check into state, owner, blocker class, and next safe action. It has no clock,
-filesystem, mutation, review, or human-authority access. Transition checks—not
-the directive—remain authoritative, and a changed journal witness forces a new
-scan.
+Aggregate agent views share one request-local packet, check, and directive. A
+pure directive compiler turns that current check into state, owner, blocker
+class, and next safe action. It has no clock, filesystem, mutation, review, or
+human-authority access. Transition checks—not the directive—remain
+authoritative. Exact Approval Inbox and proof-binding operations own their
+request-local journal verification, and a changed witness forces a new scan.
 
 ## Documentation Hints
 
@@ -179,7 +202,6 @@ Common blocker codes include:
 - `WORK_CLOSED`
 - `INTEGRATION_BOUNDARY`
 - `REVIEW_REQUIRED`
-- `RECEIPT_READY_REVIEW`
 
 ## Boundaries
 
@@ -216,7 +238,7 @@ local Git witness for ready started work:
   item so an agent cannot reclassify its own later changes as pre-existing.
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
   local reflog entry provide a separate Git-backed witness. All four views must
-  agree before claim authority or `agent done` attribution is accepted.
+  agree before claim authority or `agent advance` attribution is accepted.
   For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari derives a canonical execution-authority
   digest from exact baseline workspace bytes and strict current root and
@@ -241,13 +263,17 @@ local Git witness for ready started work:
   message binds the exact catalog digest. This keeps the no-extra-commit
   workflow while preventing release, expiry, another worktree, or a newly
   authorized reviewer from silently choosing a different authority origin.
-  Catalog-free v1 witnesses remain compatible when that baseline commit already
-  contains the work. A historical current-only baseline without a catalog fails
+  Every complete Git-backed claim uses the v2 witness, v2 lease, and v2
+  governance-projection snapshot. An unchanged projection is recorded with an
+  exact empty changed-path set rather than a legacy format. Legacy v1 claim
+  witnesses, leases, and projection snapshots are unsupported and are not
+  upgraded in place. A historical current-only baseline without a catalog fails
   closed and requires a successor because no durable authority origin exists.
-  Existing witness refs, heads, and v2 catalog messages are verified before a
-  restart lease and again under the final lock before local claim persistence.
-  New v2 claims require both portable-contract binding fields. Historical v1
-  claims without those fields remain readable and upgrade on restart; the
+  Existing v2 witness refs, heads, optional catalog messages, leases, and
+  projection snapshots are verified before a restart lease and again under the
+  final lock before local claim persistence.
+  Claims use schema v2 and require both portable-contract binding fields.
+  Unsupported claim schemas fail closed and are not upgraded in place; the
   schema marker is declared local state, not authentication against a hostile
   same-user process.
 
@@ -269,7 +295,6 @@ Implemented:
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent doctor WORK-ID --as PALARI-ID --json`
-- `palari agent done WORK-ID --as PALARI-ID --json` (R1/light/0-approval only)
 - `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
 - `palari agent advance WORK-ID --as PALARI-ID --json`
 - `palari agent loop WORK-ID --as PALARI-ID --json`
@@ -288,7 +313,7 @@ Implemented:
 - explicit create/modify/delete path intent with exact absent-path deletion
   tombstones; legacy work retains presence-required output behavior
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
-- claim-start commit-range proof for `agent done`, preserved across release and
+- claim-start commit-range proof for `agent advance`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
 - deterministic claim-range planning and atomic proof reconciliation through
   `agent advance`, with governed exact-proof reuse, an authority stop, and
@@ -310,9 +335,10 @@ Not implemented yet:
 
 - packet expansion
 - review/planning/repair modes
-- portable host installation or native sandbox adapters beyond the existing
-  separately documented Claude hook integration
-- live connector execution
+- an OS sandbox or tested session adapters beyond the separately documented
+  Claude and Codex project-hook integrations
+- generic live connector execution beyond the separately governed Linear
+  adapter
 - memory providers or vector search
 - portable deletion-history proof in PCAW v1; workspace tombstones are enforced
   locally but are not exported as a new protocol guarantee
@@ -322,8 +348,9 @@ local claim for ready packets, carries the current
 `next_step_type`, and then evaluates the current workspace against the
 completion contract. It returns `ok: false` when required receipt, evidence,
 review, human decision, source, dependency, or external-write checks fail. Light
-low-risk work may satisfy its trust loop with a valid receipt without requiring
-review or human approval. Missing receipt, evidence, and review checks include
+R1 work may omit review and human approval only when it has zero required
+approvals, current exact passing evidence, and no allowed, planned, queued, or
+actual external writes. Missing receipt, evidence, and review checks include
 the next safe command Palari can infer for the current work item. Human-decision
 record commands are held back until prerequisite proof, such as receipt,
 evidence, and review, is present, so agents do not jump from missing review
@@ -412,11 +439,11 @@ first concrete next step.
 
 `agent finish` wraps `agent check` into final-report guidance. It never mutates
 workspace state in v1. It carries the same `next_step_type`, distinguishes
-missing proof from handoff-ready work, such as low-risk receipt-ready results
-that should stop execution and move to a human review path. Its
+missing proof from work ready for automatic reconciliation or a human handoff.
+Its
 `next_allowed_commands` prioritize missing proof or approval record templates
-before generic inspect/validate commands. For receipt-ready review handoffs and
-work that already has evidence but still needs review, `agent handoff` is
+before generic inspect/validate commands. For work that has exact evidence but
+still needs review, `agent handoff` is
 listed before the direct review guide command. Approval commands appear only
 after the earlier proof required for approval is present. In review mode,
 `agent finish` means the agent may report a review recommendation; it does not
@@ -436,7 +463,7 @@ receipt claims so a human can inspect the right thing without parsing JSON
 first. Agent-safe read commands remain separate from `human_action_commands`, so
 a model can show the right review or decision commands without pretending it is
 authorized to perform them. It is read-only in v1 and does not create reviews,
-decisions, receipts, evidence, claims, or history events. Handoff packets also
+decisions, receipts, evidence, claims, or journal mutations. Handoff packets also
 include `human_action_boundary`, which marks every `human_action_commands`
 entry as human-only. Eligible Palari review commands are instead listed under
 `agent_action_commands`, paired with the required review-packet command and an

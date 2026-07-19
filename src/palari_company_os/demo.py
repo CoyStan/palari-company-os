@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from .workspace import WorkspaceError, default_workspace_path
+from .onramp import initialize_starter_workspace, quick_add_work
+from .workspace import WorkspaceError
 
 
 BLOCKED_PATH = "deploy/production.yml"
@@ -28,7 +28,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         workspace_dir = Path(temp_directory.name)
 
     try:
-        _copy_demo_workspace(workspace_dir)
+        _create_demo_workspace(workspace_dir)
         steps: list[dict[str, Any]] = []
         queue_step = _run_step(
             workspace_dir,
@@ -45,7 +45,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
                 workspace_dir,
                 "Sofia starts the task",
                 "The next output says what Sofia may read and write.",
-                ["agent", "start", WORK_ID, "--as", PALARI_ID, "--mode", "execute"],
+                ["agent", "start", "--next", "--as", PALARI_ID, "--mode", "execute"],
             )
         )
         blocked_step = _run_step(
@@ -82,13 +82,15 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             blocked_payload,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
+        blocked_step["stdout"] = blocked_step["display_stdout"]
         blocked_step.update(_blocked_highlight(blocked_payload))
         steps.append(blocked_step)
 
+        _commit_demo_change(workspace_dir)
         allowed_step = _run_step(
             workspace_dir,
-            "The file boundary passes; proof is still needed",
-            "The safe file is inside Sofia's boundary; receipt and evidence still gate completion.",
+            "Sofia's committed change stays inside the boundary",
+            "The safe file is inside Sofia's packet and is now ready for deterministic proof.",
             [
                 "agent",
                 "check",
@@ -119,71 +121,16 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             allowed_payload,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
+        allowed_step["stdout"] = allowed_step["display_stdout"]
         allowed_step.update(_allowed_highlight(allowed_payload))
         steps.append(allowed_step)
 
         steps.append(
             _run_step(
                 workspace_dir,
-                "Sofia records what happened",
-                "The receipt names what changed, what did not happen, and how to undo it.",
-                [
-                    "receipt",
-                    "record",
-                    "RECEIPT-DEMO",
-                    "--work-item-id",
-                    WORK_ID,
-                    "--attempt-id",
-                    "ATTEMPT-0002",
-                    "--actor",
-                    PALARI_ID,
-                    "--list",
-                    "actions_taken=edited onboarding copy",
-                    "--list",
-                    f"outputs_created={ALLOWED_PATH}",
-                    "--list",
-                    f"not_done=did not touch {BLOCKED_PATH}",
-                    "--list",
-                    f"undo_refs=revert {ALLOWED_PATH}",
-                ],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "Sofia adds proof and asks what is next",
-                "Palari now asks for review instead of pretending the work is done.",
-                [
-                    "evidence",
-                    "record",
-                    "EVIDENCE-DEMO",
-                    "--work-item-id",
-                    WORK_ID,
-                    "--attempt-id",
-                    "ATTEMPT-0002",
-                    "--head-sha",
-                    "def5678",
-                    "--status",
-                    "passed",
-                    "--summary",
-                    "Demo verification passed for allowed file boundary.",
-                ],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "The finish check stops at review",
-                "A completed-looking task still waits for the next human-facing step.",
-                ["agent", "finish", WORK_ID, "--as", PALARI_ID],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "Human approval stays human",
-                "For higher-stakes work, Palari prepares the approval handoff but does not approve it.",
-                ["agent", "handoff", "WORK-0001", "--as", PALARI_ID],
+                "One command derives proof and closes safe local work",
+                "Advance binds the committed range, receipt, and evidence without copied proof IDs.",
+                ["agent", "advance", WORK_ID, "--as", PALARI_ID],
             )
         )
         return {
@@ -195,12 +142,12 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             "plain_summary": [
                 "Palari gave Sofia a small file boundary for one task.",
                 f"When {BLOCKED_PATH} appeared, Palari blocked it and named the exact path.",
-                "For the safe file, Palari kept a receipt and showed the next review or approval step.",
+                "For the safe committed file, one advance command derived proof and closed the task.",
             ],
             "try_next_commands": [
                 "palari demo",
-                "palari agent next --json",
-                "palari agent check WORK-ID --as PALARI-ID --changed PATH --json",
+                "palari agent start --next --as PALARI-ID --json",
+                "palari agent advance WORK-ID --as PALARI-ID --json",
             ],
         }
     finally:
@@ -231,11 +178,110 @@ def _ensure_empty_demo_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _copy_demo_workspace(workspace_dir: Path) -> None:
-    shutil.copytree(default_workspace_path(), workspace_dir, dirs_exist_ok=True)
+def _create_demo_workspace(workspace_dir: Path) -> None:
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    verification_script = workspace_dir / "scripts" / "verification_profiles.py"
+    verification_script.parent.mkdir(parents=True, exist_ok=True)
+    verification_script.write_text(
+        """from pathlib import Path
+import sys
+
+if len(sys.argv) < 3 or sys.argv[1] != "affected":
+    raise SystemExit("usage: verification_profiles.py affected PATH...")
+missing = [path for path in sys.argv[2:] if not Path(path).is_file()]
+if missing:
+    raise SystemExit("missing governed output: " + ", ".join(missing))
+print("demo affected verification passed")
+""",
+        encoding="utf-8",
+    )
+    _run_demo_git(workspace_dir, "init", "-q")
+    initialize_starter_workspace(
+        workspace_dir,
+        name="Palari boundary demo",
+        palari_name="Sofia",
+    )
+    quick_add_work(
+        workspace_dir,
+        "Improve the Company OS onboarding note",
+        write=[ALLOWED_PATH],
+        work_id=WORK_ID,
+        risk="R1",
+        intensity="light",
+        acceptance_target="The bounded onboarding note exists and proof is current.",
+    )
+
+
+def _commit_demo_change(workspace_dir: Path) -> None:
     output_path = workspace_dir / ALLOWED_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("Draft onboarding note copy.\n", encoding="utf-8")
+    output_path.write_text(
+        "Palari keeps AI work bounded, inspectable, and human-supervised.\n",
+        encoding="utf-8",
+    )
+    _run_demo_git(workspace_dir, "add", "--", ALLOWED_PATH)
+    _run_demo_git(
+        workspace_dir,
+        "commit",
+        "--quiet",
+        "--only",
+        "-m",
+        "demo: bounded onboarding change",
+        "--",
+        ALLOWED_PATH,
+    )
+
+
+def _run_demo_git(workspace_dir: Path, *args: str) -> None:
+    env = os.environ.copy()
+    for key in tuple(env):
+        if key in {
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_COMMON_DIR",
+            "GIT_DIR",
+            "GIT_EXEC_PATH",
+            "GIT_INDEX_FILE",
+            "GIT_NAMESPACE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_WORK_TREE",
+        } or key.startswith("GIT_CONFIG_"):
+            env.pop(key, None)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Palari Demo",
+            "GIT_AUTHOR_EMAIL": "palari-demo@local.invalid",
+            "GIT_COMMITTER_NAME": "Palari Demo",
+            "GIT_COMMITTER_EMAIL": "palari-demo@local.invalid",
+            "GIT_PAGER": "cat",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(workspace_dir),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "commit.gpgSign=false",
+                "-c",
+                "core.fsmonitor=false",
+                *args,
+            ],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise WorkspaceError(f"demo Git operation failed: {exc}") from exc
+    if result.returncode != 0:
+        raise WorkspaceError(
+            result.stderr.strip() or result.stdout.strip() or "demo Git operation failed"
+        )
 
 
 def _run_step(
@@ -370,19 +416,11 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         )
         lines.append(f"Other blockers still pending before completion: {codes}.")
 
-    next_commands = [
-        str(command)
-        for command in payload.get("next_allowed_commands", [])
-        if isinstance(command, str)
-        and (
-            command.startswith("palari receipt")
-            or command.startswith("palari evidence")
+    if focus and focus.get("status") == "pass":
+        lines.append(
+            f"Next deterministic action: palari agent advance {WORK_ID} "
+            f"--as {PALARI_ID} --json"
         )
-    ]
-    if next_commands:
-        lines.append("Next proof commands:")
-        for command in next_commands[:2]:
-            lines.append(f"  {command}")
     return "\n".join(lines)
 
 

@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from .evidence_manifest import verify_evidence
+from .governance_kernel import TERMINAL_WORK_STATUSES
 from .governance_journal import journal_file_path, workspace_digest
-from .read_models import detail
+from .pcaw_workspace import evaluate_workspace_completion_authority
 from .store import load_store, validate_data
 from .workspace import WorkspaceError
 
 
 SCHEMA_VERSION = "palari.governance_convergence.v1"
-_TERMINAL = {"completed", "closed", "done"}
 
 
 @dataclass(frozen=True)
@@ -285,7 +285,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             code="ACTOR_NOT_ASSIGNED",
             message=f"Automatic reconciliation actor {actor} is not assigned to {work_id}.",
         )
-    if work.status in _TERMINAL:
+    if work.status in TERMINAL_WORK_STATUSES:
         return ConvergenceObservation(
             digest=digest,
             status="completed",
@@ -333,35 +333,11 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             proof=projection,
         )
     try:
-        verification = verify_evidence(
+        authority = evaluate_workspace_completion_authority(
             workspace,
-            evidence.id,
-            require_output_coverage=True,
+            work_id,
+            accepted_at=_candidate_timestamp(),
         )
-    except WorkspaceError as exc:
-        return ConvergenceObservation(
-            digest=digest,
-            status="blocked",
-            boundary="error",
-            code="CURRENT_PROOF_INVALID",
-            message=f"The recorded exact proof cannot be verified: {exc}",
-            proof=projection,
-        )
-    if not verification["ok"]:
-        errors = "; ".join(str(item) for item in verification.get("errors", [])[:3])
-        return ConvergenceObservation(
-            digest=digest,
-            status="blocked",
-            boundary="error",
-            code="CURRENT_PROOF_INVALID",
-            message=(
-                "The recorded exact proof no longer verifies"
-                + (f": {errors}" if errors else ".")
-            ),
-            proof=projection,
-        )
-    try:
-        work_detail = detail(workspace, work_id)
     except WorkspaceError as exc:
         return ConvergenceObservation(
             digest=digest,
@@ -371,10 +347,8 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             message=f"The lifecycle state cannot be derived safely: {exc}",
             proof=projection,
         )
-    safety = work_detail.get("safety", {})
-    acceptance_state = str(safety.get("acceptance_state") or "")
     proof = {**projection, "evidence_id": evidence.id, "proof_current": True}
-    if acceptance_state in {"ready-to-record", "accepted"}:
+    if authority.ready:
         return ConvergenceObservation(
             digest=digest,
             status="ready",
@@ -383,21 +357,31 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             message="Current exact proof and qualified human authority allow completion.",
             proof=proof,
         )
-    attention = str(work_detail.get("attention") or "")
-    next_step = str(work_detail.get("next_step_type") or "")
-    if attention in {"needs-review", "receipt-ready"} or next_step == "review-handoff":
+    derived_state = authority.evaluation.derived_state
+    if derived_state == "review-required":
         boundary = "independent-review"
-    elif attention == "needs-human-decision" or next_step == "human-decision":
+    elif derived_state in {"human-decision-required", "accept-ready"}:
         boundary = "human-authority"
-    elif "integration" in attention or next_step == "external-state":
-        boundary = "external-state"
     else:
         boundary = "agent-action"
+    candidate_errors = authority.candidate.errors if authority.candidate else ()
+    diagnostic = next(
+        (
+            item
+            for item in (*candidate_errors, *authority.evaluation.errors)
+            if item.code != "PCAW_CLAIMED_STATE_MISMATCH"
+        ),
+        None,
+    )
     return ConvergenceObservation(
         digest=digest,
         status="waiting",
         boundary=boundary,
-        message=str(work_detail.get("next_action") or "No automatic transition is currently safe."),
+        message=(
+            diagnostic.next_action
+            if diagnostic is not None
+            else "No automatic transition is currently safe."
+        ),
         proof=proof,
     )
 
@@ -408,6 +392,12 @@ def _waiting(digest: str, boundary: str, message: str) -> ConvergenceObservation
         status="waiting",
         boundary=boundary,
         message=message,
+    )
+
+
+def _candidate_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace(
+        "+00:00", "Z"
     )
 
 
@@ -451,7 +441,6 @@ def _governance_projection_paths(workspace_path: Path | str, git_root: Path) -> 
     data_path = load_store(workspace_path).data_path.resolve()
     candidates = {
         data_path,
-        data_path.parent / ".palari" / "history.jsonl",
         journal_file_path(data_path),
     }
     paths: list[str] = []

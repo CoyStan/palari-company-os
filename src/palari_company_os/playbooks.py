@@ -132,11 +132,6 @@ def recommend_playbooks(workspace: Workspace, work_id: str) -> dict[str, Any]:
     }
 
 
-def recommended_playbook_ids(workspace: Workspace, work: WorkItem) -> list[str]:
-    payload = recommend_playbooks(workspace, work.id)
-    return [item["id"] for item in payload["recommended"]]
-
-
 def _manual_recommendations(
     work: WorkItem, available: dict[str, Playbook]
 ) -> list[PlaybookRecommendation]:

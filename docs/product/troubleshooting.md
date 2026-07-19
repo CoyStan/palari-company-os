@@ -1,17 +1,14 @@
 # Troubleshooting
 
-## `workspace schema_version is missing`
+## `workspace schema_version is missing` or `older than supported`
 
-The workspace is from an older unversioned format. Preview the migration:
-
-```bash
-./bin/palari --workspace /path/to/workspace migrate
-```
-
-Write it:
+The current runtime accepts only workspace schema v2. Unversioned, v0, and v1
+workspaces fail closed, and Palari does not provide an in-place migration
+command. Restore a current backup or convert the data outside Palari, then
+validate the complete schema-v2 workspace before ordinary use:
 
 ```bash
-./bin/palari --workspace /path/to/workspace migrate --write
+./bin/palari --workspace /path/to/workspace validate
 ```
 
 ## `references missing id`
@@ -69,11 +66,13 @@ work item's `required_approval_capability`.
 
 ## `cannot be completed`
 
-Completion is gated by the work's safety state. High-risk or approval-required
-work must reach the normal `ready` state with evidence, review, and approvals.
-Light local work may complete from `receipt-ready` only when it has no required
-approval, no unfinished dependencies, no open linked decisions, and no actual,
-planned, or queued external writes. Use:
+Completion always requires current exact passing evidence for the terminal
+attempt, receipt, head, and output artifacts. Only R1/light work with zero
+required approvals, terminal dependencies, no open linked decisions, and no
+allowed, planned, queued, or actual external writes may omit independent review
+and human acceptance. Every other item must also have a current exact review
+and the required human authority. After committing bounded work, use `agent
+advance` as the sole execution-to-proof path. For diagnosis, use:
 
 ```bash
 ./bin/palari detail WORK-ID

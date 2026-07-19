@@ -11,7 +11,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.path_policy import (
     canonical_path_allowed,
     path_allowed,
-    path_candidates,
     resolve_workspace_path,
     validate_workspace_path,
 )
@@ -68,21 +67,6 @@ class PathPolicyTests(unittest.TestCase):
             self.assertFalse(
                 canonical_path_allowed("docs-private/secret.txt", ["docs"], root=root)
             )
-
-    def test_path_candidates_extracts_and_deduplicates_path_like_tokens(self) -> None:
-        candidates = path_candidates(
-            "Change docs/product/company-os.md, then mention docs/product/company-os.md "
-            "and maybe examples/acme-company-os/workspace.json."
-        )
-
-        self.assertEqual(
-            candidates,
-            [
-                "docs/product/company-os.md",
-                "examples/acme-company-os/workspace.json",
-            ],
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

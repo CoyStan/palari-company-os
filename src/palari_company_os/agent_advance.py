@@ -7,11 +7,11 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, TypeGuard, cast
 
-from .agent_done import _preflight
-from .agent_file_changes import inspect_file_changes
+from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_handoff import build_agent_handoff
+from .agent_packets import build_agent_brief
 from .agent_runtime import (
     claim_check,
     governance_projection_snapshot_error,
@@ -31,6 +31,7 @@ from .evidence_manifest import (
 )
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
+from .governance_kernel import low_risk_completion_policy_applies
 from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
 from .store import load_store, workspace_file_path
@@ -47,6 +48,7 @@ from .workspace import Workspace, WorkspaceError
 
 SCHEMA_VERSION = "palari.agent_advance.v1"
 _TERMINAL = {"completed", "closed", "done"}
+_RETRY_AFTER_PENDING_PREPARE = "retry-after-pending-prepare-recovery"
 
 
 def agent_advance_dry_run(
@@ -172,6 +174,7 @@ def agent_advance_dry_run(
             "intensity": work.get("intensity", ""),
             "status": work.get("status", ""),
             "required_approval_count": work.get("required_approval_count", 0),
+            "allowed_actions": list(work.get("allowed_actions", [])),
             "current_attempt": attempt.get("id", "") if isinstance(attempt, dict) else "",
         },
         "packet": {
@@ -211,6 +214,21 @@ def agent_advance_dry_run(
             "attempt_bound": attempt_current,
             "receipt_current": receipt_current,
             "evidence_current": evidence_current,
+            "planned_external_writes": (
+                list(receipt.get("planned_external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
+            "queued_external_writes": (
+                list(receipt.get("queued_external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
+            "external_writes": (
+                list(receipt.get("external_writes", []))
+                if isinstance(receipt, dict)
+                else []
+            ),
             "attempt_closed": bool(
                 attempt_current
                 and attempt_status in {"complete", "completed"}
@@ -318,10 +336,14 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
             "One or more required output targets are missing.",
         )
 
-    low_risk = (
-        work.get("risk") == "R1"
-        and work.get("intensity") == "light"
-        and work.get("required_approval_count") == 0
+    low_risk = low_risk_completion_policy_applies(
+        risk=str(work.get("risk") or ""),
+        intensity=str(work.get("intensity") or ""),
+        required_approval_count=int(work.get("required_approval_count") or 0),
+        allowed_actions=list(work.get("allowed_actions") or []),
+        planned_external_writes=list(proof.get("planned_external_writes") or []),
+        queued_external_writes=list(proof.get("queued_external_writes") or []),
+        external_writes=list(proof.get("external_writes") or []),
     )
     expected_state = "completed" if low_risk else "review-required"
     steps: list[dict[str, Any]] = []
@@ -361,6 +383,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
                 "intensity",
                 "status",
                 "required_approval_count",
+                "allowed_actions",
                 "current_attempt",
             )
         },
@@ -412,7 +435,6 @@ def agent_advance(
     palari_id: str,
     *,
     dry_run: bool = False,
-    summary: str = "",
     refresh_verification: bool = False,
 ) -> dict[str, Any]:
     workspace_path = Path(workspace_path)
@@ -433,15 +455,20 @@ def agent_advance(
             palari_id,
             refresh_verification=refresh_verification,
         )
-        if resumed is not None:
-            return resumed
-    if summary.strip():
-        raise WorkspaceError(
-            "agent advance persists deterministic receipt actions only; omit --summary and "
-            "record non-authoritative commentary outside governance proof"
+        recovered_pending_prepare = bool(
+            isinstance(resumed, dict)
+            and resumed.get("_internal_status") == _RETRY_AFTER_PENDING_PREPARE
         )
+        if resumed is not None and not recovered_pending_prepare:
+            return resumed
+    else:
+        recovered_pending_prepare = False
     facts, profiles, context, preflight = _collect_facts(
-        workspace, workspace_path, work_id, palari_id
+        workspace,
+        workspace_path,
+        work_id,
+        palari_id,
+        allow_current_proof_projection=recovered_pending_prepare,
     )
     plan = plan_advance(facts)
     payload: dict[str, Any] = {
@@ -490,7 +517,11 @@ def agent_advance(
 
     current = Workspace.load(workspace_path)
     current_facts, _, _, current_preflight = _collect_facts(
-        current, workspace_path, work_id, palari_id
+        current,
+        workspace_path,
+        work_id,
+        palari_id,
+        allow_current_proof_projection=recovered_pending_prepare,
     )
     current_plan = plan_advance(current_facts)
     if current_plan["plan_digest"] != plan["plan_digest"] or not current_plan["can_advance"]:
@@ -512,7 +543,6 @@ def agent_advance(
             palari_id,
             current_preflight,
             verification_results,
-            summary,
             expected_workspace_digest=str(current_facts["workspace_digest"]),
             expected_git_head=str(current_facts["git"]["head_sha"]),
             expected_artifact_hashes=list(
@@ -531,11 +561,8 @@ def agent_advance(
     work = final_workspace.work_item(work_id)
     if work is None:
         raise WorkspaceError(f"work not found after proof reconciliation: {work_id}")
-    low_risk = (
-        work.risk == "R1"
-        and work.intensity == "light"
-        and work.required_approval_count == 0
-    )
+    current_receipt = _current_receipt(final_workspace, work)
+    low_risk = _low_risk_completion_policy(work, current_receipt)
     resume_preflight = _resume_preflight(
         final_workspace, workspace_path, work, palari_id
     )
@@ -608,6 +635,8 @@ def _collect_facts(
     workspace_path: Path,
     work_id: str,
     palari_id: str,
+    *,
+    allow_current_proof_projection: bool = False,
 ) -> tuple[dict[str, Any], tuple[VerificationProfile, ...], VerificationContext, dict[str, Any]]:
     from .agent_packets import build_agent_brief
     from .agent_runtime import claim_check
@@ -631,6 +660,7 @@ def _collect_facts(
         palari_id,
         None,
         packet=packet,
+        allow_current_proof_projection=allow_current_proof_projection,
     )
     changed = list(preflight.get("changed_files", []))
     artifacts = _governed_artifacts(changed)
@@ -690,6 +720,7 @@ def _collect_facts(
             "intensity": work.intensity,
             "status": work.status,
             "required_approval_count": work.required_approval_count,
+            "allowed_actions": list(work.allowed_actions),
             "current_attempt": work.current_attempt,
         },
         "packet": {
@@ -726,6 +757,13 @@ def _collect_facts(
             "evidence_current": bool(
                 evidence and evidence.status == "passed" and evidence.head_sha == head_sha
             ),
+            "planned_external_writes": (
+                list(receipt.planned_external_writes) if receipt is not None else []
+            ),
+            "queued_external_writes": (
+                list(receipt.queued_external_writes) if receipt is not None else []
+            ),
+            "external_writes": list(receipt.external_writes) if receipt is not None else [],
             "attempt_closed": bool(
                 attempt
                 and attempt.status in {"complete", "completed"}
@@ -738,6 +776,219 @@ def _collect_facts(
     return facts, profiles, context, preflight
 
 
+def _preflight(
+    workspace: Workspace,
+    workspace_path: Path | str,
+    work_id: str,
+    palari_id: str,
+    declared_changed: list[str] | None,
+    *,
+    packet: dict[str, Any] | None = None,
+    allow_current_proof_projection: bool = False,
+    scope_authority_workspace: Workspace | None = None,
+) -> dict[str, Any]:
+    """Verify the exact claim-start Git range before proof reconciliation."""
+
+    claim = read_claim(workspace_path, work_id)
+    if not claim:
+        return _blocked_preflight("agent advance requires an active execute claim")
+    packet = packet or build_agent_brief(workspace, work_id, palari_id, "execute")
+    claim_result = claim_check(
+        workspace_path,
+        work_id,
+        palari_id,
+        "execute",
+        str(packet.get("context_hash") or ""),
+        scope_authority_workspace=scope_authority_workspace,
+    )
+    if claim_result.get("status") != "pass":
+        return _blocked_preflight(
+            str(claim_result.get("message") or "active claim is invalid")
+        )
+    claim = claim_result["claim"]
+
+    root = git_repo_root(workspace.path) or git_repo_root(Path.cwd())
+    if root is None:
+        return _blocked_preflight(
+            "agent advance requires a Git repository for exact change proof"
+        )
+    status_inspection = inspect_file_changes(
+        {"allowed_paths": {"write": []}},
+        git_diff=True,
+        cwd=root,
+        git_baseline=claim.get("git_baseline"),
+    )
+    if status_inspection is None or not status_inspection.get("observation_complete"):
+        return _blocked_preflight(
+            "Git status failed; agent advance cannot prove repository state"
+        )
+    proof_projection_paths: set[str] = set()
+    if allow_current_proof_projection:
+        data_path = (workspace.path / "workspace.json").resolve()
+        try:
+            relative_data = data_path.relative_to(root.resolve()).as_posix()
+            proof_projection_paths.add(relative_data)
+        except ValueError:
+            return _blocked_preflight(
+                "workspace proof paths escape the Git repository boundary"
+            )
+    dirty = [
+        path
+        for path in status_inspection.get("changed_files", [])
+        if not _is_agent_runtime_path(path, root, workspace.path)
+        and path not in proof_projection_paths
+    ]
+    if dirty:
+        return _blocked_preflight(
+            "agent advance requires a clean committed worktree; "
+            "commit the bounded output first"
+        )
+
+    head_sha = _git_value(root, ["rev-parse", "HEAD"])
+    if not head_sha:
+        return _blocked_preflight(
+            "Git HEAD is unavailable; agent advance cannot bind the attempt"
+        )
+    baseline = claim.get("git_baseline")
+    if not isinstance(baseline, dict):
+        return _blocked_preflight("claim has no Git baseline; restart the claim")
+    base_sha = str(baseline.get("head_sha") or "")
+    if not base_sha:
+        return _blocked_preflight(
+            "claim baseline has no exact Git HEAD; restart the claim"
+        )
+    if baseline.get("git_root") != str(root):
+        return _blocked_preflight(
+            "claim baseline belongs to a different Git repository"
+        )
+    if not _git_ok(root, ["merge-base", "--is-ancestor", base_sha, head_sha]):
+        return _blocked_preflight(
+            "current Git HEAD does not descend from the claim-start commit"
+        )
+    committed = _git_lines(
+        root,
+        [
+            "log",
+            "--format=",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            f"{base_sha}..{head_sha}",
+        ],
+    )
+    if committed is None:
+        return _blocked_preflight(
+            "Git commit inspection failed; agent advance cannot prove changes"
+        )
+    changed_files = sorted({path for path in committed if path})
+    declared = sorted(dict.fromkeys(declared_changed or []))
+    if declared and declared != changed_files:
+        return _blocked_preflight(
+            "declared --changed paths do not exactly match the committed HEAD artifact"
+        )
+    if not changed_files:
+        return _blocked_preflight(
+            "no committed changes exist since the claim started"
+        )
+
+    inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
+    if inspection is None:
+        return _blocked_preflight("file change inspection was unavailable")
+    outside = inspection.get("outside_write_boundary", [])
+    if outside:
+        return _blocked_preflight(
+            "claim commit range contains paths outside the write boundary: "
+            + ", ".join(outside)
+        )
+    missing = inspection.get("missing_required_outputs", [])
+    if missing:
+        return _blocked_preflight(
+            "required outputs are missing: " + ", ".join(missing)
+        )
+    return {
+        "ok": True,
+        "message": (
+            "Active claim, clean worktree, exact claim-start range, and write "
+            "boundary verified."
+        ),
+        "git_root": str(root),
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "changed_files": changed_files,
+    }
+
+
+def _blocked_preflight(message: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "message": message,
+        "git_root": "",
+        "base_sha": "",
+        "head_sha": "",
+        "changed_files": [],
+    }
+
+
+def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> bool:
+    try:
+        relative_workspace = workspace_root.resolve().relative_to(
+            git_root.resolve()
+        ).as_posix()
+    except ValueError:
+        return False
+    base = f"{relative_workspace}/" if relative_workspace != "." else ""
+    if path in {
+        f"{base}.palari/governance-journal.v1.jsonl",
+        f"{base}.palari/governance-journal.v2.jsonl",
+    }:
+        return True
+    return any(
+        path.startswith(f"{base}.palari/{name}/")
+        for name in ("claims", "packets", "locks", "verification")
+    )
+
+
+def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=False,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        return None
+    separator = b"\0" if "-z" in arguments else None
+    if separator:
+        return [
+            os.fsdecode(field)
+            for field in result.stdout.split(separator)
+            if field
+        ]
+    return [
+        os.fsdecode(field).strip()
+        for field in result.stdout.splitlines()
+        if field.strip()
+    ]
+
+
+def _git_value(root: Path, arguments: list[str]) -> str:
+    lines = _git_lines(root, arguments)
+    return lines[0] if lines else ""
+
+
+def _git_ok(root: Path, arguments: list[str]) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+    )
+    return result.returncode == 0
+
+
 def _projection_bound_preflight(
     workspace: Workspace,
     workspace_path: Path | str,
@@ -747,6 +998,8 @@ def _projection_bound_preflight(
     *,
     packet: dict[str, Any],
     allow_current_proof_projection: bool = False,
+    pending_journal_status: str = "",
+    scope_authority_workspace: Workspace | None = None,
 ) -> dict[str, Any]:
     """Separate lease-bound Palari projection from agent-authored output.
 
@@ -766,6 +1019,7 @@ def _projection_bound_preflight(
             declared_changed,
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
+            scope_authority_workspace=scope_authority_workspace,
         )
     data_path = workspace_file_path(workspace_path)
     snapshot_error = governance_projection_snapshot_error(
@@ -773,6 +1027,7 @@ def _projection_bound_preflight(
         baseline,
         snapshot,
         require_worktree_match=not allow_current_proof_projection,
+        scope_authority_workspace=scope_authority_workspace,
     )
     if snapshot_error:
         return _projection_preflight_blocked(snapshot_error)
@@ -814,6 +1069,7 @@ def _projection_bound_preflight(
             declared_changed,
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
+            scope_authority_workspace=scope_authority_workspace,
         )
     required = packet.get("required_output") or {}
     outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
@@ -834,21 +1090,15 @@ def _projection_bound_preflight(
             declared_changed,
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
+            scope_authority_workspace=scope_authority_workspace,
         )
     if allow_current_proof_projection:
         from .governance_journal import verify_workspace_journal
 
         journal = verify_workspace_journal(Path(workspace_path))
-        continuity = journal.get("continuity") or {}
-        if (
-            not journal.get("ok")
-            or journal.get("status") != "valid"
-            or not journal.get("chain_valid")
-            or journal.get("pending") is not None
-            or journal.get("current_workspace_digest")
-            != journal.get("replay_workspace_digest")
-            or not continuity.get("historical_continuity")
-            or continuity.get("break_sequences")
+        if not _current_proof_journal_is_exact(
+            journal,
+            pending_status=pending_journal_status,
         ):
             return _projection_preflight_blocked(
                 "current proof projection does not have exact journal continuity"
@@ -876,6 +1126,7 @@ def _projection_bound_preflight(
         declared_changed,
         packet=augmented_packet,
         allow_current_proof_projection=allow_current_proof_projection,
+        scope_authority_workspace=scope_authority_workspace,
     )
     if not result.get("ok"):
         return result
@@ -961,6 +1212,57 @@ def _projection_preflight_blocked(message: str) -> dict[str, Any]:
     }
 
 
+def _current_proof_journal_is_exact(
+    report: dict[str, Any],
+    *,
+    pending_status: str,
+) -> bool:
+    """Accept only an exact current journal or the named crash boundary.
+
+    A pending report is not authority by itself. It is admitted only long
+    enough for the caller's bound pending-proof validator to compare the exact
+    transaction, claim packet, work, artifacts, and verification commands
+    before any recovery mutation occurs.
+    """
+
+    continuity = report.get("continuity") or {}
+    if (
+        not report.get("chain_valid")
+        or not continuity.get("historical_continuity")
+        or continuity.get("break_sequences")
+    ):
+        return False
+    if not pending_status:
+        return bool(
+            report.get("ok")
+            and report.get("status") == "valid"
+            and report.get("pending") is None
+            and report.get("current_workspace_digest")
+            == report.get("replay_workspace_digest")
+        )
+    if pending_status not in {"pending-prepare", "pending-commit"}:
+        return False
+    pending = report.get("pending")
+    if not isinstance(pending, dict) or report.get("status") != pending_status:
+        return False
+    expected_position = (
+        "before" if pending_status == "pending-prepare" else "after"
+    )
+    expected_digest = pending.get(
+        "before_workspace_digest"
+        if pending_status == "pending-prepare"
+        else "after_workspace_digest"
+    )
+    return bool(
+        pending.get("workspace_position") == expected_position
+        and isinstance(expected_digest, str)
+        and expected_digest
+        and report.get("current_workspace_digest") == expected_digest
+        and report.get("replay_workspace_digest")
+        == pending.get("before_workspace_digest")
+    )
+
+
 def _exact_head(root: str) -> str:
     try:
         result = subprocess.run(
@@ -984,7 +1286,6 @@ def _reconcile_proof(
     palari_id: str,
     preflight: dict[str, Any],
     verification: list[dict[str, Any]],
-    summary: str,
     *,
     expected_workspace_digest: str,
     expected_git_head: str,
@@ -1093,8 +1394,24 @@ def _completed_projection(
     journal_status = str(journal.get("status") or "")
     if journal_status == "pending-commit":
         pending = pending_workspace_journal_context(workspace_path)
+        pending_scope_workspace, pending_scope_error = (
+            _pending_scope_authority_workspace(pending, workspace_path)
+        )
+        if pending_scope_error or pending_scope_workspace is None:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_scope_error
+                or "The pending journal before projection cannot be reconstructed safely.",
+            )
         recovery_preflight = _resume_preflight(
-            workspace, workspace_path, work, palari_id
+            workspace,
+            workspace_path,
+            work,
+            palari_id,
+            pending_journal_status=journal_status,
+            scope_authority_workspace=pending_scope_workspace,
         )
         if not recovery_preflight["ok"]:
             return _resume_blocked(
@@ -1130,6 +1447,7 @@ def _completed_projection(
             "pending-commit",
             pending,
             recovery_preflight,
+            scope_authority_workspace=pending_scope_workspace,
         )
         if not rechecked["ok"]:
             return _resume_blocked(
@@ -1179,8 +1497,24 @@ def _completed_projection(
         workspace = Workspace.load(workspace_path)
     elif journal_status == "pending-prepare":
         pending = pending_workspace_journal_context(workspace_path)
+        pending_scope_workspace, pending_scope_error = (
+            _pending_scope_authority_workspace(pending, workspace_path)
+        )
+        if pending_scope_error or pending_scope_workspace is None:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "PENDING_TRANSACTION_MISMATCH",
+                pending_scope_error
+                or "The pending journal before projection cannot be reconstructed safely.",
+            )
         recovery_preflight = _resume_preflight(
-            workspace, workspace_path, work, palari_id
+            workspace,
+            workspace_path,
+            work,
+            palari_id,
+            pending_journal_status=journal_status,
+            scope_authority_workspace=pending_scope_workspace,
         )
         if not recovery_preflight["ok"]:
             return _resume_blocked(
@@ -1216,6 +1550,7 @@ def _completed_projection(
             "pending-prepare",
             pending,
             recovery_preflight,
+            scope_authority_workspace=pending_scope_workspace,
         )
         if not rechecked["ok"]:
             return _resume_blocked(
@@ -1262,7 +1597,7 @@ def _completed_projection(
                 "The pending proof changed before atomic abort recovery: "
                 + str(recovered.get("message") or recovered.get("status") or "unknown"),
             )
-        workspace = Workspace.load(workspace_path)
+        return {"_internal_status": _RETRY_AFTER_PENDING_PREPARE}
     elif journal_status not in {"", "not-enabled", "valid", "continuous"}:
         raise WorkspaceError(
             f"agent advance requires valid journal continuity; status is {journal_status}"
@@ -1429,11 +1764,7 @@ def _completed_projection(
     proof_steps: list[dict[str, str]] = [
         {"step": "proof-projection", "status": "already-current"}
     ]
-    low_risk = (
-        work.risk == "R1"
-        and work.intensity == "light"
-        and work.required_approval_count == 0
-    )
+    low_risk = _low_risk_completion_policy(work, _current_receipt(workspace, work))
     if low_risk:
         preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
         if not preflight["ok"]:
@@ -1868,8 +2199,6 @@ def _stale_projection_refresh_context(
                 + (f": {detail}" if detail else ".")
             ),
         }
-    from .agent_done import _git_value
-
     root_text = _git_value(
         Path(attempt.workspace_path or workspace_path),
         ["rev-parse", "--show-toplevel"],
@@ -2154,7 +2483,7 @@ def _projection_artifact_paths(
     base = relative_data.removesuffix("workspace.json")
     return {
         relative_data,
-        f"{base}.palari/history.jsonl",
+        f"{base}.palari/governance-journal.v2.jsonl",
         f"{base}.palari/governance-journal.v1.jsonl",
     }
 
@@ -2327,7 +2656,7 @@ def _refresh_proof_narration(
     }
 
 
-def _exact_sha256_digest(value: Any) -> bool:
+def _exact_sha256_digest(value: Any) -> TypeGuard[str]:
     if not isinstance(value, str) or not value.startswith("sha256:"):
         return False
     digest = value.removeprefix("sha256:")
@@ -2389,10 +2718,29 @@ def _parse_proof_timestamp(value: str) -> datetime | None:
         return None
 
 
+def _pending_scope_authority_workspace(
+    context: dict[str, Any] | None,
+    workspace_path: Path,
+) -> tuple[Workspace | None, str]:
+    """Parse the pending transaction's authenticated before-projection."""
+
+    if not isinstance(context, dict):
+        return None, "The pending journal transaction cannot be inspected safely."
+    before = context.get("before_projection")
+    if not isinstance(before, dict):
+        return None, "The pending journal transaction has no verified before projection."
+    try:
+        return Workspace.from_raw(before, workspace_path), ""
+    except WorkspaceError as exc:
+        return None, f"The pending journal before projection is invalid: {exc}"
+
+
 def _resume_claim_packet(
     workspace_path: Path,
     work: Any,
     palari_id: str,
+    *,
+    scope_authority_workspace: Workspace | None = None,
 ) -> dict[str, Any]:
     if work.palari != palari_id:
         return {"ok": False, "message": "the acting Palari is not assigned to this work"}
@@ -2409,6 +2757,7 @@ def _resume_claim_packet(
         palari_id,
         "execute",
         str(packet.get("context_hash") or ""),
+        scope_authority_workspace=scope_authority_workspace,
     )
     if checked.get("status") != "pass":
         return {
@@ -2711,6 +3060,8 @@ def _recheck_recovery_state(
     expected_status: str,
     expected_pending: dict[str, Any] | None,
     expected_preflight: dict[str, Any],
+    *,
+    scope_authority_workspace: Workspace,
 ) -> dict[str, Any]:
     from .governance_journal import (
         pending_workspace_journal_context,
@@ -2724,7 +3075,14 @@ def _recheck_recovery_state(
     work = workspace.work_item(work_id)
     if work is None or work.palari != palari_id:
         return {"ok": False, "message": "Work authority changed during verification."}
-    preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
+    preflight = _resume_preflight(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+        pending_journal_status=expected_status,
+        scope_authority_workspace=scope_authority_workspace,
+    )
     compared_fields = ("git_root", "base_sha", "head_sha", "changed_files")
     if not preflight.get("ok") or any(
         preflight.get(field) != expected_preflight.get(field) for field in compared_fields
@@ -2950,8 +3308,16 @@ def _resume_preflight(
     workspace_path: Path,
     work: Any,
     palari_id: str,
+    *,
+    pending_journal_status: str = "",
+    scope_authority_workspace: Workspace | None = None,
 ) -> dict[str, Any]:
-    authority = _resume_claim_packet(workspace_path, work, palari_id)
+    authority = _resume_claim_packet(
+        workspace_path,
+        work,
+        palari_id,
+        scope_authority_workspace=scope_authority_workspace,
+    )
     if not authority["ok"]:
         return {
             "ok": False,
@@ -2969,6 +3335,8 @@ def _resume_preflight(
         None,
         packet=authority["packet"],
         allow_current_proof_projection=True,
+        pending_journal_status=pending_journal_status,
+        scope_authority_workspace=scope_authority_workspace,
     )
     verification = _verify_path_intents(
         Path(str(preflight.get("git_root") or workspace_path)),
@@ -3041,6 +3409,27 @@ def _select_attempt(
     return next((item for item in workspace.attempts if item.id == expected_id), None)
 
 
+def _current_receipt(workspace: Workspace, work: Any) -> Any | None:
+    receipts = [
+        item
+        for item in workspace.receipts
+        if item.work_item_id == work.id and item.attempt_id == work.current_attempt
+    ]
+    return max(receipts, key=record_time_key) if receipts else None
+
+
+def _low_risk_completion_policy(work: Any, receipt: Any | None) -> bool:
+    return low_risk_completion_policy_applies(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+        planned_external_writes=(receipt.planned_external_writes if receipt else []),
+        queued_external_writes=(receipt.queued_external_writes if receipt else []),
+        external_writes=(receipt.external_writes if receipt else []),
+    )
+
+
 def _changes_requested_repair_candidate(
     workspace: Workspace,
     workspace_path: Path,
@@ -3101,8 +3490,6 @@ def _changes_requested_refresh_binding(
                 "The changes-requested review head does not match the current attempt head."
             ),
         }
-    from .agent_done import _git_value
-
     current_head = _git_value(workspace_path, ["rev-parse", "HEAD"])
     return {
         "applicable": True,
@@ -3121,9 +3508,7 @@ def _governed_artifacts(paths: list[str]) -> list[str]:
         path
         for path in set(paths)
         if not path.endswith("/workspace.json")
-        and not path.endswith("/.palari/history.jsonl")
         and path != "workspace.json"
-        and path != ".palari/history.jsonl"
     )
 
 

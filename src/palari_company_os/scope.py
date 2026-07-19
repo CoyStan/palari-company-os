@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .path_policy import path_allowed, validate_workspace_path
+from .path_policy import path_allowed
 from .workspace import Workspace
 
 
@@ -66,11 +66,3 @@ def check_scope(
 
 def _path_allowed(path: str, allowed_resources: list[str]) -> bool:
     return path_allowed(path, allowed_resources)
-
-
-def _normalize_path(path: str) -> str:
-    try:
-        return validate_workspace_path(path)
-    except ValueError:
-        return ""
-

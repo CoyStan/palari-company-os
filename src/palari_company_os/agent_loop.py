@@ -7,7 +7,6 @@ from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_handoff import build_agent_handoff
 from .agent_operation import AgentOperation, ensure_agent_operation
-from .governance_journal import JournalVerificationContext
 from .workspace import Workspace
 
 
@@ -17,7 +16,6 @@ def build_agent_loop(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
     """Return a compact read-only view of the agent operating loop."""
@@ -27,7 +25,6 @@ def build_agent_loop(
         work_id,
         palari_id,
         mode,
-        journal_context=journal_context,
         operation=operation,
     )
     brief = operation_state.brief()
@@ -37,7 +34,6 @@ def build_agent_loop(
         work_id,
         palari_id,
         mode,
-        journal_context=operation_state.journal_context,
         operation=operation_state,
     )
     handoff = (
@@ -46,7 +42,6 @@ def build_agent_loop(
             work_id,
             palari_id,
             mode,
-            journal_context=operation_state.journal_context,
             operation=operation_state,
         )
         if _should_include_handoff(finish)
