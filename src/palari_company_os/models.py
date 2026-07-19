@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, TypeVar
+from typing import Any
 
 
 Record = dict[str, Any]
-T = TypeVar("T")
 
 
 def _string(record: Record, key: str, default: str = "") -> str:

@@ -1150,10 +1150,6 @@ def _reject_generic_trust_transition(
         )
 
 
-def _attempt_head(attempt: Any) -> str:
-    return attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
-
-
 def _collection(kind: str) -> str:
     try:
         return COLLECTIONS[kind]

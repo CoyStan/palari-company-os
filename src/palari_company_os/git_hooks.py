@@ -26,7 +26,6 @@ from .path_policy import canonical_path_allowed, validate_workspace_path
 from .store import workspace_file_path
 
 HOOK_MARKER = "palari git hook"
-HOOK_TIMEOUT_SECONDS = 20
 
 PRE_COMMIT_SCRIPT = """#!/bin/sh
 # {marker}

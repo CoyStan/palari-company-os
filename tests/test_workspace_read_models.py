@@ -351,10 +351,6 @@ class QueueProjectionTests(unittest.TestCase):
                 "palari_company_os.playbooks.recommend_playbooks",
                 side_effect=AssertionError("detail must not run parked playbook advice"),
             ),
-            patch(
-                "palari_company_os.playbooks.recommended_playbook_ids",
-                side_effect=AssertionError("queue must not run parked playbook advice"),
-            ),
         ):
             item = queue_items(workspace)[0]
             payload = detail(workspace, "WORK-1")
