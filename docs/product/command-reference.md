@@ -620,9 +620,7 @@ adapter must not promote either status unless its native controls are proven.
 already waiting on review with current exact evidence. It includes review focus
 and compact attempt/evidence/receipt context and sets write paths to empty. For a
 matching eligible Palari, the packet exposes exactly one advisory review-record
-action. `agent next --mode review` also permits a distinct Palari to supplement
-a positive review waiting on a different human acceptance identity; negative
-reviews and all other states remain blocked.
+action. Human-decision and all other non-reviewable states remain blocked.
 
 `agent check` rebuilds the current packet and verifies whether the workspace
 state satisfies the packet's completion contract. For ready packets, it also

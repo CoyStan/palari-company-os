@@ -14,10 +14,6 @@ from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
 
 
-AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "needs-human-decision"}
-
-
 def build_agent_next(
     workspace: Workspace,
     palari_id: str,
@@ -175,8 +171,8 @@ def _candidates(
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)
-        can_start = _can_start_agent_work(item, packet, mode) and claim_blocker is None
-        start_blockers = _start_blockers(item, packet, mode)
+        can_start = packet.get("status") == "ready" and claim_blocker is None
+        start_blockers = _start_blockers(packet)
         if claim_blocker is not None:
             start_blockers.insert(0, claim_blocker)
         start_blockers = enrich_blockers(start_blockers)
@@ -361,49 +357,13 @@ def _candidate_next_commands(
     return commands
 
 
-def _can_start_agent_work(item: Any, packet: dict[str, Any], mode: str) -> bool:
-    if mode == "review":
-        return packet.get("status") == "ready" and item.attention in AGENT_REVIEWABLE_ATTENTIONS
-    return (
-        packet.get("status") == "ready"
-        and item.ai_safe_to_proceed
-        and item.attention in AGENT_STARTABLE_ATTENTIONS
-    )
-
-
-def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[str, Any]]:
+def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     if packet.get("status") != "ready":
         blockers.append(
             {
                 "code": "PACKET_BLOCKED",
                 "message": "The agent packet is blocked; inspect blocker_codes before starting.",
-            }
-        )
-    if mode == "review":
-        if item.attention not in AGENT_REVIEWABLE_ATTENTIONS:
-            blockers.append(
-                {
-                    "code": "ATTENTION_NOT_REVIEWABLE",
-                    "message": (
-                        f"Current attention state is {item.attention}; review mode is for "
-                        "review-ready work or a positive review awaiting a distinct human."
-                    ),
-                }
-            )
-        return blockers
-    if not item.ai_safe_to_proceed:
-        blockers.append(
-            {
-                "code": "QUEUE_NOT_AI_SAFE",
-                "message": "The queue does not mark this work safe for autonomous AI execution.",
-            }
-        )
-    if item.attention not in AGENT_STARTABLE_ATTENTIONS:
-        blockers.append(
-            {
-                "code": "ATTENTION_NOT_STARTABLE",
-                "message": f"Current attention state is {item.attention}; follow next_action instead.",
             }
         )
     return blockers

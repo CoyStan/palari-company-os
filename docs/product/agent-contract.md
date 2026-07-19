@@ -104,12 +104,10 @@ mutation with the exact `history --checkpoint` activation command; it never
 silently claims continuity for earlier history.
 
 For independent inspection work, use `--mode review` after a work item is in
-`needs-review`. A distinct source-authorized Palari may also
-open a supplemental review packet when a positive human review is waiting on a
-different acceptance identity. The packet is read-only with respect to work
-outputs. It includes the review guide focus, attempt, evidence, receipt,
-suggested verdicts, and typed reviewer candidates. A matching Palari reviewer
-may record only its advisory verdict; it cannot create human acceptance.
+`needs-review`. The packet is read-only with respect to work outputs. It
+includes the review guide focus, attempt, evidence, receipt, suggested
+verdicts, and typed reviewer candidates. A matching Palari reviewer may record
+only its advisory verdict; it cannot create human acceptance.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 

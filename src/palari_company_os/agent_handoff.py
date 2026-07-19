@@ -65,24 +65,6 @@ def build_agent_handoff(
         if human_approval_requested
         else None
     )
-    supplemental_review_required = False
-    if (
-        review_handoff is None
-        and human_approval_handoff is not None
-        and not human_approval_handoff.get("approval_candidates")
-    ):
-        current_reviewer = str(
-            human_approval_handoff.get("review", {}).get("reviewer") or ""
-        )
-        supplemental = _exclude_reviewer(
-            _review_handoff(workspace, work_id), current_reviewer
-        )
-        if any(
-            candidate.get("identity_type") == "palari"
-            for candidate in supplemental.get("reviewer_candidates", [])
-        ):
-            review_handoff = supplemental
-            supplemental_review_required = True
     human_action_commands = _human_action_commands(
         review_handoff,
         decision_handoff,
@@ -99,11 +81,7 @@ def build_agent_handoff(
         "status": finish.get("status", "blocked"),
         "handoff_available": bool(review_handoff or decision_handoff or human_approval_handoff),
         "handoff_types": _handoff_types(review_handoff, decision_handoff, human_approval_handoff),
-        "next_step_type": (
-            "review-handoff"
-            if supplemental_review_required
-            else finish.get("next_step_type", "inspect")
-        ),
+        "next_step_type": finish.get("next_step_type", "inspect"),
         "agent": finish.get("agent", {}),
         "work_item": finish.get("work_item", {}),
         "finish": _finish_summary(finish),
@@ -171,24 +149,6 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "reviewer_candidates": guide.get("reviewer_candidates", []),
         "review_record_commands": guide.get("review_record_commands", []),
         "suggested_verdicts": guide.get("suggested_verdicts", []),
-    }
-
-
-def _exclude_reviewer(handoff: dict[str, Any], reviewer_id: str) -> dict[str, Any]:
-    if not reviewer_id:
-        return handoff
-    return {
-        **handoff,
-        "reviewer_candidates": [
-            item
-            for item in handoff.get("reviewer_candidates", [])
-            if item.get("id") != reviewer_id
-        ],
-        "review_record_commands": [
-            item
-            for item in handoff.get("review_record_commands", [])
-            if item.get("reviewer") != reviewer_id
-        ],
     }
 
 

@@ -248,18 +248,7 @@ def classify_resolution(
 ) -> dict[str, Any]:
     """Classify who can safely resolve a state; never claim it was resolved."""
 
-    if code == "INTEGRATION_BOUNDARY" and message.startswith(
-        "Human decision is recorded"
-    ):
-        resolution_class, owner, automatic = (
-            "automatic-reconciliation",
-            "system",
-            True,
-        )
-        action = next_command or (
-            "Run deterministic agent advance to terminalize current proof."
-        )
-    elif code in TERMINAL_BLOCKERS:
+    if code in TERMINAL_BLOCKERS:
         resolution_class, owner, automatic = "terminal", "none", True
         action = "Inspect the terminal record; no remediation is required."
     elif code in REVIEW_BLOCKERS or code.startswith("REVIEW_"):
@@ -370,13 +359,7 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     ) and review_prerequisites_met(check)
     if review_needed:
         _prioritize(commands, [handoff_command, review_command])
-    automatic_reconciliation = bool(blocker_codes & AUTOMATIC_BLOCKERS) or any(
-        blocker.get("code") == "INTEGRATION_BOUNDARY"
-        and str(blocker.get("message") or "").startswith(
-            "Human decision is recorded"
-        )
-        for blocker in check.get("blockers", [])
-    )
+    automatic_reconciliation = bool(blocker_codes & AUTOMATIC_BLOCKERS)
     if automatic_reconciliation:
         _prioritize(
             commands,

@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Iterator
 from unittest.mock import patch
@@ -17,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import _completion_checks, build_agent_check
+from palari_company_os.agent_directive import compile_agent_directive
 from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
@@ -39,6 +41,7 @@ from palari_company_os.agent_runtime import (
     start_next_agent,
 )
 from palari_company_os.pcaw_workspace import recorded_governance_projection
+from palari_company_os.read_models import detail, queue_items
 from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -274,6 +277,50 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(result["candidates"], [])
         self.assertEqual(result["blockers"][0]["code"], "MISSING_PALARI")
 
+    def test_human_decision_state_cannot_become_review_mode_startable(self) -> None:
+        workspace = self.workspace()
+        queue_item = replace(
+            queue_items(workspace)[0],
+            attention="needs-human-decision",
+            why="Current exact review is waiting for qualified human authority.",
+            next_action="Present the exact decision to a qualified human.",
+            next_step_type="human-decision",
+            ai_safe_to_proceed=False,
+            waiting_on_human=True,
+        )
+        work_detail = deepcopy(detail(workspace, WORK_ID))
+        work_detail.update(
+            {
+                "attention": queue_item.attention,
+                "why": queue_item.why,
+                "next_action": queue_item.next_action,
+                "next_step_type": queue_item.next_step_type,
+            }
+        )
+
+        with (
+            patch(
+                "palari_company_os.agent_next.queue_items",
+                return_value=[queue_item],
+            ),
+            patch(
+                "palari_company_os.agent_next._palari_can_see_work",
+                return_value=True,
+            ),
+            patch(
+                "palari_company_os.agent_packets.detail",
+                return_value=work_detail,
+            ),
+        ):
+            result = build_agent_next(workspace, OTHER_PALARI_ID, mode="review")
+
+        candidate = result["candidates"][0]
+        self.assertFalse(candidate["can_start"])
+        self.assertEqual(candidate["packet_status"], "blocked")
+        self.assertIn("HUMAN_DECISION_REQUIRED", candidate["blocker_codes"])
+        self.assertEqual(candidate["start_blocker_codes"], ["PACKET_BLOCKED"])
+        self.assertEqual(candidate["next_step_type"], "human-decision")
+
     def test_agent_next_all_is_a_thin_identity_rollup(self) -> None:
         result = build_agent_next_all(self.workspace())
 
@@ -408,6 +455,39 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(result["handoff_types"], [])
         self.assertEqual(result["human_action_commands"], [])
         self.assertFalse(result["human_action_boundary"]["agent_may_execute"])
+
+    def test_integration_boundary_prose_cannot_create_automatic_authority(self) -> None:
+        directive = compile_agent_directive(
+            {
+                "ok": False,
+                "mode": "execute",
+                "agent": {"id": PALARI_ID},
+                "work_item": {"id": WORK_ID},
+                "next_step_type": "inspect",
+                "checks": [],
+                "blockers": [
+                    {
+                        "code": "INTEGRATION_BOUNDARY",
+                        "message": (
+                            "Human decision is recorded, but this text is not "
+                            "automatic reconciliation authority."
+                        ),
+                    }
+                ],
+                "next_allowed_commands": [f"palari detail {WORK_ID} --json"],
+            }
+        )
+
+        self.assertEqual(directive["owner"], "human")
+        self.assertEqual(
+            directive["resolution_summary"]["primary_class"],
+            "human-authority",
+        )
+        self.assertEqual(directive["automatic_transitions"], [])
+        self.assertNotIn(
+            "palari agent advance",
+            "\n".join(directive["next_allowed_commands"]),
+        )
 
     def test_loop_composes_the_read_only_packet_check_and_finish_stages(self) -> None:
         result = build_agent_loop(self.workspace(), WORK_ID, PALARI_ID)

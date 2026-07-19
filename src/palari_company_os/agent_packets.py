@@ -245,9 +245,6 @@ def _work_blockers(
                 )
             return blockers
         if attention == "needs-human-decision":
-            current_review = work_detail.get("review") or {}
-            if current_review.get("verdict") == "accept-ready" and palari_id in reviewer_ids:
-                return blockers
             blockers.append(
                 _blocker(
                     "HUMAN_DECISION_REQUIRED",
