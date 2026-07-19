@@ -730,8 +730,8 @@ def _add_linear_parser(subparsers: Any) -> None:
     start.add_argument("issue_key")
     start.add_argument(
         "--runner",
-        choices=["codex", "claude-code", "cursor", "generic"],
-        default="generic",
+        choices=["codex", "claude-code"],
+        default="codex",
         help="Harness label for output packets. Palari does not launch the runner.",
     )
     start.add_argument("--as", dest="palari_id", required=True, help="Acting Palari id.")

@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.integrations import decide_integration_plan, enqueue_integration_plan
+from palari_company_os.cli_parser import build_parser
 from palari_company_os.linear_adapter import (
     LinearAdapterError,
     LinearClient,
@@ -127,6 +128,31 @@ class FakeResponse:
 
 
 class LinearAdapterContractTests(unittest.TestCase):
+    def test_cli_runner_surface_defaults_to_a_supported_adapter(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--workspace",
+                "/tmp/linear-contract-workspace.json",
+                "linear",
+                "start",
+                "ENG-123",
+                "--as",
+                PALARI_ID,
+            ]
+        )
+        runner_action = next(
+            action
+            for action in build_parser()._subparsers._group_actions[0]
+            .choices["linear"]
+            ._subparsers._group_actions[0]
+            .choices["start"]
+            ._actions
+            if "--runner" in action.option_strings
+        )
+
+        self.assertEqual(args.runner, "codex")
+        self.assertEqual(tuple(runner_action.choices), ("codex", "claude-code"))
+
     def test_issue_read_is_normalized_and_never_mutates_local_state(self) -> None:
         client = LinearClient("test-token")
         provider_issue = {
