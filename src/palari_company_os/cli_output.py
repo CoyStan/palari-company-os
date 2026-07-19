@@ -34,9 +34,6 @@ from .models import to_plain
 from .workspace import Workspace
 
 
-INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
-
-
 def print_result(result: CommandResult) -> None:
     if result.kind == "demo":
         print_demo(result.payload, result.as_json)
@@ -901,25 +898,11 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
         )
         print(f"  integration: {item.integration_state}")
-        if item.learning_signal:
-            print(f"  learning: {item.learning_signal}")
-        if item.playbook_recommendations:
-            print(f"  playbooks: {', '.join(item.playbook_recommendations)}")
         if item.active_attempts:
             attempts = ", ".join(attempt["attempt_id"] for attempt in item.active_attempts)
             print(f"  active attempts: {attempts}")
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
-        if item.intensity != item.recommended_intensity:
-            label = "intensity note"
-            if INTENSITY_RANK.get(item.recommended_intensity, 0) > INTENSITY_RANK.get(
-                item.intensity, 0
-            ):
-                label = "intensity concern"
-            print(
-                f"  {label}: heuristic suggests {item.recommended_intensity} "
-                f"({item.intensity_reason})"
-            )
         if item.agent_loop_command:
             print(f"  agent loop: {item.agent_loop_command}")
         if item.agent_handoff_command:

@@ -332,6 +332,40 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertEqual(item.palari_name, "Sofia")
         self.assertEqual(item.owner, "Product Owner")
 
+    def test_parked_advisories_do_not_gate_the_declared_work_contract(self) -> None:
+        def security_words(raw: dict[str, Any]) -> None:
+            _work(raw).update(
+                {
+                    "title": "Clarify security policy and external authority wording",
+                    "scope": "Edit the declared local note only.",
+                }
+            )
+
+        workspace = _workspace(security_words)
+        with (
+            patch(
+                "palari_company_os.authority.authority_check",
+                side_effect=AssertionError("queue must not run parked authority advice"),
+            ),
+            patch(
+                "palari_company_os.playbooks.recommend_playbooks",
+                side_effect=AssertionError("detail must not run parked playbook advice"),
+            ),
+            patch(
+                "palari_company_os.playbooks.recommended_playbook_ids",
+                side_effect=AssertionError("queue must not run parked playbook advice"),
+            ),
+        ):
+            item = queue_items(workspace)[0]
+            payload = detail(workspace, "WORK-1")
+
+        self.assertEqual(item.attention, "ready-for-ai-work")
+        self.assertTrue(item.ai_safe_to_proceed)
+        self.assertEqual(item.next_step_type, "start-work")
+        self.assertNotIn("authority_state", payload["safety"])
+        self.assertNotIn("recommended_intensity", payload["safety"])
+        self.assertNotIn("playbooks", payload)
+
     def test_active_attempt_without_evidence_requests_proof_check(self) -> None:
         workspace = _workspace(lambda raw: _add_attempt(raw, status="active"))
 

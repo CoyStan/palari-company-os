@@ -8,7 +8,6 @@ from .pcaw_workspace import (
     RecordedGovernanceProjection,
     recorded_governance_projection,
 )
-from .playbooks import recommend_playbooks, recommended_playbook_ids
 from .record_order import record_time_key as _record_time_key
 from .read_model_commands import (
     agent_commands,
@@ -62,12 +61,7 @@ class QueueItem:
     integration_state: str
     approval_progress: str
     acceptance_state: str
-    authority_state: str
     scope_overlap_state: str
-    recommended_intensity: str
-    intensity_reason: str
-    learning_signal: str
-    playbook_recommendations: list[str]
     workbench: str
     workbench_label: str
     active_attempts: list[dict[str, Any]]
@@ -79,11 +73,9 @@ class _ReadContext:
     goals_by_id: dict[str, Any]
     palaris_by_id: dict[str, Any]
     humans_by_id: dict[str, Any]
-    sources_by_id: dict[str, Any]
     workbenches_by_id: dict[str, Any]
     work_by_id: dict[str, Any]
     attempts_by_id: dict[str, Any]
-    outcomes_by_id: dict[str, Any]
     latest_attempt_by_work: dict[str, Any]
     current_attempt_by_work: dict[str, Any]
     latest_evidence_by_work: dict[str, Any]
@@ -131,12 +123,9 @@ ATTENTION_PRIORITY = {
     "closed": 8,
 }
 
-INTENSITY_RANK = {"light": 0, "standard": 1, "high": 2}
-
-
 def queue_items(workspace: Workspace) -> list[QueueItem]:
     context = _read_context(workspace)
-    items = [_queue_item(workspace, work, context) for work in workspace.work_items]
+    items = [_queue_item(work, context) for work in workspace.work_items]
     return sorted(items, key=lambda item: (ATTENTION_PRIORITY.get(item.attention, 99), item.id))
 
 
@@ -176,8 +165,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         if dependency is not None
     ]
     human_decisions = context.human_decisions_by_work.get(work.id, [])
-    queue_item = _queue_item(workspace, work, context)
-    playbooks = recommend_playbooks(workspace, work.id)
+    queue_item = _queue_item(work, context)
 
     return {
         "work_item": to_plain(work),
@@ -221,12 +209,8 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "integration_state": queue_item.integration_state,
             "approval_progress": queue_item.approval_progress,
             "acceptance_state": queue_item.acceptance_state,
-            "authority_state": queue_item.authority_state,
             "scope_overlap_state": queue_item.scope_overlap_state,
-            "recommended_intensity": queue_item.recommended_intensity,
-            "intensity_reason": queue_item.intensity_reason,
         },
-        "playbooks": playbooks,
         "agent_commands": agent_commands(work, queue_item.next_step_type),
     }
 
@@ -247,11 +231,9 @@ def _read_context(workspace: Workspace) -> _ReadContext:
     goals_by_id = {goal.id: goal for goal in workspace.goals}
     palaris_by_id = {palari.id: palari for palari in workspace.palaris}
     humans_by_id = {human.id: human for human in workspace.humans}
-    sources_by_id = {source.id: source for source in workspace.sources}
     workbenches_by_id = {workbench.id: workbench for workbench in workspace.workbenches}
     work_by_id = {work.id: work for work in workspace.work_items}
     attempts_by_id = {attempt.id: attempt for attempt in workspace.attempts}
-    outcomes_by_id = {outcome.id: outcome for outcome in workspace.outcomes}
     latest_attempt_by_work = _latest_by_work(workspace.attempts)
     current_attempt_by_work = _current_attempts_by_work(
         workspace.work_items,
@@ -270,11 +252,9 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         goals_by_id=goals_by_id,
         palaris_by_id=palaris_by_id,
         humans_by_id=humans_by_id,
-        sources_by_id=sources_by_id,
         workbenches_by_id=workbenches_by_id,
         work_by_id=work_by_id,
         attempts_by_id=attempts_by_id,
-        outcomes_by_id=outcomes_by_id,
         latest_attempt_by_work=latest_attempt_by_work,
         current_attempt_by_work=current_attempt_by_work,
         latest_evidence_by_work=_latest_by_work(workspace.evidence_runs),
@@ -307,7 +287,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
     )
 
 
-def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> QueueItem:
+def _queue_item(work: Any, context: _ReadContext) -> QueueItem:
     goal = context.goals_by_id.get(work.goal)
     palari = context.palaris_by_id.get(work.palari)
     workbench = context.workbenches_by_id.get(work.workbench_id) if work.workbench_id else None
@@ -324,14 +304,10 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
     integration_state = _integration_state(work, context, lifecycle)
     approval_progress = lifecycle.approval_progress
     acceptance_state = lifecycle.acceptance_state
-    authority_state = _authority_state(workspace, work)
-    recommended_intensity, intensity_reason = recommend_intensity(work)
-    learning_signal = _learning_signal(context, palari)
-    playbook_recommendations = recommended_playbook_ids(workspace, work)
     active_attempts = _active_attempts_for_work(work, context)
     warnings = _coordination_warning_messages_for_work(work, context)
     waiting_on_human = attention == "needs-human-decision"
-    ai_safe_to_proceed = _ai_safe_to_proceed(work, attention, context)
+    ai_safe_to_proceed = _ai_safe_to_proceed(attention)
     next_step_type = _next_step_type(
         attention,
         ai_safe_to_proceed,
@@ -376,12 +352,7 @@ def _queue_item(workspace: Workspace, work: Any, context: _ReadContext) -> Queue
         integration_state=integration_state,
         approval_progress=approval_progress,
         acceptance_state=acceptance_state,
-        authority_state=authority_state,
         scope_overlap_state="blocked" if warnings else "clear",
-        recommended_intensity=recommended_intensity,
-        intensity_reason=intensity_reason,
-        learning_signal=learning_signal,
-        playbook_recommendations=playbook_recommendations,
         workbench=work.workbench_id,
         workbench_label=workbench.label if workbench else "",
         active_attempts=active_attempts,
@@ -469,62 +440,6 @@ def _attention(
     return lifecycle.attention, lifecycle.why, lifecycle.next_action
 
 
-def recommend_intensity(work: Any) -> tuple[str, str]:
-    haystack = " ".join(
-        [
-            work.id,
-            work.title,
-            work.risk,
-            work.scope,
-            " ".join(work.allowed_resources),
-            work.acceptance_target,
-        ]
-    ).lower()
-    high_terms = [
-        "r5",
-        "production",
-        "deploy",
-        "security",
-        "secret",
-        "credential",
-        "policy",
-        "broker",
-        "external",
-        "oauth",
-        "customer data",
-        "authority",
-    ]
-    standard_terms = ["r2", "r3", "schema", "shared authority", "shared standard"]
-    if work.risk in {"R5", "R4"} or any(term in haystack for term in high_terms):
-        return _intensity_recommendation(
-            work,
-            "high",
-            "external-side-effect, security, policy, broker, or authority language is present",
-        )
-    if work.risk in {"R2", "R3"} or any(term in haystack for term in standard_terms):
-        return _intensity_recommendation(
-            work,
-            "standard",
-            "normal governed work needs evidence, review, and possible human decision",
-        )
-    return _intensity_recommendation(
-        work,
-        "light",
-        "low-risk internal maintenance can use the lightest responsible proof",
-    )
-
-
-def _intensity_recommendation(work: Any, recommended: str, reason: str) -> tuple[str, str]:
-    declared = getattr(work, "intensity", "")
-    if declared in INTENSITY_RANK and declared != recommended:
-        direction = "above" if INTENSITY_RANK[recommended] > INTENSITY_RANK[declared] else "below"
-        return (
-            recommended,
-            f"Declared intensity is {declared}; heuristic is {direction} it because {reason}.",
-        )
-    return recommended, reason[0].upper() + reason[1:] + "."
-
-
 def _attempt_head(attempt: Any) -> str:
     return getattr(attempt, "head_sha", "") or (attempt.commits[-1] if attempt.commits else "")
 
@@ -572,12 +487,7 @@ def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
     )
 
     if attempt is None:
-        recommended, _ = recommend_intensity(work)
         next_action = "Start a bounded attempt using the declared scope and authority limits."
-        if recommended == "high":
-            next_action = (
-                "Inspect the high-risk scope and confirm authority before starting an attempt."
-            )
         return _LifecycleView(
             attention="ready-for-ai-work",
             why="No execution attempt exists yet.",
@@ -767,13 +677,6 @@ def _integration_state(
     return "not-ready"
 
 
-def _authority_state(workspace: Workspace, work: Any) -> str:
-    from .authority import authority_check
-
-    result = authority_check(workspace, work.id, "team-safe")
-    return "ok" if result["ok"] else "needs-adjustment"
-
-
 def _active_attempts_for_work(work: Any, context: _ReadContext) -> list[dict[str, Any]]:
     return context.active_attempts_by_work.get(work.id, [])
 
@@ -820,7 +723,7 @@ def _latest_decided_integration_plan_state_for_work(work: Any, context: _ReadCon
     return f"plan-{plan.status}"
 
 
-def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> bool:
+def _ai_safe_to_proceed(attention: str) -> bool:
     if attention in {
         "needs-human-decision",
         "needs-review",
@@ -830,28 +733,7 @@ def _ai_safe_to_proceed(work: Any, attention: str, context: _ReadContext) -> boo
         "closed",
     }:
         return False
-    recommended, _ = recommend_intensity(work)
-    if recommended == "high" and _attempt_for_work(context, work) is None:
-        return False
     return True
-
-
-def _learning_signal(context: _ReadContext, palari: Any | None) -> str:
-    if palari is None:
-        return ""
-    linked_outcomes = [
-        context.outcomes_by_id[outcome_id]
-        for outcome_id in palari.outcomes
-        if outcome_id in context.outcomes_by_id
-    ]
-    if not linked_outcomes:
-        return ""
-    latest = max(linked_outcomes, key=_record_time_key)
-    if latest.follow_up_needed:
-        return f"Outcome follow-up: {latest.follow_up_needed[0]}"
-    if latest.model_worker_notes:
-        return f"Model note: {latest.model_worker_notes[0]}"
-    return latest.summary
 
 
 def _attempt_for_work(context: _ReadContext, work: Any) -> Any | None:
