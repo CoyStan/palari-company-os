@@ -234,7 +234,7 @@ def human_decision_record_for_action(
     decision_id: str = "",
     timestamp: str = "",
 ) -> dict[str, Any]:
-    if action not in {"approve", "reject", "cancel"}:
+    if action not in {"approve", "reject", "defer"}:
         raise WorkspaceError(f"unsupported human decision action: {action}")
     human = workspace.human(human_id)
     if human is None:
@@ -247,7 +247,7 @@ def human_decision_record_for_action(
     decision = {
         "approve": "accepted",
         "reject": "rejected",
-        "cancel": "canceled",
+        "defer": "deferred",
     }[action]
     return {
         "id": decision_id or _default_human_decision_id(work_id, human_id, action),
@@ -257,7 +257,7 @@ def human_decision_record_for_action(
         "decision": decision,
         "status": decision,
         "acceptance_mode": "human",
-        "quorum_status": "met" if action == "approve" else "not-applicable",
+        "quorum_status": "met" if action == "approve" else "not-met",
         "evidence_reference": str(evidence.get("id") or ""),
         "review_reference": str(review.get("id") or ""),
         "timestamp": timestamp or _timestamp(),
@@ -334,7 +334,7 @@ def _needs_lane(
         if item.next_step_type == "human-decision":
             forms = "".join(
                 _human_decision_form(item.id, action, config, current_hash)
-                for action in ("approve", "reject", "cancel")
+                for action in ("approve", "reject", "defer")
             )
         cards.append(
             f"""
@@ -372,7 +372,7 @@ def _human_decision_form(
     config: MissionControlConfig,
     current_hash: str,
 ) -> str:
-    label = {"approve": "Approve", "reject": "Reject", "cancel": "Cancel"}[action]
+    label = {"approve": "Approve", "reject": "Reject", "defer": "Defer"}[action]
     return f"""
     <form method="post" action="/human-decision">
       <input type="hidden" name="csrf_token" value="{_e(config.csrf_token)}">
@@ -458,7 +458,7 @@ def _styles() -> str:
     return """
     :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f6f8fa;font-size:14px;line-height:1.45}
     *{box-sizing:border-box}body{margin:0}.topbar{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #d0d7de;background:#fff;position:sticky;top:0;z-index:5}.topbar span{margin-left:10px;color:#57606a}.badge{border:1px solid #d0d7de;border-radius:999px;padding:4px 10px;color:#57606a;background:#f6f8fa}
-    .shell{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:12px;padding:12px;max-width:1280px}.panel{border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:14px}.hero{grid-column:1/-1;border-left:4px solid #cf222e}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.eyebrow{display:block;color:#57606a;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.06em}h1,h2,h3,p{margin:0}h1{font-size:20px}h2{font-size:16px;margin-top:4px}h3{font-size:12px;text-transform:uppercase;color:#57606a;margin-bottom:6px}.count{color:#cf222e;font-weight:700}.need-card{display:flex;justify-content:space-between;gap:16px;border:1px solid #d0d7de;border-radius:7px;padding:12px;margin-top:12px}.item-id{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#57606a}.next{margin-top:6px;color:#57606a}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.button{min-height:36px;border:1px solid #8c959f;background:#fff;border-radius:6px;padding:0 12px;font-weight:700;cursor:pointer}.button-approve{border-color:#1a7f37;color:#116329;background:#dafbe1}.button-reject{border-color:#bf8700;color:#9a6700;background:#fff8c5}.button-cancel{border-color:#8c959f;color:#57606a;background:#f6f8fa}
+    .shell{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:12px;padding:12px;max-width:1280px}.panel{border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:14px}.hero{grid-column:1/-1;border-left:4px solid #cf222e}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.eyebrow{display:block;color:#57606a;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.06em}h1,h2,h3,p{margin:0}h1{font-size:20px}h2{font-size:16px;margin-top:4px}h3{font-size:12px;text-transform:uppercase;color:#57606a;margin-bottom:6px}.count{color:#cf222e;font-weight:700}.need-card{display:flex;justify-content:space-between;gap:16px;border:1px solid #d0d7de;border-radius:7px;padding:12px;margin-top:12px}.item-id{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#57606a}.next{margin-top:6px;color:#57606a}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.button{min-height:36px;border:1px solid #8c959f;background:#fff;border-radius:6px;padding:0 12px;font-weight:700;cursor:pointer}.button-approve{border-color:#1a7f37;color:#116329;background:#dafbe1}.button-reject{border-color:#bf8700;color:#9a6700;background:#fff8c5}.button-cancel,.button-defer{border-color:#8c959f;color:#57606a;background:#f6f8fa}
     .fence-grid,.receipt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.receipt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fence-grid>div,.receipt-grid>div{border:1px solid #d0d7de;border-radius:6px;padding:10px;background:#f6f8fa}ul{margin:0;padding-left:18px}.empty,.muted{color:#57606a}@media(max-width:760px){.shell{grid-template-columns:1fr;padding:8px}.need-card{display:grid}.fence-grid,.receipt-grid{grid-template-columns:1fr}.topbar{height:auto;align-items:flex-start;gap:8px;padding:10px;flex-direction:column}}
     """
 
