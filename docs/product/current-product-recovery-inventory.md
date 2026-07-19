@@ -301,30 +301,32 @@ They may be resolved only with new objective product evidence.
 
 ### Final candidate evidence
 
-Fill this table only after the authoritative complete gate passes on the final
-candidate. Do not substitute a partial test run or an earlier intermediate
-measurement.
+These measurements were taken from the committed candidate immediately before
+its authoritative complete gate. Counts use the same definitions as the
+baseline inventory.
 
 | Measure | Baseline | Final candidate |
 | --- | ---: | ---: |
-| Candidate commit | `b71494fee2c94722261d4f2a199806a93aa9a87a` | `FINAL-TBD` |
-| Tracked files | 266 | FINAL-TBD |
-| Package Python source files | 84 | FINAL-TBD |
-| Package Python source lines | 53,196 | FINAL-TBD |
-| Package functions and methods | 1,702 | FINAL-TBD |
-| Package classes | 86 | FINAL-TBD |
-| Public CLI command paths | 154 | FINAL-TBD |
-| Test modules | 47 | FINAL-TBD |
-| Test methods | 950 | FINAL-TBD |
-| Test lines | 29,914 | FINAL-TBD |
-| Product documentation files under `docs/` | 51 | FINAL-TBD |
-| Product documentation lines under `docs/` | 14,192 | FINAL-TBD |
-| Complete-gate result | pass | FINAL-TBD |
-| Complete-gate wall time | 147.66 s | FINAL-TBD |
-| PCAW conformance vectors | 18 | FINAL-TBD |
+| Candidate commit | `b71494fee2c94722261d4f2a199806a93aa9a87a` | `7ab453d18204a26dae9bfa360ffa2bebd871abfd` |
+| Tracked files | 266 | 220 |
+| Package Python source files | 84 | 78 |
+| Package Python source lines | 53,196 | 49,464 |
+| Package functions and methods | 1,702 | 1,576 |
+| Package classes | 86 | 90 |
+| Public CLI command paths | 154 | 142 |
+| Test modules | 47 | 41 |
+| Test methods | 950 | 560 |
+| Test lines | 29,914 | 18,805 |
+| Product documentation files under `docs/` | 51 | 32 |
+| Product documentation lines under `docs/` | 14,192 | 7,762 |
+| Complete-gate result | pass | pass: 560 tests, 18 PCAW vectors, wheel smoke |
+| Complete-gate wall time | 147.66 s | 37.97 s |
+| PCAW conformance vectors | 18 | 18 |
 
 Final verification command: `./scripts/verify.sh complete`.
 
-Before replacing the placeholders, also record that the branch and worktree
-were clean, no hooks were installed, and the dogfood workspace was byte-unchanged
-from the protected baseline.
+The verified commit was on `codex/current-product-reduction` with a clean
+worktree. No repository, Claude, or Palari hooks were installed. A byte diff of
+`workspaces/palari-company-os/` against the protected baseline was empty. The
+evidence-only ledger commit that follows changes no product, test, proof, or
+dogfood bytes.
