@@ -25,7 +25,6 @@ import json
 import os
 import shlex
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +33,6 @@ from .agent_runtime import load_active_claim_contexts
 from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 
-HOOK_EVENTS = ("pre-tool-use", "stop", "session-start")
 FILE_WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 HOOK_COMMAND_MARKER = "claude hook"
 _REDIRECT_NO_TARGET = "\x00"
@@ -304,28 +302,6 @@ MUTATING_AGENT_PALARI_COMMANDS = {
     ("work", "expand-scope"),
 }
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
-
-
-def run_hook(
-    event: str,
-    workspace_path: Path | str,
-    *,
-    strict: bool = False,
-    stdin: Any = None,
-) -> dict[str, Any]:
-    """Read one Claude Code hook payload from stdin and return the decision.
-
-    Never raises: a broken payload or missing workspace degrades to an empty
-    decision so a Palari problem cannot lock up an unrelated Claude session.
-    """
-    try:
-        raw = (stdin if stdin is not None else sys.stdin).read()
-        payload = json.loads(raw) if raw.strip() else {}
-        if not isinstance(payload, dict):
-            payload = {}
-        return handle_hook_event(event, payload, workspace_path, strict=strict)
-    except Exception as exc:  # noqa: BLE001 - hooks must fail open, never block the session
-        return {"systemMessage": f"palari claude hook {event} error: {exc}"}
 
 
 def handle_hook_event(

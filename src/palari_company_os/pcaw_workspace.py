@@ -33,7 +33,6 @@ from .governance_binding import (
 from .governance_kernel import (
     ArtifactExpectation,
     GovernanceEvaluationContext,
-    evaluate_governance_case,
 )
 from .pcaw_canonical import canonical_sha256
 from .pcaw_subjects import SubjectError, hash_subject, validate_subject_name
@@ -42,18 +41,6 @@ from .workspace import Workspace, WorkspaceError, current_attempt_for_work
 
 
 T = TypeVar("T")
-
-
-def evaluate_workspace_governance(
-    workspace: Workspace, work_id: str, *, inspect_external: bool = True
-) -> Any:
-    governance_case, _ = governance_case_from_workspace(
-        workspace, work_id, inspect_external=inspect_external
-    )
-    return evaluate_governance_case(
-        governance_case,
-        context=governance_context_from_workspace(workspace, work_id),
-    )
 
 
 def governance_context_from_workspace(

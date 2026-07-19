@@ -38,7 +38,6 @@ PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 TERMINAL_WORK_STATUSES = {"closed", "completed", "done"}
-APPROVAL_ACTIONS = {"approve", "reject", "defer"}
 BAD_DEPENDENCY_STATES = {
     "blocked",
     "deferred",

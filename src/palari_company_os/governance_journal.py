@@ -1682,11 +1682,6 @@ def _state_report(
     }
 
 
-def _read_records(data_path: Path | str) -> list[dict[str, Any]]:
-    path = journal_file_path(data_path)
-    return list(_iter_records(path))
-
-
 def _iter_records(path: Path) -> Iterable[dict[str, Any]]:
     """Yield strict JSONL records without retaining the journal payload."""
 

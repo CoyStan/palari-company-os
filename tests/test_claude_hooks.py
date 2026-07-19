@@ -22,8 +22,8 @@ from palari_company_os.claude_hooks import (
     bash_write_targets,
     handle_hook_event,
     hooks_status,
-    run_hook,
 )
+from palari_company_os.agent_adoption import run_agent_hook
 from palari_company_os.agent_file_changes import capture_git_baseline
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.agent_runtime import (
@@ -1360,17 +1360,26 @@ class SessionStartTests(unittest.TestCase):
         self.assertIn("palari agent start WORK-ID", context)
 
 
-class RunHookFailureTests(unittest.TestCase):
+class AgentHookFailureTests(unittest.TestCase):
     def test_malformed_stdin_fails_open(self) -> None:
-        result = run_hook("pre-tool-use", "/nonexistent", stdin=io.StringIO("not json"))
+        result = run_agent_hook(
+            "claude",
+            "pre-tool-use",
+            "/nonexistent",
+            stdin=io.StringIO("not json"),
+        )
 
-        self.assertNotIn("hookSpecificOutput", result)
-        self.assertIn("systemMessage", result)
+        self.assertEqual(result, {})
 
     def test_missing_workspace_fails_open(self) -> None:
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": "x"}})
 
-        result = run_hook("pre-tool-use", "/nonexistent", stdin=io.StringIO(payload))
+        result = run_agent_hook(
+            "claude",
+            "pre-tool-use",
+            "/nonexistent",
+            stdin=io.StringIO(payload),
+        )
 
         self.assertEqual(result, {})
 
