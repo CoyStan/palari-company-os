@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
@@ -20,7 +21,14 @@ from palari_company_os.evidence_manifest import (
     stamp_receipt_record,
 )
 from palari_company_os.errors import WorkspaceError
+from palari_company_os.governance_binding import (
+    BINDING_VERSION,
+    attempt_state_hash,
+    review_proof_hash,
+    work_contract_hash,
+)
 from palari_company_os.governance_journal import JournalVerificationContext
+from palari_company_os.pcaw_workspace import governance_case_from_workspace
 from palari_company_os.read_models import (
     active_parallel_work,
     coordination_warnings,
@@ -226,6 +234,76 @@ def _add_exact_proof(
     raw["evidence_runs"].append(evidence)
 
 
+def _add_exact_acceptance(raw: dict[str, Any]) -> None:
+    work = _work(raw)
+    work.update(
+        {
+            "risk": "R2",
+            "intensity": "standard",
+            "status": "in-review",
+            "required_approval_count": 1,
+            "required_approval_capability": "product",
+        }
+    )
+    _add_exact_proof(raw)
+    workspace = Workspace.from_raw(raw, Path("/tmp/palari-read-model-contract"))
+    attempt = workspace.attempts[0]
+    evidence = workspace.evidence_runs[0]
+    receipt = workspace.receipts[0]
+    review = {
+        "id": "REVIEW-1",
+        "work_item_id": work["id"],
+        "reviewed_head": evidence.head_sha,
+        "reviewer": "HUMAN-REVIEWER",
+        "verdict": "accept-ready",
+        "findings": [],
+        "checks_inspected": list(evidence.commands),
+        "residual_risks": [],
+        "timestamp": "2026-07-18T10:04:00Z",
+        "binding_version": BINDING_VERSION,
+        "attempt_id": attempt.id,
+        "attempt_hash": attempt_state_hash(attempt),
+        "evidence_reference": evidence.id,
+        "evidence_manifest_hash": evidence.manifest_hash,
+        "receipt_reference": receipt.id,
+        "receipt_hash": receipt.receipt_hash,
+        "work_contract_hash": work_contract_hash(workspace.work_items[0]),
+    }
+    review["proof_hash"] = review_proof_hash(review)
+    raw["review_verdicts"] = [review]
+    raw["human_decisions"] = [
+        {
+            "id": "HUMAN-DECISION-1",
+            "work_item_id": work["id"],
+            "human_id": "HUMAN-1",
+            "reviewed_head": evidence.head_sha,
+            "decision": "accepted",
+            "status": "accepted",
+            "acceptance_mode": "human",
+            "quorum_status": "met",
+            "evidence_reference": evidence.id,
+            "review_reference": review["id"],
+            "timestamp": "2026-07-18T10:05:00Z",
+        }
+    ]
+    raw["acceptance_records"] = [
+        {
+            "id": "ACCEPTANCE-1",
+            "work_item_id": work["id"],
+            "human_id": "HUMAN-1",
+            "reviewed_head": evidence.head_sha,
+            "status": "accepted",
+            "decision_id": "HUMAN-DECISION-1",
+            "evidence_reference": evidence.id,
+            "review_reference": review["id"],
+            "receipt_hash": receipt.receipt_hash,
+            "quorum_status": "met",
+            "accepted_at": "2026-07-18T10:06:00Z",
+        }
+    ]
+    work["status"] = "completed"
+
+
 class QueueProjectionTests(unittest.TestCase):
     def test_unstarted_bounded_work_is_ready_to_start(self) -> None:
         item = queue_items(_workspace())[0]
@@ -395,6 +473,63 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertEqual(item.next_step_type, "closed")
         self.assertEqual(item.integration_state, "closed")
         self.assertFalse(item.ai_safe_to_proceed)
+
+
+class RecordedBindingNormalizationTests(unittest.TestCase):
+    def test_no_inspection_mode_preserves_only_a_current_recorded_review(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+
+        with patch(
+            "palari_company_os.governance_binding.verify_evidence",
+            side_effect=AssertionError("recorded projection must not inspect files"),
+        ):
+            current, _ = governance_case_from_workspace(
+                workspace,
+                "WORK-1",
+                inspect_external=False,
+            )
+
+        self.assertEqual(current.review.contract_digest, current.contract_digest())
+        self.assertEqual(current.review.attempt_digest, current.attempt_digest())
+        self.assertEqual(current.review.evidence_digest, current.evidence_digest())
+        self.assertEqual(current.review.receipt_digest, current.receipt_digest())
+
+        stale_review = replace(
+            workspace.review_verdicts[0],
+            work_contract_hash="sha256:" + ("b" * 64),
+        )
+        workspace.review_verdicts[0] = replace(
+            stale_review,
+            proof_hash=review_proof_hash(stale_review),
+        )
+        stale, _ = governance_case_from_workspace(
+            workspace,
+            "WORK-1",
+            inspect_external=False,
+        )
+
+        self.assertNotEqual(stale.review.contract_digest, stale.contract_digest())
+        self.assertEqual(stale.acceptance_records[0].receipt_digest, "")
+        self.assertEqual(stale.acceptance_records[0].evidence_digest, "")
+        self.assertEqual(stale.acceptance_records[0].review_digest, "")
+
+    def test_no_inspection_mode_does_not_refresh_a_stale_acceptance(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+        workspace.acceptance_records[0] = replace(
+            workspace.acceptance_records[0],
+            receipt_hash="sha256:" + ("c" * 64),
+        )
+
+        case, _ = governance_case_from_workspace(
+            workspace,
+            "WORK-1",
+            inspect_external=False,
+        )
+
+        self.assertEqual(case.review.contract_digest, case.contract_digest())
+        self.assertEqual(case.acceptance_records[0].receipt_digest, "")
+        self.assertEqual(case.acceptance_records[0].evidence_digest, "")
+        self.assertEqual(case.acceptance_records[0].review_digest, "")
 
 
 class DetailAndCoordinationProjectionTests(unittest.TestCase):

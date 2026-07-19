@@ -26,6 +26,10 @@ from .governance_case import (
     SourceBoundary,
     WorkContract,
 )
+from .governance_binding import (
+    current_review_binding_errors,
+    recorded_current_review_binding_errors,
+)
 from .governance_kernel import (
     ArtifactExpectation,
     GovernanceEvaluationContext,
@@ -151,20 +155,25 @@ def governance_case_from_workspace(
     review_digest = review_case.review_digest()
     evidence_digest = case_stub.evidence_digest()
     receipt_digest = case_stub.receipt_digest()
+    current_decisions = _current_human_decisions(workspace, work_id, review)
+    current_decisions_by_id = {item.id: item for item in current_decisions}
     decisions = tuple(
         _decision_snapshot(
             item,
             evidence_digest if review_binding_current else "",
             review_digest if review_binding_current else "",
         )
-        for item in _current_human_decisions(workspace, work_id, review)
+        for item in current_decisions
     )
     acceptances = tuple(
-        _acceptance_snapshot(
+        _bound_acceptance_snapshot(
             item,
-            receipt_digest if review_binding_current else "",
-            evidence_digest if review_binding_current else "",
-            review_digest if review_binding_current else "",
+            review=review,
+            current_decisions_by_id=current_decisions_by_id,
+            review_binding_current=review_binding_current,
+            receipt_digest=receipt_digest,
+            evidence_digest=evidence_digest,
+            review_digest=review_digest,
         )
         for item in _ordered_for_work(workspace.acceptance_records, work_id)
     )
@@ -415,6 +424,40 @@ def _acceptance_snapshot(
     )
 
 
+def _bound_acceptance_snapshot(
+    acceptance: Any,
+    *,
+    review: Any | None,
+    current_decisions_by_id: dict[str, Any],
+    review_binding_current: bool,
+    receipt_digest: str,
+    evidence_digest: str,
+    review_digest: str,
+) -> AcceptanceSnapshot:
+    decision = current_decisions_by_id.get(acceptance.decision_id)
+    binding_current = bool(
+        review_binding_current
+        and review is not None
+        and acceptance.review_reference == review.id
+        and acceptance.reviewed_head == review.reviewed_head
+        and acceptance.evidence_reference == review.evidence_reference
+        and acceptance.receipt_hash == review.receipt_hash
+        and decision is not None
+        and decision.human_id == acceptance.human_id
+        and decision.reviewed_head == acceptance.reviewed_head
+        and decision.evidence_reference == acceptance.evidence_reference
+        and decision.review_reference == acceptance.review_reference
+    )
+    if not binding_current:
+        receipt_digest = evidence_digest = review_digest = ""
+    return _acceptance_snapshot(
+        acceptance,
+        receipt_digest,
+        evidence_digest,
+        review_digest,
+    )
+
+
 def _source_boundary(source: Any) -> SourceBoundary:
     return SourceBoundary(
         id=source.id,
@@ -545,14 +588,18 @@ def _review_binding_current(
     *,
     inspect_external: bool,
 ) -> bool:
-    if review is None or not inspect_external:
-        return True
+    if review is None:
+        return False
     try:
-        from .governance_binding import current_review_binding_errors
-
-        return not current_review_binding_errors(
-            workspace, review, require_output_coverage=True
-        )
+        if inspect_external:
+            errors = current_review_binding_errors(
+                workspace,
+                review,
+                require_output_coverage=True,
+            )
+        else:
+            errors = recorded_current_review_binding_errors(workspace, review)
+        return not errors
     except (OSError, ValueError, WorkspaceError):
         return False
 
