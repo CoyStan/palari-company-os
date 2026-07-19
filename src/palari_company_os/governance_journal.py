@@ -677,18 +677,6 @@ def _v1_committed_states(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return checkpoints
 
 
-def journal_projection_for_digest(
-    data_path: Path | str,
-    checkpoint_digest: str,
-) -> dict[str, Any] | None:
-    matches = [
-        item
-        for item in committed_journal_states(data_path)
-        if item["checkpoint_digest"] == checkpoint_digest
-    ]
-    return deepcopy(matches[-1]["projection"]) if matches else None
-
-
 def pending_workspace_journal_context(
     workspace_path: Path | str,
 ) -> dict[str, Any] | None:

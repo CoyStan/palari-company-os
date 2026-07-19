@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Iterable
 from uuid import UUID, uuid4
 
 
-OPAQUE_WORK_ID_RE = re.compile(r"^WORK-[0-9A-F]{32}$")
 _MAX_COLLISION_RETRIES = 16
 
 
@@ -27,15 +25,3 @@ def generate_work_id(
         if candidate not in existing:
             return candidate
     raise ValueError("could not allocate a unique opaque work ID after 16 attempts")
-
-
-def is_opaque_work_id(value: str) -> bool:
-    """Return whether *value* uses the v1 opaque work-ID representation."""
-
-    if OPAQUE_WORK_ID_RE.fullmatch(value) is None:
-        return False
-    try:
-        parsed = UUID(hex=value.removeprefix("WORK-"))
-    except ValueError:
-        return False
-    return parsed.version == 4

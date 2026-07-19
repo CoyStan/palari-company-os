@@ -41,7 +41,7 @@ from palari_company_os.read_models import (
     queue_items,
 )
 from palari_company_os.workspace import Workspace
-from palari_company_os.workspace_read_models import approval_detail, approval_inbox
+from palari_company_os.workspace_read_models import approval_inbox
 
 
 def _work_record(work_id: str = "WORK-1", **overrides: Any) -> dict[str, Any]:
@@ -922,17 +922,19 @@ class ApprovalProjectionTests(unittest.TestCase):
         self.assertFalse(result["primary_action"]["available"])
         self.assertEqual(result["primary_action"]["commands"], [])
 
-    def test_approval_detail_translates_inbox_failure_without_authority(self) -> None:
-        with patch(
-            "palari_company_os.workspace_read_models.approval_inbox",
-            side_effect=WorkspaceError("journal continuity is unavailable"),
+    def test_approval_inbox_propagates_pack_failure_without_authority(self) -> None:
+        with (
+            patch(
+                "palari_company_os.workspace_read_models.load_store",
+                return_value=SimpleNamespace(data={}),
+            ),
+            patch(
+                "palari_company_os.workspace_read_models.build_approval_inbox",
+                side_effect=WorkspaceError("journal continuity is unavailable"),
+            ),
         ):
-            result = approval_detail(_workspace(), "WORK-1")
-
-        self.assertFalse(result["available"])
-        self.assertEqual(result["work_item_id"], "WORK-1")
-        self.assertIn("journal continuity", result["reason"])
-        self.assertIn("Repair or checkpoint", result["next_safe_action"])
+            with self.assertRaisesRegex(WorkspaceError, "journal continuity"):
+                approval_inbox(_workspace(), selected_work_ids=("WORK-1",))
 
 
 class CliTranslationTests(unittest.TestCase):
@@ -953,7 +955,7 @@ class CliTranslationTests(unittest.TestCase):
                 ]
             )
             with patch(
-                "palari_company_os.workspace_read_models.approval_detail",
+                "palari_company_os.workspace_read_models.build_approval_inbox",
                 side_effect=AssertionError("ordinary detail must not build exact packs"),
             ):
                 result = run_command(args)

@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from .errors import WorkspaceError
-from .pcaw_canonical import canonical_json_bytes, canonical_sha256
+from .pcaw_canonical import canonical_sha256
 from .record_order import record_time_key
 from .workspace import Workspace
 
@@ -53,14 +53,6 @@ def build_approval_presentation(
     }
     validate_approval_presentation(presentation, pack)
     return presentation
-
-
-def canonical_presentation_bytes(
-    presentation: dict[str, Any],
-    pack: dict[str, Any],
-) -> bytes:
-    validate_approval_presentation(presentation, pack)
-    return canonical_json_bytes(presentation)
 
 
 def approval_presentation_digest(

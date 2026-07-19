@@ -20,8 +20,8 @@ from palari_company_os.governance_journal import (
     MutationMetadata,
     append_record_fsync,
     checkpoint_workspace_journal,
+    committed_journal_states,
     journal_file_path,
-    journal_projection_for_digest,
     legacy_journal_file_path,
     logical_changes,
     record_digest,
@@ -96,18 +96,18 @@ class GovernanceJournalTests(unittest.TestCase):
             final["name"] = "V2 compact"
             report = run_change(data_path, before=initial, after=final)
             active_records = read_records(data_path)
-            replayed_v1 = journal_projection_for_digest(data_path, workspace_digest(initial))
-            replayed_v2 = journal_projection_for_digest(
-                data_path, workspace_digest(final)
-            )
+            replayed = {
+                state["checkpoint_digest"]: state["projection"]
+                for state in committed_journal_states(data_path)
+            }
 
         self.assertTrue(report["ok"])
         self.assertEqual(active_records[-2]["delta"], [
             {"op": "replace", "path": "/name", "value": "V2 compact"}
         ])
         self.assertNotIn("after_projection", active_records[-2])
-        self.assertEqual(replayed_v1, initial)
-        self.assertEqual(replayed_v2, final)
+        self.assertEqual(replayed[workspace_digest(initial)], initial)
+        self.assertEqual(replayed[workspace_digest(final)], final)
 
     def test_v2_fails_closed_when_sealed_v1_predecessor_bytes_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -17,7 +17,7 @@ from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.agent_runtime import start_agent
 from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
-from palari_company_os.work_identity import generate_work_id, is_opaque_work_id
+from palari_company_os.work_identity import generate_work_id
 from palari_company_os.workspace import Workspace, WorkspaceError, default_workspace_path
 
 
@@ -368,7 +368,10 @@ class WorkAddTests(unittest.TestCase):
         )
 
         work_id = result["work_item"]["id"]
-        self.assertTrue(is_opaque_work_id(work_id))
+        self.assertRegex(
+            work_id,
+            r"^WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}$",
+        )
         workspace = Workspace.load(self.project)
         packet = build_agent_brief(workspace, work_id, "PALARI-CLAUDE", "execute")
         self.assertEqual(packet["status"], "ready")
@@ -438,8 +441,14 @@ class WorkAddTests(unittest.TestCase):
 
         first_id = first["work_item"]["id"]
         second_id = second["work_item"]["id"]
-        self.assertTrue(is_opaque_work_id(first_id))
-        self.assertTrue(is_opaque_work_id(second_id))
+        self.assertRegex(
+            first_id,
+            r"^WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}$",
+        )
+        self.assertRegex(
+            second_id,
+            r"^WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}$",
+        )
         self.assertNotEqual(first_id, second_id)
 
     def test_work_add_preserves_explicit_legacy_id(self) -> None:

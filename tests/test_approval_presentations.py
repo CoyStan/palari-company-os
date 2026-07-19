@@ -11,10 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.approval_packs import apply_pack_decision, build_approval_inbox
-from palari_company_os.approval_presentations import (
-    approval_presentation_digest,
-    canonical_presentation_bytes,
-)
+from palari_company_os.approval_presentations import approval_presentation_digest
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -33,8 +30,10 @@ class ApprovalPresentationTests(unittest.TestCase):
             first_presentation = first["presentations"][0]
 
             self.assertEqual(
-                canonical_presentation_bytes(first_presentation, first_pack),
-                canonical_presentation_bytes(second["presentations"][0], second["packs"][0]),
+                approval_presentation_digest(first_presentation, first_pack),
+                approval_presentation_digest(
+                    second["presentations"][0], second["packs"][0]
+                ),
             )
             original_digest = first["approval_commands"][0]["presentation_digest"]
             (root / OUTPUT).write_text("one governed byte changed\n", encoding="utf-8")
