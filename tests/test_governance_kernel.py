@@ -519,6 +519,51 @@ class GovernanceKernelTests(unittest.TestCase):
         self.assertFalse(result.fully_verified)
         self.assertIn("PCAW_STATEMENT_ONLY_INCOMPLETE", {item.code for item in result.warnings})
 
+    def test_recorded_projection_derives_state_without_claiming_verification(self) -> None:
+        case = accepted_case()
+        observations = IntegrityObservations(
+            subject_integrity=IntegrityObservation("not-checked", ("projection only",)),
+            evidence_integrity=IntegrityObservation("not-checked", ("projection only",)),
+            journal_continuity=IntegrityObservation("not-checked", ("projection only",)),
+        )
+        context = GovernanceEvaluationContext(
+            projection_only_recorded_evidence_current=True
+        )
+
+        result = evaluate_governance_case(
+            replace(case, observations=observations),
+            context=context,
+        )
+        properties = {item.name: item.status for item in result.properties}
+
+        self.assertEqual(result.derived_state, "accepted")
+        self.assertEqual(properties["evidence_freshness"], "not-checked")
+        self.assertEqual(result.qualified_human_ids, ("HUMAN-FOUNDER",))
+        self.assertFalse(result.fully_verified)
+        self.assertNotIn("qualified_human_ids", result.to_dict())
+
+    def test_recorded_projection_flag_cannot_bypass_structural_evidence_failure(self) -> None:
+        case = accepted_case(claimed_state="blocked")
+        observations = replace(
+            case.observations,
+            evidence_integrity=IntegrityObservation("not-checked", ("projection only",)),
+        )
+
+        result = evaluate_governance_case(
+            replace(
+                case,
+                evidence=replace(case.evidence, head_sha="stale-head"),
+                observations=observations,
+            ),
+            context=GovernanceEvaluationContext(
+                projection_only_recorded_evidence_current=True
+            ),
+        )
+
+        self.assertEqual(result.derived_state, "blocked")
+        self.assertFalse(result.fully_verified)
+        self.assertIn("PCAW_EVIDENCE_STALE", {item.code for item in result.errors})
+
     def test_builder_reviewer_collision_requires_new_review(self) -> None:
         case = accepted_case(claimed_state="review-required")
         case = replace(case, review=replace(case.review, reviewer="PALARI-BUILDER"))

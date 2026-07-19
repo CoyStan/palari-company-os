@@ -28,7 +28,10 @@ from palari_company_os.governance_binding import (
     work_contract_hash,
 )
 from palari_company_os.governance_journal import JournalVerificationContext
-from palari_company_os.pcaw_workspace import governance_case_from_workspace
+from palari_company_os.pcaw_workspace import (
+    governance_case_from_workspace,
+    recorded_governance_projection,
+)
 from palari_company_os.read_models import (
     active_parallel_work,
     coordination_warnings,
@@ -476,6 +479,33 @@ class QueueProjectionTests(unittest.TestCase):
 
 
 class RecordedBindingNormalizationTests(unittest.TestCase):
+    def test_recorded_projection_is_explicitly_non_authoritative(self) -> None:
+        workspace = _workspace(_add_exact_acceptance)
+
+        with patch(
+            "palari_company_os.governance_binding.verify_evidence",
+            side_effect=AssertionError("recorded projection must not inspect files"),
+        ):
+            projection = recorded_governance_projection(workspace, "WORK-1")
+
+        self.assertEqual(projection.basis, "recorded")
+        self.assertFalse(projection.authoritative)
+        self.assertEqual(projection.recorded_proof_errors, ())
+        self.assertEqual(projection.evaluation.derived_state, "completed")
+        self.assertEqual(
+            projection.evaluation.qualified_human_ids,
+            ("HUMAN-1",),
+        )
+        self.assertFalse(projection.evaluation.fully_verified)
+        self.assertEqual(
+            next(
+                item.status
+                for item in projection.evaluation.properties
+                if item.name == "evidence_freshness"
+            ),
+            "not-checked",
+        )
+
     def test_no_inspection_mode_preserves_only_a_current_recorded_review(self) -> None:
         workspace = _workspace(_add_exact_acceptance)
 

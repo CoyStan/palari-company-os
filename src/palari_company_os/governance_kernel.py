@@ -81,6 +81,7 @@ class GovernanceEvaluationContext:
     """Trusted local context that is deliberately excluded from PCAW proofs."""
 
     artifact_expectations: tuple[ArtifactExpectation, ...] = ()
+    projection_only_recorded_evidence_current: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ class GovernanceEvaluation:
     errors: tuple[Diagnostic, ...]
     warnings: tuple[Diagnostic, ...]
     security_limitations: tuple[str, ...]
+    qualified_human_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,8 +141,9 @@ def evaluate_governance_case(
     properties["evidence_freshness"] = evidence_result
 
     evidence_complete_low_risk_completion = _evidence_complete_low_risk_completion(
-        case, properties
+        case, properties, context
     )
+    qualified_humans: set[str] = set()
     if evidence_complete_low_risk_completion:
         properties["independent_review"] = PropertyResult(
             "independent_review", "not-required", ("$.contract.risk",)
@@ -153,7 +156,13 @@ def evaluate_governance_case(
         )
         derived_state = "completed"
     else:
-        review_result = _review_property(case, evidence_result, receipt_result, errors)
+        review_result = _review_property(
+            case,
+            evidence_result,
+            receipt_result,
+            context,
+            errors,
+        )
         properties["independent_review"] = review_result
         quorum_result, current_decisions, qualified_humans = _quorum_property(
             case, review_result, errors
@@ -168,7 +177,7 @@ def evaluate_governance_case(
             errors,
         )
         properties["acceptance_currency"] = acceptance_result
-        derived_state = _derive_state(case, properties)
+        derived_state = _derive_state(case, properties, context)
 
     ordered_properties = tuple(properties[name] for name in PROPERTY_NAMES)
     if case.claimed_state != derived_state:
@@ -199,6 +208,8 @@ def evaluate_governance_case(
             )
         )
         fully_verified = False
+    if context.projection_only_recorded_evidence_current:
+        fully_verified = False
 
     return GovernanceEvaluation(
         schema_version=EVALUATION_SCHEMA_VERSION,
@@ -214,6 +225,7 @@ def evaluate_governance_case(
             "Unsigned PCAW v1 verifies internal consistency and supplied "
             "subject bytes, not who created the statement.",
         ),
+        qualified_human_ids=tuple(sorted(qualified_humans)),
     )
 
 
@@ -585,6 +597,7 @@ def _review_property(
     case: GovernanceCase,
     evidence_result: PropertyResult,
     receipt_result: PropertyResult,
+    context: GovernanceEvaluationContext,
     errors: list[Diagnostic],
 ) -> PropertyResult:
     review = case.review
@@ -642,7 +655,7 @@ def _review_property(
                 f"review {field} does not match the current exact proof",
                 "Obtain a new review against the current exact proof.",
             )
-    if evidence_result.status != "verified" or receipt_result.status != "verified":
+    if not _evidence_ready(evidence_result, context) or receipt_result.status != "verified":
         _error(
             errors,
             "PCAW_REVIEW_PREREQUISITE_INVALID",
@@ -879,6 +892,7 @@ def _acceptance_property(
 def _evidence_complete_low_risk_completion(
     case: GovernanceCase,
     properties: dict[str, PropertyResult],
+    context: GovernanceEvaluationContext,
 ) -> bool:
     if not (
         case.contract.status in TERMINAL_WORK_STATUSES
@@ -901,7 +915,7 @@ def _evidence_complete_low_risk_completion(
         and case.receipt is not None
         and properties["scope_compliance"].status == "verified"
         and properties["receipt_binding"].status == "verified"
-        and properties["evidence_freshness"].status == "verified"
+        and _evidence_ready(properties["evidence_freshness"], context)
     ):
         return False
     if case.open_decisions or any(
@@ -934,7 +948,11 @@ def low_risk_completion_policy_applies(
     )
 
 
-def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -> str:
+def _derive_state(
+    case: GovernanceCase,
+    properties: dict[str, PropertyResult],
+    context: GovernanceEvaluationContext,
+) -> str:
     if case.contract.status in {"proposed", "active"} and (
         case.attempt is None or case.attempt.status == "active"
     ):
@@ -948,7 +966,7 @@ def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -
         or case.attempt.cleanliness.lower() not in {"clean", "pristine"}
         or properties["scope_compliance"].status != "verified"
         or properties["receipt_binding"].status != "verified"
-        or properties["evidence_freshness"].status != "verified"
+        or not _evidence_ready(properties["evidence_freshness"], context)
     ):
         return "blocked"
     if case.review is not None and case.review.verdict in NEGATIVE_REVIEW_VERDICTS:
@@ -964,6 +982,18 @@ def _derive_state(case: GovernanceCase, properties: dict[str, PropertyResult]) -
     if case.contract.status in TERMINAL_WORK_STATUSES:
         return "completed"
     return "accepted"
+
+
+def _evidence_ready(
+    result: PropertyResult,
+    context: GovernanceEvaluationContext,
+) -> bool:
+    """Allow structurally current stored evidence to drive read-only projection."""
+
+    return result.status == "verified" or bool(
+        context.projection_only_recorded_evidence_current
+        and result.status == "not-checked"
+    )
 
 
 def _observation_property(

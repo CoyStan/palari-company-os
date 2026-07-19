@@ -167,6 +167,25 @@ def current_review_binding_errors(
     return _unique(errors)
 
 
+def recorded_current_proof_errors(workspace: Any, work_id: str) -> list[str]:
+    """Check current proof records without reading files, Git, or the journal.
+
+    This is a projection boundary, not completion authority.  It establishes
+    only that the stored current attempt, receipt, and versioned evidence form
+    one structurally exact proof.  Mutation and portable proof boundaries must
+    still call :func:`current_review_binding` and re-observe external state.
+    """
+
+    _, errors = _current_review_binding(
+        workspace,
+        work_id,
+        inspect_external=False,
+        require_output_coverage=True,
+        journal_context=None,
+    )
+    return errors
+
+
 def recorded_current_review_binding_errors(workspace: Any, review: Any) -> list[str]:
     """Check current exact-review metadata without reading files or Git state.
 

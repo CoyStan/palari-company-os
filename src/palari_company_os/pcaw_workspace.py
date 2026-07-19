@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, replace
 from datetime import timezone
 from typing import Any, Iterable, TypeVar
 
@@ -28,11 +28,14 @@ from .governance_case import (
 )
 from .governance_binding import (
     current_review_binding_errors,
+    recorded_current_proof_errors,
     recorded_current_review_binding_errors,
 )
 from .governance_kernel import (
     ArtifactExpectation,
+    GovernanceEvaluation,
     GovernanceEvaluationContext,
+    evaluate_governance_case,
 )
 from .pcaw_canonical import canonical_sha256
 from .pcaw_subjects import SubjectError, hash_subject, validate_subject_name
@@ -41,6 +44,17 @@ from .workspace import Workspace, WorkspaceError, current_attempt_for_work
 
 
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class RecordedGovernanceProjection:
+    """Non-authoritative lifecycle projection from stored proof records only."""
+
+    evaluation: GovernanceEvaluation
+    completion_evaluation: GovernanceEvaluation
+    recorded_proof_errors: tuple[str, ...]
+    basis: str = "recorded"
+    authoritative: bool = False
 
 
 def governance_context_from_workspace(
@@ -61,6 +75,56 @@ def governance_context_from_workspace(
             )
             for item in work.path_intents
         )
+    )
+
+
+def recorded_governance_projection(
+    workspace: Workspace,
+    work_id: str,
+) -> RecordedGovernanceProjection:
+    """Derive current and candidate-terminal state without external inspection.
+
+    The result is suitable for status, queue, and structural validation.  Its
+    evidence observation remains ``not-checked`` and it can never be fully
+    verified; transitions must use the external inspection path.
+    """
+
+    proof_errors = tuple(recorded_current_proof_errors(workspace, work_id))
+    context = replace(
+        governance_context_from_workspace(workspace, work_id),
+        projection_only_recorded_evidence_current=not proof_errors,
+    )
+    current_case, _ = governance_case_from_workspace(
+        workspace,
+        work_id,
+        inspect_external=False,
+    )
+    completion_case, _ = governance_case_from_workspace(
+        workspace,
+        work_id,
+        inspect_external=False,
+        projected_contract_status="completed",
+    )
+    completion_case = replace(completion_case, claimed_state="completed")
+    return RecordedGovernanceProjection(
+        evaluation=_evaluate_recorded_projection(current_case, context),
+        completion_evaluation=_evaluate_recorded_projection(completion_case, context),
+        recorded_proof_errors=proof_errors,
+    )
+
+
+def _evaluate_recorded_projection(
+    case: GovernanceCase,
+    context: GovernanceEvaluationContext,
+) -> GovernanceEvaluation:
+    """Normalize coarse workspace status to the kernel's more precise state."""
+
+    evaluation = evaluate_governance_case(case, context=context)
+    if evaluation.claimed_state == evaluation.derived_state:
+        return evaluation
+    return evaluate_governance_case(
+        replace(case, claimed_state=evaluation.derived_state),
+        context=context,
     )
 
 
