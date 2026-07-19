@@ -292,13 +292,6 @@ def _human_approval_handoff(
         "approval_candidates": candidates,
         "approval_focus": _approval_focus(payload),
         "approval_pack": approval_pack,
-        "human_decision_record_commands": _human_decision_record_commands(
-            work_id,
-            candidates,
-            reviewed_head,
-            evidence.get("id", ""),
-            review.get("id", ""),
-        ),
     }
 
 
@@ -396,14 +389,10 @@ def _human_action_commands(
             )
     if human_approval_handoff is not None:
         approval_pack = human_approval_handoff.get("approval_pack", {})
-        pack_commands = _pack_human_commands(
+        for item in _pack_human_commands(
             approval_pack,
             human_approval_handoff.get("approval_candidates", []),
-        )
-        source = pack_commands or human_approval_handoff.get(
-            "human_decision_record_commands", []
-        )
-        for item in source:
+        ):
             commands.append(
                 {
                     "type": item.get("type", "human-approval-record"),
@@ -519,11 +508,11 @@ def _approval_pack_handoff(
         return {
             "available": False,
             "work_item_id": work_id,
-            "mode": "individual-human-decision",
+            "mode": "blocked",
             "reason": str(exc),
             "next_safe_action": (
-                "Use the exact individual human-decision command, or establish "
-                "journal continuity before rebuilding an Approval Pack."
+                "Repair or checkpoint journal continuity before rebuilding the "
+                "exact presentation-bound Approval Pack."
             ),
         }
     item = next(
@@ -536,7 +525,7 @@ def _approval_pack_handoff(
     return {
         "available": available,
         "work_item_id": work_id,
-        "mode": "approve-eligible" if available else "individual-human-decision",
+        "mode": "approve-eligible" if available else "blocked",
         "inbox_command": inbox_command,
         "pack_id": pack["pack_id"] if pack else "",
         "pack_digest": pack["pack_digest"] if pack else "",
@@ -551,7 +540,7 @@ def _approval_pack_handoff(
         "next_safe_action": (
             "A qualified human may run the exact presentation-bound approve-eligible command once."
             if available
-            else "Use the individual human-decision command for this non-batchable state."
+            else "Repair the listed proof or batching blockers, then rebuild the exact Approval Pack."
         ),
     }
 
@@ -586,77 +575,6 @@ def _approval_focus(payload: dict[str, Any]) -> list[str]:
     if work.get("forbidden_actions"):
         focus.append("Confirm approval does not authorize forbidden actions without new scoped work.")
     return focus
-
-
-def _human_decision_record_commands(
-    work_id: str,
-    candidates: list[dict[str, Any]],
-    reviewed_head: str,
-    evidence_id: str,
-    review_id: str,
-) -> list[dict[str, str]]:
-    commands: list[dict[str, str]] = []
-    for candidate in candidates:
-        human_id = candidate["id"]
-        for decision, status, quorum in [
-            ("accepted", "accepted", "met"),
-            ("changes-requested", "changes-requested", "not-met"),
-            ("blocked", "blocked", "not-met"),
-        ]:
-            commands.append(
-                {
-                    "human_id": human_id,
-                    "decision": decision,
-                    "command": _human_decision_record_command(
-                        work_id,
-                        human_id,
-                        reviewed_head,
-                        decision,
-                        status,
-                        quorum,
-                        evidence_id,
-                        review_id,
-                    ),
-                }
-            )
-    return commands
-
-
-def _human_decision_record_command(
-    work_id: str,
-    human_id: str,
-    reviewed_head: str,
-    decision: str,
-    status: str,
-    quorum_status: str,
-    evidence_id: str,
-    review_id: str,
-) -> str:
-    record_id = f"HUMAN-DECISION-{_safe_id(work_id)}-{_safe_id(human_id)}-{_safe_id(decision)}"
-    parts = [
-        "palari",
-        "human-decision",
-        "record",
-        record_id,
-        "--work-item-id",
-        work_id,
-        "--human-id",
-        human_id,
-        "--reviewed-head",
-        reviewed_head or "REVIEWED-HEAD",
-        "--decision",
-        decision,
-        "--status",
-        status,
-        "--quorum-status",
-        quorum_status,
-    ]
-    if evidence_id:
-        parts.extend(["--evidence-reference", evidence_id])
-    if review_id:
-        parts.extend(["--review-reference", review_id])
-    parts.append("--json")
-    return " ".join(quote(part) for part in parts)
 
 
 def _attempt_head(attempt: dict[str, Any]) -> str:

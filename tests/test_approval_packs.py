@@ -276,6 +276,26 @@ class ApprovalPackTests(unittest.TestCase):
             handoff["human_action_commands"][0]["command"],
         )
 
+    def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            with patch(
+                "palari_company_os.agent_handoff.approval_inbox",
+                side_effect=WorkspaceError("journal continuity is unavailable"),
+            ):
+                handoff = build_agent_handoff(
+                    Workspace.load(data_path),
+                    "WORK-001",
+                    "PALARI-SOFIA",
+                )
+
+        approval = handoff["human_approval_handoff"]
+        self.assertFalse(approval["approval_pack"]["available"])
+        self.assertEqual(approval["approval_pack"]["mode"], "blocked")
+        self.assertEqual(handoff["human_action_commands"], [])
+        self.assertNotIn("human-decision record", json.dumps(handoff))
+        self.assertIn("journal continuity", approval["approval_pack"]["reason"])
+
     def test_cli_exposes_inbox_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
