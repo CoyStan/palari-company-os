@@ -393,11 +393,6 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Return the exact plan without verification or mutation.",
     )
     advance.add_argument(
-        "--summary",
-        default="",
-        help="Reserved for compatibility; governed receipts use deterministic actions.",
-    )
-    advance.add_argument(
         "--refresh-verification",
         action="store_true",
         help="Ignore advisory cached records and rerun the required exact profiles.",

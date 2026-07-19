@@ -434,7 +434,6 @@ def agent_advance(
     palari_id: str,
     *,
     dry_run: bool = False,
-    summary: str = "",
     refresh_verification: bool = False,
 ) -> dict[str, Any]:
     workspace_path = Path(workspace_path)
@@ -457,11 +456,6 @@ def agent_advance(
         )
         if resumed is not None:
             return resumed
-    if summary.strip():
-        raise WorkspaceError(
-            "agent advance persists deterministic receipt actions only; omit --summary and "
-            "record non-authoritative commentary outside governance proof"
-        )
     facts, profiles, context, preflight = _collect_facts(
         workspace, workspace_path, work_id, palari_id
     )
@@ -534,7 +528,6 @@ def agent_advance(
             palari_id,
             current_preflight,
             verification_results,
-            summary,
             expected_workspace_digest=str(current_facts["workspace_digest"]),
             expected_git_head=str(current_facts["git"]["head_sha"]),
             expected_artifact_hashes=list(
@@ -1222,7 +1215,6 @@ def _reconcile_proof(
     palari_id: str,
     preflight: dict[str, Any],
     verification: list[dict[str, Any]],
-    summary: str,
     *,
     expected_workspace_digest: str,
     expected_git_head: str,

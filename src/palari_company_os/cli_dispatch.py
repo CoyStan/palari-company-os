@@ -384,7 +384,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     args.work_id,
                     args.palari_id,
                     dry_run=args.dry_run,
-                    summary=args.summary,
                     refresh_verification=args.refresh_verification,
                 ),
                 args.json,
