@@ -618,6 +618,68 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(safe, {})
         self.assertEqual(status, {})
 
+    def test_only_agent_advance_may_mutate_agent_proof_from_shell(self) -> None:
+        advance = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws agent advance WORK-0001 "
+                    "--as PALARI-SOFIA --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(advance, {})
+        direct_mutations = (
+            "palari --workspace ws agent done WORK-0001 --as PALARI-SOFIA --json",
+            "palari --workspace ws attempt record ATTEMPT-X --json",
+            "palari --workspace ws attempt update ATTEMPT-X --json",
+            "palari --workspace ws attempt closeout ATTEMPT-X --json",
+            "palari --workspace ws receipt record RECEIPT-X --json",
+            "palari --workspace ws receipt update RECEIPT-X --json",
+            "palari --workspace ws evidence record EVIDENCE-X --json",
+            "palari --workspace ws evidence update EVIDENCE-X --json",
+            (
+                "palari --workspace ws agent advance WORK-0001 "
+                "--as PALARI-SOFIA --json && "
+                "palari --workspace ws receipt record RECEIPT-X --json"
+            ),
+        )
+        for command in direct_mutations:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "unreviewed Palari command",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_individual_human_decision_remains_denied_to_agent_shell(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws human-decision record DECISION-X "
+                    "--work-item-id WORK-0001 --human-id HUMAN-HOOK --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "human-only",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
     def test_agent_safe_mutations_cannot_cross_hook_workspace(self) -> None:
         commands = (
             "palari agent start WORK-0001 --as PALARI-SOFIA --mode execute",
@@ -626,9 +688,8 @@ class PreToolUseTests(unittest.TestCase):
                 "--as PALARI-SOFIA --mode execute"
             ),
             (
-                "palari --workspace other-workspace evidence record EVIDENCE-X "
-                "--work-item-id WORK-0001 --attempt-id ATTEMPT-X --head-sha abc "
-                "--status passed"
+                "palari --workspace other-workspace agent advance WORK-0001 "
+                "--as PALARI-SOFIA --json"
             ),
         )
 

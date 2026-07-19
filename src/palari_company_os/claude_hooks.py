@@ -209,10 +209,10 @@ PACKET_AUTHORITY_PALARI_COMMANDS = {
 SAFE_AGENT_PALARI_COMMANDS = {
     ("agent", action)
     for action in (
+        "advance",
         "brief",
         "check",
         "doctor",
-        "done",
         "finish",
         "handoff",
         "loop",
@@ -220,8 +220,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
         "release",
         "start",
     )
-} | {
-    ("attempt", action) for action in ("closeout", "record", "update")
 } | {
     ("authority", action) for action in ("check", "profiles")
 } | {
@@ -232,8 +230,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     ("decision", "guide"),
     ("docs", "check"),
     ("docs", "map"),
-    ("evidence", "record"),
-    ("evidence", "update"),
     ("evidence", "verify"),
     ("gate", "profiles"),
     ("gate", "recommend"),
@@ -261,8 +257,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     ("playbooks", "sources"),
     ("proposal", "create"),
     ("proposal", "update"),
-    ("receipt", "record"),
-    ("receipt", "update"),
     ("review", "guide"),
     ("work", "expand-scope"),
 } | {
@@ -283,11 +277,7 @@ PALARI_SELF_PROTECTION_COMMANDS = {
     ("git", "install"),
 }
 MUTATING_AGENT_PALARI_COMMANDS = {
-    ("agent", action) for action in ("done", "release", "start")
-} | {
-    ("attempt", action) for action in ("closeout", "record", "update")
-} | {
-    ("evidence", action) for action in ("record", "update")
+    ("agent", action) for action in ("advance", "release", "start")
 } | {
     ("integration", "plan"),
     ("linear", "import"),
@@ -297,8 +287,6 @@ MUTATING_AGENT_PALARI_COMMANDS = {
     ("linear", "sync"),
     ("proposal", "create"),
     ("proposal", "update"),
-    ("receipt", "record"),
-    ("receipt", "update"),
     ("work", "expand-scope"),
 }
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}

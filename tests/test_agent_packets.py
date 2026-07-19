@@ -16,7 +16,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from palari_company_os.agent_checks import build_agent_check
+from palari_company_os.agent_checks import _completion_checks, build_agent_check
 from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
@@ -307,6 +307,58 @@ class AgentPacketProjectionTests(unittest.TestCase):
             "fail",
         )
         self.assertEqual(outside["file_changes"]["outside_write_boundary"], ["outside.txt"])
+
+    def test_check_routes_proof_remediation_through_agent_advance(self) -> None:
+        start_agent(self.workspace(), self.workspace_file, WORK_ID, PALARI_ID)
+
+        result = build_agent_check(self.workspace(), WORK_ID, PALARI_ID)
+
+        expected = (
+            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        )
+        checks = _checks(result)
+        self.assertEqual(checks["RECEIPT_PRESENT"]["next_command"], expected)
+        self.assertEqual(checks["EVIDENCE_PRESENT"]["next_command"], expected)
+        self.assertEqual(result["next_allowed_commands"][0], expected)
+        commands = "\n".join(result["next_allowed_commands"])
+        self.assertNotIn("receipt record", commands)
+        self.assertNotIn("evidence record", commands)
+        self.assertNotIn("attempt closeout", commands)
+
+    def test_check_never_generates_an_individual_human_decision(self) -> None:
+        packet = build_agent_brief(self.workspace(), WORK_ID, PALARI_ID, "execute")
+        packet["completion_contract"] = {
+            **packet["completion_contract"],
+            "requires_review": True,
+            "requires_human_decision": True,
+        }
+        packet["proof_state"].update(
+            {
+                "receipt": {"id": "RECEIPT-CURRENT"},
+                "evidence": {"id": "EVIDENCE-CURRENT"},
+                "review": {"id": "REVIEW-CURRENT"},
+                "human_decision": None,
+            }
+        )
+        packet["state"]["safety"].update(
+            {
+                "receipt_state": "ready",
+                "evidence_state": "passed",
+                "review_state": "accept-ready",
+                "approval_progress": "0/1",
+            }
+        )
+
+        checks = {
+            str(item["code"]): item for item in _completion_checks(packet)
+        }
+
+        expected = (
+            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        )
+        human_check = checks["HUMAN_DECISION_PRESENT"]
+        self.assertEqual(human_check["next_command"], expected)
+        self.assertNotIn("human-decision", json.dumps(human_check))
 
     def test_finish_translates_missing_proof_without_mutating(self) -> None:
         result = build_agent_finish(self.workspace(), WORK_ID, PALARI_ID)
