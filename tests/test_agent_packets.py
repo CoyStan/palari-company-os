@@ -336,11 +336,13 @@ class AgentPacketProjectionTests(unittest.TestCase):
     def test_check_routes_proof_remediation_through_agent_advance(self) -> None:
         start_agent(self.workspace(), self.workspace_file, WORK_ID, PALARI_ID)
 
+        packet = build_agent_brief(self.workspace(), WORK_ID, PALARI_ID, "execute")
         result = build_agent_check(self.workspace(), WORK_ID, PALARI_ID)
 
         expected = (
             f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
         )
+        self.assertIn(expected, packet["next_allowed_commands"])
         checks = _checks(result)
         self.assertEqual(checks["RECEIPT_PRESENT"]["next_command"], expected)
         self.assertEqual(checks["EVIDENCE_PRESENT"]["next_command"], expected)

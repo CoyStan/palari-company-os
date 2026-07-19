@@ -93,7 +93,6 @@ def build_agent_brief(
                 palari_id,
                 status,
                 mode,
-                proof_state,
                 review_context,
             ),
             "blockers": blockers,
@@ -665,7 +664,6 @@ def _next_allowed_commands(
     palari_id: str,
     status: str,
     mode: str,
-    proof_state: dict[str, Any] | None = None,
     review_context: dict[str, Any] | None = None,
 ) -> list[str]:
     if status == "blocked":
@@ -690,21 +688,8 @@ def _next_allowed_commands(
         f"palari scope {work_id} --json",
         f"palari detail {work_id} --json",
         "palari validate --json",
-        _receipt_command(work_id, palari_id, proof_state),
+        f"palari agent advance {work_id} --as {palari_id} --json",
     ]
-
-
-def _receipt_command(
-    work_id: str,
-    palari_id: str,
-    proof_state: dict[str, Any] | None = None,
-) -> str:
-    attempt = (proof_state or {}).get("attempt")
-    attempt_id = attempt.get("id", "ATTEMPT-ID") if isinstance(attempt, dict) else "ATTEMPT-ID"
-    return (
-        "palari receipt record RECEIPT-ID "
-        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {palari_id} --json"
-    )
 
 
 def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, Any] | None:

@@ -308,7 +308,7 @@ def _external_write_check(packet: dict[str, Any]) -> dict[str, Any]:
 
 def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: bool) -> list[str]:
     if ok:
-        return _agent_check_commands(packet.get("next_allowed_commands", []), packet)
+        return _agent_check_commands(packet.get("next_allowed_commands", []))
     commands: list[str] = []
     for check in checks:
         command = check.get("next_command", "")
@@ -317,57 +317,28 @@ def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: boo
             and check.get("status") == "fail"
             and command
         ):
-            _append_agent_check_command(commands, command, packet)
+            _append_agent_check_command(commands, command)
     for command in (
         list(packet.get("next_allowed_commands", []))
         + packet_commands_from_checks(packet)
     ):
-        _append_agent_check_command(commands, command, packet)
+        _append_agent_check_command(commands, command)
     _prioritize_review_handoff(commands, packet)
     return commands
 
 
-def _agent_check_commands(commands: list[str], packet: dict[str, Any]) -> list[str]:
+def _agent_check_commands(commands: list[str]) -> list[str]:
     normalized: list[str] = []
     for command in commands:
-        _append_agent_check_command(normalized, command, packet)
+        _append_agent_check_command(normalized, command)
     return normalized
 
 
-def _append_agent_check_command(
-    commands: list[str], command: str, packet: dict[str, Any]
-) -> None:
+def _append_agent_check_command(commands: list[str], command: str) -> None:
     if not command:
         return
-    normalized = _normalize_agent_check_command(command, packet)
-    if normalized not in commands:
-        commands.append(normalized)
-
-
-def _normalize_agent_check_command(command: str, packet: dict[str, Any]) -> str:
-    return (
-        _agent_advance_command(packet)
-        if _is_direct_proof_mutation(command)
-        else command
-    )
-
-
-def _is_direct_proof_mutation(command: str) -> bool:
-    stripped = command.strip()
-    return any(
-        stripped.startswith(prefix)
-        for prefix in (
-            "palari agent done ",
-            "palari attempt closeout ",
-            "palari attempt record ",
-            "palari attempt update ",
-            "palari evidence record ",
-            "palari evidence update ",
-            "palari human-decision record ",
-            "palari receipt record ",
-            "palari receipt update ",
-        )
-    )
+    if command not in commands:
+        commands.append(command)
 
 
 def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
@@ -383,7 +354,7 @@ def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
 
 def _first_command(packet: dict[str, Any]) -> str:
     commands = packet.get("next_allowed_commands", [])
-    return _normalize_agent_check_command(commands[0], packet) if commands else ""
+    return commands[0] if commands else ""
 
 
 def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> None:
