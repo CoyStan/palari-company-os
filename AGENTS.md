@@ -135,8 +135,9 @@ Fresh Git projects may use `palari init --host HOST`; existing workspaces use
 the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
 where `HOST` is `claude` or `codex`. Both profiles install the portable
 contract, commit-time Git boundary, and tested session hooks; Codex requires
-explicit `/hooks` trust. Existing `palari claude install` remains compatible;
-see `docs/product/claude-code-integration.md`.
+explicit `/hooks` trust. `palari claude install` remains the hook-only
+management, repair, and removal surface; see
+`docs/product/claude-code-integration.md`.
 
 ## Agent-Ready Repo Docs
 

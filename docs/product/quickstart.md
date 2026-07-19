@@ -94,8 +94,8 @@ as supported session profiles. No profile grants review, human acceptance,
 merge, push, deployment, provider, or external-write authority. Nested
 workspaces install at the enclosing Git root; existing root instructions or
 host configuration are preserved outside the bootstrap anchor and require the
-one returned review/adoption action. Existing `palari claude install` remains
-compatible. See [Claude Code
+one returned review/adoption action. `palari claude install` remains available
+for hook-only management, repair, and removal. See [Claude Code
 Integration](claude-code-integration.md).
 
 ## Optional Local Desk

@@ -175,9 +175,9 @@ Authority rules:
   workspace is loaded or project files are written. Generated commands use an
   inspectable project-local launcher when present; otherwise they preserve the
   absolute Palari entrypoint currently running or a validated `PATH` entry.
-  Existing `palari claude install` remains compatible; its Palari-managed
-  legacy hooks are upgraded and removed without duplicate entries while
-  co-located foreign host hooks are preserved.
+  `palari claude install` remains the hook-only management, repair, and removal
+  surface. It manages current Palari entries without duplicating them and
+  preserves co-located foreign host hooks.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked
