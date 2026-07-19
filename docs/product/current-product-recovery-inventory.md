@@ -285,6 +285,10 @@ evidence used to choose each slice. The reduction produced these dispositions:
   recommendation, Mission Control, and CLI tests were rebuilt around pure
   kernel decisions or genuine system boundaries. The committed example and
   dogfood workspace are not executable candidate fixtures.
+- Exact human acceptance is exposed through the digest-bound Approval Inbox
+  action, not a raw Mission Control decision form. Approval Pack batching now
+  derives in the kernel only from declared risk, canonical external-write
+  authority, and recorded external effects; prose keywords grant no authority.
 - CI now has one authoritative complete candidate on Python 3.12, thin
   compatibility checks on the other supported interpreters, and one wheel
   build/install. Focused verification runs only explicitly named modules; the
