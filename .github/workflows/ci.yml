@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install development tools
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install "setuptools>=68" -e ".[dev]"
 
       - name: Verify candidate
         run: ./scripts/verify.sh complete

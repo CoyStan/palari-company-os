@@ -18,6 +18,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertIn("cancel-in-progress: true", workflow)
         self.assertIn("Candidate gate (Python 3.12)", workflow)
+        self.assertIn(
+            'python -m pip install "setuptools>=68" -e ".[dev]"',
+            workflow,
+        )
         self.assertEqual(workflow.count("./scripts/verify.sh complete"), 1)
         self.assertIn(
             'python-version: ["3.10", "3.11", "3.13", "3.14"]',
