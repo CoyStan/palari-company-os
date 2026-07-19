@@ -32,7 +32,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue((REPO_ROOT / "scripts/make_demo_assets.sh").exists())
         self.assertLess(first_screen.count("\n"), 50)
         self.assertIn("palari demo", readme)
-        self.assertIn("./bin/palari serve --as HUMAN-FOUNDER", readme)
+        self.assertIn("./bin/palari demo --serve", readme)
         for late_noun in (
             "workbench",
             "work item",
@@ -75,7 +75,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("[Glossary](docs/product/glossary.md)", readme)
         self.assertIn("[Glossary](glossary.md)", quickstart)
         self.assertLess(
-            quickstart.index("./bin/palari serve --as HUMAN-FOUNDER"),
+            quickstart.index("palari serve --as HUMAN-FOUNDER"),
             quickstart.index("## Verify The Repo"),
         )
         command_reference = (REPO_ROOT / "docs/product/command-reference.md").read_text(
@@ -190,19 +190,22 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn("docs/product/agent-loop-smoke.md", doc)
 
         required_snippets = [
-            "./bin/palari agent next --all",
-            "./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json",
-            "./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json",
-            "./bin/palari agent finish WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari agent doctor WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari agent loop WORK-0003 --as PALARI-SOFIA --json",
-            "./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0003 --as PALARI-STEWARD --json",
+            'PALARI_SMOKE_ROOT="$(mktemp -d)"',
+            'cp -R examples/acme-company-os "$PALARI_SMOKE_ROOT/workspace"',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json',
             "human_action_boundary",
             "human_action_commands",
         ]
 
         for snippet in required_snippets:
             self.assertIn(snippet, smoke)
+        self.assertNotIn("--workspace workspaces/palari-company-os", smoke)
 
     def test_docs_check_current_repo_has_no_failures(self) -> None:
         result = check_docs(REPO_ROOT)

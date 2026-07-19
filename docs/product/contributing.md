@@ -36,6 +36,6 @@ Do not:
 - import old evidence bundles, reports, claims, worktrees, caches, or runtime
   state
 - add secrets
-- enable real broker side effects
+- add a live provider path without an explicit governed adapter contract
 - turn policy simulation into real authority
 - introduce heavy process ceremony as the default workflow

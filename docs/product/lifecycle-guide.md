@@ -43,7 +43,7 @@ PALARI-ID --json`; without an explicit host, initialization still refuses an
 existing workspace. Other harnesses can consume the provider-neutral contract
 without being advertised as supported session profiles.
 
-The compatible `--write` form requires an output to exist. Use repeatable
+The presence-only `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` instead when exact mutation class
 matters; exact intents cannot be mixed with `--write`.
 
@@ -225,4 +225,6 @@ deletion history.
   --summary "The onboarding note was accepted."
 ```
 
-Completion fails closed unless the queue says the work is ready to integrate.
+Completion fails closed unless the trusted transition re-evaluates current
+exact proof, dependencies, review, human authority, and external-effect state.
+Queue and detail report that result; they do not authorize the transition.

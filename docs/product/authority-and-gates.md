@@ -95,11 +95,12 @@ output and human or organizational authority.
 
 ## Broker Boundaries
 
-Broker/tool side effects are disabled by default in the first Palari Company OS
-slice. The model can represent that a work item would need broker access, but
-it must not imply that access is live.
+Generic broker/tool execution is disabled. Provider-neutral integration
+commands only plan, approve, and queue local records. Linear is the one current
+live provider adapter, and its explicit send path executes only an exact
+approved, queued action; a provider label alone never implies live access.
 
-Future broker integration should require:
+Any additional live adapter must require:
 
 - explicit resource/action permissions
 - inspectable evidence
@@ -131,7 +132,8 @@ none may manufacture an independent review or human decision.
 
 ## Review Gate Profiles
 
-Gate profiles are lightweight review contracts. They recover the useful part of
+Gate profiles are a parked advisory view, not current core. They are lightweight
+review contracts that recover the useful part of
 the older Palari v05 practice: a reviewer should know which failure mode they
 are hunting before they inspect work.
 
@@ -185,11 +187,11 @@ requires its matching acceptance record.
 `palari human-decision pack` is an additional human-only acceptance surface,
 not an agent shortcut. It binds one attributable action to an immutable pack
 and its canonical presentation artifact, then derives one decision record per
-selected member. Each new pack-v2 decision retains its own proof references,
+selected member. Each pack-v2 decision retains its own proof references,
 exact member/subject digest, presentation schema/surface/digest, and one
-canonical presentation artifact per action. Historical pack-v1 decisions stay
-readable but cannot be silently upgraded or mistaken for presentation-bound
-authority. The governance kernel counts `approval-pack` decisions under the
+canonical presentation artifact per action. Approval Pack v1 is unsupported;
+missing or unsupported presentation-bound authority fails closed instead of
+being upgraded. The governance kernel counts `approval-pack` decisions under the
 same capability, reviewer
 independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.

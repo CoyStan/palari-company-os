@@ -45,14 +45,14 @@ The demo is offline and uses a throwaway temp directory. It shows the blocked
 file change, a committed in-bound change, and one `agent advance` deriving the
 receipt and evidence needed to close safe low-risk local work.
 
-Then open the live local supervision desk:
+Then open the same throwaway demo in the live local supervision desk:
 
 ```bash
-./bin/palari serve --as HUMAN-FOUNDER
+./bin/palari demo --serve
 ```
 
-`serve` is local only by default. It lets you click through work that needs
-human attention while the files remain the source of truth.
+The demo server is local only by default. It lets you click through work that
+needs human attention while the temporary files remain the source of truth.
 
 To adopt it in your own repo, create the local contract, add bounded work, and
 let any agent claim the next safe item:
@@ -104,8 +104,8 @@ Git pre-commit hook fails closed. Co-located foreign host hooks are preserved;
 legacy Palari-managed Claude hooks are upgraded in place and remain cleanly
 removable.
 
-Use legacy `--write PATH` when the output must exist. When final mutation type
-matters, declare it exactly and do not mix the forms:
+Use `--write PATH` when only the output's final presence matters. When mutation
+type matters, declare it exactly and do not mix the forms:
 
 ```bash
 palari work add "Replace obsolete guidance" \
@@ -186,15 +186,16 @@ Implemented now:
   workspaces, with replay, corruption detection, and crash recovery
 - canonical Approval Packs with item-level proof, dependency-aware staleness,
   one exact human decision, risk-based batching, and parked external effects
-- content-addressed journal checkpoints with append-only human restoration and
-  explicit external-effect non-guarantees
+- parked content-addressed checkpoint restoration for local human recovery,
+  outside the ordinary supported lifecycle and with explicit external-effect
+  non-guarantees
 - parallel workbench modeling and conflict warnings
 - dry-run integration plans, approvals, and cancelable outbox records
 - a governed Linear adapter: `linear connect` setup, issue discovery and
   imports, pull sync, human-approved comment, status-update, and
   issue-creation sends, and verified Issue webhooks
   ([Linear Operating Loop](docs/product/linear-operating-loop.md))
-- external playbook recommendations as lightweight guidance
+- parked external playbook recommendations as non-authoritative guidance
 - example and dogfood workspaces
 - CI, local verification, and install smoke tests
 
@@ -203,7 +204,7 @@ Not implemented yet:
 - live Slack, GitHub, Jira, email, Google Drive, or document connector execution
 - hosted web app or multi-user server
 - background agent runner
-- real broker execution
+- generic broker execution beyond the approved Linear adapter
 - real policy acceptance
 - secret manager or signed key custody
 - autonomous acceptance, merge, push, or deploy
@@ -359,35 +360,31 @@ goal -> workbench -> selected sources -> work item -> attempt
 
 ```bash
 # Read models
-./bin/palari queue
-./bin/palari detail WORK-0001
-./bin/palari state
-./bin/palari history
+palari queue
+palari detail WORK-ID
+palari state
+palari history
 
 # Safety and boundaries
-./bin/palari validate
-./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
+palari validate
+palari scope WORK-ID --changed docs/notes.md
 
 # Agent contract
-./bin/palari agent next --as PALARI-SOFIA --json
-./bin/palari agent start --next --as PALARI-SOFIA --json
-./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent advance WORK-0003 --as PALARI-SOFIA --json
-./bin/palari agent release WORK-0003 --as PALARI-SOFIA \
+palari agent next --as PALARI-ID --json
+palari agent start --next --as PALARI-ID --json
+palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent check WORK-ID --as PALARI-ID --mode execute --json
+palari agent advance WORK-ID --as PALARI-ID --json
+palari agent release WORK-ID --as PALARI-ID \
   --reason "Paused" --next-action "Resume from the recorded blocker" --json
 
-# Lightweight process guidance
-./bin/palari playbooks sources
-./bin/palari playbooks recommend WORK-0003
-
 # Agent-ready repo docs
-./bin/palari docs check --json
-./bin/palari docs map
-./bin/palari docs init --dry-run --json
+palari docs check --json
+palari docs map
+palari docs init --dry-run --json
 
 # Local human supervision
-./bin/palari serve --as HUMAN-FOUNDER
+palari serve --as HUMAN-ID
 ```
 
 Use `--json` when wiring Palari into agents, scripts, or other tools.
@@ -409,7 +406,8 @@ tests/                             Unit and fixture tests
 
 ## Golden Paths
 
-- **Demo:** run `./bin/palari demo`, then open `./bin/palari serve --as HUMAN-FOUNDER`.
+- **Demo:** run `./bin/palari demo`, or add `--serve` to open its temporary
+  workspace in Mission Control.
 - **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
 - **Human loop:** open `palari queue --approval-inbox --json`, inspect the exact
   presentation, and run only its bound human action.
@@ -440,7 +438,7 @@ Then go deeper:
 - [Authority And Gates](docs/product/authority-and-gates.md)
 - [Schema And Validation](docs/product/schema-and-validation.md)
 - [Lifecycle Guide](docs/product/lifecycle-guide.md)
-- [External Playbooks](docs/product/playbooks.md)
+- [Parked External Playbooks](docs/product/playbooks.md)
 - [Testing Guide](docs/product/testing-guide.md)
 - [Security Notes](docs/product/security.md)
 - [Roadmap](docs/product/roadmap.md)
@@ -478,8 +476,8 @@ compatibility checks.
 - **Evidence is universal; ceremony is risk-based.** Every completion requires
   current exact proof. Only R1/light/zero-approval work with no external-write
   surface may omit independent review and human acceptance.
-- **Read models do not mutate authority.** Queue, detail, state, Mission
-  Control, and prototypes are derived from workspace data.
+- **Read models do not mutate authority.** Queue, detail, state, and Mission
+  Control are derived from workspace data.
 - **Ordinary software maintenance wins.** The repo should stay simple,
   inspectable, dependency-light, and easy for humans and agents to work on.
 

@@ -79,6 +79,8 @@ When adding a command, update parser, dispatch, output, tests, and
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
+- `src/palari_company_os/mission_control.py`: optional local human supervision
+  over current read models and exact human actions.
 - `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
   of the packet write boundary (PreToolUse deny, Stop backstop, SessionStart
   context); the core operating loop is provider-neutral.
@@ -128,7 +130,7 @@ runtime state.
 - `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
   interruption recovery, and interaction-count evidence.
 - `tests/test_agent_file_changes.py`: explicit path-intent and deletion
-  tombstone enforcement plus legacy compatibility.
+  tombstone enforcement plus the committed presence-contract reader boundary.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.

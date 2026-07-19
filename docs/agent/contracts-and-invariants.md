@@ -63,14 +63,15 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   exact proof/artifact freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
-- New Approval Pack v2 decisions bind the exact canonical presentation artifact
+- Approval Pack v2 decisions bind the exact canonical presentation artifact
   named by the human command. Relevant decision-context changes stale the old
   presentation. One action may perform only the crash-safe local convergence
   already authorized by current quorum; it cannot manufacture review, another
-  vote, external effects, or expanded authority. Historical pack v1 decisions
-  remain readable but are not presentation-bound.
+  vote, external effects, or expanded authority. Approval Pack v1 is not a
+  supported stored format; an unsupported pack or missing presentation binding
+  fails closed.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
-  pack-decision authority surface; Claude agent shells hard-deny it.
+  pack-decision authority surface; supported agent shell adapters hard-deny it.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but
@@ -132,10 +133,9 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   itself, and labels host write/read/stop enforcement as adapter-required or
   advisory unless a separately verified adapter provides it. Missing,
   malformed, duplicate-key, digest-mismatched, path-mismatched, or
-  current-packet-mismatched contracts invalidate the claim. New claim schema v2
-  requires both binding fields, so removing both cannot fall back to legacy
-  handling. Historical claim schema v1 records without the additive binding
-  remain readable until restarted, when they are upgraded to v2.
+  current-packet-mismatched contracts invalidate the claim. Claim schema v2
+  requires both binding fields, so removing both cannot fall back to another
+  path. Claim schema v1 is unsupported and is not upgraded in place.
 - Git integration readiness compares the exact attempt commit with a target in
   an isolated temporary clone. Divergent projections always require refreshed
   exact proof even when the simulated merge is clean.
@@ -270,8 +270,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Governance evidence is not the same thing as a receipt. A receipt alone can
   never complete work; every completion path requires current exact evidence.
 - Dry-run integration plans never call providers.
-- External writes require explicit approval and an outbox boundary before future
-  live execution.
+- External writes require explicit approval and an outbox boundary before any
+  supported live execution.
 - Queued external writes are not actual external writes.
 
 ## Documentation

@@ -1,14 +1,19 @@
 # Security Notes
 
-Palari Company OS is safe by default in this v0.2 local foundation.
+Palari Company OS is safe by default as a local governance kernel.
 
 It does not:
 
 - require secrets for local verification
-- perform broker or external side effects
+- provide generic broker execution or perform an external write without an
+  exact approved plan, queued outbox item, supported adapter, and explicit send
 - activate real policy acceptance
 - deploy anything
 - contact external systems during tests or examples
+
+Linear is the sole current live provider adapter. Its comment, issue-status,
+and issue-creation writes are separate human actions after planning, approval,
+and enqueue; generic integration commands remain local and non-executing.
 
 Authority rules:
 
@@ -249,7 +254,7 @@ Palari may supply an independent advisory review, but only identities in
 behavior.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
-each member digest are persisted with the human decision. New pack-v2 actions
+each member digest are persisted with the human decision. Pack-v2 actions
 also require and persist the digest of a strict canonical decision presentation
 covering the pack, proof, boundaries, effects, available actions, execution
 order, and relevant current decisions. Current bytes, review, recursively bound
@@ -275,9 +280,9 @@ earliest occurrence of the selected content digest, including when a later
 projection removed the record or returned to the same bytes. Compensation must
 be a separate governed action; it is never inferred from local restoration.
 
-`history --restore` is human-only in the Claude shell enforcement boundary. A
-declared human id is attribution, not authority delegation: agent Bash is
-denied before the command can mutate the workspace.
+`history --restore` is human-only in the supported session-hook enforcement
+boundaries. A declared human id is attribution, not authority delegation:
+agent-issued shell commands are denied before they can mutate the workspace.
 `human-decision pack` receives the same hard denial; agent Bash cannot record
 approve, reject, or defer authority through a bare, reordered, path-qualified,
 equals-form, or compound command.

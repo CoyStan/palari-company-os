@@ -44,10 +44,12 @@ class PublicSurfaceTests(unittest.TestCase):
         surface = _read("docs/product/public-surface.md")
 
         self.assertIn(
-            "Palari core kernel = workspace schema + agent packets + boundary checks +",
+            "The governance kernel is the normalized governance case, pure evaluator, and",
             surface,
         )
-        self.assertIn("receipts/evidence/review/acceptance + integration outbox", surface)
+        self.assertIn("exact scope/proof/review/authority bindings", surface)
+        self.assertIn("translate those decisions", surface)
+        self.assertIn("do not own a second lifecycle", surface)
         self.assertIn("| Mission Control and local serve | visual |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
         self.assertIn("Current CLI command count from parser inspection: **142**.", surface)

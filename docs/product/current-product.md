@@ -134,6 +134,16 @@ An adapter cannot widen scope, accept work, combine builder and reviewer,
 create human authority, bypass evidence, or turn a queued external action into
 an executed one.
 
+## Parked surfaces
+
+Several reachable surfaces remain parked because the evidence was insufficient
+to delete or promote them: checkpoint restoration, the split-collection reader,
+broad manual planning/record authoring beyond the ordinary onramp, and the data
+map, maintainer, gate, and playbook recommendation views. They are not
+`CURRENT-CORE`, do not own authority, and carry no pre-1.0 compatibility
+promise. Their retention must not make them dependencies of the ordinary path
+or a second lifecycle.
+
 The former advisory Cursor/Devin/GLM/generic session-profile aliases and the
 provider-specific Slack/GitHub/Jira/email preview shapes were removed as
 unsupported experiments. The separate desktop prototype, demo schema,

@@ -15,7 +15,7 @@ remain the assignment boundary.
 4. A qualified human uses `palari queue --approval-inbox --json`, inspects the
    exact presentation, and runs only its emitted bound action.
 
-Use `work add --write PATH` for the compatible presence-required contract. Use
+Use `work add --write PATH` when only final presence matters. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final
 mutation class matters; do not mix exact intents with `--write`.
 
@@ -25,7 +25,7 @@ records blocked state and the next action before releasing the claim; it does
 not create proof or authority. It requires a writable governance journal; a
 legacy workspace must first run the exact returned `history --checkpoint`
 action. Use `next`, `brief`, explicit `start`, `check`,
-`finish`, `handoff`, `doctor`, and `loop` as compatible inspection and recovery
+`finish`, `handoff`, `doctor`, and `loop` as optional inspection and recovery
 surfaces rather than mandatory ceremony.
 
 ## Add Or Change A CLI Command
@@ -58,7 +58,8 @@ surfaces rather than mandatory ceremony.
 
 1. Preserve source boundaries and no-raw-secret rules.
 2. Keep receipts human-facing.
-3. Keep integrations dry-run unless live execution is explicitly designed.
+3. Keep generic integrations dry-run; any live adapter must preserve the
+   explicit plan, approval, outbox, and send boundaries.
 4. Update relevant product docs and tests.
 
 ## Change Public Docs Or README

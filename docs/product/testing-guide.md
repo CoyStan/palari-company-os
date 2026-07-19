@@ -22,7 +22,8 @@ was pushed. Superseded runs are cancelled.
 The complete profile includes:
 
 1. exhaustive pure governance, scope, and canonicalization tests;
-2. focused filesystem, symlink, journal, proof, and current migration tests;
+2. focused filesystem, symlink, journal, proof, and required stored-format
+   reader tests;
 3. one temporary-workspace CLI golden path and structured failures;
 4. supported adapter contract tests separated from core authority tests;
 5. repository text checks, Ruff, mypy, compilation, schema checks, agent-ready

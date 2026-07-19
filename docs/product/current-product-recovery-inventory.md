@@ -1,7 +1,7 @@
 # Current Product Recovery Inventory
 
-Status: structural baseline for Current Product Recovery and Architectural
-Reduction v1.
+Status: baseline and reduction ledger for Current Product Recovery and
+Architectural Reduction v1. Final candidate metrics remain pending.
 
 This ledger records the repository as recovered at
 `b71494fee2c94722261d4f2a199806a93aa9a87a`. It is evidence for reduction, not
@@ -249,3 +249,76 @@ candidate prerequisite. Persistent caches never become authority.
 Ambiguous surfaces remain parked until the current product definition or new
 objective evidence resolves them. They do not block the unambiguous reductions
 above.
+
+## Reduction result
+
+The capability and test tables above describe the recovered baseline and the
+evidence used to choose each slice. The reduction produced these dispositions:
+
+- `agent done`, receipt-only completion, the duplicate `lifecycle` grammar,
+  `workspace init`, the synthetic workspace `migrate` command, the operational
+  `.palari/history.jsonl` implementation, claim schema v1, and Approval Pack v1
+  were deleted. Current completion requires exact evidence and routes through
+  the governance evaluator and trusted transition boundary.
+- Governance-journal v2 is the sole current writer. The strict v1 journal is
+  retained only as a sealed predecessor proven by committed data. Historical
+  schema-v2 records without `path_intents` or `output_binding_version`, plus
+  unbound non-accepting reviews, remain behind narrow read-only boundaries and
+  gain no stronger authority by inference.
+- Cursor, Devin, GLM, and generic session-profile aliases were removed. Claude
+  and Codex remain the two tested session adapters over the same portable
+  contract and host-neutral Git boundary.
+- Speculative provider-specific preview shapes were removed. The generic
+  external-action path is opaque and non-executing; Linear remains the only
+  supported live provider adapter.
+- The static dashboard/desktop prototype stack, demo schema, showcase, Pages
+  workflow, historical implementation contracts, and archive documents were
+  deleted. Git remains their historical record; Mission Control is the one
+  supported local human UI.
+- Identical packaged schema and ACME workspace copies, the hidden default
+  fallback, and their synchronization tests were deleted. The root schema is
+  authoritative, the ACME workspace is a repository example only, and package
+  verification uses one isolated temporary wheel smoke.
+- Packet, read-model, transition, validation, hook, MCP, integration,
+  recommendation, Mission Control, and CLI tests were rebuilt around pure
+  kernel decisions or genuine system boundaries. The committed example and
+  dogfood workspace are not executable candidate fixtures.
+- CI now has one authoritative complete candidate on Python 3.12, thin
+  compatibility checks on the other supported interpreters, and one wheel
+  build/install. Focused verification runs only explicitly named modules; the
+  affected-path registry and hidden full-suite fallback were removed.
+
+The parked decisions remain parked: checkpoint restoration, split collection
+files, broad planning/coordination objects, and optional recommendation/status
+views are not promoted into `CURRENT-CORE` merely because their code remains.
+They may be resolved only with new objective product evidence.
+
+### Final candidate evidence
+
+Fill this table only after the authoritative complete gate passes on the final
+candidate. Do not substitute a partial test run or an earlier intermediate
+measurement.
+
+| Measure | Baseline | Final candidate |
+| --- | ---: | ---: |
+| Candidate commit | `b71494fee2c94722261d4f2a199806a93aa9a87a` | `FINAL-TBD` |
+| Tracked files | 266 | FINAL-TBD |
+| Package Python source files | 84 | FINAL-TBD |
+| Package Python source lines | 53,196 | FINAL-TBD |
+| Package functions and methods | 1,702 | FINAL-TBD |
+| Package classes | 86 | FINAL-TBD |
+| Public CLI command paths | 154 | FINAL-TBD |
+| Test modules | 47 | FINAL-TBD |
+| Test methods | 950 | FINAL-TBD |
+| Test lines | 29,914 | FINAL-TBD |
+| Product documentation files under `docs/` | 51 | FINAL-TBD |
+| Product documentation lines under `docs/` | 14,192 | FINAL-TBD |
+| Complete-gate result | pass | FINAL-TBD |
+| Complete-gate wall time | 147.66 s | FINAL-TBD |
+| PCAW conformance vectors | 18 | FINAL-TBD |
+
+Final verification command: `./scripts/verify.sh complete`.
+
+Before replacing the placeholders, also record that the branch and worktree
+were clean, no hooks were installed, and the dogfood workspace was byte-unchanged
+from the protected baseline.

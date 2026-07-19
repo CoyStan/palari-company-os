@@ -25,28 +25,42 @@ repository milestones, not a production Company OS release.
 ### Changed
 
 - Removed the hidden packaged ACME workspace and schema copies. Commands now
-  use an explicit workspace or the current directory, while the isolated wheel
-  smoke owns the package boundary.
+  use an explicit workspace or the current directory. The ACME workspace is a
+  repository example only, while the isolated wheel smoke owns the installed
+  package boundary.
 - Removed the superseded `palari agent done` command and receipt-only
   completion lifecycle. `palari agent advance` is now the sole current
   execution-to-proof path, every completion requires current exact evidence,
   and only R1/light/zero-approval work with no external-write surface may omit
   independent review and human acceptance.
-- Retired the bundled static `dashboard` command, generator, screenshots, and
-  publication path. Structured CLI read models and the local Mission Control
-  and desktop prototype surfaces remain available; invoking `dashboard` now
-  fails as an unknown command. This is an intentional pre-1.0 CLI break. The
-  deletion removes 2,525 implementation/dedicated-test lines and 500,133 bytes
-  of screenshots; the authoritative gate measured 76.25 seconds versus the
-  immediately preceding 93.75-second dogfood baseline (contextual timing, not
-  a performance guarantee).
-- Advanced the workspace contract to schema v2. `palari migrate` now blocks
-  legacy unbound accept-ready reviews, revokes dependent acceptance, reopens
-  affected governed terminal work, and normalizes human-decision ordering
-  metadata instead of grandfathering unverifiable authority.
-- Added focused and affected verification profiles while keeping `complete` as
-  the authoritative acceptance gate; isolated install smokes now use unique
-  temporary directories safely under concurrent execution.
+- Removed the unsupported static visual stack: the old `dashboard` generator,
+  desktop prototype/server/assets/demo schema, showcase narrative, and Pages
+  deployment. Mission Control is now the sole supported local human UI. These
+  are intentional pre-1.0 removals and have no compatibility aliases.
+- Made workspace schema v2 and governance-journal v2 the sole current write
+  formats. Removed the synthetic v0/v1 workspace `migrate` command and the
+  duplicate `.palari/history.jsonl` runtime. A strict governance-journal v1
+  predecessor remains only as a sealed, explicit activation input proven by
+  committed data; its bytes are never rewritten.
+- Removed synthetic agent-claim v1 and Approval Pack v1 compatibility branches.
+  Current claims require schema v2 plus an exact session-contract binding, and
+  current Approval Packs require v2 plus an exact canonical presentation.
+- Replaced affected-path test routing with two explicit profiles: one
+  authoritative `complete` candidate gate and a focused mode that runs only the
+  named test modules. CI runs the complete gate once on Python 3.12, one wheel
+  build/install smoke, and thin import/kernel/help checks on the other supported
+  interpreters.
+- Removed unsupported Cursor, Devin, GLM, and generic session-profile aliases.
+  Claude and Codex are the tested session adapters; other harnesses may consume
+  the provider-neutral contract and host-neutral Git boundary without being
+  advertised as supported profiles.
+- Made generic external-action previews opaque and provider-neutral instead of
+  maintaining speculative Slack, GitHub, Jira, or email payload shapes. Linear
+  remains the only current live provider adapter.
+- Reconstructed the slow packet, read-model, transition, validation, adapter,
+  hook, and CLI tests around pure kernel decisions and genuine system
+  boundaries. Candidate verification no longer executes Palari against the
+  committed ACME example or dogfood workspace.
 - Human review and approval templates are emitted only inside explicit
   read-only handoff boundaries after their prerequisite proof passes.
 

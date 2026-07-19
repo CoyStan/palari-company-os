@@ -101,11 +101,11 @@ Integration](claude-code-integration.md).
 ## Optional Local Desk
 
 ```bash
-./bin/palari serve --as HUMAN-FOUNDER
+palari serve --as HUMAN-FOUNDER
 ```
 
-This local supervision view is optional; it is not part of the provider-neutral
-adoption or proof path.
+Run this inside the repository initialized above. This local supervision view
+is optional; it is not part of the provider-neutral adoption or proof path.
 
 ## Verify The Repo
 

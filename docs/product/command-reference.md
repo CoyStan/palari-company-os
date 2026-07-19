@@ -1,14 +1,22 @@
 # Command Reference
 
 Most commands are read-only. Initialization and authoring commands intentionally
-write to `workspace.json` after validation. No command
-merges, pushes, deploys, activates policy, executes broker side effects, uses
-secrets, or bypasses human authority.
+write to `workspace.json` after validation. No command merges, pushes, deploys,
+activates policy, or bypasses human authority. Generic integration commands do
+not call providers or read secrets. Linear is the one current live adapter; its
+explicit commands may read the configured credential for bounded reads or send
+an exact approved and queued comment, issue-status update, or issue creation.
 
 Running `palari --help` shows the small ordinary surface and its golden journey.
 Expert and recovery commands are intentionally omitted from
 that first screen but remain available and parseable; use direct
 `palari COMMAND --help` when operating below the ordinary loop.
+
+Reachability is not a compatibility promise. Checkpoint restoration, split
+collections, broad manual planning/record authoring, and the data map,
+maintainer, gate, and playbook recommendation views remain parked pending a
+product decision. They are outside the ordinary supported path and cannot own
+authority.
 
 ## Two-Minute Onramp
 
@@ -63,7 +71,7 @@ closed. Pass `--as`, `--goal`,
 `--workbench`, `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`,
 `--id`, or `--approvals` to override.
 
-`--write PATH` remains the compatible presence-required form. For exact
+`--write PATH` is the presence-required form. For exact
 mutation work, use repeatable `--create PATH`, `--modify PATH`, and
 `--delete PATH` instead:
 
@@ -80,9 +88,9 @@ explicit absent tombstone.
 
 The command returned by `work add` is `agent start --next`: it selects exactly
 one currently safe item using the same queue and packet policy, persists its
-portable contract, and claims it. Existing `agent next`, `brief`, and explicit
-`start WORK-ID` commands remain the inspectable compatibility surfaces.
-`palari claude install` remains the compatible Claude-only adapter command; it
+portable contract, and claims it. `agent next`, `brief`, and explicit
+`start WORK-ID` remain optional inspection and controlled-selection surfaces.
+`palari claude install` remains the supported Claude-only adapter command; it
 is not a requirement for the provider-neutral loop.
 
 ## Queue
@@ -253,7 +261,7 @@ workspace-relative collection files before running the same checks.
 ## Scope
 
 ```bash
-./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
+./bin/palari scope WORK-0001 --changed docs/notes.md
 ./bin/palari scope WORK-0001 --changed secrets.env --action deploy
 ```
 
@@ -398,8 +406,8 @@ immutable; substantive changes require a new review record.
 It records both a human decision and an acceptance record, then invokes the
 bounded deterministic convergence driver. When the exact proof remains current,
 `work accept` therefore normally reaches terminal state in the same human
-action. `work complete` remains as an idempotent compatibility and recovery
-surface for the same terminal gate. When a current qualified human decision
+action. `work complete` remains an explicit idempotent terminal and recovery
+surface for the same gate. When a current qualified human decision
 exists, it projects the derived acceptance record in memory, runs the complete
 gate against that projection, and writes acceptance plus terminal state only if
 the whole transition passes. Missing, stale, contradictory, or insufficient
@@ -435,7 +443,7 @@ reason, successor, and historical records. Existing successful terminal states
 ### MCP Server
 
 ```bash
-./bin/palari --workspace examples/acme-company-os mcp serve
+./bin/palari --workspace /path/to/workspace mcp serve
 ```
 
 `mcp serve` runs a stdio MCP server for agents and MCP-speaking clients. It
@@ -516,10 +524,10 @@ packet under `.palari/packets/`, persists the canonical session contract under
 lease claim under `.palari/claims/`, and returns the packet with `start`
 metadata. Missing, malformed, duplicate-key, digest-mismatched, path-mismatched,
 or current-packet-mismatched contracts invalidate the claim with restart
-guidance. Every new claim uses schema v2 and requires both contract fields, so
-deleting both fails closed. Historical schema-v1 claims without the additive
-contract fields remain readable until restarted and upgraded. The local schema
-marker does not authenticate a claim against a hostile same-user process. If
+guidance. Every claim uses schema v2 and requires both contract fields, so
+deleting both fails closed; unsupported claim schemas fail closed rather than
+being upgraded. The local schema marker does not authenticate a claim against a
+hostile same-user process. If
 the packet is blocked, `agent start` reports
 blockers and writes nothing. `agent release` removes this Palari's local claim
 when work is abandoned or handed off.
@@ -527,7 +535,7 @@ when work is abandoned or handed off.
 interruption path for an owned execute claim. In one journaled workspace
 mutation it records a blocked attempt, the reason, the exact next safe action,
 and packet/Git/digest/change observations, then releases the claim. Bare
-`agent release` keeps its compatible claim-only behavior. Durable release
+`agent release` remains the non-durable claim-only form. Durable release
 creates no receipt, evidence, review, decision, acceptance, outcome, or
 convergence authority. If execution stops after persistence but before release,
 rerunning the exact command resumes release without duplicating the parking
@@ -761,13 +769,13 @@ refreshed. The command does not merge, push, review, accept, or deploy.
 ## Claude Code Enforcement
 
 ```bash
-./bin/palari --workspace workspaces/palari-company-os claude install
-./bin/palari --workspace workspaces/palari-company-os claude install --local --strict
-./bin/palari --workspace workspaces/palari-company-os claude install --remove
-./bin/palari --workspace workspaces/palari-company-os claude status
-./bin/palari --workspace workspaces/palari-company-os claude status --json
+./bin/palari --workspace /path/to/workspace claude install
+./bin/palari --workspace /path/to/workspace claude install --local --strict
+./bin/palari --workspace /path/to/workspace claude install --remove
+./bin/palari --workspace /path/to/workspace claude status
+./bin/palari --workspace /path/to/workspace claude status --json
 echo '{"tool_name":"Write","tool_input":{"file_path":"deploy/production.yml"}}' \
-  | ./bin/palari --workspace workspaces/palari-company-os claude hook pre-tool-use
+  | ./bin/palari --workspace /path/to/workspace claude hook pre-tool-use
 ```
 
 `claude install` writes Palari-managed PreToolUse, Stop, and SessionStart hooks
@@ -987,8 +995,8 @@ events never delete or rewrite Palari records.
 `linear start` starts only adopted Palari work. Without adopted work it returns
 `needs_adoption` and prints the exact adoption command. With `--adopt-by`, the
 named id must be a human with authority; Palari ids cannot self-adopt. `--runner`
-only labels the emitted governed packet for Codex, Claude Code, Cursor, or a
-generic harness. It does not launch those tools.
+only labels the emitted governed packet for the supported Codex or Claude Code
+session adapter. It does not launch either tool.
 
 `linear post-gate` records a pending Linear comment plan and still performs no
 provider call. A qualified human must approve and enqueue that integration plan
@@ -1108,7 +1116,7 @@ workspace has changed.
 
 ```bash
 ./bin/palari serve --as HUMAN-FOUNDER
-./bin/palari --workspace examples/acme-company-os serve --as HUMAN-FOUNDER --port 8787
+./bin/palari --workspace /path/to/workspace serve --as HUMAN-FOUNDER --port 8787
 ./bin/palari demo --serve
 ```
 

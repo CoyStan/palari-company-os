@@ -6,29 +6,38 @@ another way to look at it.
 
 ## Core Kernel
 
-Palari core kernel = workspace schema + agent packets + boundary checks +
-receipts/evidence/review/acceptance + integration outbox.
+The governance kernel is the normalized governance case, pure evaluator, and
+exact scope/proof/review/authority bindings. The durable product core adds the
+workspace schema, replayable journal, trusted transition gates, PCAW protocol,
+and local external-effect stop boundary.
 
-Those pieces define authority, scope, proof, review, and external-write
-boundaries. Everything else should serve that kernel.
+CLI commands, packets, read models, hooks, MCP, UIs, and provider adapters
+translate those decisions. They do not own a second lifecycle or authority
+matrix.
 
 ## Current Surface Classes
 
 | Surface | Class | Notes |
 | --- | --- | --- |
+| Pure governance case and evaluator | core | Authoritative lifecycle, exact proof, independent review, quorum, and acceptance derivation. |
 | Workspace schema and validation | core | Local, inspectable source of truth. |
-| Transition checks | core | Hard stops for trust-changing mutations. |
-| Agent packet/check/start/release flow | core | Bounded AI work contract. |
+| Governance journal and trusted transitions | core | Replayable history and hard stops for trust-changing mutations. |
 | Receipts, evidence, reviews, decisions, acceptance | core | Trust and completion records. |
 | Integration plans and outbox | core | Human-approved external-write boundary. |
+| Agent packet/check/start/advance/release flow | agent adapter | Primary bounded execution path over the kernel. |
 | Queue, detail, state, history | operator | Derived read models and replayable journal checks for humans and agents. |
 | PCAW proof export and verification | core | Deterministic, offline proof statements and artifact integrity checks. |
-| Authoring commands | operator | Explicit local mutations of workspace records. |
+| Lifecycle authoring commands | operator | Explicit local mutations of current proof and authority records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
-| Claude Code hook enforcement | adapter | Structural write-boundary enforcement inside Claude Code sessions. |
+| Git commit gate | adapter | Optional structural enforcement of the packet path boundary. |
+| Claude and Codex session adoption | adapter | Tested project-local session enforcement over the portable contract. |
+| MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
 | Mission Control and local serve | visual | Local supervision surface, not core kernel. |
-| ACME workspace | example | Current local example and packaged starter data. |
+| ACME workspace | example | Repository example only; it is not packaged data, a default workspace, or candidate-test authority. |
+| Checkpoint restoration and split collections | parked | Reachable local recovery/read surfaces pending a product decision; neither is core lifecycle authority. |
+| Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no authority or pre-1.0 compatibility promise. |
+| Broad generic planning/record authoring | parked | Retained while classification is ambiguous; the ordinary onramp does not depend on it. |
 
 ## Command Surface
 

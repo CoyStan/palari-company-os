@@ -270,8 +270,8 @@ local Git witness for ready started work:
   closed and requires a successor because no durable authority origin exists.
   Existing witness refs, heads, and v2 catalog messages are verified before a
   restart lease and again under the final lock before local claim persistence.
-  New v2 claims require both portable-contract binding fields. Historical v1
-  claims without those fields remain readable and upgrade on restart; the
+  Claims use schema v2 and require both portable-contract binding fields.
+  Unsupported claim schemas fail closed and are not upgraded in place; the
   schema marker is declared local state, not authentication against a hostile
   same-user process.
 
@@ -333,9 +333,10 @@ Not implemented yet:
 
 - packet expansion
 - review/planning/repair modes
-- portable host installation or native sandbox adapters beyond the existing
-  separately documented Claude hook integration
-- live connector execution
+- an OS sandbox or tested session adapters beyond the separately documented
+  Claude and Codex project-hook integrations
+- generic live connector execution beyond the separately governed Linear
+  adapter
 - memory providers or vector search
 - portable deletion-history proof in PCAW v1; workspace tombstones are enforced
   locally but are not exported as a new protocol guarantee
