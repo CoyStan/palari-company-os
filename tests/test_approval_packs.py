@@ -276,7 +276,7 @@ class ApprovalPackTests(unittest.TestCase):
             handoff["human_action_commands"][0]["command"],
         )
 
-    def test_cli_exposes_inbox_detail_and_one_pack_decision_surface(self) -> None:
+    def test_cli_exposes_inbox_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
             inbox = run_json(
@@ -295,13 +295,6 @@ class ApprovalPackTests(unittest.TestCase):
                 "--approval-inbox",
                 "--select",
                 "WORK-001",
-            )
-            detail = run_json(
-                "--workspace",
-                str(data_path),
-                "detail",
-                "WORK-001",
-                "--json",
             )
             decision = run_json(
                 "--workspace",
@@ -328,7 +321,6 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertIn("Next: palari human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
         self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
-        self.assertTrue(detail["approval_pack"]["available"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
     def test_risk_friction_policy_keeps_governed_effects_individually_gated(self) -> None:

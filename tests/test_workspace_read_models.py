@@ -20,6 +20,8 @@ from palari_company_os.evidence_manifest import (
     evidence_manifest_hash,
     stamp_receipt_record,
 )
+from palari_company_os.cli_dispatch import run_command
+from palari_company_os.cli_parser import build_parser
 from palari_company_os.errors import WorkspaceError
 from palari_company_os.governance_binding import (
     BINDING_VERSION,
@@ -847,6 +849,31 @@ class ApprovalProjectionTests(unittest.TestCase):
 
 
 class CliTranslationTests(unittest.TestCase):
+    def test_detail_does_not_build_or_verify_an_approval_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_path = Path(directory) / "workspace.json"
+            workspace_path.write_text(
+                json.dumps(_base_workspace_raw()),
+                encoding="utf-8",
+            )
+            args = build_parser().parse_args(
+                [
+                    "--workspace",
+                    str(workspace_path),
+                    "detail",
+                    "WORK-1",
+                    "--json",
+                ]
+            )
+            with patch(
+                "palari_company_os.workspace_read_models.approval_detail",
+                side_effect=AssertionError("ordinary detail must not build exact packs"),
+            ):
+                result = run_command(args)
+
+        self.assertEqual(result.kind, "detail")
+        self.assertNotIn("approval_pack", result.payload)
+
     def test_state_json_translates_one_isolated_current_workspace(self) -> None:
         raw = _base_workspace_raw()
         raw["work_items"].extend(

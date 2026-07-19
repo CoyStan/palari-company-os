@@ -1037,15 +1037,6 @@ def print_detail(payload: dict[str, Any]) -> None:
     if payload.get("agent_handoff_command"):
         print("Agent handoff:")
         print(f"  {payload['agent_handoff_command']}")
-    approval = payload.get("approval_pack") or {}
-    if approval.get("available"):
-        item = approval.get("item") or {}
-        print(
-            f"Approval Pack: {approval.get('pack_id', '')} | "
-            f"{item.get('state', 'unknown')} | {approval.get('pack_digest', '')}"
-        )
-    elif approval:
-        print(f"Approval Pack unavailable: {approval.get('reason', 'unknown reason')}")
     print(f"Safety: {payload['safety']}")
     if payload.get("agent_commands"):
         print("Agent commands:")

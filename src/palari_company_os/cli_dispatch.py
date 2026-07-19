@@ -160,12 +160,9 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "detail":
         from .read_models import detail
-        from .workspace_read_models import approval_detail
 
         workspace = Workspace.load(args.workspace)
-        payload = detail(workspace, args.work_id)
-        payload["approval_pack"] = approval_detail(workspace, args.work_id)
-        return CommandResult("detail", payload, args.json)
+        return CommandResult("detail", detail(workspace, args.work_id), args.json)
 
     if args.command == "scope":
         from .scope import check_scope
