@@ -70,12 +70,15 @@ Authority rules:
   authority differences in another worktree, coordinated catalog/JSON rehashing,
   and actors added after the anchor fail closed. This is not authentication
   against a hostile same-user process that can rewrite local Git metadata.
-  Catalog-free v1 witnesses remain valid only when the baseline already contains
-  the work; a historical current-only baseline without a catalog requires a
-  successor.
-- Persisted witness ref/head/history is checked before restart lease acquisition
-  and again before claim persistence. A legacy current-only active claim without
-  a catalog is rejected by claim integrity and cannot reach `agent advance`.
+  Every complete Git-backed claim uses the current v2 witness, v2 lease, and v2
+  governance-projection snapshot, including an explicit empty changed-path set
+  when the projection is unchanged. Legacy v1 claim witnesses, leases, and
+  snapshots are unsupported and are not upgraded in place; a historical
+  current-only baseline without a catalog requires a successor.
+- Persisted v2 witness ref/head/history, lease, and projection-snapshot binding
+  are checked before restart lease acquisition and again before claim
+  persistence. Unsupported claim state is rejected by claim integrity and
+  cannot reach `agent advance`.
 - Durable parking crash recovery is the sole narrow exception to live status
   equality: after confirming the exact persisted parking-attempt/claim epoch, it
   normalizes current `blocked` status back to the immutable packet status and

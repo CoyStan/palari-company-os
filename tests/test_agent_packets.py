@@ -29,12 +29,16 @@ from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_runtime import (
+    GIT_LEASE_VERSION,
+    GIT_WITNESS_VERSION,
+    PROJECTION_SNAPSHOT_VERSION,
     ClaimContentionError,
     claim_integrity_error,
     release_agent,
     start_agent,
     start_next_agent,
 )
+from palari_company_os.pcaw_workspace import recorded_governance_projection
 from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -280,6 +284,27 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(
             result["top_candidate"]["candidate"]["work_item_id"], WORK_ID
         )
+
+    def test_agent_next_all_bounds_projection_to_queue_and_target_detail(self) -> None:
+        workspace = Workspace.from_raw(
+            _workspace_data(include_unrelated=True),
+            self.workspace_file,
+        )
+
+        with patch(
+            "palari_company_os.pcaw_workspace.recorded_governance_projection",
+            wraps=recorded_governance_projection,
+        ) as project:
+            result = build_agent_next_all(workspace)
+
+        projected_ids = [call.args[1] for call in project.call_args_list]
+        self.assertEqual(result["schema_version"], "palari.agent_next_all.v1")
+        expected_ids = [
+            work.id
+            for work in workspace.work_items
+            for _ in range(2)
+        ]
+        self.assertCountEqual(projected_ids, expected_ids)
 
     def test_check_translates_packet_claim_and_file_boundaries(self) -> None:
         start_agent(self.workspace(), self.workspace_file, WORK_ID, PALARI_ID)
@@ -577,15 +602,35 @@ class AgentClaimIntegrityTests(unittest.TestCase):
 
 
 class AgentGitBoundaryTests(unittest.TestCase):
-    def test_current_git_witness_is_exact_and_missing_ref_fails_closed(self) -> None:
+    def test_unchanged_projection_uses_only_current_git_claim_formats(self) -> None:
         with self.git_workspace() as (root, workspace_file):
             result = start_agent(
                 Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
             )
             claim = result["start"]["claim"]
 
-            self.assertTrue(claim["git_witness_version"])
+            self.assertEqual(claim["git_witness_version"], GIT_WITNESS_VERSION)
+            self.assertEqual(claim["git_lease_version"], GIT_LEASE_VERSION)
             self.assertTrue(claim["git_witness_ref"])
+            snapshot = claim["governance_projection_snapshot"]
+            self.assertEqual(
+                snapshot["schema_version"], PROJECTION_SNAPSHOT_VERSION
+            )
+            self.assertEqual(snapshot["changed_paths"], [])
+            self.assertRegex(
+                claim["governance_projection_snapshot_digest"],
+                r"^sha256:[0-9a-f]{64}$",
+            )
+            lease = json.loads(
+                self.git(
+                    root, "cat-file", "blob", claim["git_lease_oid"]
+                ).stdout
+            )
+            self.assertEqual(lease["schema_version"], GIT_LEASE_VERSION)
+            self.assertEqual(
+                lease["governance_projection_snapshot_digest"],
+                claim["governance_projection_snapshot_digest"],
+            )
             self.assertEqual(
                 claim_integrity_error(workspace_file, WORK_ID, claim), ""
             )
@@ -594,6 +639,21 @@ class AgentGitBoundaryTests(unittest.TestCase):
             error = claim_integrity_error(workspace_file, WORK_ID, claim)
             self.assertIn("witness", error.lower())
             self.assertIn("claim-start head", error.lower())
+
+    def test_projection_snapshot_tampering_fails_closed(self) -> None:
+        with self.git_workspace() as (_, workspace_file):
+            claim = start_agent(
+                Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
+            )["start"]["claim"]
+            tampered = deepcopy(claim)
+            tampered["governance_projection_snapshot"]["changed_paths"] = [
+                "workspace.json"
+            ]
+
+            error = claim_integrity_error(workspace_file, WORK_ID, tampered)
+
+            self.assertIn("snapshot", error.lower())
+            self.assertIn("digest", error.lower())
 
     def test_shared_git_lease_blocks_a_second_worktree_then_transfers(self) -> None:
         with self.git_workspace() as (root, workspace_file):

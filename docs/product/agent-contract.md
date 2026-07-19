@@ -265,11 +265,15 @@ local Git witness for ready started work:
   message binds the exact catalog digest. This keeps the no-extra-commit
   workflow while preventing release, expiry, another worktree, or a newly
   authorized reviewer from silently choosing a different authority origin.
-  Catalog-free v1 witnesses remain compatible when that baseline commit already
-  contains the work. A historical current-only baseline without a catalog fails
+  Every complete Git-backed claim uses the v2 witness, v2 lease, and v2
+  governance-projection snapshot. An unchanged projection is recorded with an
+  exact empty changed-path set rather than a legacy format. Legacy v1 claim
+  witnesses, leases, and projection snapshots are unsupported and are not
+  upgraded in place. A historical current-only baseline without a catalog fails
   closed and requires a successor because no durable authority origin exists.
-  Existing witness refs, heads, and v2 catalog messages are verified before a
-  restart lease and again under the final lock before local claim persistence.
+  Existing v2 witness refs, heads, optional catalog messages, leases, and
+  projection snapshots are verified before a restart lease and again under the
+  final lock before local claim persistence.
   Claims use schema v2 and require both portable-contract binding fields.
   Unsupported claim schemas fail closed and are not upgraded in place; the
   schema marker is declared local state, not authentication against a hostile

@@ -568,11 +568,15 @@ Palari records a
 small all-Palari execute/review authority digest catalog in the hashed baseline;
 the v2 witness's original reflog message binds the catalog digest. No manual
 pre-claim commit is required, but later authority still requires a successor.
-Catalog-free v1 witnesses remain restart-compatible only when the baseline
-already contains the work; a historical current-only baseline has no safe
-automatic migration and requires a successor.
-Restart validates the persisted witness ref, head, and any v2 catalog message
-before acquiring a lease and again under the final lock before writing a claim.
+Every complete Git-backed claim uses the current v2 witness, v2 lease, and v2
+governance-projection snapshot. An unchanged projection is represented by an
+exact snapshot with no changed paths; it does not fall back to a legacy lease.
+Legacy v1 witnesses, leases, and projection snapshots are unsupported and are
+not upgraded in place. A historical current-only baseline has no safe automatic
+migration and requires a successor.
+Restart validates the persisted v2 witness ref, head, optional catalog message,
+lease, and projection snapshot before acquiring a lease and again under the
+final lock before writing a claim.
 Actor scope/worker/standards/input boundaries and stable source locator identity
 are part of the immutable authority digest, not merely presentation metadata.
 After release or expiry, a same-ID execution-contract change still cannot

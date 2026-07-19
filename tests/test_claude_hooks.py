@@ -29,7 +29,10 @@ from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.agent_runtime import (
     CLAIM_SCHEMA_VERSION,
     GIT_WITNESS_VERSION,
+    _capture_governance_projection_snapshot,
+    _claim_git_lease,
     _create_git_witness,
+    _governance_projection_snapshot_digest,
 )
 from palari_company_os.agent_session_contract import compile_agent_session_contract
 from palari_company_os.cli_parser import build_parser
@@ -143,6 +146,27 @@ def _write_claim_and_packet(
     git_baseline = capture_git_baseline(workspace_dir)
     git_baseline_hash = _object_hash(git_baseline)
     git_witness_ref = _create_git_witness(work_id, git_baseline)
+    claim_session = f"test-{work_id.lower()}"
+    projection_snapshot = _capture_governance_projection_snapshot(
+        workspace_file,
+        git_baseline,
+        packet,
+    )
+    projection_snapshot_digest = (
+        _governance_projection_snapshot_digest(projection_snapshot)
+        if isinstance(projection_snapshot, dict)
+        else ""
+    )
+    git_lease = _claim_git_lease(
+        work_id,
+        palari_id,
+        mode,
+        expires.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        claim_session,
+        workspace_file,
+        git_baseline,
+        projection_snapshot_digest,
+    )
     claim = {
         "schema_version": CLAIM_SCHEMA_VERSION,
         "work_item": work_id,
@@ -159,7 +183,14 @@ def _write_claim_and_packet(
         "git_baseline_path": f".palari/claims/{work_id}.baseline",
         "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
         "git_witness_ref": git_witness_ref,
+        "claim_session": claim_session,
     }
+    if isinstance(projection_snapshot, dict):
+        claim["governance_projection_snapshot"] = projection_snapshot
+        claim["governance_projection_snapshot_digest"] = (
+            projection_snapshot_digest
+        )
+    claim.update(git_lease)
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
     contracts = packets / "session-contracts"
