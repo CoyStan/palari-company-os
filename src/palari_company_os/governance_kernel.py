@@ -138,6 +138,24 @@ class HumanAuthorityCandidateEvaluation:
     errors: tuple[Diagnostic, ...]
 
 
+@dataclass(frozen=True)
+class ApprovalBatchPolicyEvaluation:
+    """Pure decision about whether one governed item may share an approval action."""
+
+    policy_class: str
+    batchable: bool
+    reversibility: str
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "class": self.policy_class,
+            "batchable": self.batchable,
+            "reversibility": self.reversibility,
+            "reason": self.reason,
+        }
+
+
 def evaluate_governance_case(
     case: GovernanceCase,
     *,
@@ -1142,6 +1160,46 @@ def low_risk_completion_policy_applies(
         and not planned_external_writes
         and not queued_external_writes
         and not external_writes
+    )
+
+
+def evaluate_approval_batch_policy(
+    *,
+    risk: str,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    external_effects: tuple[str, ...] | list[str] = (),
+) -> ApprovalBatchPolicyEvaluation:
+    """Derive Approval Pack batching authority from declared governance facts."""
+
+    if external_effects or set(allowed_actions) & EXTERNAL_WRITE_ACTIONS:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="external-effect",
+            batchable=False,
+            reversibility="compensating-action-required",
+            reason=(
+                "declared external-write authority or a recorded external effect "
+                "requires individual human authority"
+            ),
+        )
+    if risk in {"R1", "R2"}:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="local-work",
+            batchable=True,
+            reversibility="reversible-local",
+            reason="R1/R2 local work without external effects is eligible for batched approval",
+        )
+    if risk in {"R3", "R4", "R5"}:
+        return ApprovalBatchPolicyEvaluation(
+            policy_class="elevated-risk",
+            batchable=False,
+            reversibility="reversible-local",
+            reason=f"{risk} work requires individual human authority",
+        )
+    return ApprovalBatchPolicyEvaluation(
+        policy_class="unknown-risk",
+        batchable=False,
+        reversibility="reversible-local",
+        reason="unknown risk classifications fail closed to individual human authority",
     )
 
 

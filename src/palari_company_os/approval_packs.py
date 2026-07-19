@@ -15,7 +15,11 @@ from .governance_binding import (
     attempt_state_hash,
     work_contract_hash,
 )
-from .governance_kernel import TERMINAL_WORK_STATUSES, evaluate_governance_case
+from .governance_kernel import (
+    TERMINAL_WORK_STATUSES,
+    evaluate_approval_batch_policy,
+    evaluate_governance_case,
+)
 from .governance_journal import (
     JournalVerificationContext,
     MutationMetadata,
@@ -1224,37 +1228,11 @@ def _work_member(
 
 
 def _batch_policy(work: Any, external_effects: list[str]) -> dict[str, Any]:
-    haystack = " ".join(
-        [
-            work.title,
-            work.scope,
-            " ".join(work.allowed_actions),
-            " ".join(work.allowed_resources),
-            " ".join(external_effects),
-        ]
-    ).lower()
-    if any(term in haystack for term in ("payment", "financial", "legal", "filing")):
-        return _policy("financial-legal", False, "irreversible", "financial or legal effects require individual authority")
-    if any(term in haystack for term in ("access expansion", "permission", "credential", "secret")):
-        return _policy("access-expansion", False, "restoration-impossible", "access or credential expansion is not batchable")
-    if external_effects or any(term in haystack for term in ("email", "send ", "publish", "external write")):
-        return _policy("external-communication", False, "compensating-action-required", "external communications remain individually gated and cannot be undone locally")
-    if work.risk in {"R4", "R5"} or "security" in haystack:
-        return _policy("high-risk-policy", False, "restoration-impossible", "high-risk policy or security authority remains individually gated")
-    if "memory" in haystack:
-        return _policy("memory-proposal", True, "reversible-local", "scoped memory proposals may be batch-reviewed without promotion")
-    if work.risk in {"R1", "R2"}:
-        return _policy("local-draft", True, "reversible-local", "low-risk local work is eligible for batched approval")
-    return _policy("record-change", True, "reversible-local", "reviewed local record changes are eligible for batched approval")
-
-
-def _policy(policy_class: str, batchable: bool, reversibility: str, reason: str) -> dict[str, Any]:
-    return {
-        "class": policy_class,
-        "batchable": batchable,
-        "reversibility": reversibility,
-        "reason": reason,
-    }
+    return evaluate_approval_batch_policy(
+        risk=work.risk,
+        allowed_actions=work.allowed_actions,
+        external_effects=external_effects,
+    ).to_dict()
 
 
 def _external_effects(workspace: Workspace, work_id: str, receipt: Any | None) -> list[str]:

@@ -33,6 +33,7 @@ from palari_company_os.governance_kernel import (
     ArtifactExpectation,
     GovernanceEvaluationContext,
     HumanAuthorityCandidate,
+    evaluate_approval_batch_policy,
     evaluate_governance_case,
     evaluate_human_authority_candidate,
 )
@@ -606,6 +607,34 @@ class GovernanceKernelTests(unittest.TestCase):
                     evaluate_governance_case(candidate).derived_state,
                     expected,
                 )
+
+    def test_approval_batching_is_limited_to_declared_r1_r2_local_work(self) -> None:
+        for risk, expected_batchable, expected_class in (
+            ("R1", True, "local-work"),
+            ("R2", True, "local-work"),
+            ("R3", False, "elevated-risk"),
+            ("R4", False, "elevated-risk"),
+            ("R5", False, "elevated-risk"),
+            ("R0", False, "unknown-risk"),
+            ("", False, "unknown-risk"),
+            ("r1", False, "unknown-risk"),
+        ):
+            with self.subTest(risk=risk):
+                policy = evaluate_approval_batch_policy(risk=risk)
+
+                self.assertEqual(policy.batchable, expected_batchable)
+                self.assertEqual(policy.policy_class, expected_class)
+
+    def test_approval_batching_gates_every_structured_external_effect(self) -> None:
+        for label, fields in (
+            ("canonical action", {"allowed_actions": ["external_write"]}),
+            ("recorded effect", {"external_effects": ["OUTBOX-1"]}),
+        ):
+            with self.subTest(label):
+                policy = evaluate_approval_batch_policy(risk="R1", **fields)
+
+                self.assertFalse(policy.batchable)
+                self.assertEqual(policy.policy_class, "external-effect")
 
     def test_substantive_attempt_mutation_invalidates_evidence_review_and_acceptance(self) -> None:
         case = accepted_case(claimed_state="blocked")

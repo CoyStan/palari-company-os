@@ -197,7 +197,11 @@ independence, currency, and quorum rules as individual human decisions.
 Non-batchable and stale members cannot become approved through the bundle.
 The Approval Inbox names its available approval modes. The normal
 `approve-eligible` mode is one exact attributable action over independently
-reviewed members. External or irreversible effects remain individual. A
+reviewed members. Batch eligibility is derived only from structured governance
+facts: R1/R2 local work without canonical external-write authority or current
+external-effect records is batchable; R3/R4/R5, unknown risk, and every external
+effect remain individually gated. Titles, scopes, and other prose do not create
+or remove that authority. A
 combined review-and-accept mode is not available under the current policy:
 independent review and acceptance remain distinct roles.
 
