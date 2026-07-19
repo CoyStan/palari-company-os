@@ -103,7 +103,7 @@ class ApprovalPresentationTests(unittest.TestCase):
     def test_blocked_and_non_batchable_presentations_do_not_offer_approval(self) -> None:
         cases = (
             ("blocked", {}),
-            ("non-batchable", {"scope": "Approve a legal filing."}),
+            ("non-batchable", {"risk": "R3"}),
         )
         for expected_state, options in cases:
             with self.subTest(state=expected_state), tempfile.TemporaryDirectory() as directory:

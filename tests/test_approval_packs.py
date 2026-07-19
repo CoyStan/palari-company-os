@@ -859,6 +859,7 @@ def make_ready_workspace(
     approvals: int = 1,
     distinct_outputs: bool = False,
     scope: str = "Prepare one bounded local draft without external effects.",
+    risk: str = "R2",
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -913,7 +914,7 @@ def make_ready_workspace(
                 "goal": "GOAL-1",
                 "palari": "PALARI-SOFIA",
                 "dependency_ids": dependencies.get(work_id, []),
-                "risk": "R2",
+                "risk": risk,
                 "intensity": "standard",
                 "status": "in-review",
                 "scope": scope,
