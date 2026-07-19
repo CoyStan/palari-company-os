@@ -415,8 +415,8 @@ def _handoff_guidance(
             code = "HUMAN_APPROVAL_HANDOFF"
             message = (
                 "Use agent handoff. It exposes one exact Approval Pack action when "
-                "the workspace has valid journal continuity, with an individual "
-                "human-decision fallback otherwise."
+                "the workspace has valid journal continuity and otherwise stays "
+                "blocked without manufacturing human authority."
             )
         else:
             return guidance

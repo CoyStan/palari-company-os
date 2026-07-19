@@ -683,10 +683,11 @@ identifies a human review or decision step. It returns the compact finish
 summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not mutate the
 workspace. For an eligible local approval with valid journal continuity, it
-exposes the exact one-action Approval Pack command. Legacy or non-batchable
-states retain an individual human-decision fallback. It excludes the current
-builder and reviewer from approval candidates. `agent next` and review-bound
-`agent finish` prefer this command before lower-level direct guide commands.
+exposes the exact one-action Approval Pack command. Legacy, invalid-journal, or
+non-batchable states stay blocked and expose no raw human-decision fallback. It
+excludes the current builder and reviewer from approval candidates. `agent
+next` and review-bound `agent finish` prefer this command before lower-level
+direct guide commands.
 
 `agent doctor` is read-only and explains why one work item is or is not safe for
 an agent right now. It summarizes packet readiness, completion checks, missing
