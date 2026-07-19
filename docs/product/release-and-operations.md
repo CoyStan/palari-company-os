@@ -51,6 +51,7 @@ workflow `release.yml`). No API token is stored in the repository.
 
 Workspace backup guidance:
 
-- `workspace.json` is the source of truth
-- back up the complete workspace directory, including `.palari`, together
+- `workspace.json` is the authoritative current-state projection
+- the v2 governance journal is the replayable mutation history
+- back up the complete workspace directory, including both, together
 - do not store secrets in workspace files

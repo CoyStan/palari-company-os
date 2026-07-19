@@ -25,7 +25,8 @@ matrix.
 | Receipts, evidence, reviews, decisions, acceptance | core | Trust and completion records. |
 | Integration plans and outbox | core | Human-approved external-write boundary. |
 | Agent packet/check/start/advance/release flow | agent adapter | Primary bounded execution path over the kernel. |
-| Queue, detail, state, history | operator | Derived read models and replayable journal checks for humans and agents. |
+| Queue, detail, state | operator | Recorded-only kernel translations for ordinary orientation; no artifact or journal re-verification. |
+| History and journal audit | operator | Explicit replay, continuity, and recovery inspection; not an ordinary status dependency. |
 | PCAW proof export and verification | core | Deterministic, offline proof statements and artifact integrity checks. |
 | Lifecycle authoring commands | operator | Explicit local mutations of current proof and authority records. |
 | Linear issue/comment/webhook adapter | adapter | Governed adapter behavior; Linear is not Palari's source of truth. |
@@ -38,6 +39,8 @@ matrix.
 | Checkpoint restoration and split collections | parked | Reachable local recovery/read surfaces pending a product decision; neither is core lifecycle authority. |
 | Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no authority or pre-1.0 compatibility promise. |
 | Broad generic planning/record authoring | parked | Retained while classification is ambiguous; the ordinary onramp does not depend on it. |
+| Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
+| Palari Blueprint | experimental | Prospective research inventory; not a supported contract or backlog. |
 
 ## Command Surface
 

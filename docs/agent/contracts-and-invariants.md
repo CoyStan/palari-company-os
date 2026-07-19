@@ -27,14 +27,12 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   current workspace, so recording proof does not stale itself and journal
   corruption or projection divergence still fails closed. Ordinary artifacts
   remain bound to current filesystem bytes.
-- One bounded read-model operation may reuse a journal-verification result only
-  through an in-memory request context. The full scan verifies record and
-  workspace SHA-256 bindings once; filesystem identity, size, modification,
-  and change-time witnesses must then remain stable. A changed witness forces
-  fresh verification; persistent advisory caches never become authority.
-  Nested queue, handoff, Approval Pack, evidence, review-binding, and dependency
-  projection calls must share that operation context rather than replaying the
-  same unchanged journal independently.
+- Ordinary queue, detail, and status operations translate recorded proof
+  through the explicitly non-authoritative kernel projection. They do not
+  inspect artifact bytes or scan journal history. Trusted transitions and
+  explicit Approval Inbox/handoff operations perform current evidence and
+  journal verification; nested verification in one such operation may share
+  only an in-memory request context. Persistent caches never become authority.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
   This reader is parked compatibility, not a supported write or migration

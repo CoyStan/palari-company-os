@@ -98,8 +98,10 @@ legacy records and is never a compatibility path for v2 output.
 Packet, claim, session-contract, cache, and Git-witness files are local runtime
 state, not alternate company truth. `.palari/history.jsonl` is a preserved
 historical artifact, not a current writer or authority. Full journal audit is
-explicit; ordinary queue and status operations may reuse one request-local
-verification witness but never a persistent authority cache.
+explicit. Ordinary queue, detail, and status operations translate recorded
+proof through the non-authoritative kernel projection; they do not inspect
+artifact bytes or scan journal history. Trusted transitions and explicit
+Approval Inbox/handoff boundaries perform the required current verification.
 
 The only supported historical inputs are those proven by committed data:
 
@@ -143,6 +145,11 @@ map, maintainer, gate, and playbook recommendation views. They are not
 `CURRENT-CORE`, do not own authority, and carry no pre-1.0 compatibility
 promise. Their retention must not make them dependencies of the ordinary path
 or a second lifecycle.
+
+The large roadmap is also parked as `AMBIGUOUS`: it mixes unresolved strategy
+with work that has since shipped, so it is not current status or an execution
+backlog. The Palari Blueprint is `EXPERIMENTAL` research for possible future
+protocol work, not a supported product contract.
 
 The former advisory Cursor/Devin/GLM/generic session-profile aliases and the
 provider-specific Slack/GitHub/Jira/email preview shapes were removed as

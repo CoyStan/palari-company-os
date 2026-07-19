@@ -3,30 +3,25 @@
 Palari Company OS keeps source artifacts simple and inspectable. Fast operator
 views are derived from those artifacts.
 
-## Current First Slice
+## Current Durable Contract
 
-The first implementation uses a workspace manifest:
+The current-state projection is:
 
 ```text
 workspace.json
 ```
 
-That file is the source of truth for each local workspace. The ACME demo lives at
-`examples/acme-company-os/workspace.json`; the repository dogfood workspace lives
+That file is the authoritative current-state projection for each local
+workspace. The ACME repository example lives at
+`examples/acme-company-os/workspace.json`; the repository dogfood evidence lives
 at `workspaces/palari-company-os/workspace.json`.
 
-For larger workspaces, `workspace.json` may also declare `collection_files`.
-Those files are read, merged in memory, and validated as one workspace. They are
-not a second authority layer; they are just maintainable storage for records that
-would otherwise make one JSON file too large.
+Queue, detail, and state are recorded-only read models derived from that
+projection. They do not inspect artifact bytes or scan journal history.
+`validate` checks stored structure and bindings, while `scope` checks an
+explicit observed path set; neither mutates authority state.
 
-The queue and detail views are read models derived from workspace data. They
-may surface workbench context, active parallel attempts, and coordination
-warnings, but those warnings are still derived from declared records. `state`,
-`validate`, and `scope` are also derived views/checks; they do not mutate
-authority state.
-
-Current workspaces use one replayable mutation journal:
+The sole current mutation history is:
 
 ```text
 .palari/governance-journal.v2.jsonl
@@ -54,6 +49,9 @@ changes. When a second writer wins first, the stale command fails closed and
 should be retried
 after reloading the workspace.
 
+Together, `workspace.json` and the v2 journal are the supported durable storage
+contract: current projection plus replayable, tamper-evident mutation history.
+
 ## Design Direction
 
 Future workspaces may add richer authoring for split records or support other
@@ -68,8 +66,9 @@ inspectable source formats. The rule should stay the same:
 
 Current authoring commands intentionally refuse split workspaces so they do not
 silently collapse or corrupt external collection files. The retained split-file
-reader is parked compatibility; there is no current split-file writer or schema
-migration exception.
+reader accepts a declared `collection_files` list, merges those files in memory,
+and validates the result. It is parked compatibility, not a supported scaling
+path; there is no current split-file writer or schema migration exception.
 
 ## What Must Not Become Implicit
 

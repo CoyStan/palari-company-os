@@ -119,7 +119,7 @@ See the [Quickstart](docs/product/quickstart.md) for the full path.
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
+[![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/current-product.md)
 
 Palari Company OS is a local, file-backed control plane for AI-assisted work.
 It helps humans and AI agents agree on:
@@ -143,9 +143,8 @@ specification](spec/pcaw/v1/README.md).
 Its operator complement is the **Approval Inbox**: agents may prepare many
 bounded, individually proven items, while one human review session can approve
 an exact eligible bundle. The interaction is compressed; evidence and
-authority are not. Content-addressed checkpoints make local tentative chains
-reversible without rewriting history. Restoration fails closed when effects
-after the target checkpoint have already escaped the local workspace.
+authority are not. The separate content-addressed restoration surface is
+parked pending a product decision; it is not part of this ordinary lifecycle.
 
 New to those words? Start with the plain-language
 [Glossary](docs/product/glossary.md).
@@ -359,10 +358,12 @@ goal -> workbench -> selected sources -> work item -> attempt
 ## Useful Commands
 
 ```bash
-# Read models
+# Recorded read models
 palari queue
 palari detail WORK-ID
 palari state
+
+# Explicit journal audit and recovery inspection
 palari history
 
 # Safety and boundaries
@@ -441,7 +442,8 @@ Then go deeper:
 - [Parked External Playbooks](docs/product/playbooks.md)
 - [Testing Guide](docs/product/testing-guide.md)
 - [Security Notes](docs/product/security.md)
-- [Roadmap](docs/product/roadmap.md)
+- [Parked Roadmap](docs/product/roadmap.md) for unresolved strategy, not the
+  current product contract
 - [Changelog](CHANGELOG.md)
 
 ## Verification
@@ -476,8 +478,10 @@ compatibility checks.
 - **Evidence is universal; ceremony is risk-based.** Every completion requires
   current exact proof. Only R1/light/zero-approval work with no external-write
   surface may omit independent review and human acceptance.
-- **Read models do not mutate authority.** Queue, detail, state, and Mission
-  Control are derived from workspace data.
+- **Read models do not mutate authority.** Queue, detail, and state translate
+  recorded workspace data without re-verifying files or journal history.
+  Mission Control displays those projections, while its explicit human actions
+  mutate only through the same trusted transition paths as the CLI.
 - **Ordinary software maintenance wins.** The repo should stay simple,
   inspectable, dependency-light, and easy for humans and agents to work on.
 

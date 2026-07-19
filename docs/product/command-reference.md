@@ -104,9 +104,9 @@ is not a requirement for the provider-neutral loop.
 ```
 
 Shows the current operator queue with attention state, `next_step_type`, goal,
-Palari, owner, adaptive intensity, evidence state, review state, receipt state,
-approval progress, integration state, learning signal, workbench context,
-active attempts, coordination warnings, and next action. Closed work is omitted
+Palari, owner, declared risk and intensity, evidence state, review state,
+receipt state, approval progress, integration state, workbench context, active
+attempts, coordination warnings, and next action. Closed work is omitted
 by default so the command stays focused on current attention. Use
 `--include-closed` for audit/history-style inspection. `next_step_type`
 classifies intent for humans and agents without requiring them to parse the
@@ -150,8 +150,9 @@ linked decisions, human decisions, outcome, active parallel attempts,
 coordination warnings, safety state, `next_step_type`, and next action. Active
 work that is missing proof points `next_commands` toward `agent check` and
 `agent finish` before review or human decision steps.
-For governed work, detail also includes the item-level Approval Pack state and
-exact pack digest, or a concise reason the pack cannot currently be compiled.
+Exact Approval Packs are compiled only at the explicit `queue
+--approval-inbox` or human-handoff boundary; ordinary detail does not inspect
+artifact bytes or audit the journal.
 
 ## Approval Pack Human Decision
 
@@ -252,11 +253,13 @@ replace committed repo truth.
 ./bin/palari validate --json
 ```
 
-Validates the workspace source of truth. It fails closed when schema version,
-record shape, unknown fields, lifecycle values, references, evidence freshness,
-review freshness, human approval capability, or completion quorum are invalid.
-If `workspace.json` declares `collection_files`, validate reads and merges those
-workspace-relative collection files before running the same checks.
+Validates stored workspace structure and governance bindings. It fails closed
+when schema version, record shape, unknown fields, lifecycle values, references,
+recorded evidence/review currency, human approval capability, or completion
+quorum are invalid. It does not inspect live artifact bytes, run Git, or audit
+the journal; trusted transitions and explicit proof/inbox boundaries perform
+those checks. If `workspace.json` declares parked `collection_files`, validate
+reads and merges those workspace-relative files before the same stored checks.
 
 ## Scope
 
