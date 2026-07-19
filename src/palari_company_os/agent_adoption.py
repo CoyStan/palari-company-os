@@ -19,7 +19,6 @@ import re
 import shlex
 import shutil
 import sys
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -200,17 +199,16 @@ def run_agent_hook(
         security_error = _hook_payload_security_error(payload)
         if event == "pre-tool-use" and security_error:
             return _codex_deny(security_error)
-        with _allow_agent_advance():
-            if selected == "claude":
-                from .claude_hooks import handle_hook_event
+        if selected == "claude":
+            from .claude_hooks import handle_hook_event
 
-                return handle_hook_event(
-                    event,
-                    payload,
-                    workspace_path,
-                    strict=strict,
-                )
-            return _handle_codex_hook(event, payload, workspace_path)
+            return handle_hook_event(
+                event,
+                payload,
+                workspace_path,
+                strict=strict,
+            )
+        return _handle_codex_hook(event, payload, workspace_path)
     except Exception as exc:  # noqa: BLE001 - security hook emits a native fail-closed result
         reason = f"Palari could not verify the Codex hook input: {exc}"
         if selected == "claude":
@@ -294,32 +292,6 @@ def _codex_deny(reason: str) -> dict[str, Any]:
             "permissionDecisionReason": reason,
         }
     }
-
-
-@contextmanager
-def _allow_agent_advance() -> Any:
-    """Classify convergence as the packet-bound agent mutation it already is.
-
-    The legacy Claude adapter owns the common shell parser. Adoption routes
-    both native adapters through this narrow compatibility layer until that
-    expert module can be versioned independently. The entry is removed again
-    after each hook call so no request-global authority is cached.
-    """
-
-    from . import claude_hooks
-
-    command = ("agent", "advance")
-    safe_present = command in claude_hooks.SAFE_AGENT_PALARI_COMMANDS
-    mutating_present = command in claude_hooks.MUTATING_AGENT_PALARI_COMMANDS
-    claude_hooks.SAFE_AGENT_PALARI_COMMANDS.add(command)
-    claude_hooks.MUTATING_AGENT_PALARI_COMMANDS.add(command)
-    try:
-        yield
-    finally:
-        if not safe_present:
-            claude_hooks.SAFE_AGENT_PALARI_COMMANDS.discard(command)
-        if not mutating_present:
-            claude_hooks.MUTATING_AGENT_PALARI_COMMANDS.discard(command)
 
 
 def _apply_patch_targets(command: str) -> list[str]:
@@ -554,10 +526,7 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         return False
     executable = tokens[0]
     if (
-        not (
-            _has_canonical_executable_word(command, executable)
-            or _has_legacy_claude_executable_word(command, executable, host)
-        )
+        not _has_canonical_executable_word(command, executable)
         or Path(executable).name != "palari"
     ):
         return False
@@ -572,19 +541,6 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
         len(arguments) == 6
         and arguments[0] == "init"
         and arguments[2:5] == ["--host", host, "--hook-event"]
-        and arguments[5] in events
-    ):
-        return True
-    if (
-        len(arguments) == 5
-        and arguments[:4] == ["agent", "adopt", "--host", host]
-        and arguments[4].startswith("--hook-event=")
-        and arguments[4].split("=", 1)[1] in events
-    ):
-        return True
-    if (
-        len(arguments) == 6
-        and arguments[:5] == ["agent", "adopt", "--host", host, "--hook-event"]
         and arguments[5] in events
     ):
         return True
@@ -605,22 +561,6 @@ def _has_canonical_executable_word(command: str, executable: str) -> bool:
     expected = shlex.quote(executable)
     stripped = command.lstrip()
     return stripped == expected or stripped.startswith(expected + " ")
-
-
-def _has_legacy_claude_executable_word(
-    command: str,
-    executable: str,
-    host: str,
-) -> bool:
-    """Recognize the exact project-variable launcher emitted before v0.2."""
-
-    expected = '"$CLAUDE_PROJECT_DIR/bin/palari"'
-    stripped = command.lstrip()
-    return (
-        host == "claude"
-        and executable == "$CLAUDE_PROJECT_DIR/bin/palari"
-        and (stripped == expected or stripped.startswith(expected + " "))
-    )
 
 
 def _hook_payload_security_error(payload: dict[str, Any]) -> str:

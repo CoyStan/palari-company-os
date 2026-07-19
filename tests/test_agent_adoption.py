@@ -468,6 +468,19 @@ class AgentAdoptionTests(unittest.TestCase):
     def test_codex_adoption_preserves_foreign_hook_co_located_with_managed_hook(self) -> None:
         hooks_file = self.tmp / ".codex" / "hooks.json"
         hooks_file.parent.mkdir()
+        managed = (
+            "palari --workspace /tmp/ws init /tmp/ws --host codex "
+            "--hook-event pre-tool-use"
+        )
+        compound = managed + " && foreign-compound-check"
+        dynamic = (
+            "$(foreign-check)/palari --workspace /tmp/ws init /tmp/ws "
+            "--host codex --hook-event pre-tool-use"
+        )
+        static_path = (
+            "'/tmp/static repo (safe)/palari' --workspace /tmp/ws init /tmp/ws "
+            "--host codex --hook-event pre-tool-use"
+        )
         hooks_file.write_text(
             json.dumps(
                 {
@@ -476,67 +489,11 @@ class AgentAdoptionTests(unittest.TestCase):
                             {
                                 "matcher": "mixed",
                                 "hooks": [
-                                    {
-                                        "type": "command",
-                                        "command": "palari agent adopt --host codex --hook-event pre-tool-use",
-                                    },
+                                    {"type": "command", "command": managed},
                                     {"type": "command", "command": "foreign-check"},
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "palari agent adopt --host codex --hook-event "
-                                            "pre-tool-use && foreign-compound-check"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "foreign-check palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "$(foreign-check)/palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "`foreign-check`/palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "$PALARI_ROOT/palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "~/palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "*/palari agent adopt --host codex "
-                                            "--hook-event pre-tool-use"
-                                        ),
-                                    },
-                                    {
-                                        "type": "command",
-                                        "command": (
-                                            "'/tmp/static repo (safe)/palari' agent adopt "
-                                            "--host codex --hook-event pre-tool-use"
-                                        ),
-                                    },
+                                    {"type": "command", "command": compound},
+                                    {"type": "command", "command": dynamic},
+                                    {"type": "command", "command": static_path},
                                 ],
                             }
                         ]
@@ -556,43 +513,13 @@ class AgentAdoptionTests(unittest.TestCase):
         entries = json.loads(hooks_file.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
         commands = [hook["command"] for entry in entries for hook in entry["hooks"]]
         self.assertIn("foreign-check", commands)
-        self.assertIn(
-            "palari agent adopt --host codex --hook-event pre-tool-use "
-            "&& foreign-compound-check",
-            commands,
-        )
-        self.assertIn(
-            "foreign-check palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertIn(
-            "$(foreign-check)/palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertIn(
-            "`foreign-check`/palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertIn(
-            "$PALARI_ROOT/palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertIn(
-            "~/palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertIn(
-            "*/palari agent adopt --host codex --hook-event pre-tool-use",
-            commands,
-        )
-        self.assertNotIn(
-            "'/tmp/static repo (safe)/palari' agent adopt --host codex "
-            "--hook-event pre-tool-use",
-            commands,
-        )
+        self.assertIn(compound, commands)
+        self.assertIn(dynamic, commands)
+        self.assertNotIn(managed, commands)
+        self.assertNotIn(static_path, commands)
         self.assertEqual(
             sum(" init " in item and "--host codex --hook-event" in item for item in commands),
-            1,
+            3,
         )
 
     def test_codex_adoption_is_idempotent_in_shell_metacharacter_repo_path(self) -> None:
