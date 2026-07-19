@@ -142,10 +142,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
   against the packet boundary.
-- One request-local operation context shares a packet, check, directive, and
-  journal-verification witness across aggregate read views. The pure directive
-  compiler classifies the next owner/action; transition gates remain the sole
-  mutation authority.
+- One request-local agent operation shares a packet, check, and directive
+  across aggregate read views. The pure directive compiler classifies the next
+  owner/action; transition gates remain the sole mutation authority. Exact
+  Approval Inbox and proof-binding operations own journal verification.
 - `agent release` with reason and next action durably records one claim-bound blocked attempt, exact state
   bindings, reason, observation, and next safe action before claim release.
   Exact crash retry is idempotent. A projection-bound retry recognizes only the

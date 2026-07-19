@@ -8,7 +8,6 @@ from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
 from .agent_packets import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
-from .governance_journal import JournalVerificationContext
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
@@ -20,13 +19,7 @@ def build_agent_next(
     mode: str = "execute",
     limit: int = 5,
 ) -> dict[str, Any]:
-    return _build_agent_next(
-        workspace,
-        palari_id,
-        mode,
-        limit,
-        journal_context=JournalVerificationContext(),
-    )
+    return _build_agent_next(workspace, palari_id, mode, limit)
 
 
 def _build_agent_next(
@@ -37,7 +30,6 @@ def _build_agent_next(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
@@ -68,7 +60,6 @@ def _build_agent_next(
         mode or "execute",
         queue=queue,
         leases=leases,
-        journal_context=journal_context,
     )
     ordered = sorted(candidates, key=lambda item: (not item["can_start"], item["queue_rank"]))
     safe_limit = max(1, limit)
@@ -97,7 +88,6 @@ def _build_agent_next(
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
-    journal_context = JournalVerificationContext()
     queue = queue_items(workspace)
     leases = git_lease_statuses(
         workspace.path,
@@ -111,7 +101,6 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
             limit,
             queue=queue,
             leases=leases,
-            journal_context=journal_context,
         )
         for palari in workspace.palaris
     ]
@@ -141,14 +130,12 @@ def _candidates(
     *,
     queue: list[Any] | None = None,
     leases: dict[str, Any] | None = None,
-    journal_context: JournalVerificationContext | None = None,
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     lease_statuses = leases or git_lease_statuses(
         workspace.path,
         [work.id for work in workspace.work_items],
     )
-    operation_journal = journal_context or JournalVerificationContext()
     queue_records = (
         queue
         if queue is not None
@@ -165,7 +152,6 @@ def _candidates(
             work_id=work.id,
             palari_id=palari_id,
             mode=mode,
-            journal_context=operation_journal,
         )
         packet = operation.brief()
         blockers = packet.get("blockers", [])
@@ -184,7 +170,6 @@ def _candidates(
             work.id,
             palari_id,
             mode,
-            journal_context=operation_journal,
             operation=operation,
         )
         handoff_guidance = finish.get("handoff_guidance", [])

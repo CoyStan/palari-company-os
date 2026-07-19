@@ -131,12 +131,12 @@ workflow from many separate commands. A packet answers:
 The packet must not dump the whole workspace. It includes only directly related
 records and explicit omitted-context notes.
 
-Aggregate agent views share one request-local packet, check, directive, and
-journal-verification observation. A pure directive compiler turns that current
-check into state, owner, blocker class, and next safe action. It has no clock,
-filesystem, mutation, review, or human-authority access. Transition checks—not
-the directive—remain authoritative, and a changed journal witness forces a new
-scan.
+Aggregate agent views share one request-local packet, check, and directive. A
+pure directive compiler turns that current check into state, owner, blocker
+class, and next safe action. It has no clock, filesystem, mutation, review, or
+human-authority access. Transition checks—not the directive—remain
+authoritative. Exact Approval Inbox and proof-binding operations own their
+request-local journal verification, and a changed witness forces a new scan.
 
 ## Documentation Hints
 

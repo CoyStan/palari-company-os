@@ -332,6 +332,40 @@ class AgentPacketProjectionTests(unittest.TestCase):
             result["top_candidate"]["candidate"]["work_item_id"], WORK_ID
         )
 
+    def test_ordinary_agent_reads_do_not_verify_the_governance_journal(self) -> None:
+        workspace = self.workspace()
+
+        with patch(
+            "palari_company_os.governance_journal.verify_workspace_journal",
+            side_effect=AssertionError(
+                "ordinary agent reads must not verify journal history"
+            ),
+        ):
+            payloads = [
+                build_agent_next(workspace, PALARI_ID),
+                build_agent_next_all(workspace),
+                build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute"),
+                build_agent_check(workspace, WORK_ID, PALARI_ID),
+                build_agent_finish(workspace, WORK_ID, PALARI_ID),
+                build_agent_doctor(workspace, WORK_ID, PALARI_ID),
+                build_agent_loop(workspace, WORK_ID, PALARI_ID),
+                build_agent_handoff(workspace, WORK_ID, PALARI_ID),
+            ]
+
+        self.assertEqual(
+            [payload["schema_version"] for payload in payloads],
+            [
+                "palari.agent_next.v1",
+                "palari.agent_next_all.v1",
+                "palari.agent_packet.v1",
+                "palari.agent_check.v1",
+                "palari.agent_finish.v1",
+                "palari.agent_doctor.v1",
+                "palari.agent_loop.v1",
+                "palari.agent_handoff.v1",
+            ],
+        )
+
     def test_agent_next_all_bounds_projection_to_queue_and_target_detail(self) -> None:
         workspace = Workspace.from_raw(
             _workspace_data(include_unrelated=True),

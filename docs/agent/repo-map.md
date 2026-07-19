@@ -15,11 +15,11 @@ Keep it concise and update it when file ownership changes.
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
-  human-decision projection, canonical bytes, and exact presentation digest.
+  human-decision projection, validation, and exact presentation digest.
 - `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
   and append-only human restoration.
-- `src/palari_company_os/workspace_read_models.py`: product-facing approval
-  inbox/detail adapters over workspace truth.
+- `src/palari_company_os/workspace_read_models.py`: product-facing exact
+  Approval Inbox adapter over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
   provider-neutral governance normalization contract and evaluator.
 - `src/palari_company_os/pcaw_protocol.py`: offline PCAW statement verifier.
@@ -53,8 +53,8 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
 - `src/palari_company_os/agent_directive.py`: pure state-to-owner/action
   compiler shared by agent read surfaces.
-- `src/palari_company_os/agent_operation.py`: request-local packet, check,
-  directive, and journal-observation reuse.
+- `src/palari_company_os/agent_operation.py`: request-local packet, check, and
+  directive reuse.
 - `src/palari_company_os/agent_parking.py`: durable blocked-attempt parking and
   exact idempotent claim-release recovery without proof authority.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,

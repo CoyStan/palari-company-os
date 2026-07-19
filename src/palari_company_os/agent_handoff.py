@@ -7,7 +7,6 @@ from typing import Any
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
-from .governance_journal import JournalVerificationContext
 from .read_models import detail
 from .review_guides import build_review_guide
 from .workspace import Workspace, WorkspaceError
@@ -20,20 +19,13 @@ def build_agent_handoff(
     palari_id: str,
     mode: str = "execute",
     *,
-    journal_context: JournalVerificationContext | None = None,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    operation_journal = (
-        operation.journal_context
-        if operation is not None
-        else journal_context or JournalVerificationContext()
-    )
     operation_state = ensure_agent_operation(
         workspace,
         work_id,
         palari_id,
         mode,
-        journal_context=operation_journal,
         operation=operation,
     )
     finish = build_agent_finish(
@@ -41,7 +33,6 @@ def build_agent_handoff(
         work_id,
         palari_id,
         mode,
-        journal_context=operation_journal,
         operation=operation_state,
     )
     guidance_codes = {item.get("code", "") for item in finish.get("handoff_guidance", [])}
@@ -60,7 +51,6 @@ def build_agent_handoff(
         _human_approval_handoff(
             workspace,
             work_id,
-            journal_context=operation_journal,
         )
         if human_approval_requested
         else None
@@ -193,8 +183,6 @@ def _has_linked_decision(workspace: Workspace, work_id: str) -> bool:
 def _human_approval_handoff(
     workspace: Workspace,
     work_id: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     payload = detail(workspace, work_id)
     work = payload["work_item"]
@@ -215,7 +203,6 @@ def _human_approval_handoff(
     approval_pack = _approval_pack_handoff(
         workspace,
         work_id,
-        journal_context=journal_context,
     )
     command = (
         str(approval_pack["inbox_command"])
@@ -454,15 +441,12 @@ def _approval_candidates(
 def _approval_pack_handoff(
     workspace: Workspace,
     work_id: str,
-    *,
-    journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
     try:
         inbox = approval_inbox(
             workspace,
             selected_work_ids=(work_id,),
-            journal_context=journal_context,
         )
     except WorkspaceError as exc:
         return {
