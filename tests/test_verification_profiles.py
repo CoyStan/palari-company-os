@@ -5,81 +5,47 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER = REPO_ROOT / "scripts" / "verification_profiles.py"
 PARALLEL_RUNNER = REPO_ROOT / "scripts" / "parallel_unittest.py"
+STYLE_HELPER = REPO_ROOT / "scripts" / "check_style.py"
 SPEC = importlib.util.spec_from_file_location("verification_profiles", HELPER)
 assert SPEC is not None and SPEC.loader is not None
 verification_profiles = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(verification_profiles)
+STYLE_SPEC = importlib.util.spec_from_file_location("check_style", STYLE_HELPER)
+assert STYLE_SPEC is not None and STYLE_SPEC.loader is not None
+check_style = importlib.util.module_from_spec(STYLE_SPEC)
+STYLE_SPEC.loader.exec_module(check_style)
 
 
 class VerificationProfileTests(unittest.TestCase):
-    def test_affected_profile_maps_known_operator_paths_deterministically(self) -> None:
-        modules = verification_profiles.affected_test_modules(
+    def test_focused_modules_are_explicit_deduplicated_and_sorted(self) -> None:
+        modules = verification_profiles.validated_modules(
             [
-                "src/palari_company_os/agent_finish.py",
-                "src/palari_company_os/read_models.py",
-                "tests/test_verification_profiles.py",
-            ]
-        )
-
-        self.assertEqual(
-            modules,
-            [
-                "tests.test_agent_packets",
-                "tests.test_verification_profiles",
-                "tests.test_workspace_read_models",
-            ],
-        )
-
-    def test_affected_profile_falls_back_to_full_suite_for_unknown_core_file(self) -> None:
-        self.assertIsNone(
-            verification_profiles.affected_test_modules(
-                ["src/palari_company_os/future_governance_kernel.py"]
-            )
-        )
-
-    def test_affected_profile_maps_governance_and_filesystem_kernels(self) -> None:
-        modules = verification_profiles.affected_test_modules(
-            [
-                "src/palari_company_os/governance_binding.py",
-                "src/palari_company_os/agent_file_changes.py",
-            ]
-        )
-
-        self.assertEqual(
-            modules,
-            [
-                "tests.test_agent_packets",
-                "tests.test_filesystem_security",
-                "tests.test_governance_completion",
-                "tests.test_path_policy",
-                "tests.test_transition_checks",
                 "tests.test_validation",
-                "tests.test_workspace_read_models",
-            ],
+                "tests.test_governance_kernel",
+                "tests.test_validation",
+            ]
         )
 
-    def test_affected_profile_rejects_unsafe_paths_with_full_suite_fallback(self) -> None:
-        self.assertIsNone(verification_profiles.affected_test_modules(["../outside.py"]))
-        self.assertIsNone(verification_profiles.affected_test_modules(["/tmp/outside.py"]))
-
-    def test_focused_profile_rejects_non_test_module_names(self) -> None:
+        self.assertEqual(
+            modules,
+            ["tests.test_governance_kernel", "tests.test_validation"],
+        )
         with self.assertRaisesRegex(ValueError, "invalid focused test module"):
-            verification_profiles._validated_modules(["palari_company_os.authoring"])
+            verification_profiles.validated_modules(["palari_company_os.authoring"])
 
-    def test_profile_cli_lists_selection_without_running_tests(self) -> None:
+    def test_focused_cli_lists_modules_without_running_tests(self) -> None:
         result = subprocess.run(
             [
                 sys.executable,
                 "-S",
                 str(HELPER),
-                "affected",
-                "src/palari_company_os/agent_finish.py",
+                "tests.test_validation",
+                "tests.test_governance_kernel",
                 "--list",
             ],
             cwd=REPO_ROOT,
@@ -89,33 +55,59 @@ class VerificationProfileTests(unittest.TestCase):
             text=True,
         )
 
-        self.assertEqual(result.stdout.strip(), "tests.test_agent_packets")
-
-    def test_git_changed_paths_preserves_both_sides_of_a_rename(self) -> None:
-        result = subprocess.CompletedProcess(
-            args=[],
-            returncode=0,
-            stdout=b"R  new.py\0old.py\0 M changed.py\0",
+        self.assertEqual(
+            result.stdout.splitlines(),
+            ["tests.test_governance_kernel", "tests.test_validation"],
         )
-        with patch.object(verification_profiles.subprocess, "run", return_value=result):
-            paths = verification_profiles.git_changed_paths()
 
-        self.assertEqual(paths, ["new.py", "old.py", "changed.py"])
-
-    def test_complete_shell_profile_keeps_full_suite_and_required_smokes(self) -> None:
+    def test_complete_profile_has_one_current_candidate_path(self) -> None:
         script = (REPO_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
 
         self.assertIn('profile="${1:-complete}"', script)
-        self.assertIn("python3 -S scripts/parallel_unittest.py", script)
+        self.assertEqual(script.count("scripts/parallel_unittest.py"), 1)
+        self.assertEqual(script.count("./scripts/install_smoke.sh"), 1)
         for command in (
-            "palari state --json",
-            "palari detail WORK-0001 --json",
-            "palari scope WORK-0001",
-            "palari maintainer status --json",
-            "workspaces/palari-company-os validate --json",
-            "split-workspace detail WORK-SPLIT --json",
+            "scripts/check_style.py",
+            "ruff check .",
+            "mypy",
+            "compileall -q src",
+            "schemas/workspace.schema.json",
+            "scripts/update_pcaw_tcb.py --check",
+            "spec/pcaw/v1/conformance.py",
+            "docs check --json",
         ):
             self.assertIn(command, script)
+        for obsolete in (
+            "affected",
+            "pcaw_demo.sh",
+            "workspaces/palari-company-os",
+            "--workspace examples/acme-company-os",
+            "palari state --json",
+            "palari detail WORK-0001",
+        ):
+            self.assertNotIn(obsolete, script)
+
+    def test_install_smoke_builds_one_wheel_over_isolated_current_state(self) -> None:
+        script = (REPO_ROOT / "scripts" / "install_smoke.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(script.count("pip wheel"), 1)
+        self.assertEqual(script.count("pip install"), 1)
+        self.assertIn("--no-build-isolation", script)
+        self.assertIn('palari" init "$project_dir"', script)
+        self.assertIn("pcaw-offline-verify.json", script)
+        self.assertNotIn("examples/acme-company-os", script)
+        self.assertNotIn("workspaces/palari-company-os", script)
+        self.assertNotIn("integration plan", script)
+        self.assertNotIn("integration approve", script)
+
+    def test_repository_style_check_excludes_historical_dogfood(self) -> None:
+        dogfood = REPO_ROOT / "workspaces" / "palari-company-os" / "workspace.json"
+        current_schema = REPO_ROOT / "schemas" / "workspace.schema.json"
+
+        self.assertTrue(check_style._skip(dogfood, REPO_ROOT))
+        self.assertFalse(check_style._skip(current_schema, REPO_ROOT))
 
     def test_parallel_runner_lists_every_test_module_deterministically(self) -> None:
         result = subprocess.run(

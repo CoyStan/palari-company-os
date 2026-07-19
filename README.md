@@ -451,20 +451,21 @@ Then go deeper:
 Run the normal local verification stack:
 
 ```bash
+python3 -m pip install -e ".[dev]"
 ./scripts/verify.sh complete
 ./scripts/verify.sh focused tests.test_agent_packets
-./scripts/verify.sh affected --git-diff
-./scripts/install_smoke.sh
 ```
 
 `./scripts/verify.sh` defaults to the authoritative `complete` profile and runs
-unit tests, Python compilation, JSON validity checks, the lightweight style
-checker, CLI smokes, security tests, and package checks. `focused` and
-`affected` are iteration profiles, not acceptance gates. `install_smoke.sh` creates
-a temporary virtual environment, builds and installs a wheel, imports it, checks
-the installed `palari` command, and confirms packaged default fixtures work.
+the current unit suite, static and schema checks, PCAW conformance, temporary
+CLI boundaries, and one isolated wheel build/install smoke. `focused` runs only
+the explicitly named unittest modules and is not an acceptance gate. Run
+`./scripts/install_smoke.sh` directly only when repairing the package boundary;
+the complete profile already includes it once.
 
-GitHub Actions runs the core checks on Python 3.10 and 3.12.
+GitHub Actions runs the complete candidate gate once on Python 3.12. Python
+3.10, 3.11, 3.13, and 3.14 receive thin source import, pure-kernel, and CLI-help
+compatibility checks.
 
 ## Design Principles
 

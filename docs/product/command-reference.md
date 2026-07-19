@@ -1207,8 +1207,12 @@ This file is intentionally ignored by git.
 ./scripts/verify.sh
 ```
 
-Runs unit tests, Python compilation, JSON validity checks, PCAW conformance,
-and focused CLI boundary smokes.
+Runs the current unit suite, static and schema checks, PCAW conformance,
+temporary CLI boundaries, and one isolated wheel build/install smoke. Use
+`./scripts/verify.sh focused tests.test_MODULE` for explicit development
+feedback without a hidden full-suite fallback.
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs the same command
-on pushes to `main` and on pull requests.
+once on Python 3.12 for pushes to `main` and pull requests. Other supported
+interpreters receive thin import, pure-kernel, and CLI-help compatibility
+checks.

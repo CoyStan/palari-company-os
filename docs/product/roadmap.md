@@ -24,8 +24,8 @@ Implemented in the v0.2 local foundation:
   staleness, and parked external effects;
 - content-addressed committed projections and append-only human restoration
   transitions with explicit external-effect non-guarantees;
-- focused, affected, complete, install, documentation, conformance, and
-  network-free demonstration checks.
+- focused and complete verification, isolated install, documentation,
+  conformance, and network-free demonstration checks.
 
 Deferred honestly:
 

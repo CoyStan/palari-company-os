@@ -8,9 +8,10 @@ Do:
 - update docs when commands or data contracts change
 - add regression tests for lifecycle, authority, scope, evidence, and review
   behavior
+- install the pinned development tools with `python3 -m pip install -e ".[dev]"`
 - run `./scripts/verify.sh`
-- for lint parity with CI, install `.[dev]` in a virtual environment and run
-  `ruff check .` and `mypy`
+- use `./scripts/verify.sh focused tests.test_MODULE` while iterating; the
+  complete gate already runs Ruff and mypy once
 
 ## CLI Structure
 

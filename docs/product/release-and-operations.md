@@ -21,13 +21,16 @@ Compatibility:
 Release checklist:
 
 ```bash
-python3 -m pip install -e .
+python3 -m pip install -e ".[dev]"
 ./scripts/verify.sh
-./scripts/install_smoke.sh
 python -m build
 twine check dist/*
 git status --short
 ```
+
+The complete verification command already builds and installs one isolated
+candidate wheel. The later distribution build creates the artifacts intended
+for an explicitly authorized release.
 
 Shipping a release:
 
