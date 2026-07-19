@@ -645,6 +645,8 @@ def claim_check(
     palari_id: str,
     mode: str,
     context_hash: str,
+    *,
+    scope_authority_workspace: Workspace | None = None,
 ) -> dict[str, Any]:
     claim = read_claim(workspace_path, work_id)
     if not claim:
@@ -654,7 +656,12 @@ def claim_check(
             "claim": None,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }
-    claim_error = claim_integrity_error(workspace_path, work_id, claim)
+    claim_error = claim_integrity_error(
+        workspace_path,
+        work_id,
+        claim,
+        scope_authority_workspace=scope_authority_workspace,
+    )
     if claim_error:
         return {
             "status": "fail",
@@ -744,8 +751,14 @@ def claim_integrity_error(
     *,
     allow_released_lease: bool = False,
     allow_durable_parking_transition: bool = False,
+    scope_authority_workspace: Workspace | None = None,
 ) -> str:
-    """Validate claim structure and its immutable persisted Git baseline."""
+    """Validate claim structure and its immutable persisted Git baseline.
+
+    ``scope_authority_workspace`` is reserved for crash recovery against an
+    authenticated journal before-projection. The recovery caller must still
+    validate the exact pending transaction before changing journal state.
+    """
 
     if allow_durable_parking_transition and not allow_released_lease:
         return "durable parking recovery requires released-lease handling"
@@ -817,6 +830,7 @@ def claim_integrity_error(
             projection_snapshot,
             require_worktree_match=False,
             parked_work_status_from=recovery_work_status,
+            scope_authority_workspace=scope_authority_workspace,
         )
         if snapshot_error:
             return snapshot_error
@@ -1487,6 +1501,7 @@ def governance_projection_snapshot_error(
     *,
     require_worktree_match: bool,
     parked_work_status_from: str = "",
+    scope_authority_workspace: Workspace | None = None,
 ) -> str:
     """Return a fail-closed error for an invalid or stale claim snapshot."""
 
@@ -1511,6 +1526,7 @@ def governance_projection_snapshot_error(
         baseline,
         snapshot,
         parked_work_status_from=parked_work_status_from,
+        scope_authority_workspace=scope_authority_workspace,
     )
     if authority_error:
         return authority_error
@@ -1658,6 +1674,7 @@ def _governance_projection_scope_authority_error(
     snapshot: dict[str, Any],
     *,
     parked_work_status_from: str = "",
+    scope_authority_workspace: Workspace | None = None,
 ) -> str:
     binding = snapshot.get("scope_authority")
     if not isinstance(binding, dict):
@@ -1680,7 +1697,14 @@ def _governance_projection_scope_authority_error(
     if not isinstance(current_digest, str) or not _valid_sha256(current_digest):
         return "governance projection snapshot scope authority current digest is malformed"
     try:
-        actual = _scope_authority_binding_for(data_path, baseline, work_id, palari_id, mode)
+        actual = _scope_authority_binding_for(
+            data_path,
+            baseline,
+            work_id,
+            palari_id,
+            mode,
+            current_workspace=scope_authority_workspace,
+        )
     except WorkspaceError as exc:
         return f"cannot verify governance projection scope authority: {exc}"
     if actual["baseline_digest"] != baseline_digest:
@@ -1689,7 +1713,11 @@ def _governance_projection_scope_authority_error(
         if not parked_work_status_from:
             return "governance projection snapshot scope authority current digest differs"
         try:
-            current_workspace = _scope_authority_workspace_from_current(data_path)
+            current_workspace = (
+                scope_authority_workspace
+                if scope_authority_workspace is not None
+                else _scope_authority_workspace_from_current(data_path)
+            )
             current_work = current_workspace.work_item(work_id)
             if current_work is None or current_work.status != "blocked":
                 return "governance projection snapshot scope authority current digest differs"
@@ -1716,9 +1744,12 @@ def _scope_authority_binding_for(
     work_id: str,
     palari_id: str,
     mode: str,
+    *,
+    current_workspace: Workspace | None = None,
 ) -> dict[str, str]:
     baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
-    current_workspace = _scope_authority_workspace_from_current(data_path)
+    if current_workspace is None:
+        current_workspace = _scope_authority_workspace_from_current(data_path)
     if baseline_workspace.work_item(work_id) is None:
         baseline_digest = _scope_authority_catalog_digest(
             baseline,
