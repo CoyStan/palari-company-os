@@ -411,6 +411,24 @@ class WorkspaceContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(WorkspaceError, expected):
                     Workspace.load(FIXTURES / fixture)
 
+    def test_retired_write_aliases_do_not_grant_external_write_authority(self) -> None:
+        for action in ("write", "write_external"):
+            with self.subTest(action=action):
+                data = fixture_data("invalid-receipt-external-write.json")
+                data["work_items"][0]["allowed_actions"] = [action]
+                data["work_items"][0]["forbidden_actions"] = []
+
+                with self.assertRaisesRegex(
+                    WorkspaceError, "requires allowed action external_write"
+                ):
+                    Workspace.from_raw(data, FIXTURES)
+
+        canonical = fixture_data("invalid-receipt-external-write.json")
+        canonical["work_items"][0]["allowed_actions"] = ["external_write"]
+        canonical["work_items"][0]["forbidden_actions"] = []
+
+        self.assertEqual(Workspace.from_raw(canonical, FIXTURES).name, canonical["name"])
+
 
 class ScopeValidationTests(unittest.TestCase):
     def test_exact_path_intents_load(self) -> None:

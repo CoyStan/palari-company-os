@@ -35,7 +35,10 @@ from .governance_kernel import (
     ArtifactExpectation,
     GovernanceEvaluation,
     GovernanceEvaluationContext,
+    HumanAuthorityCandidate,
+    HumanAuthorityCandidateEvaluation,
     evaluate_governance_case,
+    evaluate_human_authority_candidate,
 )
 from .pcaw_canonical import canonical_sha256
 from .pcaw_subjects import SubjectError, hash_subject, validate_subject_name
@@ -55,6 +58,26 @@ class RecordedGovernanceProjection:
     recorded_proof_errors: tuple[str, ...]
     basis: str = "recorded"
     authoritative: bool = False
+
+
+@dataclass(frozen=True)
+class CompletionAuthorityProjection:
+    """Authoritative terminal projection and any required acceptance event."""
+
+    evaluation: GovernanceEvaluation
+    candidate: HumanAuthorityCandidateEvaluation | None = None
+    acceptance: AcceptanceSnapshot | None = None
+
+    @property
+    def ready(self) -> bool:
+        return bool(
+            (
+                self.evaluation.derived_state == "completed"
+                and self.evaluation.fully_verified
+                and not self.evaluation.errors
+            )
+            or (self.candidate is not None and self.candidate.acceptance_allowed)
+        )
 
 
 class RecordedGovernanceProjectionProvider:
@@ -96,6 +119,142 @@ def governance_context_from_workspace(
             )
             for item in work.path_intents
         )
+    )
+
+
+def evaluate_workspace_human_authority_candidate(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    decision_id: str,
+    human_id: str,
+    reviewed_head: str,
+    timestamp: str,
+    acceptance_mode: str,
+    decision_value: str = "accepted",
+    decision_status: str = "accepted",
+    evidence_id: str | None = None,
+    review_id: str | None = None,
+    acceptance_id: str = "",
+    accepted_at: str = "",
+    projected_terminal: bool = False,
+) -> HumanAuthorityCandidateEvaluation:
+    """Project one proposed human decision/acceptance through the pure kernel."""
+
+    governance_case, _ = governance_case_from_workspace(
+        workspace,
+        work_id,
+        projected_contract_status="completed" if projected_terminal else "",
+    )
+    review = governance_case.review
+    evidence = governance_case.evidence
+    evidence_id = evidence.id if evidence_id is None and evidence is not None else evidence_id or ""
+    review_id = review.id if review_id is None and review is not None else review_id or ""
+    decision = HumanDecisionSnapshot(
+        id=decision_id,
+        work_item_id=work_id,
+        human_id=human_id,
+        reviewed_head=reviewed_head,
+        decision=decision_value,
+        status=decision_status,
+        acceptance_mode=acceptance_mode,
+        quorum_status="pending",
+        evidence_id=evidence_id,
+        review_id=review_id,
+        evidence_digest=governance_case.evidence_digest(),
+        review_digest=governance_case.review_digest(),
+        timestamp=_timestamp(timestamp),
+    )
+    acceptance = None
+    if acceptance_id:
+        acceptance = AcceptanceSnapshot(
+            id=acceptance_id,
+            work_item_id=work_id,
+            human_id=human_id,
+            reviewed_head=reviewed_head,
+            status="accepted",
+            decision_id=decision_id,
+            evidence_id=evidence_id,
+            review_id=review_id,
+            receipt_digest=governance_case.receipt_digest(),
+            evidence_digest=governance_case.evidence_digest(),
+            review_digest=governance_case.review_digest(),
+            quorum_status="met",
+            accepted_at=_timestamp(accepted_at or timestamp),
+        )
+    human = workspace.human(human_id)
+    return evaluate_human_authority_candidate(
+        governance_case,
+        HumanAuthorityCandidate(
+            decision=decision,
+            acceptance=acceptance,
+            human_active=bool(human is not None and human.availability != "inactive"),
+        ),
+        context=governance_context_from_workspace(workspace, work_id),
+    )
+
+
+def evaluate_workspace_completion_authority(
+    workspace: Workspace,
+    work_id: str,
+    *,
+    accepted_at: str,
+    acceptance_id: str = "",
+) -> CompletionAuthorityProjection:
+    """Evaluate terminal authority and project one missing acceptance if safe."""
+
+    governance_case, _ = governance_case_from_workspace(
+        workspace,
+        work_id,
+        projected_contract_status="completed",
+    )
+    governance_case = replace(governance_case, claimed_state="completed")
+    context = governance_context_from_workspace(workspace, work_id)
+    evaluation = evaluate_governance_case(governance_case, context=context)
+    if (
+        evaluation.derived_state == "completed"
+        and evaluation.fully_verified
+        and not evaluation.errors
+    ):
+        return CompletionAuthorityProjection(evaluation=evaluation)
+
+    qualified_ids = set(evaluation.qualified_decision_ids)
+    decisions = [
+        item for item in governance_case.human_decisions if item.id in qualified_ids
+    ]
+    if not decisions:
+        return CompletionAuthorityProjection(evaluation=evaluation)
+    decision = max(decisions, key=lambda item: (item.timestamp, item.id))
+    acceptance_id = acceptance_id or f"ACCEPTANCE-{work_id}-{decision.human_id}"
+    acceptance = AcceptanceSnapshot(
+        id=acceptance_id,
+        work_item_id=work_id,
+        human_id=decision.human_id,
+        reviewed_head=decision.reviewed_head,
+        status="accepted",
+        decision_id=decision.id,
+        evidence_id=decision.evidence_id,
+        review_id=decision.review_id,
+        receipt_digest=governance_case.receipt_digest(),
+        evidence_digest=governance_case.evidence_digest(),
+        review_digest=governance_case.review_digest(),
+        quorum_status="met",
+        accepted_at=_timestamp(accepted_at),
+    )
+    human = workspace.human(decision.human_id)
+    candidate = evaluate_human_authority_candidate(
+        governance_case,
+        HumanAuthorityCandidate(
+            decision=decision,
+            acceptance=acceptance,
+            human_active=bool(human is not None and human.availability != "inactive"),
+        ),
+        context=context,
+    )
+    return CompletionAuthorityProjection(
+        evaluation=evaluation,
+        candidate=candidate,
+        acceptance=acceptance,
     )
 
 
@@ -155,6 +314,7 @@ def governance_case_from_workspace(
     *,
     inspect_external: bool = True,
     projected_contract_status: str = "",
+    journal_context: Any | None = None,
 ) -> tuple[GovernanceCase, list[dict[str, str]]]:
     """Normalize one workspace lifecycle into the provider-neutral PCAW case.
 
@@ -212,7 +372,10 @@ def governance_case_from_workspace(
         evidence=evidence_snapshot,
     )
     review_binding_current = _review_binding_current(
-        workspace, review, inspect_external=inspect_external
+        workspace,
+        review,
+        inspect_external=inspect_external,
+        journal_context=journal_context,
     )
     review_snapshot = _review_snapshot(review, case_stub, review_binding_current)
     review_case = GovernanceCase(
@@ -262,8 +425,15 @@ def governance_case_from_workspace(
             evidence,
             expected_absent_paths=expected_absent_paths,
         )
-        evidence_observation = _evidence_observation(workspace, evidence)
-        journal_observation = _journal_observation(workspace)
+        evidence_observation = _evidence_observation(
+            workspace,
+            evidence,
+            journal_context=journal_context,
+        )
+        journal_observation = _journal_observation(
+            workspace,
+            journal_context=journal_context,
+        )
     else:
         subject_observation = IntegrityObservation(
             "not-checked" if evidence is not None and evidence.artifacts else "not-required"
@@ -600,12 +770,20 @@ def _artifact_subjects(
 
 
 def _evidence_observation(
-    workspace: Workspace, evidence: Any | None
+    workspace: Workspace,
+    evidence: Any | None,
+    *,
+    journal_context: Any | None = None,
 ) -> IntegrityObservation:
     if evidence is None:
         return IntegrityObservation("not-checked", ("current attempt has no evidence",))
     try:
-        result = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+        result = verify_evidence(
+            workspace,
+            evidence.id,
+            require_output_coverage=True,
+            journal_context=journal_context,
+        )
     except (OSError, ValueError, WorkspaceError) as exc:
         return IntegrityObservation("failed", (str(exc),))
     if result.get("ok"):
@@ -620,14 +798,22 @@ def _evidence_observation(
     return IntegrityObservation("failed", tuple(details))
 
 
-def _journal_observation(workspace: Workspace) -> IntegrityObservation:
+def _journal_observation(
+    workspace: Workspace,
+    *,
+    journal_context: Any | None = None,
+) -> IntegrityObservation:
     from .governance_journal import JournalError, journal_file_path, verify_journal
 
     try:
         path = journal_file_path(workspace.path / "workspace.json")
         if not path.exists():
             return IntegrityObservation("not-required", ("legacy workspace not checkpointed",))
-        report = verify_journal(workspace.path / "workspace.json")
+        report = (
+            journal_context.verify(workspace.path)
+            if journal_context is not None
+            else verify_journal(workspace.path / "workspace.json")
+        )
     except (OSError, ValueError, WorkspaceError, JournalError) as exc:
         return IntegrityObservation("failed", (str(exc),))
     if report.get("ok"):
@@ -659,6 +845,7 @@ def _review_binding_current(
     review: Any | None,
     *,
     inspect_external: bool,
+    journal_context: Any | None = None,
 ) -> bool:
     if review is None:
         return False
@@ -668,6 +855,7 @@ def _review_binding_current(
                 workspace,
                 review,
                 require_output_coverage=True,
+                journal_context=journal_context,
             )
         else:
             errors = recorded_current_review_binding_errors(workspace, review)

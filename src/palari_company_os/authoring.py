@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +9,7 @@ from .read_models import queue_items
 from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
-from .workspace import WorkspaceError, current_attempt_for_work, latest_for_work
+from .workspace import WorkspaceError, latest_for_work
 
 
 class ReconciliationStateChanged(WorkspaceError):
@@ -279,7 +278,7 @@ def update_human_decision(
         "approved",
     }:
         workspace = validate_data(store.data_path, store.data)
-        assert_transition_allowed(
+        transition = assert_transition_allowed(
             workspace,
             "human_decision_accept",
             str(merged.get("id") or record_id),
@@ -287,8 +286,19 @@ def update_human_decision(
             context={
                 "work_item_id": str(merged.get("work_item_id") or ""),
                 "reviewed_head": str(merged.get("reviewed_head") or ""),
+                "timestamp": str(merged.get("timestamp") or ""),
+                "acceptance_mode": str(merged.get("acceptance_mode") or "human"),
+                "decision": str(merged.get("decision") or ""),
+                "status": str(merged.get("status") or ""),
+                "evidence_reference": str(merged.get("evidence_reference") or ""),
+                "review_reference": str(merged.get("review_reference") or ""),
+                "allow_existing": True,
             },
         )
+        candidate = transition.authority_candidate
+        if candidate is not None:
+            updates["quorum_status"] = "met" if candidate.quorum_met else "pending"
+            merged["quorum_status"] = updates["quorum_status"]
     record.update(updates)
     workspace = write_store(
         store,
@@ -335,7 +345,7 @@ def complete_work(
     acceptance_ids_before = {
         str(item.get("id") or "") for item in _records(store, "acceptance_records")
     }
-    _ensure_acceptance_record_for_completion(store, workspace, work_id, actor)
+    _append_projected_acceptance_for_completion(store, workspace, work_id, actor)
     projected_workspace = validate_data(store.data_path, store.data)
     assert_work_completion_ready(projected_workspace, work_id, actor=actor)
     work = _find(_records(store, "work_items"), work_id)
@@ -395,7 +405,7 @@ def create_human_decision(
     decision = str(record.get("decision") or "")
     reviewed_head = str(record.get("reviewed_head") or "")
     if decision in {"accepted", "approved"}:
-        assert_transition_allowed(
+        transition = assert_transition_allowed(
             workspace,
             "human_decision_accept",
             str(record.get("id") or ""),
@@ -403,8 +413,17 @@ def create_human_decision(
             context={
                 "work_item_id": work_id,
                 "reviewed_head": reviewed_head,
+                "timestamp": str(record.get("timestamp") or ""),
+                "acceptance_mode": str(record.get("acceptance_mode") or "human"),
+                "decision": decision,
+                "status": str(record.get("status") or ""),
+                "evidence_reference": str(record.get("evidence_reference") or ""),
+                "review_reference": str(record.get("review_reference") or ""),
             },
         )
+        candidate = transition.authority_candidate
+        if candidate is not None:
+            record["quorum_status"] = "met" if candidate.quorum_met else "pending"
     result = create_record(
         workspace_path,
         "human-decision",
@@ -440,13 +459,6 @@ def accept_work(
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
-    assert_transition_allowed(
-        workspace,
-        "work_accept",
-        work_id,
-        actor=human_id,
-        context={"reviewed_head": reviewed_head},
-    )
     work = workspace.work_item(work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
@@ -463,13 +475,30 @@ def accept_work(
         raise WorkspaceError(f"human-decision already exists: {decision_id}")
     if _find(acceptance_records, acceptance_id) is not None:
         raise WorkspaceError(f"acceptance already exists: {acceptance_id}")
-    qualified_count = _qualified_approval_count_after(workspace, work_id, human_id, reviewed_head)
-    if qualified_count < work.required_approval_count:
-        raise WorkspaceError(
-            f"work {work_id} cannot be accepted: approval quorum would be "
-            f"{qualified_count}/{work.required_approval_count}"
-        )
     timestamp = _timestamp()
+    transition = assert_transition_allowed(
+        workspace,
+        "work_accept",
+        work_id,
+        actor=human_id,
+        context={
+            "reviewed_head": reviewed_head,
+            "decision_id": decision_id,
+            "acceptance_id": acceptance_id,
+            "timestamp": timestamp,
+            "accepted_at": timestamp,
+            "acceptance_mode": "human",
+            "decision": "accepted",
+            "status": "accepted",
+            "evidence_reference": evidence.id,
+            "review_reference": review.id,
+        },
+    )
+    candidate = transition.authority_candidate
+    if candidate is None or not candidate.acceptance_allowed:
+        raise WorkspaceError(
+            f"work {work_id} cannot be accepted: governance authority is not current"
+        )
     decision = {
         "id": decision_id,
         "work_item_id": work_id,
@@ -985,7 +1014,7 @@ def _record_update_needs_transition(kind: str, updates: dict[str, Any]) -> bool:
     return bool(set(updates) & TRANSITION_UPDATE_FIELDS.get(kind, set()))
 
 
-def _ensure_acceptance_record_for_completion(
+def _append_projected_acceptance_for_completion(
     store: WorkspaceStore,
     workspace: Any,
     work_id: str,
@@ -995,54 +1024,35 @@ def _ensure_acceptance_record_for_completion(
     if work is None:
         return
     receipt = latest_for_work(workspace.receipts, work_id)
-    from .governance_kernel import low_risk_completion_policy_applies
+    from .pcaw_workspace import evaluate_workspace_completion_authority
 
-    if low_risk_completion_policy_applies(
-        risk=work.risk,
-        intensity=work.intensity,
-        required_approval_count=work.required_approval_count,
-        allowed_actions=work.allowed_actions,
-        planned_external_writes=receipt.planned_external_writes if receipt else (),
-        queued_external_writes=receipt.queued_external_writes if receipt else (),
-        external_writes=receipt.external_writes if receipt else (),
-    ):
+    accepted_at = _timestamp()
+    projection = evaluate_workspace_completion_authority(
+        workspace,
+        work_id,
+        accepted_at=accepted_at,
+    )
+    acceptance = projection.acceptance
+    if acceptance is None or not projection.ready:
         return
-    if any(item.get("work_item_id") == work_id for item in _records(store, "acceptance_records")):
-        return
-    review = latest_for_work(workspace.review_verdicts, work_id)
-    evidence = latest_for_work(workspace.evidence_runs, work_id)
-    if review is None or evidence is None:
-        return
-    matching_decisions = [
-        decision
-        for decision in workspace.human_decisions
-        if decision.work_item_id == work_id
-        and decision.reviewed_head == review.reviewed_head
-        and decision.review_reference == review.id
-        and decision.evidence_reference == evidence.id
-        and _is_approval(decision)
-    ]
-    if not matching_decisions:
-        return
-    decision = max(matching_decisions, key=_decision_order_key)
-    acceptance_id = f"ACCEPTANCE-{work_id}-{decision.human_id}"
+    acceptance_id = acceptance.id
     if _find(_records(store, "acceptance_records"), acceptance_id) is not None:
         return
     _records(store, "acceptance_records").append(
         {
             "id": acceptance_id,
             "work_item_id": work_id,
-            "human_id": decision.human_id,
-            "reviewed_head": review.reviewed_head,
+            "human_id": acceptance.human_id,
+            "reviewed_head": acceptance.reviewed_head,
             "status": "accepted",
-            "decision_id": decision.id,
-            "evidence_reference": evidence.id,
-            "review_reference": review.id,
+            "decision_id": acceptance.decision_id,
+            "evidence_reference": acceptance.evidence_id,
+            "review_reference": acceptance.review_id,
             "receipt_hash": receipt.receipt_hash if receipt else "",
             "authority_profile": "team-safe",
             "quorum_status": "met",
             "reason": actor or "completion gate",
-            "accepted_at": _timestamp(),
+            "accepted_at": accepted_at,
         }
     )
 
@@ -1081,73 +1091,6 @@ def _with_automatic_convergence(
         result.workspace,
         next_action=next_action,
     )
-
-
-def _qualified_approval_count_after(
-    workspace: Any,
-    work_id: str,
-    human_id: str,
-    reviewed_head: str,
-) -> int:
-    work = workspace.work_item(work_id)
-    if work is None:
-        return 0
-    humans_by_id = {human.id: human for human in workspace.humans}
-    review = latest_for_work(workspace.review_verdicts, work_id)
-    evidence = latest_for_work(workspace.evidence_runs, work_id)
-    if (
-        review is None
-        or evidence is None
-        or review.reviewed_head != reviewed_head
-        or review.evidence_reference != evidence.id
-    ):
-        return 0
-    incoming_human = humans_by_id.get(human_id)
-    seen: set[str] = set()
-    if not work.required_approval_capability or (
-        incoming_human is not None
-        and work.required_approval_capability in incoming_human.approval_capabilities
-    ):
-        seen.add(human_id)
-    latest_by_human: dict[str, Any] = {}
-    for decision in workspace.human_decisions:
-        if decision.work_item_id != work_id or decision.reviewed_head != reviewed_head:
-            continue
-        previous = latest_by_human.get(decision.human_id)
-        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
-            latest_by_human[decision.human_id] = decision
-    for decision in latest_by_human.values():
-        if not _is_approval(decision):
-            continue
-        if (
-            decision.review_reference != review.id
-            or decision.evidence_reference != evidence.id
-        ):
-            continue
-        human = humans_by_id.get(decision.human_id)
-        if work.required_approval_capability and (
-            human is None or work.required_approval_capability not in human.approval_capabilities
-        ):
-            continue
-        seen.add(decision.human_id)
-    return len(seen)
-
-
-def _decision_order_key(decision: Any) -> tuple[datetime, str]:
-    try:
-        timestamp = datetime.fromisoformat(
-            str(getattr(decision, "timestamp", "")).replace("Z", "+00:00")
-        )
-    except ValueError:
-        timestamp = datetime.min.replace(tzinfo=timezone.utc)
-    return (timestamp, str(getattr(decision, "id", "")))
-
-
-def _is_approval(decision: Any) -> bool:
-    return decision.status in {"accepted", "approved"} and decision.decision in {
-        "accepted",
-        "approved",
-    }
 
 
 def _latest_raw_for_attempt(

@@ -32,7 +32,9 @@ from palari_company_os.governance_kernel import (
     PROPERTY_NAMES,
     ArtifactExpectation,
     GovernanceEvaluationContext,
+    HumanAuthorityCandidate,
     evaluate_governance_case,
+    evaluate_human_authority_candidate,
 )
 
 
@@ -268,6 +270,114 @@ class GovernanceCaseTests(unittest.TestCase):
 
 
 class GovernanceKernelTests(unittest.TestCase):
+    def test_candidate_decision_is_allowed_before_quorum_without_acceptance(self) -> None:
+        case = accepted_case(claimed_state="human-decision-required")
+        decision = case.human_decisions[0]
+        case = replace(
+            case,
+            contract=replace(case.contract, required_approval_count=2),
+            human_decisions=(),
+            acceptance_records=(),
+        )
+        case = replace(
+            case,
+            review=replace(case.review, contract_digest=case.contract_digest()),
+        )
+        decision = replace(
+            decision,
+            quorum_status="pending",
+            review_digest=case.review_digest(),
+        )
+
+        result = evaluate_human_authority_candidate(
+            case,
+            HumanAuthorityCandidate(decision),
+        )
+        premature_acceptance = evaluate_human_authority_candidate(
+            case,
+            HumanAuthorityCandidate(
+                decision,
+                replace(
+                    accepted_case().acceptance_records[0],
+                    quorum_status="met",
+                ),
+            ),
+        )
+
+        self.assertTrue(result.decision_allowed, result.errors)
+        self.assertFalse(result.quorum_met)
+        self.assertFalse(result.acceptance_allowed)
+        self.assertFalse(premature_acceptance.acceptance_allowed)
+        self.assertIn(
+            "PCAW_HUMAN_QUORUM_INCOMPLETE",
+            {item.code for item in premature_acceptance.errors},
+        )
+        self.assertEqual(result.governance.derived_state, "human-decision-required")
+
+    def test_candidate_acceptance_requires_exact_current_qualified_authority(self) -> None:
+        accepted = accepted_case()
+        case = replace(accepted, human_decisions=(), acceptance_records=())
+        decision = accepted.human_decisions[0]
+        acceptance = accepted.acceptance_records[0]
+
+        valid = evaluate_human_authority_candidate(
+            case,
+            HumanAuthorityCandidate(decision, acceptance),
+        )
+        self.assertTrue(valid.decision_allowed, valid.errors)
+        self.assertTrue(valid.quorum_met)
+        self.assertTrue(valid.acceptance_allowed, valid.errors)
+        cases = (
+            (
+                "inactive",
+                HumanAuthorityCandidate(decision, acceptance, human_active=False),
+                "PCAW_CANDIDATE_HUMAN_INACTIVE",
+            ),
+            (
+                "stale binding",
+                HumanAuthorityCandidate(
+                    replace(decision, reviewed_head="stale-head"), acceptance
+                ),
+                "PCAW_CANDIDATE_DECISION_STALE",
+            ),
+            (
+                "unknown human",
+                HumanAuthorityCandidate(
+                    replace(decision, id="DECISION-UNKNOWN", human_id="HUMAN-UNKNOWN"),
+                    acceptance,
+                ),
+                "PCAW_CANDIDATE_HUMAN_UNKNOWN",
+            ),
+        )
+        for label, candidate, expected in cases:
+            with self.subTest(label=label):
+                result = evaluate_human_authority_candidate(case, candidate)
+                self.assertFalse(result.decision_allowed)
+                self.assertFalse(result.acceptance_allowed)
+                self.assertIn(expected, {item.code for item in result.errors})
+
+    def test_candidate_decision_cannot_borrow_another_humans_quorum(self) -> None:
+        case = accepted_case(claimed_state="accept-ready")
+        observer = HumanAuthority("HUMAN-OBSERVER")
+        candidate = replace(
+            case.human_decisions[0],
+            id="DECISION-OBSERVER",
+            human_id=observer.id,
+            timestamp="2030-01-01T00:06:00Z",
+        )
+
+        result = evaluate_human_authority_candidate(
+            replace(case, humans=(*case.humans, observer), acceptance_records=()),
+            HumanAuthorityCandidate(candidate),
+        )
+
+        self.assertTrue(result.quorum_met)
+        self.assertFalse(result.decision_allowed)
+        self.assertIn(
+            "PCAW_CANDIDATE_HUMAN_UNQUALIFIED",
+            {item.code for item in result.errors},
+        )
+
     def test_current_acceptance_verifies_all_eight_properties(self) -> None:
         result = evaluate_governance_case(accepted_case())
 
@@ -477,6 +587,25 @@ class GovernanceKernelTests(unittest.TestCase):
                 self.assertNotEqual(result.derived_state, "completed")
                 self.assertFalse(result.fully_verified)
                 self.assertNotEqual(properties["independent_review"], "not-required")
+
+    def test_only_canonical_external_write_action_disables_low_risk_completion(self) -> None:
+        case = evidence_complete_low_risk_case()
+
+        for action, expected in (
+            ("write", "completed"),
+            ("write_external", "completed"),
+            ("external_write", "review-required"),
+        ):
+            with self.subTest(action=action):
+                candidate = replace(
+                    case,
+                    claimed_state=expected,
+                    contract=replace(case.contract, allowed_actions=(action,)),
+                )
+                self.assertEqual(
+                    evaluate_governance_case(candidate).derived_state,
+                    expected,
+                )
 
     def test_substantive_attempt_mutation_invalidates_evidence_review_and_acceptance(self) -> None:
         case = accepted_case(claimed_state="blocked")

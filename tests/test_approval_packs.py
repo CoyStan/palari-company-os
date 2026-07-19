@@ -20,8 +20,8 @@ from palari_company_os.approval_packs import (
     _batch_policy,
     apply_pack_decision as _apply_pack_decision,
     build_approval_inbox,
-    canonical_pack_bytes,
     evaluate_approval_pack,
+    validate_pack_manifest,
 )
 from palari_company_os.approval_presentations import (
     approval_presentation_digest,
@@ -134,11 +134,11 @@ class ApprovalPackTests(unittest.TestCase):
                     wraps=verify_workspace_journal,
                 ) as verify_journal_once,
                 patch(
-                    "palari_company_os.approval_packs.verify_evidence",
+                    "palari_company_os.pcaw_workspace.verify_evidence",
                     wraps=verify_evidence,
                 ) as evidence_checks,
                 patch(
-                    "palari_company_os.approval_packs.current_review_binding_errors",
+                    "palari_company_os.pcaw_workspace.current_review_binding_errors",
                     wraps=current_review_binding_errors,
                 ) as review_checks,
             ):
@@ -387,7 +387,7 @@ class ApprovalPackTests(unittest.TestCase):
             1,
         )
         self.assertEqual(len({item["member_digest"] for item in pack["members"]}), 100)
-        self.assertEqual(canonical_pack_bytes(pack), canonical_pack_bytes(second["packs"][0]))
+        self.assertEqual(pack["pack_digest"], second["packs"][0]["pack_digest"])
 
     def test_one_action_approves_and_executes_every_exact_eligible_member(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -715,7 +715,7 @@ class ApprovalPackTests(unittest.TestCase):
             {key: value for key, value in bad_base.items() if key != "pack_digest"}
         )
         with self.assertRaisesRegex(WorkspaceError, "base has unknown or missing fields"):
-            canonical_pack_bytes(bad_base)
+            validate_pack_manifest(bad_base)
 
         bad_member = deepcopy(pack)
         bad_member["members"][0]["unknown"] = "self-consistent but unsupported"
@@ -730,7 +730,7 @@ class ApprovalPackTests(unittest.TestCase):
             {key: value for key, value in bad_member.items() if key != "pack_digest"}
         )
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
-            canonical_pack_bytes(bad_member)
+            validate_pack_manifest(bad_member)
 
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

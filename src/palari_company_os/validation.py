@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
+from .governance_kernel import EXTERNAL_WRITE_ACTIONS
 from .integration_contracts import (
     SUPPORTED_INTEGRATION_ACTIONS,
     human_can_decide_integration_plan,
@@ -2001,8 +2002,6 @@ def _historical_low_risk_completion(
 ) -> bool:
     """Load committed R1/R2 evidence history without granting current authority."""
 
-    from .governance_kernel import EXTERNAL_WRITE_ACTIONS
-
     if (
         work.risk not in {"R1", "R2"}
         or work.required_approval_count != 0
@@ -2172,8 +2171,7 @@ def _require_hash_prefix(collection: str, record_id: str, field: str, value: str
 
 
 def _allows_external_writes(work: WorkItem) -> bool:
-    allowed = set(work.allowed_actions)
-    return bool(allowed & {"external_write", "write_external", "write"})
+    return bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
 
 
 def _require_fresh_passed_evidence(
