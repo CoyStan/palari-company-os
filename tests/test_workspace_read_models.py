@@ -663,6 +663,59 @@ class RecordedBindingNormalizationTests(unittest.TestCase):
 
 
 class DetailAndCoordinationProjectionTests(unittest.TestCase):
+    def test_detail_projects_only_the_requested_work_without_external_inspection(
+        self,
+    ) -> None:
+        def add_unrelated_work(raw: dict[str, Any]) -> None:
+            raw["work_items"].extend(
+                _work_record(f"WORK-{index}") for index in range(2, 42)
+            )
+
+        workspace = _workspace(add_unrelated_work)
+        with (
+            patch(
+                "palari_company_os.pcaw_workspace.recorded_governance_projection",
+                wraps=recorded_governance_projection,
+            ) as project,
+            patch(
+                "palari_company_os.governance_binding.verify_evidence",
+                side_effect=AssertionError("detail must not inspect files"),
+            ),
+            patch(
+                "palari_company_os.governance_journal.verify_workspace_journal",
+                side_effect=AssertionError("detail must not audit the journal"),
+            ),
+            patch(
+                "subprocess.run",
+                side_effect=AssertionError("detail must not spawn subprocesses"),
+            ),
+        ):
+            payload = detail(workspace, "WORK-23")
+
+        self.assertEqual(payload["work_item"]["id"], "WORK-23")
+        self.assertEqual(
+            [call.args[1] for call in project.call_args_list],
+            ["WORK-23"],
+        )
+
+    def test_queue_projects_each_work_exactly_once_per_request(self) -> None:
+        def add_work(raw: dict[str, Any]) -> None:
+            raw["work_items"].extend(
+                _work_record(f"WORK-{index}") for index in range(2, 12)
+            )
+
+        workspace = _workspace(add_work)
+        with patch(
+            "palari_company_os.pcaw_workspace.recorded_governance_projection",
+            wraps=recorded_governance_projection,
+        ) as project:
+            items = queue_items(workspace)
+
+        projected_ids = [call.args[1] for call in project.call_args_list]
+        self.assertEqual(len(items), len(workspace.work_items))
+        self.assertCountEqual(projected_ids, [work.id for work in workspace.work_items])
+        self.assertEqual(len(projected_ids), len(set(projected_ids)))
+
     def test_retired_work_is_closed_but_remains_audit_visible(self) -> None:
         def retire(raw: dict[str, Any]) -> None:
             raw["work_items"].append(_work_record("WORK-SUCCESSOR"))

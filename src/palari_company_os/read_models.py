@@ -5,8 +5,7 @@ from typing import Any, Iterable, TypeVar
 
 from .models import to_plain
 from .pcaw_workspace import (
-    RecordedGovernanceProjection,
-    recorded_governance_projection,
+    RecordedGovernanceProjectionProvider,
 )
 from .record_order import record_time_key as _record_time_key
 from .read_model_commands import (
@@ -91,7 +90,7 @@ class _ReadContext:
     integration_outbox_by_plan: dict[str, Any]
     latest_outcome_by_work: dict[str, Any]
     open_decision_by_work: dict[str, Any]
-    governance_by_work: dict[str, RecordedGovernanceProjection]
+    governance: RecordedGovernanceProjectionProvider
     active_parallel: list[dict[str, Any]]
     active_attempts_by_work: dict[str, list[dict[str, Any]]]
     coordination_warnings: list[dict[str, Any]]
@@ -276,10 +275,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
         },
         latest_outcome_by_work=_latest_by_work(workspace.outcomes),
         open_decision_by_work=_open_decisions_by_work(workspace.decisions),
-        governance_by_work={
-            work.id: recorded_governance_projection(workspace, work.id)
-            for work in workspace.work_items
-        },
+        governance=RecordedGovernanceProjectionProvider(workspace),
         active_parallel=active_parallel,
         active_attempts_by_work=active_attempts_by_work,
         coordination_warnings=coordination,
@@ -473,7 +469,7 @@ def _next_step_type(
 def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
     """Translate one non-authoritative kernel projection into operator language."""
 
-    projection = context.governance_by_work[work.id]
+    projection = context.governance.for_work(work.id)
     current = projection.evaluation
     candidate = projection.completion_evaluation
     candidate_properties = {item.name: item.status for item in candidate.properties}

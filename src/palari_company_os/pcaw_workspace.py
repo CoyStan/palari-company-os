@@ -57,6 +57,27 @@ class RecordedGovernanceProjection:
     authoritative: bool = False
 
 
+class RecordedGovernanceProjectionProvider:
+    """Request-local memoizer for non-authoritative recorded projections.
+
+    The provider deliberately lives outside ``Workspace`` and is created by a
+    single read request.  It therefore avoids projecting unrelated work for a
+    targeted detail read without turning a recorded projection into persistent
+    authority or allowing it to outlive the workspace snapshot it describes.
+    """
+
+    def __init__(self, workspace: Workspace) -> None:
+        self._workspace = workspace
+        self._projections: dict[str, RecordedGovernanceProjection] = {}
+
+    def for_work(self, work_id: str) -> RecordedGovernanceProjection:
+        projection = self._projections.get(work_id)
+        if projection is None:
+            projection = recorded_governance_projection(self._workspace, work_id)
+            self._projections[work_id] = projection
+        return projection
+
+
 def governance_context_from_workspace(
     workspace: Workspace,
     work_id: str,
