@@ -63,7 +63,70 @@
       "steward_human": "HUMAN-FOUNDER"
     }
   ],
-  "work_items": [],
+  "work_items": [
+    {
+      "id": "WORK-74CFB49550B84D4CAD6190904FDB925E",
+      "title": "Make Palari use plain product language",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Replace unnecessary public governance jargon with task, run, checks, review, approval, result, and history language across documentation and operator-facing CLI surfaces while preserving exact machine contracts.",
+      "allowed_resources": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "conflict_targets": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A new user can understand Palari without architecture jargon; ordinary help, status, and guidance use the approved plain vocabulary; stored JSON, schema keys, status values, IDs, PCAW v1, journal records, and security meaning remain compatible; focused and complete verification pass.",
+      "verification_expectations": [
+        "Focused documentation, CLI, read-model, agent-presentation, and public-surface tests pass.",
+        "JSON keys, status values, schema, PCAW v1, and journal compatibility remain unchanged.",
+        "./scripts/verify.sh complete passes once on the final candidate."
+      ],
+      "required_approval_count": 1
+    }
+  ],
   "attempts": [],
   "evidence_runs": [],
   "review_verdicts": [],
@@ -89,7 +152,19 @@
       "source_ids": [
         "SOURCE-REPO"
       ],
-      "status": "active"
+      "status": "active",
+      "output_target_ids": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "src",
+        "tests",
+        "schemas"
+      ]
     }
   ],
   "capabilities": [],
