@@ -1,0 +1,102 @@
+{
+  "schema_version": 2,
+  "name": "Palari Company OS Current Workspace",
+  "goals": [
+    {
+      "id": "GOAL-0001",
+      "title": "Ship Palari Company OS Current Workspace work safely with AI partners",
+      "owner": "HUMAN-FOUNDER",
+      "status": "active",
+      "priority": "high",
+      "success_criteria": [
+        "AI work stays inside declared write boundaries",
+        "A human can see what was done and what needs review"
+      ],
+      "linked_palaris": [
+        "PALARI-CODEX"
+      ]
+    }
+  ],
+  "humans": [
+    {
+      "id": "HUMAN-FOUNDER",
+      "name": "CoyStan",
+      "role": "Founder",
+      "authority_level": "admin",
+      "approval_capabilities": [
+        "product",
+        "merge"
+      ],
+      "availability": "active"
+    }
+  ],
+  "palaris": [
+    {
+      "id": "PALARI-CODEX",
+      "name": "Codex",
+      "role": "AI coding partner",
+      "scope": "Do bounded work items inside declared write boundaries.",
+      "forbidden_actions": [
+        "write outside approved work areas",
+        "send external messages"
+      ],
+      "default_worker": "codex",
+      "owner_human": "HUMAN-FOUNDER",
+      "linked_goals": [
+        "GOAL-0001"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "SOURCE-REPO",
+      "label": "Repository",
+      "kind": "repo",
+      "provider": "local",
+      "uri": ".",
+      "access_mode": "read",
+      "selected": true,
+      "owner_human": "HUMAN-FOUNDER",
+      "allowed_palaris": [],
+      "data_class": "internal",
+      "authority": "company_owned",
+      "steward_human": "HUMAN-FOUNDER"
+    }
+  ],
+  "work_items": [],
+  "attempts": [],
+  "evidence_runs": [],
+  "review_verdicts": [],
+  "human_decisions": [],
+  "receipts": [],
+  "decisions": [],
+  "outcomes": [],
+  "playbook_sources": [],
+  "workbenches": [
+    {
+      "id": "WORKBENCH-MAIN",
+      "label": "Main workbench",
+      "summary": "Default work area for Palari Company OS Current Workspace.",
+      "goal_ids": [
+        "GOAL-0001"
+      ],
+      "palari_ids": [
+        "PALARI-CODEX"
+      ],
+      "human_ids": [
+        "HUMAN-FOUNDER"
+      ],
+      "source_ids": [
+        "SOURCE-REPO"
+      ],
+      "status": "active"
+    }
+  ],
+  "capabilities": [],
+  "authority_profiles": [],
+  "integrations": [],
+  "integration_plans": [],
+  "integration_outbox": [],
+  "proposals": [],
+  "acceptance_records": []
+}
