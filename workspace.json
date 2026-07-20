@@ -73,7 +73,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "superseded",
       "scope": "Replace unnecessary public governance jargon with task, run, checks, review, approval, result, and history language across documentation and operator-facing CLI surfaces while preserving exact machine contracts.",
       "allowed_resources": [
         "README.md",
@@ -124,6 +124,73 @@
         "JSON keys, status values, schema, PCAW v1, and journal compatibility remain unchanged.",
         "./scripts/verify.sh complete passes once on the final candidate."
       ],
+      "required_approval_count": 1,
+      "terminal_reason": "The task boundary omitted scripts/make_demo_assets.sh, which was inspected during asset consistency review. No out-of-boundary file was changed; the successor records the corrected boundary and owns the complete candidate.",
+      "successor_work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB"
+    },
+    {
+      "id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "title": "Finish the plain-language product migration",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Audit and complete the approved vocabulary migration across public documentation, generated guidance, operator-facing CLI and MCP text, the local human view, demo generator, and tests. Preserve exact commands, flags, JSON keys, stored values, IDs, schemas, PCAW, journals, Approval Packs, and hashed session-contract bytes.",
+      "allowed_resources": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "scripts",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "scripts",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "conflict_targets": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "scripts",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "parallel_policy": "exclusive",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A new user sees task, project, run, task brief, task lock, run record, checks, review, approval, result, and six plain statuses across ordinary surfaces; generated assets match; machine contracts remain compatible; focused and complete verification pass.",
+      "verification_expectations": [
+        "python3 -m unittest tests.test_plain_language tests.test_docs tests.test_cli_smoke tests.test_mcp_server tests.test_mission_control tests.test_demo",
+        "./bin/palari docs check --json",
+        "./scripts/verify.sh complete"
+      ],
       "required_approval_count": 1
     }
   ],
@@ -163,7 +230,8 @@
         "examples",
         "src",
         "tests",
-        "schemas"
+        "schemas",
+        "scripts"
       ]
     }
   ],
