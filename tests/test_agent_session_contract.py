@@ -47,6 +47,18 @@ class AgentSessionContractTests(unittest.TestCase):
         second = compile_agent_session_contract(packet)
 
         self.assertEqual(first, second)
+        self.assertEqual(
+            packet["context_hash"],
+            "sha256:d2eccfa2f9c9225a2f2ca0548fcc1f2924f7a03dfb52610182be2826ef61ddbb",
+        )
+        self.assertEqual(
+            first["contract_digest"],
+            "sha256:48f79958e874b908a7a313b52da4d13b759975190673c6d78a39727283b08be6",
+        )
+        self.assertEqual(
+            first["contract_id"],
+            "SESSION-CONTRACT-48F79958E874B908A7A313B5",
+        )
         self.assertEqual(first["status"], "ready")
         binding = first["contract"]["packet_binding"]
         self.assertFalse(binding["grants_authority"])
@@ -60,7 +72,6 @@ class AgentSessionContractTests(unittest.TestCase):
         self.assertEqual(properties["write-boundary-before-tool"], "adapter-required")
         self.assertEqual(properties["read-boundary"], "advisory")
         self.assertEqual(first["contract"]["enforcement"]["adapter"], "none")
-
         serialized = json.dumps(first, sort_keys=True)
         self.assertNotIn(str(self.workspace_file.parent), serialized)
         self.assertNotIn("created_at", serialized)
@@ -206,8 +217,8 @@ class AgentSessionContractTests(unittest.TestCase):
             print_agent_session_contract(contract, False)
 
         rendered = output.getvalue()
-        self.assertIn(f"Portable session contract: {contract['contract_id']}", rendered)
-        self.assertIn("Grants authority: no", rendered)
+        self.assertIn(f"Portable session rules: {contract['contract_id']}", rendered)
+        self.assertIn("Grants permission: no", rendered)
         self.assertIn("adapter: none", rendered)
 
     def _packet(self) -> dict[str, Any]:

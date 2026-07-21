@@ -338,7 +338,7 @@ def complete_work(
     if current.terminal_disposition:
         raise WorkspaceError(
             f"work {work_id} was {current.terminal_disposition} and cannot be "
-            "completed; create or follow an explicit successor work item"
+            "completed; create or follow an explicit successor task"
         )
     if current.status in {"completed", "closed", "done"}:
         return MutationResult("completed", "work_items", work_id, workspace.name)
@@ -1074,7 +1074,7 @@ def _with_automatic_convergence(
     status = str(convergence.get("status") or "")
     if status == "completed":
         next_action = (
-            f"Work item {work_id} completed automatically from current proof "
+            f"Task {work_id} completed automatically from current records "
             "and recorded human authority."
         )
     elif status == "blocked":
@@ -1119,7 +1119,7 @@ def _reject_generic_trust_transition(
         if current_status in terminal_statuses:
             raise WorkspaceError(
                 f"work {record_id} is terminal ({current_status}) and immutable; "
-                "create or follow an explicit successor work item"
+                "create or follow an explicit successor task"
             )
         if requested_status in {"completed", "closed", "done"}:
             raise WorkspaceError(

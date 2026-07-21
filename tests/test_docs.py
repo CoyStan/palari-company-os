@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 import tempfile
@@ -25,7 +24,7 @@ class DocumentationTests(unittest.TestCase):
         first_screen = readme[:quickstart_index]
 
         self.assertIn(
-            "![Palari terminal showing a blocked write outside the approved boundary]",
+            "![Palari terminal showing a blocked change outside the allowed files]",
             first_screen,
         )
         self.assertIn("(docs/assets/palari-blocked-terminal.png)", first_screen)
@@ -53,18 +52,40 @@ class DocumentationTests(unittest.TestCase):
                 self.assertGreater(path.stat().st_size, 1000)
         self.assertTrue((REPO_ROOT / "scripts" / "make_demo_assets.sh").exists())
 
-    def test_glossary_covers_core_object_headings(self) -> None:
+    def test_glossary_and_stored_records_lead_with_plain_names(self) -> None:
         core = (REPO_ROOT / "docs/product/core-objects.md").read_text(encoding="utf-8")
         glossary = (REPO_ROOT / "docs/product/glossary.md").read_text(encoding="utf-8")
-        headings = re.findall(r"^## (.+)$", core, flags=re.MULTILINE)
 
-        self.assertGreater(len(headings), 0)
-        for heading in headings:
+        for heading in (
+            "## Agent (`Palari`)",
+            "## Person (`human`)",
+            "## Project (`workbench`)",
+            "## Task (`work_item`)",
+            "## Run (`attempt`)",
+            "## Run Record (`receipt`)",
+            "## Check Results (`evidence_run`)",
+            "## Review Result (`review_verdict`)",
+            "## Approval or Rejection (`human_decision`)",
+            "## Approval Record (`acceptance_record`)",
+            "## Result (`outcome`)",
+        ):
             with self.subTest(heading=heading):
-                marker = f"## {heading}"
-                self.assertIn(marker, glossary)
-                section = glossary.split(marker, 1)[1].split("\n## ", 1)[0]
-                self.assertIn("You see it when", section)
+                self.assertIn(heading, core)
+                self.assertIn(heading, glossary)
+
+        for old_heading in (
+            "## Work Item",
+            "## Attempt",
+            "## Receipt",
+            "## Evidence Run",
+            "## Review Verdict",
+            "## Human Decision",
+            "## Acceptance Record",
+            "## Outcome",
+        ):
+            with self.subTest(old_heading=old_heading):
+                self.assertNotIn(old_heading, core)
+                self.assertNotIn(old_heading, glossary)
 
     def test_newcomer_docs_link_to_glossary(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
@@ -106,7 +127,7 @@ class DocumentationTests(unittest.TestCase):
             "background service by default",
             "live provider write without approval",
             "OAuth by default",
-            "schema growth without governance behavior",
+            "schema growth without changed safety behavior",
         ):
             self.assertIn(forbidden_growth, contract)
 
@@ -257,6 +278,31 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn("AGENTS.md", result["skipped_existing"])
             self.assertEqual((repo / "AGENTS.md").read_text(encoding="utf-8"), "custom instructions\n")
             self.assertTrue((repo / "docs" / "agent" / "repo-map.md").exists())
+
+    def test_docs_init_generates_plain_language_agent_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "pyproject.toml").write_text(
+                "[project]\nname='demo'\n",
+                encoding="utf-8",
+            )
+
+            init_docs(repo, write=True)
+
+            rules = (repo / "docs/agent/contracts-and-invariants.md").read_text(
+                encoding="utf-8"
+            )
+            workflows = (repo / "docs/agent/common-workflows.md").read_text(
+                encoding="utf-8"
+            )
+            freshness = (repo / "docs/agent/documentation-freshness.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("# Rules And Invariants", rules)
+            self.assertIn("run records (`receipts`)", rules)
+            self.assertIn("task brief (`packet`)", workflows)
+            self.assertIn("check results (`evidence`)", freshness)
+            self.assertNotIn("trust, authority", rules)
 
     def test_cli_docs_check_emits_json_shape(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

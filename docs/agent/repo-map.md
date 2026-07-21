@@ -3,31 +3,35 @@
 This map helps agents find the right files before scanning the whole repository.
 Keep it concise and update it when file ownership changes.
 
+Descriptions use the plain product words from
+[Plain Language](../product/plain-language.md). Python modules and stored field
+names stay exact because this is also a source-code map.
+
 ## Core Package
 
 - `src/palari_company_os/models.py`: typed workspace objects.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
 - `src/palari_company_os/workspace.py`: workspace loading and split collection files.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
-- `src/palari_company_os/governance_journal.py`: replayable prepare/commit
-  journal, checkpoints, verification, and crash recovery.
+- `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
+  history, restore points, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
-  human-decision projection, validation, and exact presentation digest.
-- `src/palari_company_os/checkpoints.py`: content-addressed checkpoint listing
-  and append-only human restoration.
+  approval view, validation, and exact presentation digest.
+- `src/palari_company_os/checkpoints.py`: content-addressed restore-point
+  listing and append-only human restoration.
 - `src/palari_company_os/workspace_read_models.py`: product-facing exact
   Approval Inbox adapter over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
-  provider-neutral governance normalization contract and evaluator.
+  provider-neutral rules normalization and evaluator.
 - `src/palari_company_os/pcaw_protocol.py`: offline PCAW statement verifier.
-- `src/palari_company_os/pcaw_workspace.py` and `pcaw_export.py`: workspace
-  normalization and deterministic proof export (outside the verifier TCB).
+- `src/palari_company_os/pcaw_workspace.py` and `pcaw_export.py`: workspace-state
+  normalization and deterministic PCAW proof export (outside the verifier TCB).
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
-- `src/palari_company_os/authoring.py`: create/update lifecycle records.
+- `src/palari_company_os/authoring.py`: create and update work-process records.
 - `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
   and atomic `work add` quick-create for existing repos.
 - `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
@@ -46,47 +50,48 @@ When adding a command, update parser, dispatch, output, tests, and
 
 ## Agent Runtime
 
-- `src/palari_company_os/agent_packets.py`: `agent brief` packet contract.
+- `src/palari_company_os/agent_packets.py`: `agent brief` task-brief contract.
 - `src/palari_company_os/agent_session_contract.py`: pure deterministic
   provider-neutral session-contract projection, strict validation, digest, and
   honest enforcement profile.
-- `src/palari_company_os/agent_runtime.py`: packet persistence and local claims.
+- `src/palari_company_os/agent_runtime.py`: task-brief persistence and local
+  task locks.
 - `src/palari_company_os/agent_directive.py`: pure state-to-owner/action
   compiler shared by agent read surfaces.
-- `src/palari_company_os/agent_operation.py`: request-local packet, check, and
+- `src/palari_company_os/agent_operation.py`: request-local brief, check, and
   directive reuse.
-- `src/palari_company_os/agent_parking.py`: durable blocked-attempt parking and
-  exact idempotent claim-release recovery without proof authority.
+- `src/palari_company_os/agent_parking.py`: durable blocked-run parking and
+  exact idempotent task-lock release without permission to approve.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
   exact-target integration readiness, and non-authority diagnostics.
 - `src/palari_company_os/agent_file_changes.py`: canonical Git change
-  observation, start-time dirty baselines, and packet write-boundary checks.
-- `src/palari_company_os/agent_checks.py`: packet compliance checks.
+  observation, start-time dirty baselines, and task-brief write-boundary checks.
+- `src/palari_company_os/agent_checks.py`: task-brief compliance checks.
 - `src/palari_company_os/agent_next.py`: candidate discovery.
 - `src/palari_company_os/agent_finish.py`: completion guidance and resolver
   classification.
-- `src/palari_company_os/agent_handoff.py`: read-only human handoff packets and
+- `src/palari_company_os/agent_handoff.py`: read-only human handoff briefs and
   exact Approval Pack routing when eligible.
 - `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
 - `src/palari_company_os/agent_loop.py`: compact loop summary.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
-  deterministic proof reconciler that stops at authority boundaries and
-  terminalizes mechanically after current authority exists.
+  deterministic verification reconciler that stops at approval boundaries and
+  finishes mechanically after current approval exists.
 - `src/palari_company_os/governance_convergence.py`: bounded fixed-point driver,
-  proof-relative governance-projection check, and automatic terminalization
-  using only authority that already exists.
+  verification-relative status-file check, and automatic completion using only
+  approval that already exists.
 - `src/palari_company_os/verification_attestations.py`: exact-state,
   content-addressed verification profiles and advisory local run records.
 - `src/palari_company_os/mcp_server.py`: read-only MCP stdio adapter for
   agent-facing Palari tools.
 - `src/palari_company_os/mission_control.py`: optional local read-only
-  supervision plus guarded integration-plan decisions. Exact human authority
+  supervision plus guarded integration-plan decisions. Exact human approval
   remains bound to the Approval Inbox action.
 - `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
-  of the packet write boundary (PreToolUse deny, Stop backstop, SessionStart
+  of the task-brief write boundary (PreToolUse deny, Stop backstop, SessionStart
   context); the core operating loop is provider-neutral.
 
-## Trust Objects
+## Review And Safety
 
 - `src/palari_company_os/integrations.py`: dry-run integration plans, decisions,
   and outbox records.

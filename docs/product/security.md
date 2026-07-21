@@ -1,13 +1,18 @@
 # Security Notes
 
-Palari Company OS is safe by default as a local governance kernel.
+Palari is a local system of explicit rules and checks. By default it does not
+contact a provider, use a credential, or let an agent approve its own work.
+
+This document uses exact security, storage, and PCAW protocol terms where
+precision matters. For ordinary product wording, see
+[Plain Language](plain-language.md).
 
 It does not:
 
 - require secrets for local verification
 - provide generic broker execution or perform an external write without an
   exact approved plan, queued outbox item, supported adapter, and explicit send
-- activate real policy acceptance
+- approve real policy
 - deploy anything
 - contact external systems during tests or examples
 
@@ -15,36 +20,37 @@ Linear is the sole current live provider adapter. Its comment, issue-status,
 and issue-creation writes are separate human actions after planning, approval,
 and enqueue; generic integration commands remain local and non-executing.
 
-Authority rules:
+Safety rules:
 
-- Human acceptance is separate from review.
-- Required approval capability is checked before accepted decisions are
+- Human approval is separate from review.
+- Required permission to approve is checked before accepted decisions are
   recorded.
-- Quorum is checked before work can be completed.
-- Every completion requires current exact passing evidence bound to the exact
-  attempt, receipt, head, and output artifacts and evaluated against the
-  current work contract.
-- Governed acceptance requires a terminal clean attempt, mandatory
-  evidence/receipt integrity, and an exact-bound independent review matching
-  the current attempt, head, and work contract.
-- Independent review and human acceptance may both be omitted only for
+- The required number of approvals is checked before a task can be completed.
+- Every completion requires current passing check results tied to the exact
+  run, run record, commit, output files, and task rules.
+- Approval requires a finished clean run, complete check/run-record integrity,
+  and an independent review tied to the exact run, commit, and task rules.
+- Independent review and human approval may both be omitted only for
   R1/light/0-approval work with no allowed, planned, queued, or actual external
-  writes. That narrow policy never waives evidence.
-- Each human's latest timezone-ordered decision for the exact review and
-  evidence controls quorum; a later negative decision revokes an earlier
-  approval, while contradictory or ambiguous records fail closed.
-- A zero numeric quorum means no quorum is required; it does not make an
-  explicit decision optional once an acceptance references that decision.
-  Such acceptance still requires the current exact review/evidence binding and
+  writes. That narrow policy never waives checks.
+- Each person's latest timezone-ordered decision for the exact review and
+  check results controls the required approvals; a later negative decision
+  revokes an earlier approval, while contradictory or ambiguous records fail
+  closed.
+- A zero numeric `quorum` means no approvals are required; it does not make an
+  explicit decision optional once an approval record references that decision.
+  Such approval still requires the current exact review/check binding and
   a declared human, and a later rejection revokes it.
 - Bound reviews are immutable, and generic update commands cannot rewrite
-  terminal work or attempt trust fields. Their aggregate hash covers reviewer
-  identity, verdict, findings, inspected checks, residual risks, and timestamp.
-- Scope checks use canonical repository paths and fail closed for traversal,
-  sibling-prefix confusion, symlink escape, malformed Git output, unknown
-  paths, and forbidden actions.
-- Active claims hash their metadata-only dirty baseline. Unchanged pre-existing
-  dirt is not attributed to the agent, while changes after claim are blocked.
+  terminal task or run trust fields. Their aggregate hash covers reviewer
+  identity, review result, findings, inspected checks, residual risks, and
+  timestamp.
+- Allowed-file checks use canonical repository paths and fail closed for
+  traversal, sibling-prefix confusion, symlink escape, malformed Git output,
+  unknown paths, and forbidden actions.
+- Active task locks hash their metadata-only dirty baseline. Unchanged
+  pre-existing changes are not attributed to the agent, while changes made
+  after assignment are checked against the task limits.
 - The baseline also records the claim-start commit. `agent advance` checks the
   entire descendant commit range, so claim restart cannot hide an earlier
   out-of-boundary commit or claim work already committed before ownership. A
@@ -58,8 +64,8 @@ Authority rules:
   identity, role, scope, worker, standards, input/memory boundaries and mode;
   reviewer goal linkage; work/dependency lifecycle authority; paths;
   selected-source provider/URI/external identity; capabilities; outputs;
-  coordination; and static gates—not mutable proof records. Committed or uncommitted
-  expansion, malformed or duplicate
+  coordination; and static required checks—not mutable verification records.
+  Committed or uncommitted expansion, malformed or duplicate
   JSON, unsafe collection paths, and split mismatch fail closed; journal actor
   metadata and handoff do not rebaseline a work item. A substantive amendment
   requires a successor work item.
@@ -165,15 +171,15 @@ Authority rules:
   WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
   one; `HOST` is `claude` or `codex`. Both install or reuse the portable
   contract and claim-bound Git commit gate without granting authority. Claude
-  and Codex have tested project-local session adapters; Codex hooks activate
+  and Codex have tested repository-local session adapters; Codex hooks activate
   only after explicit host `/hooks` review. No profile is an OS sandbox, and
   an unrestricted same-user process can still rewrite local files or Git
   metadata. Nested workspace adoption resolves and preflights the
   enclosing Git root before any write, so existing root instructions or host
   configuration cannot be silently absorbed into the bootstrap commit.
   A symlinked workspace file or escaping managed target fails before the
-  workspace is loaded or project files are written. Generated commands use an
-  inspectable project-local launcher when present; otherwise they preserve the
+  workspace is loaded or repository files are written. Generated commands use an
+  inspectable repository-local launcher when present; otherwise they preserve the
   absolute Palari entrypoint currently running or a validated `PATH` entry.
   `palari claude install` remains the hook-only management, repair, and removal
   surface. It manages current Palari entries without duplicating them and
@@ -223,31 +229,32 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-Governance journal v1 is a strictly read-only predecessor. An operator may run
+Tamper-evident history v1 (the `governance journal` in stored filenames) is a
+strictly read-only predecessor. An operator may run
 `history --checkpoint` against its valid, fully committed head exactly to
 activate the current writer; pending v1 state cannot be completed by appending
 a current record. Activation verifies the complete v1 chain, leaves its bytes
 untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
-checkpoint binds the exact v1 file SHA-256, byte length, head record digest,
+restore point binds the exact v1 file SHA-256, byte length, head record digest,
 record count, replay digest, transaction counts, and continuity state. Every
 later verification re-hashes the sealed v1 bytes and streams the strict v2
 JSONL tail from its content-bound workspace checkpoint. It does not trust a
 persistent advisory cache.
 
-New workspaces and explicit checkpoints for existing unjournaled workspaces
-write v2 directly. Ordinary mutation of an existing unjournaled workspace
-fails closed until that checkpoint exists. V2 records are never written to or
+New workspaces and explicit restore points for existing workspaces without history
+write v2 directly. Ordinary mutation of such a workspace fails closed until that
+restore point exists. V2 records are never written to or
 accepted from the v1 filename.
 
 V2 mutation prepares contain deterministic add/remove/replace values rather
-than another full workspace projection. A checkpoint still contains one full
-projection so replay has an authoritative base. Record, transaction,
-before/after workspace, predecessor, and terminal digests remain fail-closed;
+than another full status snapshot. A restore point still contains one full
+snapshot so replay has a trusted base. Record, transaction, before/after
+project, predecessor, and terminal digests remain fail-closed;
 truncation, reordering, duplicate terminals, malformed or non-canonical deltas,
 changed predecessor bytes, pending transactions, and workspace divergence are
 rejected. The sealed predecessor hash makes ordinary verification bounded in
 memory and avoids reparsing historical v1 JSON, but it does not authenticate
-the operator who created the checkpoint against a hostile same-user process
+the operator who created the restore point against a hostile same-user process
 that can rewrite both local journals.
 
 PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
@@ -273,11 +280,11 @@ supports the narrower claim that those bytes were made available to the
 decision action. Neither claim proves browser pixels under compromised
 software, human attention, understanding, or judgment.
 
-Checkpoint restoration is local state restoration, not external rollback.
+Restore-point recovery is local state restoration, not external rollback.
 Sent messages, filings, payments, access changes, and provider effects cannot
-be reversed by replacing `workspace.json`. When effect-bearing receipt fields
+be reversed by replacing `workspace.json`. When effect-bearing run-record fields
 or a sent/failed outbox transition show that an effect occurred or may have
-occurred after the selected checkpoint, restoration fails closed before
+occurred after the selected restore point, restoration fails closed before
 changing local state. Detection scans all committed projections after the
 earliest occurrence of the selected content digest, including when a later
 projection removed the record or returned to the same bytes. Compensation must

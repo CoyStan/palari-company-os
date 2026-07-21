@@ -131,11 +131,11 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertEqual(
                 output.getvalue().splitlines(),
                 [
-                    f"Work: {WORK_ID} [blocked]",
+                    f"Task: {WORK_ID} [Blocked]",
                     f"Owner: {PALARI_ID}",
                     f"Reason: {REASON}",
                     f"Next: {NEXT_ACTION}",
-                    "Claim released: yes",
+                    "Task lock released: yes",
                 ],
             )
             self.assertNotIn("sha256:", output.getvalue())

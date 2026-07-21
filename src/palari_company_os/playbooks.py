@@ -111,7 +111,7 @@ def recommend_playbooks(workspace: Workspace, work_id: str) -> dict[str, Any]:
     work = workspace.work_item(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
-        raise WorkspaceError(f"unknown work item {work_id}; known work items: {known}")
+        raise WorkspaceError(f"unknown task {work_id}; known tasks: {known}")
 
     available = {playbook.id: playbook for playbook in available_playbooks(workspace)}
     manual = _manual_recommendations(work, available)
@@ -144,7 +144,7 @@ def _manual_recommendations(
                     id=playbook.id,
                     label=playbook.label,
                     source_id=playbook.source_id,
-                    reason="Pinned on the work item by a human or Palari.",
+                    reason="Pinned on the task by a human or agent.",
                     selected_by_user=True,
                     core_default=playbook.core_default,
                     action_guidance=_action_guidance(playbook),

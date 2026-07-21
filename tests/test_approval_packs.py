@@ -336,7 +336,7 @@ class ApprovalPackTests(unittest.TestCase):
             )
 
         self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v1")
-        self.assertIn("State: decision-ready", rendered_inbox)
+        self.assertIn("Status: Needs approval", rendered_inbox)
         self.assertIn("Owner: qualified human", rendered_inbox)
         self.assertIn("Next: palari human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)

@@ -205,7 +205,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                         "expected_state": "retired",
                         "stop_boundary": "terminal",
                         "message": (
-                            f"Work item {args.work_id} was "
+                            f"Task {args.work_id} was "
                             f"{advance_work.terminal_disposition} and is audit-only: "
                             f"{advance_work.terminal_reason}"
                         ),

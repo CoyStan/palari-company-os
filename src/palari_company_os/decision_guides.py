@@ -128,7 +128,7 @@ def _decision_focus(decision: Any, work_detail: dict[str, Any] | None) -> list[s
     if work and work.get("forbidden_actions"):
         focus.append("Confirm the decision does not authorize forbidden actions without a new scoped change.")
     if decision.required_human:
-        focus.append(f"Decision authority is expected from {decision.required_human}.")
+        focus.append(f"The required decision maker is {decision.required_human}.")
     if decision.status != "open":
         focus.append("Decision is not open; verify whether the recorded result still reflects current intent.")
     return focus

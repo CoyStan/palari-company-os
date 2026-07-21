@@ -275,7 +275,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             status="blocked",
             boundary="error",
             code="WORK_NOT_FOUND",
-            message=f"Work item {work_id} does not exist.",
+            message=f"Task {work_id} does not exist.",
         )
     if actor and work.palari and actor != work.palari:
         return ConvergenceObservation(
@@ -290,7 +290,7 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             digest=digest,
             status="completed",
             boundary="terminal",
-            message=f"Work item {work_id} is already terminal.",
+            message=f"Task {work_id} is already complete.",
         )
     if not work.current_attempt:
         return _waiting(digest, "agent-action", "No completed proof attempt exists yet.")

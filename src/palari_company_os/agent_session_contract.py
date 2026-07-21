@@ -128,7 +128,7 @@ _SECURITY_LIMITATIONS = [
 
 
 def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
-    """Compile one packet into deterministic, provider-neutral contract bytes."""
+    """Compile one task brief into deterministic, provider-neutral session rules."""
 
     _require_packet(packet)
     allowed_paths = packet.get("allowed_paths")
@@ -200,7 +200,7 @@ def session_contract_error(
     *,
     expected_packet: dict[str, Any] | None = None,
 ) -> str:
-    """Return a fail-closed diagnostic for one contract, or an empty string."""
+    """Return a fail-closed diagnostic for portable session rules, or an empty string."""
 
     try:
         canonical_json_bytes(value)

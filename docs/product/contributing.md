@@ -6,12 +6,12 @@ Do:
 
 - keep changes scoped
 - update docs when commands or data contracts change
-- add regression tests for lifecycle, authority, scope, evidence, and review
-  behavior
+- add regression tests for task status, permissions, allowed files, checks, and
+  review behavior
 - install the pinned development tools with `python3 -m pip install -e ".[dev]"`
 - run `./scripts/verify.sh`
 - use `./scripts/verify.sh focused tests.test_MODULE` while iterating; the
-  complete gate already runs Ruff and mypy once
+  complete check already runs Ruff and mypy once
 
 ## CLI Structure
 
@@ -36,6 +36,6 @@ Do not:
 - import old evidence bundles, reports, claims, worktrees, caches, or runtime
   state
 - add secrets
-- add a live provider path without an explicit governed adapter contract
-- turn policy simulation into real authority
+- add a live provider path without explicit adapter rules and approval
+- turn policy simulation into real permission
 - introduce heavy process ceremony as the default workflow

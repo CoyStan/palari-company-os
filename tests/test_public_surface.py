@@ -44,12 +44,12 @@ class PublicSurfaceTests(unittest.TestCase):
         surface = _read("docs/product/public-surface.md")
 
         self.assertIn(
-            "The governance kernel is the normalized governance case, pure evaluator, and",
+            "One pure evaluator decides task status from normalized workspace records.",
             surface,
         )
-        self.assertIn("exact scope/proof/review/authority bindings", surface)
+        self.assertIn("allowed files, sources, and actions", surface)
         self.assertIn("translate those decisions", surface)
-        self.assertIn("do not own a second lifecycle", surface)
+        self.assertIn("do not own a second work process", surface)
         self.assertIn("| Mission Control and local serve | visual |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
         self.assertIn("Current CLI command count from parser inspection: **142**.", surface)
@@ -61,7 +61,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("does not model Slack, GitHub, Jira, email", surface)
         self.assertIn("adapter or enable execution", surface)
         self.assertIn("Linear is the only current live provider path.", surface)
-        self.assertIn("governed issue", surface)
+        self.assertIn("checked issue", surface)
         self.assertIn(
             "reads/imports, approved comment sends, approved issue status updates, and",
             surface,

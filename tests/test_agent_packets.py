@@ -42,7 +42,7 @@ from palari_company_os.agent_runtime import (
 )
 from palari_company_os.pcaw_workspace import recorded_governance_projection
 from palari_company_os.read_models import detail, queue_items
-from palari_company_os.store import WorkspaceStore, write_store
+from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -427,6 +427,8 @@ class AgentPacketProjectionTests(unittest.TestCase):
         checks = _checks(result)
         self.assertEqual(checks["RECEIPT_PRESENT"]["next_command"], expected)
         self.assertEqual(checks["EVIDENCE_PRESENT"]["next_command"], expected)
+        self.assertIn("run record", checks["RECEIPT_PRESENT"]["message"].lower())
+        self.assertIn("check results", checks["EVIDENCE_PRESENT"]["message"].lower())
         self.assertEqual(result["next_allowed_commands"][0], expected)
         commands = "\n".join(result["next_allowed_commands"])
         self.assertNotIn("receipt record", commands)
@@ -475,9 +477,44 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(result["status"], "missing-proof")
         self.assertFalse(result["would_mutate"])
         self.assertFalse(result["can_finish"])
+        self.assertEqual(result["next_step_type"], "start-work")
         self.assertEqual(
             {item["code"] for item in result["missing_requirements"]},
             {"CLAIM_OWNED", "RECEIPT_PRESENT", "EVIDENCE_PRESENT"},
+        )
+
+    def test_existing_run_keeps_stable_step_code_and_starts_with_lock_command(self) -> None:
+        data = _workspace_data()
+        data["attempts"] = [
+            {
+                "id": "ATTEMPT-EXISTING",
+                "work_item_id": WORK_ID,
+                "actor": PALARI_ID,
+                "status": "complete",
+                "branch": "feature/existing-run",
+                "workspace_path": str(self.root),
+                "model_or_worker": "fixture",
+                "started_at": "2026-07-20T10:00:00Z",
+                "updated_at": "2026-07-20T10:05:00Z",
+                "commits": ["abc1234"],
+                "changed_files": [ALLOWED_PATH],
+                "output_targets": [ALLOWED_PATH],
+                "cleanliness": "clean",
+                "result": "Existing run awaiting checks.",
+            }
+        ]
+        write_store(load_store(self.workspace_file).with_data(data))
+        workspace = self.workspace()
+
+        check = build_agent_check(workspace, WORK_ID, PALARI_ID)
+        finish = build_agent_finish(workspace, WORK_ID, PALARI_ID)
+        loop = build_agent_loop(workspace, WORK_ID, PALARI_ID)
+
+        self.assertEqual(check["next_step_type"], "check-active-proof")
+        self.assertEqual(finish["next_step_type"], "check-active-proof")
+        self.assertEqual(loop["next_step_type"], "check-active-proof")
+        self.assertTrue(
+            check["next_allowed_commands"][0].startswith("palari agent start ")
         )
 
     def test_handoff_does_not_invent_human_authority_before_proof(self) -> None:
@@ -547,6 +584,20 @@ class AgentPacketProjectionTests(unittest.TestCase):
             {item["code"] for item in result["checks"]},
             {"PACKET", "CONTRACT", "FINISH"},
         )
+
+    def test_blocked_review_machine_payload_keeps_v1_compatibility(self) -> None:
+        check = build_agent_check(
+            self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
+        )
+        doctor = build_agent_doctor(
+            self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
+        )
+
+        self.assertEqual(check["packet_status"], "blocked")
+        self.assertEqual(check["next_step_type"], "start-work")
+        self.assertIn("palari agent advance", "\n".join(check["next_allowed_commands"]))
+        self.assertEqual(doctor["status"], "missing-proof")
+        self.assertTrue(doctor["agent_safe"])
 
     def test_cli_start_next_is_one_current_golden_path(self) -> None:
         result = self.run_cli(
@@ -689,7 +740,7 @@ class AgentClaimIntegrityTests(unittest.TestCase):
 
         error = claim_integrity_error(self.workspace_file, WORK_ID, claim)
 
-        self.assertIn("packet", error.lower())
+        self.assertIn("agent packet", error.lower())
         self.assertIn("context_hash", error)
 
     def test_tampered_session_contract_invalidates_the_claim(self) -> None:
@@ -824,6 +875,8 @@ class AgentGitBoundaryTests(unittest.TestCase):
                     "external_writes": False,
                 },
             )
+            self.assertIn("task lock", result["one_sentence_instruction"])
+            self.assertIn("deployment permission", result["one_sentence_instruction"])
 
     def test_git_integration_readiness_is_wiring_over_governance_state(self) -> None:
         with self.git_workspace() as (_, workspace_file):

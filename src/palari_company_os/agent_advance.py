@@ -269,36 +269,36 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
     profiles = _profiles(facts.get("verification_profiles", []))
     blockers: list[dict[str, str]] = []
 
-    _block(blockers, not actor, "ACTOR_MISSING", "An acting Palari is required.")
+    _block(blockers, not actor, "ACTOR_MISSING", "An acting agent is required.")
     _block(
         blockers,
         bool(work.get("palari")) and work.get("palari") != actor,
         "ACTOR_NOT_ASSIGNED",
-        "The acting Palari is not assigned to this work item.",
+        "The acting agent is not assigned to this task.",
     )
     _block(
         blockers,
         packet.get("status") != "ready",
         "PACKET_NOT_READY",
-        "The execute packet is not ready.",
+        "The execution task brief is not ready.",
     )
     _block(
         blockers,
         claim.get("status") != "pass",
         "CLAIM_INVALID",
-        "An exact active execute claim is required.",
+        "A current execution task lock is required.",
     )
     _block(
         blockers,
         claim.get("claimed_by") != actor,
         "CLAIM_OWNER_MISMATCH",
-        "The active claim belongs to a different Palari.",
+        "The active task lock belongs to a different agent.",
     )
     _block(
         blockers,
         claim.get("context_hash") != packet.get("context_hash"),
         "CLAIM_CONTEXT_STALE",
-        "The claim is not bound to the current packet.",
+        "The task lock is not tied to the current task brief.",
     )
     preflight_error = str(git.get("preflight_error") or "")
     if preflight_error:
@@ -602,7 +602,7 @@ def agent_advance(
             "verification": verification_results,
             "proof_steps": proof_steps,
             "expected_state": "completed",
-            "message": f"Work item {work_id} advanced to completed.",
+            "message": f"Task {work_id} is complete.",
         }
 
     _release_claim_if_owned(final_workspace, workspace_path, work_id, palari_id, proof_steps)
@@ -623,9 +623,9 @@ def agent_advance(
         "expected_state": "review-required",
         "handoff": handoff,
         "message": (
-            f"Work item {work_id} has exact proof and is ready for independent review."
+            f"Task {work_id} has current checks and is ready for independent review."
             if handoff.get("review_handoff")
-            else f"Work item {work_id} proof was recorded; inspect the remaining blockers."
+            else f"Task {work_id} checks were recorded; inspect the remaining blockers."
         ),
     }
 
@@ -1388,7 +1388,7 @@ def _completed_projection(
             workspace,
             work_id,
             "ACTOR_NOT_ASSIGNED",
-            "The acting Palari is not assigned to this work item.",
+            "The acting agent is not assigned to this task.",
         )
     journal = verify_workspace_journal(workspace_path)
     journal_status = str(journal.get("status") or "")
@@ -1611,7 +1611,7 @@ def _completed_projection(
             workspace,
             work_id,
             "ACTOR_NOT_ASSIGNED",
-            "The acting Palari is not assigned to this work item.",
+            "The acting agent is not assigned to this task.",
         )
     if work.status in _TERMINAL:
         return {
@@ -1622,7 +1622,7 @@ def _completed_projection(
             "can_advance": True,
             "would_mutate": False,
             "expected_state": "completed",
-            "message": f"Work item {work_id} is already completed.",
+            "message": f"Task {work_id} is already complete.",
             "steps": [{"step": "resume", "status": "already-completed"}],
         }
     refresh_binding = _changes_requested_refresh_binding(
@@ -1690,7 +1690,7 @@ def _completed_projection(
             ],
             "convergence": convergence,
             "message": (
-                f"Work item {work_id} used its current human decision and "
+                f"Task {work_id} used its current human approval and "
                 "was deterministically completed."
             ),
         }
@@ -1733,7 +1733,7 @@ def _completed_projection(
             workspace,
             work_id,
             "ATTEMPT_ACTOR_MISMATCH",
-            "The current proof attempt belongs to a different Palari.",
+            "The current checked run belongs to a different agent.",
         )
     attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
     head_sha = attempt_head
@@ -1758,7 +1758,7 @@ def _completed_projection(
             workspace,
             work_id,
             "CURRENT_PROOF_INVALID",
-            "The recorded exact proof no longer verifies"
+            "The recorded checks no longer verify"
             + (f": {detail}" if detail else "."),
         )
     proof_steps: list[dict[str, str]] = [
@@ -1793,7 +1793,7 @@ def _completed_projection(
             "would_mutate": True,
             "expected_state": "completed",
             "proof_steps": proof_steps,
-            "message": f"Work item {work_id} resumed from exact proof and completed.",
+            "message": f"Task {work_id} resumed from current checks and completed.",
         }
     claim = read_claim(workspace_path, work_id)
     if claim is not None:
@@ -1818,7 +1818,7 @@ def _completed_projection(
         "expected_state": "review-required",
         "proof_steps": proof_steps,
         "handoff": handoff,
-        "message": f"Work item {work_id} already has current exact proof.",
+        "message": f"Task {work_id} already has current checks tied to this exact version.",
     }
 
 
@@ -1900,7 +1900,7 @@ def _refresh_stale_projection(
             current,
             work.id,
             "REFRESH_STATE_CHANGED",
-            "The work item disappeared during proof refresh.",
+            "The task disappeared while its checks were being refreshed.",
         )
     rechecked = _stale_projection_refresh_context(
         current,
@@ -2023,7 +2023,7 @@ def _refresh_stale_projection(
         "proof_steps": proof_steps,
         "handoff": handoff,
         "message": (
-            f"Work item {work.id} has refreshed exact-head proof and requires "
+            f"Task {work.id} has refreshed checks tied to this exact version and requires "
             "fresh independent review."
         ),
     }
@@ -2140,19 +2140,19 @@ def _stale_projection_refresh_context(
         return {
             "ok": False,
             "code": "ACTOR_NOT_ASSIGNED",
-            "message": "Only the Palari assigned to this work may refresh its proof.",
+            "message": "Only the agent assigned to this task may refresh its checks.",
         }
     if read_claim(workspace_path, work.id) is not None:
         return {
             "ok": False,
             "code": "REFRESH_ACTIVE_CLAIM",
-            "message": "Release the active execute claim before starting a read-only proof refresh.",
+            "message": "Release the active execution task lock before refreshing checks read-only.",
         }
     if not work.current_attempt:
         return {
             "ok": False,
             "code": "REFRESH_ATTEMPT_MISSING",
-            "message": "The work item has no completed proof attempt to refresh.",
+            "message": "The task has no completed checked run to refresh.",
         }
     attempt = next(
         (item for item in workspace.attempts if item.id == work.current_attempt),
@@ -2162,13 +2162,13 @@ def _stale_projection_refresh_context(
         return {
             "ok": False,
             "code": "REFRESH_ATTEMPT_INCOMPLETE",
-            "message": "The current proof attempt is not complete.",
+            "message": "The current checked run is not complete.",
         }
     if attempt.actor != palari_id:
         return {
             "ok": False,
             "code": "ATTEMPT_ACTOR_MISMATCH",
-            "message": "The current proof attempt belongs to a different Palari.",
+            "message": "The current checked run belongs to a different agent.",
         }
     proof_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
     evidence = next(
@@ -2186,7 +2186,7 @@ def _stale_projection_refresh_context(
         return {
             "ok": False,
             "code": "REFRESH_EVIDENCE_MISSING",
-            "message": "The completed attempt has no passing exact-head evidence to refresh.",
+            "message": "The completed run has no passing checks tied to its exact version.",
         }
     verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
     if not verification["ok"]:
@@ -2195,7 +2195,7 @@ def _stale_projection_refresh_context(
             "ok": False,
             "code": "REFRESH_ARTIFACT_CHANGED",
             "message": (
-                "The governed artifact bytes no longer match the previous evidence"
+                "The output bytes no longer match the previous check results"
                 + (f": {detail}" if detail else ".")
             ),
         }
@@ -2255,7 +2255,7 @@ def _stale_projection_refresh_context(
         return {
             "ok": False,
             "code": "REFRESH_ARTIFACT_MISSING",
-            "message": "The work item has no governed output target to refresh.",
+            "message": "The task has no allowed output to refresh.",
         }
     overlap = _non_projection_output_overlap(
         workspace_path,
@@ -2743,10 +2743,10 @@ def _resume_claim_packet(
     scope_authority_workspace: Workspace | None = None,
 ) -> dict[str, Any]:
     if work.palari != palari_id:
-        return {"ok": False, "message": "the acting Palari is not assigned to this work"}
+        return {"ok": False, "message": "the acting agent is not assigned to this task"}
     claim = read_claim(workspace_path, work.id)
     if claim is None:
-        return {"ok": False, "message": "an exact active execute claim is required"}
+        return {"ok": False, "message": "a current execution task lock is required"}
     try:
         packet = read_claim_packet(workspace_path, claim)
     except WorkspaceError as exc:
@@ -2762,7 +2762,7 @@ def _resume_claim_packet(
     if checked.get("status") != "pass":
         return {
             "ok": False,
-            "message": str(checked.get("message") or "active claim is invalid"),
+            "message": str(checked.get("message") or "active task lock is invalid"),
         }
     return {"ok": True, "claim": checked["claim"], "packet": packet, "message": ""}
 
@@ -2790,7 +2790,7 @@ def _pending_advance_recovery_error(
         or metadata.get("action") != "reconciled-agent-proof"
         or metadata.get("actor") != palari_id
     ):
-        return "The pending journal transaction is not this Palari's agent proof."
+        return "The pending history transaction does not belong to this agent's run."
 
     objects = metadata.get("objects")
     if not isinstance(objects, list):
@@ -3477,7 +3477,7 @@ def _changes_requested_refresh_binding(
             "later_head": False,
             "message": (
                 "The changes-requested review does not bind a current attempt owned by "
-                "the assigned Palari."
+                "the assigned agent."
             ),
         }
     attempt_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")

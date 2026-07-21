@@ -31,12 +31,12 @@ def build_data_map(workspace: Workspace) -> dict[str, Any]:
             "journal_enabled": journal_path.exists(),
             "collections": _collection_counts(workspace),
             "workspace_stores": [
-                "declared goals, humans, Palaris, sources, workbenches, work items",
-                "attempts, evidence, reviews, human decisions, receipts, outcomes",
+                "declared goals, humans, agents, sources, projects, and tasks",
+                "runs, check results, reviews, approvals or rejections, run records, and results",
                 "dry-run integrations, integration plans, and integration outbox items",
             ],
             "palari_dir_stores": [
-                "replayable, tamper-evident governance journal",
+                "replayable, tamper-evident history",
             ],
             "cache_index_status": "none",
             "split_collection_support": "workspace-relative collection_files are merged at load time when declared",
@@ -57,7 +57,7 @@ def build_data_map(workspace: Workspace) -> dict[str, Any]:
             "secret_reads": "disabled",
         },
         "memory": {
-            "rule": "Palari memory_sources reference selected source records; durable memory engines are not implemented.",
+            "rule": "Agent memory_sources reference selected source records; durable memory engines are not implemented.",
             "palari_memory_sources": [
                 _palari_memory_record(palari, workspace)
                 for palari in sorted(workspace.palaris, key=lambda item: item.id)
@@ -213,8 +213,14 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
     lines.append("Storage")
     lines.append(f"  workspace: {storage['workspace_file']} (schema v{payload['workspace']['schema_version']})")
     journal_state = "enabled" if storage["journal_enabled"] else "not enabled"
-    lines.append(f"  journal: {storage['journal_file']} ({journal_state})")
-    lines.append(f"  collections: {counts['work_items']} work, {counts['sources']} sources, {counts['integrations']} integrations, {counts['receipts']} receipts")
+    lines.append(f"  tamper-evident history: {storage['journal_file']} ({journal_state})")
+    lines.append(
+        "  collections: "
+        f"{_count(counts['work_items'], 'task')}, "
+        f"{_count(counts['sources'], 'source')}, "
+        f"{_count(counts['integrations'], 'integration')}, "
+        f"{_count(counts['receipts'], 'run record')}"
+    )
     lines.append(f"  cache/indexes: {storage['cache_index_status']}")
     lines.append("")
     lines.append("External Systems")
@@ -234,7 +240,7 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
                 f"  {source['id']}: {source['label']} "
                 f"[{source['provider']}/{source['kind']}/{source['access_mode']}]"
             )
-            lines.append(f"    allowed Palaris: {allowed}; memory for: {memory}")
+            lines.append(f"    allowed agents: {allowed}; memory for agents: {memory}")
             readiness = _source_readiness_summary(source)
             if readiness:
                 lines.append(f"    readiness: {readiness}")
@@ -273,6 +279,11 @@ def format_data_map(payload: dict[str, Any]) -> list[str]:
 def _join_or_none(values: Iterable[str]) -> str:
     values = list(values)
     return ", ".join(values) if values else "none"
+
+
+def _count(value: int, singular: str) -> str:
+    label = singular if value == 1 else f"{singular}s"
+    return f"{value} {label}"
 
 
 def _source_readiness_summary(source: dict[str, Any]) -> str:

@@ -29,7 +29,7 @@ def check_scope(
     work = workspace.work_item(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
-        raise KeyError(f"unknown work item {work_id}; known work items: {known}")
+        raise KeyError(f"unknown task {work_id}; known tasks: {known}")
 
     paths = changed_paths or []
     requested_actions = actions or []
@@ -52,7 +52,7 @@ def check_scope(
             violations.append(f"Action appears to include forbidden behavior: {action}")
 
     if not violations:
-        notes.append("Scope check passed against declared allowed resources and forbidden actions.")
+        notes.append("The requested files and actions are inside the task limits.")
 
     return ScopeCheck(
         work_item_id=work.id,

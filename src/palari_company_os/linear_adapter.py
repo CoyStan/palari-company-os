@@ -705,7 +705,7 @@ def linear_start(
             proposal,
             palari_id,
             runner,
-            reason="No adopted Palari work item is linked to this Linear issue.",
+            reason="No adopted Palari task is linked to this Linear issue.",
         )
 
     packet = start_agent(
@@ -1035,7 +1035,7 @@ def _link_work_to_created_issue(
     work_id: str,
     issue: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Store the created issue's refs on the work item inside the same write."""
+    """Store the created issue's refs on the task inside the same write."""
     work_records = _records(data, "work_items")
     record = _record_by_id(work_records, work_id, required=False)
     if record is None:

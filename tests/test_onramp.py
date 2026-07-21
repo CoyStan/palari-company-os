@@ -46,6 +46,18 @@ class InitTests(unittest.TestCase):
         self.assertEqual(result["authority_anchor"]["status"], "not-required")
         self.assertTrue((self.project / "AGENTS.md").is_file())
         self.assertTrue((self.project / "docs/agent/verification.md").is_file())
+        agents = (self.project / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("start one bounded task", agents)
+        self.assertIn("task brief (`packet`)", agents)
+        self.assertIn("deterministic check results", agents)
+        self.assertNotIn("bounded work item", agents)
+        self.assertNotIn("human acceptance", agents)
+        self.assertEqual(
+            workspace.palaris[0].scope,
+            "Do bounded work items inside declared write boundaries.",
+        )
+        self.assertEqual(workspace.workbenches[0].label, "Main workbench")
+        self.assertIn("Add a bounded task", result["message"])
 
     def test_init_refuses_existing_workspace(self) -> None:
         initialize_starter_workspace(self.project)

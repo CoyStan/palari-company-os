@@ -48,6 +48,27 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(detail["work_item"]["id"], WORK_ID)
         self.assertEqual(detail["next_step_type"], "start-work")
 
+    def test_plain_text_uses_simple_vocabulary_without_changing_json_contract(self) -> None:
+        queue_json = self.run_json("queue", "--json")
+        detail_json = self.run_json("detail", WORK_ID, "--json")
+        queue_text = self.run_cli("queue").stdout
+        detail_text = self.run_cli("detail", WORK_ID).stdout
+        help_text = self.run_cli("--help").stdout
+
+        self.assertIn("Palari Tasks:", queue_text)
+        self.assertIn("status: Ready", queue_text)
+        self.assertIn("project:", queue_text)
+        self.assertIn("agent:", queue_text)
+        self.assertNotIn("attention: ready-for-ai-work", queue_text)
+        self.assertIn(f"Task {WORK_ID}:", detail_text)
+        self.assertIn("Task limits", detail_text)
+        self.assertIn("bounded task briefs", help_text)
+        self.assertNotIn("work item", help_text.lower())
+
+        self.assertEqual(queue_json["queue"][0]["attention"], "ready-for-ai-work")
+        self.assertEqual(detail_json["attention"], "ready-for-ai-work")
+        self.assertIn("work_item", detail_json)
+
     def test_scope_command_translates_allow_and_deny_decisions(self) -> None:
         allowed = self.run_json(
             "scope", WORK_ID, "--changed", "README.md", "--json"
@@ -128,7 +149,7 @@ class CliSmokeTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
-        self.assertIn("unknown work item WORK-MISSING", result.stderr)
+        self.assertIn("unknown task WORK-MISSING", result.stderr)
 
     def _seed_current_work(self) -> None:
         store = load_store(self.workspace_file)

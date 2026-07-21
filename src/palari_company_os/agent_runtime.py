@@ -519,7 +519,7 @@ def _blocked_start_entry(next_payload: dict[str, Any]) -> dict[str, Any]:
             "safe": False,
             "state": "empty",
             "owner": "none",
-            "explanation": "No visible work item is available to claim.",
+            "explanation": "No visible task is available to take.",
             "next_action": fallback_command,
             "next_command": fallback_command,
         }
@@ -542,7 +542,7 @@ def _blocked_start_entry(next_payload: dict[str, Any]) -> dict[str, Any]:
         "explanation": str(
             candidate.get("why")
             or candidate.get("next_action")
-            or "No work item is currently safe to claim."
+            or "No task is currently safe to take."
         ),
         "next_action": command,
         "next_command": command,
@@ -657,7 +657,7 @@ def claim_check(
     if not claim:
         return {
             "status": "fail",
-            "message": "No active claim exists for this work item. Run agent start first.",
+            "message": "No active task lock exists for this task. Run agent start first.",
             "claim": None,
             "next_command": f"palari agent start {work_id} --as {palari_id} --mode {mode} --json",
         }

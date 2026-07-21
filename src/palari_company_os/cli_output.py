@@ -29,7 +29,15 @@ from .cli_output_integrations import (
     print_integration_plan_decision,
     print_integrations,
 )
-from .cli_output_utils import print_json, yes_no as _yes_no
+from .cli_output_utils import (
+    plain_detail_state,
+    plain_field,
+    plain_message,
+    plain_status,
+    plain_step,
+    print_json,
+    yes_no as _yes_no,
+)
 from .models import to_plain
 from .workspace import Workspace
 
@@ -338,19 +346,21 @@ def print_validate(payload: dict[str, Any]) -> None:
     counts = payload["counts"]
     print(f"Workspace valid: {payload['workspace']}")
     print(
-        f"Records: {counts['goals']} goals, {counts['palaris']} Palaris, "
-        f"{counts['humans']} humans, {counts.get('sources', 0)} sources, "
-        f"{counts.get('workbenches', 0)} workbenches, "
-        f"{counts.get('playbook_sources', 0)} playbook sources, "
-        f"{counts.get('capabilities', 0)} capabilities, "
-        f"{counts.get('authority_profiles', 0)} authority profiles, "
-        f"{counts.get('integrations', 0)} integrations, "
-        f"{counts.get('integration_plans', 0)} integration plans, "
-        f"{counts.get('integration_outbox', 0)} outbox items, "
-        f"{counts.get('proposals', 0)} proposals, "
-        f"{counts['work_items']} work items, "
-        f"{counts.get('acceptance_records', 0)} acceptance records, "
-        f"{counts.get('receipts', 0)} receipts"
+        f"Records: {_count(counts['goals'], 'goal')}, "
+        f"{_count(counts['palaris'], 'agent')}, "
+        f"{_count(counts['humans'], 'human')}, "
+        f"{_count(counts.get('sources', 0), 'source')}, "
+        f"{_count(counts.get('workbenches', 0), 'project')}, "
+        f"{_count(counts.get('playbook_sources', 0), 'playbook source')}, "
+        f"{_count(counts.get('capabilities', 0), 'capability', 'capabilities')}, "
+        f"{_count(counts.get('authority_profiles', 0), 'approval profile')}, "
+        f"{_count(counts.get('integrations', 0), 'integration')}, "
+        f"{_count(counts.get('integration_plans', 0), 'integration plan')}, "
+        f"{_count(counts.get('integration_outbox', 0), 'outbox item')}, "
+        f"{_count(counts.get('proposals', 0), 'proposal')}, "
+        f"{_count(counts['work_items'], 'task')}, "
+        f"{_count(counts.get('acceptance_records', 0), 'approval record')}, "
+        f"{_count(counts.get('receipts', 0), 'run record')}"
     )
 
 
@@ -366,9 +376,9 @@ def print_mutation(result: Any, as_json: bool) -> None:
     if as_json:
         print_json(payload)
     else:
-        print(f"{result.action}: {result.collection}/{result.record_id}")
+        print(f"{result.action}: {plain_field(result.collection)}/{result.record_id}")
         if result.next_action:
-            print(f"next: {result.next_action}")
+            print(f"Next: {plain_message(result.next_action)}")
 
 
 def print_governance_payload(payload: dict[str, Any]) -> None:
@@ -379,17 +389,17 @@ def print_governance_payload(payload: dict[str, Any]) -> None:
     if "ok" in payload:
         print(f"OK: {_yes_no(bool(payload['ok']))}")
     if "next_action" in payload:
-        print(f"Next: {payload['next_action']}")
+        print(f"Next: {plain_message(payload['next_action'])}")
     if "capabilities" in payload:
         print(f"Capabilities: {len(payload['capabilities'])}")
     if "allowed_capabilities" in payload:
         print(f"Allowed capabilities: {len(payload['allowed_capabilities'])}")
     if "profiles" in payload:
-        print(f"Authority profiles: {len(payload['profiles'])}")
+        print(f"Approval profiles: {len(payload['profiles'])}")
     if "blockers" in payload and payload["blockers"]:
         print("Blockers:")
         for blocker in payload["blockers"]:
-            print(f"  - {blocker}")
+            print(f"  - {plain_message(blocker)}")
 
 
 def print_demo(payload: dict[str, Any], as_json: bool) -> None:
@@ -415,7 +425,7 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
             print()
             print(step["block_marker"])
             print(f"Offending path: {step['offending_path']}")
-            print(f"Allowed write paths: {', '.join(step['allowed_write_paths'])}")
+            print(f"Allowed files: {', '.join(step['allowed_write_paths'])}")
         if step.get("pass_marker"):
             print()
             print(step["pass_marker"])
@@ -434,22 +444,28 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
 
 
 def print_history_journal(payload: dict[str, Any]) -> None:
-    print(f"Governance journal: {payload.get('status', 'unknown')}")
+    print(f"Tamper-evident history: {payload.get('status', 'unknown')}")
     print(f"Enabled: {_yes_no(bool(payload.get('enabled')))}")
     print(f"Verified: {_yes_no(bool(payload.get('ok')))}")
     if payload.get("journal_file"):
-        print(f"Journal file: {payload['journal_file']}")
+        print(f"History file: {payload['journal_file']}")
     for item in payload.get("errors", []):
-        print(f"  error {item.get('code', '')}: {item.get('message', '')}")
+        print(
+            f"  error {item.get('code', '')}: "
+            f"{plain_message(item.get('message', ''))}"
+        )
         if item.get("next_action"):
-            print(f"    next: {item['next_action']}")
+            print(f"    next: {plain_message(item['next_action'])}")
     for item in payload.get("warnings", []):
-        print(f"  warning {item.get('code', '')}: {item.get('message', '')}")
+        print(
+            f"  warning {item.get('code', '')}: "
+            f"{plain_message(item.get('message', ''))}"
+        )
 
 
 def print_history_checkpoints(payload: dict[str, Any]) -> None:
-    print(f"Governed checkpoints: {payload['count']}")
-    print(f"Current: {payload['current_checkpoint_digest']}")
+    print(f"Restore points: {payload['count']}")
+    print(f"Current restore point: {payload['current_checkpoint_digest']}")
     for item in payload["checkpoints"]:
         print(
             f"  {item['checkpoint_digest']} [{item['event_kind']}] "
@@ -459,12 +475,12 @@ def print_history_checkpoints(payload: dict[str, Any]) -> None:
 
 
 def print_history_restoration(payload: dict[str, Any]) -> None:
-    print(f"Checkpoint restoration: {payload['status']}")
-    print(f"Checkpoint: {payload['checkpoint_digest']}")
+    print(f"Restore-point recovery: {payload['status']}")
+    print(f"Restore point: {payload['checkpoint_digest']}")
     print(f"Class: {payload['restoration_class']}")
     print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
     if payload.get("message"):
-        print(payload["message"])
+        print(plain_message(payload["message"]))
     for effect in payload.get("external_effects_not_undone", []):
         print(f"  NOT UNDONE: {effect}")
 
@@ -486,9 +502,9 @@ def print_proof(payload: dict[str, Any], as_json: bool) -> None:
     elif digest:
         print(f"Statement: {digest}")
     if payload.get("claimed_state"):
-        print(f"Claimed state: {payload['claimed_state']}")
+        print(f"Claimed status: {payload['claimed_state']}")
     if payload.get("derived_lifecycle_state"):
-        print(f"Derived state: {payload['derived_lifecycle_state']}")
+        print(f"Verified status: {payload['derived_lifecycle_state']}")
     properties = payload.get("verified_properties", {})
     if properties:
         print("Verified properties:")
@@ -530,7 +546,7 @@ def print_docs_check(payload: dict[str, Any], as_json: bool) -> None:
             continue
         path = f" [{check['path']}]" if check.get("path") else ""
         print(f"- {check['code']} [{check['status']}]{path}: {check['message']}")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_docs_init(payload: dict[str, Any], as_json: bool) -> None:
@@ -547,7 +563,7 @@ def print_docs_init(payload: dict[str, Any], as_json: bool) -> None:
         print(f"Overwritten: {', '.join(payload['overwritten'])}")
     if payload.get("skipped_existing"):
         print(f"Skipped existing: {', '.join(payload['skipped_existing'])}")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
@@ -556,7 +572,7 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
         return
     state = payload["documentation_state"]
     print(f"Docs map: {payload['repo']}")
-    print(f"Documentation: {state['status']} - {state['message']}")
+    print(f"Documentation: {state['status']} - {plain_message(state['message'])}")
     print("Root entrypoints:")
     for item in payload["root_entrypoints"]:
         print(f"  - {item['path']}: {'present' if item['exists'] else 'missing'}")
@@ -612,7 +628,7 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
     print(f"Playbook recommendations for {payload['work_item']}: {payload['title']}")
     if not payload["recommended"]:
         print("No playbook recommendations.")
-        print(f"Next: {payload['next_action']}")
+        print(f"Next: {plain_message(payload['next_action'])}")
         return
     for item in payload["recommended"]:
         if item.get("selected_by_user"):
@@ -622,24 +638,24 @@ def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> No
         else:
             prefix = "suggested"
         print(f"{item['id']} [{prefix}]")
-        print(f"  {item['reason']}")
+        print(f"  {plain_message(item['reason'])}")
     if payload.get("operating_guidance"):
         print("")
         print("Operating guidance")
-        print("Use this as guidance; the work item's scope and authority remain the source of truth.")
+        print("Use this as guidance; the task's limits and permissions remain the source of truth.")
         for item in payload["operating_guidance"]:
-            print(f"- {item['label']}: {item['guidance']}")
-    print(f"Next: {payload['next_action']}")
+            print(f"- {item['label']}: {plain_message(item['guidance'])}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_gate_profiles(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
-    print(f"Gate profiles: {payload['workspace']}")
+    print(f"Review checklists: {payload['workspace']}")
     for profile in payload["profiles"]:
         print(f"{profile['id']}: {profile['label']}")
-        print(f"  {profile['summary']}")
+        print(f"  {plain_message(profile['summary'])}")
         print(f"  reviewer: {profile['reviewer_role']}")
 
 
@@ -648,21 +664,24 @@ def print_gate_recommendations(payload: dict[str, Any], as_json: bool) -> None:
         print_json(payload)
         return
     work = payload["work_item"]
-    print(f"Gate recommendations for {work['id']}: {work['title']}")
+    print(f"Recommended review checks for {work['id']}: {work['title']}")
     if payload["no_special_gate_required"]:
-        print("No special gate required.")
-        print(f"Next: {payload['next_action']}")
+        print("No special review check is needed.")
+        print(f"Next: {plain_message(payload['next_action'])}")
         return
     for gate in payload["recommended_gates"]:
         print(f"{gate['id']}: {gate['label']}")
-        print(f"  reason: {gate['reason']}")
+        print(f"  reason: {plain_message(gate['reason'])}")
         contract = gate["review_contract"]
         print(f"  reviewer: {contract['reviewer_role']}")
-        print("  blockers:")
+        print("  blocks approval if:")
         for item in contract["blocker_checklist"]:
-            print(f"    - {item}")
-        print(f"  accept-ready: {contract['accept_ready_standard']}")
-    print(f"Next: {payload['next_action']}")
+            print(f"    - {plain_message(item)}")
+        print(
+            "  ready for approval when: "
+            f"{plain_message(contract['accept_ready_standard'])}"
+        )
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
@@ -674,43 +693,58 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
     attempt = payload["attempt"]
     receipt = payload["receipt"]
     print(f"Review guide: {payload['guide_id']}")
-    print(f"Status: {payload['status']} | Would mutate: {_yes_no(payload['would_mutate'])}")
-    print(f"Work: {work['id']} {work['title']} ({work['risk']})")
-    print(f"Attention: {payload['attention']}")
-    print(f"Why: {payload['why']}")
-    print(f"Evidence: {_present_label(evidence)}")
+    print(
+        f"Guide state: {plain_detail_state(payload['status'])} | "
+        f"Would mutate: {_yes_no(payload['would_mutate'])}"
+    )
+    print(f"Task: {work['id']} {work['title']} ({work['risk']})")
+    print(f"Task status: {plain_status(payload['attention'])}")
+    print(f"Why: {plain_message(payload['why'])}")
+    print(f"Checks: {_present_label(evidence)}")
     if evidence.get("present"):
-        print(f"  head: {evidence.get('head_sha', '')} | status: {evidence.get('status', '')}")
-    print(f"Attempt: {_present_label(attempt)}")
+        print(
+            f"  version: {evidence.get('head_sha', '')} | "
+            f"status: {plain_detail_state(evidence.get('status', ''))}"
+        )
+    print(f"Run: {_present_label(attempt)}")
     if attempt.get("present") and attempt.get("changed_files"):
         print("  changed:")
         for path in attempt["changed_files"]:
             print(f"    - {path}")
-    print(f"Receipt: {_present_label(receipt)}")
+    print(f"Run record: {_present_label(receipt)}")
     if receipt.get("present") and receipt.get("not_done"):
         print("  not done:")
         for item in receipt["not_done"]:
             print(f"    - {item}")
     print("Review focus:")
     for item in payload["review_focus"]:
-        print(f"  - {item}")
+        print(f"  - {plain_message(item)}")
     candidates = payload.get("reviewer_candidates", [])
     if candidates:
-        print("Reviewer candidates:")
+        review_ready = payload.get("attention") == "needs-review"
+        if review_ready:
+            print("Reviewer candidates:")
+        else:
+            print("Potential reviewers after the task is ready:")
         for candidate in candidates:
             identity_type = candidate.get("identity_type", "human")
+            if identity_type == "palari":
+                identity_type = "agent"
             print(
                 f"  - {candidate['id']} ({candidate['name']}, {identity_type}): "
-                f"{candidate['reason']}"
+                f"{plain_message(candidate['reason'])}"
             )
-            if candidate.get("review_packet_command"):
-                print(f"    packet: {candidate['review_packet_command']}")
-            if candidate.get("review_record_command"):
+            if review_ready and candidate.get("review_packet_command"):
+                print(f"    task brief: {candidate['review_packet_command']}")
+            if review_ready and candidate.get("review_record_command"):
                 print(f"    record: {candidate['review_record_command']}")
-    print("Suggested verdicts:")
-    print(f"  {', '.join(payload['suggested_verdicts'])}")
-    print("Record template:")
-    print(f"  {payload['review_record_command_template']}")
+    if payload.get("attention") == "needs-review":
+        print("Review command choices:")
+        print(f"  {', '.join(payload['suggested_verdicts'])}")
+        print("Record template:")
+        print(f"  {payload['review_record_command_template']}")
+    else:
+        print("Review recording is available after the required checks pass.")
     commands = payload.get("next_commands", [])
     if commands:
         print("Next commands:")
@@ -723,7 +757,7 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
         print_json(payload)
         return
     print(f"Workspace created: {payload['workspace']}")
-    print(f"File: {payload['workspace_file']}")
+    print(f"Workspace file: {payload['workspace_file']}")
     print(
         f"Starter records: {payload['human']['id']} ({payload['human']['name']}), "
         f"{payload['palari']['id']} ({payload['palari']['name']}), "
@@ -736,7 +770,7 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
             f"[{adoption.get('status', 'unknown')}]"
         )
         if adoption.get("status") == "blocked":
-            print(f"Why: {adoption.get('message', '')}")
+            print(f"Why: {plain_message(adoption.get('message', ''))}")
         else:
             host = adoption.get("host_adapter") or {}
             if host.get("next_action"):
@@ -751,8 +785,8 @@ def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
         print_json(payload)
         return
     work = payload["work_item"]
-    print(f"Work item created: {work['id']} {work['title']}")
-    print(f"Palari: {work['palari']} | risk {work['risk']} | intensity {work['intensity']}")
+    print(f"Task created: {work['id']} {work['title']}")
+    print(f"Agent: {work['palari']} | risk {work['risk']} | intensity {work['intensity']}")
     print("Write boundary:")
     for path in work["output_targets"]:
         print(f"  - {path}")
@@ -814,7 +848,7 @@ def print_claude_status(payload: dict[str, Any], as_json: bool) -> None:
         print("Warning: palari is not on PATH; hooks will fail until it is installed.")
     claims = payload["active_claims"]
     if claims:
-        print("Active claims:")
+        print("Active task locks:")
         for claim in claims:
             writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
             print(
@@ -823,7 +857,7 @@ def print_claude_status(payload: dict[str, Any], as_json: bool) -> None:
             )
             print(f"    allowed writes: {writes}")
     else:
-        print("Active claims: none")
+        print("Active task locks: none")
     print(payload["message"])
 
 
@@ -870,37 +904,52 @@ def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
 
 
 def print_queue(workspace: Workspace, items: list[Any]) -> None:
-    print(f"Palari Company OS Queue: {workspace.name}")
-    print("Ordinary loop: start -> advance -> review -> human decision -> verify")
+    print(f"Palari Tasks: {workspace.name}")
+    print("Flow: start -> check -> review -> approve -> verify")
     print("")
     for item in items:
+        next_command = item.next_commands[0] if item.next_commands else ""
+        display_step, display_command, display_action = _execution_entry_action(
+            next_step_type=item.next_step_type,
+            next_command=next_command,
+            next_action=item.next_action,
+            work_id=item.id,
+            palari_id=item.palari,
+        )
         print(f"{item.id} [{item.intensity} / {item.risk}] {item.title}")
-        print(f"  attention: {item.attention}")
-        print(f"  step: {item.next_step_type}")
-        print(f"  next: {item.next_action}")
-        if item.next_commands:
-            print(f"  command: {item.next_commands[0]}")
+        print(
+            "  status: "
+            f"{plain_status(item.attention, next_step_type=display_step, next_command=display_command)}"
+        )
+        print(
+            f"  next step: {plain_step(display_step, next_command=display_command)}"
+        )
+        print(f"  next: {plain_message(display_action)}")
+        if display_command:
+            print(f"  command: {display_command}")
         if item.workbench_label:
-            print(f"  workbench: {item.workbench_label}")
+            print(f"  project: {item.workbench_label}")
         print(f"  goal: {item.goal_title}")
-        print(f"  palari: {item.palari_name}")
+        print(f"  agent: {item.palari_name}")
         if item.owner:
             print(f"  owner: {item.owner}")
         if item.external_provider and item.external_key:
             print(f"  external: {item.external_provider}:{item.external_key}")
-        print(f"  why: {item.why}")
+        print(f"  why: {plain_message(item.why)}")
         print(
-            f"  safety: ai_safe={_yes_no(item.ai_safe_to_proceed)} "
-            f"human_wait={_yes_no(item.waiting_on_human)}"
+            f"  safety: agent can continue={_yes_no(item.ai_safe_to_proceed)} "
+            f"| waiting for human={_yes_no(item.waiting_on_human)}"
         )
         print(
-            f"  evidence: {item.evidence_state} | review: {item.review_state} "
-            f"| receipt: {item.receipt_state} | approval: {item.approval_progress}"
+            f"  checks: {plain_detail_state(item.evidence_state)} | "
+            f"review: {plain_detail_state(item.review_state)} "
+            f"| run record: {plain_detail_state(item.receipt_state)} "
+            f"| approvals: {item.approval_progress}"
         )
-        print(f"  integration: {item.integration_state}")
+        print(f"  integration: {plain_detail_state(item.integration_state)}")
         if item.active_attempts:
             attempts = ", ".join(attempt["attempt_id"] for attempt in item.active_attempts)
-            print(f"  active attempts: {attempts}")
+            print(f"  active runs: {attempts}")
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
         if item.agent_loop_command:
@@ -924,7 +973,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         owner = "qualified human"
         safe = "yes, for the exact eligible presentation"
         explanation = (
-            f"{counts['eligible']} item(s) have current proof; "
+            f"{counts['eligible']} item(s) have current checks; "
             f"{counts['blocked'] + counts['stale'] + counts['non_batchable']} exception(s) stay parked."
         )
         next_action = commands[0] if len(commands) == 1 else "Use the exact commands in --json."
@@ -932,7 +981,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         state = "empty"
         owner = "none"
         safe = "yes"
-        explanation = "No governed human decision is waiting."
+        explanation = "No human approval is waiting."
         next_action = "palari agent next --json"
     else:
         resolutions = [
@@ -953,7 +1002,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
             ),
             "palari agent next --json",
         )
-    print(f"State: {state}")
+    print(f"Status: {plain_status(state)}")
     print(f"Safe: {safe}")
     print(f"Owner: {owner}")
     print(
@@ -961,9 +1010,9 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         f"eligible {counts['eligible']} | blocked {counts['blocked']} | "
         f"stale {counts['stale']} | non-batchable {counts['non_batchable']}"
     )
-    print(f"Why: {explanation}")
+    print(f"Why: {plain_message(explanation)}")
     print(f"Next: {next_action}")
-    print("Proof details: rerun with --json. Parked is not approved.")
+    print("Verification details: rerun with --json. Blocked tasks are not approved.")
 
 
 def print_approval_pack_decision(payload: dict[str, Any]) -> None:
@@ -984,9 +1033,9 @@ def print_approval_pack_decision(payload: dict[str, Any]) -> None:
     convergence = payload.get("convergence", {})
     if convergence:
         print(
-            "One-action convergence: "
-            f"{len(convergence.get('terminalized', []))} terminalized; "
-            f"{len(convergence.get('remaining_parked', []))} parked"
+            "Finished automatically: "
+            f"{len(convergence.get('terminalized', []))} complete; "
+            f"{len(convergence.get('remaining_parked', []))} still blocked"
         )
 
 
@@ -995,8 +1044,21 @@ def print_detail(payload: dict[str, Any]) -> None:
     goal = payload["goal"] or {}
     palari = payload["palari"] or {}
     workbench = payload.get("workbench") or {}
-    print(f"{work['id']}: {work['title']}")
-    print(f"Status: {work['status']} | Risk: {work['risk']} | Intensity: {work['intensity']}")
+    next_commands = payload.get("next_commands") or []
+    next_command = str(next_commands[0]) if next_commands else ""
+    display_step, display_command, display_action = _execution_entry_action(
+        next_step_type=str(payload.get("next_step_type") or "inspect"),
+        next_command=next_command,
+        next_action=str(payload.get("next_action") or ""),
+        work_id=str(work.get("id") or ""),
+        palari_id=str(work.get("palari") or ""),
+    )
+    print(f"Task {work['id']}: {work['title']}")
+    print(
+        "Status: "
+        f"{plain_status(payload['attention'], next_step_type=display_step, next_command=display_command)} "
+        f"| Risk: {work['risk']} | Intensity: {work['intensity']}"
+    )
     if work.get("status") in {"superseded", "abandoned"}:
         print(
             f"Retired: {work['status']} | "
@@ -1005,28 +1067,47 @@ def print_detail(payload: dict[str, Any]) -> None:
         if work.get("successor_work_item_id"):
             print(f"Successor: {work['successor_work_item_id']}")
     if workbench:
-        print(f"Workbench: {workbench.get('label', work['workbench_id'])}")
+        print(f"Project: {workbench.get('label', work['workbench_id'])}")
     print(f"Goal: {goal.get('title', work['goal'])}")
-    print(f"Palari: {palari.get('name', work['palari'])}")
+    print(f"Agent: {palari.get('name', work['palari'])}")
     print("")
-    print(f"Attention: {payload['attention']}")
-    print(f"Why: {payload['why']}")
-    print(f"Step: {payload['next_step_type']}")
-    print(f"Next: {payload['next_action']}")
-    if payload.get("next_commands"):
+    print(
+        "Status detail: "
+        f"{plain_status(payload['attention'], next_step_type=display_step, next_command=display_command)}"
+    )
+    print(f"Why: {plain_message(payload['why'])}")
+    print(
+        f"Next step: {plain_step(display_step, next_command=display_command)}"
+    )
+    print(f"Next: {plain_message(display_action)}")
+    display_commands = list(next_commands)
+    if display_command and display_command not in display_commands:
+        display_commands.insert(0, display_command)
+    if display_commands:
         print("Next commands:")
-        for command in payload["next_commands"]:
+        for command in display_commands:
             print(f"  {command}")
     if payload.get("agent_handoff_command"):
         print("Agent handoff:")
         print(f"  {payload['agent_handoff_command']}")
-    print(f"Safety: {payload['safety']}")
+    safety = payload["safety"]
+    print(
+        "Safety: "
+        f"agent can continue={_yes_no(bool(safety.get('ai_safe_to_proceed')))} | "
+        f"waiting for human={_yes_no(bool(safety.get('waiting_on_human')))}"
+    )
+    print(
+        f"Checks: {plain_detail_state(safety.get('evidence_state', 'unknown'))} | "
+        f"Review: {plain_detail_state(safety.get('review_state', 'unknown'))} | "
+        f"Run record: {plain_detail_state(safety.get('receipt_state', 'unknown'))} | "
+        f"Approvals: {safety.get('approval_progress', 'unknown')}"
+    )
     if payload.get("agent_commands"):
         print("Agent commands:")
         for label, command in payload["agent_commands"].items():
             print(f"  {label}: {command}")
     print("")
-    print("Scope")
+    print("Task limits")
     print(f"  {work['scope']}")
     if work["allowed_resources"]:
         print(f"  allowed: {', '.join(work['allowed_resources'])}")
@@ -1045,24 +1126,27 @@ def print_detail(payload: dict[str, Any]) -> None:
     if payload.get("playbooks", {}).get("recommended"):
         print("  playbooks:")
         for item in payload["playbooks"]["recommended"]:
-            print(f"    {item['id']}: {item['reason']}")
+            print(f"    {item['id']}: {plain_message(item['reason'])}")
     print("")
     if payload.get("parent_work_item"):
         parent = payload["parent_work_item"]
-        print(f"Parent work item: {parent['id']} - {parent['title']}")
+        print(f"Parent task: {parent['id']} - {parent['title']}")
         print("")
     if payload.get("child_work_items"):
-        print("Child Work Items")
+        print("Child Tasks")
         for child in payload["child_work_items"]:
-            print(f"  {child['id']}: {child['title']} [{child['status']}]")
+            print(f"  {child['id']}: {child['title']} [{plain_status(child['status'])}]")
         print("")
     if payload.get("dependencies"):
         print("Dependencies")
         for dependency in payload["dependencies"]:
-            print(f"  {dependency['id']}: {dependency['title']} [{dependency['status']}]")
+            print(
+                f"  {dependency['id']}: {dependency['title']} "
+                f"[{plain_status(dependency['status'])}]"
+            )
         print("")
     if payload.get("active_parallel_attempts"):
-        print("Active Parallel Attempts")
+        print("Active Parallel Runs")
         for attempt in payload["active_parallel_attempts"]:
             print(
                 f"  {attempt['attempt_id']}: {attempt['actor']} on "
@@ -1074,7 +1158,7 @@ def print_detail(payload: dict[str, Any]) -> None:
         for warning in payload["coordination_warnings"]:
             print(f"  {warning}")
         print("")
-    _print_section("Attempt", payload["attempt"])
+    _print_section("Run", payload["attempt"])
     if payload.get("sources"):
         print("Sources")
         for source in payload["sources"]:
@@ -1088,12 +1172,12 @@ def print_detail(payload: dict[str, Any]) -> None:
                 f"{plan['integration_id']} {plan['event']} -> {plan['action']}"
             )
         print("")
-    _print_section("Receipt", payload.get("receipt"))
-    _print_section("Evidence", payload["evidence"])
+    _print_section("Run Record", payload.get("receipt"))
+    _print_section("Checks", payload["evidence"])
     _print_section("Review", payload["review"])
-    _print_section("Human Decision", payload["human_decision"])
+    _print_section("Approval or Rejection", payload["human_decision"])
     if payload["human_decisions"]:
-        print("Human Decisions")
+        print("Approvals and Rejections")
         for decision in payload["human_decisions"]:
             print(
                 f"  {decision['id']} [{decision['status']}]: "
@@ -1105,7 +1189,7 @@ def print_detail(payload: dict[str, Any]) -> None:
         for decision in payload["linked_decisions"]:
             print(f"  {decision['id']} [{decision['status']}]: {decision['question']}")
         print("")
-    _print_section("Outcome", payload["outcome"])
+    _print_section("Result", payload["outcome"])
 
 
 def print_maintainer_status(payload: dict[str, Any]) -> None:
@@ -1134,27 +1218,57 @@ def print_maintainer_status(payload: dict[str, Any]) -> None:
 
 
 def print_state(payload: dict[str, Any]) -> None:
-    print(f"Palari Company OS State: {payload['workspace']}")
+    print(f"Palari workspace status: {payload['workspace']}")
     print("Counts")
     for key, value in payload["counts"].items():
-        print(f"  {key}: {value}")
-    print("Attention")
-    for key, value in payload["attention"].items():
+        print(f"  {plain_field(key)}: {value}")
+    print("Statuses")
+    status_counts: dict[str, int] = {}
+    queue = payload.get("queue") or []
+    if queue:
+        for item in queue:
+            commands = item.get("next_commands") or []
+            next_command = str(commands[0]) if commands else ""
+            label = plain_status(
+                str(item.get("attention") or ""),
+                next_step_type=str(item.get("next_step_type") or ""),
+                next_command=next_command,
+            )
+            status_counts[label] = status_counts.get(label, 0) + 1
+    else:
+        for key, value in payload["attention"].items():
+            label = plain_status(key)
+            status_counts[label] = status_counts.get(label, 0) + int(value)
+    for key, value in status_counts.items():
         print(f"  {key}: {value}")
     top = payload.get("top_attention")
     if top:
-        print("Top attention")
-        print(f"  {top['id']}: {top['title']} ({top['attention']})")
-        if top.get("next_step_type"):
-            print(f"  step: {top['next_step_type']}")
-        print(f"  why: {top['why']}")
+        commands = top.get("next_commands") or []
+        next_command = str(commands[0]) if commands else ""
+        display_step, display_command, _ = _execution_entry_action(
+            next_step_type=str(top.get("next_step_type") or "inspect"),
+            next_command=next_command,
+            next_action=str(top.get("next_action") or ""),
+            work_id=str(top.get("id") or ""),
+            palari_id=str(top.get("palari") or ""),
+        )
+        print("Next task")
+        print(
+            f"  {top['id']}: {top['title']} "
+            f"({plain_status(top['attention'], next_step_type=display_step, next_command=display_command)})"
+        )
+        if display_step:
+            print(
+                "  next step: "
+                f"{plain_step(display_step, next_command=display_command)}"
+            )
+        print(f"  why: {plain_message(top['why'])}")
         if top.get("agent_loop_command"):
             print(f"  agent loop: {top['agent_loop_command']}")
         if top.get("agent_handoff_command"):
             print(f"  agent handoff: {top['agent_handoff_command']}")
-        commands = top.get("next_commands") or []
-        if commands:
-            print(f"  command: {commands[0]}")
+        if display_command:
+            print(f"  command: {display_command}")
     if payload.get("active_parallel_work"):
         print("Active parallel work")
         for item in payload["active_parallel_work"]:
@@ -1162,15 +1276,37 @@ def print_state(payload: dict[str, Any]) -> None:
     if payload.get("coordination_warnings"):
         print("Coordination warnings")
         for warning in payload["coordination_warnings"]:
-            print(f"  {warning['message']}")
+            print(f"  {plain_message(warning['message'])}")
 
 
 def print_scope(payload: dict[str, Any]) -> None:
-    print(f"Scope check for {payload['work_item_id']}: {'allowed' if payload['allowed'] else 'blocked'}")
+    print(
+        f"Task limits for {payload['work_item_id']}: "
+        f"{'allowed' if payload['allowed'] else 'blocked'}"
+    )
     for violation in payload["violations"]:
         print(f"  violation: {violation}")
     for note in payload["notes"]:
         print(f"  note: {note}")
+
+
+def _execution_entry_action(
+    *,
+    next_step_type: str,
+    next_command: str,
+    next_action: str,
+    work_id: str,
+    palari_id: str,
+) -> tuple[str, str, str]:
+    """Put the idempotent task-lock step before checks in human output."""
+
+    if next_step_type == "check-active-proof" and work_id and palari_id:
+        return (
+            "start-work",
+            f"palari agent start {work_id} --as {palari_id} --mode execute --json",
+            "Start or resume the task before running its checks.",
+        )
+    return next_step_type, next_command, next_action
 
 
 def _print_section(title: str, value: dict[str, Any] | None) -> None:
@@ -1182,9 +1318,9 @@ def _print_section(title: str, value: dict[str, Any] | None) -> None:
     for key, item in value.items():
         if isinstance(item, list):
             if item:
-                print(f"  {key}: {', '.join(str(part) for part in item)}")
+                print(f"  {plain_field(key)}: {', '.join(str(part) for part in item)}")
         elif item:
-            print(f"  {key}: {item}")
+            print(f"  {plain_field(key)}: {item}")
     print("")
 
 
@@ -1195,16 +1331,22 @@ def _present_label(record: dict[str, Any]) -> str:
     return str(identifier)
 
 
+def _count(value: Any, singular: str, plural: str = "") -> str:
+    count = int(value)
+    label = singular if count == 1 else (plural or f"{singular}s")
+    return f"{count} {label}"
+
+
 def print_git_install(payload: dict[str, Any]) -> None:
     print(f"Palari git hook: {payload['status']}")
     print(f"Hook path: {payload.get('hook_path', '')}")
-    print(payload.get("message", ""))
+    print(plain_message(payload.get("message", "")))
 
 
 def print_git_pre_commit(payload: dict[str, Any]) -> None:
     status = payload.get("status", "")
     print(f"Palari pre-commit: {status}")
-    print(payload.get("message", ""))
+    print(plain_message(payload.get("message", "")))
     if payload.get("outside"):
         print("Outside boundary:")
         for path in payload["outside"]:
@@ -1223,7 +1365,7 @@ def print_git_status(payload: dict[str, Any]) -> None:
         print(f"Git root: {payload['git_root']}")
     claims = payload.get("active_claims", [])
     if claims:
-        print("Active claims:")
+        print("Active task locks:")
         for claim in claims:
             writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
             print(
@@ -1232,5 +1374,5 @@ def print_git_status(payload: dict[str, Any]) -> None:
             )
             print(f"    allowed writes: {writes}")
     else:
-        print("Active claims: none")
-    print(payload.get("message", ""))
+        print("Active task locks: none")
+    print(plain_message(payload.get("message", "")))

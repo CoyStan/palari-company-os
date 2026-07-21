@@ -319,16 +319,17 @@ repo structure changes in a way future agents need to know.
         ),
         DocTemplate(
             "docs/agent/contracts-and-invariants.md",
-            "Safety and product invariants agents must preserve.",
-            """# Contracts And Invariants
+            "Safety and product rules agents must preserve.",
+            """# Rules And Invariants
 
-Review this file before changing behavior that affects trust, authority, data,
-or external actions.
+Review this file before changing behavior that affects safety, permissions,
+approval, data, or external actions.
 
 - Keep workspace data inspectable and portable.
 - Do not store raw secrets in repo data.
 - Keep external actions explicit, bounded, and reviewable.
-- Keep receipts human-facing: what was used, created, changed, skipped, and undoable.
+- Keep run records (`receipts`) human-facing: what was used, created, changed,
+  skipped, and undoable.
 - Keep tests and docs aligned with public behavior.
 - Do not replace human approval with agent inference.
 
@@ -357,7 +358,7 @@ Use these as starting points, not ceremony.
 
 ## Change Agent Behavior
 
-1. Keep packet output compact and deterministic.
+1. Keep task brief (`packet`) output compact and deterministic.
 2. Preserve explicit blockers and next safe commands.
 3. Add regression coverage for failure modes.
 """,
@@ -387,8 +388,9 @@ on.
 
 - CLI changes update command reference or agent instructions.
 - Schema/model changes update schema and core object docs.
-- Agent behavior changes update the agent contract.
-- Source, receipt, evidence, review, or human decision changes update product docs.
+- Agent behavior changes update the agent instructions.
+- Source, run record (`receipt`), check results (`evidence`), review, or human
+  approval (`human_decision`) changes update product docs.
 - Integration or external-action changes update integration docs.
 - Verification changes update verification docs.
 
@@ -544,13 +546,20 @@ def _schema_doc_checks(repo: Path) -> list[dict[str, Any]]:
     ]
     text = "\n".join(_read(path) for path in paths if path.exists()).lower()
     aliases = {
+        "palaris": ["palaris", "`palari`"],
         "playbook_sources": ["playbook_sources", "playbook source", "playbook sources"],
         "integration_plans": ["integration_plans", "integration plan", "integration plans"],
         "integration_outbox": ["integration_outbox", "integration outbox"],
         "work_items": ["work_items", "work item", "work items"],
         "evidence_runs": ["evidence_runs", "evidence run", "evidence runs"],
-        "review_verdicts": ["review_verdicts", "review verdict", "review verdicts"],
+        "review_verdicts": [
+            "review_verdicts",
+            "`review_verdict`",
+            "review verdict",
+            "review verdicts",
+        ],
         "human_decisions": ["human_decisions", "human decision", "human decisions"],
+        "outcomes": ["outcomes", "`outcome`"],
     }
     missing = []
     for collection in MAJOR_SCHEMA_COLLECTIONS:

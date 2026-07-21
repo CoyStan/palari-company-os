@@ -71,7 +71,7 @@ def adopt_proposal(
         "proposal_id": proposal_id,
         "work_item_id": work_id,
         "workspace": workspace.name,
-        "next_action": f"Run `palari detail {work_id}` and start a bounded attempt when ready.",
+        "next_action": f"Run `palari detail {work_id}` and start a bounded run when ready.",
     }
 
 
@@ -122,7 +122,7 @@ def decide_proposal(
         "action": status,
         "proposal_id": proposal_id,
         "workspace": workspace.name,
-        "next_action": "Review the queue for the next proposal or active work item.",
+        "next_action": "Review the queue for the next proposal or active task.",
     }
 
 

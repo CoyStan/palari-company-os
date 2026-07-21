@@ -65,7 +65,7 @@ def _empty_retired_inbox(payload: dict[str, Any]) -> None:
             "available": False,
             "count": 0,
             "commands": [],
-            "next_safe_action": "No governed human decision is waiting.",
+            "next_safe_action": "No human approval is waiting.",
         }
     )
     payload["primary_action"] = primary

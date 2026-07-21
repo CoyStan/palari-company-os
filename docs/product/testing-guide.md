@@ -7,10 +7,10 @@ python3 -m pip install -e ".[dev]"
 ./scripts/verify.sh complete
 ```
 
-`./scripts/verify.sh` defaults to `complete`. The gate runs the current test
+`./scripts/verify.sh` defaults to `complete`. The complete check runs the current test
 suite once, static checks once, PCAW conformance once, and one isolated wheel
 build/install smoke. CI invokes this command on Python 3.12. Python 3.10, 3.11,
-3.13, and 3.14 run only source import, pure governance-kernel, and CLI-help
+3.13, and 3.14 run only source import, pure rules-and-checks, and CLI-help
 compatibility checks.
 
 CI runs branch candidates through `pull_request` and runs `push` only on
@@ -21,11 +21,11 @@ was pushed. Superseded runs are cancelled.
 
 The complete profile includes:
 
-1. exhaustive pure governance, scope, and canonicalization tests;
-2. focused filesystem, symlink, journal, proof, and required stored-format
+1. exhaustive pure rules, task-limit, and canonicalization tests;
+2. focused filesystem, symlink, history, verification, and required stored-format
    reader tests;
 3. one temporary-workspace CLI golden path and structured failures;
-4. supported adapter contract tests separated from core authority tests;
+4. supported adapter contract tests separated from core permission tests;
 5. repository text checks, Ruff, mypy, compilation, schema checks, agent-ready
    documentation checks, PCAW TCB accounting, and PCAW conformance; and
 6. one wheel built and installed into an isolated temporary virtual environment.
@@ -69,10 +69,10 @@ run the same smoke once.
 - Create Git repositories, spawn Palari, copy workspaces, scan journals, and
   build packages only when that operation is the behavior under test.
 - Give each retained public surface one or two translation tests rather than a
-  duplicate governance matrix.
+  duplicate rules matrix.
 - Profile only the slowest meaningful areas reported by the parallel runner.
 - Never make persistent caches, the committed example, or dogfood history into
-  acceptance authority.
+  permission to approve.
 
 When a candidate fails, reproduce the exact failure with focused tests, repair
-it, and rerun the complete gate only after the focused checks are stable.
+it, and rerun the complete check only after the focused checks are stable.

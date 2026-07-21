@@ -1,14 +1,14 @@
 # Common Workflows
 
-Use these as short recipes, not ceremony. The current work item and agent packet
-remain the assignment boundary.
+Use these as short recipes, not ceremony. The current task and task brief remain
+the assignment boundary. Exact stored names appear in backticks when needed.
 
 ## Operate Ordinary Bounded Work
 
 1. Initialize once with `palari init`, add bounded work with `palari work add`,
-   then let the assigned Palari run `palari agent start --next --as PALARI-ID
+   then let the assigned agent run `palari agent start --next --as PALARI-ID
    --json`.
-2. Work only inside the returned packet, commit the bounded result, and run
+2. Work only inside the returned task brief, commit the bounded result, and run
    `palari agent advance WORK-ID --as PALARI-ID --json`.
 3. Stop at the returned independent-review, human, external, or blocker
    boundary. Review remains a separate attributable act.
@@ -19,11 +19,12 @@ Use `work add --write PATH` when only final presence matters. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final
 mutation class matters; do not mix exact intents with `--write`.
 
-If execution is interrupted before proof is ready, run `palari agent release
+If execution is interrupted before the check results are ready, run `palari agent release
 WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Durable release
-records blocked state and the next action before releasing the claim; it does
-not create proof or authority. It requires a writable governance journal; a
-legacy workspace must first run the exact returned `history --checkpoint`
+records blocked status and the next action before releasing the task lock. It
+does not create a run record or check results, and it grants no permission. It
+requires writable tamper-evident history; a legacy workspace must first run the
+exact returned `history --checkpoint`
 action. Use `next`, `brief`, explicit `start`, `check`,
 `finish`, `handoff`, `doctor`, and `loop` as optional inspection and recovery
 surfaces rather than mandatory ceremony.
@@ -37,7 +38,7 @@ surfaces rather than mandatory ceremony.
 5. Update `docs/product/command-reference.md`.
 6. Run focused tests and the normal verification stack.
 
-## Change Workspace Schema Or Validation
+## Change Stored Data Or Validation
 
 1. Update `src/palari_company_os/models.py` and validation code.
 2. Update `schemas/workspace.schema.json` when the JSON contract changes.
@@ -48,16 +49,16 @@ surfaces rather than mandatory ceremony.
 
 ## Change Agent Behavior
 
-1. Keep packets compact and deterministic.
+1. Keep task briefs compact and deterministic.
 2. Add explicit blockers and next safe commands.
-3. Avoid dumping full workspace records or docs into packets.
+3. Avoid dumping full workspace records or docs into task briefs.
 4. Update `docs/product/agent-contract.md` and agent docs.
 5. Add tests for ready and blocked states.
 
-## Change Source, Receipt, Or Integration Behavior
+## Change Source, Run Record, Or Integration Behavior
 
 1. Preserve source boundaries and no-raw-secret rules.
-2. Keep receipts human-facing.
+2. Keep run records human-facing.
 3. Keep generic integrations dry-run; any live adapter must preserve the
    explicit plan, approval, outbox, and send boundaries.
 4. Update relevant product docs and tests.

@@ -233,7 +233,9 @@ class AgentAdoptionTests(unittest.TestCase):
         (self.workspace / "workspace.json").unlink()
         (self.workspace / "workspace.json").symlink_to(outside)
 
-        with self.assertRaisesRegex(WorkspaceError, "workspace to be inside the project"):
+        with self.assertRaisesRegex(
+            WorkspaceError, "workspace to be inside the repository"
+        ):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,

@@ -845,7 +845,7 @@ def _result_payload(
             "convergence": False,
         },
         "message": (
-            f"Work item {work_id} is durably parked as blocked; "
+            f"Task {work_id} is durably parked as blocked; "
             "no completion or acceptance authority was created."
         ),
     }

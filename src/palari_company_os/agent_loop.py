@@ -18,7 +18,7 @@ def build_agent_loop(
     *,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    """Return a compact read-only view of the agent operating loop."""
+    """Return a compact read-only view of the agent's task flow."""
 
     operation_state = ensure_agent_operation(
         workspace,
@@ -94,7 +94,7 @@ def build_agent_loop(
         "omitted_context": [
             {
                 "kind": "detailed_payloads",
-                "reason": "Agent loop v1 summarizes brief, check, finish, and handoff. Run the stage commands for full payloads.",
+                "reason": "The task flow summarizes the brief, checks, finish, and handoff. Run each step command for full details.",
             }
         ],
     }
@@ -111,7 +111,7 @@ def _terminal_stage(work_id: str) -> dict[str, Any]:
         "command": f"palari detail {work_id} --json",
         "status": "closed",
         "ok": True,
-        "message": "Work is terminal; inspect its immutable records when needed.",
+        "message": "The task is complete; inspect its unchanged records when needed.",
     }
 
 
@@ -146,7 +146,9 @@ def _check_stage(
         "command": f"palari agent check {work_id} --as {palari_id} --mode {mode} --json",
         "status": "pass" if check.get("ok") else "fail",
         "ok": bool(check.get("ok")),
-        "message": "Packet contract is satisfied." if check.get("ok") else "Required checks are still failing.",
+        "message": "The task brief is satisfied."
+        if check.get("ok")
+        else "Required checks are still failing.",
         "failed_required_checks": failed,
     }
 
@@ -187,12 +189,12 @@ def _handoff_stage(
 
 def _brief_message(brief: dict[str, Any]) -> str:
     if brief.get("status") == "ready":
-        return brief.get("one_sentence_instruction", "Packet is ready.")
+        return brief.get("one_sentence_instruction", "The task brief is ready.")
     blockers = brief.get("blockers", [])
     if blockers:
         codes = ", ".join(item.get("code", "") for item in blockers if item.get("code"))
-        return f"Packet is blocked: {codes}."
-    return "Packet is not ready."
+        return f"The task brief is blocked: {codes}."
+    return "The task brief is not ready."
 
 
 def _should_include_handoff(finish: dict[str, Any]) -> bool:

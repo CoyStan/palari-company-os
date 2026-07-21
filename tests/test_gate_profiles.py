@@ -42,6 +42,18 @@ class ParkedGateProfileContractTests(unittest.TestCase):
             ],
         )
         self.assertEqual(len(payload["profiles"]), len(GATE_PROFILES))
+        self.assertEqual(
+            [profile["label"] for profile in payload["profiles"]],
+            [
+                "Untrusted Instructions",
+                "Allowed Sources",
+                "External Actions",
+                "Human Approval",
+                "Deployment and Runtime",
+                "Private Media",
+                "Honest Product Claims",
+            ],
+        )
 
     def test_recommendations_remain_advisory_and_deterministic(self) -> None:
         workspace = _workspace()
@@ -56,6 +68,8 @@ class ParkedGateProfileContractTests(unittest.TestCase):
             ["source-boundary"],
         )
         self.assertEqual(first["review_contracts"][0]["gate_id"], "source-boundary")
+        self.assertIn("Task or run record", first["recommended_gates"][0]["reason"])
+        self.assertIn("review checklists", first["next_action"])
 
         data = current_recommendation_data()
         data["sources"] = []
@@ -64,6 +78,11 @@ class ParkedGateProfileContractTests(unittest.TestCase):
         no_gate = recommend_gates(local_only, "WORK-1")
         self.assertTrue(no_gate["no_special_gate_required"])
         self.assertEqual(no_gate["recommended_gates"], [])
+        self.assertEqual(
+            no_gate["next_action"],
+            "No special review checklist is needed; use the normal run record, "
+            "checks, and review path.",
+        )
 
     def test_parser_and_dispatch_are_one_read_only_wiring_boundary(self) -> None:
         workspace = _workspace()

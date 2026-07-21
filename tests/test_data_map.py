@@ -70,7 +70,10 @@ class DataMapTests(unittest.TestCase):
         rendered = "\n".join(lines)
 
         self.assertIn("Palari Data Map: Current Agent Test Workspace", rendered)
-        self.assertIn("journal: .palari/governance-journal.v2.jsonl (enabled)", rendered)
+        self.assertIn(
+            "tamper-evident history: .palari/governance-journal.v2.jsonl (enabled)",
+            rendered,
+        )
         self.assertIn("readiness: data=internal", rendered)
         self.assertIn("redaction required", rendered)
         self.assertIn("live execution: disabled", rendered)

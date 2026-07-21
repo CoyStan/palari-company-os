@@ -9,30 +9,36 @@ repository milestones, not a production Company OS release.
 
 ### Fixed
 
-- Bound new accept-ready reviews to the exact terminal attempt, receipt,
-  evidence manifest, reviewed head, and work contract. Acceptance, completion,
-  read models, and quorum now fail closed on stale or contradictory proof, and
-  later negative decisions revoke earlier approval from the same human.
+- Bound new `accept-ready` reviews to the exact final run, run record, check
+  manifest, reviewed head, and task rules. Approval, completion, status views,
+  and required approvals now fail closed on stale or contradictory records.
+  Later negative decisions revoke an earlier approval from the same human.
 - Hardened filesystem enforcement against traversal, sibling-prefix and
-  symlink escape, malformed Git observations, ambiguous claims, and review-mode
-  writes. Agent claims now distinguish unchanged pre-existing dirt with a
+  symlink escape, malformed Git observations, ambiguous assignments, and
+  review-mode writes. Stored agent `claims` now distinguish unchanged
+  pre-existing dirt with a
   hashed metadata-only baseline plus an independent local Git ref/reflog
-  witness; hooks reconcile execute scope with current workspace truth.
-- Revalidate evidence manifests, artifacts, and receipt hashes for active
-  acceptance records, and stop supported agent shells from invoking
+  witness; hooks reconcile allowed file changes with current workspace truth.
+- Revalidate check manifests, outputs, and run-record hashes for active
+  approval records, and stop supported agent shells from invoking
   human-attributed Palari mutations or silently running opaque interpreters.
 
 ### Changed
 
+- Replaced public product jargon with task, run, task brief, assignment, run
+  record, check results, review result, approval, result, status, required
+  checks, required approvals, status view, automatic finishing, tamper-evident
+  history, and allowed files, sources, and actions. Stable commands, flags,
+  JSON keys and status values, IDs, paths, schemas, and PCAW terms are unchanged.
 - Removed the hidden packaged ACME workspace and schema copies. Commands now
   use an explicit workspace or the current directory. The ACME workspace is a
   repository example only, while the isolated wheel smoke owns the installed
   package boundary.
-- Removed the superseded `palari agent done` command and receipt-only
-  completion lifecycle. `palari agent advance` is now the sole current
-  execution-to-proof path, every completion requires current exact evidence,
+- Removed the superseded `palari agent done` command and run-record-only
+  completion path. `palari agent advance` is now the sole current run-to-check
+  path, every completion requires current exact check results,
   and only R1/light/zero-approval work with no external-write surface may omit
-  independent review and human acceptance.
+  independent review and human approval.
 - Removed the unsupported static visual stack: the old `dashboard` generator,
   desktop prototype/server/assets/demo schema, showcase narrative, and Pages
   deployment. Mission Control is now the sole supported local human UI. These
@@ -43,26 +49,27 @@ repository milestones, not a production Company OS release.
   predecessor remains only as a sealed, explicit activation input proven by
   committed data; its bytes are never rewritten.
 - Removed synthetic agent-claim v1 and Approval Pack v1 compatibility branches.
-  Current claims require schema v2 plus an exact session-contract binding, and
+  Current assignments (`claims` in stored data) require schema v2 plus an exact
+  `session-contract` binding, and
   current Approval Packs require v2 plus an exact canonical presentation.
 - Replaced affected-path test routing with two explicit profiles: one
-  authoritative `complete` candidate gate and a focused mode that runs only the
-  named test modules. CI runs the complete gate once on Python 3.12, one wheel
-  build/install smoke, and thin import/kernel/help checks on the other supported
-  interpreters.
+  authoritative `complete` candidate check and a focused mode that runs only
+  the named test modules. CI runs the complete check once on Python 3.12, one
+  wheel build/install smoke, and thin import/central-rules/help checks on the
+  other supported interpreters.
 - Removed unsupported Cursor, Devin, GLM, and generic session-profile aliases.
   Claude and Codex are the tested session adapters; other harnesses may consume
-  the provider-neutral contract and host-neutral Git boundary without being
+  the provider-neutral rules and host-neutral Git boundary without being
   advertised as supported profiles.
 - Made generic external-action previews opaque and provider-neutral instead of
   maintaining speculative Slack, GitHub, Jira, or email payload shapes. Linear
   remains the only current live provider adapter.
-- Reconstructed the slow packet, read-model, transition, validation, adapter,
-  hook, and CLI tests around pure kernel decisions and genuine system
+- Reconstructed the slow task-brief, status-view, state-change, validation,
+  adapter, hook, and CLI tests around central decisions and genuine system
   boundaries. Candidate verification no longer executes Palari against the
   committed ACME example or dogfood workspace.
 - Human review and approval templates are emitted only inside explicit
-  read-only handoff boundaries after their prerequisite proof passes.
+  read-only handoff boundaries after their prerequisite checks pass.
 
 ### Added
 
@@ -77,10 +84,10 @@ repository milestones, not a production Company OS release.
   type per event), and the existing human approval, enqueue, and `linear
   send` gates execute it through `issueUpdate`. Added the `work_started`
   integration event.
-- Added `palari linear push WORK-ID`, governed issue creation for local work
-  items: the plan embeds the work item's palari block in the issue
+- Added `palari linear push WORK-ID`, governed issue creation for local tasks:
+  the plan embeds the task's palari block in the issue
   description, and after approval `linear send` creates the issue and links
-  the returned key/id/url back to the work item, so Palari-born tickets are
+  the returned key/id/url back to the task, so Palari-born tickets are
   trackable in Linear like any other issue.
 
 ## [0.2.0] - 2026-07-11
@@ -105,18 +112,19 @@ repository milestones, not a production Company OS release.
 ### Added
 
 - Added a two-minute onramp for existing repos: `palari init` creates a
-  starter workspace (one human, one Palari, one goal, one workbench, one repo
-  source) and `palari work add TITLE --write PATH` creates an agent-startable
-  work item from a title and its write paths. When the current directory has a
-  `workspace.json`, commands use it as the default workspace, so
+  starter project (one human, one agent, one goal, one project area, and one
+  repository source), and `palari work add TITLE --write PATH` creates an
+  agent-startable task from a title and its write paths. When the current
+  directory has a `workspace.json`, commands use it as the default workspace, so
   `init` -> `work add` -> `claude install` works without `--workspace` flags.
 
 - Added `palari claude install|status|hook`, a Claude Code enforcement adapter
-  that turns the packet write boundary into structural enforcement: PreToolUse
-  hooks deny out-of-boundary `Write`/`Edit`/`NotebookEdit` calls before the
-  write happens, suspected out-of-boundary Bash writes escalate to a human ask,
-  a Stop hook blocks turn completion while `git status` shows changes outside
-  the boundary, and a SessionStart hook injects the active packet contract.
+  that turns the task-brief write boundary into structural enforcement:
+  PreToolUse hooks deny out-of-boundary `Write`/`Edit`/`NotebookEdit` calls
+  before the write happens, suspected out-of-boundary Bash writes escalate to
+  a human ask, a Stop hook blocks turn completion while `git status` shows
+  changes outside the boundary, and a SessionStart hook injects the active task
+  rules.
   Documented in `docs/product/claude-code-integration.md`.
 
 ## [0.1.2] - 2026-07-06
@@ -147,10 +155,10 @@ repository milestones, not a production Company OS release.
 
 - Packaged default example and desktop-demo data so installed wheels can run
   default CLI commands without a source checkout.
-- Closed path traversal and output-boundary validation gaps for scope checks,
-  attempts, receipts, and undo references.
+- Closed path traversal and output-boundary validation gaps for allowed-file
+  checks, runs, run records, and undo references.
 - Made desktop prototype document HTML fail closed with a strict sanitizer.
-- Made read models honor a work item's declared `current_attempt`.
+- Made status views honor a task's declared `current_attempt`.
 
 ### Changed
 
@@ -172,10 +180,10 @@ repository milestones, not a production Company OS release.
 - Added workspace schema v1 and strict workspace validation.
 - Added the ACME example workspace.
 - Added queue, detail, state, validate, scope, history, and maintainer commands.
-- Added authoring and lifecycle commands for goals, Palaris, humans, decisions,
-  work, attempts, evidence, reviews, human decisions, and outcomes.
-- Added fail-closed checks for scope boundaries, stale evidence, stale review,
-  human authority, and approval quorum.
+- Added record-writing commands for goals, agents, humans, decisions, tasks,
+  runs, check results, reviews, human approvals, and final results.
+- Added fail-closed checks for allowed-file boundaries, stale check results,
+  stale review, human permission, and required approvals.
 - Added append-only workspace history for successful mutating commands.
 - Added a small unittest suite and local verification script.
 
@@ -184,6 +192,6 @@ repository milestones, not a production Company OS release.
 - No web UI.
 - No production deployment.
 - No real broker execution or external side effects.
-- No real policy acceptance authority.
+- No real policy-approval permission.
 - No enterprise administration.
 - No signed gate/key custody implementation.

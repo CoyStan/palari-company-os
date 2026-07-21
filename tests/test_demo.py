@@ -19,8 +19,10 @@ class DemoCommandTests(unittest.TestCase):
             result = self.run_cli("demo", "--dir", str(demo_dir), "--no-pause")
 
         self.assertIn("*** BLOCKED:", result.stdout)
+        self.assertIn("outside Sofia's allowed files", result.stdout)
         self.assertIn("deploy/production.yml", result.stdout)
-        self.assertIn("Allowed write paths: docs/product/company-os.md", result.stdout)
+        self.assertIn("Allowed files: docs/product/company-os.md", result.stdout)
+        self.assertIn("records checks and finishes the safe local task", result.stdout)
         self.assertIn("What just happened:", result.stdout)
 
     def test_demo_json_transcript_reports_blocked_path(self) -> None:
@@ -38,6 +40,9 @@ class DemoCommandTests(unittest.TestCase):
         self.assertNotIn("Docs: missing", transcript)
         self.assertNotIn("receipt record RECEIPT-ID", transcript)
         self.assertNotIn("evidence record EVIDENCE-ID", transcript)
+        self.assertNotIn("deterministic proof", transcript)
+        self.assertNotIn("active attempts", transcript)
+        self.assertIn("run record, and check results", transcript)
         self.assertTrue(
             any("agent advance WORK-0003" in step["command"] for step in payload["steps"])
         )

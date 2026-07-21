@@ -267,16 +267,16 @@ def _claim_start_blocker(lease: dict[str, Any]) -> dict[str, str] | None:
         return {
             "code": "CLAIM_COORDINATION_INVALID",
             "message": (
-                f"Cross-worktree claim state is invalid: "
-                f"{lease.get('message', 'inspect the Git lease')}"
+                f"Cross-worktree task-lock state is invalid: "
+                f"{lease.get('message', 'inspect the Git task lock')}"
             ),
         }
     if lease.get("active") and not lease.get("current_workspace"):
         return {
             "code": "WORK_ALREADY_CLAIMED",
             "message": (
-                f"Work is already claimed by {lease.get('claimed_by', 'another Palari')} "
-                f"in another Git worktree until {lease.get('lease_expires_at', 'lease expiry')}."
+                f"The task is already assigned to {lease.get('claimed_by', 'another agent')} "
+                f"in another Git worktree until {lease.get('lease_expires_at', 'the lock expires')}."
             ),
         }
     return None
@@ -348,7 +348,7 @@ def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
         blockers.append(
             {
                 "code": "PACKET_BLOCKED",
-                "message": "The agent packet is blocked; inspect blocker_codes before starting.",
+                "message": "The task brief is blocked; inspect blocker_codes before starting.",
             }
         )
     return blockers
@@ -385,8 +385,8 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
             {
                 "code": "NO_ASSIGNED_WORK",
                 "message": (
-                    "No visible work items are assigned, workbench-allowed, or "
-                    "eligible for independent review by this Palari."
+                    "No visible tasks are assigned, project-allowed, or "
+                    "eligible for independent review by this agent."
                 ),
                 "human_visible": True,
             }
@@ -394,7 +394,7 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [
         {
             "code": "NO_READY_WORK",
-            "message": "Visible work exists, but none is currently safe to start.",
+            "message": "Visible tasks exist, but none is currently safe to start.",
             "human_visible": True,
         }
     ]
@@ -476,7 +476,7 @@ def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
 def _omitted_context(workspace: Workspace) -> dict[str, Any]:
     return {
         "kind": "workspace_records",
-        "reason": "Agent next v1 includes compact queue candidates, not full workspace records.",
+        "reason": "Agent next includes compact task choices, not every workspace record.",
         "counts": {
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),

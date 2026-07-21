@@ -10,6 +10,7 @@ from typing import Any
 
 from .cli_dispatch import run_command
 from .cli_output import print_result
+from .cli_output_utils import plain_message
 from .cli_parser import build_parser
 from .mutation_context import mutation_context
 from .workspace import WorkspaceError
@@ -52,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
         if _linear_json_requested(args, raw_argv):
             print(json.dumps(_linear_error_payload(args, exc), indent=2, sort_keys=True))
             return 2
-        parser.exit(2, f"palari: {exc}\n")
+        parser.exit(2, f"palari: {plain_message(_clean_error_message(exc))}\n")
 
     parser.exit(2, "palari: unknown command\n")
     return 2

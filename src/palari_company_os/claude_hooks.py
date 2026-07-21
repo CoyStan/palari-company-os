@@ -1277,7 +1277,7 @@ def _session_start(
     else:
         lines.extend(
             [
-                "No work item is claimed yet. Before changing files, pick bounded "
+                "No task is assigned yet. Before changing files, take bounded "
                 "work and claim it:",
                 "  palari agent next --json",
                 "  palari agent start WORK-ID --as PALARI-ID --mode execute --json",
@@ -1322,7 +1322,7 @@ def _boundary_reason(
         "Next safe commands:",
         f"  palari agent doctor {work_id} --as {palari_id} --mode execute --json",
         f"  palari agent handoff {work_id} --as {palari_id} --json",
-        "If the boundary must grow, a human updates the work item scope first.",
+        "If the limits must grow, a human updates the task first.",
     ]
     return "\n".join(lines)
 

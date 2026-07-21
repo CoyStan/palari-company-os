@@ -16,7 +16,7 @@ def build_agent_doctor(
     *,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    """Explain why a work item is or is not safe for an agent right now."""
+    """Explain why a task is or is not safe for an agent right now."""
 
     operation_state = ensure_agent_operation(
         workspace,
@@ -64,7 +64,7 @@ def build_agent_doctor(
         "omitted_context": [
             {
                 "kind": "detailed_payloads",
-                "reason": "Agent doctor v1 explains the current loop status. Run agent loop or the stage commands for full payloads.",
+                "reason": "Task status explains the current flow. Run agent loop or the step commands for full details.",
             }
         ],
     }
@@ -82,14 +82,14 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "ready-to-report",
             "agent_safe": True,
             "human_handoff_required": False,
-            "summary": "The agent loop checks pass. The agent may report completion with the check result.",
+            "summary": "The task checks pass. The agent may report completion with the check result.",
         }
     if handoff_required:
         return {
             "status": "human-handoff-required",
             "agent_safe": False,
             "human_handoff_required": True,
-            "summary": "This work is waiting for human review or decision context. Use agent handoff; do not run human-only commands.",
+            "summary": "This task is waiting for independent review or human approval. Use agent handoff; do not run human-only commands.",
         }
     if missing:
         labels = ", ".join(item.get("code", "") for item in missing if item.get("code"))
@@ -97,7 +97,7 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "missing-proof",
             "agent_safe": True,
             "human_handoff_required": False,
-            "summary": f"The packet is usable, but required proof is missing: {labels}.",
+            "summary": f"The task brief is usable, but required checks are missing: {labels}.",
         }
     if blockers:
         labels = ", ".join(item.get("code", "") for item in blockers if item.get("code"))
@@ -105,13 +105,13 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "blocked",
             "agent_safe": False,
             "human_handoff_required": False,
-            "summary": f"The packet is blocked: {labels}.",
+            "summary": f"The task brief is blocked: {labels}.",
         }
     return {
         "status": loop_status,
         "agent_safe": False,
         "human_handoff_required": False,
-        "summary": "Inspect the agent loop before proceeding.",
+        "summary": "Inspect the task flow before proceeding.",
     }
 
 

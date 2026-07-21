@@ -283,7 +283,7 @@ def validate_block_against_workspace(
             errors.append(f"allowed source not found: {source_id}")
     for target in fields.get("conflict_targets", []):
         if workspace.work_item(target) is None:
-            errors.append(f"conflict target work item not found: {target}")
+            errors.append(f"conflict target task not found: {target}")
 
     warnings.extend(block.warnings)
     return {"errors": errors, "warnings": warnings}

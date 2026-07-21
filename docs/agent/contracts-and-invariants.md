@@ -1,6 +1,9 @@
 # Contracts And Invariants
 
 These are the repo truths agents must preserve when changing Palari Company OS.
+They use plain product words first and exact stored or protocol names where a
+code change must match them. See
+[Plain Language](../product/plain-language.md).
 
 ## Data And Validation
 
@@ -8,30 +11,30 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
-- Work-item IDs are identity only. New quick-created work uses collision-resistant
+- Task IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin a replayable v2 governance journal. A workspace with a
+- New workspaces begin replayable v2 tamper-evident history. A workspace with a
   committed valid v1 journal is read-only until an operator explicitly
-  activates v2. That activation does not rewrite v1: the v2 checkpoint
+  activates v2. That activation does not rewrite v1: the v2 restore point
   content-binds the exact sealed predecessor, then deterministic value deltas
   form the streamed tail. Existing unjournaled workspaces also require an
-  explicit v2 checkpoint; no current record is written under the v1 filename.
+  explicit v2 restore point; no current record is written under the v1 filename.
   Prepared and
   committed records still bracket the atomic, fsynced workspace replacement;
   divergence, corruption, pending transactions, and continuity breaks remain
   visible.
-- Evidence for self-mutating governance projection files (`workspace.json` and
-  the current governance journal) binds their bytes at the exact
-  evidence Git head. The live journal is verified separately against the
-  current workspace, so recording proof does not stale itself and journal
-  corruption or projection divergence still fails closed. Ordinary artifacts
+- Check results for self-mutating state files (`workspace.json` and the
+  current governance journal) bind their bytes at the exact Git head. The live
+  history is verified separately against the current workspace, so recording
+  checks does not stale itself and history corruption or state divergence
+  still fails closed. Ordinary output files
   remain bound to current filesystem bytes.
-- Ordinary queue, detail, and status operations translate recorded proof
-  through the explicitly non-authoritative kernel projection. They do not
-  inspect artifact bytes or scan journal history. Trusted transitions and
-  explicit Approval Inbox/handoff operations perform current evidence and
-  journal verification; nested verification in one such operation may share
+- Ordinary queue, detail, and status operations translate recorded checks
+  through a status view that grants no permission. They do not inspect output
+  bytes or scan history. Trusted transitions and explicit Approval
+  Inbox/handoff operations perform current check and history verification;
+  nested verification in one such operation may share
   only an in-memory request context. Persistent caches never become authority.
 - Split collection files are read-time only for ordinary authoring; authoring
   writes refuse split workspaces rather than silently collapsing records.
@@ -50,22 +53,22 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   v2 filesystem witnesses remain unchanged; no persistent cache may authorize
   a transition.
 
-## Authority
+## Permissions And Approval
 
-- Human authority is explicit. Agents do not silently inherit approval power.
-- Human decisions, reviews, receipts, evidence, and outcomes are separate
+- Human approval is explicit. Agents do not silently inherit approval power.
+- Approvals, reviews, run records, check results, and results are separate
   records with separate meanings.
 - Approval Packs compress one human approval interaction, never independent
   review or item evidence.
   Pack and member digests are exact; recursive dependency bindings retain
-  exact proof/artifact freshness even outside a narrowed pack. Changed members
+  exact check/output freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
 - Approval Pack v2 decisions bind the exact canonical presentation artifact
   named by the human command. Relevant decision-context changes stale the old
-  presentation. One action may perform only the crash-safe local convergence
-  already authorized by current quorum; it cannot manufacture review, another
-  vote, external effects, or expanded authority. Approval Pack v1 is not a
+  presentation. One action may perform only crash-safe local automatic
+  finishing already allowed by the current approvals; it cannot manufacture
+  review, another vote, external effects, or expanded permission. Approval Pack v1 is not a
   supported stored format; an unsupported pack or missing presentation binding
   fails closed.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
@@ -77,17 +80,17 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; contradictory or ambiguous ordering fails closed.
-- Gates recommend what to inspect; they do not grant acceptance authority.
-- Playbooks are process guidance; the work item scope and Palari authority
+- Suggested checks recommend what to inspect; they do not grant approval.
+- Playbooks are process guidance; the task limits and Palari permissions
   remain the source of truth.
 
 ## Agent Contract
 
 - `palari agent brief` is read-only.
-- `palari agent start` persists the exact packet and writes a local claim for
+- `palari agent start` saves the exact task brief and writes a local task lock for
   ready execution work, including a hashed metadata-only Git dirty baseline
   and a dedicated local Git ref/reflog witness when Git is available. Releasing
-  and restarting the same work item must reuse that baseline rather than
+  and restarting the same task must reuse that baseline rather than
   laundering later changes.
 - For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari compares a canonical execution-authority
@@ -226,7 +229,7 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   agent-safe Palari mutations pointed at another workspace also require review.
 - Supported host adoption always installs or reuses the portable repository
   contract and claim-bound Git commit gate. Claude and Codex are the two tested
-  session adapters; Codex requires explicit project-hook trust. No profile may
+  session adapters; Codex requires explicit repository-hook trust. No profile may
   grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.
@@ -236,7 +239,7 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - JSON agent command failures must remain machine-readable when `--json` is
   requested.
 
-## Proof-Carrying Work
+## Portable Verification (PCAW)
 
 - PCAW statements are strict canonical JSON: duplicate keys, floats, unsafe
   integers, invalid Unicode, unknown fields, unsupported algorithms, and
@@ -245,8 +248,8 @@ These are the repo truths agents must preserve when changing Palari Company OS.
   the selected root. Traversal, sibling-prefix confusion, symlinks, missing
   files, changed-during-read files, and digest mismatches fail closed.
 - Statement-only verification never claims artifact or acceptance verification.
-- The pure governance kernel derives scope, subject, evidence, receipt, review,
-  quorum, acceptance, and journal properties. Export adapters may normalize
+- The pure rules evaluator derives the PCAW scope, subject, evidence, receipt,
+  review, quorum, acceptance, and journal properties. Export adapters may normalize
   workspace data but are not part of the offline verifier trusted-code base.
 - PCAW v1 attribution is declared, not cryptographically authenticated. It
   grants no acceptance, merge, push, deployment, or external-write authority.
@@ -260,13 +263,14 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 - `history --restore` is a human-only shell authority command. An agent cannot
   acquire it by supplying a declared human id.
 
-## Sources, Receipts, And External Actions
+## Sources, Run Records, And External Actions
 
-- Sources define what a Palari may use; unlisted sources are out of scope.
-- Receipts are human-facing trust records: what was used, created, changed, not
+- Sources define what an agent may use; unlisted sources are outside the task.
+- Run records (`receipts` in stored JSON) are human-facing records: what was used, created, changed, not
   done, and undoable.
-- Governance evidence is not the same thing as a receipt. A receipt alone can
-  never complete work; every completion path requires current exact evidence.
+- Check results (`evidence`) are not the same thing as a run record. A run
+  record alone can never complete work; every completion path requires current
+  checks tied to the exact version.
 - Dry-run integration plans never call providers.
 - External writes require explicit approval and an outbox boundary before any
   supported live execution.
@@ -276,10 +280,10 @@ These are the repo truths agents must preserve when changing Palari Company OS.
 
 - Repo truth belongs in committed docs, not machine-local memory.
 - `AGENTS.md` should stay compact and point to deeper canonical docs.
-- Update docs when commands, schema, agent behavior, integrations, gates, or
+- Update docs when commands, schema, agent behavior, integrations, required checks, or
   examples change in ways future agents need to know.
 - Preserve the [Minimality Contract](../product/minimality-contract.md): no
   runtime dependency, background service by default, live provider write without
-  approval, OAuth by default, or schema growth without governance behavior.
+  approval, OAuth by default, or schema growth without changed safety behavior.
 - Check the [Public Surface](../product/public-surface.md) before changing CLI,
   provider, visual, example, or archive surfaces.

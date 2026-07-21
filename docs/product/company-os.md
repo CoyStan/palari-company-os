@@ -1,120 +1,133 @@
-# Palari Company OS Product Model
+# How Palari Works
 
-Palari Company OS is a company AI operating system. Its job is not to turn
-every task into bureaucracy. Its job is to make AI-assisted work legible,
-bounded, reviewable, and useful.
+Palari makes AI work reviewable. It gives an agent a clear task and limits,
+records what happened, checks the result, and keeps important approvals with
+people.
 
-## Core Idea
+Palari is local and file-backed. It works with coding agents and other AI tools;
+it does not replace them or silently give them more permission.
 
-A normal company becomes AI-native when it can name the workstreams where AI
-helps, define the humans who hold authority, preserve evidence of what
-happened, and learn from outcomes.
+## The Basic Idea
 
-Palari Company OS is organized around:
+A company can use AI responsibly when it can answer a few ordinary questions:
 
-- goals as company intent
-- workbenches as bounded arenas of shared work
-- Palaris as named AI work partners
-- humans as authority holders
-- sources as explicit readable context
-- decisions as explicit requests for judgment
-- work items as scoped units of work
-- attempts as concrete execution sessions
-- receipts as human-facing records of what an attempt used, changed, did not do,
-  and can undo
-- evidence runs as proof tied to a head or artifact state
-- review verdicts as independent inspection
-- human decisions as authority-bearing actions
-- outcomes as learning records
+- What is the goal?
+- Which task is the agent doing?
+- Which files, sources, and actions are allowed?
+- What did the run change?
+- Which checks passed for this exact version?
+- Does another reviewer need to inspect it?
+- Does a person need to approve it?
+- What was the final result?
 
-## Palaris
+Palari stores these answers as explicit records. The machine names remain in
+the JSON schema and command output:
 
-A Palari is the named face of a workflow or AI workstream.
+- goals describe why work exists
+- projects (`workbenches`) group related work
+- agents (`Palaris`) are named AI work partners
+- people (`humans`) own review and permission to approve
+- sources identify the context an agent may read
+- questions (`decisions`) record choices a person must make
+- tasks (`work_items`) define one assignment and its limits
+- runs (`attempts`) record one execution session
+- run records (`receipts`) say what a run used, changed, skipped, and can undo
+- check results (`evidence_runs`) are tied to the exact commit and outputs
+- review results (`review_verdicts`) record independent inspection
+- approvals or rejections (`human_decisions`) record human choices
+- results (`outcomes`) preserve what was learned after a task closes
 
-A Palari may:
+## Agents
+
+An agent is the named AI worker for a task. The stored record is called a
+`Palari` so it remains distinct from the model, tool, or host that happens to
+perform a run.
+
+An agent may:
 
 - prepare work
-- explain sources
-- coordinate bounded execution
-- summarize evidence
-- ask humans for decisions
-- preserve memory and outcomes
+- explain allowed sources
+- perform a task within its limits
+- summarize check results
+- ask people for decisions
+- preserve useful results
 
-A Palari may not silently grant itself authority. The human-facing identity can
-remain stable even if execution is delegated to different models, tools, or
-workers.
+An agent may not approve its own work or silently expand its permissions. Its
+name can remain stable even when different models or tools perform later runs.
 
-## Workbenches
+## Projects
 
-A Workbench is the bounded arena where a human/Palari team works in parallel.
-It names the shared context, selected sources, output targets, goals, humans,
-Palaris, and active work items for one line of work.
+A project (stored as a `workbench`) groups one line of work. It names the goal,
+shared context, allowed sources, output targets, people, agents, and active
+tasks.
 
-Work items may belong to a workbench, have parent/child relationships, depend on
-other work items, and declare a parallel policy:
+Tasks may depend on other tasks or have parent and child relationships. Their
+parallel policy explains whether they can run together:
 
-- `independent` work can run beside other work.
-- `coordinate` work should be visible to other operators.
-- `exclusive` work should not overlap another active item touching the same
-  conflict target without a coordination warning.
+- `independent` tasks may run at the same time.
+- `coordinate` tasks should be visible to the other operators.
+- `exclusive` tasks should not overlap another active task that touches the
+  same conflict target without a warning.
 
-This keeps parallel work legible without burying it in process ceremony.
+Task IDs are identities, not sequence numbers. Explicit dependencies determine
+order, so unrelated tasks can run in parallel.
 
-## Adaptive Intensity
+## Risk Levels
 
-The system should recommend the lightest responsible operating mode.
+Palari recommends the lightest safe process for each task. The stored field for
+this choice is `adaptive_intensity`.
 
 ### Light
 
-For clear, low-risk maintenance. Expected proof is a branch, clear scope,
-focused tests, and a concise summary.
+For clear, low-risk maintenance. The task still needs defined limits, a
+committed result, current checks, and a concise summary. Eligible R1/light work
+may finish without independent review or human approval only when its task
+rules explicitly require neither and allow no external action.
 
 ### Standard
 
-For normal governed company work. Expected proof is a work item, attempt,
-evidence run, review verdict, and human decision when needed.
+For normal company work. The usual path is a task, run, run record, current
+checks, independent review, and human approval when the task requires it.
 
 ### High
 
-For production, security, policy, broker, external side effects, or authority
-changes. Expected proof includes explicit goal linkage, strong scope, fresh
-evidence, fresh review, human quorum, and fail-closed gates.
+For production, security, policy, external actions, or permission changes.
+These tasks need a clear goal, narrow limits, current checks, current review,
+the required number of qualified human approvals, and checks that stop safely
+when anything is missing.
 
-The operator should not have to micromanage intensity. The system should infer
-it from risk, ambiguity, blast radius, external side effects, prior outcomes,
-and model capability, then explain the recommendation.
+Palari should infer this level from risk, ambiguity, possible impact, external
+actions, prior results, and agent capability, then explain its recommendation.
 
-## Team Compatibility
+## Teams
 
-The first workspace can serve one founder, but the object model should not
-collapse into one-person assumptions. It should support:
+One local workspace can serve a single founder or a larger team. The stored
+model supports:
 
-- multiple humans
-- multiple Palaris
-- role-based authority
-- approval quorum
-- shared standards
-- shared memory
-- cross-team decisions
-- capacity and governance-load signals
+- multiple people and agents
+- role-based permissions
+- one or more required approvals
+- shared standards and context
+- decisions across teams
+- capacity and review-load signals
 
-Simplification should reduce visible ritual, not erase the distinction between
-human accountability and AI capability.
+Simpler language and fewer commands must not erase the difference between an
+agent's capabilities and a person's responsibility.
 
-## Queue First
+## Start With the Queue
 
-The default surface is the queue. The queue is a read model, not an authority
-mutation surface.
+The queue is the normal place to see what needs attention. It is a status view
+(historically called a read model), so viewing it does not change a task or
+grant approval.
 
 It answers:
 
 - what needs attention now
 - why it matters
-- which goal and Palari it serves
-- who or what should act next
-- what evidence and review exist
-- what human decision is needed
-- what exact next action is safe
-- which workbench contains the work
-- what parallel attempts are active
-- whether overlapping exclusive targets need coordination
+- which goal, project, and agent it belongs to
+- who should act next
+- which checks and reviews are current
+- whether human approval is needed
+- what the next safe action is
+- which runs are active in parallel
+- whether exclusive targets overlap

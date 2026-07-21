@@ -8,10 +8,11 @@ parked until its prospective research value is resolved.
 
 ## North Star: Proof-Carrying AI Work
 
-Palari's direction is a small, open, provider-neutral governance kernel: given
-one PCAW statement and its named outputs, an independent implementation can
-determine offline whether the work stayed bounded, evidence is current, review
-is independent, human quorum is current, and acceptance still applies.
+Palari's direction is a small, open, provider-neutral verification system:
+given one PCAW statement and its named outputs, an independent implementation
+can determine offline whether the work stayed within its limits, checks are
+current, review is independent, required approvals are current, and final
+approval still applies.
 
 Implemented in the v0.2 local foundation:
 
@@ -185,9 +186,9 @@ organization, route work to suitable models, delegate bounded assignments,
 collect proof, replace failed workers, and return only decisions that genuinely
 require human judgment.
 
-This extends the current queue and work-item lifecycle; it does not replace
-them with an autonomous agent framework. The deterministic control plane
-remains authoritative. Models propose plans and perform bounded work, while
+This extends the current task queue and work process; it does not replace them
+with an autonomous agent framework. The deterministic local rules remain
+authoritative. Models propose plans and perform bounded work, while
 ordinary code decides whether a requested transition or action is permitted.
 
 ### The company hierarchy
@@ -434,7 +435,7 @@ guarantee that an authorized human makes a good decision.
 The following sources were identified as a research watchlist during the
 architecture discussion. They are not Palari dependencies or endorsed claims.
 Many are recent preprints or evolving drafts; titles, versions, maturity, and
-security claims must be revalidated from primary sources before a work item
+security claims must be revalidated from primary sources before a task
 relies on them.
 
 Direct agent governance and enforcement:

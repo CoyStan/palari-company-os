@@ -92,7 +92,7 @@ def build_agent_handoff(
         "omitted_context": [
             {
                 "kind": "workspace_records",
-                "reason": "Agent handoff v1 includes finish guidance and compact human review or decision context only.",
+                "reason": "The handoff includes finish guidance and only the relevant human review or approval context.",
                 "counts": {
                     "work_items": len(workspace.work_items),
                     "decisions": len(workspace.decisions),
@@ -386,7 +386,7 @@ def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[
         "must_not": [
             "Do not run human action commands.",
             "Do not claim to be the required human actor.",
-            "Do not convert a recommendation into human review, decision, or acceptance.",
+            "Do not convert a recommendation into human review, approval, or rejection.",
         ],
     }
 
@@ -397,12 +397,12 @@ def _agent_action_boundary(agent_action_commands: list[dict[str, str]]) -> dict[
         "agent_action_command_fields": ["agent_action_commands[].command"],
         "count": len(agent_action_commands),
         "must": [
-            "Open the named review packet before recording a verdict.",
-            "The packet actor must match the command actor.",
+            "Open the named review task brief before recording a review result.",
+            "The task-brief agent must match the command actor.",
         ],
         "must_not": [
-            "Do not let the builder review its own attempt.",
-            "Do not convert a Palari verdict into human acceptance.",
+            "Do not let the builder review its own run.",
+            "Do not convert an agent review result into human approval.",
         ],
     }
 
@@ -477,14 +477,14 @@ def _approval_pack_handoff(
             command.get("presentation_digest", "") if command is not None else ""
         ),
         "item_state": item.get("state", "missing") if item else "missing",
-        "reasons": item.get("reasons", []) if item else ["work item is not in the inbox"],
+        "reasons": item.get("reasons", []) if item else ["task is not in the inbox"],
         "approve_eligible_command": (
             command["approve_eligible"] if command is not None and available else ""
         ),
         "next_safe_action": (
             "A qualified human may run the exact presentation-bound approve-eligible command once."
             if available
-            else "Repair the listed proof or batching blockers, then rebuild the exact Approval Pack."
+            else "Repair the listed check or batching blockers, then rebuild the exact Approval Pack."
         ),
     }
 
@@ -509,15 +509,20 @@ def _pack_human_commands(
 
 def _approval_focus(payload: dict[str, Any]) -> list[str]:
     focus = [
-        "Inspect the work output, evidence, review verdict, and residual risks before approving.",
-        "Do not approve if required proof is missing or stale.",
+        "Inspect the task output, checks, review result, and residual risks before approving.",
+        "Do not approve if required checks are missing or stale.",
     ]
     safety = payload.get("safety", {})
     if safety.get("receipt_state") != "ready":
-        focus.append(f"Receipt state is {safety.get('receipt_state', 'unknown')}; require a receipt if the completion contract asks for one.")
+        focus.append(
+            f"Run-record status is {safety.get('receipt_state', 'unknown')}; "
+            "require a run record if the completion rules ask for one."
+        )
     work = payload.get("work_item", {})
     if work.get("forbidden_actions"):
-        focus.append("Confirm approval does not authorize forbidden actions without new scoped work.")
+        focus.append(
+            "Confirm approval does not allow forbidden actions without a new task with explicit limits."
+        )
     return focus
 
 

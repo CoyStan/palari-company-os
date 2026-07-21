@@ -1,222 +1,244 @@
-# Core Objects
+# Stored Records
 
-Palari Company OS starts with a small set of explicit objects. The first
-implementation keeps them as Python dataclasses and JSON records so the model
-is easy to inspect and cheap to change.
+Palari stores a small set of explicit records as JSON and represents them in
+Python with dataclasses. Familiar names come first below; parentheses show the
+machine term used by the schema, protocol, or existing commands.
 
 ## Goal
 
-Company intent. Goals answer why work exists.
+Why work exists.
 
-## Palari
+## Agent (`Palari`)
 
-Named AI work partner or workflow identity. A Palari has a scope, allowed
-inputs, standards, memory sources, owner human, and forbidden actions.
+A named AI worker or workflow identity. The record defines its allowed work,
+inputs, standards, memory sources, owner, and forbidden actions. The identity
+can stay stable when a different model or tool performs a run.
 
-## Human
+## Person (`human`)
 
-Authority and accountability profile. Humans hold approval capabilities; AI
-roles do not silently inherit them.
+An identity and accountability record for a real person. People may hold
+approval capabilities; AI roles never inherit them silently.
 
-## Decision
+## Question for a Person (`decision`)
 
-Structured request for human judgment. Decisions keep important questions out
-of vague status text.
+A structured request for human judgment. It keeps an important choice and its
+answer out of vague status text.
 
-## Source
+## Allowed Source (`source`)
 
-Human-selected input that a Palari may use. Sources record label, provider,
-generic URI or external id, access mode, owner human, allowed Palaris, selected
-state, source readiness metadata, and last-read metadata. Readiness metadata
-currently covers data class, authority, steward human, freshness expectation,
-and whether redaction is required. Sources model the boundary of what was
-available to the Palari; this v0 object does not connect to real providers yet.
+Input selected by a person for an agent to read. A source records its label,
+provider, generic URI or external ID, access mode, owner, allowed agents,
+selection state, readiness, and last-read information. Readiness covers the
+data class, authority, steward, freshness expectation, and whether redaction is
+required.
 
-## Playbook Source
+A source marks what context was available for a task. This record does not by
+itself connect to a provider.
 
-Parked, non-authoritative external operating guidance that Palari may recommend
-while preparing work.
-Playbook sources record label, provider, URI, pinned ref, license, enabled
-state, and the explicit list of included playbooks. Superpowers compatibility
-uses this object to link to allowed `SKILL.md` playbooks without making them
-Palari authority.
+## Playbook (`playbook_source`)
 
-## Capability
+Parked, non-authoritative outside guidance that Palari may recommend while a
+task is prepared. It records the label, provider, URI, pinned ref, license,
+enabled state, and included playbooks. Superpowers compatibility can point to
+allowed `SKILL.md` files without turning them into Palari permissions or human
+approval.
 
-Governed power that a Palari or adapter may use. Capabilities can describe repo
-work, external tools, skill packs, MCP-style adapters, integrations, playbooks,
-or policy exports. They expose allowed actions and risk, but they do not grant
-acceptance authority.
+## Allowed Tool or Action (`capability`)
 
-## Authority Profile
+Power an agent or adapter may use inside defined limits. A capability can
+describe repository work, external tools, skill packs, MCP-style adapters,
+integrations, playbooks, or policy exports. It exposes allowed actions and
+risk; it never grants final approval.
 
-Risk and quorum posture for a workspace or operating mode. Built-in profiles
-include `solo-founder`, `team-safe`, and `strict`; custom profiles can make the
-relationship between risk and approval count explicit. Profiles never waive
-current exact evidence. Independent review and human acceptance may both be
-omitted only for R1/light/0-approval work with no allowed, planned, queued, or
-actual external writes.
+## Approval Rules (`authority_profile`)
 
-## Integration
+The risk and approval requirements for a workspace or operating mode. Built-in
+profiles are `solo-founder`, `team-safe`, and `strict`. Custom profiles can map
+risk to a required approval count.
 
-Declaration for an optional external-effect adapter. Integrations record an
-opaque provider identifier, mode, owner human, enabled state, allowed events,
-allowed actions, secret reference, risk level, source boundary, and notes.
-Secret references must be references such as `env:NAME`; the generic boundary
-does not read secret values, model provider API payloads, or call providers.
+Approval rules never waive current check results. Independent review and human
+approval may both be omitted only for R1/light/0-approval work with no allowed,
+planned, queued, or actual external write.
+
+## External Connection (`integration`)
+
+A declaration for an optional external-service adapter. It stores an opaque
+provider identifier, mode, owner, enabled state, allowed events and actions,
+secret reference, risk, source boundary, and notes. A secret reference must be
+indirect, such as `env:NAME`; the generic boundary does not read the value,
+model provider API payloads, or call a provider.
+
 Only a separately supported adapter may execute an exact approved and queued
-action; Linear is the sole current example.
+action. Linear is the sole current example.
 
-## Integration Plan
+## External Action Preview (`integration_plan`)
 
-Recorded dry-run payload preview for one integration, work item, event, and
-action. Integration plans keep the exact planned payload, source boundary,
-risk, actor, timestamp, and approval requirement reviewable before any
-supported adapter may execute. Recording a plan appends the governance journal
-but performs no live provider call and reads no secret value. A qualified human
-may later mark the plan approved, rejected, or canceled; that decision is
-journaled audit state only and still does not execute the provider action.
+A dry-run record for one external connection, task, event, and action. It keeps
+the planned payload, source boundary, risk, actor, time, and approval
+requirement visible before any supported adapter may execute it.
 
-## Integration Outbox Item
+Recording or approving this preview updates only local history. It does not
+read a secret or call the provider. A qualified person may mark it approved,
+rejected, or canceled without sending it.
 
-Queued boundary for an approved integration plan. An outbox item copies
-the approved payload preview, source boundary, risk, work item, integration,
-event, action, enqueuing human, timestamp, and status into an auditable record.
-It means "this approved external action is waiting at the execution boundary,"
-not "the external provider was called." Duplicate outbox entries for
-the same plan fail closed. A qualified human can cancel a queued outbox item;
-canceled items keep `canceled_by`, `canceled_at`, and `cancel_reason`, remain in
-history/detail views, and cannot be used by receipts as queued external writes.
+## Queued External Action (`integration_outbox_item`)
 
-## Work Item
+An approved external action waiting at the execution boundary. It copies the
+approved payload preview, source boundary, risk, task, external connection,
+event, action, enqueuing person, time, and status into an auditable record.
+Queued means waiting, not sent.
 
-Scoped unit of work. It has risk, adaptive intensity, scope, allowed resources,
-allowed sources, allowed actions, output targets, forbidden actions, acceptance
-target, verification expectations, explicit dependency ids, parallel policy,
-and optional recommended playbooks. New quick-created work uses an opaque
-UUIDv4-backed ID. The ID is identity only: dependencies are explicit DAG edges,
-and no numeric or lexical ID order grants priority or constrains execution,
-review, acceptance, or integration. Historical and externally assigned IDs
-remain compatible.
+Duplicate queue entries for one plan fail closed. A qualified person may cancel
+a queued item. The record keeps `canceled_by`, `canceled_at`, and
+`cancel_reason`, remains visible in history and detail views, and cannot support
+a run record's claim that an external write was queued.
 
-## Proposal
+## Project (`workbench`)
 
-AI-safe planning record that can become a work item only when a human adopts it.
-Proposals carry most work-item boundaries, but adoption creates the actual work
-record explicitly. Scope expansion requests create decisions rather than
-silently broadening a work item.
+A group of related goals, tasks, agents, people, sources, and output targets.
+Projects help teams coordinate parallel work without making task IDs
+chronological.
 
-## Attempt
+## Task (`work_item`)
 
-Concrete execution session for a work item. Attempts record actor, branch or
-workspace, worker/model, base SHA, head SHA, changed files, allowed paths,
-forbidden paths, claim lease metadata, and cleanliness. Local runtime claims
-use an expiring compare-and-swap Git lease so linked worktrees cannot
-simultaneously own the same work item. An isolated worktree is an execution
-boundary only; it conveys no human or integration authority.
+One assignment with risk, operating intensity, allowed files and resources,
+allowed sources and actions, output targets, forbidden actions, an acceptance
+target, expected checks, explicit dependencies, a parallel policy, and optional
+playbooks.
 
-## Evidence Run
+New quick-created tasks use opaque UUIDv4-backed IDs. An ID identifies a task;
+it does not set priority or order. Explicit dependency edges determine order.
+Historical and externally assigned IDs remain compatible.
 
-Proof attached to a work item and attempt. Evidence records commands, status,
-head SHA, artifacts, artifact hashes, manifest hash, exact receipt hash,
-summary, and timestamp. New records carry `output_binding_version`, require a
-non-empty output/artifact set, and give every receipt output either a present
-digest or the exact absent tombstone required by a declared delete intent. The
-manifest covers the
-receipt hash, output-binding version, artifacts, and verification fields, so
-changing either side invalidates proof. Pre-PCAW records without that version
-remain readable but cannot support a new strict review or acceptance until
-their evidence is refreshed.
+## Proposed Task (`proposal`)
 
-## Review Verdict
+An AI-safe planning record that becomes a task only when a person adopts it.
+It carries most task limits, but adoption creates the active task explicitly.
+A request to expand allowed work creates a human question instead of silently
+widening those limits.
 
-Independent inspection. Verdicts are intentionally small:
+## Task Brief and Lock (`packet` and `claim`)
+
+A task brief is the bounded instruction set created when an agent starts work.
+Its portable session rules describe allowed and forbidden activity without
+claiming to install an operating-system sandbox.
+
+The accompanying task lock records local ownership. It uses an expiring
+compare-and-swap Git lease so linked worktrees cannot own the same task at the
+same time. An isolated worktree is only an execution boundary; it grants no
+human approval or external-service permission.
+
+## Run (`attempt`)
+
+One execution session for a task. It records the actor, branch or workspace,
+worker or model, base and head SHAs, changed files, allowed and forbidden
+paths, task-lock lease information, and cleanliness.
+
+## Run Record (`receipt`)
+
+A human-readable account of a run: which sources it used, which actions it
+took, which outputs it created, which external writes were only planned or
+actually performed, what it did not do, and how to undo reversible changes.
+
+A run record is not check results (`evidence`). It helps a person inspect,
+undo, or continue work, and its exact hash becomes part of later check and
+review bindings. A task cannot complete from a run record alone.
+
+Planned external writes must name approved action previews, and queued writes
+must name active queued actions. Pending, rejected, or canceled plans and
+canceled queue items cannot support external-write claims. CLI-created run
+records include a hash and may link to the previous run record for the task.
+
+## Check Results (`evidence_run`)
+
+Verification tied to one task and run. It records commands, status, head SHA,
+outputs, output hashes, manifest hash, exact run-record hash, summary, and time.
+
+New records include `output_binding_version`, require at least one output, and
+give every run-record output either its present digest or the exact absent
+tombstone required by a declared delete intent. The manifest covers the
+run-record hash, output-binding version, outputs, and verification fields, so a
+change on either side invalidates the results.
+
+Pre-PCAW records without that version remain readable. They cannot support a
+new strict review or approval until the checks are refreshed.
+
+## Review Result (`review_verdict`)
+
+An independent inspection. The stored verdicts remain:
 
 - `accept-ready`
 - `changes-requested`
 - `needs-human-decision`
 - `blocked`
 
-New `accept-ready` verdicts are bound to the exact attempt state, evidence
-manifest, receipt, reviewed head, and work contract. The binding has its own
-proof hash, which also covers the reviewer, verdict, findings, inspected
-checks, residual risks, and timestamp. Bound verdicts are immutable; a reviewer
-records a new verdict after any substantive change. Schema v2 rejects an
-unbound `accept-ready` verdict. The narrow historical reader keeps unbound
-non-accepting verdicts inspectable and blocks any historical accept-ready
-authority.
+A new `accept-ready` result is tied to the exact run state, check-results
+manifest, run record, reviewed head, and task rules. Its proof hash also covers
+the reviewer, verdict, findings, inspected checks, remaining risks, and time.
+The result is immutable; any substantive change requires a new review.
 
-## Human Decision
+Schema v2 rejects an unbound `accept-ready` result. The narrow historical
+reader keeps unbound negative results inspectable but never treats an old
+unbound `accept-ready` value as approval evidence.
 
-Authority-bearing human action tied to reviewed evidence. This is separate from
-the review verdict. Its timezone-bearing timestamp establishes ordering, while
-its decision and status must agree. Approval counts only for the exact review
-and evidence references it names.
+## Approval or Rejection (`human_decision`)
 
-Pack-bound decisions additionally retain the exact canonical pack manifest,
-pack digest, member digest, subject digest, request digest, and per-item action.
-They also bind the exact canonical decision presentation schema, surface, and
-digest. Exactly one decision record retains each manifest and presentation;
-every derived member decision remains independently attributable and
-journaled. Copying a member or presentation binding to another item fails
-validation. Approval Pack v1 is unsupported and is not upgraded in place.
+A human action tied to reviewed check results. It is separate from the review.
+Its timezone-bearing timestamp establishes order, and its `decision` and
+`status` must agree. Approval counts only for the exact review and evidence
+references named in the record.
 
-## Approval Pack
+A decision made through an Approval Bundle also keeps the exact canonical pack
+manifest, pack digest, member digest, subject digest, request digest, per-task
+action, and canonical presentation schema, surface, and digest. One decision
+record retains each manifest and presentation; every derived task decision
+remains attributable and appears in the tamper-evident history. Copying a
+member or presentation binding to another task fails validation. Approval Pack
+v1 is unsupported and is not upgraded in place.
 
-Immutable read model for batching human attention without batching evidence.
-A pack binds the committed workspace/checkpoint and journal head, canonically
-ordered members, exact subjects and outputs, dependencies, conflicts, risk,
-reversibility, authority, proof references, effects, resource estimates,
-lifecycle claim, and its own digest. The manifest begins `parked`; evaluation
-derives current item states. Dependency bindings recursively cover the exact
-contract, proof/artifact state, and dependency closure, so narrowing a pack
-does not reduce dependency freshness. Expected in-pack completion remains
-stable; later dependency mutation stales the pack. Pack approval cannot widen
-any member boundary.
+## Approval Bundle (`Approval Pack`)
 
-Inbox evaluation adds non-authoritative resolution metadata: the current
-state, resolver class and owner, approval mode, and next safe action. A primary
-action summarizes the eligible batch while keeping blocked, stale, and
-non-batchable exceptions visible. These read models reduce ceremony; they do
-not grant authority or alter the canonical pack manifest.
+An immutable status view that batches human attention without batching check
+results. A bundle ties together the committed workspace restore point and
+history head, ordered members, exact subjects and outputs, dependencies,
+conflicts, risk, reversibility, approval requirements, proof references,
+effects, resource estimates, status claim, and its own digest.
 
-## Governed Checkpoint
+The manifest begins `parked`; evaluation derives each current task status.
+Dependency bindings cover exact task rules, outputs, and the dependency chain.
+Changing a dependency makes affected tasks stale even when a narrower bundle
+omits that dependency. Changing an expected dependency, risk, or batch policy
+also makes the bundle stale. Bundle approval never widens task limits.
 
-This is a parked human-only local recovery surface, not part of the ordinary
-supported lifecycle. Every committed governance-journal projection is a content-addressed
-checkpoint. Restoring one creates a new `restoration` transaction with the old
-projection; it does not delete the original chain, later work, decisions, or
-the restoration reason. Only effect-free local chains are restorable. A later
-external write or sent outbox transition blocks restoration before mutation;
-compensation must be modeled as new governed work.
+The Approval Inbox adds display-only resolution information: current state,
+owner, approval mode, and next safe action. Its primary action summarizes the
+eligible group while leaving blocked, stale, and individual-only tasks visible.
+These status views cannot grant approval or change the canonical manifest.
 
-## Acceptance Record
+## Restore Point (`governed_checkpoint`)
 
-Audit record for the final human acceptance gate. It links work, human,
-reviewed head, evidence, review, receipt hash, authority profile, quorum state,
-and reason so acceptance is visible beyond a status toggle. Its timezone-aware
-`accepted_at` orders later acceptance or revocation records. Nonterminal
-acceptance must still match current artifact bytes before execution. Terminal
-acceptance retains and validates the exact stored proof for its historical
-subject, so later authorized work does not pretend the old artifact version is
-the current checkout.
+A parked, human-only local recovery surface outside the ordinary work process.
+Each committed tamper-evident-history state has a content-addressed restore
+point. Restoration appends a `restoration` transaction containing the older
+state; it never erases the original chain, later work, decisions, or reason.
 
-## Receipt
+Only effect-free local history can be restored. A later external write or sent
+queued action blocks restoration before local state changes. Compensation must
+be a new bounded task.
 
-Human-facing trust record for an attempt. A receipt says which sources were
-used, what actions were taken, what outputs were created, which external writes
-were only planned, what external writes actually occurred, what was not done,
-and what undo references exist. Receipts are not governance evidence; they help
-the user review, undo, or continue bounded work. The receipt hash is also part
-of exact evidence/review proof for governed acceptance. A receipt without
-current exact evidence cannot complete work. Planned external writes must
-reference approved integration plans; queued external writes must reference
-queued integration outbox items; rejected, canceled, or pending plans cannot be
-used as receipt-backed external-write claims. Canceled outbox items also cannot
-be used as receipt-backed queued-write claims. CLI-created receipts include a
-receipt hash and can chain to the previous receipt for the same work item.
+## Approval Record (`acceptance_record`)
 
-## Outcome
+The audit record for final human approval. It links the task, person, reviewed
+head, check results, review, run-record hash, approval rules, required-approval
+state, and reason.
 
-Learning record after work completes. Outcomes preserve what was useful, what
-failed, and what follow-up is needed.
+Its timezone-aware `accepted_at` orders later approval or revocation records.
+Approval for unfinished work must still match current output bytes before
+execution. A completed task keeps and validates the exact stored proof for its
+historical version; later authorized work does not make that older version the
+current checkout.
+
+## Result (`outcome`)
+
+A learning record created after a task completes. It preserves what was useful,
+what failed, and what follow-up is needed.

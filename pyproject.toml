@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "palari-company-os"
 version = "0.2.0"
-description = "Local governance kernel for bounded, human-supervised AI work."
+description = "Local rules and checks for bounded, human-supervised AI work."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
