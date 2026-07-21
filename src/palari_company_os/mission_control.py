@@ -346,7 +346,7 @@ def _receipt_drawer(work_detail: dict[str, Any] | None) -> str:
       <div><h3>Used</h3>{_list(receipt.get('sources_used') or [])}</div>
       <div><h3>Created</h3>{_list(receipt.get('outputs_created') or [])}</div>
       <div><h3>Did not do</h3>{_list(receipt.get('not_done') or [])}</div>
-      <div><h3>External actions</h3>{_list(receipt.get('external_writes') or [])}</div>
+      <div><h3>External writes</h3>{_list(receipt.get('external_writes') or [])}</div>
       <div><h3>Undo</h3>{_list(receipt.get('undo_refs') or [])}</div>
     </div>
     """

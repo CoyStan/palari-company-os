@@ -31,6 +31,7 @@ from .evidence_manifest import (
 )
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
+from .governance_binding import recorded_current_review_binding_errors
 from .governance_kernel import low_risk_completion_policy_applies
 from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
@@ -3459,6 +3460,17 @@ def _changes_requested_refresh_binding(
     latest = max(reviews, key=record_time_key)
     if latest.verdict != "changes-requested":
         return {"applicable": False, "ok": False, "later_head": False, "message": ""}
+    review_errors = recorded_current_review_binding_errors(workspace, latest)
+    if review_errors:
+        return {
+            "applicable": True,
+            "ok": False,
+            "later_head": False,
+            "message": (
+                "The changes-requested review is not bound to complete exact proof: "
+                f"{review_errors[0]}"
+            ),
+        }
     if not work.current_attempt:
         return {
             "applicable": True,

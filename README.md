@@ -197,7 +197,9 @@ palari queue --approval-inbox --json
 A qualified human inspects the exact presentation and runs the one
 `palari human-decision pack ...` action it provides. That action is tied to the
 current presentation and checks. If the task changes, approval fails safely.
-Agents may show the command but cannot run it.
+Agents may show the command but must not run it. Supported session hooks block
+recognized agent invocations, but Palari does not authenticate processes that
+share the same operating-system user.
 
 ## What works today
 

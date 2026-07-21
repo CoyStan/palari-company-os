@@ -839,6 +839,10 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
         previous_head = attempt.head_sha or attempt.commits[-1]
         self._record_changes_requested(previous_head, "REVIEW-REFRESH-CHANGES")
+        reviewed = Ws.load(self.temp_dir).review_verdicts[-1]
+        self.assertEqual(reviewed.attempt_id, attempt.id)
+        self.assertEqual(reviewed.evidence_reference, first["handoff"]["review_handoff"]["evidence"]["id"])
+        self.assertTrue(reviewed.proof_hash)
         (self.temp_dir / "RELATED.md").write_text(
             "separately governed context\n", encoding="utf-8"
         )
@@ -902,6 +906,68 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(stale_review.reviewed_head, previous_head)
         self.assertNotEqual(stale_review.reviewed_head, refreshed_attempt.head_sha)
+
+    def test_changes_requested_refresh_rejects_unbound_review(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        previous_head = attempt.head_sha or attempt.commits[-1]
+
+        (self.temp_dir / "README.md").write_text("temporarily altered\n", encoding="utf-8")
+        self._record_changes_requested(previous_head, "REVIEW-REFRESH-UNBOUND")
+        reviewed = Ws.load(self.temp_dir).review_verdicts[-1]
+        self.assertFalse(reviewed.binding_version)
+        self.assertFalse(reviewed.proof_hash)
+
+        (self.temp_dir / "README.md").write_text("after\n", encoding="utf-8")
+        (self.temp_dir / "RELATED.md").write_text(
+            "separately governed context\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "unbound review"],
+            check=True,
+        )
+
+        preview = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            dry_run=True,
+            refresh_verification=True,
+        )
+        self.assertEqual(preview["status"], "blocked", preview)
+        self.assertFalse(preview["can_advance"])
+        self.assertEqual(
+            preview["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
+        )
+
+        attempted = agent_advance(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            refresh_verification=True,
+        )
+        self.assertEqual(attempted["status"], "blocked", attempted)
+        self.assertFalse(attempted["can_advance"])
+        self.assertEqual(
+            attempted["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
+        )
 
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
         with patch(

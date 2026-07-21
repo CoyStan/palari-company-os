@@ -88,24 +88,24 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_queue",
             "Palari Queue",
-            "Show tasks that need attention in a Palari project.",
+            "Show tasks that need attention across a Palari workspace.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "include_closed": _boolean("Include completed tasks."),
             },
         ),
         _tool(
             "palari_state",
             "Palari State",
-            "Show compact project status, attention counts, parallel tasks, and warnings.",
-            {"workspace": _string("Project directory or workspace.json path.")},
+            "Show compact workspace status, attention counts, parallel tasks, and warnings.",
+            {"workspace": _string("Workspace directory or workspace.json path.")},
         ),
         _tool(
             "palari_detail",
             "Palari Task Detail",
             "Show one task's details, check status, guidance, and next actions.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
             },
             required=["work_id"],
@@ -115,7 +115,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Next",
             "Show the next safe task choices for one agent or all agents.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "palari_id": _string("Acting agent id. Omit with all=true for a rollup."),
                 "all": _boolean("Show a rollup for all agents."),
                 "mode": _string("Session mode.", default="execute"),
@@ -127,7 +127,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Brief",
             "Show a read-only bounded task brief for one agent and task.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -142,7 +142,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Start",
             "Save the task brief and lock an explicit or next safe task.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "next": _boolean("Deterministically lock the next safe task."),
                 "palari_id": _string("Acting agent id."),
@@ -158,7 +158,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Check",
             "Check whether one task currently follows its task brief.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -172,7 +172,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Advance",
             "Run checks and stop at the next review, approval, or blocker.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "dry_run": _boolean("Return the exact plan without mutation."),
@@ -189,7 +189,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Finish",
             "Summarize whether one agent may report completion or must hand off.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -201,7 +201,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Handoff",
             "Show a read-only handoff for review or approval.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -213,7 +213,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Loop",
             "Show the compact read-only task flow for one agent and task.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -225,7 +225,7 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Palari Agent Doctor",
             "Explain the current task safety status in plain language.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
@@ -235,9 +235,9 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_agent_release",
             "Palari Agent Release",
-            "Release one local task lock without changing project records.",
+            "Release one local task lock without changing workspace records.",
             {
-                "workspace": _string("Project directory or workspace.json path."),
+                "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
             },

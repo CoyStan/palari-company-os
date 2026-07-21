@@ -898,17 +898,17 @@ def _prepare_record_for_create(
         stamped = dict(record)
         if not stamped.get("timestamp"):
             stamped["timestamp"] = _timestamp()
-        if stamped.get("verdict") == "accept-ready":
-            workspace = validate_data(store.data_path, store.data)
-            from .governance_binding import current_review_binding, review_proof_hash
+        workspace = validate_data(store.data_path, store.data)
+        from .governance_binding import current_review_binding, review_proof_hash
 
-            binding, errors = current_review_binding(
-                workspace,
-                str(stamped.get("work_item_id") or ""),
-                require_output_coverage=True,
-            )
-            if errors:
-                raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+        binding, errors = current_review_binding(
+            workspace,
+            str(stamped.get("work_item_id") or ""),
+            require_output_coverage=True,
+        )
+        if stamped.get("verdict") == "accept-ready" and errors:
+            raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+        if not errors:
             stamped.update(binding)
             stamped["proof_hash"] = review_proof_hash(stamped)
         return stamped

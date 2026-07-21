@@ -89,6 +89,8 @@ class MissionControlTests(unittest.TestCase):
         self.assertIn("Temporary repository", page.body)
         self.assertIn("notes/result.md", page.body)
         self.assertIn("Run Record", page.body)
+        self.assertIn("External writes", page.body)
+        self.assertNotIn("External actions", page.body)
         self.assertIn("No external writes.", page.body)
         self.assertIn("Use the exact action emitted by the Approval Inbox.", page.body)
         self.assertNotIn('action="/human-decision"', page.body)
