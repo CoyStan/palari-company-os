@@ -9,7 +9,7 @@ from .workspace import Workspace
 
 def build_data_map(workspace: Workspace) -> dict[str, Any]:
     """Return a compact read-only map of where Palari workspace data lives."""
-    data_path = workspace.path / "workspace.json"
+    data_path = workspace.data_path
     journal_path = journal_file_path(data_path)
     try:
         journal_file = journal_path.relative_to(workspace.path).as_posix()
@@ -26,7 +26,11 @@ def build_data_map(workspace: Workspace) -> dict[str, Any]:
             "schema_version": workspace.schema_version,
         },
         "storage": {
-            "workspace_file": "workspace.json",
+            "workspace_file": (
+                data_path.relative_to(workspace.path).as_posix()
+                if data_path.is_relative_to(workspace.path)
+                else str(data_path)
+            ),
             "journal_file": journal_file,
             "journal_enabled": journal_path.exists(),
             "collections": _collection_counts(workspace),

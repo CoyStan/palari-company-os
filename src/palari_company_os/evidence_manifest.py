@@ -663,7 +663,7 @@ def _verification_artifact_hashes(
 
     exact_head_artifacts = _governance_projection_artifacts(
         root,
-        workspace.path,
+        workspace.data_path,
         artifacts,
     )
     current_artifacts = [

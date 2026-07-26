@@ -432,11 +432,12 @@ def _hook_install_error(path: Path, detail: str) -> dict[str, Any]:
 
 
 def _workspace_argument(root: Path, workspace_path: Path | str) -> str:
-    workspace_dir = workspace_file_path(workspace_path).parent
+    data_path = workspace_file_path(workspace_path)
+    selector = data_path.parent if data_path.name == "workspace.json" else data_path
     try:
-        relative = workspace_dir.resolve().relative_to(root.resolve()).as_posix()
+        relative = selector.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
-        return str(workspace_dir)
+        return str(selector)
     if relative == ".":
         return "."
     return relative

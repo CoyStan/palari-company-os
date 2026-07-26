@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any
 
+from .command_surface import palari_command_parts
+
 
 def print_json(payload: Any) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
@@ -380,8 +382,10 @@ def plain_step(value: Any, *, next_command: Any = "") -> str:
 
 
 def _is_decision_guide(value: Any) -> bool:
-    command = f" {str(value or '')} "
-    return " palari decision guide " in command
+    return palari_command_parts(str(value or ""))[:2] == (
+        "decision",
+        "guide",
+    )
 
 
 def plain_step_status(value: Any) -> str:

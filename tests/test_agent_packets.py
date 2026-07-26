@@ -40,6 +40,10 @@ from palari_company_os.agent_runtime import (
     start_agent,
     start_next_agent,
 )
+from palari_company_os.command_surface import (
+    palari_command_parts,
+    palari_workspace_command,
+)
 from palari_company_os.pcaw_workspace import recorded_governance_projection
 from palari_company_os.read_models import detail, queue_items
 from palari_company_os.store import WorkspaceStore, load_store, write_store
@@ -520,9 +524,16 @@ class AgentPacketProjectionTests(unittest.TestCase):
         )
         self.assertEqual(
             finish["handoff_guidance"][0]["command"],
-            (
-                f"palari agent handoff {WORK_ID} --as {OTHER_PALARI_ID} "
-                "--mode review --json"
+            palari_workspace_command(
+                self.workspace_file,
+                "agent",
+                "handoff",
+                WORK_ID,
+                "--as",
+                OTHER_PALARI_ID,
+                "--mode",
+                "review",
+                "--json",
             ),
         )
         self.assertNotIn(
@@ -629,8 +640,14 @@ class AgentPacketProjectionTests(unittest.TestCase):
         packet = build_agent_brief(self.workspace(), WORK_ID, PALARI_ID, "execute")
         result = build_agent_check(self.workspace(), WORK_ID, PALARI_ID)
 
-        expected = (
-            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        expected = palari_workspace_command(
+            self.workspace_file,
+            "agent",
+            "advance",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
         )
         self.assertIn(expected, packet["next_allowed_commands"])
         checks = _checks(result)
@@ -672,8 +689,14 @@ class AgentPacketProjectionTests(unittest.TestCase):
             str(item["code"]): item for item in _completion_checks(packet)
         }
 
-        expected = (
-            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        expected = palari_workspace_command(
+            self.workspace_file,
+            "agent",
+            "advance",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
         )
         human_check = checks["HUMAN_DECISION_PRESENT"]
         self.assertEqual(human_check["next_command"], expected)
@@ -723,7 +746,8 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(finish["next_step_type"], "check-active-proof")
         self.assertEqual(loop["next_step_type"], "check-active-proof")
         self.assertTrue(
-            check["next_allowed_commands"][0].startswith("palari agent start ")
+            palari_command_parts(check["next_allowed_commands"][0])[:2]
+            == ("agent", "start")
         )
 
     def test_handoff_does_not_invent_human_authority_before_proof(self) -> None:

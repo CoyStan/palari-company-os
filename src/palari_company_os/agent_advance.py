@@ -669,7 +669,11 @@ def _collect_facts(
         allow_current_proof_projection=allow_current_proof_projection,
     )
     changed = list(preflight.get("changed_files", []))
-    artifacts = _governed_artifacts(changed)
+    artifacts = _governed_artifacts(
+        changed,
+        workspace.data_path,
+        Path(str(preflight.get("git_root") or workspace.path)),
+    )
     base_sha = str(
         preflight.get("base_sha")
         or claim.get("git_baseline", {}).get("head_sha")
@@ -835,7 +839,7 @@ def _preflight(
         )
     proof_projection_paths: set[str] = set()
     if allow_current_proof_projection:
-        data_path = (workspace.path / "workspace.json").resolve()
+        data_path = workspace.data_path.resolve()
         try:
             relative_data = data_path.relative_to(root.resolve()).as_posix()
             proof_projection_paths.add(relative_data)
@@ -1312,7 +1316,11 @@ def _reconcile_proof(
     else:
         attempt_id = attempt.id
 
-    artifacts = _governed_artifacts(preflight["changed_files"])
+    artifacts = _governed_artifacts(
+        preflight["changed_files"],
+        workspace.data_path,
+        Path(str(preflight.get("git_root") or workspace.path)),
+    )
     if not artifacts:
         raise WorkspaceError("no non-governance output artifact remains to bind as evidence")
     receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
@@ -2501,11 +2509,12 @@ def _projection_artifact_paths(
         relative_data = data_path.relative_to(git_root.resolve()).as_posix()
     except (OSError, ValueError):
         return None
-    base = relative_data.removesuffix("workspace.json")
+    relative_parent = Path(relative_data).parent.as_posix()
+    projection_root = "" if relative_parent == "." else f"{relative_parent}/"
     return {
         relative_data,
-        f"{base}.palari/governance-journal.v2.jsonl",
-        f"{base}.palari/governance-journal.v1.jsonl",
+        f"{projection_root}.palari/governance-journal.v2.jsonl",
+        f"{projection_root}.palari/governance-journal.v1.jsonl",
     }
 
 
@@ -2751,7 +2760,12 @@ def _pending_scope_authority_workspace(
     if not isinstance(before, dict):
         return None, "The pending journal transaction has no verified before projection."
     try:
-        return Workspace.from_raw(before, workspace_path), ""
+        data_path = workspace_file_path(workspace_path)
+        return Workspace.from_raw(
+            before,
+            data_path.parent,
+            data_path=data_path,
+        ), ""
     except WorkspaceError as exc:
         return None, f"The pending journal before projection is invalid: {exc}"
 
@@ -2857,7 +2871,12 @@ def _pending_advance_recovery_error(
     assert isinstance(receipt, dict)
     assert isinstance(evidence, dict)
     try:
-        projected_workspace = Workspace.from_raw(after, workspace_path)
+        data_path = workspace_file_path(workspace_path)
+        projected_workspace = Workspace.from_raw(
+            after,
+            data_path.parent,
+            data_path=data_path,
+        )
     except WorkspaceError as exc:
         return f"The pending journal proof projection is invalid: {exc}"
     before_work = _record_by_id(before, "work_items", collection_ids["work_items"])
@@ -2953,7 +2972,11 @@ def _pending_advance_recovery_error(
     allowed_resources = work.get("allowed_resources")
     allowed_paths = attempt.get("allowed_paths")
     changed_files = list(preflight.get("changed_files") or [])
-    artifacts = _governed_artifacts(changed_files)
+    artifacts = _governed_artifacts(
+        changed_files,
+        workspace_path,
+        Path(str(preflight.get("git_root") or workspace_file_path(workspace_path).parent)),
+    )
     actions = receipt.get("actions_taken")
     not_done = receipt.get("not_done")
     expected_not_done = [
@@ -3545,10 +3568,21 @@ def _changes_requested_refresh_binding(
     }
 
 
-def _governed_artifacts(paths: list[str]) -> list[str]:
+def _governed_artifacts(
+    paths: list[str],
+    workspace_path: Path | None = None,
+    git_root: Path | None = None,
+) -> list[str]:
+    projection_paths = (
+        _projection_artifact_paths(workspace_path, git_root)
+        if workspace_path is not None and git_root is not None
+        else None
+    )
+    excluded = projection_paths or set()
     return sorted(
         path
         for path in set(paths)
+        if path not in excluded
         if not path.endswith("/workspace.json")
         and path != "workspace.json"
     )

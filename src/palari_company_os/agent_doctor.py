@@ -5,6 +5,7 @@ from typing import Any
 
 from .agent_loop import build_agent_loop
 from .agent_operation import AgentOperation, ensure_agent_operation
+from .command_surface import palari_workspace_command
 from .workspace import Workspace
 
 
@@ -38,6 +39,7 @@ def build_agent_doctor(
         "doctor_id": _doctor_id(work_id, palari_id, mode),
         "created_at": _timestamp(),
         "workspace": loop.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "mode": mode or "execute",
         "status": diagnosis["status"],
@@ -47,7 +49,7 @@ def build_agent_doctor(
         "agent": loop.get("agent", {}),
         "work_item": loop.get("work_item", {}),
         "next_step_type": loop.get("next_step_type", "inspect"),
-        "loop_command": _loop_command(work_id, palari_id, mode),
+        "loop_command": _loop_command(workspace, work_id, palari_id, mode),
         "checks": _doctor_checks(loop),
         "blockers": loop.get("blockers", []),
         "owner": loop.get("owner", "agent"),
@@ -174,8 +176,23 @@ def _append_once(commands: list[str], command: str) -> None:
         commands.append(command)
 
 
-def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
+def _loop_command(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+) -> str:
+    return palari_workspace_command(
+        workspace.data_path,
+        "agent",
+        "loop",
+        work_id,
+        "--as",
+        palari_id,
+        "--mode",
+        mode,
+        "--json",
+    )
 
 
 def _doctor_id(work_id: str, palari_id: str, mode: str) -> str:

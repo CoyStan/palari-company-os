@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .command_surface import palari_command_parts, palari_workspace_command
 from .cli_output_utils import (
     plain_detail_state,
     plain_message,
@@ -30,6 +31,14 @@ _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
     "palari scope ",
     "palari validate",
 )
+
+
+def _is_read_only_handoff_command(command: str) -> bool:
+    parts = palari_command_parts(command)
+    if not parts:
+        return False
+    normalized = "palari " + " ".join(parts)
+    return normalized.startswith(_READ_ONLY_HANDOFF_COMMAND_PREFIXES)
 
 
 def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
@@ -64,9 +73,16 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     agent = payload["agent"]
     commands = _agent_display_commands(payload)
     ready_to_start = payload.get("status") == "ready" and payload.get("mode") == "execute"
-    start_command = (
-        f"palari agent start {work.get('id', 'WORK-ID')} "
-        f"--as {agent.get('id', 'PALARI-ID')} --mode execute --json"
+    start_command = _payload_command(
+        payload,
+        "agent",
+        "start",
+        str(work.get("id") or "WORK-ID"),
+        "--as",
+        str(agent.get("id") or "PALARI-ID"),
+        "--mode",
+        "execute",
+        "--json",
     )
     if ready_to_start:
         if start_command in commands:
@@ -567,10 +583,10 @@ def _read_only_handoff_action(
     commands = [preferred, *payload.get("next_allowed_commands", [])]
     for value in commands:
         command = str(value or "")
-        if command.startswith(_READ_ONLY_HANDOFF_COMMAND_PREFIXES):
+        if _is_read_only_handoff_command(command):
             return command
     work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
-    return f"palari detail {work_id} --json"
+    return _payload_command(payload, "detail", work_id, "--json")
 
 
 def _one_line(value: Any, *, limit: int = 180) -> str:
@@ -742,7 +758,17 @@ def _candidate_display_action(
         work_id = str(candidate.get("work_item_id") or "WORK-ID")
         return (
             "start-work",
-            f"palari agent start {work_id} --as {agent_id} --mode execute --json",
+            _payload_command(
+                candidate,
+                "agent",
+                "start",
+                work_id,
+                "--as",
+                agent_id,
+                "--mode",
+                "execute",
+                "--json",
+            ),
         )
     return step, command
 
@@ -752,7 +778,7 @@ def _candidate_decision_command(candidate: dict[str, Any]) -> str:
         if item.get("code") == "DECISION_HANDOFF" and item.get("guide_command"):
             return str(item["guide_command"])
     for command in candidate.get("next_commands") or []:
-        if str(command).startswith("palari decision guide "):
+        if palari_command_parts(str(command))[:2] == ("decision", "guide"):
             return str(command)
     return ""
 
@@ -766,7 +792,7 @@ def _decision_guide_command(payload: dict[str, Any]) -> str:
             return str(item["guide_command"])
     for key in ("next_allowed_commands", "recommended_commands"):
         for command in payload.get(key) or []:
-            if str(command).startswith("palari decision guide "):
+            if palari_command_parts(str(command))[:2] == ("decision", "guide"):
                 return str(command)
     return ""
 
@@ -777,17 +803,25 @@ def _decision_handoff_command(payload: dict[str, Any]) -> str:
             return str(item["command"])
     next_action = payload.get("next_action") or {}
     command = str(next_action.get("command") or "")
-    if command.startswith("palari agent handoff "):
+    if palari_command_parts(command)[:2] == ("agent", "handoff"):
         return command
     for key in ("recommended_commands", "next_allowed_commands"):
         for value in payload.get(key) or []:
             command = str(value)
-            if command.startswith("palari agent handoff "):
+            if palari_command_parts(command)[:2] == ("agent", "handoff"):
                 return command
     if _has_blocker(payload, "HUMAN_DECISION_REQUIRED"):
         work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
         agent_id = str(payload.get("agent", {}).get("id") or "PALARI-ID")
-        return f"palari agent handoff {work_id} --as {agent_id} --json"
+        return _payload_command(
+            payload,
+            "agent",
+            "handoff",
+            work_id,
+            "--as",
+            agent_id,
+            "--json",
+        )
     return ""
 
 
@@ -840,7 +874,7 @@ def _agent_display_commands(payload: dict[str, Any]) -> list[str]:
         visible.extend(
             command
             for command in commands
-            if not command.startswith("palari agent advance ")
+            if palari_command_parts(command)[:2] != ("agent", "advance")
         )
         return list(dict.fromkeys(command for command in visible if command))
 
@@ -851,7 +885,7 @@ def _agent_display_commands(payload: dict[str, Any]) -> list[str]:
         return [
             command
             for command in commands
-            if command.startswith(_READ_ONLY_HANDOFF_COMMAND_PREFIXES)
+            if _is_read_only_handoff_command(command)
         ]
 
     if payload.get("mode", "execute") == "execute" and "CLAIM_OWNED" in _failed_check_codes(payload):
@@ -864,7 +898,10 @@ def _agent_display_commands(payload: dict[str, Any]) -> list[str]:
                 )
                 for item in collection
                 if item.get("code") == "CLAIM_OWNED"
-                and str(item.get("next_command") or "").startswith("palari agent start ")
+                and palari_command_parts(
+                    str(item.get("next_command") or "")
+                )[:2]
+                == ("agent", "start")
             ),
             "",
         )
@@ -874,6 +911,13 @@ def _agent_display_commands(payload: dict[str, Any]) -> list[str]:
             commands.remove(start)
             commands.insert(0, start)
     return commands
+
+
+def _payload_command(payload: dict[str, Any], *arguments: str) -> str:
+    workspace_file = str(payload.get("workspace_file") or "")
+    if workspace_file:
+        return palari_workspace_command(workspace_file, *arguments)
+    return " ".join(("palari", *arguments))
 
 
 def _display_report_guidance(payload: dict[str, Any], guidance: Any) -> str:

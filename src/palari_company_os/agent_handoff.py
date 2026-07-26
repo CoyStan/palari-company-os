@@ -7,7 +7,11 @@ from .authority_plan import build_authority_plan
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
-from .command_surface import palari_workspace_command
+from .command_surface import (
+    bind_palari_workspace_command,
+    palari_command_parts,
+    palari_workspace_command,
+)
 from .read_models import detail
 from .review_guides import build_review_guide
 from .transition_checks import check_transition
@@ -68,6 +72,7 @@ def build_agent_handoff(
         "handoff_id": _handoff_id(work_id, palari_id, mode),
         "created_at": _timestamp(),
         "workspace": finish.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "mode": mode or "execute",
         "status": finish.get("status", "blocked"),
@@ -82,6 +87,7 @@ def build_agent_handoff(
         "human_approval_handoff": human_approval_handoff,
         "resolution_summary": finish.get("resolution_summary", {}),
         "next_allowed_commands": _agent_safe_commands(
+            workspace,
             finish,
             review_handoff,
             decision_handoff,
@@ -111,7 +117,13 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     return {
         "schema_version": guide["schema_version"],
         "guide_id": guide["guide_id"],
-        "command": f"palari review guide {work_id} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
         "status": guide["status"],
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),
@@ -146,10 +158,26 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
 def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     guide = build_decision_guide(workspace, work_id)
+    decision_update_commands = [
+        {
+            **item,
+            "command": bind_palari_workspace_command(
+                workspace.data_path,
+                str(item.get("command") or ""),
+            ),
+        }
+        for item in guide.get("decision_update_commands", [])
+    ]
     return {
         "schema_version": guide["schema_version"],
         "guide_id": guide["guide_id"],
-        "command": f"palari decision guide {guide['decision']['id']} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "decision",
+            "guide",
+            str(guide["decision"]["id"]),
+            "--json",
+        ),
         "status": guide["status"],
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),
@@ -171,7 +199,7 @@ def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "linked_work": guide.get("linked_work", {}),
         "decision_focus": guide.get("decision_focus", []),
         "suggested_results": guide.get("suggested_results", []),
-        "decision_update_commands": guide.get("decision_update_commands", []),
+        "decision_update_commands": decision_update_commands,
     }
 
 
@@ -213,7 +241,12 @@ def _human_approval_handoff(
     command = (
         str(approval_pack["inbox_command"])
         if approval_pack.get("available")
-        else f"palari detail {work_id} --json"
+        else palari_workspace_command(
+            workspace.data_path,
+            "detail",
+            work_id,
+            "--json",
+        )
     )
     return {
         "schema_version": "palari.human_approval_handoff.v1",
@@ -287,6 +320,7 @@ def _handoff_types(
 
 
 def _agent_safe_commands(
+    workspace: Workspace,
     finish: dict[str, Any],
     review_handoff: dict[str, Any] | None,
     decision_handoff: dict[str, Any] | None,
@@ -301,19 +335,26 @@ def _agent_safe_commands(
     if human_approval_handoff is not None:
         _append_once(commands, human_approval_handoff["command"])
     for command in finish.get("next_allowed_commands", []):
-        if not has_handoff or _is_read_only_command(command):
-            _append_once(commands, command)
-    _append_once(commands, "palari validate --json")
+        bound = bind_palari_workspace_command(
+            workspace.data_path,
+            str(command),
+        )
+        if not has_handoff or _is_read_only_command(bound):
+            _append_once(commands, bound)
+    _append_once(
+        commands,
+        palari_workspace_command(workspace.data_path, "validate", "--json"),
+    )
     return commands
 
 
 def _is_read_only_command(command: str) -> bool:
+    parts = palari_command_parts(command)
+    if not parts:
+        return False
     return bool(
-        command.startswith("palari detail ")
-        or command.startswith("palari queue ")
-        or command.startswith("palari validate ")
-        or command.startswith("palari review guide ")
-        or command.startswith("palari decision guide ")
+        parts[0] in {"detail", "queue", "validate"}
+        or parts[:2] in {("review", "guide"), ("decision", "guide")}
     )
 
 

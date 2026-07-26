@@ -7,6 +7,7 @@ from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_handoff import build_agent_handoff
 from .agent_operation import AgentOperation, ensure_agent_operation
+from .command_surface import palari_workspace_command
 from .workspace import Workspace
 
 
@@ -48,12 +49,14 @@ def build_agent_loop(
         else None
     )
     stages = [
-        _brief_stage(work_id, palari_id, mode, brief),
-        _check_stage(work_id, palari_id, mode, check),
-        _finish_stage(work_id, palari_id, mode, finish),
+        _brief_stage(workspace, work_id, palari_id, mode, brief),
+        _check_stage(workspace, work_id, palari_id, mode, check),
+        _finish_stage(workspace, work_id, palari_id, mode, finish),
     ]
     if handoff:
-        stages.append(_handoff_stage(work_id, palari_id, mode, handoff))
+        stages.append(
+            _handoff_stage(workspace, work_id, palari_id, mode, handoff)
+        )
 
     terminal = finish.get("next_step_type") == "closed"
     combined_blockers = enrich_blockers(
@@ -62,12 +65,13 @@ def build_agent_loop(
         )
     )
     if terminal:
-        stages = [_terminal_stage(work_id)]
+        stages = [_terminal_stage(workspace, work_id)]
     payload: dict[str, Any] = {
         "schema_version": "palari.agent_loop.v1",
         "loop_id": _loop_id(work_id, palari_id, mode),
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "mode": mode or "execute",
         "status": _loop_status(check, finish, handoff),
@@ -84,7 +88,13 @@ def build_agent_loop(
         "packet_context_hash": brief.get("context_hash", ""),
         "check_id": check.get("check_id", ""),
         "finish_id": finish.get("finish_id", ""),
-        "commands": _commands(work_id, palari_id, mode, include_handoff=bool(handoff)),
+        "commands": _commands(
+            workspace,
+            work_id,
+            palari_id,
+            mode,
+            include_handoff=bool(handoff),
+        ),
         "stages": stages,
         "blockers": [] if terminal else combined_blockers,
         "resolution_summary": resolution_summary(combined_blockers, terminal=terminal),
@@ -105,10 +115,15 @@ def build_agent_loop(
     return payload
 
 
-def _terminal_stage(work_id: str) -> dict[str, Any]:
+def _terminal_stage(workspace: Workspace, work_id: str) -> dict[str, Any]:
     return {
         "name": "terminal",
-        "command": f"palari detail {work_id} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "detail",
+            work_id,
+            "--json",
+        ),
         "status": "closed",
         "ok": True,
         "message": "The task is complete; inspect its unchanged records when needed.",
@@ -116,6 +131,7 @@ def _terminal_stage(work_id: str) -> dict[str, Any]:
 
 
 def _brief_stage(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     mode: str,
@@ -123,7 +139,17 @@ def _brief_stage(
 ) -> dict[str, Any]:
     return {
         "name": "brief",
-        "command": f"palari agent brief {work_id} --as {palari_id} --mode {mode} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "brief",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
         "status": brief.get("status", "blocked"),
         "ok": brief.get("status") == "ready",
         "message": _brief_message(brief),
@@ -131,6 +157,7 @@ def _brief_stage(
 
 
 def _check_stage(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     mode: str,
@@ -143,7 +170,17 @@ def _check_stage(
     ]
     return {
         "name": "check",
-        "command": f"palari agent check {work_id} --as {palari_id} --mode {mode} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "check",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
         "status": "pass" if check.get("ok") else "fail",
         "ok": bool(check.get("ok")),
         "message": "The task brief is satisfied."
@@ -154,6 +191,7 @@ def _check_stage(
 
 
 def _finish_stage(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     mode: str,
@@ -161,7 +199,17 @@ def _finish_stage(
 ) -> dict[str, Any]:
     return {
         "name": "finish",
-        "command": f"palari agent finish {work_id} --as {palari_id} --mode {mode} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "finish",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
         "status": finish.get("status", "blocked"),
         "ok": bool(finish.get("can_finish")),
         "handoff_ready": bool(finish.get("handoff_ready")),
@@ -170,6 +218,7 @@ def _finish_stage(
 
 
 def _handoff_stage(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     mode: str,
@@ -177,7 +226,17 @@ def _handoff_stage(
 ) -> dict[str, Any]:
     return {
         "name": "handoff",
-        "command": f"palari agent handoff {work_id} --as {palari_id} --mode {mode} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "handoff",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
         "status": "available" if handoff.get("handoff_available") else "not-available",
         "ok": bool(handoff.get("handoff_available")),
         "message": "Human handoff context is available."
@@ -220,6 +279,7 @@ def _loop_status(
 
 
 def _commands(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     mode: str,
@@ -227,15 +287,72 @@ def _commands(
     include_handoff: bool,
 ) -> dict[str, str]:
     commands = {
-        "next": f"palari agent next --as {palari_id} --mode {mode} --json",
-        "brief": f"palari agent brief {work_id} --as {palari_id} --mode {mode} --json",
-        "check": f"palari agent check {work_id} --as {palari_id} --mode {mode} --json",
-        "finish": f"palari agent finish {work_id} --as {palari_id} --mode {mode} --json",
-        "loop": f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json",
+        "next": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "next",
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
+        "brief": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "brief",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
+        "check": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "check",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
+        "finish": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "finish",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
+        "loop": palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "loop",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
+        ),
     }
     if include_handoff:
-        commands["handoff"] = (
-            f"palari agent handoff {work_id} --as {palari_id} --mode {mode} --json"
+        commands["handoff"] = palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "handoff",
+            work_id,
+            "--as",
+            palari_id,
+            "--mode",
+            mode,
+            "--json",
         )
     return commands
 

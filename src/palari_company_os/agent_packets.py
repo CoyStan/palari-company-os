@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .authority_plan import build_authority_plan
+from .command_surface import bind_palari_command_payload, palari_workspace_command
 from .governance_kernel import (
     EXTERNAL_WRITE_ACTIONS,
     TERMINAL_WORK_STATUSES,
@@ -37,6 +38,7 @@ def build_agent_brief(
         "created_at": created_at,
         "mode": mode,
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "blocked",
         "agent": _palari_ref(palari_id, palari),
         "work_item": _work_ref(work_id, work),
@@ -110,6 +112,7 @@ def build_agent_brief(
             "documentation_state": docs_state,
             "recommended_docs": recommended_docs_for_work(work_detail, workspace.path),
             "next_allowed_commands": _next_allowed_commands(
+                workspace,
                 work.id,
                 palari_id,
                 status,
@@ -417,8 +420,14 @@ def _approval_progress_current(progress: str) -> int:
 def _finalize_packet(packet: dict[str, Any], blockers: list[dict[str, Any]]) -> dict[str, Any]:
     packet["blockers"] = blockers
     packet["status"] = "blocked" if blockers else packet.get("status", "ready")
-    packet["context_hash"] = _context_hash(packet)
-    return packet
+    workspace_file = str(packet.get("workspace_file") or "")
+    bound = (
+        bind_palari_command_payload(workspace_file, packet)
+        if workspace_file
+        else packet
+    )
+    bound["context_hash"] = _context_hash(bound)
+    return bound
 
 
 def _palari_ref(palari_id: str, palari: Any) -> dict[str, Any]:
@@ -789,6 +798,7 @@ def _record_ref(record: dict[str, Any] | None, fields: list[str]) -> dict[str, A
 
 
 def _next_allowed_commands(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     status: str,
@@ -797,15 +807,31 @@ def _next_allowed_commands(
 ) -> list[str]:
     if status == "blocked":
         return [
-            f"palari detail {work_id} --json",
-            "palari queue --json",
-            "palari validate --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "detail",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(workspace.data_path, "queue", "--json"),
+            palari_workspace_command(workspace.data_path, "validate", "--json"),
         ]
     if mode == "review":
         commands = [
-            f"palari review guide {work_id} --json",
-            f"palari detail {work_id} --json",
-            "palari validate --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "review",
+                "guide",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(
+                workspace.data_path,
+                "detail",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(workspace.data_path, "validate", "--json"),
         ]
         commands.extend(
             item["command"]
@@ -814,10 +840,28 @@ def _next_allowed_commands(
         )
         return commands
     return [
-        f"palari scope {work_id} --json",
-        f"palari detail {work_id} --json",
-        "palari validate --json",
-        f"palari agent advance {work_id} --as {palari_id} --json",
+        palari_workspace_command(
+            workspace.data_path,
+            "scope",
+            work_id,
+            "--json",
+        ),
+        palari_workspace_command(
+            workspace.data_path,
+            "detail",
+            work_id,
+            "--json",
+        ),
+        palari_workspace_command(workspace.data_path, "validate", "--json"),
+        palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "advance",
+            work_id,
+            "--as",
+            palari_id,
+            "--json",
+        ),
     ]
 
 
@@ -827,7 +871,13 @@ def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, 
     guide = build_review_guide(workspace, work_id)
     commands = guide.get("review_record_commands", [])
     return {
-        "command": f"palari review guide {work_id} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
         "status": guide.get("status", ""),
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),

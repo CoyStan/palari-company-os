@@ -6,6 +6,7 @@ from typing import Any
 from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
+from .command_surface import bind_palari_command_payload
 from .governance_kernel import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
@@ -33,10 +34,11 @@ def _build_agent_next(
 ) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
-        return {
+        payload = {
             "schema_version": "palari.agent_next.v1",
             "created_at": _timestamp(),
             "workspace": workspace.name,
+            "workspace_file": str(workspace.data_path),
             "status": "blocked",
             "agent": {"id": palari_id, "found": False},
             "mode": mode or "execute",
@@ -53,6 +55,7 @@ def _build_agent_next(
             "next_allowed_commands": ["palari queue --json", "palari validate --json"],
             "omitted_context": [_omitted_context(workspace)],
         }
+        return bind_palari_command_payload(workspace.data_path, payload)
 
     candidates = _candidates(
         workspace,
@@ -66,10 +69,11 @@ def _build_agent_next(
     selected = ordered[:safe_limit]
     ready_count = sum(1 for item in candidates if item["can_start"])
     blocked_count = len(candidates) - ready_count
-    return {
+    payload = {
         "schema_version": "palari.agent_next.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "agent": {
             "id": palari.id,
@@ -85,6 +89,7 @@ def _build_agent_next(
         "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
@@ -108,10 +113,11 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
     blocked_count = sum(agent["blocked_count"] for agent in agents)
     top_candidate = _all_top_candidate(agents)
     next_commands = _all_next_commands(agents, mode)
-    return {
+    payload = {
         "schema_version": "palari.agent_next_all.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "mode": mode or "execute",
         "ready_count": ready_count,
@@ -121,6 +127,7 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
         "next_allowed_commands": next_commands,
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def _candidates(
@@ -193,6 +200,7 @@ def _candidates(
         loop_command = _loop_command(work.id, palari_id, mode)
         candidates.append(
             {
+                "workspace_file": str(workspace.data_path),
                 "queue_rank": rank,
                 "work_item_id": work.id,
                 "dependency_ids": list(work.dependency_ids),

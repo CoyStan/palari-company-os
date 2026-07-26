@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,7 @@ from palari_company_os.agent_handoff import (
     _human_approval_handoff,
     build_agent_handoff,
 )
+from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
@@ -684,11 +686,41 @@ class ApprovalPackTests(unittest.TestCase):
             data_path = make_ready_workspace(Path(directory), count=1)
             custom_data_path = data_path.with_name("governance-state.json")
             data_path.rename(custom_data_path)
+            data_path.write_text("{}\n", encoding="utf-8")
             store = load_store(custom_data_path)
+            workspace = Workspace.load(custom_data_path)
             inbox = build_approval_inbox(
-                Workspace.load(custom_data_path),
+                workspace,
                 store.data,
             )
+            packet = build_agent_brief(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+                "execute",
+            )
+            handoff = build_agent_handoff(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            emitted_read_commands = [
+                *packet["next_allowed_commands"],
+                *handoff["next_allowed_commands"],
+            ]
+            for command in emitted_read_commands:
+                arguments = shlex.split(command)
+                self.assertEqual(
+                    arguments[1:3],
+                    ["--workspace", str(custom_data_path)],
+                )
+                run_json(*arguments[1:])
+            approval_command = next(
+                item["command"]
+                for item in handoff["human_action_commands"]
+                if item["actor"] == "HUMAN-PRODUCT"
+            )
+            result = run_json(*shlex.split(approval_command)[1:])
 
         self.assertTrue(inbox["approval_commands"])
         self.assertTrue(
@@ -697,6 +729,8 @@ class ApprovalPackTests(unittest.TestCase):
                 for item in inbox["approval_commands"]
             )
         )
+        self.assertTrue(result["completed"])
+        self.assertFalse(result["performed_external_effects"])
 
     def test_reject_or_defer_does_not_suppress_a_later_founder_approval(self) -> None:
         for prior_action in ("reject", "defer"):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -147,6 +148,63 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], "ARGUMENT_PARSE_ERROR")
         self.assertIn("--as", payload["error"]["message"])
         self.assertTrue(payload["next_allowed_commands"])
+
+    def test_agent_errors_keep_an_exact_custom_workspace_selector(self) -> None:
+        custom_workspace = self.root / "governance state.json"
+        parse_result = self.run_cli_for(
+            custom_workspace,
+            "agent",
+            "brief",
+            WORK_ID,
+            "--as",
+            "--json",
+            check=False,
+        )
+        runtime_result = self.run_cli_for(
+            custom_workspace,
+            "agent",
+            "start",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
+            check=False,
+        )
+
+        for result in (parse_result, runtime_result):
+            payload = self.json_object(result)
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.stderr, "")
+            self.assertTrue(payload["next_allowed_commands"])
+            for command in payload["next_allowed_commands"]:
+                tokens = shlex.split(command)
+                self.assertEqual(tokens[:3], ["palari", "--workspace", str(custom_workspace)])
+
+    def test_agent_parse_error_with_malformed_workspace_has_no_recovery_command(
+        self,
+    ) -> None:
+        environment = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-S",
+                "-m",
+                "palari_company_os",
+                "--workspace",
+                "--json",
+                "agent",
+            ],
+            cwd=REPO_ROOT,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        payload = self.json_object(result)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(payload["next_allowed_commands"], [])
 
     def test_review_guide_text_renders_concrete_commands_and_marks_template(
         self,

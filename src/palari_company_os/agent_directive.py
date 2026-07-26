@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .command_surface import palari_command_parts
+
 
 HANDOFF_BLOCKERS = {
     "RECEIPT_READY_REVIEW",
@@ -185,7 +187,11 @@ def _primary_action(
         message = "Report completion with the current check result."
     elif convergence_ready:
         command = next(
-            (item for item in next_commands if item.startswith("palari agent advance ")),
+            (
+                item
+                for item in next_commands
+                if _command_starts_with(item, "agent", "advance")
+            ),
             next(iter(next_commands), ""),
         )
         message = "Finish the task automatically from the current records."
@@ -403,7 +409,11 @@ def _handoff_guidance(
         )
     if "HUMAN_DECISION_REQUIRED" in blocker_codes:
         decision_command = linked_decision_command or _first_decision_command(check)
-        if linked_decision_command or decision_command.startswith("palari decision guide "):
+        if linked_decision_command or _command_starts_with(
+            decision_command,
+            "decision",
+            "guide",
+        ):
             code = "DECISION_HANDOFF"
             message = "Use agent handoff for required human authority and suggested decision update commands."
         elif human_approval_prerequisites_met(check):
@@ -428,7 +438,7 @@ def _handoff_guidance(
 
 def _first_decision_command(check: dict[str, Any]) -> str:
     for command in check.get("next_allowed_commands", []):
-        if command.startswith("palari decision guide "):
+        if _command_starts_with(command, "decision", "guide"):
             return command
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     return f"palari detail {work_id} --json"
@@ -448,14 +458,20 @@ def _agent_handoff_command(
 
 
 def _is_human_action_command(command: str) -> bool:
-    return command.startswith(
-        (
-            "palari human-decision record ",
-            "palari work accept ",
-            "palari review record ",
-            "palari decision update ",
+    return any(
+        _command_starts_with(command, *prefix)
+        for prefix in (
+            ("human-decision", "record"),
+            ("work", "accept"),
+            ("review", "record"),
+            ("decision", "update"),
         )
     )
+
+
+def _command_starts_with(command: str, *prefix: str) -> bool:
+    parts = palari_command_parts(command)
+    return parts[: len(prefix)] == prefix
 
 
 def _prioritize(commands: list[str], prioritized: list[str]) -> None:

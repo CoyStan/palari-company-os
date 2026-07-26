@@ -806,13 +806,13 @@ def _journal_observation(
     from .governance_journal import JournalError, journal_file_path, verify_journal
 
     try:
-        path = journal_file_path(workspace.path / "workspace.json")
+        path = journal_file_path(workspace.data_path)
         if not path.exists():
             return IntegrityObservation("not-required", ("legacy workspace not checkpointed",))
         report = (
             journal_context.verify(workspace.data_path)
             if journal_context is not None
-            else verify_journal(workspace.path / "workspace.json")
+            else verify_journal(workspace.data_path)
         )
     except (OSError, ValueError, WorkspaceError, JournalError) as exc:
         return IntegrityObservation("failed", (str(exc),))

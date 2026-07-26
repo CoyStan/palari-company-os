@@ -23,6 +23,7 @@ from palari_company_os.cli_output_utils import (
 from palari_company_os.cli_output import print_state
 from palari_company_os.cli_output_agent import print_agent_next
 from palari_company_os.cli_parser import build_parser
+from palari_company_os.command_surface import palari_workspace_command
 
 
 class PlainLanguageContractTests(unittest.TestCase):
@@ -261,12 +262,20 @@ class PlainLanguageContractTests(unittest.TestCase):
         ]
 
         self.assertEqual(machine["next_step_type"], "check-active-proof")
+        start_command = palari_workspace_command(
+            REPO_ROOT / "examples" / "acme-company-os",
+            "agent",
+            "start",
+            "WORK-0001",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "execute",
+            "--json",
+        )
         for rendered in rendered_outputs:
             self.assertIn("Next step: Start or continue task", rendered)
-            self.assertIn(
-                "palari agent start WORK-0001 --as PALARI-SOFIA --mode execute --json",
-                rendered,
-            )
+            self.assertIn(start_command, rendered)
         for rendered in rendered_outputs[2:]:
             self.assertIn("Start or continue this task before running its checks", rendered)
             self.assertNotIn("Record or refresh the missing checks", rendered)
@@ -285,7 +294,7 @@ class PlainLanguageContractTests(unittest.TestCase):
         )
 
         self.assertIn("Next step: Inspect details", rendered)
-        self.assertNotIn("palari agent advance", rendered)
+        self.assertNotIn(" agent advance ", rendered)
 
     def test_linked_decision_is_not_presented_as_final_approval(self) -> None:
         prefix = ("--workspace", "examples/acme-company-os", "agent")
@@ -333,14 +342,23 @@ class PlainLanguageContractTests(unittest.TestCase):
         )
 
         self.assertIn("next step: Ask a human to decide", next_output)
+        handoff_command = palari_workspace_command(
+            REPO_ROOT / "examples" / "acme-company-os",
+            "agent",
+            "handoff",
+            "WORK-0002",
+            "--as",
+            "PALARI-ALFRED",
+            "--json",
+        )
         for output in (brief_output, check_output, loop_output):
             self.assertIn("Next step: Ask a human to decide", output)
-            self.assertIn("palari agent handoff WORK-0002", output)
-            self.assertNotIn("palari agent advance", output)
+            self.assertIn(handoff_command, output)
+            self.assertNotIn(" agent advance ", output)
             self.assertNotIn("Record or refresh the missing checks", output)
         self.assertIn("Ready for decision handoff: yes", finish_output)
         self.assertIn("Next step: Ask a human to decide", finish_output)
-        self.assertNotIn("palari agent advance", finish_output)
+        self.assertNotIn(" agent advance ", finish_output)
         self.assertIn("waiting for a human answer to a linked decision", doctor_output)
 
     def test_review_wait_guidance_returns_missing_checks_to_builder(self) -> None:

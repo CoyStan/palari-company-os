@@ -20,6 +20,7 @@ from .agent_session_contract import (
     session_contract_error,
     session_contract_summary,
 )
+from .command_surface import bind_palari_command_payload
 from .path_policy import resolve_workspace_path, validate_workspace_path
 from .pcaw_canonical import CanonicalJSONError, canonical_sha256, strict_json_loads
 from .store import workspace_file_path, workspace_write_lock
@@ -400,9 +401,10 @@ def start_next_agent(
         if candidate.get("can_start")
     ]
     if not ready_candidates:
-        return {
+        payload = {
             "schema_version": "palari.agent_start_next.v1",
             "workspace": workspace.name,
+            "workspace_file": str(workspace.data_path),
             "status": "no-ready-work",
             "agent": next_payload.get("agent", {"id": palari_id}),
             "entry": _blocked_start_entry(next_payload),
@@ -413,6 +415,7 @@ def start_next_agent(
             },
             "next": next_payload,
         }
+        return bind_palari_command_payload(workspace.data_path, payload)
 
     contention: list[dict[str, str]] = []
     packet: dict[str, Any] | None = None
@@ -447,9 +450,10 @@ def start_next_agent(
         break
     if packet is None or selected is None:
         primary = f"palari agent start --next --as {palari_id} --mode {mode} --json"
-        return {
+        payload = {
             "schema_version": "palari.agent_start_next.v1",
             "workspace": workspace.name,
+            "workspace_file": str(workspace.data_path),
             "status": "selection-contended",
             "agent": next_payload.get("agent", {"id": palari_id}),
             "entry": {
@@ -464,6 +468,7 @@ def start_next_agent(
             "start": {"status": "not-started", "would_mutate": False, "claim": None},
             "next": next_payload,
         }
+        return bind_palari_command_payload(workspace.data_path, payload)
 
     work_id = str(selected["work_item_id"])
     packet["entry"] = {
@@ -477,7 +482,7 @@ def start_next_agent(
         "next_command": f"palari agent advance {work_id} --as {palari_id} --json",
         "skipped_contention": contention,
     }
-    return packet
+    return bind_palari_command_payload(workspace.data_path, packet)
 
 
 def _claim_contention(error: WorkspaceError, work_id: str) -> bool:
@@ -1459,7 +1464,7 @@ def _capture_governance_projection_snapshot(
     if touched:
         from .governance_journal import verify_workspace_journal
 
-        report = verify_workspace_journal(data_path.parent)
+        report = verify_workspace_journal(data_path)
         continuity = report.get("continuity") or {}
         if (
             not report.get("ok")

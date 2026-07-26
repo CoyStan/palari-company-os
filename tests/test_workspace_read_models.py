@@ -22,6 +22,7 @@ from palari_company_os.evidence_manifest import (
 )
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_parser import build_parser
+from palari_company_os.command_surface import palari_workspace_command
 from palari_company_os.errors import WorkspaceError
 from palari_company_os.governance_binding import (
     BINDING_VERSION,
@@ -373,7 +374,17 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertTrue(item.ai_safe_to_proceed)
         self.assertEqual(
             item.next_commands[0],
-            "palari agent check WORK-1 --as PALARI-1 --mode execute --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "agent",
+                "check",
+                "WORK-1",
+                "--as",
+                "PALARI-1",
+                "--mode",
+                "execute",
+                "--json",
+            ),
         )
 
     def test_current_exact_low_risk_proof_is_ready_for_reconciliation(self) -> None:
@@ -419,7 +430,8 @@ class QueueProjectionTests(unittest.TestCase):
             _work(raw).update({"risk": "R2", "intensity": "standard"})
             _add_exact_proof(raw)
 
-        item = queue_items(_workspace(require_review))[0]
+        workspace = _workspace(require_review)
+        item = queue_items(workspace)[0]
 
         self.assertEqual(item.attention, "needs-review")
         self.assertEqual(item.next_step_type, "review-handoff")
@@ -427,7 +439,15 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertFalse(item.ai_safe_to_proceed)
         self.assertEqual(
             item.agent_handoff_command,
-            "palari agent handoff WORK-1 --as PALARI-1 --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "agent",
+                "handoff",
+                "WORK-1",
+                "--as",
+                "PALARI-1",
+                "--json",
+            ),
         )
 
     def test_open_decision_projects_the_human_boundary(self) -> None:
@@ -443,7 +463,8 @@ class QueueProjectionTests(unittest.TestCase):
                 }
             )
 
-        item = queue_items(_workspace(add_decision))[0]
+        workspace = _workspace(add_decision)
+        item = queue_items(workspace)[0]
 
         self.assertEqual(item.attention, "needs-human-decision")
         self.assertEqual(item.next_step_type, "human-decision")
@@ -451,7 +472,13 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertFalse(item.ai_safe_to_proceed)
         self.assertEqual(
             item.next_commands[0],
-            "palari decision guide DECISION-1 --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "decision",
+                "guide",
+                "DECISION-1",
+                "--json",
+            ),
         )
 
     def test_changes_requested_projects_a_repair_boundary(self) -> None:
@@ -760,7 +787,8 @@ class DetailAndCoordinationProjectionTests(unittest.TestCase):
             }
             raw["attempts"].append(later)
 
-        payload = detail(_workspace(add_relationships), "WORK-1")
+        workspace = _workspace(add_relationships)
+        payload = detail(workspace, "WORK-1")
 
         self.assertEqual(payload["goal"]["id"], "GOAL-1")
         self.assertEqual(payload["palari"]["id"], "PALARI-1")
@@ -771,7 +799,17 @@ class DetailAndCoordinationProjectionTests(unittest.TestCase):
         self.assertEqual(payload["attempt"]["id"], "ATTEMPT-CURRENT")
         self.assertEqual(
             payload["agent_commands"]["brief"],
-            "palari agent brief WORK-1 --as PALARI-1 --mode execute --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "agent",
+                "brief",
+                "WORK-1",
+                "--as",
+                "PALARI-1",
+                "--mode",
+                "execute",
+                "--json",
+            ),
         )
 
     def test_unknown_detail_fails_with_known_identifiers(self) -> None:

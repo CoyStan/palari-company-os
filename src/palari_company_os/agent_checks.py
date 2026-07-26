@@ -7,6 +7,11 @@ from typing import Any
 from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
 from .agent_runtime import claim_check, read_claim
+from .command_surface import (
+    bind_palari_workspace_command,
+    palari_command_parts,
+    palari_workspace_command,
+)
 from .workspace import Workspace
 
 
@@ -29,7 +34,7 @@ def build_agent_check(
     checks = _packet_boundary_checks(packet)
     if packet.get("status") == "ready":
         checks.append(_claim_owned_check(workspace, work_id, palari_id, mode, packet))
-    claim = read_claim(workspace.path, work_id)
+    claim = read_claim(workspace.data_path, work_id)
     file_changes = inspect_file_changes(
         packet,
         changed_paths=changed_paths,
@@ -49,6 +54,7 @@ def build_agent_check(
         "created_at": _timestamp(),
         "ok": ok,
         "workspace": packet.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "mode": mode or "execute",
         "agent": packet.get("agent", {}),
         "work_item": packet.get("work_item", {}),
@@ -105,7 +111,7 @@ def _packet_boundary_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             "pass",
             "Workspace validation passed before this check was built.",
             required=True,
-            next_command="palari validate --json",
+            next_command=_packet_command(packet, "validate", "--json"),
         ),
     ]
 
@@ -153,13 +159,22 @@ def _claim_owned_check(
     mode: str,
     packet: dict[str, Any],
 ) -> dict[str, Any]:
-    result = claim_check(workspace.path, work_id, palari_id, mode or "execute", packet.get("context_hash", ""))
+    result = claim_check(
+        workspace.data_path,
+        work_id,
+        palari_id,
+        mode or "execute",
+        packet.get("context_hash", ""),
+    )
     return _check(
         "CLAIM_OWNED",
         result["status"],
         result["message"],
         required=True,
-        next_command=result.get("next_command", ""),
+        next_command=bind_palari_workspace_command(
+            workspace.data_path,
+            str(result.get("next_command") or ""),
+        ),
     )
 
 
@@ -347,8 +362,8 @@ def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
     if packet.get("status") != "ready":
         commands.extend(packet.get("next_allowed_commands", []))
     else:
-        commands.append(f"palari detail {work_id} --json")
-        commands.append("palari validate --json")
+        commands.append(_packet_command(packet, "detail", work_id, "--json"))
+        commands.append(_packet_command(packet, "validate", "--json"))
     return commands
 
 
@@ -364,8 +379,22 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
     prioritized = [
-        f"palari agent handoff {work_id} --as {palari_id} --json",
-        f"palari review guide {work_id} --json",
+        _packet_command(
+            packet,
+            "agent",
+            "handoff",
+            work_id,
+            "--as",
+            palari_id,
+            "--json",
+        ),
+        _packet_command(
+            packet,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
     ]
     for command in reversed(prioritized):
         if command in commands:
@@ -389,9 +418,27 @@ def _agent_advance_command(packet: dict[str, Any]) -> str:
     }
     if packet.get("status") != "ready" and blocker_codes & authority_blockers:
         return _first_command(packet)
+    for command in packet.get("next_allowed_commands", []):
+        if palari_command_parts(str(command))[:2] == ("agent", "advance"):
+            return str(command)
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
-    return f"palari agent advance {work_id} --as {palari_id} --json"
+    return _packet_command(
+        packet,
+        "agent",
+        "advance",
+        work_id,
+        "--as",
+        palari_id,
+        "--json",
+    )
+
+
+def _packet_command(packet: dict[str, Any], *arguments: str) -> str:
+    workspace_file = str(packet.get("workspace_file") or "")
+    if workspace_file:
+        return palari_workspace_command(workspace_file, *arguments)
+    return " ".join(("palari", *arguments))
 
 
 def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:

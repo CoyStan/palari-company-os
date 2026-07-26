@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, TypeVar
 
 from .models import to_plain
@@ -69,6 +70,7 @@ class QueueItem:
 
 @dataclass(frozen=True)
 class _ReadContext:
+    workspace_path: Path
     goals_by_id: dict[str, Any]
     palaris_by_id: dict[str, Any]
     humans_by_id: dict[str, Any]
@@ -210,7 +212,11 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
             "acceptance_state": queue_item.acceptance_state,
             "scope_overlap_state": queue_item.scope_overlap_state,
         },
-        "agent_commands": agent_commands(work, queue_item.next_step_type),
+        "agent_commands": agent_commands(
+            work,
+            queue_item.next_step_type,
+            workspace_path=workspace.data_path,
+        ),
     }
 
 
@@ -248,6 +254,7 @@ def _read_context(workspace: Workspace) -> _ReadContext:
     active_attempts_by_work = group_active_attempts(active_parallel)
     warning_messages_by_work = group_warning_messages(coordination)
     return _ReadContext(
+        workspace_path=workspace.data_path,
         goals_by_id=goals_by_id,
         palaris_by_id=palaris_by_id,
         humans_by_id=humans_by_id,
@@ -322,9 +329,17 @@ def _queue_item(work: Any, context: _ReadContext) -> QueueItem:
             context.open_decision_by_work.get(work.id),
             context.current_attempt_by_work.get(work.id) is not None,
             ai_safe_to_proceed,
+            workspace_path=context.workspace_path,
         ),
-        agent_loop_command=agent_loop_command(work),
-        agent_handoff_command=agent_handoff_command(work, next_step_type),
+        agent_loop_command=agent_loop_command(
+            work,
+            workspace_path=context.workspace_path,
+        ),
+        agent_handoff_command=agent_handoff_command(
+            work,
+            next_step_type,
+            workspace_path=context.workspace_path,
+        ),
         status=work.status,
         terminal_disposition=work.terminal_disposition,
         terminal_reason=work.terminal_reason,

@@ -132,6 +132,7 @@ def _agent_parse_error_payload(raw_argv: list[str], parser_message: str) -> dict
     work_id = _raw_work_id(raw_argv)
     palari_id = _raw_palari_id(raw_argv)
     mode = _raw_mode(raw_argv)
+    workspace_path = _raw_workspace_path(raw_argv)
     payload: dict[str, Any] = {
         "ok": False,
         "error": {
@@ -139,7 +140,16 @@ def _agent_parse_error_payload(raw_argv: list[str], parser_message: str) -> dict
             "message": message,
             "command": " ".join(raw_argv),
         },
-        "next_allowed_commands": _agent_error_next_commands(work_id, palari_id, mode),
+        "next_allowed_commands": (
+            _agent_error_next_commands(
+                work_id,
+                palari_id,
+                mode,
+                workspace_path,
+            )
+            if workspace_path is not None
+            else []
+        ),
     }
     if work_id:
         payload["error"]["work_item"] = work_id
@@ -155,6 +165,7 @@ def _approval_parse_error_payload(
     message = _clean_parse_error(parser_message)
     work_id = _raw_approval_work_id(raw_argv)
     human_id = _raw_human_id(raw_argv)
+    workspace_path = _raw_workspace_path(raw_argv)
     payload: dict[str, Any] = {
         "schema_version": "palari.simple-approval-error.v1",
         "ok": False,
@@ -164,9 +175,10 @@ def _approval_parse_error_payload(
             "command": " ".join(raw_argv),
         },
         "next_action": "Fix the approval arguments, then retry one exact task.",
-        "next_allowed_commands": _approval_error_next_commands(
-            work_id,
-            _raw_workspace_path(raw_argv),
+        "next_allowed_commands": (
+            _approval_error_next_commands(work_id, workspace_path)
+            if workspace_path is not None
+            else []
         ),
     }
     if work_id:
@@ -228,7 +240,12 @@ def _agent_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
             "message": message,
             "command": command,
         },
-        "next_allowed_commands": _agent_error_next_commands(work_id, palari_id, mode),
+        "next_allowed_commands": _agent_error_next_commands(
+            work_id,
+            palari_id,
+            mode,
+            str(getattr(args, "workspace", "") or default_workspace_path()),
+        ),
     }
     if work_id:
         payload["error"]["work_item"] = work_id
@@ -388,12 +405,15 @@ def _raw_root_command_details(raw_argv: list[str]) -> tuple[str, int]:
     return "", -1
 
 
-def _raw_workspace_path(raw_argv: list[str]) -> str:
+def _raw_workspace_path(raw_argv: list[str]) -> str | None:
     for index, argument in enumerate(raw_argv):
-        if argument == "--workspace" and index + 1 < len(raw_argv):
+        if argument == "--workspace":
+            if index + 1 >= len(raw_argv) or raw_argv[index + 1].startswith("-"):
+                return None
             return raw_argv[index + 1]
         if argument.startswith("--workspace="):
-            return argument.split("=", 1)[1]
+            value = argument.split("=", 1)[1]
+            return value or None
     return str(default_workspace_path())
 
 
@@ -496,16 +516,45 @@ def _redact_known_secrets(message: str) -> str:
     return message
 
 
-def _agent_error_next_commands(work_id: str, palari_id: str, mode: str) -> list[str]:
+def _agent_error_next_commands(
+    work_id: str,
+    palari_id: str,
+    mode: str,
+    workspace_path: str,
+) -> list[str]:
     commands = []
     if work_id and palari_id:
         commands.extend(
             [
-                f"palari agent brief {work_id} --as {palari_id} --mode {mode} --json",
-                f"palari agent next --as {palari_id} --mode {mode} --json",
+                palari_workspace_command(
+                    workspace_path,
+                    "agent",
+                    "brief",
+                    work_id,
+                    "--as",
+                    palari_id,
+                    "--mode",
+                    mode,
+                    "--json",
+                ),
+                palari_workspace_command(
+                    workspace_path,
+                    "agent",
+                    "next",
+                    "--as",
+                    palari_id,
+                    "--mode",
+                    mode,
+                    "--json",
+                ),
             ]
         )
-    commands.extend(["palari queue --json", "palari validate --json"])
+    commands.extend(
+        [
+            palari_workspace_command(workspace_path, "queue", "--json"),
+            palari_workspace_command(workspace_path, "validate", "--json"),
+        ]
+    )
     return commands
 
 

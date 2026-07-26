@@ -409,7 +409,7 @@ def install_claude_host_hooks(
         "status": "removed" if remove and changed else "installed" if changed else "unchanged",
         "changed": changed,
         "settings_file": str(target),
-        "workspace": str(workspace_file_path(workspace_path).parent.resolve()),
+        "workspace": _workspace_selector(workspace_path),
         "strict": strict,
         "palari_on_path": True,
         "hooks": {},
@@ -607,7 +607,7 @@ def _host_hook_command(
     host: str,
     event: str,
 ) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     return shlex.join(
         [
             executable,
@@ -630,7 +630,7 @@ def _claude_hook_command(
     event: str,
     strict: bool,
 ) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     command = [executable, "--workspace", workspace, "claude", "hook", event]
     if strict:
         command.append("--strict")
@@ -722,7 +722,7 @@ def _host_profile(host: str) -> dict[str, Any]:
 
 
 def _mcp_command(executable: str, workspace_path: Path | str) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     return shlex.join([executable, "--workspace", workspace, "mcp", "serve"])
 
 
@@ -731,12 +731,20 @@ def _agent_next_commands(
     workspace_path: Path | str,
     actor: str,
 ) -> list[str]:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     base = [executable, "--workspace", workspace, "agent"]
     return [
         shlex.join([*base, "start", "--next", "--as", actor, "--json"]),
         shlex.join([*base, "next", "--as", actor, "--json"]),
     ]
+
+
+def _workspace_selector(workspace_path: Path | str) -> str:
+    """Keep directory shorthand only for the conventional workspace filename."""
+
+    data_path = workspace_file_path(workspace_path).resolve(strict=False)
+    selector = data_path.parent if data_path.name == "workspace.json" else data_path
+    return str(selector)
 
 
 def _workspace_inside_project(workspace_path: Path | str, root: Path) -> bool:
