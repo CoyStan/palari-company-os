@@ -118,9 +118,14 @@ def agent_advance_dry_run(
     receipt = proof.get("receipt") if isinstance(proof, dict) else None
     evidence = proof.get("evidence") if isinstance(proof, dict) else None
     changed = list(preflight.get("changed_files", []))
-    profiles = verification_profiles(str(work.get("risk") or ""), changed)
     base_sha = str(preflight.get("base_sha") or "")
     head_sha = str(preflight.get("head_sha") or "")
+    profiles = verification_profiles(
+        str(work.get("risk") or ""),
+        changed,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
     path_intent_verification = _verify_path_intents(
         Path(str(preflight.get("git_root") or workspace_path)),
         _packet_path_intents(packet),
@@ -692,7 +697,12 @@ def _collect_facts(
         governance_workspace_path=workspace_path,
         path_intents=path_intents,
     )
-    profiles = verification_profiles(work.risk, changed)
+    profiles = verification_profiles(
+        work.risk,
+        changed,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
     context = default_context(
         head_sha=head_sha,
         base_sha=base_sha,
@@ -1850,7 +1860,12 @@ def _refresh_stale_projection(
             str(refresh["message"]),
         )
 
-    profiles = verification_profiles(work.risk, refresh["committed_paths"])
+    profiles = verification_profiles(
+        work.risk,
+        refresh["committed_paths"],
+        base_sha=refresh["proof_head"],
+        head_sha=refresh["head_sha"],
+    )
     context = default_context(
         head_sha=refresh["head_sha"],
         base_sha=refresh["proof_head"],
@@ -2069,7 +2084,12 @@ def _changes_requested_refresh_plan(
             str(refresh["code"]),
             str(refresh["message"]),
         )
-    profiles = verification_profiles(work.risk, refresh["committed_paths"])
+    profiles = verification_profiles(
+        work.risk,
+        refresh["committed_paths"],
+        base_sha=refresh["proof_head"],
+        head_sha=refresh["head_sha"],
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "planned",
@@ -3024,7 +3044,12 @@ def _run_recovery_verification(
     preflight: dict[str, Any],
 ) -> dict[str, Any]:
     changed_files = list(preflight.get("changed_files") or [])
-    profiles = verification_profiles(str(work.risk), changed_files)
+    profiles = verification_profiles(
+        str(work.risk),
+        changed_files,
+        base_sha=str(preflight.get("base_sha") or ""),
+        head_sha=str(preflight.get("head_sha") or ""),
+    )
     context = default_context(
         head_sha=str(preflight.get("head_sha") or ""),
         base_sha=str(preflight.get("base_sha") or ""),
@@ -3168,7 +3193,12 @@ def _verification_commands_bound(
     commands: list[Any], work: dict[str, Any], preflight: dict[str, Any]
 ) -> bool:
     changed_files = list(preflight.get("changed_files") or [])
-    expected_profiles = verification_profiles(str(work.get("risk") or ""), changed_files)
+    expected_profiles = verification_profiles(
+        str(work.get("risk") or ""),
+        changed_files,
+        base_sha=str(preflight.get("base_sha") or ""),
+        head_sha=str(preflight.get("head_sha") or ""),
+    )
     if len(commands) != len(expected_profiles):
         return False
     context = default_context(

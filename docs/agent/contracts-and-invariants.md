@@ -64,15 +64,29 @@ code change must match them. See
   exact check/output freshness even outside a narrowed pack. Changed members
   or dependencies fail closed, and external or irreversible actions remain
   individually gated.
-- Approval Pack v2 decisions bind the exact canonical presentation artifact
-  named by the human command. Relevant decision-context changes stale the old
-  presentation. One action may perform only crash-safe local automatic
-  finishing already allowed by the current approvals; it cannot manufacture
-  review, another vote, external effects, or expanded permission. Approval Pack v1 is not a
-  supported stored format; an unsupported pack or missing presentation binding
-  fails closed.
+- Approval Pack v3 decisions bind the exact canonical presentation artifact
+  named by the human command and retain both declared and effective final
+  approval counts. The reader remains compatible with pack v2. Relevant
+  decision-context changes stale the old presentation. One action may perform
+  only crash-safe local automatic finishing already allowed by current
+  authority; it cannot manufacture review, another vote, external effects, or
+  expanded permission. Approval Pack v1 is unsupported; an unsupported pack or
+  missing presentation binding fails closed.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
-  pack-decision authority surface; supported agent shell adapters hard-deny it.
+  simple `approve` or pack-decision authority surface; supported agent shell
+  adapters hard-deny both.
+- The one-task `approve` command derives a singleton pack and presentation and
+  delegates mutation to the existing pack transaction. Handoff emits it with a
+  machine-supplied presentation binding; a bare invocation selects current
+  state at invocation. It accepts only reversible local work whose current
+  qualified human action completes the effective final count; it cannot create
+  a review, missing vote, external effect, or wider permission. Same-human
+  retry must validate the exact stored decision, presentation token, and
+  acceptance before returning a no-op.
+- Authority feasibility is checked before execution and review. A selected
+  reviewer must be independent and eligible and must leave enough distinct
+  qualified human approvers. Approval commands are emitted only for named
+  humans who can execute them against the current state.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
   reviewed head, and work contract. Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but

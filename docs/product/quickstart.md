@@ -45,12 +45,14 @@ palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
-`init` creates the starter workspace records and returns the declared agent ID;
-`--palari Agent` produces `PALARI-AGENT` here. `work add` returns an opaque,
-collision-resistant task ID. `start --next` selects one eligible task, saves
-its task brief and portable session rules, and creates a local assignment. The
-stored files retain the technical names `packet`, `session-contract`, and
-`claim` for compatibility.
+`init` creates the starter workspace records and returns the declared builder
+agent ID; `--palari Agent` produces `PALARI-AGENT` here. It also creates a
+distinct review-only `PALARI-REVIEWER` linked to the starter goal but not to
+the execution workbench. `work add` returns an opaque, collision-resistant
+task ID. `start --next` selects one eligible task, first verifies that a viable
+reviewer and qualified final approver remain, saves its task brief and portable
+session rules, and creates a local assignment. The stored files retain the
+technical names `packet`, `session-contract`, and `claim` for compatibility.
 
 `start` does not invent an identity or grant permission. `--as` must name an
 agent already declared by `init`.
@@ -68,9 +70,11 @@ interrupted, `work add` recovers it safely. If Git cannot provide an immutable
 starting point, `agent start` returns one exact path-limited anchor command
 instead of unrelated queue or validation commands.
 
-The agent follows the returned task brief, changes only allowed files, runs the
-declared checks, and commits the bounded change. It then uses the opaque
-`WORK-...` ID returned by `start`:
+The agent follows the returned task brief, changes only allowed files, and may
+run task-specific checks while editing. After it commits the bounded change,
+Palari uses fixed built-in verification profiles for authoritative evidence
+(R1 is exact base-to-head `git diff --check` over changed paths). The agent then
+uses the opaque `WORK-...` ID returned by `start`:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
@@ -80,6 +84,28 @@ palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 safe deterministic step. It stops for independent review, human approval, an
 external action, or a concrete safety blocker; it never invents those
 judgments.
+
+When review is required, the distinct review-only agent opens the returned
+review handoff, inspects the exact candidate, and runs one concrete advisory
+verdict command emitted by the review guide. The founder then sees the concise
+human presentation and performs one action:
+
+```bash
+palari agent start WORK-ID --as PALARI-REVIEWER --mode review --json
+# inspect the exact proof and run one emitted review_record_commands[].command
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# a human runs the exact emitted human_action_commands[].command
+```
+
+The simple action accepts no pack digest, review ID, evidence ID, or commit hash
+from the human. Palari inserts a presentation digest into the emitted command,
+so no opaque value is copied and any post-presentation change fails safely.
+`approve` revalidates the one-task approval presentation before one crash-safe
+local transaction. A manually entered bare command derives current state at
+invocation. Stale or changed proof, identity collisions, invalid history,
+incomplete effective approval counts, and external or irreversible work remain
+blocked. The Approval Inbox and `human-decision pack` commands remain available
+for advanced or batched decisions.
 
 Do not infer IDs such as `WORK-0001`, and do not wait for another task's number.
 Unrelated opaque task IDs can run in parallel.

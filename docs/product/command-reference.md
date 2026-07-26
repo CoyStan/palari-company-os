@@ -32,10 +32,14 @@ palari agent start --next --as PALARI-CLAUDE --json
 ```
 
 `init` creates a starter workspace in an existing repository: one human (named
-from `git config user.name` when available), one agent (Claude by default;
-`--palari` is the exact compatibility flag), one goal, one project record
-(stored as a `workbench`), and one repository source. It refuses to overwrite
-an existing `workspace.json`. When the current directory
+from `git config user.name` when available), one builder agent (Claude by
+default; `--palari` is the exact compatibility flag), one distinct
+review-only agent, one goal, one project record (stored as a `workbench`), and
+one repository source. The reviewer is linked to the goal and selected source
+but is not execution-capable through the project workbench. It can inspect
+review-mode proof and record an advisory verdict; it cannot build the run or
+provide human approval. Initialization refuses to overwrite an existing
+`workspace.json`. When the current directory
 contains a `workspace.json`, every command uses it as the default workspace,
 so no `--workspace` flag is needed after `init`.
 
@@ -66,9 +70,10 @@ be removed without leaving duplicates.
 `work add` creates one agent-startable task from a title and its writable
 files. `--write` paths become the enforced write boundary (and are declared on
 the project record so the boundary stays consistent); `--read` paths stay
-read-only. Defaults: the workspace's only agent, goal, and project (`workbench`
-in stored data), risk R1, intensity light, and a collision-resistant opaque
-`WORK-<UUID>` ID. The ID identifies a task and carries no priority, dependency,
+read-only. Defaults: the project's sole execution-capable agent, the sole goal
+and project (`workbench` in stored data), risk R1, intensity light, and a
+collision-resistant opaque `WORK-<UUID>` ID. A review-only agent does not make
+builder selection ambiguous. The ID identifies a task and carries no priority, dependency,
 review, approval, or
 integration ordering meaning. Historical and explicit IDs remain valid. Pass
 `--depends-on WORK-ID` repeatedly to declare real prerequisite edges and
@@ -123,8 +128,11 @@ command string.
 current committed history status. JSON retains one subject, output, run record
 (`receipt`), check results (`evidence`), and review binding per member while
 grouping the operator summary and approval interaction. It also emits one
-strict canonical presentation file and digest per pack. The exact human command names both
-the pack and presentation digests. Every direct dependency also carries a
+strict canonical presentation file and digest per pack. Approval Inbox v2
+emits only actor-specific executable commands. New packs use v3 and carry both
+the declared numeric count and effective final human count; the reader remains
+compatible with v2 packs. The exact advanced human command names both the pack
+and presentation digests. Every direct dependency also carries a
 recursive state digest over its current task rules, verification, outputs, and
 own dependencies. `--select` narrows the pack without changing work. Each JSON pack
 has an `approval_commands` entry containing its exact
@@ -138,13 +146,13 @@ individual-effect, and unavailable modes.
 The exact stored `review-and-accept` mode is unavailable in the current policy
 because review and approval must come from distinct actors.
 
-The normal human journey is one read and at most one approval action: open
-`queue --approval-inbox --json`, inspect the selected presentation and its
-verification report, then run exactly the emitted `human-decision pack`
-command. The inbox does not collapse independent review into approval. If a
-state is stale, blocked, non-batchable, externally effectful, or missing
-required approvals, it remains parked with an owner and next safe action
-instead of receiving a weaker command.
+The Approval Inbox is the advanced and batched surface. It emits commands only
+for named humans that can execute them against the current authority plan; it
+does not emit an action that is already known to collide with the builder or
+reviewer. If a state is stale, blocked, non-batchable, externally effectful,
+missing required approvals, or has no viable actor arrangement, it remains
+parked with an owner and smallest safe correction instead of receiving a
+weaker or guaranteed-to-fail command.
 
 ## Detail
 
@@ -162,6 +170,42 @@ work that is missing checks points `next_commands` toward `agent check` and
 Exact Approval Packs are compiled only at the explicit Approval Inbox
 (`queue --approval-inbox`) or human-handoff boundary; ordinary detail does not inspect
 output bytes or audit the tamper-evident history.
+
+## Approve One Local Task
+
+```bash
+./bin/palari approve WORK-0001 --as HUMAN-FOUNDER --json
+./bin/palari approve WORK-0001 --as HUMAN-FOUNDER \
+  --reason "I inspected the exact reviewed result." --json
+```
+
+This is the ordinary final human action for one R1/R2 reversible local task.
+The caller names only the task and acting declared human. Palari derives a
+singleton Approval Pack and canonical presentation internally, verifies the
+current journal, exact output, run record, checks, bound independent review,
+human capability, actor separation, and effective final approval count, then
+revalidates the state before mutation. For review-required work, that effective
+count is at least one even if the stored numeric count is zero. Approval, its
+acceptance record, and local completion share the existing crash-safe history
+transaction.
+
+The command does not perform an external action, relax the task policy, create
+a review, add a missing vote, or accept external, irreversible, individual-only,
+or multi-approval work that one vote cannot complete. A repeated invocation by
+the same human for the exact already-completed decision reports a no-op instead
+of duplicating authority. Stale proof, changed artifacts, invalid history,
+identity collisions, and ambiguous selection return structured JSON with a
+stable error code and next safe action.
+
+The human handoff shows the concise current presentation and emits an exact,
+explicit-workspace `approve ... --presented DIGEST` action for each viable
+qualified human. The binding is inserted by Palari; the person runs the command
+without copying it. If state changed after the handoff, the action fails with
+`APPROVAL_STATE_CHANGED`. A manually entered command without `--presented`
+derives current state at invocation and is not bound to an earlier handoff.
+Agents may present the exact action, but supported hooks deny agent execution
+of it. The lower-level pack surface below remains available for batching,
+mixed decisions, explicit recovery, and other advanced workflows.
 
 ## Approve Or Reject An Approval Pack
 
@@ -293,16 +337,17 @@ forbidden actions.
 ./bin/palari review record REVIEW-0001-PALARI --work-item-id WORK-0001 --reviewed-head HEAD --reviewer PALARI-REVIEWER --verdict accept-ready --json
 ```
 
-`review guide` is read-only. It assembles the selected task, project, agent,
+`review guide` v2 is read-only. It assembles the selected task, project, agent,
 run, check results, run record, changed files, suggested review focus,
-eligible advisory reviewers, possible review results, and a neutral
-review-record command template. Human candidates come from the project.
-Agent candidates must be distinct from the builder, linked to the work goal,
-and allowed for every selected source. Each candidate includes a ready-to-edit
-`review record` command with `VERDICT` and `REVIEW-ID` placeholders. A Palari
-review result is advisory and never counts as a required human approval. The
-guide itself does not record a result, approve work, change history, or replace
-human judgment.
+eligible advisory reviewers, possible review results, and concrete exact
+commands. Human candidates come from the project. Agent candidates must be
+distinct from the builder, linked to the work goal, and allowed for every
+selected source. Each candidate receives one deterministic, binding-derived
+`review record` action per supported verdict. These actions are executable
+against the state that produced the guide. The retained `REVIEW-ID`/`VERDICT`
+template is explicitly non-executable. A Palari review result is advisory and
+never counts as a required human approval. The guide itself does not record a
+result, approve work, change history, or replace human judgment.
 
 `review record` is the explicit write path for a review result. Use it only
 after inspecting the check results and run record. Agent reviewers must first
@@ -392,7 +437,8 @@ human answers.
 These low-level commands exist for explicit workspace repair, audit fixture
 construction, and deterministic recovery. They are not the ordinary agent or
 operator path. Agents derive check results with `agent advance`; humans provide
-approval only through the exact Approval Inbox action.
+ordinary one-task approval through `approve`. The exact Approval Inbox action
+remains the advanced and batched surface.
 
 ```bash
 ./bin/palari attempt closeout ATTEMPT-0001 --head-sha HEAD --cleanliness clean --changed docs/output.md
@@ -706,11 +752,16 @@ identifies a human review or decision step. It returns the compact finish
 summary plus relevant review-guide or decision-guide context, separates
 agent-safe read commands from human action commands, and does not change the
 workspace. For an eligible local approval with valid journal continuity, it
-exposes the exact one-action Approval Pack command. Legacy, invalid-journal, or
-non-batchable states stay blocked and expose no raw human-decision fallback. It
-excludes the current builder and reviewer from approval candidates. `agent next`
-and review-bound `agent finish` prefer this command before lower-level
-direct guide commands.
+shows the current singleton presentation and exposes one exact
+`palari --workspace PATH approve WORK-ID --as HUMAN-ID --presented DIGEST
+--json` action per viable qualified human. The digest is machine-supplied; it
+is not a copied argument. The advanced presentation-bound pack actions remain
+in the nested pack context and Approval Inbox. Legacy, invalid-journal,
+non-batchable, or
+authority-infeasible states stay blocked and expose no raw human-decision
+fallback. The authority plan excludes the current builder and reviewer from
+approval candidates. `agent next` and review-bound `agent finish` prefer this
+command before lower-level direct guide commands.
 
 `agent doctor` is read-only and explains why one task is or is not safe for an
 agent right now. It summarizes task-brief readiness, completion checks, missing
@@ -727,7 +778,10 @@ Palari-managed Git work. `--dry-run` derives an ordered, content-addressed plan
 without running verification or changing state. Execution derives the complete
 assignment-start commit range, checks the task-brief boundary, runs built-in
 argument-vector profiles (never task prose), and binds passing results to the
-exact head, profile, source state, interpreter, and platform. It then rechecks the plan and
+exact head, profile, source state, interpreter, and platform. R1 uses
+`git --literal-pathspecs diff --check BASE HEAD -- CHANGED_PATHS`; higher risk
+tiers retain their complete/install/documentation profiles. It then rechecks
+the plan and
 commits the run, run record, check results, and closeout as one tamper-evident
 history transaction. Current exact passing checks are mandatory for every
 completion.
@@ -1181,7 +1235,8 @@ Important boundaries:
 - `--host` values outside localhost print a warning because this v1 server has
   no login/auth layer.
 - Tasks needing human approval are read-only in Mission Control. A qualified
-  human uses the exact presentation-bound action emitted by `queue --approval-inbox`;
+  human runs the exact presentation-bound `approve` command emitted by the
+  inspected handoff, or intentionally uses the advanced Approval Inbox action;
   Mission Control exposes no raw decision-record endpoint or form.
 - Mutating requests require a per-session CSRF token embedded in the page.
 - Integration-plan decisions go through the guarded integration service,
@@ -1237,7 +1292,10 @@ Use `--set FIELD=VALUE` for scalar fields and `--list FIELD=A,B,C` for list
 fields. The authoring surface is intentionally simple and dependency-free.
 
 Raw `human-decision` authoring is not the supported approval path; ordinary
-human approval uses the exact command emitted by `queue --approval-inbox`.
+one-task human approval runs the presentation-bound `palari approve` command
+emitted by handoff. A manually typed bare form derives current state at
+invocation. The Approval Inbox emits the advanced presentation-bound pack
+command.
 When an expert uses the parked commands for recovery, accepted decisions still
 fail closed if:
 

@@ -203,6 +203,106 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
         self.assertIn("agent doctor", result.blockers[0].next_command)
 
+    def test_accept_ready_review_cannot_consume_the_only_human_approver(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+
+            result = _check_review(
+                _workspace(raw, root),
+                reviewer="HUMAN-OWNER",
+                verdict="accept-ready",
+            )
+
+        self.assertFalse(result.ok)
+        blocker = next(
+            item
+            for item in result.blockers
+            if item.code == "REVIEWER_EXHAUSTS_APPROVERS"
+        )
+        self.assertIn("0/1", blocker.message)
+        self.assertIn("final approval", blocker.message)
+        self.assertEqual(len(result.next_allowed_commands), 1)
+        self.assertIn("review guide WORK-1 --json", result.next_allowed_commands[0])
+        self.assertNotIn("REVIEW-ID", result.next_allowed_commands[0])
+
+    def test_acceptance_transitions_reject_the_exact_human_reviewer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            _add_bound_review(raw, root, reviewer="HUMAN-OWNER")
+            workspace = _workspace(raw, root)
+
+            cases = (
+                (
+                    "human_decision_accept",
+                    "DECISION-NEW",
+                    {
+                        "work_item_id": "WORK-1",
+                        "reviewed_head": "head-1",
+                    },
+                ),
+                (
+                    "work_accept",
+                    "WORK-1",
+                    {"reviewed_head": "head-1"},
+                ),
+            )
+            for transition, target_id, context in cases:
+                with self.subTest(transition=transition):
+                    result = check_transition(
+                        workspace,
+                        transition,
+                        target_id,
+                        actor="HUMAN-OWNER",
+                        context=context,
+                    )
+                    self.assertIn(
+                        "HUMAN_IS_REVIEWER",
+                        {blocker.code for blocker in result.blockers},
+                    )
+
+    def test_acceptance_rejects_a_human_who_built_the_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            raw["attempts"][0]["actor"] = "HUMAN-OWNER"
+            raw["receipts"] = [
+                stamp_receipt_record(
+                    {
+                        "id": "RECEIPT-1",
+                        "work_item_id": "WORK-1",
+                        "attempt_id": "ATTEMPT-1",
+                        "actor": "HUMAN-OWNER",
+                        "sources_used": ["SOURCE-1"],
+                        "actions_taken": ["created bounded local summary"],
+                        "outputs_created": ["notes/summary.md"],
+                        "external_writes": [],
+                        "not_done": ["No external writes."],
+                        "undo_refs": ["delete notes/summary.md"],
+                        "timestamp": "2026-07-18T00:01:00Z",
+                    },
+                    [],
+                )
+            ]
+            _add_exact_evidence(raw, root)
+            _add_bound_review(raw, root)
+
+            result = check_transition(
+                _workspace(raw, root),
+                "work_accept",
+                "WORK-1",
+                actor="HUMAN-OWNER",
+                context={"reviewed_head": "head-1"},
+            )
+
+        self.assertIn(
+            "HUMAN_IS_BUILDER",
+            {blocker.code for blocker in result.blockers},
+        )
+
     def test_review_authority_enforces_identity_independence_and_source_scope(self) -> None:
         raw = _review_required_data()
         with tempfile.TemporaryDirectory() as directory:
@@ -506,7 +606,12 @@ def _add_exact_evidence(raw: dict[str, Any], root: Path) -> dict[str, Any]:
     return evidence
 
 
-def _add_bound_review(raw: dict[str, Any], root: Path) -> dict[str, Any]:
+def _add_bound_review(
+    raw: dict[str, Any],
+    root: Path,
+    *,
+    reviewer: str = "PALARI-REVIEWER",
+) -> dict[str, Any]:
     workspace = _workspace(raw, root)
     binding, errors = current_review_binding(
         workspace,
@@ -519,7 +624,7 @@ def _add_bound_review(raw: dict[str, Any], root: Path) -> dict[str, Any]:
         "id": "REVIEW-1",
         "work_item_id": "WORK-1",
         "reviewed_head": "head-1",
-        "reviewer": "PALARI-REVIEWER",
+        "reviewer": reviewer,
         "verdict": "accept-ready",
         "timestamp": "2026-07-18T00:02:30Z",
         **binding,

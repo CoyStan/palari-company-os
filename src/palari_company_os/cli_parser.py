@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Make AI work reviewable with clear limits, recorded checks, and human approval.",
         epilog=(
             "Ordinary journey: init -> work add -> agent start --next -> agent advance -> "
-            "review -> queue --approval-inbox -> proof verify.\n"
+            "review -> approve -> proof verify.\n"
             "Additional expert and recovery commands remain available through direct --help."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -88,6 +88,30 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    approve_parser = subparsers.add_parser(
+        "approve",
+        help="Approve and complete one current reversible local task.",
+    )
+    approve_parser.add_argument("work_id", help="Task id.")
+    approve_parser.add_argument(
+        "--as",
+        dest="human_id",
+        required=True,
+        help="Acting human id.",
+    )
+    approve_parser.add_argument(
+        "--reason",
+        default="",
+        help="Optional human rationale retained in governance history.",
+    )
+    approve_parser.add_argument(
+        "--presented",
+        default="",
+        metavar="DIGEST",
+        help=argparse.SUPPRESS,
+    )
+    approve_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     queue_parser = subparsers.add_parser("queue", help="Show tasks needing attention.")
     queue_parser.add_argument(
@@ -238,7 +262,17 @@ def build_parser() -> argparse.ArgumentParser:
 def _focus_default_help(subparsers: Any) -> None:
     """Keep expert commands parseable while making the ordinary journey obvious."""
 
-    ordinary = ("init", "work", "agent", "queue", "detail", "proof", "validate", "docs")
+    ordinary = (
+        "init",
+        "work",
+        "agent",
+        "approve",
+        "queue",
+        "detail",
+        "proof",
+        "validate",
+        "docs",
+    )
     actions = {action.dest: action for action in subparsers._choices_actions}
     subparsers._choices_actions = [actions[name] for name in ordinary]
 
@@ -1244,7 +1278,10 @@ def _add_work_parser(subparsers: Any) -> None:
         "--as",
         dest="palari_id",
         default="",
-        help="Acting agent id. Defaults to the workspace's only agent.",
+        help=(
+            "Acting agent id. Defaults to the project's sole "
+            "execute-authorized agent."
+        ),
     )
     add.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
     add.add_argument(

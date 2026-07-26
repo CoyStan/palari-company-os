@@ -72,19 +72,30 @@ It then completes eligible low-risk work or stops at independent review, human
 approval, an external action, or a concrete blocker. Neither command creates an
 independent review result or approval/rejection record (`human_decision`).
 
-After a separate current review, a qualified person uses one inbox and one
-exact action:
+After the builder stops at review, a distinct review-only agent inspects the
+current proof and records an advisory result. Palari rejects a reviewer choice
+that would leave too few distinct qualified final approvers. After that review,
+the human handoff presents the exact current task and a qualified person takes
+one ordinary, presentation-bound action:
 
 ```bash
-palari queue --approval-inbox --json
-# inspect the emitted presentation, then run its exact
-# `palari human-decision pack ...` command once
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact emitted human_action_commands[].command.
 ```
 
-The action is tied to the exact pack and presentation digests. Stale check
-results, missing required approvals, individual-only work, and external actions
-remain blocked with a clear owner and next step. Review and final approval stay
-attributable to different actors.
+The emitted `approve` command contains a machine-supplied presentation binding;
+no record ID or digest is copied. It rechecks the current output, run record,
+checks, review, journal, qualified actor, and effective final approval count
+before its crash-safe decision-and-completion transaction. Review-required
+work has an effective final count of at least one even if its stored numeric
+count is zero; only the narrow automatic R1 exemption remains zero. Stale check
+results, changed artifacts, missing required approvals, identity collisions,
+individual-only work, and external actions remain blocked with a clear owner
+and next step. Review and final approval stay attributable to different actors.
+
+`queue --approval-inbox` and its digest-bound `human-decision pack` actions
+remain available when a person intentionally uses the advanced or batched
+surface.
 
 ## Stop Safely
 
@@ -145,7 +156,9 @@ reference lists them separately.
 Supported agent hooks may prepare a proposed task or ask a person to expand a
 task's limits. They cannot create runs, run records, check results, reviews,
 approvals, human decisions, or results directly. `agent advance` derives the
-agent's records and, when needed, the exact Approval Inbox action for a person.
+agent's records and, when needed, the review or human handoff. Hooks deny both
+the simple `approve` command and lower-level human-decision commands when they
+are recognized in an agent session.
 
 Every successful completion uses the same shared rules and checks: check
 results must be complete and current, output and task-rule bindings must match,

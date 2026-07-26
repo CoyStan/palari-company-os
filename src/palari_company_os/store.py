@@ -79,6 +79,7 @@ def write_store(
     metadata: Any | None = None,
     event_kind: str = "mutation",
     crash_hook: Any | None = None,
+    prewrite_check: Any | None = None,
 ) -> Workspace:
     if has_collection_files(store.data):
         raise WorkspaceError(
@@ -125,6 +126,7 @@ def write_store(
                     event_kind="checkpoint",
                     coverage="complete",
                     crash_hook=crash_hook,
+                    prewrite_check=prewrite_check,
                 )
             else:
                 transact(
@@ -135,6 +137,7 @@ def write_store(
                     apply=lambda: _atomic_replace_text(store.data_path, text),
                     event_kind=event_kind,
                     crash_hook=crash_hook,
+                    prewrite_check=prewrite_check,
                 )
         except JournalError as exc:
             next_action = f"; next: {exc.next_action}" if exc.next_action else ""

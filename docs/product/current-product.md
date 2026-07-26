@@ -79,16 +79,49 @@ external action, or a concrete blocker. If work is interrupted, `agent release`
 records the blocker and next safe action before releasing the assignment.
 Inspection helpers exist for recovery; they are not mandatory ceremony.
 
-An independent reviewer inspects the exact check results and records a separate
-review result. When human approval is required, a qualified human uses:
+Initialization creates a distinct review-only agent for the starter goal. It
+may inspect the exact review-mode task brief and record an advisory result, but
+it is not execution-capable through the workbench and has no human authority.
+Before execution and again before review, Palari derives an authority plan so a
+reviewer cannot consume the only qualified final approver.
+
+After the independent reviewer records the exact result, the human handoff
+shows the current presentation and an exact presentation-bound action. For one
+reversible local task whose effective final approval count can be completed by
+one person, the human runs the emitted command. Its readable form begins:
 
 ```text
-palari queue --approval-inbox --json
+palari approve WORK-ID --as HUMAN-ID --json
 ```
 
-The human inspects the exact presentation and runs its one digest-bound action.
-An agent may display that action, but cannot execute it, create the review
-result, or manufacture approval.
+Palari appends the presentation binding to that command; the person does not
+copy proof or presentation digests. It rechecks the artifact, evidence, review,
+journal, capability, effective final count, and exact state, and records
+approval plus local completion in one transaction. For review-required work,
+the effective final count is at least one even when the stored numeric count is
+zero. The sole exception is R1/light/zero-count work with no external effects.
+An agent may display the human action, but cannot execute it, create a human
+decision, or manufacture approval.
+
+`queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
+for batching, mixed decisions, and explicit recovery. They emit executable
+commands only for viable named human actors. Current machine outputs are
+Approval Inbox v2, Approval Pack v3 (with a v2 reader), and Review Guide v2.
+
+### Single-maintainer interaction measurement
+
+The reproduced legacy path took four post-build governance commands to reach
+the guaranteed failure (review guide, human review record, Approval Inbox, and
+the emitted pack action). Recovery then required at least five more
+role/review/presentation interactions before asking the founder again. That is
+a lower bound of nine post-build interactions and three human authority
+invocations: review, failed approval, and repeated approval.
+
+The converged path takes four post-build commands: start the review-only agent,
+run one concrete review verdict action, inspect its handoff, and run the exact
+human approval action. Only the last command is human authority. Including
+builder start and advance, the ordinary task lifecycle is five agent commands
+and one human command. No opaque ID or digest is copied.
 
 ## Supported verification and storage
 
@@ -122,6 +155,12 @@ A full history audit is explicit. Ordinary `queue`, `detail`, and `state`
 commands translate recorded data into status views; they do not re-read output
 bytes or scan all history. Commands that change trusted state and explicit
 Approval Inbox or handoff steps perform the required current verification.
+
+Palari's own source-maintenance exception and the not-yet-implemented ignored
+live-state profile are documented in
+[Self-Hosting Maintainer Mode](self-hosting-maintainer-mode.md). The current
+product does not yet claim that live dogfood governance can remain isolated
+while this source checkout stays clean.
 
 The only supported historical inputs are those proven by committed data:
 

@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .authority_plan import build_authority_plan
 from .governance_kernel import (
     EXTERNAL_WRITE_ACTIONS,
     TERMINAL_WORK_STATUSES,
@@ -51,6 +52,18 @@ def build_agent_brief(
         return _finalize_packet(packet, blockers)
 
     work_detail = detail(workspace, work.id)
+    current_attempt = work_detail.get("attempt") or {}
+    authority_plan = build_authority_plan(
+        workspace,
+        work.id,
+        builder_id=(
+            palari_id
+            if mode == "execute"
+            else str(current_attempt.get("actor", ""))
+        ),
+        reviewer_id=palari_id if mode == "review" else "",
+    )
+    work_detail = _effective_approval_projection(work_detail, authority_plan)
     review_context = (
         _review_context(workspace, work.id, mode)
         if mode == "review"
@@ -58,7 +71,14 @@ def build_agent_brief(
         else None
     )
     blockers.extend(
-        _work_blockers(workspace, work_detail, palari_id, mode, review_context)
+        _work_blockers(
+            workspace,
+            work_detail,
+            palari_id,
+            mode,
+            review_context,
+            authority_plan,
+        )
     )
     status = "blocked" if blockers else "ready"
     proof_state = _proof_state(work_detail)
@@ -84,8 +104,9 @@ def build_agent_brief(
             "required_output": _required_output(work_detail["work_item"], mode),
             "completion_contract": _completion_contract(work_detail, mode),
             "stop_conditions": _stop_conditions(work_detail, status, mode),
-            "state": _state_packet(work_detail),
+            "state": _state_packet(work_detail, status, blockers),
             "proof_state": proof_state,
+            "authority_plan": authority_plan,
             "documentation_state": docs_state,
             "recommended_docs": recommended_docs_for_work(work_detail, workspace.path),
             "next_allowed_commands": _next_allowed_commands(
@@ -155,10 +176,12 @@ def _work_blockers(
     palari_id: str,
     mode: str,
     review_context: dict[str, Any] | None = None,
+    authority_plan: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     work = work_detail["work_item"]
     workbench = work_detail["workbench"]
+    attention = work_detail["attention"]
     assigned = work.get("palari") == palari_id
     allowed_by_workbench = bool(workbench and palari_id in workbench.get("palari_ids", []))
     reviewer_ids = {
@@ -166,8 +189,16 @@ def _work_blockers(
         for candidate in (review_context or {}).get("reviewer_candidates", [])
         if candidate.get("identity_type") == "palari"
     }
+    current_review = work_detail.get("review") or {}
+    recorded_current_reviewer = bool(
+        mode == "review"
+        and attention == "needs-human-decision"
+        and current_review.get("reviewer") == palari_id
+    )
     assigned_for_mode = (
-        palari_id in reviewer_ids if mode == "review" else assigned or allowed_by_workbench
+        palari_id in reviewer_ids or recorded_current_reviewer
+        if mode == "review"
+        else assigned or allowed_by_workbench
     )
     if not assigned_for_mode:
         missing = (
@@ -184,6 +215,28 @@ def _work_blockers(
         )
 
     if mode == "execute":
+        if (
+            authority_plan
+            and authority_plan["requires_review"]
+            and not authority_plan["viable"]
+        ):
+            blockers.append(
+                _blocker(
+                    str(
+                        authority_plan["code"]
+                        or "AUTHORITY_PLAN_UNSATISFIABLE"
+                    ),
+                    (
+                        f"{authority_plan['message']} Smallest safe correction: "
+                        f"{authority_plan['smallest_correction']}"
+                    ).strip(),
+                    missing=(
+                        "viable independent reviewer and qualified human approver"
+                        if authority_plan["requires_human_approval"]
+                        else "viable independent reviewer"
+                    ),
+                )
+            )
         for dependency in work_detail["dependencies"]:
             if dependency.get("status") not in TERMINAL_WORK_STATUSES:
                 blockers.append(
@@ -232,7 +285,6 @@ def _work_blockers(
                 )
             )
 
-    attention = work_detail["attention"]
     if mode == "review":
         if attention == "needs-review":
             if work_detail.get("evidence") is None:
@@ -302,6 +354,64 @@ def _work_blockers(
             )
         )
     return blockers
+
+
+def _effective_approval_projection(
+    work_detail: dict[str, Any],
+    authority_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Project the effective approval floor without rewriting durable policy."""
+
+    work = work_detail["work_item"]
+    safety = work_detail["safety"]
+    effective_count = int(
+        authority_plan.get("effective_final_approval_count", 0)
+    )
+    declared_count = int(authority_plan.get("required_approval_count", 0))
+    current_count = _approval_progress_current(
+        str(safety.get("approval_progress", ""))
+    )
+    reviewed_nonterminal_candidate = bool(
+        work_detail.get("attention") == "ready-to-complete"
+        and str(work.get("status", "")) not in TERMINAL_WORK_STATUSES
+        and work_detail.get("review") is not None
+        and safety.get("review_state") == "accept-ready"
+    )
+    if not (
+        authority_plan.get("requires_review")
+        and effective_count > declared_count
+        and current_count < effective_count
+        and reviewed_nonterminal_candidate
+    ):
+        return work_detail
+
+    projected = dict(work_detail)
+    projected["attention"] = "needs-human-decision"
+    projected["why"] = (
+        "Review is accept-ready, but effective final approval quorum is "
+        f"incomplete ({current_count}/{effective_count})."
+    )
+    projected["next_action"] = (
+        "Collect the required current decision from a qualified human."
+    )
+    projected["next_step_type"] = "human-decision"
+    projected["safety"] = {
+        **safety,
+        "ai_safe_to_proceed": False,
+        "waiting_on_human": True,
+        "integration_state": "not-ready",
+        "approval_progress": f"{current_count}/{effective_count}",
+        "acceptance_state": "pending",
+    }
+    return projected
+
+
+def _approval_progress_current(progress: str) -> int:
+    try:
+        current, _ = progress.split("/", 1)
+        return max(0, int(current))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _finalize_packet(packet: dict[str, Any], blockers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -519,6 +629,16 @@ def _path_intents(work: dict[str, Any]) -> list[dict[str, str]]:
 
 def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, Any]:
     if mode == "review":
+        if work_detail["attention"] == "needs-human-decision":
+            return {
+                "requires_receipt": True,
+                "requires_evidence": True,
+                "requires_review": True,
+                "requires_human_decision": True,
+                "external_writes_allowed": False,
+                "external_write_actions": [],
+                "review_mode": True,
+            }
         return {
             "requires_receipt": False,
             "requires_evidence": True,
@@ -568,13 +688,25 @@ def _stop_conditions(work_detail: dict[str, Any], status: str, mode: str) -> lis
     return conditions
 
 
-def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
+def _state_packet(
+    work_detail: dict[str, Any],
+    status: str,
+    blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    safety = dict(work_detail["safety"])
+    next_action = work_detail["next_action"]
+    next_step_type = work_detail["next_step_type"]
+    if status == "blocked" and safety.get("ai_safe_to_proceed"):
+        safety["ai_safe_to_proceed"] = False
+        next_step_type = "blocked"
+        if blockers:
+            next_action = str(blockers[0].get("message") or next_action)
     return {
         "attention": work_detail["attention"],
         "why": work_detail["why"],
-        "next_action": work_detail["next_action"],
-        "next_step_type": work_detail["next_step_type"],
-        "safety": work_detail["safety"],
+        "next_action": next_action,
+        "next_step_type": next_step_type,
+        "safety": safety,
         "active_parallel_attempts": work_detail["active_parallel_attempts"],
         "coordination_warnings": work_detail["coordination_warnings"],
     }

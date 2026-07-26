@@ -41,9 +41,12 @@ one ready brief and lock. It does not infer new permission or silently choose
 blocked work. Use explicit `start WORK-ID --isolate` when a committed task
 needs its own deterministic branch and worktree.
 
-For first adoption in a Git worktree, `palari init` writes only missing
-agent-ready guidance and makes one path-limited local commit of the new local
-rules file plus those generated docs. Add `--host claude` or `--host codex` to
+For first adoption in a Git worktree, `palari init` declares one builder and a
+second review-only Palari, writes only missing agent-ready guidance, and makes
+one path-limited local commit of the new local rules file plus those generated
+docs. The reviewer is linked to the starter goal and source but is not in the
+execution workbench; it cannot build, provide human approval, broaden scope, or
+perform external writes. Add `--host claude` or `--host codex` to
 install the portable session rules, task-lock-bound Git check, and the
 selected tested repository-local host hooks in the same anchored action. Existing
 guidance, host configuration, and unrelated staged or unstaged paths are
@@ -73,17 +76,28 @@ The ordinary loop is deliberately short:
    task lock started, checks
    exact create/modify/delete intent, runs fixed verification profiles, and
    atomically records the run, run record, check results, and closeout state.
+   R1 uses exact base-to-head `git diff --check` over the changed paths; task
+   prose is never executed as a check.
    It stops at independent review, human approval, external state, or a
    concrete blocker; it never creates a review or a person's decision. Every
    completion requires current, passing checks tied to the exact version. Only
    R1/light work with zero required approvals and no allowed, planned, queued,
    or actual external writes may complete without independent review and human
    approval.
-3. Follow the one command returned at that boundary. After a separate current
-   review, a qualified human opens `palari queue --approval-inbox --json`,
-   inspects the exact presentation, and may run its bound `human-decision pack`
-   command once. Existing permission can trigger only deterministic local
-   terminal bookkeeping.
+3. Follow the one command returned at that boundary. A distinct eligible
+   reviewer starts the task in `--mode review`, inspects its read-only brief,
+   and records an advisory result tied to the exact candidate. The local review
+   assignment lets supported hooks bind the review command to that reviewer
+   and task. Palari rejects that reviewer before recording if the choice would
+   leave too few qualified final approvers.
+4. After the separate current review, the human handoff shows the concise
+   presentation and an exact command. A qualified human runs that emitted
+   `palari approve ... --presented DIGEST` action once; the binding is supplied
+   by Palari, not copied. Palari revalidates exact proof before deterministic
+   local approval-and-completion bookkeeping. A bare command derives current
+   state at invocation and is not bound to an earlier handoff. The Approval
+   Inbox and digest-bound pack commands remain available for advanced or
+   batched use.
 
 `agent advance` is the sole current run-to-verification and closeout path. Use
 `agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
@@ -114,8 +128,10 @@ silently claims continuity for earlier history.
 For independent inspection work, use `--mode review` after a task is in
 `needs-review`. The task brief is read-only with respect to outputs. It
 includes the review focus, run, check results, run record, suggested review
-results, and eligible reviewers. A matching agent reviewer may record only its
-advisory result; it cannot create human approval.
+results, the deterministic authority plan, viable reviewers, rejected
+reviewers with smallest safe corrections, and the qualified human approvers
+left by each choice. A matching agent reviewer may record only its advisory
+result; it cannot create human approval.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 
@@ -211,6 +227,9 @@ Common blocker codes include:
 - `WORK_CLOSED`
 - `INTEGRATION_BOUNDARY`
 - `REVIEW_REQUIRED`
+- `REVIEWER_ROLE_MISSING`
+- `REVIEWER_EXHAUSTS_APPROVERS`
+- `APPROVER_ROLE_MISSING`
 
 ## Boundaries
 
@@ -225,6 +244,7 @@ Agents must never:
 - create durable memory without a future approved memory contract
 - treat an informal source as policy
 - bypass approval, review, run-record, check-result, or permission boundaries
+- run `palari approve` or a lower-level human-decision command
 
 ## Current Boundaries
 
@@ -460,7 +480,8 @@ complete.
 
 When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes
-review focus, run-record limits, and ready-to-edit review record commands.
+review focus, run-record limits, and concrete exact review record commands for
+each supported verdict. Placeholder templates are explicitly non-executable.
 Decision handoffs point to `decision guide`, which includes suggested decision
 update commands. The agent still does not record those human actions itself.
 

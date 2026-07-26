@@ -356,6 +356,38 @@ class VerificationAttestationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    def test_r1_profile_is_shell_free_and_exact_git_range_bound(self) -> None:
+        profile = verification_profiles(
+            "R1",
+            ["docs/a path.md", "README.md", "README.md"],
+            base_sha="base-sha",
+            head_sha="head-sha",
+        )[0]
+        changed_head = verification_profiles(
+            "R1",
+            ["README.md", "docs/a path.md"],
+            base_sha="base-sha",
+            head_sha="other-head",
+        )[0]
+
+        self.assertEqual(profile.id, "diff-check")
+        self.assertEqual(
+            profile.argv,
+            (
+                "git",
+                "--literal-pathspecs",
+                "diff",
+                "--check",
+                "base-sha",
+                "head-sha",
+                "--",
+                "README.md",
+                "docs/a path.md",
+            ),
+        )
+        self.assertNotIn("scripts/verification_profiles.py", profile.argv)
+        self.assertNotEqual(profile.digest, changed_head.digest)
+
     def test_matching_advisory_pass_is_reverified(self) -> None:
         first_runner = Mock(
             return_value=subprocess.CompletedProcess(self.profile.argv, 0, b"ok", b"")

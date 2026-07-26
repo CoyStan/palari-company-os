@@ -35,6 +35,13 @@ AUTOMATIC_BLOCKERS = {
     "ACCEPTANCE_PROJECTION_PENDING",
     "TERMINALIZATION_PENDING",
 }
+AUTHORITY_BLOCKERS = {
+    "APPROVER_ROLE_MISSING",
+    "AUTHORITY_PLAN_UNSATISFIABLE",
+    "BUILDER_ROLE_MISSING",
+    "REVIEWER_MISSING",
+    "REVIEWER_ROLE_MISSING",
+}
 
 
 def compile_agent_directive(
@@ -328,6 +335,8 @@ def _finish_status(
         return "converge-ready"
     if can_finish:
         return "ready-to-report"
+    if set(blocker_codes) & AUTHORITY_BLOCKERS:
+        return "blocked"
     if handoff_ready:
         return "handoff-ready"
     if missing_proof:
@@ -352,7 +361,7 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
+    handoff_command = _agent_handoff_command(check, work_id, palari_id)
     review_command = f"palari review guide {work_id} --json"
     review_needed = (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
@@ -377,7 +386,7 @@ def _handoff_guidance(
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
+    handoff_command = _agent_handoff_command(check, work_id, palari_id)
     if (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
     ) and review_prerequisites_met(check):
@@ -386,7 +395,7 @@ def _handoff_guidance(
                 "code": "REVIEW_HANDOFF",
                 "message": (
                     "Use agent handoff to inspect the run record, checks, and "
-                    "ready-to-edit review commands."
+                    "concrete packet-bound review commands."
                 ),
                 "command": handoff_command,
                 "guide_command": f"palari review guide {work_id} --json",
@@ -423,6 +432,19 @@ def _first_decision_command(check: dict[str, Any]) -> str:
             return command
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     return f"palari detail {work_id} --json"
+
+
+def _agent_handoff_command(
+    check: dict[str, Any],
+    work_id: str,
+    palari_id: str,
+) -> str:
+    mode = str(check.get("mode") or "execute")
+    mode_arg = " --mode review" if mode == "review" else ""
+    return (
+        f"palari agent handoff {work_id} --as {palari_id}"
+        f"{mode_arg} --json"
+    )
 
 
 def _is_human_action_command(command: str) -> bool:

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from shlex import quote
 from typing import Any
 
+from .authority_plan import build_authority_plan
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
+from .command_surface import palari_workspace_command
 from .read_models import detail
 from .review_guides import build_review_guide
+from .transition_checks import check_transition
 from .workspace import Workspace, WorkspaceError
 from .workspace_read_models import approval_inbox
 
@@ -190,19 +192,23 @@ def _human_approval_handoff(
     review = payload.get("review") or {}
     attempt = payload.get("attempt") or {}
     required_capability = work.get("required_approval_capability", "")
-    excluded_actors = {
-        str(attempt.get("actor") or ""),
-        str(review.get("reviewer") or ""),
-    }
+    authority_plan = build_authority_plan(
+        workspace,
+        work_id,
+        builder_id=str(attempt.get("actor") or ""),
+        reviewer_id=str(review.get("reviewer") or ""),
+    )
     candidates = _approval_candidates(
         workspace,
-        required_capability,
-        excluded_actors=excluded_actors,
+        authority_plan,
     )
     reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or _attempt_head(attempt)
     approval_pack = _approval_pack_handoff(
         workspace,
         work_id,
+        candidates,
+        authority_plan,
+        str(reviewed_head),
     )
     command = (
         str(approval_pack["inbox_command"])
@@ -219,7 +225,11 @@ def _human_approval_handoff(
         "next_action": payload.get("next_action", ""),
         "approval_progress": payload.get("safety", {}).get("approval_progress", ""),
         "required_approval_count": work.get("required_approval_count", 0),
+        "effective_final_approval_count": authority_plan[
+            "effective_final_approval_count"
+        ],
         "required_approval_capability": required_capability,
+        "authority_plan": authority_plan,
         "reviewed_head": reviewed_head,
         "work_item": _pick(
             work,
@@ -336,10 +346,7 @@ def _human_action_commands(
             )
     if human_approval_handoff is not None:
         approval_pack = human_approval_handoff.get("approval_pack", {})
-        for item in _pack_human_commands(
-            approval_pack,
-            human_approval_handoff.get("approval_candidates", []),
-        ):
+        for item in _pack_human_commands(approval_pack):
             commands.append(
                 {
                     "type": item.get("type", "human-approval-record"),
@@ -413,18 +420,12 @@ def _pick(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
 
 def _approval_candidates(
     workspace: Workspace,
-    required_capability: str,
-    *,
-    excluded_actors: set[str] | None = None,
+    authority_plan: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    excluded = excluded_actors or set()
     candidates: list[dict[str, Any]] = []
-    for human in workspace.humans:
-        if human.id in excluded:
-            continue
-        if human.availability == "inactive":
-            continue
-        if required_capability and required_capability not in human.approval_capabilities:
+    for human_id in authority_plan["qualified_approver_ids"]:
+        human = workspace.human(str(human_id))
+        if human is None:
             continue
         candidates.append(
             {
@@ -441,8 +442,18 @@ def _approval_candidates(
 def _approval_pack_handoff(
     workspace: Workspace,
     work_id: str,
+    candidates: list[dict[str, Any]],
+    authority_plan: dict[str, Any],
+    reviewed_head: str,
 ) -> dict[str, Any]:
-    inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
+    inbox_command = palari_workspace_command(
+        workspace.path,
+        "queue",
+        "--approval-inbox",
+        "--select",
+        work_id,
+        "--json",
+    )
     try:
         inbox = approval_inbox(
             workspace,
@@ -464,8 +475,49 @@ def _approval_pack_handoff(
         None,
     )
     pack = inbox["packs"][0] if inbox["packs"] else None
-    command = inbox["approval_commands"][0] if inbox["approval_commands"] else None
-    available = bool(item and pack and command and item.get("state") == "eligible")
+    presentation = inbox["presentations"][0] if inbox["presentations"] else None
+    candidate_ids = {str(candidate["id"]) for candidate in candidates}
+    commands = [
+        command
+        for command in inbox["approval_commands"]
+        if str(command.get("human_id") or "") in candidate_ids
+        and (pack is None or command.get("pack_id") == pack.get("pack_id"))
+    ]
+    command = commands[0] if commands else None
+    available = bool(
+        authority_plan["viable"]
+        and item
+        and pack
+        and commands
+        and item.get("state") == "eligible"
+    )
+    simple_commands = [
+        {
+            "human_id": str(candidate["id"]),
+            "presentation_digest": str(
+                command.get("presentation_digest", "") if command is not None else ""
+            ),
+            "command": palari_workspace_command(
+                workspace.path,
+                "approve",
+                work_id,
+                "--as",
+                str(candidate["id"]),
+                "--presented",
+                str(command.get("presentation_digest", "") if command is not None else ""),
+                "--json",
+            ),
+        }
+        for candidate in candidates
+        if available
+        and check_transition(
+            workspace,
+            "work_accept",
+            work_id,
+            actor=str(candidate["id"]),
+            context={"reviewed_head": reviewed_head},
+        ).ok
+    ]
     return {
         "available": available,
         "work_item_id": work_id,
@@ -476,34 +528,45 @@ def _approval_pack_handoff(
         "presentation_digest": (
             command.get("presentation_digest", "") if command is not None else ""
         ),
+        "presentation": presentation if presentation is not None else {},
         "item_state": item.get("state", "missing") if item else "missing",
         "reasons": item.get("reasons", []) if item else ["task is not in the inbox"],
+        "approve_eligible_commands": [
+            {
+                "human_id": str(candidate["human_id"]),
+                "command": str(candidate["approve_eligible"]),
+            }
+            for candidate in commands
+        ],
+        "simple_approval_commands": simple_commands,
         "approve_eligible_command": (
             command["approve_eligible"] if command is not None and available else ""
         ),
         "next_safe_action": (
-            "A qualified human may run the exact presentation-bound approve-eligible command once."
+            "A qualified human may run one exact presentation-bound simple approval command once."
             if available
-            else "Repair the listed check or batching blockers, then rebuild the exact Approval Pack."
+            else (
+                str(authority_plan["smallest_correction"])
+                or "Repair the listed check or batching blockers, then rebuild the exact Approval Pack."
+            )
         ),
     }
 
 
 def _pack_human_commands(
     approval_pack: dict[str, Any],
-    candidates: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    command = str(approval_pack.get("approve_eligible_command") or "")
-    if not approval_pack.get("available") or not command:
+    commands = approval_pack.get("simple_approval_commands") or []
+    if not approval_pack.get("available") or not commands:
         return []
     return [
         {
-            "type": "approval-pack",
-            "human_id": str(candidate["id"]),
-            "decision": "approve-eligible",
-            "command": command.replace("HUMAN-ID", quote(str(candidate["id"]))),
+            "type": "simple-approval",
+            "human_id": str(candidate["human_id"]),
+            "decision": "approve",
+            "command": str(candidate["command"]),
         }
-        for candidate in candidates
+        for candidate in commands
     ]
 
 

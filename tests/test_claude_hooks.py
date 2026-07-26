@@ -4,6 +4,8 @@ import contextlib
 import io
 import hashlib
 import json
+import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -33,10 +35,13 @@ from palari_company_os.agent_runtime import (
     _claim_git_lease,
     _create_git_witness,
     _governance_projection_snapshot_digest,
+    start_agent,
 )
 from palari_company_os.agent_session_contract import compile_agent_session_contract
 from palari_company_os.cli_parser import build_parser
+from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace
+from tests.test_approval_packs import make_ready_workspace
 
 
 def _write_hook_workspace(workspace_dir: Path) -> None:
@@ -265,6 +270,60 @@ class PreToolUseTests(unittest.TestCase):
         self.workspace.mkdir()
         _write_hook_workspace(self.workspace)
 
+    def _start_exact_review_claim(self) -> str:
+        (self.workspace / "workspace.json").unlink()
+        workspace_file = make_ready_workspace(self.workspace, count=1)
+        store = load_store(workspace_file)
+        store.data["review_verdicts"] = []
+        store.data["palaris"].append(
+            {
+                "id": "PALARI-REVIEWER",
+                "name": "Reviewer",
+                "role": "Independent reviewer",
+                "owner_human": "HUMAN-PRODUCT",
+                "linked_goals": ["GOAL-1"],
+                "active_work": [],
+            }
+        )
+        goal = store.data["goals"][0]
+        goal["linked_palaris"] = sorted(
+            set(goal.get("linked_palaris", []) + ["PALARI-REVIEWER"])
+        )
+        write_store(store)
+        subprocess.run(
+            ["git", "-C", str(self.repo), "add", "-A"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.repo), "commit", "-qm", "review fixture"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        packet = start_agent(
+            Workspace.load(workspace_file),
+            workspace_file,
+            "WORK-001",
+            "PALARI-REVIEWER",
+            mode="review",
+        )
+        self.assertEqual(packet["status"], "ready")
+        commands = packet["review_context"]["agent_review_commands"]
+        self.assertEqual(len(commands), 4)
+        self.assertTrue(all(item["executable"] for item in commands))
+        self.assertEqual(
+            len({item["review_id"] for item in commands}),
+            len(commands),
+        )
+        command = next(
+            item["command"]
+            for item in commands
+            if item["verdict"] == "accept-ready"
+        )
+        return str(command)
+
     def test_denies_exact_write_outside_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -459,6 +518,35 @@ class PreToolUseTests(unittest.TestCase):
                     bash_human_authority_command(command),
                     "human-decision pack",
                 )
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_simple_approval_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari approve WORK-0001 --as HUMAN-HOOK --json",
+            (
+                "./bin/palari --workspace=workspace.json approve WORK-0001 "
+                "--as=HUMAN-HOOK --json"
+            ),
+            (
+                "git status && palari --workspace workspace.json approve "
+                "WORK-0001 --as HUMAN-HOOK --json"
+            ),
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(bash_human_authority_command(command), "approve")
                 self.assertEqual(_decision(result), "deny")
                 self.assertIn(
                     "human-only",
@@ -1142,6 +1230,183 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(_decision(result), "deny")
         self.assertIn("review-mode", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_exact_review_packet_allows_its_advisory_record_command(self) -> None:
+        command = self._start_exact_review_claim()
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        without_workspace = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": command.replace(
+                    f" --workspace {self.workspace}",
+                    "",
+                    1,
+                )
+            },
+            self.workspace,
+        )
+
+        self.assertEqual(bash_human_authority_command(command), "review record")
+        self.assertEqual(result, {})
+        self.assertEqual(_decision(without_workspace), "deny")
+        env = os.environ.copy()
+        env["PATH"] = f"{REPO_ROOT / 'bin'}:{env.get('PATH', '')}"
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        executed = subprocess.run(
+            shlex.split(command),
+            cwd=self.repo,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(executed.returncode, 0, executed.stderr)
+        recorded = Workspace.load(self.workspace).review_verdicts
+        self.assertEqual(len(recorded), 1)
+
+    def test_review_packet_rejects_commands_outside_its_exact_advisory_surface(
+        self,
+    ) -> None:
+        command = self._start_exact_review_claim()
+        variants = (
+            command.replace("PALARI-REVIEWER", "HUMAN-PRODUCT"),
+            command.replace("WORK-001", "WORK-OTHER"),
+            command.replace("head-001", "another-head"),
+            command.replace(" --json", ""),
+            command.replace(" --json", " --timestamp 2026-01-01T00:00:00Z --json"),
+            command.replace(
+                " --json",
+                " --set reviewer=HUMAN-PRODUCT --json",
+            ),
+            command.replace(
+                " review record REVIEW-",
+                " review record REVIEW-TAMPERED-",
+                1,
+            ),
+            command.replace("accept-ready", "VERDICT"),
+            f"git status && {command}",
+            command.replace("palari ", "./bin/palari ", 1),
+            command.replace(
+                f"--workspace {self.workspace}",
+                "--workspace elsewhere",
+                1,
+            ),
+        )
+
+        for variant in variants:
+            with self.subTest(command=variant):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": variant},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "exact active review packet",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+        update = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    f"palari --workspace {self.workspace.name} review update "
+                    "REVIEW-PALARI-001 --set verdict=blocked --json"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(_decision(update), "deny")
+        self.assertIn(
+            "human-only",
+            update["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_review_record_requires_one_valid_review_mode_claim(self) -> None:
+        command = (
+            f"palari --workspace {self.workspace.name} review record REVIEW-PALARI-001 "
+            "--work-item-id WORK-001 --reviewed-head head-001 "
+            "--reviewer PALARI-REVIEWER --verdict accept-ready --json"
+        )
+        no_claim = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(no_claim), "deny")
+
+        _write_claim_and_packet(
+            self.workspace,
+            work_id="WORK-0001",
+            palari_id="PALARI-SOFIA",
+            mode="execute",
+            allowed_write=["docs/notes.md"],
+        )
+        execute_claim = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    f"palari --workspace {self.workspace.name} review record REVIEW-X "
+                    "--work-item-id WORK-0001 --reviewed-head head "
+                    "--reviewer PALARI-SOFIA --verdict blocked --json"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(_decision(execute_claim), "deny")
+        self.assertIn(
+            "not review-mode",
+            execute_claim["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_multiple_or_tampered_review_claims_cannot_use_the_exception(self) -> None:
+        command = self._start_exact_review_claim()
+        claims = self.workspace / ".palari" / "claims"
+        source_claim = claims / "WORK-001.json"
+        duplicate_claim = claims / "DUPLICATE.json"
+        duplicate_claim.write_bytes(source_claim.read_bytes())
+
+        ambiguous = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(ambiguous), "deny")
+        self.assertIn(
+            "multiple active claims",
+            ambiguous["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+        duplicate_claim.unlink()
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["agent_action_boundary"]["count"] = 5
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+        tampered = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(tampered), "deny")
+        self.assertIn(
+            "active claim context is invalid",
+            tampered["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_path_outside_repo_is_undecided_unless_strict(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])

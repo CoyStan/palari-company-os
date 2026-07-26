@@ -32,6 +32,7 @@ from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_runtime import load_active_claim_contexts
 from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
+from .workspace import Workspace, WorkspaceError
 
 FILE_WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 HOOK_COMMAND_MARKER = "claude hook"
@@ -186,6 +187,7 @@ HUMAN_ONLY_PALARI_COMMANDS = {
     ("work", "accept"),
     ("work", "complete"),
 }
+HUMAN_ONLY_PALARI_ROOT_COMMANDS = {"approve"}
 PACKET_AUTHORITY_PALARI_COMMANDS = {
     (kind, action)
     for kind in (
@@ -526,6 +528,9 @@ def bash_human_authority_command(command: str) -> str:
             continue
         if _is_history_restore(tokens, index):
             return "history --restore"
+        command_key = _palari_command_key(tokens, index)
+        if command_key[0] in HUMAN_ONLY_PALARI_ROOT_COMMANDS:
+            return command_key[0]
         args = tokens[index + 1 :]
         for argument_index in range(len(args) - 1):
             command_key = (args[argument_index], args[argument_index + 1])
@@ -1006,6 +1011,22 @@ def _pre_tool_use(
         command = str(tool_input.get("command", ""))
         authority_command = bash_human_authority_command(command)
         if authority_command:
+            if authority_command == "review record":
+                review_error = _packet_bound_review_record_error(
+                    command,
+                    contexts,
+                    context_errors,
+                    workspace_path,
+                    cwd,
+                )
+                if not review_error:
+                    return {}
+                return _decision(
+                    "deny",
+                    "Palari command `review record` remains human-only unless it "
+                    "matches one exact active review packet: "
+                    + review_error,
+                )
             return _decision(
                 "deny",
                 f"Palari command `{authority_command}` is human-only and cannot run "
@@ -1144,6 +1165,200 @@ def _pre_tool_use(
             f"(claimed by {claim.get('claimed_by', '')}).",
         )
     return {}
+
+
+def _packet_bound_review_record_error(
+    command: str,
+    contexts: list[dict[str, Any]],
+    context_errors: list[str],
+    workspace_path: Path | str,
+    cwd: Path,
+) -> str:
+    """Return why an advisory review command lacks exact packet authority."""
+
+    if context_errors:
+        return "the active claim context is invalid"
+    parsed = _parse_exact_review_record(command)
+    if parsed is None:
+        return "the shell command is not the exact advisory review-record surface"
+    if not _review_command_workspace_matches(
+        str(parsed["workspace"]),
+        cwd,
+        workspace_path,
+    ):
+        return "the command targets another workspace"
+    if len(contexts) != 1:
+        return (
+            "no active review claim exists"
+            if not contexts
+            else "multiple active claims make the reviewer identity ambiguous"
+        )
+    context = contexts[0]
+    claim = context.get("claim")
+    packet = context.get("packet")
+    if not isinstance(claim, dict) or not isinstance(packet, dict):
+        return "the active claim or packet is malformed"
+    if claim.get("mode") != "review" or packet.get("mode") != "review":
+        return "the active claim is not review-mode"
+    if _packet_write_paths(packet):
+        return "the review packet is not read-only"
+    work_id = str(claim.get("work_item") or "")
+    reviewer_id = str(claim.get("claimed_by") or "")
+    if (
+        parsed["work_id"] != work_id
+        or parsed["reviewer"] != reviewer_id
+    ):
+        return "the command work item or reviewer differs from the active claim"
+    try:
+        workspace = Workspace.load(workspace_path)
+    except WorkspaceError:
+        return "the hook workspace cannot be validated"
+    if workspace.palari(reviewer_id) is None:
+        return "the claim actor is not a declared Palari reviewer"
+
+    boundary = packet.get("agent_action_boundary")
+    review_context = packet.get("review_context")
+    commands = (
+        review_context.get("agent_review_commands")
+        if isinstance(review_context, dict)
+        else None
+    )
+    if not isinstance(commands, list):
+        return "the packet has no agent review command"
+    if not isinstance(review_context, dict):
+        return "the packet has no review context"
+    matching = [
+        item
+        for item in commands
+        if isinstance(item, dict)
+        and item.get("reviewer") == reviewer_id
+        and item.get("identity_type") == "palari"
+        and item.get("agent_may_execute") is True
+        and item.get("executable") is True
+        and isinstance(item.get("command"), str)
+    ]
+    if (
+        not isinstance(boundary, dict)
+        or boundary.get("agent_may_execute") is not True
+        or boundary.get("count") != len(matching)
+        or not matching
+        or boundary.get("agent_action_command_fields")
+        != ["review_context.agent_review_commands[].command"]
+    ):
+        return "the packet does not grant its exact concrete advisory review actions"
+    verdicts = review_context.get("suggested_verdicts")
+    if not isinstance(verdicts, list):
+        return "the packet has no supported review verdicts"
+    concrete: list[dict[str, Any]] = []
+    for item in matching:
+        candidate = _parse_exact_review_record(str(item["command"]))
+        if (
+            candidate is None
+            or candidate["work_id"] != work_id
+            or candidate["reviewer"] != reviewer_id
+            or candidate["verdict"] not in verdicts
+            or candidate["verdict"] == "VERDICT"
+            or candidate["review_id"] == "REVIEW-ID"
+            or candidate["json"] is not True
+            or item.get("review_id") != candidate["review_id"]
+            or item.get("verdict") != candidate["verdict"]
+        ):
+            return "the packet contains a malformed concrete review action"
+        concrete.append(candidate)
+    if len({item["review_id"] for item in concrete}) != len(concrete):
+        return "the packet reuses a review id across concrete review actions"
+    if parsed not in concrete:
+        return "the command is not one exact concrete packet-bound review action"
+    return ""
+
+
+def _parse_exact_review_record(command: str) -> dict[str, Any] | None:
+    tokens = _shell_tokens(command)
+    if not tokens or tokens[0] != "palari" or any(
+        token in SHELL_COMMAND_SEPARATORS for token in tokens
+    ):
+        return None
+    index = 1
+    workspace = ""
+    if index < len(tokens) and tokens[index] == "--workspace":
+        if index + 1 >= len(tokens) or not tokens[index + 1]:
+            return None
+        workspace = tokens[index + 1]
+        index += 2
+    elif index < len(tokens) and tokens[index].startswith("--workspace="):
+        workspace = tokens[index].split("=", 1)[1]
+        if not workspace:
+            return None
+        index += 1
+    if tokens[index : index + 2] != ["review", "record"]:
+        return None
+    index += 2
+    if index >= len(tokens) or not tokens[index] or tokens[index].startswith("-"):
+        return None
+    review_id = tokens[index]
+    index += 1
+    values: dict[str, str] = {}
+    json_output = False
+    value_flags = {
+        "--work-item-id": "work_id",
+        "--reviewed-head": "reviewed_head",
+        "--reviewer": "reviewer",
+        "--verdict": "verdict",
+    }
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--json":
+            if json_output:
+                return None
+            json_output = True
+            index += 1
+            continue
+        matched = False
+        for flag, field in value_flags.items():
+            if token == flag:
+                if field in values or index + 1 >= len(tokens):
+                    return None
+                value = tokens[index + 1]
+                if not value or value.startswith("-"):
+                    return None
+                values[field] = value
+                index += 2
+                matched = True
+                break
+            if token.startswith(f"{flag}="):
+                if field in values:
+                    return None
+                value = token.split("=", 1)[1]
+                if not value:
+                    return None
+                values[field] = value
+                index += 1
+                matched = True
+                break
+        if not matched:
+            return None
+    if set(values) != set(value_flags.values()):
+        return None
+    return {
+        "workspace": workspace,
+        "review_id": review_id,
+        **values,
+        "json": json_output,
+    }
+
+
+def _review_command_workspace_matches(
+    declared: str,
+    cwd: Path,
+    workspace_path: Path | str,
+) -> bool:
+    current = workspace_file_path(workspace_path).resolve()
+    if declared:
+        candidate = Path(declared).expanduser()
+        if not candidate.is_absolute():
+            candidate = cwd / candidate
+        return workspace_file_path(candidate).resolve() == current
+    return workspace_file_path(cwd).resolve() == current
 
 
 def _stop(

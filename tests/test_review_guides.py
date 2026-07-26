@@ -15,11 +15,21 @@ from palari_company_os.evidence_manifest import (
     evidence_manifest_hash,
     stamp_receipt_record,
 )
-from palari_company_os.review_guides import build_review_guide
+from palari_company_os.review_guides import (
+    _concrete_review_id,
+    build_review_guide,
+)
 from palari_company_os.workspace import Workspace
 
 
-def _workspace(*, include_evidence: bool = True) -> Workspace:
+def _workspace(
+    *,
+    include_evidence: bool = True,
+    include_reviewer: bool = True,
+    required_approval_count: int = 1,
+    risk: str = "R2",
+    intensity: str = "standard",
+) -> Workspace:
     receipt = stamp_receipt_record(
         {
             "id": "RECEIPT-1",
@@ -130,8 +140,8 @@ def _workspace(*, include_evidence: bool = True) -> Workspace:
                 "goal": "GOAL-1",
                 "palari": "PALARI-BUILDER",
                 "workbench_id": "WORKBENCH-1",
-                "risk": "R2",
-                "intensity": "standard",
+                "risk": risk,
+                "intensity": intensity,
                 "status": "active",
                 "scope": "Modify one declared local output.",
                 "allowed_resources": ["notes/output.md"],
@@ -142,7 +152,7 @@ def _workspace(*, include_evidence: bool = True) -> Workspace:
                 "forbidden_actions": ["external_write"],
                 "acceptance_target": "The local output is inspectable.",
                 "current_attempt": "ATTEMPT-1",
-                "required_approval_count": 1,
+                "required_approval_count": required_approval_count,
                 "required_approval_capability": "product",
             }
         ],
@@ -169,6 +179,14 @@ def _workspace(*, include_evidence: bool = True) -> Workspace:
         "decisions": [],
         "outcomes": [],
     }
+    if not include_reviewer:
+        raw["palaris"] = [
+            palari
+            for palari in raw["palaris"]
+            if palari["id"] != "PALARI-REVIEWER"
+        ]
+        raw["sources"][0]["allowed_palaris"] = ["PALARI-BUILDER"]
+        raw["workbenches"][0]["palari_ids"] = ["PALARI-BUILDER"]
     return Workspace.from_raw(raw, Path("/tmp/palari-review-guide-contract"))
 
 
@@ -183,7 +201,8 @@ class ReviewGuideTests(unittest.TestCase):
     def test_current_exact_proof_yields_read_only_review_guide(self) -> None:
         payload = build_review_guide(_workspace(), "WORK-1")
 
-        self.assertEqual(payload["schema_version"], "palari.review_guide.v1")
+        self.assertEqual(payload["schema_version"], "palari.review_guide.v2")
+        self.assertEqual(payload["guide_id"], "REVIEW-GUIDE-WORK-1-V2")
         self.assertEqual(payload["status"], "review-needed")
         self.assertFalse(payload["would_mutate"])
         self.assertEqual(payload["attempt"]["id"], "ATTEMPT-1")
@@ -191,6 +210,7 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["evidence"]["id"], "EVIDENCE-1")
         self.assertEqual(payload["evidence"]["head_sha"], "head-1")
         self.assertIn("--reviewed-head head-1", payload["review_record_command_template"])
+        self.assertFalse(payload["review_record_command_template_executable"])
 
     def test_attempt_builder_is_not_an_independent_reviewer(self) -> None:
         payload = build_review_guide(_workspace(), "WORK-1")
@@ -198,6 +218,106 @@ class ReviewGuideTests(unittest.TestCase):
 
         self.assertNotIn("PALARI-BUILDER", candidates)
         self.assertIn("PALARI-REVIEWER", candidates)
+
+    def test_reviewer_recommendation_preserves_a_distinct_human_approver(self) -> None:
+        payload = build_review_guide(_workspace(), "WORK-1")
+        candidates = {
+            candidate["id"]: candidate
+            for candidate in payload["reviewer_candidates"]
+        }
+        rejected = {
+            candidate["id"]: candidate
+            for candidate in payload["rejected_reviewer_candidates"]
+        }
+
+        self.assertIn("PALARI-REVIEWER", candidates)
+        self.assertIn("1 distinct qualified human approver", candidates["PALARI-REVIEWER"]["reason"])
+        self.assertEqual(rejected["HUMAN-REVIEWER"]["code"], "REVIEWER_EXHAUSTS_APPROVERS")
+        self.assertIn("0/1", rejected["HUMAN-REVIEWER"]["reason"])
+        self.assertIn("final approval", rejected["HUMAN-REVIEWER"]["smallest_correction"])
+
+    def test_review_required_zero_quorum_reserves_one_final_human(self) -> None:
+        payload = build_review_guide(
+            _workspace(required_approval_count=0),
+            "WORK-1",
+        )
+        plan = payload["authority_plan"]
+        candidates = {
+            candidate["id"]: candidate
+            for candidate in payload["reviewer_candidates"]
+        }
+        rejected = {
+            candidate["id"]: candidate
+            for candidate in payload["rejected_reviewer_candidates"]
+        }
+
+        self.assertEqual(plan["required_approval_count"], 0)
+        self.assertEqual(plan["effective_final_approval_count"], 1)
+        self.assertTrue(plan["requires_review"])
+        self.assertTrue(plan["requires_human_approval"])
+        self.assertIn("PALARI-REVIEWER", candidates)
+        self.assertEqual(
+            rejected["HUMAN-REVIEWER"]["code"],
+            "REVIEWER_EXHAUSTS_APPROVERS",
+        )
+
+    def test_concrete_review_ids_change_with_verdict_and_exact_binding(self) -> None:
+        baseline = _concrete_review_id(
+            "WORK-1",
+            "PALARI-REVIEWER",
+            "accept-ready",
+            "head-1",
+            "sha256:" + ("a" * 64),
+        )
+        changed_verdict = _concrete_review_id(
+            "WORK-1",
+            "PALARI-REVIEWER",
+            "blocked",
+            "head-1",
+            "sha256:" + ("a" * 64),
+        )
+        changed_binding = _concrete_review_id(
+            "WORK-1",
+            "PALARI-REVIEWER",
+            "accept-ready",
+            "head-1",
+            "sha256:" + ("b" * 64),
+        )
+
+        self.assertEqual(len({baseline, changed_verdict, changed_binding}), 3)
+
+    def test_true_low_risk_light_zero_quorum_keeps_automatic_authority(self) -> None:
+        payload = build_review_guide(
+            _workspace(
+                required_approval_count=0,
+                risk="R1",
+                intensity="light",
+            ),
+            "WORK-1",
+        )
+        plan = payload["authority_plan"]
+
+        self.assertFalse(plan["requires_review"])
+        self.assertFalse(plan["requires_human_approval"])
+        self.assertEqual(plan["effective_final_approval_count"], 0)
+
+    def test_impossible_reviewer_approver_plan_is_blocked_with_a_correction(self) -> None:
+        payload = build_review_guide(
+            _workspace(include_reviewer=False),
+            "WORK-1",
+        )
+
+        self.assertEqual(payload["status"], "authority-plan-blocked")
+        self.assertFalse(payload["authority_plan"]["viable"])
+        self.assertEqual(payload["reviewer_candidates"], [])
+        self.assertEqual(payload["review_record_commands"], [])
+        self.assertEqual(payload["review_record_command_template"], "")
+        rejected = {
+            candidate["id"]: candidate
+            for candidate in payload["rejected_reviewer_candidates"]
+        }
+        self.assertEqual(rejected["HUMAN-REVIEWER"]["code"], "REVIEWER_EXHAUSTS_APPROVERS")
+        self.assertIn("Palari reviewer", payload["authority_plan"]["smallest_correction"])
 
     def test_parser_and_dispatch_translate_review_guide_directly(self) -> None:
         workspace = _workspace()

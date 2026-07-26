@@ -18,6 +18,9 @@ names stay exact because this is also a source-code map.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
+- `src/palari_company_os/simple_approval.py`: one-task human approval front
+  door, fail-closed diagnostics, and exact safe-retry validation over the pack
+  transaction.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
   approval view, validation, and exact presentation digest.
 - `src/palari_company_os/checkpoints.py`: content-addressed restore-point
@@ -31,6 +34,8 @@ names stay exact because this is also a source-code map.
   normalization and deterministic PCAW proof export (outside the verifier TCB).
 - `src/palari_company_os/transition_checks.py`: hard checks for trust-changing
   state transitions.
+- `src/palari_company_os/authority_plan.py`: pure builder/reviewer/final-human
+  role feasibility and smallest-correction diagnostics.
 - `src/palari_company_os/authoring.py`: create and update work-process records.
 - `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
   and atomic `work add` quick-create for existing repos.
@@ -71,7 +76,7 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_finish.py`: completion guidance and resolver
   classification.
 - `src/palari_company_os/agent_handoff.py`: read-only human handoff briefs and
-  exact Approval Pack routing when eligible.
+  simple human approval routing plus advanced pack context when eligible.
 - `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
 - `src/palari_company_os/agent_loop.py`: compact loop summary.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
@@ -115,6 +120,9 @@ When adding a command, update parser, dispatch, output, tests, and
   lifecycle, storage, adapters, and compatibility policy.
 - `docs/product/current-product-recovery-inventory.md`: measured recovery
   baseline, capability classifications, and test/CI inventory.
+- `docs/product/self-hosting-maintainer-mode.md`: bounded source-repair
+  exception, current isolation limitation, and the exact ignored-state
+  follow-up design.
 - `docs/agent/`: agent-ready repo documentation.
 - `docs/product/`: current product and operator documentation. Completed
   implementation contracts remain available through Git history rather than as
@@ -123,7 +131,8 @@ When adding a command, update parser, dispatch, output, tests, and
 ## Examples And Workspaces
 
 - `examples/acme-company-os/`: small example workspace.
-- `workspaces/palari-company-os/`: dogfood workspace for this repo.
+- `workspaces/palari-company-os/`: historical, non-live dogfood evidence for
+  this repo; do not use it as live self-hosting state.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.

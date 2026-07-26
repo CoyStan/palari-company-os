@@ -24,7 +24,9 @@ from palari_company_os.governance_journal import (
     verify_workspace_journal,
 )
 from palari_company_os.store import load_store, write_store
+from palari_company_os.simple_approval import SimpleApprovalError, approve_work
 from palari_company_os.workspace import Workspace, WorkspaceError
+from tests.test_approval_packs import InjectedCrash, crash_at, make_ready_workspace
 from tests.workspace_fixture import write_current_agent_workspace
 
 
@@ -46,6 +48,248 @@ PROOF_COLLECTIONS = (
 
 class OperatorJourneyTests(unittest.TestCase):
     """The interruption journey that is not covered by the CLI golden path."""
+
+    def test_simple_approval_completes_only_the_selected_local_task_and_retries(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = make_ready_workspace(
+                Path(directory),
+                count=2,
+                distinct_outputs=True,
+            )
+
+            result = approve_work(
+                str(workspace_file),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+                reason="The exact local output is accepted.",
+            )
+            replay = approve_work(
+                str(workspace_file),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+            )
+            final = load_store(workspace_file)
+            journal = verify_workspace_journal(workspace_file)
+            statuses = {
+                item["id"]: item["status"] for item in final.data["work_items"]
+            }
+
+        self.assertTrue(result["approved"])
+        self.assertTrue(result["completed"])
+        self.assertFalse(result["idempotent"])
+        self.assertFalse(result["performed_external_effects"])
+        self.assertTrue(replay["idempotent"])
+        self.assertEqual(statuses["WORK-001"], "completed")
+        self.assertEqual(statuses["WORK-002"], "in-review")
+        self.assertEqual(len(final.data["human_decisions"]), 1)
+        self.assertEqual(len(final.data["acceptance_records"]), 1)
+        self.assertTrue(journal["chain_valid"])
+        self.assertIsNone(journal["pending"])
+
+    def test_simple_approval_rejects_unqualified_and_reviewer_callers_without_writes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = make_ready_workspace(Path(directory), count=1)
+            before = workspace_file.read_bytes()
+            history_before = journal_file_path(workspace_file).read_bytes()
+
+            with self.assertRaises(SimpleApprovalError) as unqualified:
+                approve_work(
+                    str(workspace_file),
+                    "WORK-001",
+                    "HUMAN-UNQUALIFIED",
+                )
+
+            self.assertEqual(
+                unqualified.exception.code,
+                "APPROVAL_HUMAN_UNQUALIFIED",
+            )
+            self.assertEqual(workspace_file.read_bytes(), before)
+            self.assertEqual(journal_file_path(workspace_file).read_bytes(), history_before)
+
+            store = load_store(workspace_file)
+            reviewer = next(
+                item
+                for item in store.data["humans"]
+                if item["id"] == "HUMAN-REVIEW"
+            )
+            reviewer["approval_capabilities"] = ["product"]
+            write_store(store)
+            before_collision = workspace_file.read_bytes()
+            history_before_collision = journal_file_path(workspace_file).read_bytes()
+
+            with self.assertRaises(SimpleApprovalError) as collision:
+                approve_work(
+                    str(workspace_file),
+                    "WORK-001",
+                    "HUMAN-REVIEW",
+                )
+
+            self.assertEqual(
+                collision.exception.code,
+                "APPROVAL_IDENTITY_COLLISION",
+            )
+            self.assertEqual(workspace_file.read_bytes(), before_collision)
+            self.assertEqual(
+                journal_file_path(workspace_file).read_bytes(),
+                history_before_collision,
+            )
+
+    def test_simple_approval_rejects_nonbatchable_external_and_incomplete_quorum(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            elevated = make_ready_workspace(
+                Path(directory) / "elevated",
+                count=1,
+                risk="R3",
+            )
+            elevated_before = elevated.read_bytes()
+            with self.assertRaises(SimpleApprovalError) as nonbatchable:
+                approve_work(str(elevated), "WORK-001", "HUMAN-PRODUCT")
+            self.assertEqual(
+                nonbatchable.exception.code,
+                "APPROVAL_NON_BATCHABLE",
+            )
+            self.assertEqual(elevated.read_bytes(), elevated_before)
+
+            external = make_ready_workspace(
+                Path(directory) / "external",
+                count=1,
+            )
+            external_store = load_store(external)
+            external_store.data["work_items"][0]["allowed_actions"] = [
+                "external_write"
+            ]
+            write_store(external_store)
+            external_before = external.read_bytes()
+            with self.assertRaises(SimpleApprovalError) as external_action:
+                approve_work(str(external), "WORK-001", "HUMAN-PRODUCT")
+            self.assertEqual(
+                external_action.exception.code,
+                "APPROVAL_EXTERNAL_ACTION",
+            )
+            self.assertEqual(external.read_bytes(), external_before)
+
+            quorum = make_ready_workspace(
+                Path(directory) / "quorum",
+                count=1,
+                approvals=2,
+            )
+            quorum_before = quorum.read_bytes()
+            with self.assertRaises(SimpleApprovalError) as incomplete:
+                approve_work(str(quorum), "WORK-001", "HUMAN-PRODUCT")
+            self.assertEqual(
+                incomplete.exception.code,
+                "APPROVAL_QUORUM_INCOMPLETE",
+            )
+            self.assertEqual(quorum.read_bytes(), quorum_before)
+            self.assertEqual(load_store(quorum).data["human_decisions"], [])
+
+    def test_simple_approval_fails_closed_for_history_proof_and_state_drift(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            invalid_history = make_ready_workspace(
+                Path(directory) / "history",
+                count=1,
+            )
+            raw = json.loads(invalid_history.read_text(encoding="utf-8"))
+            raw["name"] = "Unjournaled drift"
+            invalid_history.write_text(
+                json.dumps(raw, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(SimpleApprovalError) as history_error:
+                approve_work(
+                    str(invalid_history),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                )
+            self.assertEqual(
+                history_error.exception.code,
+                "APPROVAL_HISTORY_INVALID",
+            )
+
+            invalid_proof = make_ready_workspace(
+                Path(directory) / "proof",
+                count=1,
+            )
+            (invalid_proof.parent / "artifacts/overnight-result.txt").write_text(
+                "changed after exact checks\n",
+                encoding="utf-8",
+            )
+            proof_before = invalid_proof.read_bytes()
+            with self.assertRaises(SimpleApprovalError) as proof_error:
+                approve_work(
+                    str(invalid_proof),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                )
+            self.assertEqual(
+                proof_error.exception.code,
+                "APPROVAL_PROOF_INVALID",
+            )
+            self.assertEqual(invalid_proof.read_bytes(), proof_before)
+
+            drift = make_ready_workspace(
+                Path(directory) / "drift",
+                count=1,
+            )
+
+            def change_presented_artifact() -> None:
+                (drift.parent / "artifacts/overnight-result.txt").write_text(
+                    "changed between presentation and apply\n",
+                    encoding="utf-8",
+                )
+
+            drift_before = drift.read_bytes()
+            with self.assertRaises(SimpleApprovalError) as drift_error:
+                approve_work(
+                    str(drift),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                    _before_apply=change_presented_artifact,
+                )
+            self.assertEqual(
+                drift_error.exception.code,
+                "APPROVAL_STATE_CHANGED",
+            )
+            self.assertEqual(drift.read_bytes(), drift_before)
+            self.assertEqual(load_store(drift).data["human_decisions"], [])
+
+    def test_interrupted_simple_approval_recovers_without_duplicate_authority(
+        self,
+    ) -> None:
+        for point in ("after_prepare_fsync", "after_apply", "after_commit_fsync"):
+            with self.subTest(point=point), tempfile.TemporaryDirectory() as directory:
+                workspace_file = make_ready_workspace(Path(directory), count=1)
+                with self.assertRaisesRegex(InjectedCrash, point):
+                    approve_work(
+                        str(workspace_file),
+                        "WORK-001",
+                        "HUMAN-PRODUCT",
+                        reason="Crash-safe singleton approval.",
+                        crash_hook=crash_at(point),
+                    )
+
+                replay = approve_work(
+                    str(workspace_file),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                )
+                final = load_store(workspace_file)
+                journal = verify_workspace_journal(workspace_file)
+
+                self.assertTrue(replay["idempotent"])
+                self.assertTrue(replay["completed"])
+                self.assertEqual(len(final.data["human_decisions"]), 1)
+                self.assertEqual(len(final.data["acceptance_records"]), 1)
+                self.assertTrue(journal["chain_valid"])
+                self.assertIsNone(journal["pending"])
 
     def test_park_records_one_blocked_attempt_releases_and_creates_no_proof(self) -> None:
         with self.git_workspace() as workspace_file:

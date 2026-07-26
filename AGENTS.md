@@ -70,11 +70,22 @@ approval, final result, or automatic-finishing permission. It requires writable
 tamper-evident history; on a legacy workspace, run the exact returned
 `history --checkpoint` command instead of assuming earlier continuity.
 
-After independent review, the normal human path is `palari queue
---approval-inbox --json`. A qualified human inspects the exact presentation and
-may run its emitted `human-decision pack` action once. Agents may quote that
-command for the supervisor; they must not execute it or combine review with
-approval.
+After independent review, `agent handoff` shows the current presentation and
+an exact presentation-bound command. For one eligible reversible local task,
+the human runs that emitted command once. Its readable form begins:
+
+```bash
+palari approve WORK-ID --as HUMAN-ID --json
+```
+
+The emitted command includes a machine-added `--presented` binding; the human
+does not copy it or any other digest. A manually entered command without that
+binding derives current state at invocation, so it is not a substitute for an
+earlier inspected handoff. Palari revalidates current proof before approval and
+local completion. The Approval Inbox and `human-decision pack` remain available
+for advanced or batched decisions. Agents may quote a human command for the
+supervisor; they must not execute `approve`, `human-decision`, or combine review
+with approval.
 
 Use `--mode review` only when work has current exact check results and is
 waiting for independent review. Review task briefs are read-only: they include
@@ -110,6 +121,7 @@ Follow the task brief:
   generic inspect or validate commands when a check fails
 - treat `human-decision` commands as unavailable until prerequisite run records,
   check results, and review are present
+- treat `approve` as human-only and never execute it from an agent session
 - in review mode, `agent finish` means you may report a review recommendation;
   it does not authorize you to record a human review or say the original task
   is complete

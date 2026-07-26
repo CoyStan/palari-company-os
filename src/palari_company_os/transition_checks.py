@@ -4,10 +4,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from .authority_plan import build_authority_plan
+from .command_surface import palari_workspace_command
 from .errors import WorkspaceError
 from .governance_binding import current_review_binding
 from .read_models import detail
-from .workspace import Workspace, current_attempt_for_work
+from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 @dataclass(frozen=True)
@@ -321,6 +323,12 @@ def _check_review_record(
                 f"reviewer {reviewer_id} is also attempt actor {current_attempt.actor}",
             )
         )
+    authority_plan = build_authority_plan(
+        workspace,
+        work_id,
+        builder_id=current_attempt.actor if current_attempt is not None else "",
+        reviewer_id=reviewer_id,
+    )
     if verdict == "accept-ready":
         binding, proof_errors = current_review_binding(
             workspace, work_id, require_output_coverage=True
@@ -343,9 +351,25 @@ def _check_review_record(
                         f"review head {reviewed_head} does not match current exact proof head",
                     )
                 )
+    if authority_plan["requires_review"] and not authority_plan["viable"]:
+        blockers.append(
+            TransitionBlocker(
+                str(authority_plan["code"] or "AUTHORITY_PLAN_UNSATISFIABLE"),
+                (
+                    f"{authority_plan['message']} "
+                    f"Smallest safe correction: "
+                    f"{authority_plan['smallest_correction']}"
+                ).strip(),
+            )
+        )
     next_commands.append(
-        f"palari review record {review_id or 'REVIEW-ID'} "
-        f"--work-item-id {work_id} --reviewed-head {reviewed_head or 'HEAD'} --verdict VERDICT --json"
+        palari_workspace_command(
+            workspace.path,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        )
     )
 
 
@@ -414,6 +438,40 @@ def _check_acceptance_prerequisites(
     if human is None:
         blockers.append(TransitionBlocker("HUMAN_MISSING", f"human not found: {human_id}"))
         return None
+    attempt = current_attempt_for_work(work, workspace.attempts)
+    review = latest_for_work(workspace.review_verdicts, work_id)
+    if attempt is not None and human_id == attempt.actor:
+        blockers.append(
+            TransitionBlocker(
+                "HUMAN_IS_BUILDER",
+                f"human approver {human_id} is also the builder for {work_id}",
+            )
+        )
+    if review is not None and human_id == review.reviewer:
+        blockers.append(
+            TransitionBlocker(
+                "HUMAN_IS_REVIEWER",
+                f"human approver {human_id} is also the reviewer for {work_id}",
+            )
+        )
+    if review is not None:
+        authority_plan = build_authority_plan(
+            workspace,
+            work_id,
+            builder_id=attempt.actor if attempt is not None else "",
+            reviewer_id=review.reviewer,
+        )
+        if authority_plan["requires_review"] and not authority_plan["viable"]:
+            blockers.append(
+                TransitionBlocker(
+                    str(authority_plan["code"] or "AUTHORITY_PLAN_UNSATISFIABLE"),
+                    (
+                        f"{authority_plan['message']} "
+                        f"Smallest safe correction: "
+                        f"{authority_plan['smallest_correction']}"
+                    ).strip(),
+                )
+            )
     work_detail = detail(workspace, work_id)
     if work_detail.get("coordination_warnings"):
         blockers.append(

@@ -70,6 +70,13 @@ def print_result(result: CommandResult) -> None:
             print_approval_pack_decision(result.payload)
         return
 
+    if result.kind == "simple-approval":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_simple_approval(result.payload)
+        return
+
     if result.kind == "state":
         if result.as_json:
             print_json(result.payload)
@@ -736,13 +743,33 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
             )
             if review_ready and candidate.get("review_packet_command"):
                 print(f"    task brief: {candidate['review_packet_command']}")
-            if review_ready and candidate.get("review_record_command"):
-                print(f"    record: {candidate['review_record_command']}")
+            if review_ready:
+                verdict_commands = [
+                    command
+                    for command in candidate.get("review_record_commands", [])
+                    if command.get("executable") is True
+                    and command.get("command")
+                    and command.get("verdict")
+                ]
+                if verdict_commands:
+                    label = (
+                        "packet-bound executable verdict commands"
+                        if candidate.get("agent_may_execute") is True
+                        else "human-only executable verdict commands"
+                    )
+                    print(f"    {label}:")
+                    for command in verdict_commands:
+                        print(
+                            f"      {command['verdict']}: "
+                            f"{command['command']}"
+                        )
     if payload.get("attention") == "needs-review":
-        print("Review command choices:")
+        print("Available verdicts:")
         print(f"  {', '.join(payload['suggested_verdicts'])}")
-        print("Record template:")
-        print(f"  {payload['review_record_command_template']}")
+        template = payload.get("review_record_command_template", "")
+        if template:
+            print("Non-executable reference template:")
+            print(f"  {template}")
     else:
         print("Review recording is available after the required checks pass.")
     commands = payload.get("next_commands", [])
@@ -760,7 +787,8 @@ def print_init(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Workspace file: {payload['workspace_file']}")
     print(
         f"Starter records: {payload['human']['id']} ({payload['human']['name']}), "
-        f"{payload['palari']['id']} ({payload['palari']['name']}), "
+        f"builder {payload['palari']['id']} ({payload['palari']['name']}), "
+        f"reviewer {payload['reviewer']['id']} ({payload['reviewer']['name']}), "
         f"{payload['goal']}, {payload['workbench']}, {payload['source']}"
     )
     adoption = payload.get("adoption") or {}
@@ -1037,6 +1065,18 @@ def print_approval_pack_decision(payload: dict[str, Any]) -> None:
             f"{len(convergence.get('terminalized', []))} complete; "
             f"{len(convergence.get('remaining_parked', []))} still blocked"
         )
+
+
+def print_simple_approval(payload: dict[str, Any]) -> None:
+    print(f"Task {payload['work_item']}: {plain_status(payload['status'])}")
+    print(f"Approved by: {payload['human']}")
+    print(f"Completed: {_yes_no(bool(payload['completed']))}")
+    print(
+        "External actions performed: "
+        f"{_yes_no(bool(payload['performed_external_effects']))}"
+    )
+    if payload.get("idempotent"):
+        print("This was a safe retry; no approval authority was duplicated.")
 
 
 def print_detail(payload: dict[str, Any]) -> None:

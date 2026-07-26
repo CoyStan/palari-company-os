@@ -23,6 +23,10 @@ and enqueue; generic integration commands remain local and non-executing.
 Safety rules:
 
 - Human approval is separate from review.
+- Before execution and review, the authority plan verifies that the builder,
+  selected independent reviewer, and required qualified human approvers can
+  remain distinct. A reviewer candidate that would consume a required final
+  approver is rejected before the review is recorded.
 - Required permission to approve is checked before accepted decisions are
   recorded.
 - The required number of approvals is checked before a task can be completed.
@@ -37,10 +41,12 @@ Safety rules:
   check results controls the required approvals; a later negative decision
   revokes an earlier approval, while contradictory or ambiguous records fail
   closed.
-- A zero numeric `quorum` means no approvals are required; it does not make an
-  explicit decision optional once an approval record references that decision.
-  Such approval still requires the current exact review/check binding and
-  a declared human, and a later rejection revokes it.
+- A zero stored numeric `quorum` removes extra counted votes; it does not remove
+  the final human boundary for review-required work. Outside the narrow
+  R1/light/zero-count/no-external automatic exemption, the effective final
+  approval count is at least one. Such approval still requires the current
+  exact review/check binding and a declared human, and a later rejection
+  revokes it.
 - Bound reviews are immutable, and generic update commands cannot rewrite
   terminal task or run trust fields. Their aggregate hash covers reviewer
   identity, review result, findings, inspected checks, residual risks, and
@@ -120,6 +126,18 @@ Safety rules:
   the same packet, portable-contract, claim, baseline, witness, and lease path
   as explicit `agent start WORK-ID`. No-ready and ambiguous invocation states
   write nothing.
+- `palari approve WORK-ID --as HUMAN-ID` is a human-only composition over the
+  existing singleton Approval Pack transaction. The handoff emits it with a
+  machine-supplied `--presented` digest; a bare invocation instead selects
+  current state at invocation. It verifies exact journal replay, actor
+  separation, capability, artifact/check/review currency, and the effective
+  final count, then revalidates the presentation and artifacts immediately
+  before writing approval and local completion atomically. It cannot perform
+  an external effect, supply a missing review or vote, or admit individual-only
+  work. Safe replay by the same human validates the stored
+  pack/presentation/decision/acceptance binding and any supplied presentation
+  token before returning a no-op. Supported agent hooks deny this top-level
+  command.
 - Explicit path intent separates authorization from final-state proof. A
   `delete` intent authorizes only its exact normalized path and succeeds only
   when Git reports deletion and the path is absent. Create/modify mismatches,
@@ -184,6 +202,11 @@ Safety rules:
   `palari claude install` remains the hook-only management, repair, and removal
   surface. It manages current Palari entries without duplicating them and
   preserves co-located foreign host hooks.
+- Starter initialization declares a second, review-only Palari linked to the
+  goal but outside the execution workbench. Source and goal linkage permit
+  exact advisory review; the absence of workbench execution membership and
+  human capabilities prevents that identity from building the same run or
+  satisfying final approval.
 - Every active accepted record re-verifies its evidence manifest, artifact
   state, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked
@@ -215,6 +238,13 @@ they are not an OS sandbox: an unrestricted process running as the operator
 can ultimately rewrite local files and Git metadata. Human attribution needs a
 future protected harness or credential boundary before hostile same-principal
 execution can be treated as cryptographically authenticated.
+
+Palari's own source-repair exception is narrower than production governance and
+is documented in [Self-Hosting Maintainer Mode](self-hosting-maintainer-mode.md).
+The ignored, repository-bound live-state profile described there is not yet
+implemented. Until it is, maintainers must not use this source checkout's
+tracked root `workspace.json` or root `.palari` as live authorization state or
+claim that dogfood operation leaves the source checkout clean.
 
 PCAW v1 adds deterministic, offline tamper and policy-consistency checks for a
 canonical governance statement and its named artifact bytes. It is deliberately
@@ -264,16 +294,22 @@ Palari may supply an independent advisory review, but only identities in
 behavior.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
-each member digest are persisted with the human decision. Pack-v2 actions
-also require and persist the digest of a strict canonical decision presentation
-covering the pack, proof, boundaries, effects, available actions, execution
-order, and relevant current decisions. Current bytes, review, recursively bound
-dependency state, authority, quorum, and presentation currency are rechecked
-before local execution. A terminal dependency's changed artifact stales a
+each member digest are persisted with the human decision. Pack-v3 actions
+retain declared and effective final counts; the reader remains compatible with
+pack v2. Both versions require and persist the digest of a strict canonical
+decision presentation covering the pack, proof, boundaries, effects, available
+actions, execution order, and relevant current decisions. Current bytes,
+review, recursively bound dependency state, authority, effective final count,
+and presentation currency are rechecked before local execution. The last
+artifact check runs under Palari's workspace writer lock immediately before
+the local workspace replacement. Palari does not lock every governed artifact
+file, so an unrelated same-user process that ignores Palari could still race
+after that final check; later operations treat any resulting artifact change
+as new, unapproved state. A terminal dependency's changed artifact stales a
 narrowed dependent pack, and a later relevant decision makes the earlier
-presentation stale. This prevents accidental replay or transplant inside
-Palari, but it does not cryptographically authenticate a human against a
-hostile process running as the same OS user.
+presentation stale. These controls prevent accidental replay or transplant
+inside Palari, but they do not cryptographically authenticate a human against
+a hostile process running as the same OS user.
 
 The presentation digest proves canonical artifact bytes. The bound CLI surface
 supports the narrower claim that those bytes were made available to the

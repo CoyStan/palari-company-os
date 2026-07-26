@@ -1,10 +1,11 @@
 """Two-minute setup for existing repositories.
 
 ``palari init`` creates a small but complete starter workspace (one human,
-one agent, one goal, one project, one repository source) in an existing repository,
-and ``palari work add`` creates an agent-startable task from a title and
-its write paths. Together with ``palari claude install`` they take a repo
-from "never heard of Palari" to an enforced write boundary in three commands.
+one builder agent, one distinct review-only agent, one goal, one project, and
+one repository source) in an existing repository. ``palari work add`` creates
+an agent-startable task from a title and its write paths. Together with
+``palari claude install`` they take a repo from "never heard of Palari" to an
+enforced write boundary in three commands.
 
 Everything here writes through the validated store. In Git repositories the
 explicit initialization command also creates one hook-free, path-limited local
@@ -22,6 +23,8 @@ from pathlib import Path
 from shlex import quote
 from typing import Any
 
+from .authority_plan import build_authority_plan
+from .command_surface import palari_workspace_command
 from .governance_journal import MutationMetadata, utc_timestamp
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
@@ -30,6 +33,7 @@ from .work_identity import generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
 
 HUMAN_ID = "HUMAN-FOUNDER"
+REVIEWER_ID = "PALARI-REVIEWER"
 GOAL_ID = "GOAL-0001"
 WORKBENCH_ID = "WORKBENCH-MAIN"
 SOURCE_ID = "SOURCE-REPO"
@@ -53,7 +57,17 @@ palari agent advance WORK-ID --as PALARI-ID --json
 ```
 
 `advance` records deterministic check results and never creates an independent
-review or human approval. Use `palari agent doctor WORK-ID --as PALARI-ID
+review or human approval. When it stops for review, start the emitted
+review-mode packet for the review-only agent ID returned by `palari init`
+(`REVIEWER-ID` in generic examples) and record only that agent's advisory
+verdict. The reviewer can then run `palari agent handoff WORK-ID --as
+REVIEWER-ID --mode review --json`.
+
+For one eligible reversible local task, that handoff's JSON contains one exact
+presentation-bound command in `human_action_commands[].command`. A qualified
+human runs that emitted command once. Agents may quote the exact command but
+must never run it, reconstruct a bare approval command, or run any
+`human-decision` command. Use `palari agent doctor WORK-ID --as PALARI-ID
 --json` for the next safe action. Repository orientation lives under
 `docs/agent/`.
 """,
@@ -68,6 +82,9 @@ test, and documentation ownership here before asking an agent to work broadly.
 - Work only inside the read and write limits in the active task brief (`packet`).
 - Do not invent sources, permissions, run records (`receipts`), check results
   (`evidence`), reviews, or human approvals.
+- Keep the builder, independent reviewer, and final human approver distinct.
+- Review-only agents may inspect and record advisory verdicts but may not
+  execute task outputs or human approval.
 - Commit the bounded result before running `palari agent advance`.
 - Stop for independent review, human approval, and external actions.
 - Preserve `workspace.json` as current state and `.palari/` as history and
@@ -78,14 +95,23 @@ test, and documentation ownership here before asking an agent to work broadly.
 Start ordinary work with `palari agent start --next --as PALARI-ID --json`.
 Follow the task brief (`packet`), commit only the bounded change, and run
 `palari agent advance WORK-ID --as PALARI-ID --json`. If blocked, run `palari
-agent doctor` and report its exact next safe action.
+agent doctor` and report its exact next safe action. For a review handoff,
+start the exact review packet emitted for the review-only agent ID returned by
+`palari init` (`REVIEWER-ID` in generic examples), record its advisory verdict,
+and let that reviewer present `agent handoff --mode review`. For one eligible
+reversible local task, a qualified human runs the exact presentation-bound
+command in the handoff's `human_action_commands[].command`; agents must not run
+or manually reconstruct approval commands.
 """,
     "docs/agent/verification.md": """# Verification
 
 Run the task's declared checks while editing. Before reporting completion,
 run `palari validate --json` and `palari agent check WORK-ID --as PALARI-ID
---mode execute --git-diff --json`. `palari agent advance` reruns only declared,
-built-in verification profiles before recording check results.
+--mode execute --git-diff --json`. Authoritative `palari agent advance` does
+not execute task prose. It runs fixed, built-in, shell-free verification
+profiles before recording check results. For R1 work, the profile is an exact
+Git base-to-head `git --literal-pathspecs diff --check BASE HEAD -- CHANGED_PATHS`
+check.
 """,
     "docs/agent/documentation-freshness.md": """# Documentation Freshness
 
@@ -129,7 +155,15 @@ def initialize_starter_workspace(
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
     palari_id = _palari_id(palari_label)
+    reviewer_id = (
+        REVIEWER_ID
+        if palari_id != REVIEWER_ID
+        else "PALARI-INDEPENDENT-REVIEWER"
+    )
     human_name = _git_user_name(directory) or "Founder"
+    default_worker = (
+        "claude-code" if palari_label.lower() == "claude" else palari_label.lower()
+    )
 
     data: dict[str, Any] = {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -157,12 +191,28 @@ def initialize_starter_workspace(
                 "write outside approved work areas",
                 "send external messages",
             ],
-            "default_worker": (
-                "claude-code" if palari_label.lower() == "claude" else palari_label.lower()
-            ),
+            "default_worker": default_worker,
             "owner_human": HUMAN_ID,
             "linked_goals": [GOAL_ID],
-        }
+        },
+        {
+            "id": reviewer_id,
+            "name": "Independent Reviewer",
+            "role": "Review-only AI partner",
+            "scope": (
+                "Inspect exact current proof in review mode without editing task "
+                "outputs or granting human approval."
+            ),
+            "forbidden_actions": [
+                "build or modify task outputs",
+                "broaden task scope",
+                "send external messages",
+                "record human approval",
+            ],
+            "default_worker": default_worker,
+            "owner_human": HUMAN_ID,
+            "linked_goals": [GOAL_ID],
+        },
     ]
     data["goals"] = [
         {
@@ -175,7 +225,7 @@ def initialize_starter_workspace(
                 "AI work stays inside declared write boundaries",
                 "A human can see what was done and what needs review",
             ],
-            "linked_palaris": [palari_id],
+            "linked_palaris": [palari_id, reviewer_id],
         }
     ]
     data["sources"] = [
@@ -188,7 +238,7 @@ def initialize_starter_workspace(
             "access_mode": "read",
             "selected": True,
             "owner_human": HUMAN_ID,
-            "allowed_palaris": [],
+            "allowed_palaris": [palari_id, reviewer_id],
             "data_class": "internal",
             "authority": "company_owned",
             "steward_human": HUMAN_ID,
@@ -275,6 +325,7 @@ def initialize_starter_workspace(
         "valid": True,
         "human": {"id": HUMAN_ID, "name": human_name},
         "palari": {"id": palari_id, "name": palari_label},
+        "reviewer": {"id": reviewer_id, "name": "Independent Reviewer"},
         "goal": GOAL_ID,
         "workbench": WORKBENCH_ID,
         "source": SOURCE_ID,
@@ -351,9 +402,13 @@ def quick_add_work(
     read_paths = _normalized_paths(read or [], "--read")
 
     store = load_store(workspace_path)
-    palari = _resolve_default(store.data, "palaris", palari_id, "--as")
-    goal = _resolve_default(store.data, "goals", goal_id, "--goal")
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
+    palari = _resolve_default_palari(
+        store.data,
+        palari_id,
+        workbench_id=workbench,
+    )
+    goal = _resolve_default(store.data, "goals", goal_id, "--goal")
     resolved_id = work_id.strip() or generate_work_id(
         _collection_ids(store.data, "work_items")
     )
@@ -441,7 +496,7 @@ def quick_add_work(
             0,
             {"type": "workbench", "collection": "workbenches", "id": workbench},
         )
-    write_store(
+    workspace = write_store(
         store,
         metadata=MutationMetadata(
             command="work add",
@@ -451,20 +506,63 @@ def quick_add_work(
             objects=tuple(objects),
         ),
     )
+    authority_plan = build_authority_plan(
+        workspace,
+        resolved_id,
+        builder_id=palari,
+    )
+    authority_blocked = not authority_plan["viable"]
+    next_commands = (
+        [
+            palari_workspace_command(
+                store.data_path,
+                "detail",
+                resolved_id,
+                "--json",
+            )
+        ]
+        if authority_blocked
+        else [
+            palari_workspace_command(
+                store.data_path,
+                "agent",
+                "start",
+                "--next",
+                "--as",
+                palari,
+                "--mode",
+                "execute",
+                "--json",
+            )
+        ]
+    )
+    next_action = (
+        str(authority_plan["smallest_correction"])
+        if authority_blocked
+        else next_commands[0]
+    )
+    message = (
+        f"{resolved_id} created for {palari}: write boundary is "
+        f"{', '.join(write_paths)}."
+    )
+    if authority_blocked:
+        message += (
+            f" Task is blocked before agent start. {authority_plan['message']} "
+            f"Smallest safe correction: {next_action}"
+        )
     return {
         "schema_version": "palari.work_add.v1",
         "workspace_file": str(store.data_path),
         "work_item": record,
         "path_intents": path_intents,
         "authority_anchor": authority_anchor,
+        "authority_plan": authority_plan,
         "workbench_outputs_added": workbench_outputs_added,
-        "next_commands": [
-            f"palari agent start --next --as {palari} --mode execute --json",
-        ],
-        "message": (
-            f"{resolved_id} created for {palari}: write boundary is "
-            f"{', '.join(write_paths)}."
-        ),
+        "status": "blocked" if authority_blocked else "ready",
+        "next_step_type": "blocked" if authority_blocked else "start-work",
+        "next_action": next_action,
+        "next_commands": next_commands,
+        "message": message,
     }
 
 
@@ -927,6 +1025,32 @@ def _resolve_default(data: dict[str, Any], collection: str, explicit: str, flag:
     raise WorkspaceError(
         f"workspace has {len(ids)} {collection} ({', '.join(ids)}); pass {flag} to pick one"
     )
+
+
+def _resolve_default_palari(
+    data: dict[str, Any],
+    explicit: str,
+    *,
+    workbench_id: str,
+) -> str:
+    if explicit.strip():
+        return _resolve_default(data, "palaris", explicit, "--as")
+    if workbench_id:
+        workbench = _find_record(data, "workbenches", workbench_id)
+        known = set(_collection_ids(data, "palaris"))
+        builder_ids = [
+            str(item)
+            for item in (workbench or {}).get("palari_ids", [])
+            if str(item) in known
+        ]
+        if len(builder_ids) == 1:
+            return builder_ids[0]
+        if builder_ids:
+            raise WorkspaceError(
+                f"workspace project {workbench_id} has {len(builder_ids)} palaris "
+                f"({', '.join(builder_ids)}); pass --as to pick one"
+            )
+    return _resolve_default(data, "palaris", explicit, "--as")
 
 
 def _resolve_optional_default(

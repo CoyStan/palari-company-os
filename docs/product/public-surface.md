@@ -40,20 +40,21 @@ matrix.
 | Restore-point recovery and split collections | parked | Reachable local recovery/read features pending a product decision; neither can approve or complete work. |
 | Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no permission or pre-1.0 compatibility promise. |
 | Broad generic planning and record authoring | parked | Retained while classification is ambiguous; the ordinary first-use path does not depend on it. |
+| Self-hosting maintainer state profile | deferred | The policy and migration plan are documented, but live governance state is not yet isolated from the source checkout. No runtime mode is shipped. |
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |
 
 ## Command surface
 
-Current CLI command count from parser inspection: **142**.
+Current CLI command count from parser inspection: **143**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
-`agent`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
+`agent`, `approve`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
 journey:
 
 ```text
 init -> work add -> agent start --next -> agent advance
--> queue --approval-inbox -> proof verify
+-> independent agent review -> approve -> proof verify
 ```
 
 There is no blanket compatibility promise for pre-1.0 commands. Superseded

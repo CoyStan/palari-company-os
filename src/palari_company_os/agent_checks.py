@@ -374,6 +374,21 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
 
 
 def _agent_advance_command(packet: dict[str, Any]) -> str:
+    if packet.get("mode") == "review":
+        return _first_command(packet)
+    blocker_codes = {
+        str(blocker.get("code") or "")
+        for blocker in packet.get("blockers", [])
+    }
+    authority_blockers = {
+        "APPROVER_ROLE_MISSING",
+        "AUTHORITY_PLAN_UNSATISFIABLE",
+        "BUILDER_ROLE_MISSING",
+        "REVIEWER_MISSING",
+        "REVIEWER_ROLE_MISSING",
+    }
+    if packet.get("status") != "ready" and blocker_codes & authority_blockers:
+        return _first_command(packet)
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
     return f"palari agent advance {work_id} --as {palari_id} --json"

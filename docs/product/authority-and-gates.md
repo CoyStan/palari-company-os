@@ -22,23 +22,53 @@ High-risk work may require more than one qualified person's approval (a
 `quorum` in stored records). Palari stops safely when the required people or
 permissions are unclear.
 
-The normal approval surface is:
+The ordinary one-task approval surface is:
 
 ```bash
-palari queue --approval-inbox --json
+palari approve WORK-ID --as HUMAN-ID --json
 ```
 
-It shows current, independently reviewed tasks and emits at most the exact
-action allowed for the immutable Approval Pack and presentation. A qualified
-person may inspect and run that action once. This shortens navigation and local
-recordkeeping; it does not combine review with approval, reduce the required
-approval count, approve external actions, or give an agent human permission.
+The human first inspects the concise current handoff and runs its exact emitted
+command. Palari supplies a `--presented` binding in that action, then derives
+the singleton immutable Approval Pack and uses the existing transition and
+journal machinery. It is eligible only for reversible local R1/R2 work when
+one qualified person's action completes the effective final approval count.
+For review-required work that count is at least one even when the stored
+numeric count is zero; the R1/light/no-external automatic exemption remains
+zero. This shortens navigation and local recordkeeping; it does not combine
+review with approval, weaken final human authority, approve external actions,
+or give an agent human permission. A manually entered bare command derives
+current state at invocation rather than binding an earlier handoff.
+
+`queue --approval-inbox` remains the advanced and batched surface. It names
+only commands whose human actor is viable for every selected member. A task
+with no feasible builder/reviewer/approver arrangement receives a diagnostic
+and smallest safe correction, never a command already guaranteed to fail.
 
 ## Agents Can Prepare, Not Approve
 
 An agent (`Palari`) record describes capabilities and limits, not final human
 permission. An agent may ask a model or tool to perform a bounded task. It
 cannot convert that run or its review into a human approval.
+
+## Authority Plan
+
+Before execution and review, Palari deterministically evaluates the task's
+builder, every eligible independent reviewer, the required human capability,
+and the number of distinct qualified final approvers left by each choice.
+
+- A builder cannot review its own run.
+- A Palari reviewer must be linked to the task goal and allowed to read every
+  selected source.
+- A human reviewer must be active and eligible for the task's project.
+- A reviewer who would consume a required final approver is rejected.
+- Final approvers exclude both the builder and selected reviewer.
+- Missing roles fail before work or review with the smallest safe correction.
+
+The starter workspace includes a review-only Palari so its sole human remains
+available for final approval. That Palari has advisory review authority only:
+it is outside the execution workbench and cannot provide human acceptance or
+perform external writes.
 
 ## Allowed Tools and Actions (`capabilities`)
 
@@ -167,12 +197,15 @@ means the task is approved.
 
 ## Final Approval Records (`acceptance_records`)
 
-`palari work accept` is the explicit final human-approval command. It writes an
-approval/rejection record (`human_decision`) and approval record only after
-checking current results, a current `accept-ready` review, the person's
-capability, open questions, task overlap, and the required
-check-results/run-record (`evidence`/`receipt`)
-manifest integrity.
+`palari approve WORK-ID --as HUMAN-ID` is the readable ordinary
+final-human-approval surface for one eligible reversible local task; the
+handoff emits it with a presentation binding. It composes the pack transaction
+described below and writes a decision record (`human_decision`) plus approval
+record only after checking current results, a current `accept-ready` review,
+the person's capability, open questions, task overlap, effective final count,
+and the required check-results/run-record (`evidence`/`receipt`) manifest
+integrity. `palari work accept` remains the parked lower-level single-task
+recovery surface.
 
 The exact protocol and field names remain important here. The review must carry
 the current `palari.review_binding.v1` binding for the exact `attempt`,
@@ -185,14 +218,15 @@ review proof hash also covers the reviewer-authored verdict context, and an
 exact-bound completed task requires its matching approval record
 (`acceptance_record`).
 
-`palari human-decision pack` is a second human-only approval surface, not an
-agent shortcut. It ties one attributable action to an immutable Approval Pack
+`palari human-decision pack` is the advanced human-only approval surface, not
+an agent shortcut. It ties one attributable action to an immutable Approval Pack
 and the exact presentation the person inspected, then creates one decision
-record per selected task. Each pack-v2 record retains its proof references,
-member and subject digests, presentation schema, surface, and digest, with one
-canonical presentation artifact per action. Approval Pack v1 is unsupported;
-missing or unsupported presentation-bound permission stops safely instead of
-being upgraded.
+record per selected task. Pack v3 adds both declared and effective final
+approval counts to each exact member. The reader remains compatible with pack
+v2; v1 is unsupported. Decision records retain proof references, member and
+subject digests, presentation schema, surface, and digest, with one canonical
+presentation artifact per action. Missing or unsupported presentation-bound
+permission stops safely instead of being upgraded.
 
 The same rules for reviewer independence, current check results, human
 capability, and required approval count apply to individual and `approval-pack`

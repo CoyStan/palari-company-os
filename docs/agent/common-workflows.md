@@ -11,9 +11,15 @@ the assignment boundary. Exact stored names appear in backticks when needed.
 2. Work only inside the returned task brief, commit the bounded result, and run
    `palari agent advance WORK-ID --as PALARI-ID --json`.
 3. Stop at the returned independent-review, human, external, or blocker
-   boundary. Review remains a separate attributable act.
-4. A qualified human uses `palari queue --approval-inbox --json`, inspects the
-   exact presentation, and runs only its emitted bound action.
+   boundary. A distinct review-only agent may record the advisory review after
+   starting and inspecting its exact `--mode review` brief. Review remains a
+   separate attributable act.
+4. The human handoff shows the current presentation and one exact
+   presentation-bound command. For one eligible local task, a qualified human
+   runs that emitted `palari approve ... --presented DIGEST` command once; the
+   digest is machine-supplied and is not copied. A manually typed bare
+   `approve` derives current state at invocation. The Approval Inbox remains
+   the advanced/batched path.
 
 Use `work add --write PATH` when only final presence matters. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final
@@ -28,6 +34,11 @@ exact returned `history --checkpoint`
 action. Use `next`, `brief`, explicit `start`, `check`,
 `finish`, `handoff`, `doctor`, and `loop` as optional inspection and recovery
 surfaces rather than mandatory ceremony.
+
+`agent brief` includes an authority plan. Do not start or review work when it
+reports that the proposed reviewer would exhaust the qualified final approvers.
+Use its smallest safe correction; do not manufacture extra identities for one
+person.
 
 ## Add Or Change A CLI Command
 

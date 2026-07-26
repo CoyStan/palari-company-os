@@ -165,11 +165,13 @@ Most work needs two commands.
    palari agent advance WORK-ID --as PALARI-CLAUDE --json
    ```
 
-   Palari identifies the exact committed change, runs the declared checks, and
-   records the run, run record, and current check results. Every completion
-   requires current exact checks. Only R1/light work with zero required
-   approvals and no external writes may finish without independent review and
-   human approval. Every other task stops at the next real boundary.
+   Palari identifies the exact committed change and runs fixed built-in
+   verification profiles rather than task prose. For R1 work, the authoritative
+   profile is an exact base-to-head `git diff --check` over the changed paths.
+   Palari records the run, run record, and current check results. Every
+   completion requires current exact checks. Only R1/light work with zero
+   required approvals and no external writes may finish without independent
+   review and human approval. Every other task stops at the next real boundary.
 
 `agent advance` never records a review result or human approval. Use
 `--dry-run` to inspect its plan.
@@ -188,18 +190,30 @@ receives an exact `history --checkpoint` command instead.
 
 ## The ordinary human path
 
-After an independent review, open one inbox:
+After an independent review, inspect the concise human handoff and run its
+exact human action once:
 
 ```bash
-palari queue --approval-inbox --json
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact human_action_commands[].command from this handoff.
 ```
 
-A qualified human inspects the exact presentation and runs the one
-`palari human-decision pack ...` action it provides. That action is tied to the
-current presentation and checks. If the task changes, approval fails safely.
-Agents may show the command but must not run it. Supported session hooks block
-recognized agent invocations, but Palari does not authenticate processes that
-share the same operating-system user.
+Initialization provides a distinct review-only agent so a one-person
+workspace does not spend its only human authority on review. Before work
+starts, Palari checks that the builder, reviewer, and qualified final approver
+can remain distinct. The emitted action is an explicit-workspace
+`palari approve ... --presented DIGEST` command. The digest is inserted by
+Palari, not copied by the human, and binds the action to the presentation just
+inspected. `approve` revalidates the exact checks, review, artifact, and journal,
+then records approval and local completion in one transaction. If relevant
+state changed, approval fails safely with the next correction. A manually
+entered bare `approve` command instead derives current state at invocation.
+
+`palari queue --approval-inbox --json` and its
+`palari human-decision pack ...` actions remain available for advanced and
+batched approval. Agents may present human actions but must not run them.
+Supported session hooks block recognized agent invocations, but Palari does
+not authenticate processes that share the same operating-system user.
 
 ## What works today
 
@@ -296,7 +310,7 @@ bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
 schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
-workspaces/palari-company-os/      Repository dogfood workspace
+workspaces/palari-company-os/      Historical, non-live dogfood evidence
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and rules
 scripts/verify.sh                  Complete local verification
@@ -308,8 +322,9 @@ tests/                             Unit and fixture tests
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
 - **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
-- **Human loop:** open `palari queue --approval-inbox --json`, inspect the exact
-  presentation, and run only its bound human action.
+- **Human loop:** inspect `palari agent handoff WORK-ID --as PALARI-REVIEWER
+  --mode review --json`, then have the human run its exact emitted
+  `human_action_commands[].command` once.
 - **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
 - **Checks and approval:** read [Checks And Approval](docs/product/authority-and-gates.md).
 - **Product map:** read [Public Surface](docs/product/public-surface.md).
@@ -325,6 +340,8 @@ Start here:
 - [Agent Contract](docs/product/agent-contract.md) for agent task rules;
 - [Command Reference](docs/product/command-reference.md) for CLI details;
 - [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small;
+- [Self-Hosting Maintainer Mode](docs/product/self-hosting-maintainer-mode.md)
+  for the bounded source-repair exception and isolated-state follow-up;
 - [Public Surface](docs/product/public-surface.md) for current, optional, and parked features;
 - [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation; and
 - [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for
