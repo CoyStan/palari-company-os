@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from shlex import quote, split
+from shlex import join, quote, split
 from typing import Any
 
 from .store import workspace_file_path
@@ -94,6 +94,50 @@ def bind_palari_command_payload(
     return {
         key: bind_palari_command_payload(
             workspace_path,
+            item,
+            _command_context=(
+                _command_context
+                or key == "command"
+                or key == "commands"
+                or key.endswith("_command")
+                or key.endswith("_commands")
+                or key == "next_safe_action"
+            ),
+        )
+        for key, item in value.items()
+    }
+
+
+def portable_palari_command_payload(
+    value: Any,
+    *,
+    _command_context: bool = False,
+) -> Any:
+    """Remove only local workspace selectors from command-bearing payload fields."""
+
+    if isinstance(value, str):
+        parts = palari_command_parts(value) if _command_context else ()
+        return join(("palari", *parts)) if parts else value
+    if isinstance(value, list):
+        return [
+            portable_palari_command_payload(
+                item,
+                _command_context=_command_context,
+            )
+            for item in value
+        ]
+    if isinstance(value, tuple):
+        return tuple(
+            portable_palari_command_payload(
+                item,
+                _command_context=_command_context,
+            )
+            for item in value
+        )
+    if not isinstance(value, dict):
+        return value
+    return {
+        key: portable_palari_command_payload(
             item,
             _command_context=(
                 _command_context

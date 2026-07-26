@@ -5,6 +5,7 @@ import json
 from copy import deepcopy
 from typing import Any
 
+from .command_surface import portable_palari_command_payload
 from .path_policy import validate_workspace_path
 from .pcaw_canonical import CanonicalJSONError, canonical_json_bytes, canonical_sha256
 from .workspace import WorkspaceError
@@ -131,15 +132,16 @@ def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
     """Compile one task brief into deterministic, provider-neutral session rules."""
 
     _require_packet(packet)
+    packet = _portable_packet_projection(packet)
     allowed_paths = packet.get("allowed_paths")
     if not isinstance(allowed_paths, dict):
         allowed_paths = {}
     status = str(packet.get("status") or "blocked")
-    body = {
+    body: dict[str, Any] = {
         "packet_binding": {
             "packet_schema_version": str(packet.get("schema_version") or ""),
             "packet_id": str(packet.get("packet_id") or ""),
-            "packet_context_hash": str(packet.get("context_hash") or ""),
+            "packet_context_hash": "",
             "packet_status": status,
             "mode": str(packet.get("mode") or "execute"),
             "claim_required": True,
@@ -180,6 +182,9 @@ def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
         "enforcement": deepcopy(_ENFORCEMENT),
         "security_limitations": list(_SECURITY_LIMITATIONS),
     }
+    body["packet_binding"]["packet_context_hash"] = _portable_contract_context_hash(
+        body
+    )
     digest_payload = _digest_payload(status, body)
     digest = canonical_sha256(digest_payload)
     result = {
@@ -281,6 +286,40 @@ def _require_packet(packet: dict[str, Any]) -> None:
     legacy_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
     if legacy_hash != context_hash:
         raise WorkspaceError("agent packet content does not match context_hash")
+
+
+def _portable_packet_projection(packet: dict[str, Any]) -> dict[str, Any]:
+    """Project local executable guidance into provider-neutral session rules."""
+
+    stable = {
+        key: value
+        for key, value in packet.items()
+        if key not in {"created_at", "context_hash", "workspace_file"}
+    }
+    projected = portable_palari_command_payload(stable)
+    if not isinstance(projected, dict):
+        raise WorkspaceError("agent packet portable projection must be an object")
+    return projected
+
+
+def _portable_contract_context_hash(body: dict[str, Any]) -> str:
+    packet_binding = body["packet_binding"]
+    projection = {
+        "packet_binding": {
+            key: value
+            for key, value in packet_binding.items()
+            if key != "packet_context_hash"
+        },
+        "identity": body["identity"],
+        "scope": body["scope"],
+        "obligations": body["obligations"],
+        "blockers": body["blockers"],
+        "guidance": body["guidance"],
+    }
+    encoded = json.dumps(projection, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _body_error(body: dict[str, Any]) -> str:

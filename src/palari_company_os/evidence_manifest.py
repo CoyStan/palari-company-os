@@ -294,6 +294,7 @@ def verify_evidence(
         known = ", ".join(sorted(item.id for item in workspace.evidence_runs))
         raise WorkspaceError(f"unknown evidence run {evidence_id}; known evidence runs: {known}")
 
+    data_path = _workspace_data_path(workspace)
     record = {
         "id": evidence.id,
         "work_item_id": evidence.work_item_id,
@@ -371,9 +372,9 @@ def verify_evidence(
         if journal_context is None:
             from .governance_journal import verify_workspace_journal
 
-            journal_verification = verify_workspace_journal(workspace.data_path)
+            journal_verification = verify_workspace_journal(data_path)
         else:
-            journal_verification = journal_context.verify(workspace.data_path)
+            journal_verification = journal_context.verify(data_path)
         journal_continuity_ok = bool(journal_verification["ok"])
     ok = (
         status_ok
@@ -663,7 +664,7 @@ def _verification_artifact_hashes(
 
     exact_head_artifacts = _governance_projection_artifacts(
         root,
-        workspace.data_path,
+        _workspace_data_path(workspace),
         artifacts,
     )
     current_artifacts = [
@@ -683,6 +684,12 @@ def _verification_artifact_hashes(
         )
     )
     return sorted(hashes, key=lambda item: item["path"]), exact_head_artifacts
+
+
+def _workspace_data_path(workspace: Workspace) -> Path:
+    """Retain exact Workspace files while supporting structural read adapters."""
+
+    return Path(getattr(workspace, "data_path", None) or workspace.path)
 
 
 def _governance_projection_artifacts(

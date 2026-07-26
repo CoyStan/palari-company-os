@@ -150,7 +150,9 @@ code change must match them. See
   beneath `.palari/packets/session-contracts/`. The contract contains no
   wall-clock compilation time or absolute local path, grants no authority by
   itself, and labels host write/read/stop enforcement as adapter-required or
-  advisory unless a separately verified adapter provides it. Missing,
+  advisory unless a separately verified adapter provides it. Local workspace
+  selectors are removed only from the portable projection; the persisted task
+  brief and claim keep their exact local selector binding. Missing,
   malformed, duplicate-key, digest-mismatched, path-mismatched, or
   current-packet-mismatched contracts invalidate the claim. Claim schema v2
   requires both binding fields, so removing both cannot fall back to another
