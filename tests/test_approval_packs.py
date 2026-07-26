@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,11 @@ from palari_company_os.approval_presentations import (
     approval_presentation_digest,
     build_approval_presentation,
 )
-from palari_company_os.agent_handoff import build_agent_handoff
+from palari_company_os.agent_handoff import (
+    _human_approval_handoff,
+    build_agent_handoff,
+)
+from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
@@ -40,10 +45,12 @@ from palari_company_os.governance_binding import (
 )
 from palari_company_os.governance_journal import (
     JournalVerificationContext,
+    journal_file_path,
     verify_journal,
     verify_workspace_journal,
 )
 from palari_company_os.pcaw_canonical import canonical_sha256
+from palari_company_os.simple_approval import SimpleApprovalError, approve_work
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
@@ -244,6 +251,44 @@ class ApprovalPackTests(unittest.TestCase):
             "independent-review",
         )
         self.assertFalse(inbox["primary_action"]["available"])
+        self.assertEqual(inbox["approval_commands"], [])
+
+    def test_legacy_review_that_consumed_the_only_approver_stays_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            store = load_store(data_path)
+            for human in store.data["humans"]:
+                human["approval_capabilities"] = (
+                    ["product"] if human["id"] == "HUMAN-REVIEW" else []
+                )
+            write_store(store)
+
+            current = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            inbox = build_approval_inbox(workspace, current.data)
+            handoff = build_agent_handoff(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+
+        item = inbox["evaluations"][0]["members"][0]
+        self.assertEqual(item["state"], "blocked")
+        self.assertTrue(
+            any("0/1 distinct qualified human approvers" in reason for reason in item["reasons"])
+        )
+        self.assertEqual(inbox["approval_commands"], [])
+        self.assertFalse(inbox["primary_action"]["available"])
+        approval = handoff["human_approval_handoff"]
+        self.assertIsNotNone(approval)
+        self.assertFalse(approval["authority_plan"]["viable"])
+        self.assertFalse(approval["approval_pack"]["available"])
+        self.assertEqual(approval["approval_pack"]["approve_eligible_commands"], [])
+        self.assertEqual(handoff["human_action_commands"], [])
+        self.assertIn(
+            "distinct Palari reviewer",
+            approval["approval_pack"]["next_safe_action"],
+        )
 
     def test_agent_handoff_exposes_one_pack_action_when_continuity_is_valid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -260,10 +305,14 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertTrue(approval["approval_pack"]["available"])
         self.assertEqual(approval["approval_pack"]["mode"], "approve-eligible")
         self.assertTrue(approval["approval_pack"]["presentation_digest"].startswith("sha256:"))
+        self.assertEqual(
+            approval["approval_pack"]["presentation"]["schema_version"],
+            "palari.approval-presentation.v1",
+        )
         self.assertEqual(len(handoff["human_action_commands"]), 2)
         self.assertTrue(
             all(
-                item["type"] == "approval-pack"
+                item["type"] == "simple-approval"
                 for item in handoff["human_action_commands"]
             )
         )
@@ -273,8 +322,19 @@ class ApprovalPackTests(unittest.TestCase):
         )
         self.assertIn(
             "--presentation-digest " + approval["approval_pack"]["presentation_digest"],
-            handoff["human_action_commands"][0]["command"],
+            approval["approval_pack"]["approve_eligible_commands"][0]["command"],
         )
+        self.assertEqual(
+            {item["actor"] for item in handoff["human_action_commands"]},
+            {"HUMAN-PRODUCT", "HUMAN-SECOND"},
+        )
+        for item in handoff["human_action_commands"]:
+            self.assertIn(f"palari --workspace {data_path.parent}", item["command"])
+            self.assertIn(
+                "--presented " + approval["approval_pack"]["presentation_digest"],
+                item["command"],
+            )
+            self.assertNotIn("--pack-digest", item["command"])
 
     def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -295,6 +355,77 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertEqual(handoff["human_action_commands"], [])
         self.assertNotIn("human-decision record", json.dumps(handoff))
         self.assertIn("journal continuity", approval["approval_pack"]["reason"])
+
+    def test_presented_handoff_digest_rejects_drift_without_manual_pack_digest(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            handoff = build_agent_handoff(
+                Workspace.load(data_path),
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            approval = handoff["human_approval_handoff"]["approval_pack"]
+            presented = str(approval["presentation_digest"])
+            command = str(approval["simple_approval_commands"][0]["command"])
+            self.assertIn(f"--presented {presented}", command)
+            self.assertNotIn("--pack-digest", command)
+            workspace_before = data_path.read_bytes()
+            (root / OUTPUT).write_text(
+                "changed after handoff\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(SimpleApprovalError) as error:
+                approve_work(
+                    str(data_path),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                    presented_digest=presented,
+                )
+
+            self.assertEqual(error.exception.code, "APPROVAL_STATE_CHANGED")
+            self.assertEqual(data_path.read_bytes(), workspace_before)
+
+    def test_presented_digest_is_enforced_on_idempotent_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            handoff = build_agent_handoff(
+                Workspace.load(data_path),
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            presented = str(
+                handoff["human_approval_handoff"]["approval_pack"][
+                    "presentation_digest"
+                ]
+            )
+
+            first = approve_work(
+                str(data_path),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+                presented_digest=presented,
+            )
+            replay = approve_work(
+                str(data_path),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+                presented_digest=presented,
+            )
+            with self.assertRaises(SimpleApprovalError) as error:
+                approve_work(
+                    str(data_path),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                    presented_digest="sha256:" + ("0" * 64),
+                )
+
+            self.assertFalse(first["idempotent"])
+            self.assertTrue(replay["idempotent"])
+            self.assertEqual(error.exception.code, "APPROVAL_STATE_CHANGED")
 
     def test_cli_exposes_inbox_and_one_pack_decision_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -335,12 +466,20 @@ class ApprovalPackTests(unittest.TestCase):
                 "--json",
             )
 
-        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v1")
-        self.assertIn("State: decision-ready", rendered_inbox)
+        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v2")
+        self.assertIn("Status: Needs approval", rendered_inbox)
         self.assertIn("Owner: qualified human", rendered_inbox)
-        self.assertIn("Next: palari human-decision pack", rendered_inbox)
+        self.assertIn("Next: palari --workspace", rendered_inbox)
+        self.assertIn("human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
         self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
+        self.assertTrue(inbox["approval_commands"])
+        for command in inbox["approval_commands"]:
+            self.assertIn(
+                f"--human-id {command['human_id']}",
+                command["approve_eligible"],
+            )
+            self.assertNotIn("--human-id HUMAN-ID", command["approve_eligible"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
     def test_batch_policy_translates_only_structured_kernel_facts(self) -> None:
@@ -506,6 +645,138 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertEqual(first["executed"], [])
         self.assertEqual(first["parked"], ["WORK-001"])
         self.assertEqual(evaluation["members"][0]["state"], "stale")
+
+    def test_commands_name_only_humans_who_can_act_on_the_current_quorum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+            pack = inbox["packs"][0]
+            apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve_eligible=True,
+                reason="First distinct quorum vote.",
+            )
+
+            current = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            refreshed = build_approval_inbox(workspace, current.data)
+            handoff = build_agent_handoff(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+
+        self.assertEqual(
+            [item["human_id"] for item in refreshed["approval_commands"]],
+            ["HUMAN-SECOND"],
+        )
+        self.assertEqual(len(handoff["human_action_commands"]), 1)
+        action = handoff["human_action_commands"][0]
+        self.assertEqual(action["type"], "simple-approval")
+        self.assertEqual(action["actor"], "HUMAN-SECOND")
+        self.assertEqual(action["result"], "approve")
+        self.assertIn(f"palari --workspace {data_path.parent}", action["command"])
+        self.assertIn("--presented sha256:", action["command"])
+
+    def test_inbox_commands_retain_a_nondefault_workspace_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            custom_data_path = data_path.with_name("governance-state.json")
+            data_path.rename(custom_data_path)
+            data_path.write_text("{}\n", encoding="utf-8")
+            store = load_store(custom_data_path)
+            workspace = Workspace.load(custom_data_path)
+            inbox = build_approval_inbox(
+                workspace,
+                store.data,
+            )
+            packet = build_agent_brief(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+                "execute",
+            )
+            handoff = build_agent_handoff(
+                workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            emitted_read_commands = [
+                *packet["next_allowed_commands"],
+                *handoff["next_allowed_commands"],
+            ]
+            for command in emitted_read_commands:
+                arguments = shlex.split(command)
+                self.assertEqual(
+                    arguments[1:3],
+                    ["--workspace", str(custom_data_path)],
+                )
+                run_json(*arguments[1:])
+            approval_command = next(
+                item["command"]
+                for item in handoff["human_action_commands"]
+                if item["actor"] == "HUMAN-PRODUCT"
+            )
+            result = run_json(*shlex.split(approval_command)[1:])
+
+        self.assertTrue(inbox["approval_commands"])
+        self.assertTrue(
+            all(
+                f"palari --workspace {custom_data_path}" in item["approve_eligible"]
+                for item in inbox["approval_commands"]
+            )
+        )
+        self.assertTrue(result["completed"])
+        self.assertFalse(result["performed_external_effects"])
+
+    def test_reject_or_defer_does_not_suppress_a_later_founder_approval(self) -> None:
+        for prior_action in ("reject", "defer"):
+            with self.subTest(prior_action=prior_action), tempfile.TemporaryDirectory() as directory:
+                data_path = make_ready_workspace(
+                    Path(directory),
+                    count=1,
+                    reviewer_id="PALARI-REVIEWER",
+                    single_maintainer=True,
+                )
+                store = load_store(data_path)
+                inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+                pack = inbox["packs"][0]
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    human_id="HUMAN-PRODUCT",
+                    **{prior_action: ["WORK-001"]},
+                )
+
+                current = load_store(data_path)
+                refreshed = build_approval_inbox(
+                    Workspace.load(data_path),
+                    current.data,
+                )
+                command = refreshed["approval_commands"][0]
+                result = approve_work(
+                    str(data_path),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                    presented_digest=command["presentation_digest"],
+                )
+
+                self.assertEqual(
+                    refreshed["individual_items"][0]["state"],
+                    "eligible",
+                )
+                self.assertEqual(
+                    [item["human_id"] for item in refreshed["approval_commands"]],
+                    ["HUMAN-PRODUCT"],
+                )
+                self.assertTrue(result["completed"])
+                self.assertEqual(
+                    Workspace.load(data_path).work_item("WORK-001").status,
+                    "completed",
+                )
 
     def test_changed_member_stales_pending_quorum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -743,6 +1014,83 @@ class ApprovalPackTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
             validate_pack_manifest(bad_member)
 
+    def test_pack_v2_stored_manifest_can_continue_to_second_quorum_vote(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            inbox = build_approval_inbox(workspace, store.data)
+            legacy_pack = deepcopy(inbox["packs"][0])
+            legacy_pack["schema_version"] = "palari.approval-pack.v2"
+            for member in legacy_pack["members"]:
+                member["authority"].pop("effective_final_approval_count")
+                member["member_digest"] = canonical_sha256(
+                    {
+                        key: value
+                        for key, value in member.items()
+                        if key != "member_digest"
+                    }
+                )
+            legacy_pack["pack_digest"] = canonical_sha256(
+                {
+                    key: value
+                    for key, value in legacy_pack.items()
+                    if key != "pack_digest"
+                }
+            )
+            validate_pack_manifest(legacy_pack)
+            legacy_evaluation = evaluate_approval_pack(workspace, legacy_pack)
+            legacy_presentation = build_approval_presentation(
+                workspace,
+                legacy_pack,
+                legacy_evaluation,
+            )
+            legacy_inbox = {
+                **inbox,
+                "packs": [legacy_pack],
+                "presentations": [legacy_presentation],
+            }
+            with patch(
+                "palari_company_os.approval_packs.build_approval_inbox",
+                return_value=legacy_inbox,
+            ):
+                first = _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=legacy_pack["pack_digest"],
+                    presentation_digest=approval_presentation_digest(
+                        legacy_presentation,
+                        legacy_pack,
+                    ),
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            current_workspace = Workspace.load(data_path)
+            current_evaluation = evaluate_approval_pack(
+                current_workspace,
+                legacy_pack,
+            )
+            current_presentation = build_approval_presentation(
+                current_workspace,
+                legacy_pack,
+                current_evaluation,
+            )
+            second = _apply_pack_decision(
+                str(data_path),
+                pack_digest=legacy_pack["pack_digest"],
+                presentation_digest=approval_presentation_digest(
+                    current_presentation,
+                    legacy_pack,
+                ),
+                human_id="HUMAN-SECOND",
+                approve_eligible=True,
+                pack_members=["WORK-001"],
+            )
+
+        self.assertEqual(first["parked"], ["WORK-001"])
+        self.assertEqual(second["executed"], ["WORK-001"])
+
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -850,6 +1198,230 @@ class ApprovalPackTests(unittest.TestCase):
                 self.assertIsNone(report["pending"])
                 self.assertEqual(len(final.data["human_decisions"]), 1)
 
+    def test_final_prewrite_artifact_drift_cannot_mutate_workspace_or_journal(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                store.data,
+                selected_work_ids=["WORK-001"],
+            )
+            pack = inbox["packs"][0]
+            presentation_digest = inbox["approval_commands"][0][
+                "presentation_digest"
+            ]
+            journal_path = journal_file_path(data_path)
+            workspace_before = data_path.read_bytes()
+            journal_before = journal_path.read_bytes()
+
+            def mutate_at_final_prewrite(stage: str) -> None:
+                if stage == "before_prepare_append":
+                    (root / OUTPUT).write_text(
+                        "changed at final prewrite\n",
+                        encoding="utf-8",
+                    )
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "changed at the final prewrite boundary",
+            ):
+                _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=presentation_digest,
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                    crash_hook=mutate_at_final_prewrite,
+                )
+
+            final = load_store(data_path)
+            report = verify_journal(data_path, final.data)
+            self.assertEqual(data_path.read_bytes(), workspace_before)
+            self.assertEqual(journal_path.read_bytes(), journal_before)
+            self.assertEqual(final.data["human_decisions"], [])
+            self.assertEqual(final.data["acceptance_records"], [])
+            self.assertIsNone(report["pending"])
+
+    def test_stale_pending_before_approval_is_aborted_instead_of_auto_applied(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                store.data,
+                selected_work_ids=["WORK-001"],
+            )
+            pack = inbox["packs"][0]
+            presentation_digest = inbox["approval_commands"][0][
+                "presentation_digest"
+            ]
+            workspace_before = data_path.read_bytes()
+
+            with self.assertRaisesRegex(InjectedCrash, "after_prepare_fsync"):
+                _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=presentation_digest,
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                    crash_hook=crash_at("after_prepare_fsync"),
+                )
+            pending = verify_journal(data_path, load_store(data_path).data)
+            self.assertIsNotNone(pending["pending"])
+            (root / OUTPUT).write_text(
+                "changed after prepare\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "changed at the final prewrite boundary",
+            ):
+                _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=presentation_digest,
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            final = load_store(data_path)
+            report = verify_journal(data_path, final.data)
+            self.assertEqual(data_path.read_bytes(), workspace_before)
+            self.assertEqual(final.data["human_decisions"], [])
+            self.assertIsNone(report["pending"])
+            self.assertGreaterEqual(report["aborted_transactions"], 1)
+
+    def test_artifact_drift_after_prepare_is_aborted_before_workspace_apply(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_path = make_ready_workspace(root, count=1)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                store.data,
+                selected_work_ids=["WORK-001"],
+            )
+            pack = inbox["packs"][0]
+            presentation_digest = inbox["approval_commands"][0][
+                "presentation_digest"
+            ]
+            workspace_before = data_path.read_bytes()
+
+            def mutate_before_apply(stage: str) -> None:
+                if stage == "before_apply":
+                    (root / OUTPUT).write_text(
+                        "changed after prepare before apply\n",
+                        encoding="utf-8",
+                    )
+
+            with self.assertRaisesRegex(
+                WorkspaceError,
+                "changed at the final prewrite boundary",
+            ):
+                _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=presentation_digest,
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                    crash_hook=mutate_before_apply,
+                )
+
+            final = load_store(data_path)
+            report = verify_journal(data_path, final.data)
+            self.assertEqual(data_path.read_bytes(), workspace_before)
+            self.assertEqual(final.data["human_decisions"], [])
+            self.assertIsNone(report["pending"])
+            self.assertGreaterEqual(report["aborted_transactions"], 1)
+
+    def test_review_required_zero_quorum_converges_with_one_maintainer_and_palari_reviewer(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=1,
+                approvals=0,
+                reviewer_id="PALARI-REVIEWER",
+                single_maintainer=True,
+            )
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+
+            self.assertEqual(
+                [item["human_id"] for item in inbox["approval_commands"]],
+                ["HUMAN-PRODUCT"],
+            )
+            authority = inbox["packs"][0]["members"][0]["authority"]
+            self.assertEqual(authority["required_approval_count"], 0)
+            self.assertEqual(authority["effective_final_approval_count"], 1)
+            approval = _human_approval_handoff(
+                Workspace.load(data_path),
+                "WORK-001",
+            )
+            self.assertEqual(approval["required_approval_count"], 0)
+            self.assertEqual(approval["effective_final_approval_count"], 1)
+            result = approve_work(
+                str(data_path),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+            )
+            final = Workspace.load(data_path)
+
+            self.assertTrue(result["completed"])
+            self.assertEqual(final.work_item("WORK-001").status, "completed")
+            self.assertEqual(len(final.human_decisions), 1)
+            self.assertEqual(len(final.acceptance_records), 1)
+
+    def test_review_required_zero_quorum_founder_reviewer_fails_before_approval(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=1,
+                approvals=0,
+                reviewer_id="HUMAN-PRODUCT",
+                single_maintainer=True,
+            )
+            store = load_store(data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                store.data,
+                selected_work_ids=["WORK-001"],
+            )
+
+            self.assertEqual(inbox["approval_commands"], [])
+            self.assertEqual(inbox["individual_items"][0]["state"], "blocked")
+            with self.assertRaises(SimpleApprovalError) as error:
+                approve_work(
+                    str(data_path),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                )
+            self.assertIn(
+                error.exception.code,
+                {
+                    "APPROVAL_AUTHORITY_PLAN_BLOCKED",
+                    "APPROVAL_IDENTITY_COLLISION",
+                    "APPROVAL_REVIEW_REQUIRED",
+                },
+            )
+
 
 def make_ready_workspace(
     root: Path,
@@ -860,6 +1432,8 @@ def make_ready_workspace(
     distinct_outputs: bool = False,
     scope: str = "Prepare one bounded local draft without external effects.",
     risk: str = "R2",
+    reviewer_id: str = "HUMAN-REVIEW",
+    single_maintainer: bool = False,
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -877,8 +1451,21 @@ def make_ready_workspace(
         {"id": "HUMAN-REVIEW", "name": "Independent reviewer"},
         {"id": "HUMAN-UNQUALIFIED", "name": "Unqualified human"},
     ]
+    if single_maintainer:
+        raw["humans"] = [raw["humans"][0]]
     raw["palaris"][0]["owner_human"] = "HUMAN-PRODUCT"
     raw["palaris"][0]["active_work"] = []
+    if reviewer_id == "PALARI-REVIEWER":
+        raw["palaris"].append(
+            {
+                "id": "PALARI-REVIEWER",
+                "name": "Independent reviewer",
+                "role": "Review-only Palari",
+                "owner_human": "HUMAN-PRODUCT",
+                "linked_goals": ["GOAL-1"],
+                "active_work": [],
+            }
+        )
     raw["work_items"] = []
     raw["attempts"] = []
     raw["receipts"] = []
@@ -993,7 +1580,7 @@ def make_ready_workspace(
             "id": f"REVIEW-{index:03d}",
             "work_item_id": work_id,
             "reviewed_head": f"head-{index:03d}",
-            "reviewer": "HUMAN-REVIEW",
+            "reviewer": reviewer_id,
             "verdict": "accept-ready",
             **binding,
             "findings": [],

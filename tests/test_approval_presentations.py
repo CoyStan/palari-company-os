@@ -35,15 +35,22 @@ class ApprovalPresentationTests(unittest.TestCase):
                     second["presentations"][0], second["packs"][0]
                 ),
             )
-            original_digest = first["approval_commands"][0]["presentation_digest"]
+            original_digest = approval_presentation_digest(
+                first_presentation,
+                first_pack,
+            )
             (root / OUTPUT).write_text("one governed byte changed\n", encoding="utf-8")
             changed = load_store(data_path)
             rebuilt = build_approval_inbox(Workspace.load(data_path), changed.data)
 
         self.assertNotEqual(
             original_digest,
-            rebuilt["approval_commands"][0]["presentation_digest"],
+            approval_presentation_digest(
+                rebuilt["presentations"][0],
+                rebuilt["packs"][0],
+            ),
         )
+        self.assertEqual(rebuilt["approval_commands"], [])
 
     def test_changed_decision_context_rejects_old_presentation_then_fresh_action_converges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

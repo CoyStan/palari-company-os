@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -15,8 +17,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_packets import build_agent_brief
 from palari_company_os.agent_runtime import start_agent
+from palari_company_os.cli_output import print_init
+from palari_company_os.cli_parser import build_parser
 from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
+from palari_company_os.store import load_store, write_store
 from palari_company_os.work_identity import generate_work_id
 from palari_company_os.workspace import Workspace, WorkspaceError, default_workspace_path
 
@@ -35,17 +40,90 @@ class InitTests(unittest.TestCase):
         self.assertEqual(result["workspace"], "acme-app")
         workspace = Workspace.load(self.project)
         self.assertEqual([human.id for human in workspace.humans], ["HUMAN-FOUNDER"])
-        self.assertEqual([palari.id for palari in workspace.palaris], ["PALARI-CLAUDE"])
+        self.assertEqual(
+            [palari.id for palari in workspace.palaris],
+            ["PALARI-CLAUDE", "PALARI-REVIEWER"],
+        )
         self.assertEqual([goal.id for goal in workspace.goals], ["GOAL-0001"])
         self.assertEqual([bench.id for bench in workspace.workbenches], ["WORKBENCH-MAIN"])
         self.assertEqual([source.id for source in workspace.sources], ["SOURCE-REPO"])
         self.assertEqual(workspace.palaris[0].default_worker, "claude-code")
+        self.assertEqual(workspace.palaris[1].default_worker, "claude-code")
+        self.assertEqual(
+            workspace.goals[0].linked_palaris,
+            ["PALARI-CLAUDE", "PALARI-REVIEWER"],
+        )
+        self.assertEqual(
+            workspace.sources[0].allowed_palaris,
+            ["PALARI-CLAUDE", "PALARI-REVIEWER"],
+        )
+        self.assertEqual(
+            workspace.workbenches[0].palari_ids,
+            ["PALARI-CLAUDE"],
+        )
+        self.assertIn("build or modify task outputs", workspace.palaris[1].forbidden_actions)
+        self.assertIn("record human approval", workspace.palaris[1].forbidden_actions)
         self.assertTrue(any("work add" in cmd for cmd in result["next_commands"]))
         self.assertTrue(any("agent start --next" in cmd for cmd in result["next_commands"]))
         self.assertEqual(result["agent_docs"]["status"], "ready")
         self.assertEqual(result["authority_anchor"]["status"], "not-required")
         self.assertTrue((self.project / "AGENTS.md").is_file())
         self.assertTrue((self.project / "docs/agent/verification.md").is_file())
+        agents = (self.project / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("start one bounded task", agents)
+        self.assertIn("task brief (`packet`)", agents)
+        self.assertIn("deterministic check results", agents)
+        self.assertIn("REVIEWER-ID", agents)
+        self.assertIn("human_action_commands[].command", agents)
+        self.assertIn("presentation-bound", agents)
+        self.assertNotIn("palari approve WORK-ID --as HUMAN-ID --json", agents)
+        self.assertIn("must never run it", agents)
+        self.assertNotIn("bounded work item", agents)
+        self.assertNotIn("human acceptance", agents)
+        verification = (self.project / "docs/agent/verification.md").read_text(
+            encoding="utf-8"
+        )
+        normalized_verification = " ".join(verification.split())
+        self.assertIn("does not execute task prose", normalized_verification)
+        self.assertIn(
+            "git --literal-pathspecs diff --check BASE HEAD -- CHANGED_PATHS",
+            normalized_verification,
+        )
+        self.assertNotIn("reruns only declared", normalized_verification)
+        output = io.StringIO()
+        with redirect_stdout(output):
+            print_init(result, False)
+        self.assertIn(
+            "reviewer PALARI-REVIEWER (Independent Reviewer)",
+            output.getvalue(),
+        )
+        self.assertEqual(
+            workspace.palaris[0].scope,
+            "Do bounded work items inside declared write boundaries.",
+        )
+        self.assertEqual(workspace.workbenches[0].label, "Main workbench")
+        self.assertIn("Add a bounded task", result["message"])
+
+    def test_default_reviewer_is_not_execute_authorized_by_the_workbench(self) -> None:
+        initialize_starter_workspace(self.project)
+        result = quick_add_work(
+            self.project,
+            "Prepare a governed draft",
+            write=["docs/draft.md"],
+        )
+
+        packet = build_agent_brief(
+            Workspace.load(self.project),
+            result["work_item"]["id"],
+            "PALARI-REVIEWER",
+            "execute",
+        )
+
+        self.assertEqual(packet["status"], "blocked")
+        self.assertIn(
+            "PALARI_NOT_ASSIGNED",
+            {blocker["code"] for blocker in packet["blockers"]},
+        )
 
     def test_init_refuses_existing_workspace(self) -> None:
         initialize_starter_workspace(self.project)
@@ -73,6 +151,38 @@ class InitTests(unittest.TestCase):
         self.assertEqual(result["palari"]["id"], "PALARI-CODEX")
         workspace = Workspace.load(self.project)
         self.assertEqual(workspace.palaris[0].default_worker, "codex")
+
+    def test_init_guidance_uses_generic_reviewer_id_when_builder_collides(
+        self,
+    ) -> None:
+        result = initialize_starter_workspace(
+            self.project,
+            palari_name="Reviewer",
+        )
+        agents = (self.project / "AGENTS.md").read_text(encoding="utf-8")
+        common = (self.project / "docs/agent/common-workflows.md").read_text(
+            encoding="utf-8"
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            print_init(result, False)
+
+        self.assertEqual(result["palari"]["id"], "PALARI-REVIEWER")
+        self.assertEqual(
+            result["reviewer"]["id"],
+            "PALARI-INDEPENDENT-REVIEWER",
+        )
+        self.assertIn("REVIEWER-ID", agents)
+        self.assertIn("REVIEWER-ID", common)
+        self.assertNotIn(
+            "--as PALARI-REVIEWER --mode review",
+            agents,
+        )
+        self.assertIn(
+            "reviewer PALARI-INDEPENDENT-REVIEWER (Independent Reviewer)",
+            output.getvalue(),
+        )
 
     def test_init_anchors_only_generated_adoption_files_in_a_committed_repo(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
@@ -368,6 +478,7 @@ class WorkAddTests(unittest.TestCase):
         )
 
         work_id = result["work_item"]["id"]
+        self.assertEqual(result["work_item"]["palari"], "PALARI-CLAUDE")
         self.assertRegex(
             work_id,
             r"^WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}$",
@@ -378,8 +489,78 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/notes.md"])
         self.assertEqual(
             result["next_commands"],
-            ["palari agent start --next --as PALARI-CLAUDE --mode execute --json"],
+            [
+                (
+                    f"palari --workspace {self.project} agent start --next "
+                    "--as PALARI-CLAUDE --mode execute --json"
+                )
+            ],
         )
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["next_step_type"], "start-work")
+        self.assertTrue(result["authority_plan"]["viable"])
+
+    def test_work_add_with_no_viable_reviewer_emits_only_the_safe_correction(
+        self,
+    ) -> None:
+        store = load_store(self.project)
+        store.data["palaris"] = [
+            item
+            for item in store.data["palaris"]
+            if item["id"] != "PALARI-REVIEWER"
+        ]
+        store.data["goals"][0]["linked_palaris"] = ["PALARI-CLAUDE"]
+        store.data["sources"][0]["allowed_palaris"] = ["PALARI-CLAUDE"]
+        write_store(store)
+
+        result = quick_add_work(
+            self.project,
+            "Create a governed draft",
+            write=["docs/draft.md"],
+            risk="R2",
+            intensity="standard",
+            approvals=1,
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["next_step_type"], "blocked")
+        self.assertFalse(result["authority_plan"]["viable"])
+        self.assertEqual(
+            result["next_action"],
+            result["authority_plan"]["smallest_correction"],
+        )
+        self.assertIn("distinct Palari reviewer", result["next_action"])
+        self.assertEqual(
+            result["next_commands"],
+            [
+                (
+                    f"palari --workspace {self.project} detail "
+                    f"{result['work_item']['id']} --json"
+                )
+            ],
+        )
+        self.assertNotIn("agent start", "\n".join(result["next_commands"]))
+        self.assertIn("blocked before agent start", result["message"])
+        packet = build_agent_brief(
+            Workspace.load(self.project),
+            result["work_item"]["id"],
+            "PALARI-CLAUDE",
+            "execute",
+        )
+        self.assertEqual(packet["status"], "blocked")
+
+    def test_work_add_help_describes_the_execute_authorized_default(self) -> None:
+        output = io.StringIO()
+        with redirect_stdout(output), self.assertRaises(SystemExit) as raised:
+            build_parser().parse_args(["work", "add", "--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        help_text = " ".join(output.getvalue().split())
+        self.assertIn(
+            "Defaults to the project's sole execute-authorized agent.",
+            help_text,
+        )
+        self.assertNotIn("workspace's only agent", help_text)
 
     def test_work_add_idempotently_recovers_an_unanchored_git_workspace(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
@@ -602,6 +783,7 @@ class WorkAddTests(unittest.TestCase):
     def test_ambiguous_palari_requires_explicit_choice(self) -> None:
         data = json.loads((self.project / "workspace.json").read_text(encoding="utf-8"))
         data["palaris"].append(dict(data["palaris"][0], id="PALARI-OTHER", name="Other"))
+        data["workbenches"][0]["palari_ids"].append("PALARI-OTHER")
         (self.project / "workspace.json").write_text(json.dumps(data), encoding="utf-8")
 
         with self.assertRaises(WorkspaceError) as caught:

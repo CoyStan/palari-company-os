@@ -1,32 +1,44 @@
-# Lifecycle Guide
+# Work Process
 
-Palari Company OS models this loop:
-
-```text
-Goal -> Palari -> Work -> Attempt -> Receipt -> Evidence -> Review -> Human Decision -> Outcome
-```
-
-For asynchronous preparation, multiple reviewed items may be compiled into a
-parked Approval Inbox:
+Palari uses one understandable path:
 
 ```text
-bounded preparation -> parked item proofs -> canonical Approval Pack
--> one exact human pack decision -> eligible local execution -> outcome
+goal
+-> task and limits
+-> run
+-> run record and checks
+-> independent review when required
+-> human approval when required
+-> result
 ```
 
-The interaction is compressed; each item keeps its own scope, attempt,
-receipt, evidence, review, decision, and journal result. A dependency change
-stales descendants—even when a narrowed pack omits the dependency—while
-unrelated current members retain their valid state. A changed risk or batch
-policy also stales the exact pack. Recursive dependency bindings make a changed
-terminal dependency artifact stale rather than treating terminal status as
-sufficient. External or irreversible effects remain parked for their native
-individual gate.
+The JSON schema retains the machine terms `work_item`, `attempt`, `receipt`,
+`evidence_run`, `review_verdict`, `human_decision`, and `outcome`. Commands and
+protocol files continue to use those exact names where compatibility requires
+them.
 
-## Normal Operator Path
+## Approve Several Ready Tasks Together
 
-The normal path derives mechanical records instead of asking an agent to copy
-their ids and digests:
+Palari can prepare several separately reviewed tasks for one short human
+approval session:
+
+```text
+bounded preparation -> separately checked and reviewed tasks
+-> immutable Approval Pack -> one exact human approval action
+-> eligible local completion -> result
+```
+
+The Approval Pack is an approval bundle, not shared proof. Every task keeps its
+own limits, run, run record, check results, review, decision, and history entry.
+A dependency change makes affected tasks stale even when a smaller pack omits
+that dependency; unrelated current tasks remain valid. A risk or batch-policy
+change also makes the exact pack stale. External or irreversible actions always
+keep their individual approval step.
+
+## Normal Path
+
+Palari creates and links the required records instead of asking an agent to
+copy IDs and digests by hand:
 
 ```bash
 palari init --host codex
@@ -36,41 +48,59 @@ palari agent start --next --as PALARI-ID --json
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
 
-`--host` accepts `claude` or `codex` and folds new portable instructions, the
-claim-bound Git gate, and a tested session-hook adapter into the starter
-anchor. Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as
-PALARI-ID --json`; without an explicit host, initialization still refuses an
-existing workspace. Other harnesses can consume the provider-neutral contract
-without being advertised as supported session profiles.
+The comment says `packet` because that is the stored machine name; operators
+can read it as the task brief.
+
+`--host` accepts `claude` or `codex`. Initialization installs portable
+instructions, the task-lock Git check, and a tested session-hook adapter.
+Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as PALARI-ID
+--json`; initialization still refuses an existing workspace when no host is
+given. Other agent hosts may consume the provider-neutral session rules without
+being advertised as supported profiles.
 
 The presence-only `--write` form requires an output to exist. Use repeatable
-`--create`, `--modify`, and `--delete` instead when exact mutation class
-matters; exact intents cannot be mixed with `--write`.
+`--create`, `--modify`, and `--delete` when the exact change type matters; exact
+intents cannot be mixed with `--write`.
 
-`start --next` selects exactly one item already considered safe by the queue,
-persists its packet and portable session contract, and claims it. `advance`
-derives the exact claim range, checks declared path intent, runs verification,
-and records deterministic attempt, receipt, evidence, and closeout state. It
-then completes eligible low-risk work or stops at independent review, exact
-human authority, external state, or a concrete blocker. Neither command creates
-an independent verdict or human decision.
+`start --next` chooses one task the queue already considers safe, writes its
+task brief and portable session rules, and acquires its task lock (`claim`).
+`advance` identifies the exact committed change range, checks each declared
+create/modify/delete intent, runs verification, and records the run (`attempt`),
+run record (`receipt`), check results (`evidence_run`), and closeout state.
 
-After a separate current review, a qualified human uses one inbox and one exact
-action:
+It then completes eligible low-risk work or stops at independent review, human
+approval, an external action, or a concrete blocker. Neither command creates an
+independent review result or approval/rejection record (`human_decision`).
+
+After the builder stops at review, a distinct review-only agent inspects the
+current proof and records an advisory result. Palari rejects a reviewer choice
+that would leave too few distinct qualified final approvers. After that review,
+the human handoff presents the exact current task and a qualified person takes
+one ordinary, presentation-bound action:
 
 ```bash
-palari queue --approval-inbox --json
-# inspect the emitted presentation, then run its exact
-# `palari human-decision pack ...` command once
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact emitted human_action_commands[].command.
 ```
 
-The action binds the current pack and presentation digests. Stale proof,
-incomplete quorum, non-batchable work, and external effects remain parked with
-an explicit owner and next step. Review and acceptance stay attributable to
-distinct actors.
+The emitted `approve` command contains a machine-supplied presentation binding;
+no record ID or digest is copied. It rechecks the current output, run record,
+checks, review, journal, qualified actor, and effective final approval count
+before its crash-safe decision-and-completion transaction. Review-required
+work has an effective final count of at least one even if its stored numeric
+count is zero; only the narrow automatic R1 exemption remains zero. Stale check
+results, changed artifacts, missing required approvals, identity collisions,
+individual-only work, and external actions remain blocked with a clear owner
+and next step. Review and final approval stay attributable to different actors.
 
-When execution stops before proof is ready, preserve that fact before releasing
-ownership:
+`queue --approval-inbox` and its digest-bound `human-decision pack` actions
+remain available when a person intentionally uses the advanced or batched
+surface.
+
+## Stop Safely
+
+When a run stops before check results are ready, record why before releasing
+the task lock:
 
 ```bash
 palari agent release WORK-ID --as PALARI-ID \
@@ -78,17 +108,17 @@ palari agent release WORK-ID --as PALARI-ID \
   --next-action "Ask the founder to choose the final wording" --json
 ```
 
-Parking records one blocked attempt and the exact next safe action, then
-releases the owned claim. It creates no completion proof or authority. The
-workspace must already have a writable governance journal; legacy work receives
-the exact explicit `history --checkpoint` activation action and no retroactive
-continuity claim. The commands below remain available as lower-level authoring
-and recovery surfaces; they are not the ordinary agent ceremony.
+This records one blocked run and its next safe action, then releases ownership.
+It creates no run record, check results, review, approval, completion, or result.
+The workspace must already have writable tamper-evident history (the
+`governance_journal`). A legacy workspace receives the exact explicit `history
+--checkpoint` activation action; Palari does not pretend the earlier history is
+continuous.
 
-## Retire Obsolete Work Without Pretending It Completed
+## Retire Obsolete Tasks Without Calling Them Complete
 
-When an unclaimed item is genuinely obsolete, close attention explicitly
-through the existing governed update path:
+When an unclaimed task is genuinely obsolete, give it an explicit final status
+through the existing update command:
 
 ```bash
 palari work update WORK-OLD \
@@ -101,43 +131,48 @@ palari work update WORK-EXPERIMENT \
   --terminal-reason "The experiment no longer earns operator attention." --json
 ```
 
-These dispositions are audit terminalization, not successful completion. They
-create no attempt, receipt, evidence, review, human decision, acceptance, or
-outcome. A reason is mandatory and the successor is optional, but any successor
-must be an existing distinct work item. Successor cycles, retirement with an
-active attempt, open decision, or unresolved external action, and dependencies
-that still point at retired work all fail closed. Rebind a dependent to the
-explicit successor before retiring its old prerequisite.
+`superseded` and `abandoned` close the task without claiming success. They do
+not create a run, run record, check results, review, human-decision record,
+approval, or result. A reason is required. A successor is optional, but it must name a
+different existing task.
 
-Retired work is absent from the ordinary queue, `agent next`, and Approval
-Inbox. It remains visible through `queue --include-closed` and `detail`, and an
-explicit `agent start` cannot claim it. Historical proof and review records are
-preserved rather than rewritten.
+Palari rejects successor cycles, retirement during an active run, retirement
+with an open decision or unresolved external action, and retirement while other
+tasks still depend on the old task. Point each dependent task to the explicit
+successor first.
 
-## Parked Expert Authoring
+Retired tasks disappear from the ordinary queue, `agent next`, and Approval
+Inbox. They remain visible through `queue --include-closed` and `detail`, and an
+explicit `agent start` cannot claim them. Historical check and review records
+remain unchanged.
 
-The broad record-by-record authoring commands remain available for explicit
-workspace repair and expert fixture construction. They are parked surfaces,
-not a second supported lifecycle, an agent fallback, or a compatibility
-promise. The command reference lists them separately from the ordinary path.
+## Lower-Level Repair Commands
 
-Supported agent hooks may prepare a proposal or scope-expansion decision, but
-they cannot directly manufacture attempts, receipts, evidence, reviews,
-acceptance, human decisions, or outcomes. Use `agent advance` to derive agent
-proof and the exact Approval Inbox action for human authority.
+The record-by-record authoring commands remain available for explicit workspace
+repair and expert fixture construction. They are parked tools, not a second
+normal work process, an agent fallback, or a compatibility promise. The command
+reference lists them separately.
 
-Every current terminal transition is evaluated by the same governance kernel:
-proof must be complete and current, artifact and contract bindings must match,
-required review must be independent, required human authority must be exact,
-and dependencies and external effects must be safe. A substantive mutation
-invalidates derived acceptance and completion.
+Supported agent hooks may prepare a proposed task or ask a person to expand a
+task's limits. They cannot create runs, run records, check results, reviews,
+approvals, human decisions, or results directly. `agent advance` derives the
+agent's records and, when needed, the review or human handoff. Hooks deny both
+the simple `approve` command and lower-level human-decision commands when they
+are recognized in an agent session.
 
-PCAW v1 is the supported portable proof format. `proof export` creates a
-canonical statement, and `proof verify` derives its state locally and offline
-without trusting the claimed result. Workspace `create`, `modify`, and `delete`
-path intents remain local proof: PCAW v1 does not claim portable deletion
-history.
+Every successful completion uses the same shared rules and checks: check
+results must be complete and current, output and task-rule bindings must match,
+required review must be independent, required human approval must match the
+exact version, dependencies must be complete, and external actions must be
+safe. A substantive change invalidates earlier derived approval and completion.
 
-Journal restoration and full continuity audit are explicit recovery actions.
-They append history rather than rewriting it, and fail closed when restoration
-could replay an external effect.
+PCAW v1 remains the portable verification format. `proof export` creates its
+canonical statement, and `proof verify` calculates the real state locally and
+offline instead of trusting the claimed result. The protocol keeps exact terms
+such as subject, artifact, digest, and predicate. Workspace `create`, `modify`,
+and `delete` intents are local verification facts; PCAW v1 does not claim to
+prove deletion history across machines.
+
+Restoring a point in the tamper-evident history and running a full continuity
+audit are explicit recovery actions. Restoration appends history instead of
+rewriting it and stops safely if it could repeat an external action.

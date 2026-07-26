@@ -217,11 +217,11 @@ def _render_page(config: MissionControlConfig) -> str:
       {_needs_lane(workspace, needs, config, current_hash)}
     </section>
     <section class="panel" id="boundary-view">
-      <span class="eyebrow">Boundary View</span>
+      <span class="eyebrow">Task Limits</span>
       {_boundary_view(selected_detail)}
     </section>
     <section class="panel" id="receipt-drawer">
-      <span class="eyebrow">Receipt Drawer</span>
+      <span class="eyebrow">Run Record</span>
       {_receipt_drawer(selected_detail)}
     </section>
   </main>
@@ -321,7 +321,7 @@ def _integration_plan_form(
 
 def _boundary_view(work_detail: dict[str, Any] | None) -> str:
     if not work_detail:
-        return '<p class="empty">No selected work item. Create work to see its read/write fence.</p>'
+        return '<p class="empty">No selected task. Create a task to see its allowed files.</p>'
     work = work_detail["work_item"]
     attempt = work_detail.get("attempt") or {}
     sources = work_detail.get("sources") or []
@@ -331,15 +331,15 @@ def _boundary_view(work_detail: dict[str, Any] | None) -> str:
     <h2>{_e(work['title'])}</h2>
     <div class="fence-grid">
       <div><h3>May read</h3>{_list(source.get('label', source.get('id', '')) for source in sources)}</div>
-      <div><h3>May write after approval</h3>{_list(writes)}</div>
-      <div><h3>Observed changes</h3>{_list(changed)}</div>
+      <div><h3>May change</h3>{_list(writes)}</div>
+      <div><h3>Changed in this run</h3>{_list(changed)}</div>
     </div>
     """
 
 
 def _receipt_drawer(work_detail: dict[str, Any] | None) -> str:
     if not work_detail or not work_detail.get("receipt"):
-        return '<p class="empty">No receipt for the selected work yet.</p>'
+        return '<p class="empty">No run record for the selected task yet.</p>'
     receipt = work_detail["receipt"]
     return f"""
     <div class="receipt-grid">

@@ -88,51 +88,51 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_queue",
             "Palari Queue",
-            "Show work items that need attention in a Palari workspace.",
+            "Show tasks that need attention across a Palari workspace.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "include_closed": _boolean("Include closed/completed work items."),
+                "include_closed": _boolean("Include completed tasks."),
             },
         ),
         _tool(
             "palari_state",
             "Palari State",
-            "Show compact workspace state, attention counts, parallel work, and warnings.",
+            "Show compact workspace status, attention counts, parallel tasks, and warnings.",
             {"workspace": _string("Workspace directory or workspace.json path.")},
         ),
         _tool(
             "palari_detail",
-            "Palari Work Detail",
-            "Show one work item's detail, proof state, playbooks, and next actions.",
+            "Palari Task Detail",
+            "Show one task's details, check status, guidance, and next actions.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
+                "work_id": _string("Task id."),
             },
             required=["work_id"],
         ),
         _tool(
             "palari_agent_next",
             "Palari Agent Next",
-            "Show the next safe work candidates for one Palari or all Palaris.",
+            "Show the next safe task choices for one agent or all agents.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "palari_id": _string("Acting Palari id. Omit with all=true for a rollup."),
-                "all": _boolean("Show a rollup for all Palaris."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "palari_id": _string("Acting agent id. Omit with all=true for a rollup."),
+                "all": _boolean("Show a rollup for all agents."),
+                "mode": _string("Session mode.", default="execute"),
                 "limit": _integer("Maximum candidates to show.", default=5, minimum=1),
             },
         ),
         _tool(
             "palari_agent_brief",
             "Palari Agent Brief",
-            "Compile a read-only bounded packet for one Palari and work item.",
+            "Show a read-only bounded task brief for one agent and task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
                 "session_contract": _boolean(
-                    "Return the portable provider-neutral session contract."
+                    "Return the portable provider-neutral session rules."
                 ),
             },
             required=["work_id", "palari_id"],
@@ -140,14 +140,14 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_agent_start",
             "Palari Agent Start",
-            "Persist the bounded packet and claim an explicit or next safe work item.",
+            "Save the task brief and lock an explicit or next safe task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "next": _boolean("Deterministically claim the next safe work item."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
-                "lease_minutes": _integer("Claim lease duration in minutes.", default=30, minimum=1),
+                "work_id": _string("Task id."),
+                "next": _boolean("Deterministically lock the next safe task."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
+                "lease_minutes": _integer("Task lock duration in minutes.", default=30, minimum=1),
             },
             required=["palari_id"],
             read_only=False,
@@ -156,28 +156,28 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_agent_check",
             "Palari Agent Check",
-            "Check whether one work item currently satisfies its agent packet contract.",
+            "Check whether one task currently follows its task brief.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
-                "changed_paths": _array("Observed changed paths to compare with write boundaries."),
-                "git_diff": _boolean("Inspect current git status against packet write boundaries."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
+                "changed_paths": _array("Changed paths to compare with task file limits."),
+                "git_diff": _boolean("Inspect current Git status against task file limits."),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_advance",
             "Palari Agent Advance",
-            "Verify and deterministically reconcile proof to the next authority boundary.",
+            "Run checks and stop at the next review, approval, or blocker.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
                 "dry_run": _boolean("Return the exact plan without mutation."),
                 "refresh_verification": _boolean(
-                    "Rerun required exact verification instead of using advisory cache records."
+                    "Rerun required checks instead of using advisory cache records."
                 ),
             },
             required=["work_id", "palari_id"],
@@ -190,56 +190,56 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Summarize whether one agent may report completion or must hand off.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_handoff",
             "Palari Agent Handoff",
-            "Compile a read-only handoff packet for review, decision, or approval.",
+            "Show a read-only handoff for review or approval.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_loop",
             "Palari Agent Loop",
-            "Show the compact read-only control loop for one agent and work item.",
+            "Show the compact read-only task flow for one agent and task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_doctor",
             "Palari Agent Doctor",
-            "Explain the current agent loop safety state in plain language.",
+            "Explain the current task safety status in plain language.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_release",
             "Palari Agent Release",
-            "Release one local agent claim without changing workspace records.",
+            "Release one local task lock without changing workspace records.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
             },
             required=["work_id", "palari_id"],
             read_only=False,
@@ -413,9 +413,9 @@ def _initialize_result(message: dict[str, Any]) -> dict[str, Any]:
             "version": __version__,
         },
         "instructions": (
-            "Use Palari tools to claim bounded work, inspect its portable contract, "
-            "check scope, and advance deterministic proof. Agent start/release only "
-            "manage local runtime claims; agent advance stops before human authority."
+            "Use Palari tools to lock a bounded task, inspect its portable session rules, "
+            "check file limits, and advance deterministic checks. Agent start/release only "
+            "manage local task locks; agent advance stops before human approval."
         ),
     }
 

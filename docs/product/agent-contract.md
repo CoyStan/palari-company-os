@@ -1,14 +1,20 @@
 # Agent Contract
 
-Palari Company OS is primarily an operating contract for AI agents. Humans use
-structured read models, Mission Control, receipts, blockers, and approval
-records to supervise work.
-Agents use the CLI to discover one bounded task, receive context, act inside
-scope, and stop when human authority is required.
+Palari gives AI agents a clear task, limits, and completion checks. Humans use
+status views, run records, blockers, and approval records to supervise the
+work. Agents use the CLI to find one bounded task, receive a task brief, act
+inside the allowed files and sources, and stop when a person must review or
+approve something.
 
-## Canonical Loop
+This document occasionally shows internal names such as `packet`, `claim`,
+`receipt`, and `human_decision` because they are exact stored or command-line
+interfaces. See [Plain Language](plain-language.md) for the words shown to
+people and the compatibility boundary.
 
-Ordinary execution starts by selecting and claiming one safe item:
+## Normal Work Process
+
+Ordinary execution starts by selecting one safe task and assigning it to the
+agent:
 
 ```bash
 palari agent start --next --as PALARI-ID --json
@@ -24,25 +30,28 @@ palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
-`palari agent brief` is a read-only preview. `palari agent start` is the
-operational entry point for ready execution work: it persists the exact packet
-the agent received, persists its deterministic portable session contract, and
-records a digest-bound local lease claim. Blocked packets remain read-only and
-are not claimed. `agent brief --session-contract` emits the portable contract
-instead of the full packet without writing runtime state. `agent start --next`
-uses the same queue eligibility and packet compiler, then persists exactly one
-ready packet and claim. It does not infer new authority or silently choose
-blocked work. Use explicit `start WORK-ID --isolate` when a committed work item
+`palari agent brief` is a read-only preview. `palari agent start` is the normal
+entry point for ready work: it saves the exact task brief the agent received,
+saves its portable session rules (stored as `session-contract`), and records a digest-bound local task
+lock (stored internally as a `claim`). A blocked brief remains read-only and
+does not receive a lock. `agent brief --session-contract` emits the portable
+session rules instead of the full brief without writing runtime state. `agent
+start --next` uses the same queue rules and brief compiler, then saves exactly
+one ready brief and lock. It does not infer new permission or silently choose
+blocked work. Use explicit `start WORK-ID --isolate` when a committed task
 needs its own deterministic branch and worktree.
 
-For first adoption in a Git worktree, `palari init` writes only missing
-agent-ready guidance and makes one path-limited local commit of the new
-governance projection plus those generated docs. Add `--host claude` or
-`--host codex` to install the portable contract, claim-bound Git gate, and the
-selected tested project-local host hooks in the same anchored action. Existing
+For first adoption in a Git worktree, `palari init` declares one builder and a
+second review-only Palari, writes only missing agent-ready guidance, and makes
+one path-limited local commit of the new local rules file plus those generated
+docs. The reviewer is linked to the starter goal and source but is not in the
+execution workbench; it cannot build, provide human approval, broaden scope, or
+perform external writes. Add `--host claude` or `--host codex` to
+install the portable session rules, task-lock-bound Git check, and the
+selected tested repository-local host hooks in the same anchored action. Existing
 guidance, host configuration, and unrelated staged or unstaged paths are
 preserved rather than absorbed into the bootstrap commit. This is an immutable
-baseline bootstrap, not review, acceptance, or authenticated human attribution.
+baseline bootstrap, not review, approval, or authenticated human attribution.
 `palari work add` idempotently recovers a missing starter anchor before changing
 the work declaration. If a manually assembled workspace still has no committed
 authority origin, `agent start` fails closed with one exact `git add` plus
@@ -53,114 +62,130 @@ WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude` or
 `codex`. Without explicit `--host`, `init` still refuses an existing workspace.
 Both profiles have tested native session adapters; Codex project hooks require
 explicit `/hooks` trust. Other harnesses may consume the provider-neutral
-contract and host-neutral Git gate without a named session profile. Adoption
-grants no review, human decision, acceptance, merge, push, deployment,
-provider, or external-write authority.
+session rules and host-neutral Git check without a named session profile. Adoption
+grants no review, approval, merge, push, deployment, provider, or
+external-write permission.
 
 The ordinary loop is deliberately short:
 
 1. Run `palari agent start --next --as PALARI-ID --json` and continue only when
-   the returned packet is ready. Read and write only its allowed paths and
+   the returned task brief is ready. Read and write only its allowed paths and
    sources.
 2. Do the bounded work and commit it. Then run `palari agent advance WORK-ID
-   --as PALARI-ID --json` once. It derives the complete claim-start range, checks
+   --as PALARI-ID --json` once. It derives the complete change range since the
+   task lock started, checks
    exact create/modify/delete intent, runs fixed verification profiles, and
-   atomically records deterministic attempt, receipt, evidence, and closeout
-   state. It stops at independent review, human authority, external state, or a
-   concrete blocker; it never creates a review or human decision. Every
-   completion requires current exact passing evidence. Only R1/light work with
-   zero required approvals and no allowed, planned, queued, or actual external
-   writes may complete without independent review and human acceptance.
-3. Follow the one command returned at that boundary. After a separate current
-   review, a qualified human opens `palari queue --approval-inbox --json`,
-   inspects the exact presentation, and may run its bound `human-decision pack`
-   command once. Current authority can trigger only deterministic local
-   terminal bookkeeping.
+   atomically records the run, run record, check results, and closeout state.
+   R1 uses exact base-to-head `git diff --check` over the changed paths; task
+   prose is never executed as a check.
+   It stops at independent review, human approval, external state, or a
+   concrete blocker; it never creates a review or a person's decision. Every
+   completion requires current, passing checks tied to the exact version. Only
+   R1/light work with zero required approvals and no allowed, planned, queued,
+   or actual external writes may complete without independent review and human
+   approval.
+3. Follow the one command returned at that boundary. A distinct eligible
+   reviewer starts the task in `--mode review`, inspects its read-only brief,
+   and records an advisory result tied to the exact candidate. The local review
+   assignment lets supported hooks bind the review command to that reviewer
+   and task. Palari rejects that reviewer before recording if the choice would
+   leave too few qualified final approvers.
+4. After the separate current review, the human handoff shows the concise
+   presentation and an exact command. A qualified human runs that emitted
+   `palari approve ... --presented DIGEST` action once; the binding is supplied
+   by Palari, not copied. Palari revalidates exact proof before deterministic
+   local approval-and-completion bookkeeping. A bare command derives current
+   state at invocation and is not bound to an earlier handoff. The Approval
+   Inbox and digest-bound pack commands remain available for advanced or
+   batched use.
 
-`agent advance` is the sole current execution-to-proof and closeout path. Use
+`agent advance` is the sole current run-to-verification and closeout path. Use
 `agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
-`handoff`, `doctor`, and `loop` for detailed diagnosis. Proof refresh remains
-an explicit claimless recovery path: `agent advance --refresh-verification --dry-run`
-previews it, and the non-dry-run form creates fresh exact-head proof only when
-ordinary governed outputs remain byte-identical. Prior review and human
-authority never carry forward.
+`handoff`, `doctor`, and `loop` for detailed diagnosis. Check refresh remains
+an explicit recovery path without a task lock: `agent advance --refresh-verification --dry-run`
+previews it, and the non-dry-run form creates fresh exact-head check results only when
+ordinary task outputs remain byte-identical. Prior review and human
+approval never carries forward.
 
-If execution must stop before proof is ready, run:
+If execution must stop before checks are ready, run:
 
 ```bash
 palari agent release WORK-ID --as PALARI-ID \
   --reason "Why work stopped" --next-action "The next safe step" --json
 ```
 
-Parking durably records one blocked attempt, exact packet/head/workspace
-bindings, observed in-scope and out-of-scope changes, the reason, and the next
-safe action before releasing the owned execute claim. A retry after an
+Parking durably records one blocked run tied to the exact task brief, version,
+and workspace, observed allowed and disallowed file changes, the reason, and the next
+safe action before releasing the owned task lock. A retry after an
 interrupted release is idempotent only for the same durable record and unchanged
-repository state. Parking creates no receipt, evidence, review, decision,
-acceptance, outcome, or convergence. Use bare `agent release` only when no
+repository state. Parking creates no run record, check results, review,
+approval, or result. Use bare `agent release` only when no
 durable interrupted-work record is required. Parking requires an activated,
-writable governance journal. A legacy workspace without one fails before
+writable tamper-evident history. A legacy workspace without one fails before
 mutation with the exact `history --checkpoint` activation command; it never
 silently claims continuity for earlier history.
 
-For independent inspection work, use `--mode review` after a work item is in
-`needs-review`. The packet is read-only with respect to work outputs. It
-includes the review guide focus, attempt, evidence, receipt, suggested
-verdicts, and typed reviewer candidates. A matching Palari reviewer may record
-only its advisory verdict; it cannot create human acceptance.
+For independent inspection work, use `--mode review` after a task is in
+`needs-review`. The task brief is read-only with respect to outputs. It
+includes the review focus, run, check results, run record, suggested review
+results, the deterministic authority plan, viable reviewers, rejected
+reviewers with smallest safe corrections, and the qualified human approvers
+left by each choice. A matching agent reviewer may record only its advisory
+result; it cannot create human approval.
 `palari agent next --as PALARI-ID --mode review --json` ranks those reviewable
 items as ready while keeping non-reviewable work blocked.
 
-## Packet Purpose
+## What The Task Brief Contains
 
-The packet is a compact context compiler. It prevents agents from inferring a
-workflow from many separate commands. A packet answers:
+The task brief (stored internally as a `packet`) collects everything an agent
+needs in one place. It prevents agents from reconstructing the work process
+from many separate commands. A task brief answers:
 
 - who the agent is
-- which work item is in scope
+- which task is assigned
 - why the work matters
-- which paths, sources, and actions are allowed
-- source readiness metadata such as data class, authority, steward, freshness,
+- which files, sources, and actions are allowed
+- source readiness details such as data class, permission, steward, freshness,
   and redaction requirement
 - which actions are forbidden
 - what output is required
-- what receipt, evidence, review, human decision, or integration state matters
+- which run record, checks, review, approval, or integration status matters
 - when the agent must stop
 - which commands are safe to run next
 
-The packet must not dump the whole workspace. It includes only directly related
-records and explicit omitted-context notes.
+The brief must not dump the whole workspace. It includes only directly related
+records and explicit notes about omitted context.
 
-Aggregate agent views share one request-local packet, check, and directive. A
+Aggregate agent views share one request-local task brief, check, and directive. A
 pure directive compiler turns that current check into state, owner, blocker
 class, and next safe action. It has no clock, filesystem, mutation, review, or
-human-authority access. Transition checks—not the directive—remain
-authoritative. Exact Approval Inbox and proof-binding operations own their
-request-local journal verification, and a changed witness forces a new scan.
+human-approval access. Transition checks—not the directive—remain decisive.
+Exact Approval Inbox and verification-binding operations own their
+request-local history check, and a changed witness forces a new scan.
 
-## Documentation Hints
+## Helpful Documentation
 
-Agent packets include compact repo-documentation context:
+Task briefs include compact repository-documentation context:
 
 - `documentation_state` says whether agent-ready repo docs are present,
   partial, or missing.
 - `recommended_docs` points to committed docs likely to help with the selected
-  work item.
+  task.
 - `omitted_context` states that full documentation text was not loaded into the
-  packet.
+  task brief.
 
-This keeps packets context-window-safe. Agents should read recommended docs only
+This keeps briefs context-window-safe. Agents should read recommended docs only
 when they need that orientation. Missing docs are low context, not a work
 blocker; use `palari docs init --dry-run --json` to inspect the proposed starter
 set.
 
-## Gate Recommendations
+## Suggested Review Checks
 
-`palari gate recommend WORK-ID --json` is a read-only companion to packets and
-review guides. It does not review work and does not grant acceptance authority.
-It chooses the review contracts likely to matter for the selected work item:
+`palari gate recommend WORK-ID --json` is a read-only companion to task briefs
+and review guides. It does not review work or grant approval. It chooses the
+review checks likely to matter for the selected task:
 
-- prompt authority
+- prompt permission
 - source boundary
 - external writes
 - human approval
@@ -168,15 +193,15 @@ It chooses the review contracts likely to matter for the selected work item:
 - privacy/multimodal
 - product overclaim
 
-Each recommended gate includes a reviewer role, what to inspect, blocker
-checklist, required evidence, and accept-ready standard. Simple low-risk work can
-return `no_special_gate_required: true`; that means use the normal
-receipt/evidence/review loop, not that review is waived where the work item
+Each suggested check includes a reviewer role, what to inspect, a blocker
+checklist, required check results, and the accept-ready standard. Simple
+low-risk work can return `no_special_gate_required: true`; that means use the
+normal run-record/check/review loop, not that review is waived where the task
 requires it.
 
-## Packet Status
+## Task Brief Status
 
-`status: ready` means the agent may proceed inside the packet boundary.
+`status: ready` means the agent may proceed inside the task brief's boundary.
 
 `status: blocked` means the agent must not perform the work. It may run only the
 commands listed in `next_allowed_commands`, or report the blockers to a human.
@@ -184,7 +209,7 @@ commands listed in `next_allowed_commands`, or report the blockers to a human.
 Finish, loop, next, handoff, and Approval Inbox JSON classify the resolver as
 `automatic-reconciliation`, `agent-action`, `independent-review`,
 `human-authority`, `external-state`, or `terminal`. A human-looking blocker is
-not retained after the required authority already exists: current post-decision
+not retained after the required approval already exists: current post-decision
 bookkeeping reports `converge-ready` and points back to `agent advance`.
 Completed work reports `closed` with no remediation blocker.
 
@@ -202,6 +227,9 @@ Common blocker codes include:
 - `WORK_CLOSED`
 - `INTEGRATION_BOUNDARY`
 - `REVIEW_REQUIRED`
+- `REVIEWER_ROLE_MISSING`
+- `REVIEWER_EXHAUSTS_APPROVERS`
+- `APPROVER_ROLE_MISSING`
 
 ## Boundaries
 
@@ -215,27 +243,33 @@ Agents must never:
   outbox state
 - create durable memory without a future approved memory contract
 - treat an informal source as policy
-- bypass human decisions, review, receipts, evidence, or approval boundaries
+- bypass approval, review, run-record, check-result, or permission boundaries
+- run `palari approve` or a lower-level human-decision command
 
-## V1 Scope
+## Current Boundaries
 
-Agent Packet Contract v1 keeps provider actions read-only, but the local agent
-runtime writes packet/claim audit state and, when Git has a committed head, a
+Task Brief Contract v1 keeps provider actions read-only, but the local agent
+runtime writes brief/assignment audit state and, when Git has a committed head, a
 local Git witness for ready started work:
 
-- `.palari/packets/PACKET-...json` stores the exact bounded packet.
+- `.palari/packets/PACKET-...json` stores the exact bounded task brief.
 - `.palari/packets/session-contracts/SESSION-CONTRACT-...json` stores the
-  deterministic provider-neutral projection of packet scope, obligations,
-  authority binding, enforcement status, and limitations. Its identifier is
-  derived from its canonical digest; repeated compilation of the same packet
-  authority produces identical bytes.
+  deterministic provider-neutral view of task limits, obligations, permission
+  binding, enforcement status, and limitations. Its identifier is derived from
+  its canonical digest; repeated compilation of the same task rules produces
+  identical bytes. The portable projection removes the local workspace selector
+  from command guidance and replaces local workspace file/root fields with
+  stable markers, while continuing to hash every other task-brief field. The
+  persisted task brief and claim retain the exact selected workspace and the
+  task brief's local context hash, so portability does not weaken local selector
+  or authority binding.
 - `.palari/claims/WORK-ID.json` stores claim schema v2, the Palari, mode, lease
   expiry, packet id,
   context hash, portable-contract path and digest, and a hashed metadata-only
-  Git dirty baseline for the active local claim. The baseline records
+  Git dirty baseline for the active local assignment. The baseline records
   path/status/stat metadata, never contents.
-  Its `.baseline` companion survives claim release/restart for the same work
-  item so an agent cannot reclassify its own later changes as pre-existing.
+  Its `.baseline` companion survives assignment release/restart for the same
+  task so an agent cannot reclassify its own later changes as pre-existing.
   For a committed claim-start head, `refs/palari/claims/...` and its oldest
   local reflog entry provide a separate Git-backed witness. All four views must
   agree before claim authority or `agent advance` attribution is accepted.
@@ -301,39 +335,39 @@ Implemented:
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
 - `palari git pre-commit`
-- compact Palari-specific work candidate discovery
-- compact ready/blocked packets
-- machine-readable packet compliance checks
-- local packet persistence and local claim leases
-- deterministic one-item selection and claiming through `agent start --next`
-- durable, claim-bound interrupted-work parking without completion authority
+- compact agent-specific task discovery
+- compact ready/blocked task briefs
+- machine-readable task-brief compliance checks
+- local task-brief persistence and task-lock leases
+- deterministic one-task selection and assignment through `agent start --next`
+- durable, assignment-bound interrupted-work parking without completion permission
 - deterministic portable session-contract compilation, inspection, persistence,
-  and claim binding
+  and task-lock binding
 - optional changed-file boundary checks
 - explicit create/modify/delete path intent with exact absent-path deletion
   tombstones; legacy work retains presence-required output behavior
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
-- claim-start commit-range proof for `agent advance`, preserved across release and
+- assignment-start commit-range verification for `agent advance`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
-- deterministic claim-range planning and atomic proof reconciliation through
-  `agent advance`, with governed exact-proof reuse, an authority stop, and
-  deterministic post-decision terminalization
+- deterministic assignment-range planning and atomic check reconciliation
+  through `agent advance`, with safe exact-check reuse, a permission stop, and
+  deterministic post-decision completion
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
-- read-only human handoff packets
+- read-only human handoff briefs
 - plain-language read-only agent safety diagnoses
 - compact read-only agent loop summaries
 - deterministic blocker codes
-- packet context hash
-- receipt `context_packet` and `context_hash` fields
-- direct work, goal, workbench, source, dependency, proof, and integration state
+- task-brief context hash
+- run-record `context_packet` and `context_hash` fields
+- direct task, goal, project, source, dependency, checks, and integration status
 - opaque default work identity whose value carries no execution-order meaning
-- repository-shared compare-and-swap claim leases across linked Git worktrees
+- repository-shared compare-and-swap task locks across linked Git worktrees
 - optional deterministic isolated branches/worktrees for concurrent sessions
 
 Not implemented yet:
 
-- packet expansion
+- task-brief expansion
 - review/planning/repair modes
 - an OS sandbox or tested session adapters beyond the separately documented
   Claude and Codex project-hook integrations
@@ -343,45 +377,45 @@ Not implemented yet:
 - portable deletion-history proof in PCAW v1; workspace tombstones are enforced
   locally but are not exported as a new protocol guarantee
 
-`agent check` rebuilds the packet, reports packet blockers, verifies the active
-local claim for ready packets, carries the current
+`agent check` rebuilds the task brief, reports its blockers, verifies the active
+local task lock for ready briefs, carries the current
 `next_step_type`, and then evaluates the current workspace against the
-completion contract. It returns `ok: false` when required receipt, evidence,
-review, human decision, source, dependency, or external-write checks fail. Light
+completion contract. It returns `ok: false` when required run-record, check,
+review, approval, source, dependency, or external-write checks fail. Light
 R1 work may omit review and human approval only when it has zero required
-approvals, current exact passing evidence, and no allowed, planned, queued, or
-actual external writes. Missing receipt, evidence, and review checks include
-the next safe command Palari can infer for the current work item. Human-decision
-record commands are held back until prerequisite proof, such as receipt,
-evidence, and review, is present, so agents do not jump from missing review
-straight to approval. When a blocked packet is already waiting on review,
+approvals, current exact passing checks, and no allowed, planned, queued, or
+actual external writes. Missing run-record, check, and review checks include
+the next safe command Palari can infer for the current task. Human-decision
+record commands are held back until prerequisite run records, checks, and
+review are present, so agents do not jump from missing review straight to
+approval. When a blocked task brief is already waiting on review,
 `agent check` points to `agent handoff` before lower-level inspect commands.
 
 When `--changed PATH` or `--git-diff` is supplied, `agent check` also compares
-observed file changes against the packet's writable paths and required outputs.
+observed file changes against the task brief's writable paths and required outputs.
 It reports changed files inside and outside the write boundary, missing file
-outputs, and changed files not represented by the current attempt/receipt
+outputs, and changed files not represented by the current run/run-record
 records. For claims started in Git, unchanged dirty paths captured at start are
 listed separately and not attributed to the agent; a changed fingerprint is
 attributed normally. This is intentionally content-blind: Palari compares Git
 status and file metadata, rejects traversal/symlink escape and incomplete
 observations, and never treats the baseline as cryptographic provenance.
-When a work item declares `path_intents`, each exact normalized path is one of
+When a task declares `path_intents`, each exact normalized path is one of
 `create`, `modify`, or `delete`. Create and modify require a regular file in the
 expected Git change class; delete requires the exact path to be absent and the
 Git observation to report deletion. That absent-path record is a local
-governance tombstone, not a missing-output exception. Unsafe, overlapping,
-duplicate, symlinked, mismatched, or undeclared paths fail closed. Work items
+deletion tombstone, not a missing-output exception. Unsafe, overlapping,
+duplicate, symlinked, mismatched, or undeclared paths fail closed. Tasks
 without `path_intents` keep their historical presence-required behavior.
-Execute-mode hooks additionally rebuild the current packet from workspace truth
-before granting writes, so coordinated edits to a packet and claim cannot
-expand scope. A generic `work update` cannot mutate a work item while any local
-claim is active, and `agent start` refuses to renew an active claim when the
-current workspace would compile different packet authority. After release or
+Execute-mode hooks additionally rebuild the current task brief from project
+truth before granting writes, so coordinated edits to a brief and task lock
+cannot expand the task limits. A generic `work update` cannot mutate a task
+while any local lock is active, and `agent start` refuses to renew an active
+lock when the current project would compile different permissions. After release or
 expiry, a same-ID execution-contract change still cannot start: exact
 baseline/current authority comparison fails before lease creation and final
 claim write. A declared actor and `agent handoff` do not rebaseline the work;
-preserve the record and create a successor work item for the changed contract.
+preserve the record and create a successor task for the changed rules.
 Opaque interpreters, unreviewed executables, dynamic shell expansion or
 indirection, and Git witness mutations (including Git commands with global
 `-C`, `--git-dir`, or `--work-tree` options) require a human hook decision.
@@ -424,57 +458,57 @@ authority. A single undated schema-v2 legacy record may remain only when no
 ordering choice exists; multiple competing records must all be dated.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
-`ok: false`, a stable error code where possible, the message, target work item
-and Palari when present, and next safe read commands.
+`ok: false`, a stable error code where possible, the message, target task and
+agent when present, and next safe read commands.
 
-Bare `agent next` returns the all-Palaris rollup. `agent next --as PALARI-ID`
-reads the current queue for one Palari, puts safe-to-start candidates first,
+Bare `agent next` returns the all-agent summary. `agent next --as PALARI-ID`
+reads the current queue for one agent, puts safe-to-start candidates first,
 keeps blocked or waiting visible with blocker codes, and omits closed work from
 candidate lists. Waiting candidates include `handoff_guidance` when the next
-safe action is a human review or decision. Those candidates point first to
+safe action is independent review, a human answer, or final approval. Those candidates point first to
 `agent handoff`, then to the lower-level review or decision guide. It does not
-create a claim, mutate state, or assign work. Candidates also include
+create a task lock, change state, or assign work. Candidates also include
 `loop_command` so an agent can open the compact loop summary after seeing the
 first concrete next step.
 
-`agent finish` wraps `agent check` into final-report guidance. It never mutates
-workspace state in v1. It carries the same `next_step_type`, distinguishes
-missing proof from work ready for automatic reconciliation or a human handoff.
-Its
-`next_allowed_commands` prioritize missing proof or approval record templates
-before generic inspect/validate commands. For work that has exact evidence but
-still needs review, `agent handoff` is
-listed before the direct review guide command. Approval commands appear only
-after the earlier proof required for approval is present. In review mode,
+`agent finish` wraps `agent check` into final-report guidance. It never changes
+workspace state in v1. It carries the same `next_step_type` and distinguishes
+missing checks from work ready for automatic finishing or a human handoff. Its
+`next_allowed_commands` prioritize missing checks or approval-record templates
+before generic inspect/validate commands. For work that has exact check results
+but still needs review, `agent handoff` is listed before the direct review guide
+command. Approval commands appear only after the earlier checks required for
+approval are present. In review mode,
 `agent finish` means the agent may report a review recommendation; it does not
-mean the agent may record a human review or claim the original work item is
+mean the agent may record a human review or claim the original task is
 complete.
 
 When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes
-review focus, receipt limits, and ready-to-edit review record commands.
+review focus, run-record limits, and concrete exact review record commands for
+each supported verdict. Placeholder templates are explicitly non-executable.
 Decision handoffs point to `decision guide`, which includes suggested decision
 update commands. The agent still does not record those human actions itself.
 
-`agent handoff` compiles the final handoff packet for that moment. It wraps the
+`agent handoff` compiles the final handoff brief for that moment. It wraps the
 `agent finish` result and includes compact `review guide` or `decision guide`
 context when applicable. Text handoff output surfaces the same review focus and
-receipt claims so a human can inspect the right thing without parsing JSON
+run-record claims so a human can inspect the right thing without parsing JSON
 first. Agent-safe read commands remain separate from `human_action_commands`, so
 a model can show the right review or decision commands without pretending it is
-authorized to perform them. It is read-only in v1 and does not create reviews,
-decisions, receipts, evidence, claims, or journal mutations. Handoff packets also
+allowed to perform them. It is read-only in v1 and does not create reviews,
+decisions, run records, check results, task locks, or history changes. Handoff briefs also
 include `human_action_boundary`, which marks every `human_action_commands`
-entry as human-only. Eligible Palari review commands are instead listed under
-`agent_action_commands`, paired with the required review-packet command and an
+entry as human-only. Eligible agent review commands are instead listed under
+`agent_action_commands`, paired with the required review-brief command and an
 `agent_action_boundary`; they remain advisory and reviewer-specific.
 
-Review-mode `agent brief` packets separate `human_review_commands` from
+Review-mode task briefs separate `human_review_commands` from
 `agent_review_commands`. The human boundary still forbids an agent from running
-human-attributed review or decision commands. A distinct eligible Palari may
-run only the agent review command matching its packet identity. Builder
+human-attributed review or decision commands. A distinct eligible agent may
+run only the agent review command matching its brief identity. Builder
 self-review, missing goal linkage, unapproved sources, and any attempt to turn
-the advisory verdict into human quorum fail closed.
+the advisory review result into a required human approval fail closed.
 
 `agent loop` is a compact read-only control surface over the same commands. It
 summarizes `brief`, `check`, `finish`, and handoff status, includes the exact
@@ -482,14 +516,14 @@ stage commands, and omits detailed payloads so agents can orient quickly without
 receiving the whole workspace.
 
 `agent doctor` is a plain-language read-only diagnosis over the same loop. It
-answers whether the work is agent-safe, missing proof, blocked, or waiting for a
-human handoff, and lists the next recommended commands without adding authority
-or mutating workspace state.
+answers whether the task is agent-safe, missing checks, blocked, or waiting for
+a human handoff, and lists the next recommended commands without adding
+permission or changing workspace state.
 
 ## Git Pre-Commit Enforcement
 
 `palari git install` writes a pre-commit hook into `.git/hooks/pre-commit` that
-checks staged files against active claim write boundaries. If any staged file is
+checks staged files against active task-lock write boundaries. If any staged file is
 outside the boundary, the commit is rejected with a message listing the
 offending files and allowed paths. This provides IDE-agnostic boundary
 enforcement that works in any environment — Windsurf, Cursor, Devin, terminal —
@@ -500,14 +534,14 @@ hook is reactive: it blocks the commit, not the edit. This means an agent can
 write outside the boundary during a session, but the commit cannot land until
 the out-of-boundary changes are reverted or the boundary is expanded by a human.
 
-`palari git status` shows whether the hook is installed and lists active claims
+`palari git status` shows whether the hook is installed and lists active task locks
 with their allowed write paths. `palari git pre-commit` is the check command the
 hook calls; it can also be run manually before committing.
 
-The same local Git repository holds expiring claim leases under
+The same local Git repository holds expiring task-lock leases under
 `refs/palari/leases/`. They prevent two linked worktrees from treating the same
-work item as actively owned while allowing unrelated work items to proceed.
-They are local coordination records, not identity authentication or human
-authority. `palari git status --work-id WORK-ID --target-ref REF` separately checks
+task as actively owned while allowing unrelated tasks to proceed. They are
+local coordination records, not identity authentication or human permission.
+`palari git status --work-id WORK-ID --target-ref REF` separately checks
 the exact governed candidate against a current target and requires renewed
-proof after any divergent merge projection.
+verification after any divergent merge view.

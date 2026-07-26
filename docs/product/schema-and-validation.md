@@ -1,6 +1,12 @@
-# Schema And Validation
+# Stored Data And Validation
 
-The first implementation has two layers of contract:
+Palari stores ordinary JSON files. This reference uses exact machine names so
+people can match documentation to a file or validation error. In the product,
+`work_items` are tasks, `attempts` are runs, `receipts` are run records,
+`evidence_runs` are check results, and `human_decisions` are approvals or
+rejections. See [Plain Language](plain-language.md).
+
+The stored-data contract has two layers:
 
 - typed Python models in `src/palari_company_os/models.py`
 - a workspace JSON Schema in `schemas/workspace.schema.json`
@@ -19,7 +25,7 @@ Every current workspace must include:
 }
 ```
 
-Large workspaces may keep records in additional collection files while
+Large projects may keep records in additional collection files while
 preserving `workspace.json` as the manifest:
 
 ```json
@@ -44,9 +50,9 @@ contain `..` fail closed. Each collection file contains a JSON array of records
 for the collection named in the manifest.
 
 Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
-split workspaces. Authoring write commands
-currently refuse split workspaces with a clear error instead of silently
-collapsing or corrupting collection files. This split-file reader is parked
+split workspace files. Commands that write records currently refuse split files
+with a clear error instead of silently collapsing or corrupting collection
+files. This split-file reader is parked
 compatibility; there is no current split-file writer or schema migration
 exception.
 
@@ -66,16 +72,16 @@ Validation checks:
 - unknown root or record fields
 - required record ids
 - basic field types
-- supported lifecycle values for statuses, risk, intensity, evidence status,
-  review verdicts, human decision values, and outcome status
+- supported stored values for task status, risk, intensity, check status,
+  review result, approval or rejection, and result status
 - optional evidence `output_binding_version`; newly authored evidence uses
   `palari.evidence_outputs.v1` to bind every receipt output to an artifact digest
 - unique ids per collection
-- work item goal and Palari references
-- work item workbench, parent work item, and dependency references
-- work item allowed source references
-- work item source and output targets stay inside its workbench boundary when
-  a workbench is declared
+- task goal and agent references
+- task project, parent task, and dependency references
+- task allowed-source references
+- task source and output targets stay inside its project boundary when a
+  `workbench` is declared
 - optional work-item `path_intents` use only exact canonical repository paths
   and `create`, `modify`, or `delete`; paths must be unique, prefix-disjoint,
   and inside the declared write boundary

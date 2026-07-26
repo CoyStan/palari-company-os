@@ -338,7 +338,7 @@ def complete_work(
     if current.terminal_disposition:
         raise WorkspaceError(
             f"work {work_id} was {current.terminal_disposition} and cannot be "
-            "completed; create or follow an explicit successor work item"
+            "completed; create or follow an explicit successor task"
         )
     if current.status in {"completed", "closed", "done"}:
         return MutationResult("completed", "work_items", work_id, workspace.name)
@@ -896,19 +896,20 @@ def _prepare_record_for_create(
         return stamp_receipt_record(stamped, _records(store, "receipts"))
     if kind == "review":
         stamped = dict(record)
+        stamped.pop("review_binding_digest", None)
         if not stamped.get("timestamp"):
             stamped["timestamp"] = _timestamp()
-        if stamped.get("verdict") == "accept-ready":
-            workspace = validate_data(store.data_path, store.data)
-            from .governance_binding import current_review_binding, review_proof_hash
+        workspace = validate_data(store.data_path, store.data)
+        from .governance_binding import current_review_binding, review_proof_hash
 
-            binding, errors = current_review_binding(
-                workspace,
-                str(stamped.get("work_item_id") or ""),
-                require_output_coverage=True,
-            )
-            if errors:
-                raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+        binding, errors = current_review_binding(
+            workspace,
+            str(stamped.get("work_item_id") or ""),
+            require_output_coverage=True,
+        )
+        if stamped.get("verdict") == "accept-ready" and errors:
+            raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
+        if not errors:
             stamped.update(binding)
             stamped["proof_hash"] = review_proof_hash(stamped)
         return stamped
@@ -1005,6 +1006,9 @@ def _assert_record_transition_allowed(
             "work_item_id": str(record.get("work_item_id") or ""),
             "reviewed_head": str(record.get("reviewed_head") or ""),
             "verdict": str(record.get("verdict") or ""),
+            "review_binding_digest": str(
+                record.get("review_binding_digest") or ""
+            ),
             "allow_existing": allow_existing,
         },
     )
@@ -1074,7 +1078,7 @@ def _with_automatic_convergence(
     status = str(convergence.get("status") or "")
     if status == "completed":
         next_action = (
-            f"Work item {work_id} completed automatically from current proof "
+            f"Task {work_id} completed automatically from current records "
             "and recorded human authority."
         )
     elif status == "blocked":
@@ -1119,7 +1123,7 @@ def _reject_generic_trust_transition(
         if current_status in terminal_statuses:
             raise WorkspaceError(
                 f"work {record_id} is terminal ({current_status}) and immutable; "
-                "create or follow an explicit successor work item"
+                "create or follow an explicit successor task"
             )
         if requested_status in {"completed", "closed", "done"}:
             raise WorkspaceError(

@@ -29,7 +29,7 @@ git status --short
 ```
 
 The complete verification command already builds and installs one isolated
-candidate wheel. The later distribution build creates the artifacts intended
+candidate wheel. The later distribution build creates the files intended
 for an explicitly authorized release.
 
 Shipping a release:
@@ -51,7 +51,8 @@ workflow `release.yml`). No API token is stored in the repository.
 
 Workspace backup guidance:
 
-- `workspace.json` is the authoritative current-state projection
-- the v2 governance journal is the replayable mutation history
+- `workspace.json` is the source of truth for current state
+- the v2 tamper-evident history (stored as the governance journal) is the
+  replayable change history
 - back up the complete workspace directory, including both, together
 - do not store secrets in workspace files

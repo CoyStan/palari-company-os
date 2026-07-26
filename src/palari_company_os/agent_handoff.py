@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from shlex import quote
 from typing import Any
 
+from .authority_plan import build_authority_plan
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .decision_guides import build_decision_guide
+from .command_surface import (
+    bind_palari_workspace_command,
+    palari_command_parts,
+    palari_workspace_command,
+)
 from .read_models import detail
 from .review_guides import build_review_guide
+from .transition_checks import check_transition
 from .workspace import Workspace, WorkspaceError
 from .workspace_read_models import approval_inbox
 
@@ -66,6 +72,7 @@ def build_agent_handoff(
         "handoff_id": _handoff_id(work_id, palari_id, mode),
         "created_at": _timestamp(),
         "workspace": finish.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "mode": mode or "execute",
         "status": finish.get("status", "blocked"),
@@ -80,6 +87,7 @@ def build_agent_handoff(
         "human_approval_handoff": human_approval_handoff,
         "resolution_summary": finish.get("resolution_summary", {}),
         "next_allowed_commands": _agent_safe_commands(
+            workspace,
             finish,
             review_handoff,
             decision_handoff,
@@ -92,7 +100,7 @@ def build_agent_handoff(
         "omitted_context": [
             {
                 "kind": "workspace_records",
-                "reason": "Agent handoff v1 includes finish guidance and compact human review or decision context only.",
+                "reason": "The handoff includes finish guidance and only the relevant human review or approval context.",
                 "counts": {
                     "work_items": len(workspace.work_items),
                     "decisions": len(workspace.decisions),
@@ -109,7 +117,13 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     return {
         "schema_version": guide["schema_version"],
         "guide_id": guide["guide_id"],
-        "command": f"palari review guide {work_id} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
         "status": guide["status"],
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),
@@ -144,10 +158,26 @@ def _review_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
 
 def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
     guide = build_decision_guide(workspace, work_id)
+    decision_update_commands = [
+        {
+            **item,
+            "command": bind_palari_workspace_command(
+                workspace.data_path,
+                str(item.get("command") or ""),
+            ),
+        }
+        for item in guide.get("decision_update_commands", [])
+    ]
     return {
         "schema_version": guide["schema_version"],
         "guide_id": guide["guide_id"],
-        "command": f"palari decision guide {guide['decision']['id']} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "decision",
+            "guide",
+            str(guide["decision"]["id"]),
+            "--json",
+        ),
         "status": guide["status"],
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),
@@ -169,7 +199,7 @@ def _decision_handoff(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "linked_work": guide.get("linked_work", {}),
         "decision_focus": guide.get("decision_focus", []),
         "suggested_results": guide.get("suggested_results", []),
-        "decision_update_commands": guide.get("decision_update_commands", []),
+        "decision_update_commands": decision_update_commands,
     }
 
 
@@ -190,24 +220,33 @@ def _human_approval_handoff(
     review = payload.get("review") or {}
     attempt = payload.get("attempt") or {}
     required_capability = work.get("required_approval_capability", "")
-    excluded_actors = {
-        str(attempt.get("actor") or ""),
-        str(review.get("reviewer") or ""),
-    }
+    authority_plan = build_authority_plan(
+        workspace,
+        work_id,
+        builder_id=str(attempt.get("actor") or ""),
+        reviewer_id=str(review.get("reviewer") or ""),
+    )
     candidates = _approval_candidates(
         workspace,
-        required_capability,
-        excluded_actors=excluded_actors,
+        authority_plan,
     )
     reviewed_head = review.get("reviewed_head") or evidence.get("head_sha") or _attempt_head(attempt)
     approval_pack = _approval_pack_handoff(
         workspace,
         work_id,
+        candidates,
+        authority_plan,
+        str(reviewed_head),
     )
     command = (
         str(approval_pack["inbox_command"])
         if approval_pack.get("available")
-        else f"palari detail {work_id} --json"
+        else palari_workspace_command(
+            workspace.data_path,
+            "detail",
+            work_id,
+            "--json",
+        )
     )
     return {
         "schema_version": "palari.human_approval_handoff.v1",
@@ -219,7 +258,11 @@ def _human_approval_handoff(
         "next_action": payload.get("next_action", ""),
         "approval_progress": payload.get("safety", {}).get("approval_progress", ""),
         "required_approval_count": work.get("required_approval_count", 0),
+        "effective_final_approval_count": authority_plan[
+            "effective_final_approval_count"
+        ],
         "required_approval_capability": required_capability,
+        "authority_plan": authority_plan,
         "reviewed_head": reviewed_head,
         "work_item": _pick(
             work,
@@ -277,6 +320,7 @@ def _handoff_types(
 
 
 def _agent_safe_commands(
+    workspace: Workspace,
     finish: dict[str, Any],
     review_handoff: dict[str, Any] | None,
     decision_handoff: dict[str, Any] | None,
@@ -291,19 +335,26 @@ def _agent_safe_commands(
     if human_approval_handoff is not None:
         _append_once(commands, human_approval_handoff["command"])
     for command in finish.get("next_allowed_commands", []):
-        if not has_handoff or _is_read_only_command(command):
-            _append_once(commands, command)
-    _append_once(commands, "palari validate --json")
+        bound = bind_palari_workspace_command(
+            workspace.data_path,
+            str(command),
+        )
+        if not has_handoff or _is_read_only_command(bound):
+            _append_once(commands, bound)
+    _append_once(
+        commands,
+        palari_workspace_command(workspace.data_path, "validate", "--json"),
+    )
     return commands
 
 
 def _is_read_only_command(command: str) -> bool:
+    parts = palari_command_parts(command)
+    if not parts:
+        return False
     return bool(
-        command.startswith("palari detail ")
-        or command.startswith("palari queue ")
-        or command.startswith("palari validate ")
-        or command.startswith("palari review guide ")
-        or command.startswith("palari decision guide ")
+        parts[0] in {"detail", "queue", "validate"}
+        or parts[:2] in {("review", "guide"), ("decision", "guide")}
     )
 
 
@@ -336,10 +387,7 @@ def _human_action_commands(
             )
     if human_approval_handoff is not None:
         approval_pack = human_approval_handoff.get("approval_pack", {})
-        for item in _pack_human_commands(
-            approval_pack,
-            human_approval_handoff.get("approval_candidates", []),
-        ):
+        for item in _pack_human_commands(approval_pack):
             commands.append(
                 {
                     "type": item.get("type", "human-approval-record"),
@@ -386,7 +434,7 @@ def _human_action_boundary(human_action_commands: list[dict[str, str]]) -> dict[
         "must_not": [
             "Do not run human action commands.",
             "Do not claim to be the required human actor.",
-            "Do not convert a recommendation into human review, decision, or acceptance.",
+            "Do not convert a recommendation into human review, approval, or rejection.",
         ],
     }
 
@@ -397,12 +445,12 @@ def _agent_action_boundary(agent_action_commands: list[dict[str, str]]) -> dict[
         "agent_action_command_fields": ["agent_action_commands[].command"],
         "count": len(agent_action_commands),
         "must": [
-            "Open the named review packet before recording a verdict.",
-            "The packet actor must match the command actor.",
+            "Open the named review task brief before recording a review result.",
+            "The task-brief agent must match the command actor.",
         ],
         "must_not": [
-            "Do not let the builder review its own attempt.",
-            "Do not convert a Palari verdict into human acceptance.",
+            "Do not let the builder review its own run.",
+            "Do not convert an agent review result into human approval.",
         ],
     }
 
@@ -413,18 +461,12 @@ def _pick(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
 
 def _approval_candidates(
     workspace: Workspace,
-    required_capability: str,
-    *,
-    excluded_actors: set[str] | None = None,
+    authority_plan: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    excluded = excluded_actors or set()
     candidates: list[dict[str, Any]] = []
-    for human in workspace.humans:
-        if human.id in excluded:
-            continue
-        if human.availability == "inactive":
-            continue
-        if required_capability and required_capability not in human.approval_capabilities:
+    for human_id in authority_plan["qualified_approver_ids"]:
+        human = workspace.human(str(human_id))
+        if human is None:
             continue
         candidates.append(
             {
@@ -441,8 +483,18 @@ def _approval_candidates(
 def _approval_pack_handoff(
     workspace: Workspace,
     work_id: str,
+    candidates: list[dict[str, Any]],
+    authority_plan: dict[str, Any],
+    reviewed_head: str,
 ) -> dict[str, Any]:
-    inbox_command = f"palari queue --approval-inbox --select {work_id} --json"
+    inbox_command = palari_workspace_command(
+        workspace.data_path,
+        "queue",
+        "--approval-inbox",
+        "--select",
+        work_id,
+        "--json",
+    )
     try:
         inbox = approval_inbox(
             workspace,
@@ -464,8 +516,49 @@ def _approval_pack_handoff(
         None,
     )
     pack = inbox["packs"][0] if inbox["packs"] else None
-    command = inbox["approval_commands"][0] if inbox["approval_commands"] else None
-    available = bool(item and pack and command and item.get("state") == "eligible")
+    presentation = inbox["presentations"][0] if inbox["presentations"] else None
+    candidate_ids = {str(candidate["id"]) for candidate in candidates}
+    commands = [
+        command
+        for command in inbox["approval_commands"]
+        if str(command.get("human_id") or "") in candidate_ids
+        and (pack is None or command.get("pack_id") == pack.get("pack_id"))
+    ]
+    command = commands[0] if commands else None
+    available = bool(
+        authority_plan["viable"]
+        and item
+        and pack
+        and commands
+        and item.get("state") == "eligible"
+    )
+    simple_commands = [
+        {
+            "human_id": str(candidate["id"]),
+            "presentation_digest": str(
+                command.get("presentation_digest", "") if command is not None else ""
+            ),
+            "command": palari_workspace_command(
+                workspace.data_path,
+                "approve",
+                work_id,
+                "--as",
+                str(candidate["id"]),
+                "--presented",
+                str(command.get("presentation_digest", "") if command is not None else ""),
+                "--json",
+            ),
+        }
+        for candidate in candidates
+        if available
+        and check_transition(
+            workspace,
+            "work_accept",
+            work_id,
+            actor=str(candidate["id"]),
+            context={"reviewed_head": reviewed_head},
+        ).ok
+    ]
     return {
         "available": available,
         "work_item_id": work_id,
@@ -476,48 +569,64 @@ def _approval_pack_handoff(
         "presentation_digest": (
             command.get("presentation_digest", "") if command is not None else ""
         ),
+        "presentation": presentation if presentation is not None else {},
         "item_state": item.get("state", "missing") if item else "missing",
-        "reasons": item.get("reasons", []) if item else ["work item is not in the inbox"],
+        "reasons": item.get("reasons", []) if item else ["task is not in the inbox"],
+        "approve_eligible_commands": [
+            {
+                "human_id": str(candidate["human_id"]),
+                "command": str(candidate["approve_eligible"]),
+            }
+            for candidate in commands
+        ],
+        "simple_approval_commands": simple_commands,
         "approve_eligible_command": (
             command["approve_eligible"] if command is not None and available else ""
         ),
         "next_safe_action": (
-            "A qualified human may run the exact presentation-bound approve-eligible command once."
+            "A qualified human may run one exact presentation-bound simple approval command once."
             if available
-            else "Repair the listed proof or batching blockers, then rebuild the exact Approval Pack."
+            else (
+                str(authority_plan["smallest_correction"])
+                or "Repair the listed check or batching blockers, then rebuild the exact Approval Pack."
+            )
         ),
     }
 
 
 def _pack_human_commands(
     approval_pack: dict[str, Any],
-    candidates: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    command = str(approval_pack.get("approve_eligible_command") or "")
-    if not approval_pack.get("available") or not command:
+    commands = approval_pack.get("simple_approval_commands") or []
+    if not approval_pack.get("available") or not commands:
         return []
     return [
         {
-            "type": "approval-pack",
-            "human_id": str(candidate["id"]),
-            "decision": "approve-eligible",
-            "command": command.replace("HUMAN-ID", quote(str(candidate["id"]))),
+            "type": "simple-approval",
+            "human_id": str(candidate["human_id"]),
+            "decision": "approve",
+            "command": str(candidate["command"]),
         }
-        for candidate in candidates
+        for candidate in commands
     ]
 
 
 def _approval_focus(payload: dict[str, Any]) -> list[str]:
     focus = [
-        "Inspect the work output, evidence, review verdict, and residual risks before approving.",
-        "Do not approve if required proof is missing or stale.",
+        "Inspect the task output, checks, review result, and residual risks before approving.",
+        "Do not approve if required checks are missing or stale.",
     ]
     safety = payload.get("safety", {})
     if safety.get("receipt_state") != "ready":
-        focus.append(f"Receipt state is {safety.get('receipt_state', 'unknown')}; require a receipt if the completion contract asks for one.")
+        focus.append(
+            f"Run-record status is {safety.get('receipt_state', 'unknown')}; "
+            "require a run record if the completion rules ask for one."
+        )
     work = payload.get("work_item", {})
     if work.get("forbidden_actions"):
-        focus.append("Confirm approval does not authorize forbidden actions without new scoped work.")
+        focus.append(
+            "Confirm approval does not allow forbidden actions without a new task with explicit limits."
+        )
     return focus
 
 

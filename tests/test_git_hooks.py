@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -175,6 +176,37 @@ class GitHooksTests(unittest.TestCase):
         self.assertFalse(unchanged["changed"])
         self.assertTrue(os.access(hook_path, os.X_OK))
         self.assertIn("palari git hook", hook_path.read_text(encoding="utf-8"))
+
+    def test_install_and_execute_retains_a_nondefault_workspace_filename(self) -> None:
+        custom_workspace = self.workspace_path / "governance-state.json"
+        (self.workspace_path / "workspace.json").rename(custom_workspace)
+
+        installed = install_git_hook(
+            self.repo,
+            custom_workspace,
+            palari_executable=REPO_ROOT / "bin" / "palari",
+        )
+        hook_path = self.repo / ".git" / "hooks" / "pre-commit"
+        command = next(
+            line.removeprefix("exec ")
+            for line in hook_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith("exec ")
+        )
+        tokens = shlex.split(command)
+
+        self.assertEqual(installed["status"], "installed")
+        self.assertEqual(
+            tokens[tokens.index("--workspace") + 1],
+            "workspace/governance-state.json",
+        )
+        completed = subprocess.run(
+            [str(hook_path)],
+            cwd=self.repo,
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_install_preserves_an_unmanaged_hook(self) -> None:
         hook_path = self.repo / ".git" / "hooks" / "pre-commit"

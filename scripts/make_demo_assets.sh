@@ -100,8 +100,8 @@ Path(sys.argv[1]).write_text(
 </head>
 <body>
   <main>
-    <div class="caption">Palari stops an AI file change outside the approved boundary.</div>
-    <section class="terminal" aria-label="Palari blocked write terminal output">
+    <div class="caption">Palari stops an AI change outside its allowed files.</div>
+    <section class="terminal" aria-label="Palari blocked file-change output">
       <div class="chrome">
         <span class="dot red"></span>
         <span class="dot yellow"></span>
@@ -109,12 +109,12 @@ Path(sys.argv[1]).write_text(
         <span class="title">palari demo</span>
       </div>
       <pre><span class="command">$ palari agent check WORK-0003 --as PALARI-SOFIA --changed deploy/production.yml</span>
-Agent check: CHECK-WORK-0003-PALARI-SOFIA-EXECUTE-V1
+Task check: CHECK-WORK-0003-PALARI-SOFIA-EXECUTE-V1
 OK: no
 
-<span class="blocked">*** BLOCKED: file change is outside Sofia's write boundary ***</span>
+<span class="blocked">*** BLOCKED: file change is outside Sofia's allowed files ***</span>
 Offending path: <span class="path">deploy/production.yml</span>
-Allowed write paths: <span class="allowed">docs/product/company-os.md</span></pre>
+Allowed files: <span class="allowed">docs/product/company-os.md</span></pre>
     </section>
   </main>
 </body>

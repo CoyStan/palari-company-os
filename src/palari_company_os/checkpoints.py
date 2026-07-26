@@ -149,7 +149,7 @@ def restore_checkpoint(
         event_kind="restoration",
         crash_hook=crash_hook,
     )
-    final_store = load_store(restored.path)
+    final_store = load_store(restored.data_path)
     final_report = verify_journal(final_store.data_path, final_store.data)
     if not final_report.get("chain_valid") or final_report.get("pending"):
         raise WorkspaceError("checkpoint restoration did not produce a committed journal state")

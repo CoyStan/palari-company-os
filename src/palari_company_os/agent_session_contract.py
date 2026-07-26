@@ -5,6 +5,7 @@ import json
 from copy import deepcopy
 from typing import Any
 
+from .command_surface import portable_palari_command_payload
 from .path_policy import validate_workspace_path
 from .pcaw_canonical import CanonicalJSONError, canonical_json_bytes, canonical_sha256
 from .workspace import WorkspaceError
@@ -80,6 +81,10 @@ _CAPABILITY_FIELDS = {
     "source_ids",
 }
 _DEPENDENCY_FIELDS = {"id", "status", "title"}
+_LOCAL_PACKET_PATH_MARKERS = {
+    "workspace_file": "<local-workspace-file>",
+    "workspace_path": "<local-workspace-root>",
+}
 
 _ENFORCEMENT = {
     "profile": "portable-declaration-v1",
@@ -128,18 +133,20 @@ _SECURITY_LIMITATIONS = [
 
 
 def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
-    """Compile one packet into deterministic, provider-neutral contract bytes."""
+    """Compile one task brief into deterministic, provider-neutral session rules."""
 
     _require_packet(packet)
+    portable_context_hash = _portable_packet_context_hash(packet)
+    packet = _portable_packet_projection(packet)
     allowed_paths = packet.get("allowed_paths")
     if not isinstance(allowed_paths, dict):
         allowed_paths = {}
     status = str(packet.get("status") or "blocked")
-    body = {
+    body: dict[str, Any] = {
         "packet_binding": {
             "packet_schema_version": str(packet.get("schema_version") or ""),
             "packet_id": str(packet.get("packet_id") or ""),
-            "packet_context_hash": str(packet.get("context_hash") or ""),
+            "packet_context_hash": portable_context_hash,
             "packet_status": status,
             "mode": str(packet.get("mode") or "execute"),
             "claim_required": True,
@@ -200,7 +207,7 @@ def session_contract_error(
     *,
     expected_packet: dict[str, Any] | None = None,
 ) -> str:
-    """Return a fail-closed diagnostic for one contract, or an empty string."""
+    """Return a fail-closed diagnostic for portable session rules, or an empty string."""
 
     try:
         canonical_json_bytes(value)
@@ -281,6 +288,48 @@ def _require_packet(packet: dict[str, Any]) -> None:
     legacy_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
     if legacy_hash != context_hash:
         raise WorkspaceError("agent packet content does not match context_hash")
+
+
+def _portable_packet_projection(packet: dict[str, Any]) -> dict[str, Any]:
+    """Project local executable guidance into provider-neutral session rules."""
+
+    stable = {
+        key: value
+        for key, value in packet.items()
+        if key not in {"created_at", "context_hash"}
+    }
+    projected = _replace_local_packet_paths(
+        portable_palari_command_payload(stable)
+    )
+    if not isinstance(projected, dict):
+        raise WorkspaceError("agent packet portable projection must be an object")
+    return projected
+
+
+def _replace_local_packet_paths(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_replace_local_packet_paths(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_replace_local_packet_paths(item) for item in value)
+    if not isinstance(value, dict):
+        return value
+    projected: dict[str, Any] = {}
+    for key, item in value.items():
+        marker = _LOCAL_PACKET_PATH_MARKERS.get(key)
+        projected[key] = (
+            marker
+            if marker is not None and isinstance(item, str)
+            else _replace_local_packet_paths(item)
+        )
+    return projected
+
+
+def _portable_packet_context_hash(packet: dict[str, Any]) -> str:
+    projection = _portable_packet_projection(packet)
+    encoded = json.dumps(projection, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _body_error(body: dict[str, Any]) -> str:

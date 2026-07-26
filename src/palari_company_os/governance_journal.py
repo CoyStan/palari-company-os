@@ -943,6 +943,7 @@ def transact(
     event_kind: str = "mutation",
     coverage: str = "continuous",
     crash_hook: CrashHook | None = None,
+    prewrite_check: Callable[[], None] | None = None,
     _predecessor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     active_path = journal_file_path(data_path)
@@ -1043,19 +1044,34 @@ def transact(
     )
     prepared = _prepare_v2_record(**prepare_kwargs)
 
-    if state.pending is not None:
-        if prepared["transaction_id"] != state.pending["transaction_id"]:
+    pending_prepare = state.pending
+    if pending_prepare is not None:
+        if prepared["transaction_id"] != pending_prepare["transaction_id"]:
             raise JournalError(
                 "JOURNAL_PENDING_DIFFERENT_MUTATION",
                 "a different prepared mutation is already pending",
                 next_action="Retry the prepared command or abort it through history recovery.",
             )
-        prepared = state.pending
+        prepared = pending_prepare
     else:
         _call_hook(crash_hook, "before_prepare_append")
+        if prewrite_check is not None:
+            prewrite_check()
         append_record_fsync(data_path, prepared, crash_hook)
         state.record_count += 1
     _call_hook(crash_hook, "before_apply")
+    if prewrite_check is not None:
+        try:
+            prewrite_check()
+        except Exception:
+            aborted = abort_record(
+                prepared,
+                sequence=state.record_count,
+                previous_record_digest=prepared["record_digest"],
+                reason="final prewrite validation rejected the prepared mutation",
+            )
+            append_record_fsync(data_path, aborted)
+            raise
     apply()
     _call_hook(crash_hook, "after_apply")
     commit = commit_record(

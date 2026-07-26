@@ -33,6 +33,21 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
+    if args.command == "approve":
+        from .simple_approval import approve_work
+
+        return CommandResult(
+            "simple-approval",
+            approve_work(
+                args.workspace,
+                args.work_id,
+                args.human_id,
+                reason=args.reason,
+                presented_digest=args.presented,
+            ),
+            args.json,
+        )
+
     if args.command == "queue":
         workspace = Workspace.load(args.workspace)
         if args.approval_inbox:
@@ -205,7 +220,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                         "expected_state": "retired",
                         "stop_boundary": "terminal",
                         "message": (
-                            f"Work item {args.work_id} was "
+                            f"Task {args.work_id} was "
                             f"{advance_work.terminal_disposition} and is audit-only: "
                             f"{advance_work.terminal_reason}"
                         ),

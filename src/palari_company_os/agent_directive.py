@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .command_surface import palari_command_parts
+
 
 HANDOFF_BLOCKERS = {
     "RECEIPT_READY_REVIEW",
@@ -35,6 +37,13 @@ AUTOMATIC_BLOCKERS = {
     "ACCEPTANCE_PROJECTION_PENDING",
     "TERMINALIZATION_PENDING",
 }
+AUTHORITY_BLOCKERS = {
+    "APPROVER_ROLE_MISSING",
+    "AUTHORITY_PLAN_UNSATISFIABLE",
+    "BUILDER_ROLE_MISSING",
+    "REVIEWER_MISSING",
+    "REVIEWER_ROLE_MISSING",
+}
 
 
 def compile_agent_directive(
@@ -46,7 +55,7 @@ def compile_agent_directive(
 
     The compiler has no workspace, filesystem, clock, or mutation access. That
     keeps every aggregate agent view on one deterministic interpretation of
-    the current packet/check pair while preserving review and human authority
+    the current task-brief/check pair while preserving review and human approval
     as hard stop boundaries.
     """
 
@@ -178,10 +187,14 @@ def _primary_action(
         message = "Report completion with the current check result."
     elif convergence_ready:
         command = next(
-            (item for item in next_commands if item.startswith("palari agent advance ")),
+            (
+                item
+                for item in next_commands
+                if _command_starts_with(item, "agent", "advance")
+            ),
             next(iter(next_commands), ""),
         )
-        message = "Run the deterministic convergence action."
+        message = "Finish the task automatically from the current records."
     elif handoff_guidance:
         command = str(handoff_guidance[0].get("command") or "")
         message = str(handoff_guidance[0].get("message") or "Hand off current proof.")
@@ -203,7 +216,7 @@ def _primary_action(
 
 
 def human_approval_prerequisites_met(check: dict[str, Any]) -> bool:
-    """Return whether receipt, evidence, and review proof permits approval."""
+    """Return whether run record, checks, and review permit approval."""
 
     prerequisite_codes = {"RECEIPT_PRESENT", "EVIDENCE_PRESENT", "REVIEW_PRESENT"}
     checks = {item.get("code", ""): item for item in check.get("checks", [])}
@@ -215,7 +228,7 @@ def human_approval_prerequisites_met(check: dict[str, Any]) -> bool:
 
 
 def review_prerequisites_met(check: dict[str, Any]) -> bool:
-    """Return whether receipt and evidence are ready for independent review."""
+    """Return whether the run record and checks are ready for independent review."""
 
     checks = {item.get("code", ""): item for item in check.get("checks", [])}
     receipt = checks.get("RECEIPT_PRESENT", {})
@@ -253,7 +266,7 @@ def classify_resolution(
         action = "Inspect the terminal record; no remediation is required."
     elif code in REVIEW_BLOCKERS or code.startswith("REVIEW_"):
         resolution_class, owner, automatic = "independent-review", "reviewer", False
-        action = next_command or "Route the exact proof to an independent reviewer."
+        action = next_command or "Route the checked version to an independent reviewer."
     elif code in HUMAN_BLOCKERS or code.startswith(("HUMAN_", "APPROVAL_")):
         resolution_class, owner, automatic = "human-authority", "human", False
         action = next_command or "Present the exact current decision to a qualified human."
@@ -269,7 +282,7 @@ def classify_resolution(
         action = next_command or "Run deterministic agent reconciliation."
     else:
         resolution_class, owner, automatic = "agent-action", "agent", False
-        action = next_command or "Follow the packet's next safe agent action."
+        action = next_command or "Follow the task brief's next safe agent action."
     return {
         "class": resolution_class,
         "owner": owner,
@@ -328,6 +341,8 @@ def _finish_status(
         return "converge-ready"
     if can_finish:
         return "ready-to-report"
+    if set(blocker_codes) & AUTHORITY_BLOCKERS:
+        return "blocked"
     if handoff_ready:
         return "handoff-ready"
     if missing_proof:
@@ -352,7 +367,7 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
+    handoff_command = _agent_handoff_command(check, work_id, palari_id)
     review_command = f"palari review guide {work_id} --json"
     review_needed = (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
@@ -377,21 +392,28 @@ def _handoff_guidance(
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
+    handoff_command = _agent_handoff_command(check, work_id, palari_id)
     if (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
     ) and review_prerequisites_met(check):
         guidance.append(
             {
                 "code": "REVIEW_HANDOFF",
-                "message": "Use agent handoff to inspect the receipt, evidence, and ready-to-edit review record commands.",
+                "message": (
+                    "Use agent handoff to inspect the run record, checks, and "
+                    "concrete packet-bound review commands."
+                ),
                 "command": handoff_command,
                 "guide_command": f"palari review guide {work_id} --json",
             }
         )
     if "HUMAN_DECISION_REQUIRED" in blocker_codes:
         decision_command = linked_decision_command or _first_decision_command(check)
-        if linked_decision_command or decision_command.startswith("palari decision guide "):
+        if linked_decision_command or _command_starts_with(
+            decision_command,
+            "decision",
+            "guide",
+        ):
             code = "DECISION_HANDOFF"
             message = "Use agent handoff for required human authority and suggested decision update commands."
         elif human_approval_prerequisites_met(check):
@@ -416,21 +438,40 @@ def _handoff_guidance(
 
 def _first_decision_command(check: dict[str, Any]) -> str:
     for command in check.get("next_allowed_commands", []):
-        if command.startswith("palari decision guide "):
+        if _command_starts_with(command, "decision", "guide"):
             return command
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     return f"palari detail {work_id} --json"
 
 
+def _agent_handoff_command(
+    check: dict[str, Any],
+    work_id: str,
+    palari_id: str,
+) -> str:
+    mode = str(check.get("mode") or "execute")
+    mode_arg = " --mode review" if mode == "review" else ""
+    return (
+        f"palari agent handoff {work_id} --as {palari_id}"
+        f"{mode_arg} --json"
+    )
+
+
 def _is_human_action_command(command: str) -> bool:
-    return command.startswith(
-        (
-            "palari human-decision record ",
-            "palari work accept ",
-            "palari review record ",
-            "palari decision update ",
+    return any(
+        _command_starts_with(command, *prefix)
+        for prefix in (
+            ("human-decision", "record"),
+            ("work", "accept"),
+            ("review", "record"),
+            ("decision", "update"),
         )
     )
+
+
+def _command_starts_with(command: str, *prefix: str) -> bool:
+    parts = palari_command_parts(command)
+    return parts[: len(prefix)] == prefix
 
 
 def _prioritize(commands: list[str], prioritized: list[str]) -> None:
@@ -452,26 +493,26 @@ def _requirement(check: dict[str, Any]) -> dict[str, Any]:
 
 def _report_guidance(status: str, mode: str) -> str:
     if status == "closed":
-        return "Work is already terminal. Report the recorded outcome; no remediation is required."
+        return "The task is complete. Report the recorded result; no repair is required."
     if status == "converge-ready":
         return (
-            "Human authority is already current. Run deterministic agent advance "
-            "to derive acceptance and terminalize the exact proof."
+            "Human approval is current. Run agent advance to finish the task "
+            "automatically from the checked version."
         )
     if status == "ready-to-report":
         if (mode or "execute") == "review":
             return (
-                "Review packet checks pass. Report a review recommendation with evidence, "
-                "but do not record a human review or claim the work item is complete unless "
+                "The review task brief passes its checks. Report a review recommendation, "
+                "but do not record a human review or claim the task is complete unless "
                 "explicitly authorized."
             )
         return "All required checks pass. Report completion and include the check result."
     if status == "handoff-ready":
-        return "Do not continue execution. Hand off the completed proof to a human reviewer or approver."
+        return "Do not continue execution. Hand off the checked result to a reviewer or approver."
     if status == "missing-proof":
-        return "Do not claim completion yet. Record or refresh the missing trust records first."
+        return "Do not report completion yet. Record or refresh the missing checks first."
     if status == "blocked":
-        return "Do not claim completion. Resolve the packet blockers or ask a human to decide."
+        return "Do not report completion. Resolve the task-brief blockers or ask a human to decide."
     return "Do not claim completion yet. Inspect the check result and next allowed commands."
 
 

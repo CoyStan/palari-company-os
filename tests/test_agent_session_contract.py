@@ -22,6 +22,7 @@ from palari_company_os.agent_session_contract import (
     session_contract_error,
 )
 from palari_company_os.cli_output_agent import print_agent_session_contract
+from palari_company_os.command_surface import palari_workspace_command
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -45,8 +46,36 @@ class AgentSessionContractTests(unittest.TestCase):
         first = compile_agent_session_contract(packet)
         packet["created_at"] = "2099-12-31T23:59:59Z"
         second = compile_agent_session_contract(packet)
+        with tempfile.TemporaryDirectory() as directory:
+            custom_root = Path(directory) / "workspace with spaces"
+            custom_root.mkdir()
+            custom_workspace = custom_root / "governance state.json"
+            self._write_workspace(custom_workspace)
+            custom_packet = build_agent_brief(
+                Workspace.load(custom_workspace),
+                WORK_ID,
+                PALARI_ID,
+                "execute",
+            )
+            custom_contract = compile_agent_session_contract(custom_packet)
 
         self.assertEqual(first, second)
+        self.assertEqual(first, custom_contract)
+        self.assertNotEqual(packet["context_hash"], custom_packet["context_hash"])
+        tampered_packet = deepcopy(packet)
+        tampered_packet["next_allowed_commands"][0] = (
+            "palari --workspace /tmp/different-workspace scope "
+            f"{WORK_ID} --json"
+        )
+        self.assertNotEqual(_context_hash(tampered_packet), packet["context_hash"])
+        self.assertEqual(
+            first["contract_digest"],
+            "sha256:1910cd0c9a95f1adca44cf8945269ae2d634a740ba5940e5b6b7bb8f58ae60f7",
+        )
+        self.assertEqual(
+            first["contract_id"],
+            "SESSION-CONTRACT-1910CD0C9A95F1ADCA44CF89",
+        )
         self.assertEqual(first["status"], "ready")
         binding = first["contract"]["packet_binding"]
         self.assertFalse(binding["grants_authority"])
@@ -60,9 +89,9 @@ class AgentSessionContractTests(unittest.TestCase):
         self.assertEqual(properties["write-boundary-before-tool"], "adapter-required")
         self.assertEqual(properties["read-boundary"], "advisory")
         self.assertEqual(first["contract"]["enforcement"]["adapter"], "none")
-
         serialized = json.dumps(first, sort_keys=True)
         self.assertNotIn(str(self.workspace_file.parent), serialized)
+        self.assertNotIn(str(custom_root), serialized)
         self.assertNotIn("created_at", serialized)
         self.assertNotIn("last_read_at", serialized)
         self.assertNotIn('"label"', serialized)
@@ -90,6 +119,99 @@ class AgentSessionContractTests(unittest.TestCase):
                 packet["context_hash"] = _context_hash(packet)
                 with self.assertRaisesRegex(WorkspaceError, message):
                     compile_agent_session_contract(packet)
+
+    def test_portable_review_contract_ignores_local_attempt_and_selector_paths(
+        self,
+    ) -> None:
+        first_packet = self._packet()
+        first_packet.update(
+            {
+                "mode": "review",
+                "packet_id": "PACKET-WORK-SESSION-CONTRACT-PALARI-STEWARD-REVIEW-V1",
+                "proof_state": {
+                    "attempt": {
+                        "id": "ATTEMPT-1",
+                        "workspace_path": str(self.workspace_file.parent),
+                    }
+                },
+                "next_allowed_commands": [
+                    palari_workspace_command(
+                        self.workspace_file,
+                        "review",
+                        "guide",
+                        WORK_ID,
+                        "--json",
+                    )
+                ],
+            }
+        )
+        first_packet["context_hash"] = _context_hash(first_packet)
+        second_packet = deepcopy(first_packet)
+        second_workspace = Path("/tmp/another workspace/governance state.json")
+        second_packet["workspace_file"] = str(second_workspace)
+        second_packet["proof_state"]["attempt"]["workspace_path"] = str(
+            second_workspace.parent
+        )
+        second_packet["next_allowed_commands"] = [
+            palari_workspace_command(
+                second_workspace,
+                "review",
+                "guide",
+                WORK_ID,
+                "--json",
+            )
+        ]
+        second_packet["context_hash"] = _context_hash(second_packet)
+
+        first = compile_agent_session_contract(first_packet)
+        second = compile_agent_session_contract(second_packet)
+
+        self.assertNotEqual(
+            first_packet["context_hash"],
+            second_packet["context_hash"],
+        )
+        self.assertEqual(first, second)
+        serialized = json.dumps(first, sort_keys=True)
+        self.assertNotIn(str(self.workspace_file.parent), serialized)
+        self.assertNotIn(str(second_workspace.parent), serialized)
+
+    def test_portable_contract_hash_still_binds_nonlocal_packet_authority(
+        self,
+    ) -> None:
+        packet = self._packet()
+        contract = compile_agent_session_contract(packet)
+        mutations = (
+            ("agent scope", lambda value: value["agent"].update(scope="Broader scope.")),
+            (
+                "authority viability",
+                lambda value: value["authority_plan"].update(viable=False),
+            ),
+            (
+                "approval capability",
+                lambda value: value["work_item"].update(
+                    required_approval_capability="security-approval"
+                ),
+            ),
+        )
+
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                changed = deepcopy(packet)
+                mutate(changed)
+                changed["context_hash"] = _context_hash(changed)
+                changed_contract = compile_agent_session_contract(changed)
+
+                self.assertNotEqual(
+                    contract["contract_digest"],
+                    changed_contract["contract_digest"],
+                )
+                self.assertIn(
+                    "differs from the current packet authority",
+                    session_contract_error(
+                        contract,
+                        expected_packet=changed,
+                    ),
+                )
 
     def test_schema_tamper_and_authority_substitution_are_rejected(self) -> None:
         packet = self._packet()
@@ -206,8 +328,8 @@ class AgentSessionContractTests(unittest.TestCase):
             print_agent_session_contract(contract, False)
 
         rendered = output.getvalue()
-        self.assertIn(f"Portable session contract: {contract['contract_id']}", rendered)
-        self.assertIn("Grants authority: no", rendered)
+        self.assertIn(f"Portable session rules: {contract['contract_id']}", rendered)
+        self.assertIn("Grants permission: no", rendered)
         self.assertIn("adapter: none", rendered)
 
     def _packet(self) -> dict[str, Any]:

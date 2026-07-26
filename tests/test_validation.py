@@ -134,6 +134,14 @@ def bounded_workspace_data() -> dict[str, Any]:
 
 
 class WorkspaceContractTests(unittest.TestCase):
+    def test_load_retains_the_exact_selected_workspace_filename(self) -> None:
+        data_path = FIXTURES / "valid-workspace.json"
+
+        workspace = Workspace.load(data_path)
+
+        self.assertEqual(workspace.path, data_path.parent.resolve())
+        self.assertEqual(workspace.data_path, data_path.resolve())
+
     def test_current_fixture_and_narrow_historical_inputs_load(self) -> None:
         current = Workspace.load(FIXTURES / "valid-source-receipt-loop.json")
         historical = Workspace.load(FIXTURES / "valid-workspace.json")

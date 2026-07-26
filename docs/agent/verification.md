@@ -1,8 +1,8 @@
 # Verification
 
-## Candidate gate
+## Complete Candidate Check
 
-Install the pinned development tools once, then run the same authoritative gate
+Install the pinned development tools once, then run the same complete check
 used by CI:
 
 ```bash
@@ -19,13 +19,14 @@ The `complete` profile runs each candidate boundary once:
 - the agent-ready documentation check; and
 - one wheel build and isolated installed-package smoke.
 
-The installed-package smoke creates its own temporary Git project, initializes a
+The installed-package smoke creates its own temporary Git repository, initializes a
 current workspace without installing a host profile, validates it, and verifies
 a copied PCAW bundle with network sockets disabled. It never executes against
 the committed example or dogfood workspace.
 
-The complete gate is acceptance proof. Do not run its unit suite, wheel build,
-or CLI boundaries separately and then invoke the complete profile again.
+The complete check is the final candidate check. Do not run its unit suite,
+wheel build, or CLI boundaries separately and then invoke the complete profile
+again.
 
 ## Focused development checks
 
@@ -56,11 +57,11 @@ complete profile already includes it once.
 
 ## Test architecture
 
-- Governance decisions belong in pure kernel tests.
+- Rules and status decisions belong in pure evaluator tests.
 - Filesystem, symlink, Git, journal, and subprocess work belongs only at genuine
   system boundaries.
-- CLI, packet, hook, MCP, read-model, and adapter tests verify translation and
-  capability limits rather than replaying the lifecycle matrix.
+- CLI, task-brief, hook, MCP, status-view, and adapter tests verify translation
+  and capability limits rather than replaying the full status matrix.
 - CLI tests use temporary current workspaces.
 - PCAW conformance uses the committed normative proof corpus and performs no
   network or workspace mutation.

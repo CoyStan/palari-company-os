@@ -1,27 +1,29 @@
-# Palari Agent Contract
+# Palari Agent Rules
 
-Palari Company OS is a local operating contract for AI agents and human
-supervisors. Humans should not need to drive every CLI command manually; agents
-use the CLI to stay inside company boundaries, and humans inspect blockers,
-approvals, receipts, and outcomes.
+Palari is a local system for bounded AI work and human supervision. Humans
+should not need to drive every CLI command manually: agents use the CLI to stay
+inside the task's allowed files, sources, and actions, while humans inspect
+blockers, approvals, run records, check results, and final results.
 
-For ordinary execution, select and claim the next safe item in one command:
+For ordinary execution, select and take the next safe task in one command:
 
 ```bash
 palari agent start --next --as PALARI-ID --json
 ```
 
-Work only inside the returned packet. After committing the bounded result, run
-one convergence command:
+Work only inside the returned task brief (`packet` in stored JSON and file
+paths). After committing the bounded result, run one automatic finishing
+command:
 
 ```bash
 palari agent advance WORK-ID --as PALARI-ID --json
 ```
 
-It derives deterministic proof and stops at the next real boundary: independent
-review, exact human authority, an external effect, or a concrete blocker. It
-never creates the review or human decision. If work must stop before proof is
-ready, preserve the interruption before releasing ownership:
+It derives deterministic check results and stops at the next real boundary:
+independent review, exact human approval, an external action, or a concrete
+blocker. It never creates the review result or approval. If work must stop
+before check results are ready, record the interruption before releasing the
+assignment:
 
 ```bash
 palari agent release WORK-ID --as PALARI-ID \
@@ -42,99 +44,112 @@ palari agent doctor WORK-ID --as PALARI-ID --mode execute --json
 palari agent loop WORK-ID --as PALARI-ID --mode execute --json
 ```
 
-Bare `agent next` shows the all-Palaris rollup. Use `--as PALARI-ID` when you
-already know which Palari should take the next step. Candidate payloads include
-`next_step_type` so you can distinguish start work, active proof checks, review
-handoff, human decisions, closed work, and inspect-only states without parsing
+Bare `agent next` shows the all-agent summary. Use `--as PALARI-ID` when you
+already know which agent should take the next step. Candidate payloads include
+`next_step_type` so you can distinguish task start, active checks, review
+handoff, human approval, closed work, and inspect-only states without parsing
 command strings.
 
-`agent brief` is a read-only preview. `agent start` is the operational entry
-point for ready execution work: it persists the packet under `.palari/packets/`
-and its deterministic portable session contract under
-`.palari/packets/session-contracts/`, then writes a digest-bound local claim
-under `.palari/claims/`. If the packet is blocked, `agent start` reports the
-blockers and does not write a claim. Add `--session-contract` to `agent brief`
-to inspect the provider-neutral contract without claiming work. The portable
-contract declares boundaries; it does not install a host sandbox or grant
-execution authority.
+`agent brief` is a read-only preview. `agent start` is the entry point for a
+ready task: it saves the task brief under `.palari/packets/`, saves portable
+session rules under `.palari/packets/session-contracts/`, and writes a
+digest-bound local assignment under `.palari/claims/`. These directory names
+remain stable for compatibility. If the task is blocked, `agent start` reports
+the blockers and does not create an assignment. Add `--session-contract` to
+`agent brief` to inspect the provider-neutral session rules without taking the
+task. Those rules declare boundaries; they do not install a host sandbox or
+grant permission.
 
-`agent start --next` uses the same deterministic eligibility and packet rules
-as `agent next` plus explicit `agent start`; it does not broaden scope.
+`agent start --next` uses the same deterministic eligibility and task-brief
+rules as `agent next` plus explicit `agent start`; it does not broaden the
+allowed files, sources, or actions.
 `agent release` with `--reason` and `--next-action` first records a blocked
-attempt, the reason, repository
-observation, and next safe action in governed state, then releases the owned
-execute claim. It creates no receipt, evidence, review, decision, acceptance,
-outcome, or convergence authority. It requires a writable governance journal;
-on a legacy workspace, run the exact returned `history --checkpoint` command
-instead of assuming earlier continuity.
+run, the reason, repository observation, and next safe action, then releases
+the assignment. It creates no run record, check results, review result,
+approval, final result, or automatic-finishing permission. It requires writable
+tamper-evident history; on a legacy workspace, run the exact returned
+`history --checkpoint` command instead of assuming earlier continuity.
 
-After independent review, the normal human path is `palari queue
---approval-inbox --json`. A qualified human inspects the exact presentation and
-may run its emitted `human-decision pack` action once. Agents may quote that
-command for the supervisor; they must not execute it or combine review with
-acceptance.
+After independent review, `agent handoff` shows the current presentation and
+an exact presentation-bound command. For one eligible reversible local task,
+the human runs that emitted command once. Its readable form begins:
 
-Use `--mode review` only when work has current exact evidence and is waiting
-for independent review. Review packets are read-only: they include review focus,
-attempt/evidence/receipt context, and review guide commands, but they do not
-record a verdict.
+```bash
+palari approve WORK-ID --as HUMAN-ID --json
+```
 
-Follow the packet:
+The emitted command includes a machine-added `--presented` binding; the human
+does not copy it or any other digest. A manually entered command without that
+binding derives current state at invocation, so it is not a substitute for an
+earlier inspected handoff. Palari revalidates current proof before approval and
+local completion. The Approval Inbox and `human-decision pack` remain available
+for advanced or batched decisions. Agents may quote a human command for the
+supervisor; they must not execute `approve`, `human-decision`, or combine review
+with approval.
+
+Use `--mode review` only when work has current exact check results and is
+waiting for independent review. Review task briefs are read-only: they include
+review focus, run/check/run-record context, and review guide commands, but they
+do not record a review result.
+
+Follow the task brief:
 
 - continue only when `status` is `ready`
 - use only `allowed_paths` and `allowed_sources`
 - satisfy declared `path_intents`: create/modify targets must exist in the
   matching Git change class, while delete targets must be absent and observed
-  as deleted from claim base to candidate
-- respect each allowed source's data class, authority, steward, freshness, and
+  as deleted from the assignment base to the candidate
+- respect each allowed source's data class, permission, steward, freshness, and
   redaction fields
 - use `agent start`, not only `agent brief`, before doing ready execution work
-- produce the declared output and receipt/evidence state
-- stop for every blocker, missing source, human decision, or external write
+- produce the declared output, run record, and check results
+- stop for every blocker, missing source, human approval, or external write
 - run `palari validate --json` before reporting work as done
 - run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
 - add `--changed PATH` or `--git-diff` to `agent check` when file edits need to
-  be compared against the packet write boundary
+  be compared against the task's write boundary
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 - run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
-  plain-language diagnosis of why work is safe, blocked, missing proof, or
-  waiting on human authority
+  plain-language diagnosis of why work is safe, blocked, missing check results,
+  or waiting on human approval
 - run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a compact
   read-only summary of brief, check, finish, and handoff status
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
-  `finish` says the next step is human review or human decision
-- follow concrete receipt, evidence, review, and approval guidance before
+  `finish` says the next step is independent review, a human answer, or final
+  approval
+- follow concrete run-record, check-results, review, and approval guidance before
   generic inspect or validate commands when a check fails
-- treat human-decision commands as unavailable until prerequisite proof, such as
-  receipt, evidence, and review, is present
+- treat `human-decision` commands as unavailable until prerequisite run records,
+  check results, and review are present
+- treat `approve` as human-only and never execute it from an agent session
 - in review mode, `agent finish` means you may report a review recommendation;
-  it does not authorize you to record a human review or claim the original work
-  item is complete
-- if a review-mode packet or handoff packet includes `human_action_boundary`,
+  it does not authorize you to record a human review or say the original task
+  is complete
+- if a review task brief or handoff brief includes `human_action_boundary`,
   treat the referenced review or decision commands as human-only; you may quote
   them for a supervisor but must not run them yourself
 - run `palari agent release WORK-ID --as PALARI-ID --json` when abandoning or
-  handing off a local claim
+  handing off a local assignment
 - add both `--reason` and `--next-action` to `agent release` when an
   interruption and its next action must remain durable
 
 Never:
 
 - read secrets or raw provider tokens
-- write outside the packet boundary
-- use sources not listed in the packet
+- write outside the task boundary
+- use sources not listed in the task brief
 - perform external writes without an approved integration plan
 - invent durable memory or company policy
-- bypass human decisions, reviews, receipts, or approval boundaries
+- bypass approvals, reviews, run records, check results, or required boundaries
 
-The canonical contract is in `docs/product/agent-contract.md`. For a compact
+The full agent rules are in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
-Fresh Git projects may use `palari init --host HOST`; existing workspaces use
+Fresh Git repositories may use `palari init --host HOST`; existing workspaces use
 the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
-where `HOST` is `claude` or `codex`. Both profiles install the portable
-contract, commit-time Git boundary, and tested session hooks; Codex requires
+where `HOST` is `claude` or `codex`. Both profiles install the portable session
+rules, commit-time Git boundary, and tested session hooks; Codex requires
 explicit `/hooks` trust. `palari claude install` remains the hook-only
 management, repair, and removal surface; see
 `docs/product/claude-code-integration.md`.
@@ -149,5 +164,5 @@ Use these committed docs before rereading large parts of the repo:
 - `docs/agent/verification.md` for focused and full checks.
 - `docs/agent/documentation-freshness.md` for when docs need updates.
 
-Run `palari docs check --json` after changing public commands, schema,
-agent behavior, gates, integrations, examples, or documentation structure.
+Run `palari docs check --json` after changing public commands, schema, agent
+behavior, required checks, integrations, examples, or documentation structure.

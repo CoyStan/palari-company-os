@@ -1,10 +1,10 @@
 # Minimality Contract
 
-Palari should stay small enough that a human can inspect it, run it locally, and
-understand where authority lives. New work must protect that shape.
+Palari should stay small enough that a person can inspect it, run it locally,
+and understand who may do or approve what. New work must protect that shape.
 
 Use the [Public Surface](public-surface.md) map to check whether a change
-strengthens the core kernel or adds optional surface area.
+strengthens the core rules and checks or adds optional surface area.
 
 ## Hard Rules
 
@@ -17,17 +17,17 @@ strengthens the core kernel or adds optional surface area.
   reviewable plan, human approval, and an outbox boundary.
 - No OAuth by default. Personal/local credentials may be supported only through
   explicit environment references, never stored token values.
-- No new public command unless it replaces confusion or exposes a core
-  governance primitive. Helper workflows should start as docs.
-- No schema growth without governance behavior. A new field must change a real
-  boundary, authority rule, evidence link, receipt, or acceptance decision.
+- No new public command unless it replaces confusion or exposes a core rule or
+  check. Helper workflows should start as docs.
+- No schema growth without changed safety behavior. A new field must change a
+  real boundary, permission rule, check link, run record, or approval decision.
 - README and Quickstart must remain API-key-free. Optional integrations belong
   in deeper docs.
 
 ## Preferred Shape
 
 - Add examples before adding abstractions.
-- Add read models before adding new storage.
+- Add status views before adding new storage.
 - Add dry-run plans before live effects.
 - Add narrow adapters before generic provider frameworks.
 - Prefer one local file and one explicit command over hidden orchestration.
@@ -38,8 +38,8 @@ Before merging a feature, ask:
 
 - Can the demo still run without network access, API keys, databases, or a
   background service?
-- Does this make acceptance, authority, evidence, or external side effects more
-  legible?
+- Does this make approval, permissions, checks, or external side effects easier
+  to understand?
 - Could this be documentation or a fixture instead of a command, schema field,
   or service?
 - Did we avoid storing raw secrets?

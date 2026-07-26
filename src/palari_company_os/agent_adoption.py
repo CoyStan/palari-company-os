@@ -53,7 +53,7 @@ def adopt_agent_host(
 
     The operation is idempotent.  Existing non-Palari instructions and hook
     entries are preserved.  A malformed managed block, invalid host JSON, or
-    an unmanaged Git pre-commit hook blocks adoption before project
+    an unmanaged Git pre-commit hook blocks adoption before repository
     instructions or host settings are changed.
     """
     selected_host = host.strip().lower()
@@ -69,7 +69,7 @@ def adopt_agent_host(
     root = repo_root
     if not _workspace_inside_project(workspace_path, root):
         raise WorkspaceError(
-            "agent adoption requires the Palari workspace to be inside the project"
+            "agent adoption requires the Palari workspace to be inside the repository"
         )
     workspace = Workspace.load(workspace_path)
     executable = _assert_palari_executable(root)
@@ -140,7 +140,7 @@ def adopt_agent_host(
         next_action = "Start a new Claude Code session in this repository."
     else:
         activation = "review-project-hooks-in-codex"
-        next_action = "Open /hooks in Codex and trust the reviewed project hook definition."
+        next_action = "Open /hooks in Codex and trust the reviewed repository hook definition."
     host_result = {
         "status": "installed" if changed else "unchanged",
         "changed": changed,
@@ -172,7 +172,7 @@ def adopt_agent_host(
         "next_commands": _agent_next_commands(executable, workspace_path, actor),
         "limitations": [
             "Git enforcement applies at commit time and is not a filesystem sandbox.",
-            "Project-local host hooks may require the host user to review and trust them.",
+            "Repository-local host hooks may require the host user to review and trust them.",
             "Actor identifiers remain declared identities, not same-OS-user authentication.",
             "Adoption grants no review, acceptance, merge, push, deployment, provider, or external-write authority.",
         ],
@@ -409,7 +409,7 @@ def install_claude_host_hooks(
         "status": "removed" if remove and changed else "installed" if changed else "unchanged",
         "changed": changed,
         "settings_file": str(target),
-        "workspace": str(workspace_file_path(workspace_path).parent.resolve()),
+        "workspace": _workspace_selector(workspace_path),
         "strict": strict,
         "palari_on_path": True,
         "hooks": {},
@@ -607,7 +607,7 @@ def _host_hook_command(
     host: str,
     event: str,
 ) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     return shlex.join(
         [
             executable,
@@ -630,7 +630,7 @@ def _claude_hook_command(
     event: str,
     strict: bool,
 ) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     command = [executable, "--workspace", workspace, "claude", "hook", event]
     if strict:
         command.append("--strict")
@@ -670,15 +670,15 @@ def has_portable_agent_contract(content: str) -> bool:
 
 def _agents_contract(palari_id: str) -> str:
     return f"""{AGENTS_START}
-## Palari governed work
+## Palari task rules
 
-Before changing files, claim one bounded work item:
+Before changing files, take one bounded task:
 
 ```bash
 palari agent start --next --as {palari_id} --json
 ```
 
-Follow the returned packet. Stay inside its read/write paths, stop at every
+Follow the returned task brief. Stay inside its allowed files, stop at every
 human or external-write boundary, commit the bounded change, then run:
 
 ```bash
@@ -686,8 +686,8 @@ palari agent advance WORK-ID --as {palari_id} --json
 ```
 
 Use `palari agent doctor WORK-ID --as {palari_id} --json` for one actionable
-diagnosis. Never manufacture review, human acceptance, merge, push,
-deployment, provider, credential, or external-write authority.
+diagnosis. Never manufacture review, human approval, merge, push, deployment,
+provider, credential, or external-write permission.
 {AGENTS_END}"""
 
 
@@ -695,15 +695,15 @@ def _resolve_palari(workspace: Workspace, explicit: str) -> str:
     if explicit.strip():
         selected = explicit.strip()
         if workspace.palari(selected) is None:
-            raise WorkspaceError(f"--as references unknown Palari {selected}")
+            raise WorkspaceError(f"--as references unknown agent {selected}")
         return selected
     ids = [item.id for item in workspace.palaris]
     if len(ids) == 1:
         return ids[0]
     if not ids:
-        raise WorkspaceError("workspace has no Palari identity; run palari init first")
+        raise WorkspaceError("workspace has no agent identity; run palari init first")
     raise WorkspaceError(
-        f"workspace has {len(ids)} Palaris ({', '.join(ids)}); pass --as to choose one"
+        f"workspace has {len(ids)} agents ({', '.join(ids)}); pass --as to choose one"
     )
 
 
@@ -722,7 +722,7 @@ def _host_profile(host: str) -> dict[str, Any]:
 
 
 def _mcp_command(executable: str, workspace_path: Path | str) -> str:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     return shlex.join([executable, "--workspace", workspace, "mcp", "serve"])
 
 
@@ -731,12 +731,20 @@ def _agent_next_commands(
     workspace_path: Path | str,
     actor: str,
 ) -> list[str]:
-    workspace = str(workspace_file_path(workspace_path).parent.resolve())
+    workspace = _workspace_selector(workspace_path)
     base = [executable, "--workspace", workspace, "agent"]
     return [
         shlex.join([*base, "start", "--next", "--as", actor, "--json"]),
         shlex.join([*base, "next", "--as", actor, "--json"]),
     ]
+
+
+def _workspace_selector(workspace_path: Path | str) -> str:
+    """Keep directory shorthand only for the conventional workspace filename."""
+
+    data_path = workspace_file_path(workspace_path).resolve(strict=False)
+    selector = data_path.parent if data_path.name == "workspace.json" else data_path
+    return str(selector)
 
 
 def _workspace_inside_project(workspace_path: Path | str, root: Path) -> bool:
@@ -757,7 +765,7 @@ def _assert_local_target(root: Path, target: Path) -> None:
     try:
         relative = target.relative_to(root)
     except ValueError as exc:
-        raise WorkspaceError(f"adoption target is outside the project: {target}") from exc
+        raise WorkspaceError(f"adoption target is outside the repository: {target}") from exc
     cursor = root
     parts = relative.parts
     for index, part in enumerate(parts):
@@ -777,15 +785,15 @@ def _assert_palari_executable(root: Path) -> str:
     if local.exists() or local.is_symlink():
         if local.is_symlink():
             raise WorkspaceError(
-                f"project-local Palari wrapper must not be a symlink: {local}"
+                f"repository-local Palari wrapper must not be a symlink: {local}"
             )
         _assert_local_target(root, local)
         if not local.is_file() or not os.access(local, os.X_OK):
-            raise WorkspaceError(f"project-local Palari wrapper is not executable: {local}")
+            raise WorkspaceError(f"repository-local Palari wrapper is not executable: {local}")
         try:
             wrapper = local.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
-            raise WorkspaceError(f"project-local Palari wrapper is unreadable: {exc}") from exc
+            raise WorkspaceError(f"repository-local Palari wrapper is unreadable: {exc}") from exc
         wrapper_lines = tuple(
             line
             for line in wrapper.replace("\r\n", "\n").splitlines()
@@ -794,7 +802,7 @@ def _assert_palari_executable(root: Path) -> str:
         packaged_lines = tuple(line for line in PROJECT_WRAPPER.splitlines() if line.strip())
         if wrapper_lines != packaged_lines:
             raise WorkspaceError(
-                "project-local bin/palari is not an inspectable Palari launcher; "
+                "repository-local bin/palari is not an inspectable Palari launcher; "
                 "restore the packaged wrapper or remove it and install palari on PATH"
             )
         return str(local.resolve())
@@ -804,7 +812,7 @@ def _assert_palari_executable(root: Path) -> str:
     installed = shutil.which("palari")
     if installed is None:
         raise WorkspaceError(
-            "Palari is not on PATH and this project has no executable bin/palari wrapper"
+            "Palari is not on PATH and this repository has no executable bin/palari wrapper"
         )
     return str(_validated_palari_invocation(Path(installed), source="PATH"))
 

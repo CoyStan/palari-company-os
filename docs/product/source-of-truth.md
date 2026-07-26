@@ -1,84 +1,88 @@
-# Source Of Truth Rules
+# Which Files Palari Trusts
 
-Palari Company OS keeps source artifacts simple and inspectable. Fast operator
-views are derived from those artifacts.
+Palari keeps its saved state in ordinary, inspectable local files. Fast status
+views are calculated from those files.
 
-## Current Durable Contract
+## Current State
 
-The current-state projection is:
+Each local workspace stores its authoritative current state in:
 
 ```text
 workspace.json
 ```
 
-That file is the authoritative current-state projection for each local
-workspace. The ACME repository example lives at
-`examples/acme-company-os/workspace.json`; the repository dogfood evidence lives
-at `workspaces/palari-company-os/workspace.json`.
+The technical name for this file's role is the current-state `projection`.
+The ACME example lives at `examples/acme-company-os/workspace.json`; this
+repository's own records live at `workspaces/palari-company-os/workspace.json`.
 
-Queue, detail, and state are recorded-only read models derived from that
-projection. They do not inspect artifact bytes or scan journal history.
+Queue, detail, and state are display-only status views (`read_models`) derived
+from `workspace.json`. They do not inspect output bytes or scan history.
 `validate` checks stored structure and bindings, while `scope` checks an
-explicit observed path set; neither mutates authority state.
+explicit set of observed paths. Neither changes permissions or approvals.
 
-The sole current mutation history is:
+## Tamper-Evident History
+
+The only current change history is:
 
 ```text
 .palari/governance-journal.v2.jsonl
 ```
 
-The hash-chained journal is replayable. Its prepared record is
-fsynced before the atomic workspace replacement and its commit marker is
-fsynced afterward. It detects pending transactions, corruption, truncation,
-reordering, forks, and workspace divergence. A manual-repair checkpoint keeps
-the continuity break visible instead of rewriting history.
+The filename keeps the exact machine term `governance-journal`; operators can
+read it as tamper-evident history. It is hash-chained and replayable. Palari
+fsyncs a prepared record before atomically replacing `workspace.json`, then
+fsyncs the commit marker. Verification detects unfinished changes, corruption,
+truncation, reordering, forks, and disagreement with the current workspace.
+A manual-repair restore point keeps a visible continuity break instead of
+rewriting history.
 
 A committed `.palari/governance-journal.v1.jsonl` is accepted only as a sealed,
-strictly verified predecessor for explicit v2 activation. A committed
-`.palari/history.jsonl` is historical evidence only; current runtime code never
-reads, appends, or imports it.
+strictly verified predecessor during explicit v2 activation. A committed
+`.palari/history.jsonl` is historical evidence only; current code never reads,
+appends, or imports it.
 
-New workspaces create v2 directly. Existing workspaces without a journal reject
-ordinary writes until an explicit checkpoint creates v2; the v1 path never
-accepts a v2 record.
+New workspaces create v2 directly. Existing workspaces without this history
+reject ordinary writes until an explicit checkpoint creates v2. The v1 path
+never accepts a v2 record.
 
-Writes to `workspace.json` use an ownership-bound local lock plus optimistic
-change detection. Fsynced atomic replace prevents partial files; the loaded-file
-hash prevents stale read-modify-write commands from overwriting newer workspace
-changes. When a second writer wins first, the stale command fails closed and
-should be retried
-after reloading the workspace.
+## Safe Concurrent Writes
 
-Together, `workspace.json` and the v2 journal are the supported durable storage
-contract: current projection plus replayable, tamper-evident mutation history.
+Writes to `workspace.json` use an ownership-bound local lock and optimistic
+change detection. An fsynced atomic replace prevents partial files. A hash of
+the loaded file prevents an older command from overwriting a newer change.
+When another writer finishes first, the stale command stops and should be
+retried after the workspace is reloaded.
 
-## Design Direction
+Together, `workspace.json` and the v2 journal are Palari's durable storage:
+current state plus replayable, tamper-evident change history.
 
-Future workspaces may add richer authoring for split records or support other
-inspectable source formats. The rule should stay the same:
+## Rules for Future Storage
 
-- source files are inspectable
-- generated views are derived
-- evidence is tied to a specific head or artifact state
-- review and human decision are separate records
-- successful mutations leave one append-only journal transaction
-- queue/detail commands do not secretly mutate authority state
+Future workspaces may support richer authoring or other inspectable source
+formats. These rules must remain true:
 
-Current authoring commands intentionally refuse split workspaces so they do not
-silently collapse or corrupt external collection files. The retained split-file
-reader accepts a declared `collection_files` list, merges those files in memory,
-and validates the result. It is parked compatibility, not a supported scaling
-path; there is no current split-file writer or schema migration exception.
+- saved source files are inspectable
+- generated status views are derived
+- check results are tied to an exact commit or output version
+- independent review and human approval remain separate records
+- every successful change appends one history transaction
+- queue and detail never silently change permissions or approvals
 
-## What Must Not Become Implicit
+Current authoring commands reject split workspaces so they cannot collapse or
+corrupt external collection files. The retained split-file reader accepts a
+declared `collection_files` list, combines those files in memory, and validates
+the result. It is parked compatibility, not a supported scaling path. There is
+no current split-file writer or schema-migration exception.
 
-These actions must remain explicit:
+## Actions That Must Stay Explicit
 
-- acceptance
+Palari must never infer or silently perform:
+
+- final human approval (`acceptance`)
 - merge
 - push
 - deploy
 - policy activation
-- broker side effects
+- an external-service action (`broker` side effect)
 - secret or credential use
-- widening a Palari's authority boundary
+- wider permissions for an agent

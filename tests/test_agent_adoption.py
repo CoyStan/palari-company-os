@@ -233,7 +233,9 @@ class AgentAdoptionTests(unittest.TestCase):
         (self.workspace / "workspace.json").unlink()
         (self.workspace / "workspace.json").symlink_to(outside)
 
-        with self.assertRaisesRegex(WorkspaceError, "workspace to be inside the project"):
+        with self.assertRaisesRegex(
+            WorkspaceError, "workspace to be inside the repository"
+        ):
             adopt_agent_host(
                 self.workspace,
                 project_dir=self.tmp,
@@ -582,6 +584,89 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertNotIn("adopt", command_tokens)
         self.assertIn(str(malicious), command_tokens)
         self.assertIn(str(malicious), shlex.split(result["mcp"]["command"]))
+
+    def test_generated_surfaces_retain_a_nondefault_workspace_filename(self) -> None:
+        custom_workspace = self.workspace / "governance-state.json"
+        (self.workspace / "workspace.json").rename(custom_workspace)
+
+        codex = adopt_agent_host(
+            custom_workspace,
+            project_dir=self.tmp,
+            host="codex",
+            palari_id="PALARI-STEWARD",
+        )
+        codex_hooks = json.loads(
+            (self.tmp / ".codex" / "hooks.json").read_text(encoding="utf-8")
+        )
+        codex_commands = [
+            hook["command"]
+            for entries in codex_hooks["hooks"].values()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        for command in codex_commands:
+            tokens = shlex.split(command)
+            self.assertEqual(
+                tokens[tokens.index("--workspace") + 1],
+                str(custom_workspace),
+            )
+            self.assertEqual(tokens[tokens.index("init") + 1], str(custom_workspace))
+        self.assertEqual(
+            shlex.split(codex["mcp"]["command"])[
+                shlex.split(codex["mcp"]["command"]).index("--workspace") + 1
+            ],
+            str(custom_workspace),
+        )
+        for command in codex["next_commands"]:
+            tokens = shlex.split(command)
+            self.assertEqual(
+                tokens[tokens.index("--workspace") + 1],
+                str(custom_workspace),
+            )
+
+        claude = adopt_agent_host(
+            custom_workspace,
+            project_dir=self.tmp,
+            host="claude",
+            palari_id="PALARI-STEWARD",
+        )
+        claude_hooks = json.loads(
+            (self.tmp / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+        claude_commands = [
+            hook["command"]
+            for entries in claude_hooks["hooks"].values()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        for command in claude_commands:
+            tokens = shlex.split(command)
+            self.assertEqual(
+                tokens[tokens.index("--workspace") + 1],
+                str(custom_workspace),
+            )
+        self.assertEqual(
+            shlex.split(claude["mcp"]["command"])[
+                shlex.split(claude["mcp"]["command"]).index("--workspace") + 1
+            ],
+            str(custom_workspace),
+        )
+        for command in claude["next_commands"]:
+            tokens = shlex.split(command)
+            self.assertEqual(
+                tokens[tokens.index("--workspace") + 1],
+                str(custom_workspace),
+            )
+        compatible_install = install_claude_host_hooks(
+            self.tmp,
+            custom_workspace,
+        )
+        self.assertEqual(compatible_install["workspace"], str(custom_workspace))
+
+        hook = (self.tmp / ".git" / "hooks" / "pre-commit").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--workspace workspaces/test/governance-state.json", hook)
 
     def test_claude_adoption_preserves_settings_and_installs_structural_profile(self) -> None:
         settings = self.tmp / ".claude" / "settings.json"

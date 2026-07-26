@@ -4,6 +4,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable, cast
 
+from .authority_plan import build_authority_plan
+from .command_surface import palari_workspace_command
 from .approval_presentations import (
     DECISION_SURFACE,
     PRESENTATION_SCHEMA_VERSION,
@@ -41,8 +43,12 @@ from .transition_checks import assert_transition_allowed
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
-PACK_SCHEMA_VERSION = "palari.approval-pack.v2"
-INBOX_SCHEMA_VERSION = "palari.approval-inbox.v1"
+PACK_SCHEMA_VERSION = "palari.approval-pack.v3"
+SUPPORTED_PACK_SCHEMA_VERSIONS = {
+    "palari.approval-pack.v2",
+    PACK_SCHEMA_VERSION,
+}
+INBOX_SCHEMA_VERSION = "palari.approval-inbox.v2"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 BAD_DEPENDENCY_STATES = {
     "blocked",
@@ -75,8 +81,8 @@ def build_approval_inbox(
             work
             for work in workspace.work_items
             if work.status not in TERMINAL_WORK_STATUSES
-            and work.required_approval_count > 0
             and current_attempt_for_work(work, workspace.attempts) is not None
+            and _work_requires_final_human(workspace, work)
         ]
 
     members = [
@@ -89,7 +95,7 @@ def build_approval_inbox(
         group = "batchable-local" if policy["batchable"] else str(policy["class"])
         grouped.setdefault(group, []).append(member)
 
-    journal = operation_journal.verify(workspace.path)
+    journal = operation_journal.verify(workspace.data_path)
     if not journal.get("chain_valid") or journal.get("pending"):
         raise WorkspaceError(
             "approval inbox requires a verified, committed governance journal checkpoint"
@@ -140,21 +146,32 @@ def build_approval_inbox(
         if key in counts:
             counts[key] += 1
     approval_commands: list[dict[str, str]] = []
-    for pack, presentation in zip(packs, presentations, strict=True):
+    for pack, presentation, report in zip(
+        packs,
+        presentations,
+        evaluated,
+        strict=True,
+    ):
         presentation_digest = approval_presentation_digest(presentation, pack)
-        approval_commands.append(
-            {
-                "pack_id": pack["pack_id"],
-                "pack_digest": pack["pack_digest"],
-                "presentation_digest": presentation_digest,
-                "approve_eligible": _approval_command(pack, presentation_digest),
-            }
-        )
-    eligible_commands = [
-        command
-        for command, report in zip(approval_commands, evaluated, strict=True)
-        if any(item["state"] == "eligible" for item in report["members"])
-    ]
+        for human_id in _pack_approval_human_ids(workspace, pack, report):
+            approval_commands.append(
+                {
+                    "pack_id": pack["pack_id"],
+                    "pack_digest": pack["pack_digest"],
+                    "presentation_digest": presentation_digest,
+                    "human_id": human_id,
+                    "approve_eligible": _approval_command(
+                        workspace.data_path,
+                        pack,
+                        presentation_digest,
+                        human_id,
+                    ),
+                }
+            )
+    eligible_commands = approval_commands
+    eligible_pack_actions = len(
+        {command["pack_id"] for command in eligible_commands}
+    )
     return {
         "schema_version": INBOX_SCHEMA_VERSION,
         "workspace": workspace.name,
@@ -178,8 +195,9 @@ def build_approval_inbox(
         "interaction_measurement": approval_interaction_measurement(
             packs,
             individual_items,
+            approval_actions=eligible_pack_actions,
         ),
-        "approval_modes": approval_modes(counts, len(eligible_commands)),
+        "approval_modes": approval_modes(counts, eligible_pack_actions),
         "primary_action": approval_primary_action(eligible_commands, counts),
         "approval_commands": approval_commands,
         "actions": {
@@ -250,13 +268,24 @@ def approval_primary_action(
     approval_commands: list[dict[str, str]],
     counts: dict[str, int],
 ) -> dict[str, Any]:
-    actions = len(approval_commands)
+    primary_commands: dict[str, str] = {}
+    for item in approval_commands:
+        primary_commands.setdefault(
+            item.get("pack_id", item.get("approve_eligible", "")),
+            item["approve_eligible"],
+        )
+    actions = len(
+        {
+            item.get("pack_id", item.get("approve_eligible", ""))
+            for item in approval_commands
+        }
+    )
     return {
         "mode": "approve-eligible" if actions else "inspect-exceptions",
         "available": bool(actions),
         "eligible_items": counts.get("eligible", 0),
         "human_actions": actions,
-        "commands": [item["approve_eligible"] for item in approval_commands],
+        "commands": list(primary_commands.values()),
         "exceptions": {
             "blocked": counts.get("blocked", 0),
             "stale": counts.get("stale", 0),
@@ -326,17 +355,24 @@ def approval_resolution(item: dict[str, Any]) -> dict[str, Any]:
 def approval_interaction_measurement(
     packs: list[dict[str, Any]],
     items: list[dict[str, Any]],
+    *,
+    approval_actions: int | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic interaction and comprehension-work proxy."""
 
     eligible = sum(1 for item in items if item.get("state") == "eligible")
+    pack_actions = (
+        approval_actions
+        if approval_actions is not None
+        else (1 if eligible else 0)
+    )
     return {
         "review_sessions": 1 if packs else 0,
-        "attributable_approval_actions": 1 if eligible else 0,
+        "attributable_approval_actions": pack_actions,
         "individual_proof_records": len(items),
         "commands_or_clicks": {
             "individual_approval_baseline": eligible,
-            "approval_pack": 1 if eligible else 0,
+            "approval_pack": pack_actions,
         },
         "time_to_understand_proxy": {
             "pack_summaries": len(packs),
@@ -365,7 +401,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] != PACK_SCHEMA_VERSION:
+    if pack["schema_version"] not in SUPPORTED_PACK_SCHEMA_VERSIONS:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(
@@ -404,7 +440,10 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
         raise WorkspaceError("approval pack must contain at least one member")
     ids: list[str] = []
     for member in members:
-        _validate_pack_member(member)
+        _validate_pack_member(
+            member,
+            schema_version=str(pack["schema_version"]),
+        )
         member_id = member.get("id")
         if not isinstance(member_id, str) or not member_id:
             raise WorkspaceError("approval pack member id is required")
@@ -644,10 +683,24 @@ def apply_pack_decision(
                     "a different governance transaction is pending; recover it before pack approval"
                 )
             metadata = MutationMetadata(**pending["metadata"])
+            before_projection = deepcopy(store.data)
+            pending_journal_context = _pending_before_journal_context(
+                journal,
+                pending,
+                before_projection,
+            )
             write_store(
                 store.with_data(deepcopy(pending["after_projection"])),
                 metadata=metadata,
                 event_kind=str(pending["event_kind"]),
+                prewrite_check=lambda: _assert_pack_prewrite_current(
+                    store.data_path,
+                    before_projection,
+                    pack_digest=pack_digest,
+                    presentation_digest=presentation_digest,
+                    selected_work_ids=request["pack_members"],
+                    journal_context=pending_journal_context,
+                ),
             )
         else:
             recover_pending(store.data_path, store.data)
@@ -1015,7 +1068,19 @@ def apply_pack_decision(
         objects=tuple(objects),
         reason=reason,
     )
-    write_store(store, metadata=metadata, crash_hook=crash_hook)
+    before_projection = _load_current_projection(store.data_path)
+    write_store(
+        store,
+        metadata=metadata,
+        crash_hook=crash_hook,
+        prewrite_check=lambda: _assert_pack_prewrite_current(
+            store.data_path,
+            before_projection,
+            pack_digest=pack_digest,
+            presentation_digest=presentation_digest,
+            selected_work_ids=request["pack_members"],
+        ),
+    )
     return {
         "schema_version": "palari.approval-pack-decision-result.v1",
         "status": "applied",
@@ -1111,8 +1176,22 @@ def _work_member(
     errors: list[str] = []
     if work.status in TERMINAL_WORK_STATUSES:
         errors.append("work item is already terminal")
-    if work.required_approval_count <= 0:
+    authority_plan = build_authority_plan(
+        workspace,
+        work.id,
+        builder_id=attempt.actor if attempt is not None else "",
+        reviewer_id=review.reviewer if review is not None else "",
+    )
+    if not authority_plan["requires_human_approval"]:
         errors.append("work item does not require a human approval")
+    if attempt is not None and review is not None:
+        if not authority_plan["viable"]:
+            errors.append(
+                (
+                    f"{authority_plan['message']} Smallest safe correction: "
+                    f"{authority_plan['smallest_correction']}"
+                ).strip()
+            )
     try:
         governance_case, _ = governance_case_from_workspace(
             workspace,
@@ -1180,6 +1259,9 @@ def _work_member(
         },
         "authority": {
             "required_approval_count": work.required_approval_count,
+            "effective_final_approval_count": authority_plan[
+                "effective_final_approval_count"
+            ],
             "required_approval_capability": work.required_approval_capability,
         },
         "boundaries": {
@@ -1403,13 +1485,146 @@ def _member_next_action(state: str, member_id: str) -> str:
 
 
 def _workspace_projection(workspace: Workspace) -> dict[str, Any]:
-    store = load_store(workspace.path)
+    store = load_store(workspace.data_path)
     return store.data
 
 
 def _work_is_terminal(workspace: Workspace, work_id: str) -> bool:
     work = workspace.work_item(work_id)
     return bool(work and work.status in TERMINAL_WORK_STATUSES)
+
+
+def _work_requires_final_human(workspace: Workspace, work: Any) -> bool:
+    attempt = current_attempt_for_work(work, workspace.attempts)
+    plan = build_authority_plan(
+        workspace,
+        work.id,
+        builder_id=attempt.actor if attempt is not None else "",
+    )
+    return bool(plan["requires_human_approval"])
+
+
+class _FixedJournalContext:
+    def __init__(self, report: dict[str, Any]) -> None:
+        self._report = deepcopy(report)
+
+    def verify(self, _workspace_path: Any) -> dict[str, Any]:
+        return deepcopy(self._report)
+
+
+def _pending_before_journal_context(
+    report: dict[str, Any],
+    pending: dict[str, Any],
+    before_projection: dict[str, Any],
+) -> _FixedJournalContext:
+    """Project the committed side of one exact pending-before transaction."""
+
+    projected = deepcopy(report)
+    projected.update(
+        {
+            "ok": True,
+            "chain_valid": True,
+            "pending": None,
+            "replay_workspace_digest": workspace_digest(before_projection),
+            "head_record_digest": str(pending.get("previous_record_digest") or ""),
+        }
+    )
+    return _FixedJournalContext(projected)
+
+
+def _load_current_projection(data_path: Any) -> dict[str, Any]:
+    return deepcopy(load_store(data_path).data)
+
+
+def _assert_pack_prewrite_current(
+    data_path: Any,
+    before_projection: dict[str, Any],
+    *,
+    pack_digest: str,
+    presentation_digest: str,
+    selected_work_ids: Iterable[str],
+    journal_context: Any | None = None,
+) -> None:
+    """Rebuild exact proof and presentation at the locked final prewrite boundary."""
+
+    workspace = validate_data(data_path, deepcopy(before_projection))
+    operation_journal: Any = journal_context
+    if operation_journal is None:
+        journal = verify_journal(data_path, before_projection)
+        pending = journal.get("pending")
+        if (
+            isinstance(pending, dict)
+            and pending.get("workspace_position") == "before"
+        ):
+            context = pending_workspace_journal_context(data_path)
+            prepared = context.get("prepare") if context is not None else None
+            if not isinstance(prepared, dict):
+                raise WorkspaceError(
+                    "approval journal changed at the final prewrite boundary"
+                )
+            operation_journal = _pending_before_journal_context(
+                journal,
+                prepared,
+                before_projection,
+            )
+        else:
+            operation_journal = JournalVerificationContext()
+    inbox = build_approval_inbox(
+        workspace,
+        before_projection,
+        selected_work_ids=selected_work_ids,
+        journal_context=operation_journal,
+    )
+    for pack, presentation in zip(
+        inbox["packs"],
+        inbox["presentations"],
+        strict=True,
+    ):
+        if pack["pack_digest"] != pack_digest:
+            continue
+        current_presentation_digest = approval_presentation_digest(
+            presentation,
+            pack,
+        )
+        if current_presentation_digest != presentation_digest:
+            raise WorkspaceError(
+                "approval presentation changed at the final prewrite boundary; "
+                "review the current handoff before approving"
+            )
+        return
+    stored_pack = _stored_pack_manifest(workspace, pack_digest)
+    if stored_pack is not None:
+        evaluation = evaluate_approval_pack(
+            workspace,
+            stored_pack,
+            journal_context=operation_journal,
+        )
+        presentation = build_approval_presentation(
+            workspace,
+            stored_pack,
+            evaluation,
+        )
+        if approval_presentation_digest(presentation, stored_pack) != presentation_digest:
+            raise WorkspaceError(
+                "approval presentation changed at the final prewrite boundary; "
+                "review the current handoff before approving"
+            )
+        stale = [
+            str(item["id"])
+            for item in evaluation["members"]
+            if item["state"] in {"blocked", "stale", "non-batchable"}
+        ]
+        if stale:
+            raise WorkspaceError(
+                "approval pack proof or artifacts changed at the final prewrite boundary "
+                "for: "
+                + ", ".join(stale)
+            )
+        return
+    raise WorkspaceError(
+        "approval pack proof or artifacts changed at the final prewrite boundary; "
+        "refresh checks, review, and the current handoff before approving"
+    )
 
 
 def _pending_matches_request(
@@ -1439,15 +1654,102 @@ def _security_limitations() -> list[str]:
     ]
 
 
-def _approval_command(pack: dict[str, Any], presentation_digest: str) -> str:
-    members = " ".join(
-        f"--pack-member {member_id}" for member_id in pack["execution_order"]
+def _pack_approval_human_ids(
+    workspace: Workspace,
+    pack: dict[str, Any],
+    report: dict[str, Any],
+) -> list[str]:
+    approvable_ids = [
+        str(item["id"])
+        for item in report["members"]
+        if item["state"] in {"eligible", "approved"}
+    ]
+    if not approvable_ids:
+        return []
+    candidate_sets: list[set[str]] = []
+    for work_id in approvable_ids:
+        work = workspace.work_item(work_id)
+        if work is None:
+            return []
+        attempt = current_attempt_for_work(work, workspace.attempts)
+        review = latest_for_work(workspace.review_verdicts, work_id)
+        if attempt is None or review is None:
+            return []
+        plan = build_authority_plan(
+            workspace,
+            work_id,
+            builder_id=attempt.actor,
+            reviewer_id=review.reviewer,
+        )
+        if not plan["viable"]:
+            return []
+        candidate_sets.append(set(plan["qualified_approver_ids"]))
+    if not candidate_sets:
+        return []
+    common = set.intersection(*candidate_sets)
+    return sorted(
+        human_id
+        for human_id in common
+        if _human_can_execute_pack_command(
+            workspace,
+            pack,
+            approvable_ids,
+            human_id,
+        )
     )
-    return (
-        "palari human-decision pack "
-        f"--pack-digest {pack['pack_digest']} "
-        f"--presentation-digest {presentation_digest} --human-id HUMAN-ID "
-        f"--approve-eligible {members} --json"
+
+
+def _human_can_execute_pack_command(
+    workspace: Workspace,
+    pack: dict[str, Any],
+    approvable_ids: list[str],
+    human_id: str,
+) -> bool:
+    for decision in workspace.human_decisions:
+        if decision.human_id != human_id:
+            continue
+        if decision.approval_pack_digest == pack["pack_digest"]:
+            return False
+        if decision.work_item_id not in approvable_ids:
+            continue
+        if decision.approval_pack_action != "approve":
+            continue
+        review = latest_for_work(
+            workspace.review_verdicts,
+            decision.work_item_id,
+        )
+        if (
+            review is not None
+            and decision.review_reference == review.id
+            and decision.reviewed_head == review.reviewed_head
+        ):
+            return False
+    return True
+
+
+def _approval_command(
+    workspace_path: Any,
+    pack: dict[str, Any],
+    presentation_digest: str,
+    human_id: str,
+) -> str:
+    arguments = [
+        "human-decision",
+        "pack",
+        "--pack-digest",
+        str(pack["pack_digest"]),
+        "--presentation-digest",
+        presentation_digest,
+        "--human-id",
+        human_id,
+        "--approve-eligible",
+    ]
+    for member_id in pack["execution_order"]:
+        arguments.extend(("--pack-member", str(member_id)))
+    arguments.append("--json")
+    return palari_workspace_command(
+        workspace_path,
+        *arguments,
     )
 
 
@@ -1456,6 +1758,9 @@ def _decision_member_digest(member: dict[str, Any]) -> str:
 
     normalized = deepcopy(member)
     normalized.pop("member_digest", None)
+    authority = normalized.get("authority")
+    if isinstance(authority, dict):
+        authority.pop("effective_final_approval_count", None)
     eligibility = normalized.get("eligibility")
     if isinstance(eligibility, dict) and isinstance(eligibility.get("errors"), list):
         eligibility["errors"] = [
@@ -1467,7 +1772,11 @@ def _decision_member_digest(member: dict[str, Any]) -> str:
     return canonical_sha256(normalized)
 
 
-def _validate_pack_member(member: Any) -> None:
+def _validate_pack_member(
+    member: Any,
+    *,
+    schema_version: str,
+) -> None:
     fields = {
         "id", "kind", "title", "subject_digest", "risk", "reversibility",
         "authority", "boundaries", "proof", "outputs", "dependencies", "conflicts",
@@ -1486,15 +1795,26 @@ def _validate_pack_member(member: Any) -> None:
     _exact_object(member["reversibility"], {"class", "reason"}, f"members.{member_id}.reversibility")
     _require_string(member["reversibility"]["class"], f"members.{member_id}.reversibility.class")
     _require_string(member["reversibility"]["reason"], f"members.{member_id}.reversibility.reason")
+    authority_fields = {
+        "required_approval_count",
+        "required_approval_capability",
+    }
+    if schema_version == PACK_SCHEMA_VERSION:
+        authority_fields.add("effective_final_approval_count")
     _exact_object(
         member["authority"],
-        {"required_approval_count", "required_approval_capability"},
+        authority_fields,
         f"members.{member_id}.authority",
     )
     _require_nonnegative_int(
         member["authority"]["required_approval_count"],
         f"members.{member_id}.authority.required_approval_count",
     )
+    if schema_version == PACK_SCHEMA_VERSION:
+        _require_nonnegative_int(
+            member["authority"]["effective_final_approval_count"],
+            f"members.{member_id}.authority.effective_final_approval_count",
+        )
     if not isinstance(member["authority"]["required_approval_capability"], str):
         raise WorkspaceError(
             f"approval pack members.{member_id}.authority.required_approval_capability must be a string"

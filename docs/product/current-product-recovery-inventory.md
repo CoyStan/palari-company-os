@@ -81,17 +81,17 @@ decision; it does not promote the item into the supported product.
 | CURRENT-CORE | PCAW v1 canonicalization, subjects, export, verifier, schemas, vectors, and TCB | `proof export` and `proof verify` are reachable; the 18-vector corpus is provider-neutral and offline. `spec/pcaw/v1/` is the normative supported proof format. |
 | CURRENT-CORE | Ordinary agent execution: `init`, `work add`, `agent start --next`, `agent advance`, and durable `agent release` | README, Quickstart, root contract, and focused help agree on this route. Start binds scope and claim state; advance records exact attempt, receipt, and evidence and stops at authority boundaries. |
 | CURRENT-CORE | Portable session contract, claims, Git witness, leases, and file-change observation | `agent_session_contract.py`, `agent_runtime.py`, `agent_file_changes.py`, and current start/advance paths bind an agent to exact scope and repository state. |
-| CURRENT-CORE | Independent review and exact human authority: approval inbox, presentations, packs, transition gates, and convergence | The current operator path is `queue --approval-inbox` followed by one exact presentation-bound human action. Agents cannot record the review or decision. |
+| CURRENT-CORE | Independent review and exact human authority: authority plans, simple approval, approval inbox, presentations, packs, transition gates, and convergence | The current one-task operator path is a distinct advisory agent review followed by the exact presentation-bound `approve` command emitted by handoff. The human copies no digest; a bare command derives current state at invocation. Approval Inbox v2 remains the advanced/batched path, and pack v3 retains a v2 reader. Agents cannot perform human approval. |
 | CURRENT-CORE | Queue, detail, state, and approval read projections | These are the ordinary inspectable views. Their lifecycle fields must become translations of the kernel result; their current independent authority matrix is not authoritative. |
 | CURRENT-CORE | Provider-neutral external-effect plan and outbox boundary | Generic plans and outbox records are local governed state and do not execute providers. They preserve the stop-before-external-effect guarantee. |
-| CURRENT-ADAPTER | CLI parser, dispatch, output, and installed entry point | The CLI is the supported local translation boundary. Its 154-path snapshot is a measurement, not a retention requirement. |
+| CURRENT-ADAPTER | CLI parser, dispatch, output, and installed entry point | The CLI is the supported local translation boundary. Its 143-path snapshot is a measurement, not a retention requirement. |
 | CURRENT-ADAPTER | MCP stdio server | Current MCP tools expose bounded read/agent operations without review, human-decision, acceptance, deploy, push, or external-write authority. Retain protocol and capability-limit wiring only. |
 | CURRENT-ADAPTER | Git commit gate | The Git hook is an optional structural enforcement boundary over the same packet/path decisions. Retain boundary wiring, not a second governance matrix. |
 | CURRENT-ADAPTER | Claude and Codex session adoption | Current docs identify these as the two tested session adapters. They may enforce the portable contract but grant no review or human authority. |
 | HISTORICAL-ONLY | Removed Cursor, Devin, GLM, and generic session-profile aliases | No native adapter, committed configuration fixture, or stored workspace field distinguished these labels. They duplicated the host-neutral contract and Git gate while exposing an unsupported compatibility surface; Git preserves their history. |
 | CURRENT-ADAPTER | Linear issue/comment/webhook adapter | `linear-operating-loop.md` is an explicit current adapter contract. Provider writes are downstream of the core plan/approval/outbox boundary. Adapter tests should cover translation, redaction, signature/deduplication, and capability limits only. |
 | EXPERIMENTAL | Slack, GitHub, Jira, and email provider preview shapes | `public-surface.md` labels them future and no live adapter exists. Generic plan/outbox behavior does not require permanent provider-specific pseudo-support. |
-| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It projects current read models and delegates integration-plan decisions to the governed integration service. Its duplicate raw decision synthesis was removed; exact human acceptance remains exclusive to the Approval Inbox action. |
+| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It projects current read models and delegates integration-plan decisions to the governed integration service. Its duplicate raw decision synthesis was removed; exact human acceptance remains exclusive to the CLI's human-only simple or advanced pack action. |
 | EXPERIMENTAL | Static desktop prototype, desktop server, assets, desktop demo, and Pages deployment | The desktop contract explicitly calls this a static prototype rather than a supported backend or schema. It is not part of the thesis and creates a separate visual compatibility obligation. |
 | CURRENT-ADAPTER | Agent-ready repository docs (`docs check/init/map`) | This reachable optional adapter produces and validates repository orientation used by adoption. It must not govern product state. |
 | CURRENT-ADAPTER | Network-free demo and ACME example | The primary first-run path exercises the current route in a temporary Git workspace. It is a boundary smoke/example, not a second lifecycle. |
@@ -126,13 +126,13 @@ decision; it does not promote the item into the supported product.
 
 ### Public command evidence
 
-The 154-path snapshot contains 44 top-level paths and 110 nested paths. The
-largest groups are `linear` (19 paths), `agent` (12), `integration` plus
+The 143-path snapshot contains 40 top-level paths and 103 nested paths. The
+largest groups are `linear` (19 paths), `agent` (11), `integration` plus
 `integrations` (10), `work` (7), `lifecycle` (6), `capability` (6), and
-`proposal` (6). Default help exposes only `init`, `work`, `agent`, `queue`,
-`detail`, `proof`, `validate`, and `docs`.
+`proposal` (6). Default help exposes only `init`, `work`, `agent`, `approve`,
+`queue`, `detail`, `proof`, `validate`, and `docs`.
 
-The statement in `public-surface.md` that all 154 paths remain parseable for
+The statement in `public-surface.md` that all historical paths remain parseable for
 compatibility is historical policy and conflicts with this recovery's explicit
 compatibility rule. Reachability proves that a surface exists; it does not
 prove that the surface belongs to the current product.
@@ -285,8 +285,9 @@ evidence used to choose each slice. The reduction produced these dispositions:
   recommendation, Mission Control, and CLI tests were rebuilt around pure
   kernel decisions or genuine system boundaries. The committed example and
   dogfood workspace are not executable candidate fixtures.
-- Exact human acceptance is exposed through the digest-bound Approval Inbox
-  action, not a raw Mission Control decision form. Approval Pack batching now
+- Exact human acceptance is exposed through the presentation-bound simple
+  handoff action or the advanced Approval Inbox, not a raw Mission Control
+  decision form. Approval Pack batching now
   derives in the kernel only from declared risk, canonical external-write
   authority, and recorded external effects; prose keywords grant no authority.
 - CI now has one authoritative complete candidate on Python 3.12, thin

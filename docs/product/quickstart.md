@@ -1,17 +1,17 @@
 # Quickstart
 
-This path is for a first run. It shows Palari blocking an AI agent from
-changing a file outside its boundary, without needing API keys or cloud setup.
+This first run shows Palari stopping an AI agent from changing a file outside
+its task. It needs no API keys or cloud setup.
 
-For plain definitions of Palari-specific terms, keep the
-[Glossary](glossary.md) nearby.
+The [Glossary](glossary.md) explains both the plain words used here and the
+older names that remain in stable commands or stored JSON.
 
 ## Requirements
 
 - Python 3.10 or newer
 - Git
 
-## Run The Demo
+## Run the demo
 
 ```bash
 git clone https://github.com/CoyStan/palari-company-os.git && cd palari-company-os
@@ -19,65 +19,98 @@ git clone https://github.com/CoyStan/palari-company-os.git && cd palari-company-
 ```
 
 The demo creates a temporary local Git repository. It does not touch your repo
-or call any external service. It shows the real `start --next` to committed
-bounded change to `agent advance` loop without asking you to copy receipt or
-evidence IDs.
+or call an external service. It shows the real path: take a bounded task,
+commit an allowed change, and let `agent advance` record the run and checks.
+You do not have to copy record IDs by hand.
 
 You should see:
 
 ```text
-*** BLOCKED: file change is outside Sofia's write boundary ***
+*** BLOCKED: file change is outside Sofia's allowed files ***
 changed: deploy/production.yml
 allowed: docs/product/company-os.md
 ```
 
-That is the main idea: the AI partner can work, but Palari checks the boundary.
+That is the main idea: the agent can work, but Palari checks its limits.
 
-## Govern Your First Change
+## Run your first checked change
 
-The ordinary path is provider-neutral. Initialize one named agent identity, add
-one bounded item, and let Palari select and claim the next safe item:
+The ordinary path works with any AI provider. Create one named agent, add one
+task with exact allowed files, and let Palari take the next safe task:
 
 ```bash
-cd your-project
+cd your-repository
 palari init --palari Agent --host codex --json
 palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
-`init` creates a starter workspace and reports the declared Palari identity;
-`--palari Agent` produces `PALARI-AGENT` in this example. `work add` returns a
-collision-resistant opaque work ID. `start --next` selects one eligible item,
-persists its packet and portable session contract, and claims it. It does not
-assign an identity or grant new authority: `--as` must name the Palari already
-declared by `init`.
+`init` creates the starter workspace records and returns the declared builder
+agent ID; `--palari Agent` produces `PALARI-AGENT` here. It also creates a
+distinct review-only `PALARI-REVIEWER` linked to the starter goal but not to
+the execution workbench. `work add` returns an opaque, collision-resistant
+task ID. `start --next` selects one eligible task, first verifies that a viable
+reviewer and qualified final approver remain, saves its task brief and portable
+session rules, and creates a local assignment. The stored files retain the
+technical names `packet`, `session-contract`, and `claim` for compatibility.
 
-In a Git worktree, `init` also creates missing agent-ready guidance and one
-path-limited local commit that anchors the exact starter governance projection.
-It never overwrites existing `AGENTS.md` or `docs/agent/` files and excludes
-unrelated staged and unstaged work. `--host codex` also installs the portable
-contract, claim-bound Git gate, and project-local Codex hooks, and includes new
-host configuration in that same anchor so the first work session does not
-inherit unexplained setup dirt. This mechanical anchor is not a review or
-human decision. An interrupted initialization is recovered idempotently by
-`work add`; if Git cannot supply the immutable baseline, `agent start` reports
-one exact path-limited anchor command instead of suggesting unrelated queue or
-validation commands.
+`start` does not invent an identity or grant permission. `--as` must name an
+agent already declared by `init`.
 
-The agent follows the returned packet, changes only its allowed paths, runs the
-declared checks, and commits the bounded change. It then uses the opaque
-`WORK-...` ID returned by `start` to converge all deterministic proof steps:
+In a Git worktree, `init` also creates missing agent guidance and one
+path-limited local commit that anchors the exact starter workspace records. It
+does not overwrite existing `AGENTS.md` or `docs/agent/` files, and it excludes
+unrelated staged and unstaged work. `--host codex` installs the portable
+session rules, the assignment-bound Git check, and repository-local Codex hooks.
+It includes new host configuration in the same anchor so the first task does
+not inherit unexplained setup changes.
+
+That mechanical anchor is not review or human approval. If setup is
+interrupted, `work add` recovers it safely. If Git cannot provide an immutable
+starting point, `agent start` returns one exact path-limited anchor command
+instead of unrelated queue or validation commands.
+
+The agent follows the returned task brief, changes only allowed files, and may
+run task-specific checks while editing. After it commits the bounded change,
+Palari uses fixed built-in verification profiles for authoritative evidence
+(R1 is exact base-to-head `git diff --check` over changed paths). The agent then
+uses the opaque `WORK-...` ID returned by `start`:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
-Do not infer IDs such as `WORK-0001`, and do not wait for another work item's
-number. Unrelated opaque work IDs can be claimed and completed in parallel.
-`advance` stops at the first genuine independent-review, human-authority,
-external-effect, or safety boundary; it never manufactures that judgment.
+`advance` records the run, run record, and check results, then finishes every
+safe deterministic step. It stops for independent review, human approval, an
+external action, or a concrete safety blocker; it never invents those
+judgments.
 
-## One-Action Host Adoption
+When review is required, the distinct review-only agent opens the returned
+review handoff, inspects the exact candidate, and runs one concrete advisory
+verdict command emitted by the review guide. The founder then sees the concise
+human presentation and performs one action:
+
+```bash
+palari agent start WORK-ID --as PALARI-REVIEWER --mode review --json
+# inspect the exact proof and run one emitted review_record_commands[].command
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# a human runs the exact emitted human_action_commands[].command
+```
+
+The simple action accepts no pack digest, review ID, evidence ID, or commit hash
+from the human. Palari inserts a presentation digest into the emitted command,
+so no opaque value is copied and any post-presentation change fails safely.
+`approve` revalidates the one-task approval presentation before one crash-safe
+local transaction. A manually entered bare command derives current state at
+invocation. Stale or changed proof, identity collisions, invalid history,
+incomplete effective approval counts, and external or irreversible work remain
+blocked. The Approval Inbox and `human-decision pack` commands remain available
+for advanced or batched decisions.
+
+Do not infer IDs such as `WORK-0001`, and do not wait for another task's number.
+Unrelated opaque task IDs can run in parallel.
+
+## One-action host setup
 
 Fresh repositories can pass `--host claude` or `--host codex` to `init`.
 Existing Palari workspaces use the same explicit action:
@@ -86,26 +119,27 @@ Existing Palari workspaces use the same explicit action:
 palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 ```
 
-Both profiles install the portable repository contract, structural Git commit
-boundary, and tested session hooks. Codex requires one host-native `/hooks`
-review before its project hooks activate. Other harnesses can consume the
-provider-neutral contract and host-neutral Git gate without being advertised
-as supported session profiles. No profile grants review, human acceptance,
-merge, push, deployment, provider, or external-write authority. Nested
-workspaces install at the enclosing Git root; existing root instructions or
-host configuration are preserved outside the bootstrap anchor and require the
-one returned review/adoption action. `palari claude install` remains available
-for hook-only management, repair, and removal. See [Claude Code
-Integration](claude-code-integration.md).
+Both profiles install the portable repository rules, structural Git commit
+boundary, and tested session hooks. Codex requires one native `/hooks` review
+before its repository hooks activate. Other agent tools can consume the
+provider-neutral rules and Git boundary without being advertised as tested
+session profiles.
 
-## Optional Local Desk
+No profile grants review, human approval, merge, push, deployment, provider,
+or external-write permission. Nested workspaces install at the enclosing Git
+root. Existing root instructions or host configuration remain outside the
+starter commit and require the one returned review/setup action. `palari claude
+install` remains available for hook-only setup, repair, and removal. See
+[Claude Code Integration](claude-code-integration.md).
+
+## Optional local desk
 
 ```bash
 palari serve --as HUMAN-FOUNDER
 ```
 
 Run this inside the repository initialized above. This local supervision view
-is optional; it is not part of the provider-neutral adoption or proof path.
+is optional; it is not part of provider-neutral setup or verification.
 
 ## Verify The Repo
 
@@ -115,7 +149,7 @@ is optional; it is not part of the provider-neutral adoption or proof path.
 
 This runs the same local checks used in development.
 
-## Try A Safe Copy
+## Try a safe copy
 
 ```bash
 rm -rf /tmp/palari-company-os-demo
@@ -127,7 +161,7 @@ cp -R examples/acme-company-os /tmp/palari-company-os-demo
 The `--workspace` flag points Palari at the copy, so experiments do not change
 the committed example.
 
-## Check One Boundary Yourself
+## Check one boundary yourself
 
 This path is allowed:
 
@@ -141,11 +175,11 @@ This path is blocked:
 ./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed deploy/production.yml --json
 ```
 
-## Next Reading
+## Next reading
 
-- [Glossary](glossary.md) for the short version of every Palari noun.
+- [Glossary](glossary.md) for plain names and stable technical names.
 - [Command Reference](command-reference.md) for CLI details.
-- [Agent Contract](agent-contract.md) for the packet/check loop used by agents.
-- [Core Objects](core-objects.md) for the full data model.
+- [Agent Contract](agent-contract.md) for the task-brief and check loop used by agents.
+- [Core Objects](core-objects.md) for the full stored data model.
 - [Minimality Contract](minimality-contract.md) for the rules that keep Palari small.
-- [Linear Operating Loop](linear-operating-loop.md) for optional Linear dogfooding.
+- [Linear Operating Loop](linear-operating-loop.md) for optional Linear use.

@@ -68,7 +68,7 @@ def authority_check(
     work = workspace.work_item(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
-        raise WorkspaceError(f"unknown work item {work_id}; known work items: {known}")
+        raise WorkspaceError(f"unknown task {work_id}; known tasks: {known}")
     profile = _profile(workspace, profile_id)
     required_count = required_approval_count(work.risk, profile)
     requires_human = work.risk in set(profile["require_human_for_risks"])

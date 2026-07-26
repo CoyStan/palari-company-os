@@ -6,6 +6,7 @@ from typing import Any
 from .agent_directive import enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
+from .command_surface import bind_palari_command_payload
 from .governance_kernel import TERMINAL_WORK_STATUSES
 from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
@@ -33,10 +34,11 @@ def _build_agent_next(
 ) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
-        return {
+        payload = {
             "schema_version": "palari.agent_next.v1",
             "created_at": _timestamp(),
             "workspace": workspace.name,
+            "workspace_file": str(workspace.data_path),
             "status": "blocked",
             "agent": {"id": palari_id, "found": False},
             "mode": mode or "execute",
@@ -53,6 +55,7 @@ def _build_agent_next(
             "next_allowed_commands": ["palari queue --json", "palari validate --json"],
             "omitted_context": [_omitted_context(workspace)],
         }
+        return bind_palari_command_payload(workspace.data_path, payload)
 
     candidates = _candidates(
         workspace,
@@ -66,10 +69,11 @@ def _build_agent_next(
     selected = ordered[:safe_limit]
     ready_count = sum(1 for item in candidates if item["can_start"])
     blocked_count = len(candidates) - ready_count
-    return {
+    payload = {
         "schema_version": "palari.agent_next.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "agent": {
             "id": palari.id,
@@ -85,6 +89,7 @@ def _build_agent_next(
         "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
@@ -108,10 +113,11 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
     blocked_count = sum(agent["blocked_count"] for agent in agents)
     top_candidate = _all_top_candidate(agents)
     next_commands = _all_next_commands(agents, mode)
-    return {
+    payload = {
         "schema_version": "palari.agent_next_all.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "mode": mode or "execute",
         "ready_count": ready_count,
@@ -121,6 +127,7 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
         "next_allowed_commands": next_commands,
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def _candidates(
@@ -193,6 +200,7 @@ def _candidates(
         loop_command = _loop_command(work.id, palari_id, mode)
         candidates.append(
             {
+                "workspace_file": str(workspace.data_path),
                 "queue_rank": rank,
                 "work_item_id": work.id,
                 "dependency_ids": list(work.dependency_ids),
@@ -267,16 +275,16 @@ def _claim_start_blocker(lease: dict[str, Any]) -> dict[str, str] | None:
         return {
             "code": "CLAIM_COORDINATION_INVALID",
             "message": (
-                f"Cross-worktree claim state is invalid: "
-                f"{lease.get('message', 'inspect the Git lease')}"
+                f"Cross-worktree task-lock state is invalid: "
+                f"{lease.get('message', 'inspect the Git task lock')}"
             ),
         }
     if lease.get("active") and not lease.get("current_workspace"):
         return {
             "code": "WORK_ALREADY_CLAIMED",
             "message": (
-                f"Work is already claimed by {lease.get('claimed_by', 'another Palari')} "
-                f"in another Git worktree until {lease.get('lease_expires_at', 'lease expiry')}."
+                f"The task is already assigned to {lease.get('claimed_by', 'another agent')} "
+                f"in another Git worktree until {lease.get('lease_expires_at', 'the lock expires')}."
             ),
         }
     return None
@@ -348,7 +356,7 @@ def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
         blockers.append(
             {
                 "code": "PACKET_BLOCKED",
-                "message": "The agent packet is blocked; inspect blocker_codes before starting.",
+                "message": "The task brief is blocked; inspect blocker_codes before starting.",
             }
         )
     return blockers
@@ -385,8 +393,8 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
             {
                 "code": "NO_ASSIGNED_WORK",
                 "message": (
-                    "No visible work items are assigned, workbench-allowed, or "
-                    "eligible for independent review by this Palari."
+                    "No visible tasks are assigned, project-allowed, or "
+                    "eligible for independent review by this agent."
                 ),
                 "human_visible": True,
             }
@@ -394,7 +402,7 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [
         {
             "code": "NO_READY_WORK",
-            "message": "Visible work exists, but none is currently safe to start.",
+            "message": "Visible tasks exist, but none is currently safe to start.",
             "human_visible": True,
         }
     ]
@@ -476,7 +484,7 @@ def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
 def _omitted_context(workspace: Workspace) -> dict[str, Any]:
     return {
         "kind": "workspace_records",
-        "reason": "Agent next v1 includes compact queue candidates, not full workspace records.",
+        "reason": "Agent next includes compact task choices, not every workspace record.",
         "counts": {
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),

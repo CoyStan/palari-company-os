@@ -1,5 +1,6 @@
 palari demo
 palari init
+palari approve
 palari queue
 palari state
 palari data

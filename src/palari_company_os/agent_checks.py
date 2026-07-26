@@ -7,6 +7,11 @@ from typing import Any
 from .agent_file_changes import inspect_file_changes
 from .agent_packets import build_agent_brief
 from .agent_runtime import claim_check, read_claim
+from .command_surface import (
+    bind_palari_workspace_command,
+    palari_command_parts,
+    palari_workspace_command,
+)
 from .workspace import Workspace
 
 
@@ -29,7 +34,7 @@ def build_agent_check(
     checks = _packet_boundary_checks(packet)
     if packet.get("status") == "ready":
         checks.append(_claim_owned_check(workspace, work_id, palari_id, mode, packet))
-    claim = read_claim(workspace.path, work_id)
+    claim = read_claim(workspace.data_path, work_id)
     file_changes = inspect_file_changes(
         packet,
         changed_paths=changed_paths,
@@ -49,6 +54,7 @@ def build_agent_check(
         "created_at": _timestamp(),
         "ok": ok,
         "workspace": packet.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "mode": mode or "execute",
         "agent": packet.get("agent", {}),
         "work_item": packet.get("work_item", {}),
@@ -73,30 +79,30 @@ def _packet_boundary_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             _check(
                 "PACKET_READY",
                 "fail",
-                "The agent packet is blocked; resolve packet blockers before claiming completion.",
+                "The task brief is blocked; resolve its blockers before reporting completion.",
                 required=True,
                 next_command=_first_command(packet),
             )
         ]
 
     return [
-        _check("PACKET_READY", "pass", "The agent packet is ready.", required=True),
+        _check("PACKET_READY", "pass", "The task brief is ready.", required=True),
         _check(
             "PALARI_ALLOWED",
             "fail" if "PALARI_NOT_ASSIGNED" in blocker_codes else "pass",
-            "The acting Palari is assigned to this work item or allowed by its workbench.",
+            "The acting agent is assigned to this task or allowed by its project.",
             required=True,
         ),
         _check(
             "DEPENDENCIES_CLEAR",
             "fail" if "DEPENDENCY_NOT_TERMINAL" in blocker_codes else "pass",
-            "Dependencies are terminal for this packet.",
+            "Prerequisite tasks are complete for this task brief.",
             required=True,
         ),
         _check(
             "SOURCES_ALLOWED",
             "fail" if {"SOURCE_MISSING", "SOURCE_NOT_ALLOWED"} & blocker_codes else "pass",
-            "Declared sources are present and allowed for the acting Palari.",
+            "Declared sources are present and allowed for the acting agent.",
             required=True,
         ),
         _external_write_check(packet),
@@ -105,7 +111,7 @@ def _packet_boundary_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             "pass",
             "Workspace validation passed before this check was built.",
             required=True,
-            next_command="palari validate --json",
+            next_command=_packet_command(packet, "validate", "--json"),
         ),
     ]
 
@@ -121,7 +127,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             proof.get("receipt"),
             safety.get("receipt_state"),
             pass_states={"ready"},
-            missing_message="A receipt is required before claiming this work is done.",
+            missing_message="A run record is required before reporting this task complete.",
             next_command=_agent_advance_command(packet),
         ),
         _proof_check(
@@ -130,7 +136,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             proof.get("evidence"),
             safety.get("evidence_state"),
             pass_states={"passed"},
-            missing_message="Evidence is required before claiming this work is done.",
+            missing_message="Check results are required before reporting this task complete.",
             next_command=_agent_advance_command(packet),
         ),
         _proof_check(
@@ -139,7 +145,7 @@ def _completion_checks(packet: dict[str, Any]) -> list[dict[str, Any]]:
             proof.get("review"),
             safety.get("review_state"),
             pass_states={"accept-ready"},
-            missing_message="Review is required before claiming this work is done.",
+            missing_message="Independent review is required before reporting this task complete.",
             next_command=_agent_advance_command(packet),
         ),
         _human_decision_check(packet),
@@ -153,13 +159,22 @@ def _claim_owned_check(
     mode: str,
     packet: dict[str, Any],
 ) -> dict[str, Any]:
-    result = claim_check(workspace.path, work_id, palari_id, mode or "execute", packet.get("context_hash", ""))
+    result = claim_check(
+        workspace.data_path,
+        work_id,
+        palari_id,
+        mode or "execute",
+        packet.get("context_hash", ""),
+    )
     return _check(
         "CLAIM_OWNED",
         result["status"],
         result["message"],
         required=True,
-        next_command=result.get("next_command", ""),
+        next_command=bind_palari_workspace_command(
+            workspace.data_path,
+            str(result.get("next_command") or ""),
+        ),
     )
 
 
@@ -194,9 +209,9 @@ def _file_change_checks(file_changes: dict[str, Any]) -> list[dict[str, Any]]:
             "FILE_CHANGES_RECORDED",
             "fail" if unrecorded else "pass",
             (
-                "Observed file changes match attempt or receipt records."
+                "Observed file changes match the run or run record."
                 if not unrecorded
-                else "Observed file changes are not recorded in the current attempt or receipt: "
+                else "Observed file changes are not recorded in the current run or run record: "
                 f"{', '.join(unrecorded)}."
             ),
             required=True,
@@ -216,15 +231,15 @@ def _proof_check(
     next_command: str = "",
 ) -> dict[str, Any]:
     label = {
-        "RECEIPT_PRESENT": "Receipt",
-        "EVIDENCE_PRESENT": "Evidence",
+        "RECEIPT_PRESENT": "Run record",
+        "EVIDENCE_PRESENT": "Check results",
         "REVIEW_PRESENT": "Review",
     }.get(code, code.replace("_", " ").title())
     if not required:
         return _check(
             code,
             "pass",
-            f"{label} is not required for this work item.",
+            f"{label} is not evaluated by this check.",
             required=False,
         )
     if record is not None and (not state or state in pass_states):
@@ -245,7 +260,7 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
         return _check(
             "HUMAN_DECISION_PRESENT",
             "pass",
-            "Human decision is not required for this work item.",
+            "Human approval is not evaluated by this check.",
             required=False,
         )
     proof = packet.get("proof_state", {})
@@ -255,7 +270,7 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
         return _check(
             "HUMAN_DECISION_PRESENT",
             "pass",
-            "Human decision quorum is recorded.",
+            "The required human approvals are recorded.",
             required=True,
         )
     waiting_on = _human_decision_prerequisites(packet)
@@ -263,7 +278,7 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
         return _check(
             "HUMAN_DECISION_PRESENT",
             "fail",
-            "Human decision waits for required proof before approval: "
+            "Human approval waits for required checks: "
             f"{', '.join(waiting_on)}.",
             required=True,
             next_command=_agent_advance_command(packet),
@@ -271,7 +286,7 @@ def _human_decision_check(packet: dict[str, Any]) -> dict[str, Any]:
     return _check(
         "HUMAN_DECISION_PRESENT",
         "fail",
-        f"Human decision quorum is incomplete ({safety.get('approval_progress', 'unknown')}).",
+        f"Required human approvals are incomplete ({safety.get('approval_progress', 'unknown')}).",
         required=True,
         next_command=_agent_advance_command(packet),
     )
@@ -286,7 +301,7 @@ def _external_write_check(packet: dict[str, Any]) -> dict[str, Any]:
         return _check(
             "NO_UNAPPROVED_EXTERNAL_WRITE",
             "pass",
-            "No external write action is allowed for this work item.",
+            "No external write action is allowed for this task.",
             required=True,
         )
     approved = any(plan.get("status") == "approved" for plan in plans)
@@ -347,8 +362,8 @@ def packet_commands_from_checks(packet: dict[str, Any]) -> list[str]:
     if packet.get("status") != "ready":
         commands.extend(packet.get("next_allowed_commands", []))
     else:
-        commands.append(f"palari detail {work_id} --json")
-        commands.append("palari validate --json")
+        commands.append(_packet_command(packet, "detail", work_id, "--json"))
+        commands.append(_packet_command(packet, "validate", "--json"))
     return commands
 
 
@@ -364,8 +379,22 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
     prioritized = [
-        f"palari agent handoff {work_id} --as {palari_id} --json",
-        f"palari review guide {work_id} --json",
+        _packet_command(
+            packet,
+            "agent",
+            "handoff",
+            work_id,
+            "--as",
+            palari_id,
+            "--json",
+        ),
+        _packet_command(
+            packet,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
     ]
     for command in reversed(prioritized):
         if command in commands:
@@ -374,9 +403,42 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
 
 
 def _agent_advance_command(packet: dict[str, Any]) -> str:
+    if packet.get("mode") == "review":
+        return _first_command(packet)
+    blocker_codes = {
+        str(blocker.get("code") or "")
+        for blocker in packet.get("blockers", [])
+    }
+    authority_blockers = {
+        "APPROVER_ROLE_MISSING",
+        "AUTHORITY_PLAN_UNSATISFIABLE",
+        "BUILDER_ROLE_MISSING",
+        "REVIEWER_MISSING",
+        "REVIEWER_ROLE_MISSING",
+    }
+    if packet.get("status") != "ready" and blocker_codes & authority_blockers:
+        return _first_command(packet)
+    for command in packet.get("next_allowed_commands", []):
+        if palari_command_parts(str(command))[:2] == ("agent", "advance"):
+            return str(command)
     work_id = packet.get("work_item", {}).get("id", "WORK-ID")
     palari_id = packet.get("agent", {}).get("id", "PALARI-ID")
-    return f"palari agent advance {work_id} --as {palari_id} --json"
+    return _packet_command(
+        packet,
+        "agent",
+        "advance",
+        work_id,
+        "--as",
+        palari_id,
+        "--json",
+    )
+
+
+def _packet_command(packet: dict[str, Any], *arguments: str) -> str:
+    workspace_file = str(packet.get("workspace_file") or "")
+    if workspace_file:
+        return palari_workspace_command(workspace_file, *arguments)
+    return " ".join(("palari", *arguments))
 
 
 def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:
@@ -389,13 +451,13 @@ def _human_decision_prerequisites(packet: dict[str, Any]) -> list[str]:
         safety.get("receipt_state"),
         {"ready"},
     ):
-        waiting_on.append("receipt")
+        waiting_on.append("run record")
     if contract.get("requires_evidence", False) and not _proof_present(
         proof.get("evidence"),
         safety.get("evidence_state"),
         {"passed"},
     ):
-        waiting_on.append("evidence")
+        waiting_on.append("check results")
     if contract.get("requires_review", False) and not _proof_present(
         proof.get("review"),
         safety.get("review_state"),

@@ -86,7 +86,7 @@ class AgentOperation:
                     packet,
                 )
             )
-        claim = agent_checks.read_claim(self.workspace.path, self.work_id)
+        claim = agent_checks.read_claim(self.workspace.data_path, self.work_id)
         file_changes = agent_checks.inspect_file_changes(
             packet,
             changed_paths=changed_paths,
@@ -110,6 +110,7 @@ class AgentOperation:
             "created_at": agent_checks._timestamp(),
             "ok": ok,
             "workspace": packet.get("workspace", self.workspace.name),
+            "workspace_file": str(self.workspace.data_path),
             "mode": self.mode,
             "agent": packet.get("agent", {}),
             "work_item": packet.get("work_item", {}),

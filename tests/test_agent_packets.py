@@ -40,9 +40,13 @@ from palari_company_os.agent_runtime import (
     start_agent,
     start_next_agent,
 )
+from palari_company_os.command_surface import (
+    palari_command_parts,
+    palari_workspace_command,
+)
 from palari_company_os.pcaw_workspace import recorded_governance_projection
 from palari_company_os.read_models import detail, queue_items
-from palari_company_os.store import WorkspaceStore, write_store
+from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -234,6 +238,110 @@ class AgentPacketProjectionTests(unittest.TestCase):
             {item["code"] for item in packet["blockers"]},
         )
 
+    def test_execute_packet_blocks_before_work_when_lifecycle_roles_cannot_fit(
+        self,
+    ) -> None:
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 1,
+                "required_approval_capability": "product",
+            }
+        )
+        data["humans"][0]["approval_capabilities"] = ["product"]
+        data["palaris"] = [data["palaris"][0]]
+        data["goals"][0]["linked_palaris"] = [PALARI_ID]
+        workspace = Workspace.from_raw(data, self.root)
+
+        packet = build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute")
+        handoff = build_agent_handoff(
+            workspace,
+            WORK_ID,
+            PALARI_ID,
+            "execute",
+        )
+
+        self.assertEqual(packet["status"], "blocked")
+        self.assertFalse(packet["authority_plan"]["viable"])
+        self.assertFalse(packet["state"]["safety"]["ai_safe_to_proceed"])
+        self.assertEqual(packet["state"]["next_step_type"], "blocked")
+        self.assertIn(
+            "AUTHORITY_PLAN_UNSATISFIABLE",
+            {item["code"] for item in packet["blockers"]},
+        )
+        self.assertIn(
+            "distinct Palari reviewer",
+            packet["authority_plan"]["smallest_correction"],
+        )
+        self.assertNotIn(
+            "palari agent advance",
+            "\n".join(handoff["next_allowed_commands"]),
+        )
+        self.assertEqual(handoff["status"], "blocked")
+        self.assertEqual(handoff["next_step_type"], "blocked")
+        self.assertEqual(handoff["human_action_commands"], [])
+
+    def test_execute_packet_is_ready_when_reviewer_preserves_the_human_approver(
+        self,
+    ) -> None:
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 1,
+                "required_approval_capability": "product",
+            }
+        )
+        data["humans"][0]["approval_capabilities"] = ["product"]
+        workspace = Workspace.from_raw(data, self.root)
+
+        packet = build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute")
+
+        self.assertEqual(packet["status"], "ready")
+        self.assertTrue(packet["authority_plan"]["viable"])
+        self.assertEqual(
+            [item["id"] for item in packet["authority_plan"]["viable_reviewers"]],
+            [OTHER_PALARI_ID],
+        )
+        self.assertEqual(
+            packet["authority_plan"]["qualified_approver_ids"],
+            ["HUMAN-OWNER"],
+        )
+
+    def test_execute_packet_requires_effective_human_quorum_for_reviewed_work(
+        self,
+    ) -> None:
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 0,
+            }
+        )
+        data["humans"][0]["availability"] = "inactive"
+        data["palaris"] = [data["palaris"][0]]
+        data["goals"][0]["linked_palaris"] = [PALARI_ID]
+        workspace = Workspace.from_raw(data, self.root)
+
+        packet = build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute")
+
+        self.assertEqual(packet["status"], "blocked")
+        self.assertTrue(packet["authority_plan"]["requires_review"])
+        self.assertTrue(packet["authority_plan"]["requires_human_approval"])
+        self.assertEqual(
+            packet["authority_plan"]["effective_final_approval_count"],
+            1,
+        )
+        self.assertFalse(packet["authority_plan"]["viable"])
+        self.assertIn(
+            "APPROVER_ROLE_MISSING",
+            {item["code"] for item in packet["blockers"]},
+        )
+
     def test_review_packet_stays_blocked_until_reviewable_proof_exists(self) -> None:
         packet = build_agent_brief(
             self.workspace(), WORK_ID, OTHER_PALARI_ID, "review"
@@ -320,6 +428,118 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertIn("HUMAN_DECISION_REQUIRED", candidate["blocker_codes"])
         self.assertEqual(candidate["start_blocker_codes"], ["PACKET_BLOCKED"])
         self.assertEqual(candidate["next_step_type"], "human-decision")
+
+    def test_recorded_palari_reviewer_can_route_directly_to_human_handoff(self) -> None:
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 0,
+            }
+        )
+        workspace = Workspace.from_raw(data, self.root)
+        work_detail = deepcopy(detail(workspace, WORK_ID))
+        work_detail.update(
+            {
+                "attention": "ready-to-complete",
+                "why": "Recorded proof satisfies the declared count-zero policy.",
+                "next_action": "Reconcile the terminal lifecycle state.",
+                "next_step_type": "automatic-reconciliation",
+                "attempt": {
+                    "id": "ATTEMPT-CURRENT",
+                    "actor": PALARI_ID,
+                    "status": "completed",
+                    "head_sha": "head-current",
+                },
+                "receipt": {
+                    "id": "RECEIPT-CURRENT",
+                    "attempt_id": "ATTEMPT-CURRENT",
+                },
+                "evidence": {
+                    "id": "EVIDENCE-CURRENT",
+                    "status": "passed",
+                    "head_sha": "head-current",
+                },
+                "review": {
+                    "id": "REVIEW-CURRENT",
+                    "reviewer": OTHER_PALARI_ID,
+                    "verdict": "accept-ready",
+                    "reviewed_head": "head-current",
+                },
+            }
+        )
+        work_detail["safety"].update(
+            {
+                "ai_safe_to_proceed": False,
+                "waiting_on_human": False,
+                "receipt_state": "ready",
+                "evidence_state": "passed",
+                "review_state": "accept-ready",
+                "integration_state": "ready",
+                "approval_progress": "0/0",
+                "acceptance_state": "ready-to-record",
+            }
+        )
+
+        with patch(
+            "palari_company_os.agent_packets.detail",
+            return_value=work_detail,
+        ):
+            packet = build_agent_brief(
+                workspace,
+                WORK_ID,
+                OTHER_PALARI_ID,
+                "review",
+            )
+            finish = build_agent_finish(
+                workspace,
+                WORK_ID,
+                OTHER_PALARI_ID,
+                "review",
+            )
+
+        blocker_codes = {item["code"] for item in finish["blockers"]}
+        self.assertNotIn("PALARI_NOT_ASSIGNED", blocker_codes)
+        self.assertEqual(blocker_codes, {"HUMAN_DECISION_REQUIRED"})
+        self.assertEqual(packet["work_item"]["required_approval_count"], 0)
+        self.assertEqual(
+            packet["authority_plan"]["effective_final_approval_count"],
+            1,
+        )
+        self.assertEqual(packet["state"]["attention"], "needs-human-decision")
+        self.assertEqual(packet["state"]["next_step_type"], "human-decision")
+        self.assertTrue(packet["state"]["safety"]["waiting_on_human"])
+        self.assertEqual(packet["state"]["safety"]["approval_progress"], "0/1")
+        self.assertEqual(packet["state"]["safety"]["integration_state"], "not-ready")
+        self.assertNotIn("TERMINALIZATION_PENDING", blocker_codes)
+        self.assertTrue(packet["completion_contract"]["review_mode"])
+        self.assertTrue(packet["completion_contract"]["requires_review"])
+        self.assertTrue(packet["completion_contract"]["requires_human_decision"])
+        self.assertEqual(finish["status"], "handoff-ready")
+        self.assertEqual(finish["next_step_type"], "human-decision")
+        self.assertEqual(
+            finish["handoff_guidance"][0]["code"],
+            "HUMAN_APPROVAL_HANDOFF",
+        )
+        self.assertEqual(
+            finish["handoff_guidance"][0]["command"],
+            palari_workspace_command(
+                self.workspace_file,
+                "agent",
+                "handoff",
+                WORK_ID,
+                "--as",
+                OTHER_PALARI_ID,
+                "--mode",
+                "review",
+                "--json",
+            ),
+        )
+        self.assertNotIn(
+            "palari agent advance",
+            "\n".join(finish["next_allowed_commands"]),
+        )
 
     def test_agent_next_all_is_a_thin_identity_rollup(self) -> None:
         result = build_agent_next_all(self.workspace())
@@ -420,13 +640,21 @@ class AgentPacketProjectionTests(unittest.TestCase):
         packet = build_agent_brief(self.workspace(), WORK_ID, PALARI_ID, "execute")
         result = build_agent_check(self.workspace(), WORK_ID, PALARI_ID)
 
-        expected = (
-            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        expected = palari_workspace_command(
+            self.workspace_file,
+            "agent",
+            "advance",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
         )
         self.assertIn(expected, packet["next_allowed_commands"])
         checks = _checks(result)
         self.assertEqual(checks["RECEIPT_PRESENT"]["next_command"], expected)
         self.assertEqual(checks["EVIDENCE_PRESENT"]["next_command"], expected)
+        self.assertIn("run record", checks["RECEIPT_PRESENT"]["message"].lower())
+        self.assertIn("check results", checks["EVIDENCE_PRESENT"]["message"].lower())
         self.assertEqual(result["next_allowed_commands"][0], expected)
         commands = "\n".join(result["next_allowed_commands"])
         self.assertNotIn("receipt record", commands)
@@ -461,8 +689,14 @@ class AgentPacketProjectionTests(unittest.TestCase):
             str(item["code"]): item for item in _completion_checks(packet)
         }
 
-        expected = (
-            f"palari agent advance {WORK_ID} --as {PALARI_ID} --json"
+        expected = palari_workspace_command(
+            self.workspace_file,
+            "agent",
+            "advance",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
         )
         human_check = checks["HUMAN_DECISION_PRESENT"]
         self.assertEqual(human_check["next_command"], expected)
@@ -475,9 +709,45 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(result["status"], "missing-proof")
         self.assertFalse(result["would_mutate"])
         self.assertFalse(result["can_finish"])
+        self.assertEqual(result["next_step_type"], "start-work")
         self.assertEqual(
             {item["code"] for item in result["missing_requirements"]},
             {"CLAIM_OWNED", "RECEIPT_PRESENT", "EVIDENCE_PRESENT"},
+        )
+
+    def test_existing_run_keeps_stable_step_code_and_starts_with_lock_command(self) -> None:
+        data = _workspace_data()
+        data["attempts"] = [
+            {
+                "id": "ATTEMPT-EXISTING",
+                "work_item_id": WORK_ID,
+                "actor": PALARI_ID,
+                "status": "complete",
+                "branch": "feature/existing-run",
+                "workspace_path": str(self.root),
+                "model_or_worker": "fixture",
+                "started_at": "2026-07-20T10:00:00Z",
+                "updated_at": "2026-07-20T10:05:00Z",
+                "commits": ["abc1234"],
+                "changed_files": [ALLOWED_PATH],
+                "output_targets": [ALLOWED_PATH],
+                "cleanliness": "clean",
+                "result": "Existing run awaiting checks.",
+            }
+        ]
+        write_store(load_store(self.workspace_file).with_data(data))
+        workspace = self.workspace()
+
+        check = build_agent_check(workspace, WORK_ID, PALARI_ID)
+        finish = build_agent_finish(workspace, WORK_ID, PALARI_ID)
+        loop = build_agent_loop(workspace, WORK_ID, PALARI_ID)
+
+        self.assertEqual(check["next_step_type"], "check-active-proof")
+        self.assertEqual(finish["next_step_type"], "check-active-proof")
+        self.assertEqual(loop["next_step_type"], "check-active-proof")
+        self.assertTrue(
+            palari_command_parts(check["next_allowed_commands"][0])[:2]
+            == ("agent", "start")
         )
 
     def test_handoff_does_not_invent_human_authority_before_proof(self) -> None:
@@ -547,6 +817,20 @@ class AgentPacketProjectionTests(unittest.TestCase):
             {item["code"] for item in result["checks"]},
             {"PACKET", "CONTRACT", "FINISH"},
         )
+
+    def test_blocked_review_machine_payload_never_recommends_execute_advance(self) -> None:
+        check = build_agent_check(
+            self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
+        )
+        doctor = build_agent_doctor(
+            self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
+        )
+
+        self.assertEqual(check["packet_status"], "blocked")
+        self.assertEqual(check["next_step_type"], "blocked")
+        self.assertNotIn("palari agent advance", "\n".join(check["next_allowed_commands"]))
+        self.assertEqual(doctor["status"], "missing-proof")
+        self.assertTrue(doctor["agent_safe"])
 
     def test_cli_start_next_is_one_current_golden_path(self) -> None:
         result = self.run_cli(
@@ -689,7 +973,7 @@ class AgentClaimIntegrityTests(unittest.TestCase):
 
         error = claim_integrity_error(self.workspace_file, WORK_ID, claim)
 
-        self.assertIn("packet", error.lower())
+        self.assertIn("agent packet", error.lower())
         self.assertIn("context_hash", error)
 
     def test_tampered_session_contract_invalidates_the_claim(self) -> None:
@@ -824,6 +1108,8 @@ class AgentGitBoundaryTests(unittest.TestCase):
                     "external_writes": False,
                 },
             )
+            self.assertIn("task lock", result["one_sentence_instruction"])
+            self.assertIn("deployment permission", result["one_sentence_instruction"])
 
     def test_git_integration_readiness_is_wiring_over_governance_state(self) -> None:
         with self.git_workspace() as (_, workspace_file):

@@ -25,7 +25,7 @@ def start_isolated_agent(
     lease_minutes: int = 30,
     base_ref: str = "HEAD",
 ) -> dict[str, Any]:
-    """Create or resume one deterministic local worktree, then claim there."""
+    """Create or resume one deterministic local worktree, then lock the task there."""
 
     if not base_ref or base_ref.startswith("-") or any(
         character in base_ref for character in ("\x00", "\n", "\r")
@@ -167,8 +167,8 @@ def git_integration_readiness(
         "blockers": [],
         "warnings": [],
         "limitations": [
-            "This command does not merge, push, review, accept, or deploy work.",
-            "A clean simulation does not preserve proof after governed bytes change.",
+            "This command does not merge, push, review, approve, or deploy a task.",
+            "A clean simulation does not keep checks current after task files change.",
             "Declared local actor identity is not cryptographically authenticated.",
         ],
     }
@@ -190,8 +190,8 @@ def git_integration_readiness(
         payload["blockers"].append(
             _integration_blocker(
                 "CANDIDATE_COMMIT_MISSING",
-                "The current attempt has no exact candidate commit.",
-                "Commit the bounded attempt and reconcile its exact proof before integration.",
+                "The current run has no exact candidate commit.",
+                "Commit the bounded run and refresh its exact checks before integration.",
             )
         )
         return payload
@@ -224,16 +224,16 @@ def git_integration_readiness(
         payload["blockers"].append(
             _integration_blocker(
                 "GOVERNANCE_PROOF_NOT_READY",
-                "The work has not reached accepted or valid terminal governance state.",
-                "Complete evidence, independent review, and human authority where required.",
+                "The task has not reached an approved or valid complete status.",
+                "Complete checks, independent review, and human approval where required.",
             )
         )
     if not attempt_complete:
         payload["blockers"].append(
             _integration_blocker(
                 "ATTEMPT_NOT_TERMINAL",
-                "The exact candidate attempt is not complete.",
-                "Finish the bounded attempt and reconcile its receipt and evidence.",
+                "The exact candidate run is not complete.",
+                "Finish the bounded run and refresh its run record and checks.",
             )
         )
     simulation_status = payload["merge_simulation"]["status"]
@@ -241,24 +241,24 @@ def git_integration_readiness(
         payload["blockers"].append(
             _integration_blocker(
                 "TARGET_CONFLICT",
-                "The candidate conflicts with the current target projection.",
-                "Repair the conflict in the isolated branch and rerun attributable verification.",
+                "The candidate conflicts with the current target version.",
+                "Repair the conflict in the isolated branch and rerun the relevant checks.",
             )
         )
     elif simulation_status == "unavailable":
         payload["blockers"].append(
             _integration_blocker(
                 "MERGE_SIMULATION_UNAVAILABLE",
-                "Git could not construct an isolated merge projection.",
-                "Inspect Git compatibility and rerun the check without changing authority gates.",
+                "Git could not construct an isolated merge result.",
+                "Inspect Git compatibility and rerun the check without changing approval requirements.",
             )
         )
     elif payload["relationship"] == "diverged":
         payload["blockers"].append(
             _integration_blocker(
                 "REVALIDATION_REQUIRED",
-                "A clean merge projection would differ from the reviewed candidate commit.",
-                "Update the candidate onto the target, then refresh exact proof and review.",
+                "A clean merge result would differ from the reviewed candidate commit.",
+                "Update the candidate onto the target, then refresh exact checks and review.",
             )
         )
     if not payload["working_tree_clean"]:
@@ -331,7 +331,7 @@ def _start_in_worktree(
     }
     payload["one_sentence_instruction"] = (
         f"Continue {work_id} only in isolated worktree {worktree_root}; "
-        "the claim grants no review, acceptance, merge, push, or deployment authority."
+        "the task lock grants no review, approval, merge, push, or deployment permission."
     )
     start = payload.get("start")
     if isinstance(start, dict):

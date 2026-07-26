@@ -97,6 +97,22 @@ class McpServerContractTests(unittest.TestCase):
                 tool["annotations"]["readOnlyHint"],
                 name not in {"palari_agent_start", "palari_agent_advance", "palari_agent_release"},
             )
+        public_copy = " ".join(
+            [
+                *(tool["description"] for tool in tools.values()),
+                *(
+                    property_schema.get("description", "")
+                    for tool in tools.values()
+                    for property_schema in tool["inputSchema"]["properties"].values()
+                ),
+            ]
+        ).lower()
+        self.assertIn("task brief", public_copy)
+        self.assertIn("workspace directory or workspace.json path", public_copy)
+        self.assertIn("human approval", response["result"]["instructions"].lower())
+        self.assertNotIn("work item", public_copy)
+        self.assertNotIn("agent packet", public_copy)
+        self.assertNotIn("project directory", public_copy)
 
     def test_agent_brief_is_a_structured_translation_with_text_fallback(self) -> None:
         response = self.call(
