@@ -151,8 +151,9 @@ code change must match them. See
   wall-clock compilation time or absolute local path, grants no authority by
   itself, and labels host write/read/stop enforcement as adapter-required or
   advisory unless a separately verified adapter provides it. Local workspace
-  selectors are removed only from the portable projection; the persisted task
-  brief and claim keep their exact local selector binding. Missing,
+  selectors and workspace paths are normalized only in the portable projection,
+  which continues to hash every other task-brief field; the persisted task brief
+  and claim keep their exact local selector and authority binding. Missing,
   malformed, duplicate-key, digest-mismatched, path-mismatched, or
   current-packet-mismatched contracts invalidate the claim. Claim schema v2
   requires both binding fields, so removing both cannot fall back to another

@@ -70,11 +70,11 @@ class AgentSessionContractTests(unittest.TestCase):
         self.assertNotEqual(_context_hash(tampered_packet), packet["context_hash"])
         self.assertEqual(
             first["contract_digest"],
-            "sha256:f54fafb7d389216961efac0de39728a2e83ccf3873353470b6d1f30fac3f7ae3",
+            "sha256:1910cd0c9a95f1adca44cf8945269ae2d634a740ba5940e5b6b7bb8f58ae60f7",
         )
         self.assertEqual(
             first["contract_id"],
-            "SESSION-CONTRACT-F54FAFB7D389216961EFAC0D",
+            "SESSION-CONTRACT-1910CD0C9A95F1ADCA44CF89",
         )
         self.assertEqual(first["status"], "ready")
         binding = first["contract"]["packet_binding"]
@@ -174,6 +174,44 @@ class AgentSessionContractTests(unittest.TestCase):
         serialized = json.dumps(first, sort_keys=True)
         self.assertNotIn(str(self.workspace_file.parent), serialized)
         self.assertNotIn(str(second_workspace.parent), serialized)
+
+    def test_portable_contract_hash_still_binds_nonlocal_packet_authority(
+        self,
+    ) -> None:
+        packet = self._packet()
+        contract = compile_agent_session_contract(packet)
+        mutations = (
+            ("agent scope", lambda value: value["agent"].update(scope="Broader scope.")),
+            (
+                "authority viability",
+                lambda value: value["authority_plan"].update(viable=False),
+            ),
+            (
+                "approval capability",
+                lambda value: value["work_item"].update(
+                    required_approval_capability="security-approval"
+                ),
+            ),
+        )
+
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                changed = deepcopy(packet)
+                mutate(changed)
+                changed["context_hash"] = _context_hash(changed)
+                changed_contract = compile_agent_session_contract(changed)
+
+                self.assertNotEqual(
+                    contract["contract_digest"],
+                    changed_contract["contract_digest"],
+                )
+                self.assertIn(
+                    "differs from the current packet authority",
+                    session_contract_error(
+                        contract,
+                        expected_packet=changed,
+                    ),
+                )
 
     def test_schema_tamper_and_authority_substitution_are_rejected(self) -> None:
         packet = self._packet()

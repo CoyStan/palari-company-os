@@ -258,9 +258,11 @@ local Git witness for ready started work:
   binding, enforcement status, and limitations. Its identifier is derived from
   its canonical digest; repeated compilation of the same task rules produces
   identical bytes. The portable projection removes the local workspace selector
-  from command guidance and omits the absolute workspace filename. The persisted
-  task brief and claim retain the exact selected workspace and the task brief's
-  local context hash, so portability does not weaken local selector binding.
+  from command guidance and replaces local workspace file/root fields with
+  stable markers, while continuing to hash every other task-brief field. The
+  persisted task brief and claim retain the exact selected workspace and the
+  task brief's local context hash, so portability does not weaken local selector
+  or authority binding.
 - `.palari/claims/WORK-ID.json` stores claim schema v2, the Palari, mode, lease
   expiry, packet id,
   context hash, portable-contract path and digest, and a hashed metadata-only

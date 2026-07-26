@@ -81,6 +81,10 @@ _CAPABILITY_FIELDS = {
     "source_ids",
 }
 _DEPENDENCY_FIELDS = {"id", "status", "title"}
+_LOCAL_PACKET_PATH_MARKERS = {
+    "workspace_file": "<local-workspace-file>",
+    "workspace_path": "<local-workspace-root>",
+}
 
 _ENFORCEMENT = {
     "profile": "portable-declaration-v1",
@@ -132,6 +136,7 @@ def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
     """Compile one task brief into deterministic, provider-neutral session rules."""
 
     _require_packet(packet)
+    portable_context_hash = _portable_packet_context_hash(packet)
     packet = _portable_packet_projection(packet)
     allowed_paths = packet.get("allowed_paths")
     if not isinstance(allowed_paths, dict):
@@ -141,7 +146,7 @@ def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
         "packet_binding": {
             "packet_schema_version": str(packet.get("schema_version") or ""),
             "packet_id": str(packet.get("packet_id") or ""),
-            "packet_context_hash": "",
+            "packet_context_hash": portable_context_hash,
             "packet_status": status,
             "mode": str(packet.get("mode") or "execute"),
             "claim_required": True,
@@ -182,9 +187,6 @@ def compile_agent_session_contract(packet: dict[str, Any]) -> dict[str, Any]:
         "enforcement": deepcopy(_ENFORCEMENT),
         "security_limitations": list(_SECURITY_LIMITATIONS),
     }
-    body["packet_binding"]["packet_context_hash"] = _portable_contract_context_hash(
-        body
-    )
     digest_payload = _digest_payload(status, body)
     digest = canonical_sha256(digest_payload)
     result = {
@@ -294,28 +296,36 @@ def _portable_packet_projection(packet: dict[str, Any]) -> dict[str, Any]:
     stable = {
         key: value
         for key, value in packet.items()
-        if key not in {"created_at", "context_hash", "workspace_file"}
+        if key not in {"created_at", "context_hash"}
     }
-    projected = portable_palari_command_payload(stable)
+    projected = _replace_local_packet_paths(
+        portable_palari_command_payload(stable)
+    )
     if not isinstance(projected, dict):
         raise WorkspaceError("agent packet portable projection must be an object")
     return projected
 
 
-def _portable_contract_context_hash(body: dict[str, Any]) -> str:
-    packet_binding = body["packet_binding"]
-    projection = {
-        "packet_binding": {
-            key: value
-            for key, value in packet_binding.items()
-            if key != "packet_context_hash"
-        },
-        "identity": body["identity"],
-        "scope": body["scope"],
-        "obligations": body["obligations"],
-        "blockers": body["blockers"],
-        "guidance": body["guidance"],
-    }
+def _replace_local_packet_paths(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_replace_local_packet_paths(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_replace_local_packet_paths(item) for item in value)
+    if not isinstance(value, dict):
+        return value
+    projected: dict[str, Any] = {}
+    for key, item in value.items():
+        marker = _LOCAL_PACKET_PATH_MARKERS.get(key)
+        projected[key] = (
+            marker
+            if marker is not None and isinstance(item, str)
+            else _replace_local_packet_paths(item)
+        )
+    return projected
+
+
+def _portable_packet_context_hash(packet: dict[str, Any]) -> str:
+    projection = _portable_packet_projection(packet)
     encoded = json.dumps(projection, sort_keys=True, separators=(",", ":")).encode(
         "utf-8"
     )
