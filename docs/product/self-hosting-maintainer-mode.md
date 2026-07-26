@@ -10,8 +10,10 @@ profile that should replace that exception.
 The maintainer policy in this document is partly procedural and partly a
 follow-up design.
 
-The current repair uses the procedural exception below. An ignored, bound
-live-state profile is **not implemented yet**. Palari must not claim that
+The current repair uses the procedural exception below. Palari now retains the
+exact explicitly selected workspace filename so emitted commands do not fall
+back to a sibling `workspace.json`, but an ignored, bound live-state profile is
+**not implemented yet**. Palari must not claim that
 assignments, checks, reviews, or approvals can currently be recorded in an
 isolated local workspace while keeping this source checkout clean.
 
@@ -371,8 +373,8 @@ them as an ordinary workspace.
 
 The follow-up should remain one bounded storage and lifecycle slice:
 
-1. Add exact `Workspace.data_path` retention while keeping `Workspace.path` as
-   the repository root.
+1. Extend the retained exact `Workspace.data_path` into the profile-aware
+   control-root resolver while keeping `Workspace.path` as the repository root.
 2. Add and test one binding-aware control-root resolver used by store locks,
    journal paths, task runtime files, verification caches, and protected-path
    checks.

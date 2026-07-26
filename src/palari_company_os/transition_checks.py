@@ -8,6 +8,7 @@ from .authority_plan import build_authority_plan
 from .command_surface import palari_workspace_command
 from .errors import WorkspaceError
 from .governance_binding import current_review_binding
+from .pcaw_canonical import canonical_sha256
 from .read_models import detail
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
@@ -274,6 +275,9 @@ def _check_review_record(
     work_id = str(context.get("work_item_id") or "")
     reviewed_head = str(context.get("reviewed_head") or "")
     verdict = str(context.get("verdict") or "")
+    supplied_binding_digest = str(
+        context.get("review_binding_digest") or ""
+    )
     work = workspace.work_item(work_id)
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
@@ -329,10 +333,30 @@ def _check_review_record(
         builder_id=current_attempt.actor if current_attempt is not None else "",
         reviewer_id=reviewer_id,
     )
-    if verdict == "accept-ready":
+    binding: dict[str, str] = {}
+    proof_errors: list[str] = []
+    if supplied_binding_digest or verdict == "accept-ready":
         binding, proof_errors = current_review_binding(
             workspace, work_id, require_output_coverage=True
         )
+    if supplied_binding_digest:
+        if proof_errors:
+            blockers.append(
+                TransitionBlocker(
+                    "REVIEW_BINDING_STALE",
+                    "the exact proof state from the emitted review action is no longer current: "
+                    + "; ".join(proof_errors),
+                )
+            )
+        elif canonical_sha256(binding) != supplied_binding_digest:
+            blockers.append(
+                TransitionBlocker(
+                    "REVIEW_BINDING_STALE",
+                    "the exact proof state changed after this review action was emitted; "
+                    "inspect a refreshed review guide",
+                )
+            )
+    if verdict == "accept-ready":
         if proof_errors:
             blockers.append(
                 TransitionBlocker(
@@ -364,7 +388,7 @@ def _check_review_record(
         )
     next_commands.append(
         palari_workspace_command(
-            workspace.path,
+            workspace.data_path,
             "review",
             "guide",
             work_id,

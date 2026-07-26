@@ -896,6 +896,7 @@ def _prepare_record_for_create(
         return stamp_receipt_record(stamped, _records(store, "receipts"))
     if kind == "review":
         stamped = dict(record)
+        stamped.pop("review_binding_digest", None)
         if not stamped.get("timestamp"):
             stamped["timestamp"] = _timestamp()
         workspace = validate_data(store.data_path, store.data)
@@ -1005,6 +1006,9 @@ def _assert_record_transition_allowed(
             "work_item_id": str(record.get("work_item_id") or ""),
             "reviewed_head": str(record.get("reviewed_head") or ""),
             "verdict": str(record.get("verdict") or ""),
+            "review_binding_digest": str(
+                record.get("review_binding_digest") or ""
+            ),
             "allow_existing": allow_existing,
         },
     )

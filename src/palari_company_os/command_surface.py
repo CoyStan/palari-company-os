@@ -12,6 +12,7 @@ def palari_workspace_command(
 ) -> str:
     """Render one shell-safe Palari command bound to an exact workspace root."""
 
-    root = workspace_file_path(workspace_path).parent.resolve(strict=False)
-    tokens = ("palari", "--workspace", str(root), *arguments)
+    data_path = workspace_file_path(workspace_path).resolve(strict=False)
+    selector = data_path.parent if data_path.name == "workspace.json" else data_path
+    tokens = ("palari", "--workspace", str(selector), *arguments)
     return " ".join(quote(token) for token in tokens)

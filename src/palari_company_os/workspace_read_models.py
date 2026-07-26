@@ -37,7 +37,7 @@ def approval_inbox(
         )
         all_retired = not effective_selection
 
-    store = load_store(workspace.path)
+    store = load_store(workspace.data_path)
     payload = build_approval_inbox(
         workspace,
         store.data,

@@ -679,6 +679,71 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertIn(f"palari --workspace {data_path.parent}", action["command"])
         self.assertIn("--presented sha256:", action["command"])
 
+    def test_inbox_commands_retain_a_nondefault_workspace_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            custom_data_path = data_path.with_name("governance-state.json")
+            data_path.rename(custom_data_path)
+            store = load_store(custom_data_path)
+            inbox = build_approval_inbox(
+                Workspace.load(custom_data_path),
+                store.data,
+            )
+
+        self.assertTrue(inbox["approval_commands"])
+        self.assertTrue(
+            all(
+                f"palari --workspace {custom_data_path}" in item["approve_eligible"]
+                for item in inbox["approval_commands"]
+            )
+        )
+
+    def test_reject_or_defer_does_not_suppress_a_later_founder_approval(self) -> None:
+        for prior_action in ("reject", "defer"):
+            with self.subTest(prior_action=prior_action), tempfile.TemporaryDirectory() as directory:
+                data_path = make_ready_workspace(
+                    Path(directory),
+                    count=1,
+                    reviewer_id="PALARI-REVIEWER",
+                    single_maintainer=True,
+                )
+                store = load_store(data_path)
+                inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+                pack = inbox["packs"][0]
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    human_id="HUMAN-PRODUCT",
+                    **{prior_action: ["WORK-001"]},
+                )
+
+                current = load_store(data_path)
+                refreshed = build_approval_inbox(
+                    Workspace.load(data_path),
+                    current.data,
+                )
+                command = refreshed["approval_commands"][0]
+                result = approve_work(
+                    str(data_path),
+                    "WORK-001",
+                    "HUMAN-PRODUCT",
+                    presented_digest=command["presentation_digest"],
+                )
+
+                self.assertEqual(
+                    refreshed["individual_items"][0]["state"],
+                    "eligible",
+                )
+                self.assertEqual(
+                    [item["human_id"] for item in refreshed["approval_commands"]],
+                    ["HUMAN-PRODUCT"],
+                )
+                self.assertTrue(result["completed"])
+                self.assertEqual(
+                    Workspace.load(data_path).work_item("WORK-001").status,
+                    "completed",
+                )
+
     def test_changed_member_stales_pending_quorum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
@@ -914,6 +979,83 @@ class ApprovalPackTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
             validate_pack_manifest(bad_member)
+
+    def test_pack_v2_stored_manifest_can_continue_to_second_quorum_vote(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            inbox = build_approval_inbox(workspace, store.data)
+            legacy_pack = deepcopy(inbox["packs"][0])
+            legacy_pack["schema_version"] = "palari.approval-pack.v2"
+            for member in legacy_pack["members"]:
+                member["authority"].pop("effective_final_approval_count")
+                member["member_digest"] = canonical_sha256(
+                    {
+                        key: value
+                        for key, value in member.items()
+                        if key != "member_digest"
+                    }
+                )
+            legacy_pack["pack_digest"] = canonical_sha256(
+                {
+                    key: value
+                    for key, value in legacy_pack.items()
+                    if key != "pack_digest"
+                }
+            )
+            validate_pack_manifest(legacy_pack)
+            legacy_evaluation = evaluate_approval_pack(workspace, legacy_pack)
+            legacy_presentation = build_approval_presentation(
+                workspace,
+                legacy_pack,
+                legacy_evaluation,
+            )
+            legacy_inbox = {
+                **inbox,
+                "packs": [legacy_pack],
+                "presentations": [legacy_presentation],
+            }
+            with patch(
+                "palari_company_os.approval_packs.build_approval_inbox",
+                return_value=legacy_inbox,
+            ):
+                first = _apply_pack_decision(
+                    str(data_path),
+                    pack_digest=legacy_pack["pack_digest"],
+                    presentation_digest=approval_presentation_digest(
+                        legacy_presentation,
+                        legacy_pack,
+                    ),
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            current_workspace = Workspace.load(data_path)
+            current_evaluation = evaluate_approval_pack(
+                current_workspace,
+                legacy_pack,
+            )
+            current_presentation = build_approval_presentation(
+                current_workspace,
+                legacy_pack,
+                current_evaluation,
+            )
+            second = _apply_pack_decision(
+                str(data_path),
+                pack_digest=legacy_pack["pack_digest"],
+                presentation_digest=approval_presentation_digest(
+                    current_presentation,
+                    legacy_pack,
+                ),
+                human_id="HUMAN-SECOND",
+                approve_eligible=True,
+                pack_members=["WORK-001"],
+            )
+
+        self.assertEqual(first["parked"], ["WORK-001"])
+        self.assertEqual(second["executed"], ["WORK-001"])
 
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

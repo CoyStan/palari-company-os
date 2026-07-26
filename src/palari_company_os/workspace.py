@@ -46,6 +46,7 @@ T = TypeVar("T")
 @dataclass(frozen=True)
 class Workspace:
     path: Path
+    data_path: Path
     schema_version: int
     name: str
     goals: list[Goal]
@@ -119,10 +120,16 @@ class Workspace:
             raw = json.loads(data_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise WorkspaceError(f"invalid workspace JSON: {exc}") from exc
-        return cls.from_raw(raw, data_path.parent)
+        return cls.from_raw(raw, data_path.parent, data_path=data_path)
 
     @classmethod
-    def from_raw(cls, raw: object, path: Path | str) -> "Workspace":
+    def from_raw(
+        cls,
+        raw: object,
+        path: Path | str,
+        *,
+        data_path: Path | str | None = None,
+    ) -> "Workspace":
         if not isinstance(raw, dict):
             raise WorkspaceError("workspace root must be a JSON object")
 
@@ -145,11 +152,17 @@ class Workspace:
                 f"version {CURRENT_SCHEMA_VERSION}"
             )
         workspace_path = Path(path).expanduser().resolve()
+        exact_data_path = (
+            Path(data_path).expanduser().resolve()
+            if data_path is not None
+            else workspace_path / "workspace.json"
+        )
         raw = _expand_collection_files(raw, workspace_path)
         validate_raw_contract(raw)
 
         workspace = cls(
             path=workspace_path,
+            data_path=exact_data_path,
             schema_version=schema_version,
             name=str(raw.get("name") or workspace_path.name),
             goals=[Goal.from_record(item) for item in _items(raw, "goals")],

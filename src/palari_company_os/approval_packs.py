@@ -95,7 +95,7 @@ def build_approval_inbox(
         group = "batchable-local" if policy["batchable"] else str(policy["class"])
         grouped.setdefault(group, []).append(member)
 
-    journal = operation_journal.verify(workspace.path)
+    journal = operation_journal.verify(workspace.data_path)
     if not journal.get("chain_valid") or journal.get("pending"):
         raise WorkspaceError(
             "approval inbox requires a verified, committed governance journal checkpoint"
@@ -161,7 +161,7 @@ def build_approval_inbox(
                     "presentation_digest": presentation_digest,
                     "human_id": human_id,
                     "approve_eligible": _approval_command(
-                        workspace.path,
+                        workspace.data_path,
                         pack,
                         presentation_digest,
                         human_id,
@@ -1485,7 +1485,7 @@ def _member_next_action(state: str, member_id: str) -> str:
 
 
 def _workspace_projection(workspace: Workspace) -> dict[str, Any]:
-    store = load_store(workspace.path)
+    store = load_store(workspace.data_path)
     return store.data
 
 
@@ -1711,6 +1711,8 @@ def _human_can_execute_pack_command(
         if decision.approval_pack_digest == pack["pack_digest"]:
             return False
         if decision.work_item_id not in approvable_ids:
+            continue
+        if decision.approval_pack_action != "approve":
             continue
         review = latest_for_work(
             workspace.review_verdicts,

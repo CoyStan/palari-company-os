@@ -1273,6 +1273,35 @@ class PreToolUseTests(unittest.TestCase):
         recorded = Workspace.load(self.workspace).review_verdicts
         self.assertEqual(len(recorded), 1)
 
+    def test_exact_review_packet_command_rejects_a_changed_proof_binding(self) -> None:
+        command = self._start_exact_review_claim()
+        store = load_store(self.workspace)
+        store.data["work_items"][0]["acceptance_target"] = (
+            "A changed task contract the active reviewer packet did not inspect."
+        )
+        write_store(store)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{REPO_ROOT / 'bin'}:{env.get('PATH', '')}"
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        executed = subprocess.run(
+            shlex.split(command),
+            cwd=self.repo,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertNotEqual(executed.returncode, 0)
+        self.assertIn(
+            "changed after this review action was emitted",
+            executed.stdout + executed.stderr,
+        )
+        self.assertEqual(Workspace.load(self.workspace).review_verdicts, [])
+
     def test_review_packet_rejects_commands_outside_its_exact_advisory_surface(
         self,
     ) -> None:
@@ -1337,7 +1366,9 @@ class PreToolUseTests(unittest.TestCase):
         command = (
             f"palari --workspace {self.workspace.name} review record REVIEW-PALARI-001 "
             "--work-item-id WORK-001 --reviewed-head head-001 "
-            "--reviewer PALARI-REVIEWER --verdict accept-ready --json"
+            "--reviewer PALARI-REVIEWER "
+            f"--binding-digest {'sha256:' + ('a' * 64)} "
+            "--verdict accept-ready --json"
         )
         no_claim = _pre_tool_use(
             self.workspace,
@@ -1361,7 +1392,9 @@ class PreToolUseTests(unittest.TestCase):
                 "command": (
                     f"palari --workspace {self.workspace.name} review record REVIEW-X "
                     "--work-item-id WORK-0001 --reviewed-head head "
-                    "--reviewer PALARI-SOFIA --verdict blocked --json"
+                    "--reviewer PALARI-SOFIA "
+                    f"--binding-digest {'sha256:' + ('a' * 64)} "
+                    "--verdict blocked --json"
                 )
             },
             self.repo,

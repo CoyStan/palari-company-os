@@ -22,6 +22,7 @@ from palari_company_os.governance_binding import (
     current_review_binding,
     review_proof_hash,
 )
+from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.transition_checks import check_transition
 from palari_company_os.workspace import Workspace, WorkspaceError
@@ -202,6 +203,50 @@ class TransitionCheckTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
         self.assertIn("agent doctor", result.blockers[0].next_command)
+
+    def test_emitted_review_binding_rejects_changed_proof_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = _review_required_data()
+            _add_exact_evidence(raw, root)
+            workspace = _workspace(raw, root)
+            binding, errors = current_review_binding(
+                workspace,
+                "WORK-1",
+                require_output_coverage=True,
+            )
+            self.assertEqual(errors, [])
+            binding_digest = canonical_sha256(binding)
+            context = {
+                "work_item_id": "WORK-1",
+                "reviewed_head": "head-1",
+                "verdict": "accept-ready",
+                "review_binding_digest": binding_digest,
+            }
+
+            current = check_transition(
+                workspace,
+                "review_record",
+                "REVIEW-CURRENT-BINDING",
+                actor="PALARI-REVIEWER",
+                context=context,
+            )
+            raw["work_items"][0]["acceptance_target"] = (
+                "A changed task contract that the reviewer did not inspect."
+            )
+            stale = check_transition(
+                _workspace(raw, root),
+                "review_record",
+                "REVIEW-CURRENT-BINDING",
+                actor="PALARI-REVIEWER",
+                context=context,
+            )
+
+        self.assertTrue(current.ok, current.to_dict())
+        self.assertIn(
+            "REVIEW_BINDING_STALE",
+            {blocker.code for blocker in stale.blockers},
+        )
 
     def test_accept_ready_review_cannot_consume_the_only_human_approver(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

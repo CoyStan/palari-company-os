@@ -2114,7 +2114,11 @@ def _scope_authority_workspace_from_bytes(
         )
     expanded = _expand_scope_authority_collection_files(raw, read_collection, label)
     try:
-        return Workspace.from_raw(expanded, data_path.parent)
+        return Workspace.from_raw(
+            expanded,
+            data_path.parent,
+            data_path=data_path,
+        )
     except WorkspaceError as exc:
         raise WorkspaceError(
             f"{label} workspace is invalid for pre-claim scope authority: {exc}"

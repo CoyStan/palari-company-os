@@ -344,10 +344,14 @@ commands. Human candidates come from the project. Agent candidates must be
 distinct from the builder, linked to the work goal, and allowed for every
 selected source. Each candidate receives one deterministic, binding-derived
 `review record` action per supported verdict. These actions are executable
-against the state that produced the guide. The retained `REVIEW-ID`/`VERDICT`
-template is explicitly non-executable. A Palari review result is advisory and
-never counts as a required human approval. The guide itself does not record a
-result, approve work, change history, or replace human judgment.
+against the state that produced the guide. Each concrete action carries a
+machine-supplied `--binding-digest`; the transition re-derives the current
+proof binding and fails with `REVIEW_BINDING_STALE` if the inspected run,
+check results, run record, or task contract changed. The retained
+`REVIEW-ID`/`VERDICT` template is explicitly non-executable. A Palari review
+result is advisory and never counts as a required human approval. The guide
+itself does not record a result, approve work, change history, or replace human
+judgment.
 
 `review record` is the explicit write path for a review result. Use it only
 after inspecting the check results and run record. Agent reviewers must first

@@ -1421,6 +1421,12 @@ def _add_review_parser(subparsers: Any) -> None:
     record.add_argument("--reviewed-head", required=True, help="Reviewed head.")
     record.add_argument("--reviewer", required=True, help="Reviewer id or role.")
     record.add_argument(
+        "--binding-digest",
+        dest="review_binding_digest",
+        default="",
+        help="Machine-supplied digest from one exact Review Guide action.",
+    )
+    record.add_argument(
         "--verdict",
         required=True,
         choices=["accept-ready", "changes-requested", "needs-human-decision", "blocked"],

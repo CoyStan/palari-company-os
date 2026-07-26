@@ -210,7 +210,35 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["evidence"]["id"], "EVIDENCE-1")
         self.assertEqual(payload["evidence"]["head_sha"], "head-1")
         self.assertIn("--reviewed-head head-1", payload["review_record_command_template"])
+        self.assertIn(
+            "--binding-digest BINDING-DIGEST",
+            payload["review_record_command_template"],
+        )
         self.assertFalse(payload["review_record_command_template_executable"])
+        self.assertIn("Review guide v2", payload["omitted_context"][0]["reason"])
+        for action in payload["review_record_commands"]:
+            self.assertIn(
+                f"--binding-digest {action['review_binding_digest']}",
+                action["command"],
+            )
+
+    def test_commands_retain_a_nondefault_explicit_workspace_file(self) -> None:
+        data_path = Path("/tmp/palari-review-guide-contract/custom-state.json")
+        workspace = _workspace()
+        object.__setattr__(workspace, "data_path", data_path)
+        payload = build_review_guide(workspace, "WORK-1")
+
+        commands = [
+            *payload["next_commands"],
+            *(
+                action["command"]
+                for action in payload["review_record_commands"]
+            ),
+        ]
+        self.assertTrue(commands)
+        self.assertTrue(
+            all(f"palari --workspace {data_path}" in command for command in commands)
+        )
 
     def test_attempt_builder_is_not_an_independent_reviewer(self) -> None:
         payload = build_review_guide(_workspace(), "WORK-1")

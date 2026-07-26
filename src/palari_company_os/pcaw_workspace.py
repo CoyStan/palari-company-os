@@ -810,7 +810,7 @@ def _journal_observation(
         if not path.exists():
             return IntegrityObservation("not-required", ("legacy workspace not checkpointed",))
         report = (
-            journal_context.verify(workspace.path)
+            journal_context.verify(workspace.data_path)
             if journal_context is not None
             else verify_journal(workspace.path / "workspace.json")
         )

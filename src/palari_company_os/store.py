@@ -70,7 +70,7 @@ def load_store(path: Path | str) -> WorkspaceStore:
 
 
 def validate_data(data_path: Path, data: dict[str, Any]) -> Workspace:
-    return Workspace.from_raw(data, data_path.parent)
+    return Workspace.from_raw(data, data_path.parent, data_path=data_path)
 
 
 def write_store(

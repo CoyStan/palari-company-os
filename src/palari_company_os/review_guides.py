@@ -104,7 +104,7 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "omitted_context": [
             {
                 "kind": "workspace_records",
-                "reason": "Review guide v1 includes only records directly related to the selected work item.",
+                "reason": "Review guide v2 includes only records directly related to the selected work item.",
                 "counts": {
                     "work_items": len(workspace.work_items),
                     "palaris": len(workspace.palaris),
@@ -245,7 +245,7 @@ def _reviewer_candidates(
                     ),
                     "review_packet_command": (
                         palari_workspace_command(
-                            workspace.path,
+                            workspace.data_path,
                             "agent",
                             "start",
                             work_id,
@@ -358,7 +358,7 @@ def _review_record_command_template(
 ) -> str:
     reviewed_head = str(evidence.get("head_sha", "HEAD")) if evidence is not None else "HEAD"
     return palari_workspace_command(
-        workspace.path,
+        workspace.data_path,
         "review",
         "record",
         "REVIEW-ID",
@@ -368,6 +368,8 @@ def _review_record_command_template(
         reviewed_head,
         "--reviewer",
         reviewer_id,
+        "--binding-digest",
+        "BINDING-DIGEST",
         "--verdict",
         "VERDICT",
         "--json",
@@ -409,7 +411,7 @@ def _review_record_commands(
                     "review_binding_digest": binding_digest,
                     "executable": True,
                     "command": palari_workspace_command(
-                        workspace.path,
+                        workspace.data_path,
                         "review",
                         "record",
                         review_id,
@@ -419,6 +421,8 @@ def _review_record_commands(
                         reviewed_head,
                         "--reviewer",
                         reviewer_id,
+                        "--binding-digest",
+                        binding_digest,
                         "--verdict",
                         verdict,
                         "--json",
@@ -451,13 +455,13 @@ def _concrete_review_id(
 def _next_commands(workspace: Workspace, work_id: str) -> list[str]:
     return [
         palari_workspace_command(
-            workspace.path,
+            workspace.data_path,
             "detail",
             work_id,
             "--json",
         ),
         palari_workspace_command(
-            workspace.path,
+            workspace.data_path,
             "validate",
             "--json",
         ),

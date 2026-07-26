@@ -88,12 +88,16 @@ code change must match them. See
   qualified human approvers. Approval commands are emitted only for named
   humans who can execute them against the current state.
 - New accept-ready reviews bind the exact terminal attempt, receipt, evidence,
-  reviewed head, and work contract. Bound reviews are immutable.
+  reviewed head, and work contract. Concrete Review Guide actions carry the
+  current binding digest and fail if that proof changes before recording.
+  Bound reviews are immutable.
 - Schema v2 loads historical unbound non-accepting reviews for inspection, but
   rejects unbound `accept-ready`. Older workspace schema versions fail closed;
   current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
-  evidence controls quorum; contradictory or ambiguous ordering fails closed.
+  evidence controls quorum; a prior rejection or defer does not suppress a
+  later exact approval action, while contradictory or ambiguous ordering fails
+  closed.
 - Suggested checks recommend what to inspect; they do not grant approval.
 - Playbooks are process guidance; the task limits and Palari permissions
   remain the source of truth.

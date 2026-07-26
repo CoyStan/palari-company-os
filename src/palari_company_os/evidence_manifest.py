@@ -371,9 +371,9 @@ def verify_evidence(
         if journal_context is None:
             from .governance_journal import verify_workspace_journal
 
-            journal_verification = verify_workspace_journal(workspace.path)
+            journal_verification = verify_workspace_journal(workspace.data_path)
         else:
-            journal_verification = journal_context.verify(workspace.path)
+            journal_verification = journal_context.verify(workspace.data_path)
         journal_continuity_ok = bool(journal_verification["ok"])
     ok = (
         status_ok

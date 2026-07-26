@@ -1262,6 +1262,8 @@ def _packet_bound_review_record_error(
             or candidate["json"] is not True
             or item.get("review_id") != candidate["review_id"]
             or item.get("verdict") != candidate["verdict"]
+            or item.get("review_binding_digest")
+            != candidate["review_binding_digest"]
         ):
             return "the packet contains a malformed concrete review action"
         concrete.append(candidate)
@@ -1303,6 +1305,7 @@ def _parse_exact_review_record(command: str) -> dict[str, Any] | None:
         "--work-item-id": "work_id",
         "--reviewed-head": "reviewed_head",
         "--reviewer": "reviewer",
+        "--binding-digest": "review_binding_digest",
         "--verdict": "verdict",
     }
     while index < len(tokens):

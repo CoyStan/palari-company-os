@@ -447,7 +447,7 @@ def _approval_pack_handoff(
     reviewed_head: str,
 ) -> dict[str, Any]:
     inbox_command = palari_workspace_command(
-        workspace.path,
+        workspace.data_path,
         "queue",
         "--approval-inbox",
         "--select",
@@ -498,7 +498,7 @@ def _approval_pack_handoff(
                 command.get("presentation_digest", "") if command is not None else ""
             ),
             "command": palari_workspace_command(
-                workspace.path,
+                workspace.data_path,
                 "approve",
                 work_id,
                 "--as",
