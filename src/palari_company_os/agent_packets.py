@@ -12,10 +12,16 @@ from .governance_kernel import (
     TERMINAL_WORK_STATUSES,
     low_risk_completion_policy_applies,
 )
+from .path_policy import validate_workspace_path
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
 from .workspace import Workspace
+from .workspace_layout import (
+    MAINTAINER_STATE_ROOT,
+    MAINTAINER_WORKSPACE_FILENAME,
+    resolve_workspace_layout,
+)
 
 
 SUPPORTED_MODES = {"execute", "review"}
@@ -80,6 +86,12 @@ def build_agent_brief(
             mode,
             review_context,
             authority_plan,
+        )
+    )
+    blockers.extend(
+        _maintainer_profile_blockers(
+            workspace,
+            work_detail,
         )
     )
     status = "blocked" if blockers else "ready"
@@ -354,6 +366,173 @@ def _work_blockers(
                 "REVIEW_REQUIRED",
                 work_detail["why"],
                 missing="review-mode packet",
+            )
+        )
+    return blockers
+
+
+def _maintainer_profile_blockers(
+    workspace: Workspace,
+    work_detail: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not resolve_workspace_layout(workspace.data_path).maintainer:
+        return []
+    work = work_detail["work_item"]
+    blockers: list[dict[str, Any]] = []
+    actions = [
+        str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        for value in work.get("allowed_actions", [])
+        if str(value).strip()
+    ]
+    denied_terms = {
+        "external_write",
+        "push",
+        "merge",
+        "release",
+        "deploy",
+        "deployment",
+        "publish",
+        "provider_write",
+        "credential",
+        "credentials",
+        "secret",
+    }
+    denied_actions = sorted(
+        {
+            action
+            for action in actions
+            if any(
+                action == term
+                or action.startswith(term + "_")
+                or action.endswith("_" + term)
+                for term in denied_terms
+            )
+        }
+    )
+    receipt = work_detail.get("receipt") or {}
+    external_state = bool(
+        work_detail.get("integration_plans")
+        or work_detail.get("integration_outbox")
+        or receipt.get("planned_external_writes")
+        or receipt.get("queued_external_writes")
+        or receipt.get("external_writes")
+    )
+    sensitive_sources = sorted(
+        str(source.get("id") or "")
+        for source in work_detail.get("sources", [])
+        if (
+            str(source.get("data_class") or "").lower()
+            in {"confidential", "restricted"}
+            or bool(source.get("redaction_required"))
+            or any(
+                marker
+                in " ".join(
+                    str(source.get(field) or "").lower()
+                    for field in (
+                        "label",
+                        "kind",
+                        "provider",
+                        "uri",
+                        "access_mode",
+                        "data_class",
+                    )
+                )
+                for marker in ("secret", "credential", "password", "token")
+            )
+        )
+    )
+    if denied_actions or external_state or sensitive_sources:
+        detail: list[str] = []
+        if denied_actions:
+            detail.append("actions " + ", ".join(denied_actions))
+        if external_state:
+            detail.append("planned, queued, or recorded external state")
+        if sensitive_sources:
+            detail.append("sensitive sources " + ", ".join(sensitive_sources))
+        blockers.append(
+            _blocker(
+                "MAINTAINER_PROFILE_CAPABILITY_DENIED",
+                "Maintainer profile v1 permits reversible local source work only; "
+                + "; ".join(detail)
+                + ".",
+                missing="a local-only task contract",
+            )
+        )
+
+    protected = {
+        MAINTAINER_WORKSPACE_FILENAME,
+        MAINTAINER_STATE_ROOT,
+        ".git",
+    }
+    declared_paths = [
+        str(value)
+        for value in (
+            list(work.get("allowed_resources", []))
+            + list(work.get("output_targets", []))
+            + [
+                item.get("path", "")
+                for item in work.get("path_intents", [])
+                if isinstance(item, dict)
+            ]
+        )
+        if isinstance(value, str)
+    ]
+    write_paths = [
+        str(value)
+        for value in (
+            list(work.get("output_targets", []))
+            + [
+                item.get("path", "")
+                for item in work.get("path_intents", [])
+                if isinstance(item, dict)
+            ]
+        )
+        if isinstance(value, str)
+    ]
+    normalized_declared: list[tuple[str, str]] = []
+    noncanonical_or_unsafe: set[str] = set()
+    for path in declared_paths:
+        try:
+            normalized = validate_workspace_path(path)
+        except ValueError:
+            noncanonical_or_unsafe.add(path)
+            continue
+        normalized_declared.append((path, normalized))
+        if normalized != path:
+            noncanonical_or_unsafe.add(path)
+    normalized_writes: list[tuple[str, str]] = []
+    for path in write_paths:
+        try:
+            normalized_writes.append((path, validate_workspace_path(path)))
+        except ValueError:
+            continue
+    overlaps = sorted(
+        noncanonical_or_unsafe
+        |
+        {
+            raw
+            for raw, path in normalized_declared
+            if any(
+                path == root or path.startswith(root + "/")
+                for root in protected
+            )
+        }
+        | {
+            raw
+            for raw, path in normalized_writes
+            if path == "workspace.json"
+            or path == ".palari"
+            or path.startswith(".palari/")
+        }
+    )
+    if overlaps:
+        blockers.append(
+            _blocker(
+                "MAINTAINER_PROFILE_STATE_PATH_DENIED",
+                "Maintainer tasks cannot declare profile state or Git metadata as "
+                "task output: "
+                + ", ".join(overlaps),
+                missing="source-only task paths",
             )
         )
     return blockers

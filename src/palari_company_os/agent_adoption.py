@@ -26,6 +26,7 @@ from .agent_file_changes import git_repo_root
 from .git_hooks import install_git_hook
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import is_maintainer_workspace, resolve_workspace_layout
 
 
 AGENTS_START = "<!-- palari:agent-contract:start -->"
@@ -61,6 +62,7 @@ def adopt_agent_host(
         raise WorkspaceError(
             "--host must be one of: " + ", ".join(SUPPORTED_HOSTS)
         )
+    _reject_maintainer_host_install(workspace_path)
 
     root = Path(project_dir).expanduser().resolve()
     repo_root = git_repo_root(root)
@@ -367,6 +369,7 @@ def install_claude_host_hooks(
 ) -> dict[str, Any]:
     """Install the compatible Claude surface through the hardened merger."""
 
+    _reject_maintainer_host_install(workspace_path)
     root = Path(project_dir).expanduser().resolve()
     repo_root = git_repo_root(root)
     if repo_root is None:
@@ -433,6 +436,16 @@ def _read_host_json(target: Path) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise WorkspaceError(f"{target} must contain a JSON object")
     return loaded
+
+
+def _reject_maintainer_host_install(workspace_path: Path | str) -> None:
+    if not is_maintainer_workspace(workspace_path):
+        return
+    resolve_workspace_layout(workspace_path)
+    raise WorkspaceError(
+        "maintainer profile v1 does not support host installation or removal; "
+        "use explicit commands carrying the exact --workspace selector"
+    )
 
 
 def _codex_managed_hooks(

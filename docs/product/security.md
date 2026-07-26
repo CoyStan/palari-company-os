@@ -91,6 +91,18 @@ Safety rules:
   are checked before restart lease acquisition and again before claim
   persistence. Unsupported claim state is rejected by claim integrity and
   cannot reach `agent advance`.
+- Maintainer Profile v1 always uses the normalized all-agent execute/review
+  authority catalog because its ignored workspace is absent from the source
+  candidate. Its immutable baseline and oldest Git-witness reflog entry bind
+  that catalog together with the profile-binding digest, random state
+  identifier, and matching Git-common-directory repository identifier.
+  Its projection snapshot contains no hidden Git files; a separate strict
+  local-state witness covers exact workspace bytes and logical digest, verified
+  journal head and record count, replay digest, binding and repository
+  identity, and source Git head. Restart and proof reconciliation accept only
+  exact state or the guarded operation's verified append-only journal
+  extension. Binding drift, repository mismatch, changed authority, source
+  drift, workspace divergence, or a non-prefix journal fails closed.
 - Durable parking crash recovery is the sole narrow exception to live status
   equality: after confirming the exact persisted parking-attempt/claim epoch, it
   normalizes current `blocked` status back to the immutable packet status and
@@ -165,10 +177,12 @@ Safety rules:
   packet authority. Shell review is segment-independent: an observed allowed
   write cannot mask a later unsafe segment, and command environment assignments,
   execution-capable Git config/diff options, and `rg --pre` require review.
-  Workspace root/split files, `.palari/`, and Git metadata remain protected from
-  direct file writes after claim release as well as during a claim. Protection
-  resolves linked-worktree common Git directories and option-encoded write
-  destinations, including ordinary existing-directory basename semantics.
+  Selected workspace truth, split files, the bound ordinary `.palari/` or
+  maintainer `.palari-company-os/` state root, and Git metadata remain
+  protected from direct file writes after claim release as well as during a
+  claim. Protection resolves linked-worktree common Git directories and
+  option-encoded write destinations, including ordinary existing-directory
+  basename semantics.
   Compact/newline command separators cannot hide later targets. Git repository
   overrides, pager/filter helpers, and ripgrep preprocessor/hostname helpers
   require review. Git pathspec-file imports, accepted Git helper-option
@@ -202,6 +216,26 @@ Safety rules:
   `palari claude install` remains the hook-only management, repair, and removal
   surface. It manages current Palari entries without duplicating them and
   preserves co-located foreign host hooks.
+- `palari init --profile maintainer` is a separate fresh-only initialization
+  path at the exact root of a clean Git worktree with a committed `HEAD`. It
+  creates root-level ignored `.palari-company-os.json`, strict
+  `.palari-company-os/binding.json`, runtime state beneath
+  `.palari-company-os/.palari/`, exact local Git exclude rules, and a matching
+  repository-ID file beneath the Git common directory. It rejects existing,
+  tracked, non-ignored, malformed, non-regular, traversing, sibling-prefix, or
+  symlinked state before use and rolls back its own partial initialization
+  writes on failure. Every load and write rechecks the binding/repository
+  identity; a write also uses the loaded binding and workspace digests as
+  compare-and-swap witnesses.
+- Maintainer state is never selected implicitly. Every emitted executable
+  action carries the exact `.palari-company-os.json` selector; an omitted or
+  directory selector continues to resolve ordinary `workspace.json`.
+  Maintainer Profile v1 rejects host and Git-hook installation/removal and
+  `agent start --isolate` before mutation. It also blocks tasks with
+  push/merge/release/deployment/publication, provider or external writes,
+  credentials or secrets, or output paths overlapping its own state or Git
+  metadata. These restrictions do not replace ordinary checks, independent
+  review, human approval, or exact file boundaries.
 - Starter initialization declares a second, review-only Palari linked to the
   goal but outside the execution workbench. Source and goal linkage permit
   exact advisory review; the absence of workbench execution membership and
@@ -216,14 +250,17 @@ Safety rules:
   or journal is replaced. The storage transaction creating retirement cannot
   append authority or proof, and successful terminal work cannot be relabeled
   as retired.
-- Proof creation necessarily mutates `workspace.json` and the
-  governance journal. When one of those projection files is itself a declared
-  artifact, verification reads its bytes from the evidence's exact Git commit
-  instead of the later live file, then independently requires the live journal
-  to replay to the current workspace. Missing commits or blobs, hash mismatch,
-  local Git replacement objects, malformed chains, pending transactions, and
-  projection divergence fail closed. This exception does not apply to ordinary
-  output artifacts, whose current bytes must still match their evidence hashes.
+- Proof creation necessarily mutates the exact selected workspace and its
+  governance journal. For an ordinary Git-projected workspace, when one of
+  those projection files is itself a declared artifact, verification reads its
+  bytes from the evidence's exact Git commit instead of the later live file,
+  then independently requires the live journal to replay to the current
+  workspace. Maintainer hidden state is never treated as a source-candidate Git
+  projection or task output; its local witness supplies the separate exact
+  state binding. Missing commits or blobs, hash mismatch, local Git replacement
+  objects, malformed chains, pending transactions, and projection divergence
+  fail closed. This exception does not apply to ordinary output artifacts,
+  whose current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
   values, UTC-normalization overflows, and equivalent-instant competitors fail
@@ -241,10 +278,12 @@ execution can be treated as cryptographically authenticated.
 
 Palari's own source-repair exception is narrower than production governance and
 is documented in [Self-Hosting Maintainer Mode](self-hosting-maintainer-mode.md).
-The ignored, repository-bound live-state profile described there is not yet
-implemented. Until it is, maintainers must not use this source checkout's
-tracked root `workspace.json` or root `.palari` as live authorization state or
-claim that dogfood operation leaves the source checkout clean.
+Maintainer Profile v1 now supplies ignored, repository-bound live state for
+later reversible local source work. It does not import or mutate this source
+checkout's tracked root `workspace.json` or root `.palari`, and those historical
+artifacts do not become profile authorization state. The procedural exception
+used to bootstrap the implementation remains distinct from later profile
+records.
 
 PCAW v1 adds deterministic, offline tamper and policy-consistency checks for a
 canonical governance statement and its named artifact bytes. It is deliberately
@@ -264,12 +303,15 @@ strictly read-only predecessor. An operator may run
 `history --checkpoint` against its valid, fully committed head exactly to
 activate the current writer; pending v1 state cannot be completed by appending
 a current record. Activation verifies the complete v1 chain, leaves its bytes
-untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
-restore point binds the exact v1 file SHA-256, byte length, head record digest,
-record count, replay digest, transaction counts, and continuity state. Every
-later verification re-hashes the sealed v1 bytes and streams the strict v2
-JSONL tail from its content-bound workspace checkpoint. It does not trust a
-persistent advisory cache.
+untouched, and starts runtime-relative
+`.palari/governance-journal.v2.jsonl`, whose first restore point binds the
+exact v1 file SHA-256, byte length, head record digest, record count, replay
+digest, transaction counts, and continuity state. The physical maintainer
+runtime path is beneath `.palari-company-os/.palari/`; new maintainer profiles
+start directly in v2 and do not import ordinary v1 history. Every later
+verification re-hashes the sealed v1 bytes and streams the strict v2 JSONL tail
+from its content-bound workspace checkpoint. It does not trust a persistent
+advisory cache.
 
 New workspaces and explicit restore points for existing workspaces without history
 write v2 directly. Ordinary mutation of such a workspace fails closed until that

@@ -11,6 +11,7 @@ from .governance_journal import journal_file_path, workspace_digest
 from .pcaw_workspace import evaluate_workspace_completion_authority
 from .store import load_store, validate_data
 from .workspace import WorkspaceError
+from .workspace_layout import resolve_workspace_layout
 
 
 SCHEMA_VERSION = "palari.governance_convergence.v1"
@@ -439,6 +440,8 @@ def _blocked_result(
 
 def _governance_projection_paths(workspace_path: Path | str, git_root: Path) -> list[str]:
     data_path = load_store(workspace_path).data_path.resolve()
+    if resolve_workspace_layout(data_path).maintainer:
+        return []
     candidates = {
         data_path,
         journal_file_path(data_path),

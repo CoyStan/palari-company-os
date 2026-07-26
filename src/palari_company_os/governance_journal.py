@@ -18,7 +18,14 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable
 
+from .errors import WorkspaceError
 from .pcaw_canonical import IJSON_MAX_INTEGER
+from .workspace_layout import (
+    assert_runtime_file_descriptor,
+    resolve_workspace_layout,
+    runtime_path,
+    workspace_data_path,
+)
 
 
 SCHEMA_VERSION = "palari.governance-journal.v1"
@@ -229,12 +236,18 @@ def journal_file_path(data_path: Path | str) -> Path:
     activates v2. A workspace without a journal starts directly on v2.
     """
 
-    workspace_file = Path(data_path).expanduser()
-    if not workspace_file.is_absolute():
-        workspace_file = (Path.cwd() / workspace_file).resolve(strict=False)
-    root = workspace_file.parent.resolve(strict=False)
-    v2 = _safe_control_path(root, V2_JOURNAL_RELATIVE_PATH)
-    v1 = _safe_control_path(root, JOURNAL_RELATIVE_PATH)
+    workspace_file = workspace_data_path(data_path)
+    require_workspace = workspace_file.exists()
+    v2 = _journal_runtime_path(
+        workspace_file,
+        V2_JOURNAL_RELATIVE_PATH,
+        require_workspace=require_workspace,
+    )
+    v1 = _journal_runtime_path(
+        workspace_file,
+        JOURNAL_RELATIVE_PATH,
+        require_workspace=require_workspace,
+    )
     if v2.exists():
         return v2
     if v1.exists():
@@ -243,19 +256,49 @@ def journal_file_path(data_path: Path | str) -> Path:
 
 
 def legacy_journal_file_path(data_path: Path | str) -> Path:
-    workspace_file = Path(data_path).expanduser()
-    if not workspace_file.is_absolute():
-        workspace_file = (Path.cwd() / workspace_file).resolve(strict=False)
-    return _safe_control_path(workspace_file.parent.resolve(strict=False), JOURNAL_RELATIVE_PATH)
+    workspace_file = workspace_data_path(data_path)
+    return _journal_runtime_path(
+        workspace_file,
+        JOURNAL_RELATIVE_PATH,
+        require_workspace=workspace_file.exists(),
+    )
 
 
 def v2_journal_file_path(data_path: Path | str) -> Path:
-    workspace_file = Path(data_path).expanduser()
-    if not workspace_file.is_absolute():
-        workspace_file = (Path.cwd() / workspace_file).resolve(strict=False)
-    return _safe_control_path(
-        workspace_file.parent.resolve(strict=False), V2_JOURNAL_RELATIVE_PATH
+    workspace_file = workspace_data_path(data_path)
+    return _journal_runtime_path(
+        workspace_file,
+        V2_JOURNAL_RELATIVE_PATH,
+        require_workspace=workspace_file.exists(),
     )
+
+
+def _journal_runtime_path(
+    data_path: Path | str,
+    relative_path: str,
+    *,
+    require_workspace: bool,
+) -> Path:
+    try:
+        return runtime_path(
+            data_path,
+            relative_path,
+            require_workspace=require_workspace,
+        )
+    except WorkspaceError as exc:
+        message = (
+            f"governance journal path contains a symlink: {relative_path}"
+            if "symlink" in str(exc)
+            else str(exc)
+        )
+        raise JournalError(
+            "JOURNAL_UNSAFE_PATH",
+            message,
+            next_action=(
+                "Replace the unsafe control path with a real directory or file "
+                "inside the workspace."
+            ),
+        ) from exc
 
 
 def _journal_path_for_record(data_path: Path | str, record: dict[str, Any]) -> Path:
@@ -425,7 +468,11 @@ def append_record_fsync(
             "JOURNAL_RECORD_DIGEST_MISMATCH",
             "record content does not match record_digest",
         )
-    root = Path(data_path).expanduser().resolve(strict=False).parent
+    layout = resolve_workspace_layout(
+        data_path,
+        require_workspace=_workspace_data_path(data_path).exists(),
+    )
+    root = layout.state_root
     path = _journal_path_for_record(data_path, record)
     relative_path = str(path.relative_to(root))
     _ensure_safe_parent(path, root, relative_path)
@@ -435,13 +482,20 @@ def append_record_fsync(
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     existed = path.exists()
+    descriptor = -1
     try:
         descriptor = os.open(path, flags, 0o600)
-    except OSError as exc:
+        assert_runtime_file_descriptor(data_path, path, descriptor)
+    except (OSError, WorkspaceError) as exc:
+        if descriptor >= 0:
+            os.close(descriptor)
         raise JournalError(
             "JOURNAL_APPEND_FAILED",
             f"cannot open governance journal safely: {exc}",
-            next_action="Inspect the .palari path and retry without bypassing the journal.",
+            next_action=(
+                "Inspect the bound Palari runtime path and retry without "
+                "bypassing the journal."
+            ),
         ) from exc
     payload = _canonical_bytes(record) + b"\n"
     try:
@@ -1182,7 +1236,8 @@ def _scan_records(
 def _scan_v2_records(data_path: Path | str, *, path: Path | None = None) -> _JournalState:
     path = path or v2_journal_file_path(data_path)
     state = _empty_state()
-    state.journal_file = str(path.relative_to(_workspace_data_path(data_path).parent))
+    layout = resolve_workspace_layout(data_path)
+    state.journal_file = str(path.relative_to(layout.state_root))
     state.journal_schema_version = V2_SCHEMA_VERSION
     found = False
     last_terminal_id = ""
@@ -2428,18 +2483,28 @@ def _load_workspace_data(data_path: Path | str) -> dict[str, Any] | None:
 
 
 def _workspace_data_path(workspace_path: Path | str) -> Path:
-    path = Path(workspace_path).expanduser().resolve(strict=False)
-    return path / "workspace.json" if path.is_dir() else path
+    return workspace_data_path(workspace_path)
 
 
 def _verification_witness(
     data_path: Path,
 ) -> tuple[tuple[Any, ...], ...]:
-    return (
+    layout = resolve_workspace_layout(data_path)
+    witnesses = [
         _file_witness(data_path),
         _file_witness(legacy_journal_file_path(data_path)),
         _file_witness(v2_journal_file_path(data_path)),
-    )
+    ]
+    if layout.maintainer:
+        assert layout.binding_path is not None
+        assert layout.repository_id_path is not None
+        witnesses.extend(
+            (
+                _file_witness(layout.binding_path),
+                _file_witness(layout.repository_id_path),
+            )
+        )
+    return tuple(witnesses)
 
 
 def _file_witness(path: Path) -> tuple[Any, ...]:

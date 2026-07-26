@@ -41,10 +41,15 @@ from .verification_attestations import (
     VerificationProfile,
     cache_key,
     default_context,
+    expected_verification_commands,
     run_or_reuse,
     verification_profiles,
 )
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import (
+    MAINTAINER_WORKSPACE_FILENAME,
+    resolve_workspace_layout,
+)
 
 
 SCHEMA_VERSION = "palari.agent_advance.v1"
@@ -105,7 +110,10 @@ def agent_advance_dry_run(
         str(packet.get("context_hash") or ""),
     )
     preflight = _projection_bound_preflight(
-        cast(Workspace, SimpleNamespace(path=data_path.parent)),
+        cast(
+            Workspace,
+            SimpleNamespace(path=data_path.parent, data_path=data_path),
+        ),
         workspace_path,
         work_id,
         palari_id,
@@ -586,13 +594,42 @@ def agent_advance(
             ),
         }
     if low_risk:
-        complete_work(
-            str(workspace_path),
-            work_id,
-            "completed",
-            command="agent advance",
-            actor=palari_id,
-        )
+        current_evidence = _current_evidence(final_workspace, work)
+        if current_evidence is None:
+            return {
+                **payload,
+                "status": "state-changed",
+                "would_mutate": False,
+                "verification": verification_results,
+                "proof_steps": proof_steps,
+                "message": "Current exact evidence disappeared before completion.",
+            }
+        try:
+            complete_work(
+                str(workspace_path),
+                work_id,
+                "completed",
+                command="agent advance",
+                actor=palari_id,
+                prewrite_check=lambda: _assert_completion_source_state(
+                    workspace_path,
+                    work,
+                    resume_preflight,
+                    current_evidence,
+                ),
+            )
+        except ReconciliationStateChanged:
+            return {
+                **payload,
+                "status": "state-changed",
+                "would_mutate": False,
+                "verification": verification_results,
+                "proof_steps": proof_steps,
+                "message": (
+                    "Git head, tracked cleanliness, or artifact bytes changed "
+                    "at the completion boundary; inspect and retry safely."
+                ),
+            }
         proof_steps.append({"step": "lifecycle-complete", "status": "completed"})
         _release_claim_if_owned(
             Workspace.load(workspace_path),
@@ -658,6 +695,7 @@ def _collect_facts(
         palari_id,
         "execute",
         str(packet.get("context_hash") or ""),
+        allow_maintainer_journal_extension=allow_current_proof_projection,
     )
     preflight = _projection_bound_preflight(
         workspace,
@@ -801,6 +839,7 @@ def _preflight(
     packet: dict[str, Any] | None = None,
     allow_current_proof_projection: bool = False,
     scope_authority_workspace: Workspace | None = None,
+    maintainer_journal_status: str = "",
 ) -> dict[str, Any]:
     """Verify the exact claim-start Git range before proof reconciliation."""
 
@@ -815,6 +854,8 @@ def _preflight(
         "execute",
         str(packet.get("context_hash") or ""),
         scope_authority_workspace=scope_authority_workspace,
+        allow_maintainer_journal_extension=allow_current_proof_projection,
+        maintainer_journal_status=maintainer_journal_status,
     )
     if claim_result.get("status") != "pass":
         return _blocked_preflight(
@@ -840,17 +881,19 @@ def _preflight(
     proof_projection_paths: set[str] = set()
     if allow_current_proof_projection:
         data_path = workspace.data_path.resolve()
-        try:
-            relative_data = data_path.relative_to(root.resolve()).as_posix()
-            proof_projection_paths.add(relative_data)
-        except ValueError:
-            return _blocked_preflight(
-                "workspace proof paths escape the Git repository boundary"
-            )
+        layout = resolve_workspace_layout(data_path)
+        if not layout.maintainer:
+            try:
+                relative_data = data_path.relative_to(root.resolve()).as_posix()
+                proof_projection_paths.add(relative_data)
+            except ValueError:
+                return _blocked_preflight(
+                    "workspace proof paths escape the Git repository boundary"
+                )
     dirty = [
         path
         for path in status_inspection.get("changed_files", [])
-        if not _is_agent_runtime_path(path, root, workspace.path)
+        if not _is_agent_runtime_path(path, root, workspace.data_path)
         and path not in proof_projection_paths
     ]
     if dirty:
@@ -944,21 +987,22 @@ def _blocked_preflight(message: str) -> dict[str, Any]:
     }
 
 
-def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> bool:
+def _is_agent_runtime_path(path: str, git_root: Path, workspace_path: Path) -> bool:
     try:
-        relative_workspace = workspace_root.resolve().relative_to(
+        layout = resolve_workspace_layout(workspace_path)
+        relative_runtime = layout.runtime_root.resolve().relative_to(
             git_root.resolve()
         ).as_posix()
-    except ValueError:
+    except (OSError, ValueError, WorkspaceError):
         return False
-    base = f"{relative_workspace}/" if relative_workspace != "." else ""
+    base = f"{relative_runtime}/" if relative_runtime != "." else ""
     if path in {
-        f"{base}.palari/governance-journal.v1.jsonl",
-        f"{base}.palari/governance-journal.v2.jsonl",
+        f"{base}governance-journal.v1.jsonl",
+        f"{base}governance-journal.v2.jsonl",
     }:
         return True
     return any(
-        path.startswith(f"{base}.palari/{name}/")
+        path.startswith(f"{base}{name}/")
         for name in ("claims", "packets", "locks", "verification")
     )
 
@@ -1035,6 +1079,7 @@ def _projection_bound_preflight(
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
             scope_authority_workspace=scope_authority_workspace,
+            maintainer_journal_status=pending_journal_status,
         )
     data_path = workspace_file_path(workspace_path)
     snapshot_error = governance_projection_snapshot_error(
@@ -1043,6 +1088,10 @@ def _projection_bound_preflight(
         snapshot,
         require_worktree_match=not allow_current_proof_projection,
         scope_authority_workspace=scope_authority_workspace,
+        allow_maintainer_journal_extension=allow_current_proof_projection,
+        maintainer_journal_status=pending_journal_status,
+        maintainer_work_id=work_id,
+        maintainer_actor=palari_id,
     )
     if snapshot_error:
         return _projection_preflight_blocked(snapshot_error)
@@ -1085,6 +1134,7 @@ def _projection_bound_preflight(
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
             scope_authority_workspace=scope_authority_workspace,
+            maintainer_journal_status=pending_journal_status,
         )
     required = packet.get("required_output") or {}
     outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
@@ -1106,6 +1156,7 @@ def _projection_bound_preflight(
             packet=packet,
             allow_current_proof_projection=allow_current_proof_projection,
             scope_authority_workspace=scope_authority_workspace,
+            maintainer_journal_status=pending_journal_status,
         )
     if allow_current_proof_projection:
         from .governance_journal import verify_workspace_journal
@@ -1142,6 +1193,7 @@ def _projection_bound_preflight(
         packet=augmented_packet,
         allow_current_proof_projection=allow_current_proof_projection,
         scope_authority_workspace=scope_authority_workspace,
+        maintainer_journal_status=pending_journal_status,
     )
     if not result.get("ok"):
         return result
@@ -1333,6 +1385,26 @@ def _reconcile_proof(
         f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
         for item in verification
     ]
+    expected_commands = expected_verification_commands(
+        str(work.risk),
+        list(preflight["changed_files"]),
+        base_sha=str(preflight["base_sha"]),
+        head_sha=head_sha,
+    )
+    if (
+        commands != expected_commands
+        or any(
+            item.get("status") != "passed"
+            or not isinstance(item.get("duration_ms"), int)
+            or int(item.get("duration_ms", -1)) < 0
+            or not _exact_sha256_digest(item.get("stdout_digest"))
+            or not _exact_sha256_digest(item.get("stderr_digest"))
+            for item in verification
+        )
+    ):
+        raise ReconciliationStateChanged(
+            "verification results do not match the exact required profiles"
+        )
     path_intents = _work_path_intents(work)
     intent_paths = [item["path"] for item in path_intents]
     result = reconcile_agent_proof(
@@ -1633,16 +1705,26 @@ def _completed_projection(
             "The acting agent is not assigned to this task.",
         )
     if work.status in _TERMINAL:
+        terminal_steps = [{"step": "resume", "status": "already-completed"}]
+        _release_claim_if_owned(
+            workspace,
+            workspace_path,
+            work_id,
+            palari_id,
+            terminal_steps,
+        )
         return {
             "schema_version": SCHEMA_VERSION,
             "status": "completed",
             "work_item": work_id,
             "workspace": workspace.name,
             "can_advance": True,
-            "would_mutate": False,
+            "would_mutate": any(
+                step.get("status") == "released" for step in terminal_steps
+            ),
             "expected_state": "completed",
             "message": f"Task {work_id} is already complete.",
-            "steps": [{"step": "resume", "status": "already-completed"}],
+            "steps": terminal_steps,
         }
     refresh_binding = _changes_requested_refresh_binding(
         workspace,
@@ -1690,23 +1772,34 @@ def _completed_projection(
         actor=palari_id,
     )
     if convergence["status"] == "completed":
+        convergence_steps = [
+            {
+                "step": item["action"],
+                "status": item["status"],
+            }
+            for item in convergence["steps"]
+        ]
+        _release_claim_if_owned(
+            Workspace.load(workspace_path),
+            workspace_path,
+            work_id,
+            palari_id,
+            convergence_steps,
+        )
         return {
             "schema_version": SCHEMA_VERSION,
             "status": "completed",
             "work_item": work_id,
             "workspace": workspace.name,
             "can_advance": True,
-            "would_mutate": bool(convergence["would_mutate"]),
+            "would_mutate": bool(
+                convergence["would_mutate"]
+                or any(step.get("status") == "released" for step in convergence_steps)
+            ),
             "expected_state": "completed",
             "authority_source": "preexisting-current-human-decision",
             "performed_human_authority": False,
-            "proof_steps": [
-                {
-                    "step": item["action"],
-                    "status": item["status"],
-                }
-                for item in convergence["steps"]
-            ],
+            "proof_steps": convergence_steps,
             "convergence": convergence,
             "message": (
                 f"Task {work_id} used its current human approval and "
@@ -1793,13 +1886,30 @@ def _completed_projection(
                 "RESUME_PREFLIGHT_FAILED",
                 str(preflight["message"]),
             )
-        complete_work(
-            str(workspace_path),
-            work_id,
-            "completed",
-            command="agent advance",
-            actor=palari_id,
-        )
+        try:
+            complete_work(
+                str(workspace_path),
+                work_id,
+                "completed",
+                command="agent advance",
+                actor=palari_id,
+                prewrite_check=lambda: _assert_completion_source_state(
+                    workspace_path,
+                    work,
+                    preflight,
+                    evidence,
+                ),
+            )
+        except ReconciliationStateChanged:
+            return _resume_blocked(
+                workspace,
+                work_id,
+                "COMPLETION_SOURCE_CHANGED",
+                (
+                    "Git head, tracked cleanliness, or artifact bytes changed "
+                    "at the completion boundary; inspect and retry safely."
+                ),
+            )
         proof_steps.append({"step": "lifecycle-complete", "status": "completed"})
         workspace = Workspace.load(workspace_path)
         _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
@@ -2377,7 +2487,9 @@ def _exact_git_descendant(root: str, base_sha: str, head_sha: str) -> bool:
 
 
 def _exact_git_sha(value: str) -> bool:
-    return len(value) == 40 and all(char in "0123456789abcdef" for char in value)
+    return len(value) in {40, 64} and all(
+        char in "0123456789abcdef" for char in value
+    )
 
 
 def _exact_committed_paths(
@@ -2505,10 +2617,13 @@ def _projection_artifact_paths(
     git_root: Path,
 ) -> set[str] | None:
     try:
-        data_path = workspace_file_path(workspace_path).resolve()
+        layout = resolve_workspace_layout(workspace_path)
+        data_path = layout.data_path.resolve()
         relative_data = data_path.relative_to(git_root.resolve()).as_posix()
-    except (OSError, ValueError):
+    except (OSError, ValueError, WorkspaceError):
         return None
+    if layout.maintainer:
+        return set()
     relative_parent = Path(relative_data).parent.as_posix()
     projection_root = "" if relative_parent == "." else f"{relative_parent}/"
     return {
@@ -2776,6 +2891,7 @@ def _resume_claim_packet(
     palari_id: str,
     *,
     scope_authority_workspace: Workspace | None = None,
+    maintainer_journal_status: str = "",
 ) -> dict[str, Any]:
     if work.palari != palari_id:
         return {"ok": False, "message": "the acting agent is not assigned to this task"}
@@ -2793,6 +2909,8 @@ def _resume_claim_packet(
         "execute",
         str(packet.get("context_hash") or ""),
         scope_authority_workspace=scope_authority_workspace,
+        allow_maintainer_journal_extension=True,
+        maintainer_journal_status=maintainer_journal_status,
     )
     if checked.get("status") != "pass":
         return {
@@ -3216,28 +3334,13 @@ def _verification_commands_bound(
     commands: list[Any], work: dict[str, Any], preflight: dict[str, Any]
 ) -> bool:
     changed_files = list(preflight.get("changed_files") or [])
-    expected_profiles = verification_profiles(
+    expected = expected_verification_commands(
         str(work.get("risk") or ""),
         changed_files,
         base_sha=str(preflight.get("base_sha") or ""),
         head_sha=str(preflight.get("head_sha") or ""),
     )
-    if len(commands) != len(expected_profiles):
-        return False
-    context = default_context(
-        head_sha=str(preflight.get("head_sha") or ""),
-        base_sha=str(preflight.get("base_sha") or ""),
-        changed_paths=changed_files,
-        cleanliness="clean",
-    )
-    for command, profile in zip(commands, expected_profiles, strict=True):
-        if not isinstance(command, str):
-            return False
-        key = cache_key(profile, context)
-        attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
-        if command != f"{profile.id} attestation {attestation_id} {key}":
-            return False
-    return True
+    return commands == expected
 
 
 def _recovery_timestamps_bound(
@@ -3371,6 +3474,7 @@ def _resume_preflight(
         work,
         palari_id,
         scope_authority_workspace=scope_authority_workspace,
+        maintainer_journal_status=pending_journal_status,
     )
     if not authority["ok"]:
         return {
@@ -3470,6 +3574,44 @@ def _current_receipt(workspace: Workspace, work: Any) -> Any | None:
         if item.work_item_id == work.id and item.attempt_id == work.current_attempt
     ]
     return max(receipts, key=record_time_key) if receipts else None
+
+
+def _current_evidence(workspace: Workspace, work: Any) -> Any | None:
+    evidence = [
+        item
+        for item in workspace.evidence_runs
+        if item.work_item_id == work.id
+        and item.attempt_id == work.current_attempt
+        and item.status == "passed"
+    ]
+    return max(evidence, key=record_time_key) if evidence else None
+
+
+def _assert_completion_source_state(
+    workspace_path: Path,
+    work: Any,
+    preflight: dict[str, Any],
+    evidence: Any,
+) -> None:
+    expected_head = str(preflight.get("head_sha") or "")
+    if not expected_head or evidence.head_sha != expected_head:
+        raise ReconciliationStateChanged(
+            "completion evidence does not match the exact preflight Git head"
+        )
+    state = git_artifact_state(
+        Path(str(preflight.get("git_root") or workspace_path)),
+        list(evidence.artifacts),
+        governance_workspace_path=workspace_path,
+        path_intents=_work_path_intents(work),
+    )
+    if (
+        state.get("head_sha") != expected_head
+        or not state.get("clean")
+        or state.get("artifact_hashes") != list(evidence.artifact_hashes)
+    ):
+        raise ReconciliationStateChanged(
+            "Git head, tracked cleanliness, or artifact bytes changed before completion"
+        )
 
 
 def _low_risk_completion_policy(work: Any, receipt: Any | None) -> bool:
@@ -3579,12 +3721,34 @@ def _governed_artifacts(
         else None
     )
     excluded = projection_paths or set()
+    hidden_state: set[str] = set()
+    hidden_state_prefix = ""
+    legacy_workspace_projection = True
+    if workspace_path is not None and git_root is not None:
+        try:
+            layout = resolve_workspace_layout(workspace_path)
+            if layout.maintainer:
+                legacy_workspace_projection = False
+                hidden_state.add(
+                    layout.data_path.relative_to(git_root.resolve()).as_posix()
+                )
+                hidden_state_prefix = (
+                    layout.state_root.relative_to(git_root.resolve()).as_posix()
+                    + "/"
+                )
+        except (OSError, ValueError, WorkspaceError):
+            # The projection helper already turns an unsafe layout into a
+            # fail-closed result for callers that require exact classification.
+            if Path(workspace_path).name == MAINTAINER_WORKSPACE_FILENAME:
+                return []
     return sorted(
         path
         for path in set(paths)
         if path not in excluded
-        if not path.endswith("/workspace.json")
-        and path != "workspace.json"
+        if path not in hidden_state
+        and (not hidden_state_prefix or not path.startswith(hidden_state_prefix))
+        if not legacy_workspace_projection
+        or (not path.endswith("/workspace.json") and path != "workspace.json")
     )
 
 

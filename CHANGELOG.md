@@ -73,6 +73,15 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
+- Added Maintainer Profile v1 for reversible local work on Palari's own source.
+  `palari init --profile maintainer` now creates an ignored exact-selector
+  workspace at `.palari-company-os.json`, a repository-bound hidden state root
+  at `.palari-company-os/`, and its physical `.palari/` runtime beneath that
+  root without mutating tracked root `workspace.json` or `.palari` state.
+  Emitted actions retain the exact workspace selector, hidden state is excluded
+  from candidate Git projections, and v1 rejects credentials, secrets,
+  external writes, push, merge, release, deploy, profile-state output paths,
+  host installation or removal, and isolated-worktree start.
 - Completed the governed Linear loop: `palari linear connect` verifies
   credentials and prepares the integration record (reporting a missing
   `LINEAR_API_KEY` as a structured blocker instead of an error), `palari

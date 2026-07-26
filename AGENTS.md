@@ -51,14 +51,15 @@ handoff, human approval, closed work, and inspect-only states without parsing
 command strings.
 
 `agent brief` is a read-only preview. `agent start` is the entry point for a
-ready task: it saves the task brief under `.palari/packets/`, saves portable
-session rules under `.palari/packets/session-contracts/`, and writes a
-digest-bound local assignment under `.palari/claims/`. These directory names
-remain stable for compatibility. If the task is blocked, `agent start` reports
-the blockers and does not create an assignment. Add `--session-contract` to
-`agent brief` to inspect the provider-neutral session rules without taking the
-task. Those rules declare boundaries; they do not install a host sandbox or
-grant permission.
+ready task: it saves the task brief under the workspace's logical
+`.palari/packets/`, saves portable session rules under
+`.palari/packets/session-contracts/`, and writes a digest-bound local assignment
+under `.palari/claims/`. These directory names remain stable in stored records;
+the maintainer profile routes their physical files beneath its bound hidden
+state root. If the task is blocked, `agent start` reports the blockers and does
+not create an assignment. Add `--session-contract` to `agent brief` to inspect
+the provider-neutral session rules without taking the task. Those rules declare
+boundaries; they do not install a host sandbox or grant permission.
 
 `agent start --next` uses the same deterministic eligibility and task-brief
 rules as `agent next` plus explicit `agent start`; it does not broaden the
@@ -146,13 +147,35 @@ The full agent rules are in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 `handoff`, see `docs/product/agent-loop-smoke.md`.
 
-Fresh Git repositories may use `palari init --host HOST`; existing workspaces use
-the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
-where `HOST` is `claude` or `codex`. Both profiles install the portable session
-rules, commit-time Git boundary, and tested session hooks; Codex requires
-explicit `/hooks` trust. `palari claude install` remains the hook-only
-management, repair, and removal surface; see
+Fresh ordinary Git repositories may use `palari init --host HOST`; existing
+ordinary workspaces use the same action as
+`palari init WORKSPACE-DIR --host HOST --as PALARI-ID`, where `HOST` is
+`claude` or `codex`. Both tested host adapters install the portable session
+rules, commit-time Git boundary, and session hooks; Codex requires explicit
+`/hooks` trust. `palari claude install` remains the hook-only management,
+repair, and removal surface; see
 `docs/product/claude-code-integration.md`.
+
+When maintaining Palari's own source, initialize Maintainer Profile v1 only at
+a clean, committed Git worktree root:
+
+```bash
+palari init --profile maintainer --json
+palari --workspace .palari-company-os.json agent start \
+  --next --as PALARI-ID --json
+```
+
+The exact root filename is the only profile selector; default and directory
+discovery still select ordinary `workspace.json`. The ignored
+`.palari-company-os.json` and `.palari-company-os/` are strictly bound to the
+repository, with the physical runtime under `.palari-company-os/.palari/`.
+Never substitute this state for, or mutate, tracked root `workspace.json` or
+root `.palari`. At the repository root, every post-initialization operator
+command must carry `--workspace .palari-company-os.json`; every emitted action
+must carry the resolved exact path to that file. Version 1 permits only
+reversible local source work and blocks credentials, secrets, external writes,
+push, merge, release, deploy, Git metadata, and profile-state task paths. Host
+installation or removal and `agent start --isolate` are unsupported.
 
 ## Agent-Ready Repo Docs
 

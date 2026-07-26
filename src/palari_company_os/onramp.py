@@ -31,6 +31,11 @@ from .store import WorkspaceStore, load_store, write_store
 from .validation import COLLECTION_FILE_KEYS
 from .work_identity import generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
+from .workspace_layout import (
+    MAINTAINER_PROFILE,
+    begin_maintainer_initialization,
+    resolve_workspace_layout,
+)
 
 HUMAN_ID = "HUMAN-FOUNDER"
 REVIEWER_ID = "PALARI-REVIEWER"
@@ -152,6 +157,211 @@ def initialize_starter_workspace(
     bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
         directory, adoption_root, selected_host
     )
+    data, starter = _starter_workspace_data(
+        directory,
+        name=name,
+        palari_name=palari_name,
+    )
+    palari_label = starter["palari_label"]
+    palari_id = starter["palari_id"]
+    reviewer_id = starter["reviewer_id"]
+    human_name = starter["human_name"]
+
+    workspace = write_store(WorkspaceStore(data_path=workspace_file, data=data))
+    agent_docs = _write_missing_agent_docs(directory)
+    adoption: dict[str, Any] = {
+        "schema_version": "palari.agent_adoption.v1",
+        "status": "not-requested",
+        "host": "",
+        "changed": False,
+        "changed_files": [],
+        "message": "No host profile requested; the portable workspace remains active.",
+    }
+    if selected_host:
+        if bootstrap_adoption_blocker:
+            adoption = {
+                "schema_version": "palari.agent_adoption.v1",
+                "status": "blocked",
+                "host": selected_host,
+                "changed": False,
+                "changed_files": [],
+                "message": bootstrap_adoption_blocker,
+            }
+        else:
+            from .agent_adoption import adopt_agent_host
+
+            try:
+                adoption = adopt_agent_host(
+                    workspace_file,
+                    project_dir=adoption_root,
+                    host=selected_host,
+                    palari_id=palari_id,
+                )
+            except WorkspaceError as exc:
+                adoption = {
+                    "schema_version": "palari.agent_adoption.v1",
+                    "status": "blocked",
+                    "host": selected_host,
+                    "changed": False,
+                    "changed_files": [],
+                    "message": str(exc),
+                }
+    adoption_anchor_files: list[Path] = []
+    adoption_root = Path(str(adoption.get("project") or directory)).resolve()
+    for path in adoption.get("changed_files", []):
+        adoption_anchor_files.append(adoption_root / str(path))
+    authority_anchor = _anchor_starter_authority(
+        workspace_file,
+        created_docs=list(agent_docs["created"]),
+        additional_files=adoption_anchor_files,
+    )
+    command_name = str(adoption.get("executable") or _current_cli_executable())
+    workspace_arg = _workspace_cli_argument(directory)
+    next_commands = [
+        f'{quote(command_name)}{workspace_arg} work add "First task" --write docs/notes.md',
+        f"{quote(command_name)}{workspace_arg} agent start --next --as {palari_id} --json",
+    ]
+    if authority_anchor["status"] == "blocked":
+        next_commands = [authority_anchor["next_command"]]
+    elif adoption["status"] == "blocked":
+        next_commands = [
+            f"{quote(command_name)} init {quote(str(directory))} --host {selected_host} "
+            f"--as {palari_id} --json"
+        ]
+    return {
+        "schema_version": "palari.init.v1",
+        "workspace": workspace.name,
+        "workspace_file": str(workspace_file),
+        "valid": True,
+        "human": {"id": HUMAN_ID, "name": human_name},
+        "palari": {"id": palari_id, "name": palari_label},
+        "reviewer": {"id": reviewer_id, "name": "Independent Reviewer"},
+        "goal": GOAL_ID,
+        "workbench": WORKBENCH_ID,
+        "source": SOURCE_ID,
+        "agent_docs": agent_docs,
+        "adoption": adoption,
+        "authority_anchor": authority_anchor,
+        "next_commands": next_commands,
+        "message": (
+            f"Starter workspace '{workspace.name}' created. Add a bounded task "
+            "with: palari work add \"Title\" --write PATH. "
+            + str(authority_anchor["message"])
+            + (
+                f" Host adoption: {adoption.get('status', 'unknown')}."
+                if selected_host
+                else ""
+            )
+        ),
+    }
+
+
+def initialize_maintainer_workspace(
+    target: str | Path,
+    *,
+    name: str = "",
+    palari_name: str = "Claude",
+) -> dict[str, Any]:
+    """Create one fresh ignored, repository-bound maintainer workspace."""
+
+    initialization = begin_maintainer_initialization(target)
+    layout = initialization.layout
+    try:
+        data, starter = _starter_workspace_data(
+            layout.repository_root,
+            name=name,
+            palari_name=palari_name,
+        )
+        _apply_maintainer_capability_limits(data)
+        workspace = write_store(
+            WorkspaceStore(
+                data_path=layout.data_path,
+                data=data,
+                binding_witness=layout.binding_witness,
+            )
+        )
+        layout = initialization.complete()
+    except Exception:
+        initialization.rollback()
+        raise
+
+    palari_id = starter["palari_id"]
+    next_commands = [
+        palari_workspace_command(
+            layout.data_path,
+            "work",
+            "add",
+            "First task",
+            "--write",
+            "docs/notes.md",
+        ),
+        palari_workspace_command(
+            layout.data_path,
+            "agent",
+            "start",
+            "--next",
+            "--as",
+            palari_id,
+            "--json",
+        ),
+    ]
+    return {
+        "schema_version": "palari.init.v1",
+        "profile": MAINTAINER_PROFILE,
+        "workspace": workspace.name,
+        "workspace_file": str(layout.data_path),
+        "state_root": str(layout.state_root),
+        "runtime_root": str(layout.runtime_root),
+        "binding_file": str(layout.binding_path or ""),
+        "valid": True,
+        "human": {
+            "id": HUMAN_ID,
+            "name": starter["human_name"],
+        },
+        "palari": {
+            "id": palari_id,
+            "name": starter["palari_label"],
+        },
+        "reviewer": {
+            "id": starter["reviewer_id"],
+            "name": "Independent Reviewer",
+        },
+        "goal": GOAL_ID,
+        "workbench": WORKBENCH_ID,
+        "source": SOURCE_ID,
+        "agent_docs": {
+            "schema_version": "palari.agent_docs_bootstrap.v1",
+            "created": [],
+            "preserved": [],
+            "status": "not-required",
+        },
+        "adoption": {
+            "schema_version": "palari.agent_adoption.v1",
+            "status": "not-requested",
+            "host": "",
+            "changed": False,
+            "changed_files": [],
+            "message": (
+                "Maintainer profile v1 uses explicit commands and does not install "
+                "repository host hooks."
+            ),
+        },
+        "authority_anchor": _maintainer_authority_anchor(),
+        "next_commands": next_commands,
+        "message": (
+            f"Maintainer workspace '{workspace.name}' created as ignored, "
+            "repository-bound local state. Use only commands carrying its exact "
+            "--workspace selector."
+        ),
+    }
+
+
+def _starter_workspace_data(
+    directory: Path,
+    *,
+    name: str,
+    palari_name: str,
+) -> tuple[dict[str, Any], dict[str, str]]:
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
     palari_id = _palari_id(palari_label)
@@ -256,92 +466,39 @@ def initialize_starter_workspace(
             "status": "active",
         }
     ]
-
-    workspace = write_store(WorkspaceStore(data_path=workspace_file, data=data))
-    agent_docs = _write_missing_agent_docs(directory)
-    adoption: dict[str, Any] = {
-        "schema_version": "palari.agent_adoption.v1",
-        "status": "not-requested",
-        "host": "",
-        "changed": False,
-        "changed_files": [],
-        "message": "No host profile requested; the portable workspace remains active.",
+    return data, {
+        "workspace_name": workspace_name,
+        "palari_label": palari_label,
+        "palari_id": palari_id,
+        "reviewer_id": reviewer_id,
+        "human_name": human_name,
     }
-    if selected_host:
-        if bootstrap_adoption_blocker:
-            adoption = {
-                "schema_version": "palari.agent_adoption.v1",
-                "status": "blocked",
-                "host": selected_host,
-                "changed": False,
-                "changed_files": [],
-                "message": bootstrap_adoption_blocker,
-            }
-        else:
-            from .agent_adoption import adopt_agent_host
 
-            try:
-                adoption = adopt_agent_host(
-                    workspace_file,
-                    project_dir=adoption_root,
-                    host=selected_host,
-                    palari_id=palari_id,
-                )
-            except WorkspaceError as exc:
-                adoption = {
-                    "schema_version": "palari.agent_adoption.v1",
-                    "status": "blocked",
-                    "host": selected_host,
-                    "changed": False,
-                    "changed_files": [],
-                    "message": str(exc),
-                }
-    adoption_anchor_files: list[Path] = []
-    adoption_root = Path(str(adoption.get("project") or directory)).resolve()
-    for path in adoption.get("changed_files", []):
-        adoption_anchor_files.append(adoption_root / str(path))
-    authority_anchor = _anchor_starter_authority(
-        workspace_file,
-        created_docs=list(agent_docs["created"]),
-        additional_files=adoption_anchor_files,
-    )
-    command_name = str(adoption.get("executable") or _current_cli_executable())
-    workspace_arg = _workspace_cli_argument(directory)
-    next_commands = [
-        f'{quote(command_name)}{workspace_arg} work add "First task" --write docs/notes.md',
-        f"{quote(command_name)}{workspace_arg} agent start --next --as {palari_id} --json",
+
+def _apply_maintainer_capability_limits(data: dict[str, Any]) -> None:
+    limits = [
+        "push, merge, release, or deploy",
+        "perform provider or external writes",
+        "read credentials or secrets",
+        "modify maintainer profile state outside guarded Palari commands",
     ]
-    if authority_anchor["status"] == "blocked":
-        next_commands = [authority_anchor["next_command"]]
-    elif adoption["status"] == "blocked":
-        next_commands = [
-            f"{quote(command_name)} init {quote(str(directory))} --host {selected_host} "
-            f"--as {palari_id} --json"
-        ]
+    for palari in data.get("palaris", []):
+        forbidden = palari.setdefault("forbidden_actions", [])
+        for limit in limits:
+            if limit not in forbidden:
+                forbidden.append(limit)
+
+
+def _maintainer_authority_anchor() -> dict[str, Any]:
     return {
-        "schema_version": "palari.init.v1",
-        "workspace": workspace.name,
-        "workspace_file": str(workspace_file),
-        "valid": True,
-        "human": {"id": HUMAN_ID, "name": human_name},
-        "palari": {"id": palari_id, "name": palari_label},
-        "reviewer": {"id": reviewer_id, "name": "Independent Reviewer"},
-        "goal": GOAL_ID,
-        "workbench": WORKBENCH_ID,
-        "source": SOURCE_ID,
-        "agent_docs": agent_docs,
-        "adoption": adoption,
-        "authority_anchor": authority_anchor,
-        "next_commands": next_commands,
+        "schema_version": "palari.authority_anchor.v1",
+        "status": "not-required",
+        "commit": "",
+        "paths": [],
+        "next_command": "",
         "message": (
-            f"Starter workspace '{workspace.name}' created. Add a bounded task "
-            "with: palari work add \"Title\" --write PATH. "
-            + str(authority_anchor["message"])
-            + (
-                f" Host adoption: {adoption.get('status', 'unknown')}."
-                if selected_host
-                else ""
-            )
+            "Maintainer authority stays in ignored bound local state; Palari did "
+            "not add or commit the workspace or journal."
         ),
     }
 
@@ -477,9 +634,14 @@ def quick_add_work(
     work_items = store.data.setdefault("work_items", [])
     if any(item.get("id") == resolved_id for item in work_items):
         raise WorkspaceError(f"work already exists: {resolved_id}")
-    authority_anchor = _anchor_starter_authority(
-        store.data_path,
-        created_docs=_recoverable_agent_docs(store.data_path.parent),
+    layout = resolve_workspace_layout(store.data_path)
+    authority_anchor = (
+        _maintainer_authority_anchor()
+        if layout.maintainer
+        else _anchor_starter_authority(
+            store.data_path,
+            created_docs=_recoverable_agent_docs(store.data_path.parent),
+        )
     )
     if authority_anchor["status"] == "blocked":
         raise WorkspaceError(

@@ -40,7 +40,7 @@ matrix.
 | Restore-point recovery and split collections | parked | Reachable local recovery/read features pending a product decision; neither can approve or complete work. |
 | Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no permission or pre-1.0 compatibility promise. |
 | Broad generic planning and record authoring | parked | Retained while classification is ambiguous; the ordinary first-use path does not depend on it. |
-| Self-hosting maintainer state profile | deferred | The policy and migration plan are documented, but live governance state is not yet isolated from the source checkout. No runtime mode is shipped. |
+| Self-hosting maintainer state profile | core | Explicit, ignored, repository-bound local storage for reversible maintenance of Palari itself. It is never discovered implicitly and grants no host installation, isolated-worktree, secret, external-write, push, merge, release, or deployment authority. |
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |
 

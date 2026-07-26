@@ -54,7 +54,9 @@ split workspace files. Commands that write records currently refuse split files
 with a clear error instead of silently collapsing or corrupting collection
 files. This split-file reader is parked
 compatibility; there is no current split-file writer or schema migration
-exception.
+exception. Maintainer Profile v1 rejects any non-empty `collection_files`
+manifest at load time because its strict local-state witness covers one exact
+workspace file.
 
 The CLI validation path uses the Python models and strict workspace checks:
 
@@ -213,13 +215,20 @@ committed v1 chain and bind it during explicit activation, but it never creates
 or appends a v1 record. A pending v1 transaction fails closed; current recovery
 does not manufacture its missing terminal record.
 
-`palari.governance-journal.v2` is the sole current writer format and
-`.palari/governance-journal.v2.jsonl` is its only supported path. Its first
-committed prepare is a full content-bound checkpoint. Later mutation prepares
-replace the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
-`add` and `replace` carry the exact value; `remove` carries no value. Applying
-the delta must reproduce the recorded workspace digest and the delta must equal
-the deterministic minimal diff, otherwise verification fails closed.
+`palari.governance-journal.v2` is the sole current writer format. The stable
+runtime-relative path is `.palari/governance-journal.v2.jsonl`; the
+profile-aware resolver maps it to:
+
+- sibling `.palari/governance-journal.v2.jsonl` for an ordinary workspace; or
+- `.palari-company-os/.palari/governance-journal.v2.jsonl` for the explicit
+  maintainer workspace.
+
+Its first committed prepare is a full content-bound checkpoint. Later mutation
+prepares replace the repeated projection with a canonical, prefix-disjoint
+JSON Pointer delta: `add` and `replace` carry the exact value; `remove` carries
+no value. Applying the delta must reproduce the recorded workspace digest and
+the delta must equal the deterministic minimal diff, otherwise verification
+fails closed.
 
 An already-journaled v1 workspace activates v2 only through an explicit,
 idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified

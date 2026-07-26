@@ -1,11 +1,12 @@
 # Command Reference
 
 Most commands are read-only. Initialization and setup commands intentionally
-write to `workspace.json` after validation. No command merges, pushes, deploys,
-activates policy, or bypasses human approval. Generic integration commands do
-not call providers or read secrets. Linear is the one current live adapter; its
-explicit commands may read the configured credential for bounded reads or send
-an exact approved and queued comment, issue-status update, or issue creation.
+write the exact selected workspace after validation. No command merges, pushes,
+deploys, activates policy, or bypasses human approval. Generic integration
+commands do not call providers or read secrets. Linear is the one current live
+adapter; its explicit commands may read the configured credential for bounded
+reads or send an exact approved and queued comment, issue-status update, or
+issue creation.
 
 Running `palari --help` shows the small ordinary surface and its golden journey.
 Expert and recovery commands are intentionally omitted from
@@ -31,9 +32,9 @@ palari work add "Clean up launch notes" --write docs/notes.md
 palari agent start --next --as PALARI-CLAUDE --json
 ```
 
-`init` creates a starter workspace in an existing repository: one human (named
-from `git config user.name` when available), one builder agent (Claude by
-default; `--palari` is the exact compatibility flag), one distinct
+Ordinary `init` creates a starter workspace in an existing repository: one
+human (named from `git config user.name` when available), one builder agent
+(Claude by default; `--palari` is the exact compatibility flag), one distinct
 review-only agent, one goal, one project record (stored as a `workbench`), and
 one repository source. The reviewer is linked to the goal and selected source
 but is not execution-capable through the project workbench. It can inspect
@@ -66,6 +67,63 @@ escaping or malformed managed target, or unmanaged Git pre-commit hook blocks
 before adoption writes; co-located foreign host hooks are preserved.
 Palari-managed legacy Claude hooks are replaced by the current profile and can
 be removed without leaving duplicates.
+
+### Maintainer Profile
+
+Palari's own source repository can instead use an explicit, ignored local
+storage profile:
+
+```bash
+palari init --profile maintainer --json
+```
+
+Maintainer initialization is fresh-only and must run at the exact root of one
+Git worktree with a clean worktree and a committed `HEAD`. It refuses existing,
+symlinked, conflicting, or tracked profile paths and writes nothing partial on
+failure. On success it creates:
+
+```text
+.palari-company-os.json
+.palari-company-os/
+  binding.json
+  .palari/
+    governance-journal.v2.jsonl
+<Git common directory>/palari-maintainer-repository.json
+```
+
+It also adds exact root-local ignore rules for `.palari-company-os.json` and
+`.palari-company-os/` to the worktree's Git `info/exclude`. The strict binding
+contains random state and repository identifiers plus the fixed layout and
+canonical digest. The matching Git-common-directory record prevents accidental
+reuse in another clone. Neither record is a secret, signature, human identity,
+or approval.
+
+The command does not read, import, rewrite, add, or commit an existing root
+`workspace.json` or root `.palari`; it creates no agent docs or authority-anchor
+commit and performs no host adoption. `--host`, `--as`, host-hook installation
+or removal, Git-hook installation or removal, and `agent start --isolate` are
+unsupported for this profile and fail before partial profile mutation.
+
+Maintainer state is never discovered implicitly. A directory or omitted
+`--workspace` selector continues to resolve `workspace.json`. Every executable
+action emitted for this profile carries the exact selector, for example:
+
+```bash
+palari --workspace /repo/.palari-company-os.json agent start --next \
+  --as PALARI-ID --json
+```
+
+The JSON initialization result identifies `profile`, `workspace_file`,
+`state_root`, `runtime_root`, and `binding_file`. Its `agent_docs`,
+`adoption`, and `authority_anchor` fields explicitly report that those ordinary
+initialization actions were not required.
+
+Maintainer task briefs reject work that allows or already contains push,
+merge, release, deployment, publication, provider/external writes, credential
+or secret access, or profile/Git state outputs. Split collection files are also
+unsupported. The profile is for reversible local source work only; it does not
+weaken current checks, independent review, human approval, path boundaries, or
+journal continuity.
 
 `work add` creates one agent-startable task from a title and its writable
 files. `--write` paths become the enforced write boundary (and are declared on
@@ -270,11 +328,13 @@ the first fast status view for the whole workspace.
 ```
 
 Shows where workspace data lives without adding a memory engine or live
-connector. The map summarizes `workspace.json`, the active tamper-evident
-history, collection counts, declared external providers, sources, integrations, Palari
-memory-source references, dry-run integration activity, and what Palari does
-not store, such as raw tokens, provider responses, OAuth state, vector indexes,
-or autonomous approvals.
+connector. The map summarizes the exact selected workspace, the active
+tamper-evident history, collection counts, declared external providers,
+sources, integrations, Palari memory-source references, dry-run integration
+activity, and what Palari does not store, such as raw tokens, provider
+responses, OAuth state, vector indexes, or autonomous approvals. For
+Maintainer Profile v1 it reports `.palari-company-os.json` and the physical
+journal beneath `.palari-company-os/.palari/`.
 
 ## Docs
 
@@ -597,10 +657,13 @@ security limitations. It omits compilation time, absolute local paths, source
 contents, and provider payloads. Ready session rules still grant no
 execution permission; an active matching assignment is required.
 `agent start` is the execution entry point for ready work. It saves the exact
-task brief under `.palari/packets/`, saves the canonical session rules under
-`.palari/packets/session-contracts/`, records its path and digest in the local
-assignment record under `.palari/claims/`, and returns the task brief with
-`start` metadata. Missing, malformed, duplicate-key, digest-mismatched,
+task brief under runtime-relative `.palari/packets/`, saves the canonical
+session rules under `.palari/packets/session-contracts/`, records its path and
+digest in the local assignment record under `.palari/claims/`, and returns the
+task brief with `start` metadata. Those stable record names are beneath sibling
+`.palari/` for ordinary workspaces and physically beneath
+`.palari-company-os/.palari/` for the maintainer profile. Missing, malformed,
+duplicate-key, digest-mismatched,
 path-mismatched, or current-brief-mismatched session rules invalidate the
 assignment with restart guidance. Every stored `claim` uses schema v2 and requires both
 session-rule fields, so deleting both fails closed; unsupported `claim` schemas
@@ -659,6 +722,18 @@ lease creation and again before the durable assignment write. A declared actor
 and `agent handoff` do not reset that baseline. Preserve the original record
 and create a successor task for the changed rules.
 
+Maintainer assignments always use the normalized all-agent execute/review
+authority catalog because the ignored workspace is absent from the source
+candidate. The hashed baseline and oldest Git-witness reflog entry also bind
+the profile binding, state identifier, and repository identifier. The recorded
+state snapshot contains no hidden Git files; instead it carries an exact local
+witness over the workspace bytes and logical digest, verified journal head and
+record count, replay digest, profile binding, repository identity, and source
+Git head. Restart and proof reconciliation recheck that witness and allow only
+the verified append-only journal evolution produced by the guarded
+operation itself. Changed authority, binding, repository identity, source head,
+workspace state, or non-prefix history fails closed.
+
 `agent start` holds a per-task assignment-update lock throughout its start path.
 It acquires the shared workspace-write lock only for its final strict
 re-read, permission/snapshot revalidation, and local task-brief/assignment
@@ -679,7 +754,10 @@ creates or safely resumes a deterministic `palari/work-*` branch in a sibling
 workspace, branch, and exact resume command. It never removes an operator
 worktree and grants no review, approval, merge, push, deployment, or external
 write permission. Commit all intended task definitions first, then many
-independent sessions may call `--isolate` concurrently.
+independent sessions may call `--isolate` concurrently. Maintainer Profile v1
+rejects `--isolate` before creating a branch, worktree, assignment, or runtime
+record because ignored authority state cannot be reconstructed in a new
+worktree.
 
 The task brief includes the acting agent, work objective, goal/project context,
 allowed paths, allowed sources, forbidden actions, required output, completion
@@ -838,7 +916,8 @@ IDE-agnostic
 enforcement that works in any environment (Windsurf, Cursor, Devin, terminal).
 Use `--remove` to uninstall. `git status` shows whether the hook is installed
 and lists active assignments. `git pre-commit` is the check command the hook
-calls; it can also be run manually.
+calls; it can also be run manually. Maintainer Profile v1 rejects Git-hook
+installation and removal before mutation.
 
 Queue and detail status views keep `next_commands` oriented toward the human or
 operator step, such as `review guide` or `decision guide`. When a task is
@@ -910,6 +989,10 @@ dash-prefixed operands after `--` remain observable, and agent-safe Palari
 changes must target the hook's configured workspace. `claude status` reports
 installed hooks and active assignments. See
 [Claude Code Integration](claude-code-integration.md) for the full flow.
+
+Maintainer Profile v1 does not install or remove Claude or Codex host hooks.
+Those operations fail before host settings or profile state change; maintainer
+commands stay explicitly bound to the exact hidden workspace.
 
 ## Playbooks
 
@@ -1088,11 +1171,15 @@ fail closed instead of being guessed.
 `linear webhook serve` runs a local private dogfood receiver with `GET /health`
 and `POST /linear/webhook`. It verifies the raw payload HMAC signature,
 timestamp, and `Linear-Delivery` ID before recording accepted Issue events to
-`.palari/linear-events.jsonl`. Duplicate deliveries are ignored without
-workspace changes. Unlinked issues are recorded with an import next command.
-Linked proposals receive external refs, and non-adopted proposal title/summary
-may sync from Linear. Linked tasks receive external refs only. Remove/archive
-events never delete or rewrite Palari records.
+runtime-relative `.palari/linear-events.jsonl`. For ordinary workspaces that is
+the sibling path; the profile-aware resolver places it beneath
+`.palari-company-os/.palari/` for a maintainer workspace. Maintainer task briefs
+with provider or external-write state are nevertheless ineligible. Duplicate
+deliveries are ignored without workspace changes. Unlinked issues are recorded
+with an import next command. Linked proposals receive external refs, and
+non-adopted proposal title/summary may sync from Linear. Linked tasks receive
+external refs only. Remove/archive events never delete or rewrite Palari
+records.
 
 `linear start` starts only adopted Palari tasks. Without an adopted task it
 returns
@@ -1330,7 +1417,9 @@ Focused tests are known only if an optional local verification log exists at:
 .palari-company-os/verification.json
 ```
 
-This file is intentionally ignored by git.
+This file is intentionally ignored by git. It is advisory input to the parked
+repository-status view, not Maintainer Profile binding, current check results,
+or approval authority, even when the profile uses the same parent directory.
 
 ## Verification
 

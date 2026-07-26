@@ -33,6 +33,11 @@ from .agent_runtime import load_active_claim_contexts
 from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import (
+    MAINTAINER_STATE_ROOT,
+    MAINTAINER_WORKSPACE_FILENAME,
+    resolve_workspace_layout,
+)
 
 FILE_WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 HOOK_COMMAND_MARKER = "claude hook"
@@ -1558,10 +1563,12 @@ def _without_palari_runtime(
     root = git_repo_root(cwd)
     if root is None:
         return outside
-    runtime_dir = workspace_file_path(workspace_path).parent / ".palari"
     try:
-        prefix = runtime_dir.resolve().relative_to(root.resolve()).as_posix()
-    except (ValueError, OSError):
+        layout = resolve_workspace_layout(workspace_path)
+        prefix = layout.runtime_root.resolve().relative_to(
+            root.resolve()
+        ).as_posix()
+    except (ValueError, OSError, WorkspaceError):
         return outside
     return [path for path in outside if path != prefix and not path.startswith(f"{prefix}/")]
 
@@ -1665,8 +1672,9 @@ def _is_managed_entry(entry: Any) -> bool:
 
 def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
     try:
-        workspace_file_path(workspace_path).parent.resolve().relative_to(root.resolve())
-    except (OSError, ValueError):
+        layout = resolve_workspace_layout(workspace_path)
+        layout.repository_root.resolve().relative_to(root.resolve())
+    except (OSError, ValueError, WorkspaceError):
         return False
     return True
 
@@ -1708,7 +1716,37 @@ def _protected_governance_target(
         include_ancestors and any(target in path.parents for path in protected_files)
     ):
         return "workspace source of truth"
-    runtime = (data_path.parent / ".palari").resolve()
+    try:
+        layout = resolve_workspace_layout(data_path)
+    except WorkspaceError:
+        state_root = (
+            data_path.parent / MAINTAINER_STATE_ROOT
+            if data_path.name == MAINTAINER_WORKSPACE_FILENAME
+            else data_path.parent
+        ).resolve()
+        if data_path.name == MAINTAINER_WORKSPACE_FILENAME and (
+            target == state_root
+            or state_root in target.parents
+            or (include_ancestors and target in state_root.parents)
+        ):
+            return "Palari maintainer state"
+        runtime = (state_root / ".palari").resolve()
+        if (
+            target == runtime
+            or runtime in target.parents
+            or (include_ancestors and target in runtime.parents)
+        ):
+            return "Palari runtime state"
+        return ""
+    if layout.maintainer:
+        state_root = layout.state_root.resolve()
+        if (
+            target == state_root
+            or state_root in target.parents
+            or (include_ancestors and target in state_root.parents)
+        ):
+            return "Palari maintainer state"
+    runtime = layout.runtime_root.resolve()
     if (
         target == runtime
         or runtime in target.parents

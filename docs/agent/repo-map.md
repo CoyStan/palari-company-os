@@ -11,8 +11,13 @@ names stay exact because this is also a source-code map.
 
 - `src/palari_company_os/models.py`: typed workspace objects.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
-- `src/palari_company_os/workspace.py`: workspace loading and split collection files.
-- `src/palari_company_os/store.py`: validated writes to `workspace.json`.
+- `src/palari_company_os/workspace.py`: profile-aware workspace loading and
+  ordinary split collection files.
+- `src/palari_company_os/store.py`: validated, compare-and-swap workspace
+  writes with maintainer-binding revalidation.
+- `src/palari_company_os/workspace_layout.py`: exact workspace-file selection,
+  ordinary and maintainer runtime routing, strict repository/profile binding,
+  local Git excludes, and fail-closed maintainer initialization.
 - `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
   history, restore points, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
@@ -37,8 +42,8 @@ names stay exact because this is also a source-code map.
 - `src/palari_company_os/authority_plan.py`: pure builder/reviewer/final-human
   role feasibility and smallest-correction diagnostics.
 - `src/palari_company_os/authoring.py`: create and update work-process records.
-- `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
-  and atomic `work add` quick-create for existing repos.
+- `src/palari_company_os/onramp.py`: journal-activated ordinary `init`, explicit
+  `init --profile maintainer`, and atomic `work add` quick-create.
 - `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
   generation with no lifecycle ordering semantics.
 
@@ -59,16 +64,18 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/agent_session_contract.py`: pure deterministic
   provider-neutral session-contract projection, strict validation, digest, and
   honest enforcement profile.
-- `src/palari_company_os/agent_runtime.py`: task-brief persistence and local
-  task locks.
+- `src/palari_company_os/agent_runtime.py`: task-brief persistence, local task
+  locks, ordinary Git-projection witnesses, and maintainer authority-catalog
+  plus hidden local-state witnesses.
 - `src/palari_company_os/agent_directive.py`: pure state-to-owner/action
   compiler shared by agent read surfaces.
 - `src/palari_company_os/agent_operation.py`: request-local brief, check, and
   directive reuse.
 - `src/palari_company_os/agent_parking.py`: durable blocked-run parking and
   exact idempotent task-lock release without permission to approve.
-- `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
-  exact-target integration readiness, and non-authority diagnostics.
+- `src/palari_company_os/agent_isolation.py`: isolated Git worktree start for
+  ordinary workspaces, explicit maintainer-profile rejection, exact-target
+  integration readiness, and non-authority diagnostics.
 - `src/palari_company_os/agent_file_changes.py`: canonical Git change
   observation, start-time dirty baselines, and task-brief write-boundary checks.
 - `src/palari_company_os/agent_checks.py`: task-brief compliance checks.
@@ -92,9 +99,11 @@ When adding a command, update parser, dispatch, output, tests, and
 - `src/palari_company_os/mission_control.py`: optional local read-only
   supervision plus guarded integration-plan decisions. Exact human approval
   remains bound to the Approval Inbox action.
-- `src/palari_company_os/claude_hooks.py`: optional Claude Code host enforcement
-  of the task-brief write boundary (PreToolUse deny, Stop backstop, SessionStart
-  context); the core operating loop is provider-neutral.
+- `src/palari_company_os/agent_adoption.py`, `git_hooks.py`, and
+  `claude_hooks.py`: optional ordinary-workspace host enforcement of the
+  task-brief write boundary (commit gate, PreToolUse deny, Stop backstop,
+  SessionStart context) with explicit maintainer-profile rejection; the core
+  operating loop is provider-neutral.
 
 ## Review And Safety
 
@@ -120,9 +129,9 @@ When adding a command, update parser, dispatch, output, tests, and
   lifecycle, storage, adapters, and compatibility policy.
 - `docs/product/current-product-recovery-inventory.md`: measured recovery
   baseline, capability classifications, and test/CI inventory.
-- `docs/product/self-hosting-maintainer-mode.md`: bounded source-repair
-  exception, current isolation limitation, and the exact ignored-state
-  follow-up design.
+- `docs/product/self-hosting-maintainer-mode.md`: implemented Maintainer Profile
+  v1 storage, binding, capability boundary, operating procedure, and security
+  limitations.
 - `docs/agent/`: agent-ready repo documentation.
 - `docs/product/`: current product and operator documentation. Completed
   implementation contracts remain available through Git history rather than as
@@ -144,6 +153,25 @@ runtime state.
   atomic proof reconciliation, crash recovery, and idempotence.
 - `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
   interruption recovery, and interaction-count evidence.
+- `tests/maintainer_profile_fixture.py`: temporary Git repository, exact
+  no-mutation snapshots, and explicit-selector helpers for maintainer tests.
+- `tests/test_maintainer_profile_storage.py`: initialization, exact selection,
+  binding, repository moves, ignore, and ordinary-workspace compatibility.
+- `tests/test_maintainer_profile_security.py`: strict parsing, tamper, clone,
+  symlink, traversal, compare-and-swap, and journal failure cases.
+- `tests/test_maintainer_profile_cli.py`: explicit initialization, command
+  binding, host rejection, isolation rejection, rollback, and no-force-add
+  behavior.
+- `tests/test_maintainer_profile_routing.py`: physical hidden-state routing,
+  protected bookkeeping, candidate projection exclusion, and custom ordinary
+  workspace compatibility.
+- `tests/test_maintainer_profile_contract.py`: claim authority catalog, binding
+  and local-state witnesses, Git witness tamper, and capability denial.
+- `tests/test_maintainer_profile_runtime.py`: exact source attribution,
+  adversarial journal changes, proof reconciliation, crash recovery, and
+  terminal claim cleanup.
+- `tests/test_maintainer_profile_journey.py`: complete clean-checkout
+  single-maintainer path through independent review and one human approval.
 - `tests/test_agent_file_changes.py`: explicit path-intent and deletion
   tombstone enforcement plus the committed presence-contract reader boundary.
 - `tests/test_validation.py`: schema and boundary validation.

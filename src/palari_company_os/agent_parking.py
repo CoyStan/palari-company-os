@@ -38,6 +38,7 @@ from .governance_journal import (
 from .path_policy import canonical_path_allowed, validate_workspace_path
 from .store import WorkspaceStore, load_store, validate_data, workspace_file_path, write_store
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import resolve_workspace_layout
 
 
 SCHEMA_VERSION = "palari.agent_parking.v1"
@@ -718,6 +719,19 @@ def _normalize_retry_observation(
 
 
 def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        if root is None:
+            return [
+                layout.data_path.name,
+                f"{layout.state_root.name}/**",
+            ]
+        try:
+            workspace_file = layout.data_path.relative_to(root.resolve()).as_posix()
+            state_root = layout.state_root.relative_to(root.resolve()).as_posix()
+        except ValueError:
+            return []
+        return [workspace_file, f"{state_root}/**"]
     if root is None:
         return [
             ".palari/governance-journal.v2.jsonl",
@@ -727,7 +741,7 @@ def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
             ".palari/packets/**",
             ".palari/verification/**",
         ]
-    workspace_root = data_path.parent.resolve()
+    workspace_root = layout.state_root.resolve()
     try:
         prefix = workspace_root.relative_to(root.resolve()).as_posix()
     except ValueError:

@@ -60,11 +60,49 @@ path-limited `git commit --only` recovery action.
 An existing Palari workspace uses the same idempotent action: `palari init
 WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude` or
 `codex`. Without explicit `--host`, `init` still refuses an existing workspace.
-Both profiles have tested native session adapters; Codex project hooks require
-explicit `/hooks` trust. Other harnesses may consume the provider-neutral
-session rules and host-neutral Git check without a named session profile. Adoption
-grants no review, approval, merge, push, deployment, provider, or
-external-write permission.
+Both host profiles have tested native session adapters; Codex project hooks
+require explicit `/hooks` trust. Other harnesses may consume the
+provider-neutral session rules and host-neutral Git check without a named
+session profile. Adoption grants no review, approval, merge, push, deployment,
+provider, or external-write permission.
+
+### Maintainer Profile v1
+
+Maintaining Palari's own source can use a separate explicit storage profile:
+
+```bash
+palari init --profile maintainer --json
+```
+
+This fresh-only action runs at the exact root of a clean Git worktree with a
+committed `HEAD`. It creates ignored `.palari-company-os.json`, strict
+`.palari-company-os/binding.json`, runtime records beneath
+`.palari-company-os/.palari/`, local Git exclude rules, and a matching random
+repository identifier beneath the Git common directory. It does not read,
+import, add, commit, or rewrite an existing root `workspace.json` or root
+`.palari`, and it creates no agent-doc or authority-anchor commit.
+
+Hidden maintainer state is never discovered from the current directory. Every
+Palari command in the loop must retain the exact emitted selector:
+
+```bash
+palari --workspace /repo/.palari-company-os.json agent start --next \
+  --as PALARI-ID --json
+```
+
+That requirement applies equally to check, advance, review, handoff, approval,
+recovery, history, and status actions. Palari canonicalizes command-valued
+output fields to the selected workspace instead of trusting a missing or
+foreign selector.
+
+Maintainer Profile v1 supports reversible local source work only. Task briefs
+are blocked when task actions or current records allow, plan, queue, or report
+push, merge, release, publication, deployment, provider/external writes, or
+credential/secret access, or when output paths overlap `.palari-company-os`,
+`.palari-company-os.json`, or Git metadata. Split collection files, host or
+Git-hook installation/removal, and `agent start --isolate` are unsupported and
+fail before partial mutation. Review independence, exact checks, human
+approval, journal continuity, and task path boundaries remain unchanged.
 
 The ordinary loop is deliberately short:
 
@@ -252,7 +290,8 @@ Task Brief Contract v1 keeps provider actions read-only, but the local agent
 runtime writes brief/assignment audit state and, when Git has a committed head, a
 local Git witness for ready started work:
 
-- `.palari/packets/PACKET-...json` stores the exact bounded task brief.
+- Runtime-relative `.palari/packets/PACKET-...json` stores the exact bounded
+  task brief.
 - `.palari/packets/session-contracts/SESSION-CONTRACT-...json` stores the
   deterministic provider-neutral view of task limits, obligations, permission
   binding, enforcement status, and limitations. Its identifier is derived from
@@ -306,10 +345,24 @@ local Git witness for ready started work:
   Existing v2 witness refs, heads, optional catalog messages, leases, and
   projection snapshots are verified before a restart lease and again under the
   final lock before local claim persistence.
+  Maintainer claims always use the normalized all-Palari execute/review catalog
+  rather than workspace bytes from the candidate tree. The baseline and oldest
+  Git-witness reflog bind that catalog with the profile-binding digest and
+  random state/repository identifiers. Because hidden state is not a Git
+  projection, the projection snapshot instead carries a strict local witness
+  over workspace bytes and logical digest, verified journal head and record
+  count, replay digest, binding and repository identity, and source Git head.
+  Restart and proof reconciliation accept only exact state or the guarded
+  operation's verified append-only journal extension.
   Claims use schema v2 and require both portable-contract binding fields.
   Unsupported claim schemas fail closed and are not upgraded in place; the
   schema marker is declared local state, not authentication against a hostile
   same-user process.
+
+The stable `.palari/...` record names above are relative to the selected
+profile's state root. They are physically beneath sibling `.palari/` for an
+ordinary workspace and beneath `.palari-company-os/.palari/` for a maintainer
+workspace.
 
 Implemented:
 
@@ -424,14 +477,16 @@ in-scope write target, and execution-capable command environments, `git -c`,
 external diff/text-conversion options, and `rg --pre` cannot inherit a read-only
 classification. Opaque or indirect commands still ask when no claim is active,
 so releasing a claim cannot turn indirection into an authority bypass.
-Direct writes to the workspace root, declared split collection files,
-`.palari/`, or Git metadata are denied or escalated even without an active
-claim; option-encoded destinations such as `dd of=` and `--target-directory`
-are inspected, and linked worktree Git/common directories are included. Those
-surfaces must change through governed Palari/Git commands. Pager and filter
-options that can launch helpers are not read-only Git operations. Compact or
-newline-separated shell segments are tokenized identically, and ordinary
-existing-directory destinations resolve the effective destination basename.
+Direct writes to the selected workspace truth, declared split collection
+files, its bound runtime/state root (`.palari/` for ordinary storage or
+`.palari-company-os/` for maintainer storage), or Git metadata are denied or
+escalated even without an active claim; option-encoded destinations such as
+`dd of=` and `--target-directory` are inspected, and linked worktree
+Git/common directories are included. Those surfaces must change through
+governed Palari/Git commands. Pager and filter options that can launch helpers
+are not read-only Git operations. Compact or newline-separated shell segments
+are tokenized identically, and ordinary existing-directory destinations
+resolve the effective destination basename.
 Repository overrides and ripgrep preprocessor/hostname helpers require review.
 The CLI does not accept abbreviated long options at any parser nesting level,
 and the hook still scans protected Palari command pairs defensively. Unquoted

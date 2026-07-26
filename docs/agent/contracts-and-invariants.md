@@ -11,6 +11,25 @@ code change must match them. See
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
+- Ordinary discovery remains exact and unsurprising: a directory or omitted
+  selector resolves only `workspace.json`. Maintainer Profile v1 is selected
+  only by the exact root filename `.palari-company-os.json`; it is never found
+  implicitly.
+- Maintainer initialization requires the exact root of a clean Git worktree
+  with a committed `HEAD`. It creates ignored local
+  `.palari-company-os.json` and `.palari-company-os/` state, routes the physical
+  runtime to `.palari-company-os/.palari/`, and records a strict profile binding
+  plus a matching repository identifier in the Git common directory. Unknown,
+  duplicate, malformed, copied, stale, tracked, unignored, symlinked, or
+  repository-mismatched state fails closed.
+- Maintainer initialization and writes must not modify, import, migrate, or
+  select tracked root `workspace.json` or root `.palari`, and must not stage or
+  force-add hidden profile state. A whole-repository move remains valid only
+  when the worktree, Git common directory, repository identifier, workspace,
+  and bound control state move together.
+- Maintainer Profile v1 does not support split collection files. Profile writes
+  recheck the binding witness and exact workspace bytes under the local
+  mutation lock before replacement.
 - Task IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
@@ -105,6 +124,10 @@ code change must match them. See
 ## Agent Contract
 
 - `palari agent brief` is read-only.
+- Every command emitted for a maintainer workspace must carry the resolved
+  exact path to `.palari-company-os.json` as its `--workspace` selector,
+  replacing a missing or foreign selector. Default discovery must never become
+  an alternate path to hidden maintainer state.
 - `palari agent start` saves the exact task brief and writes a local task lock for
   ready execution work, including a hashed metadata-only Git dirty baseline
   and a dedicated local Git ref/reflog witness when Git is available. Releasing
@@ -134,6 +157,15 @@ code change must match them. See
   digest. A later actor/mode absent from that catalog or any changed
   catalog-bound authority fails closed. A historical current-only baseline
   without a catalog cannot be safely upgraded; preserve it and use a successor.
+- Maintainer claims always bind the normalized all-agent execute/review
+  authority catalog, source Git head, strict profile/repository binding, and an
+  exact hidden local-state witness covering the workspace and verified journal.
+  The logical `.palari/...` record names remain stable while their physical
+  files live beneath `.palari-company-os/`. Hidden profile data is local
+  bookkeeping, never candidate Git projection or governed source output.
+  Post-proof reconciliation may accept only a verified append-only journal
+  extension rooted at the claim's original journal head; unrelated or forged
+  local-state changes invalidate the claim.
 - A persisted Git witness is checked before lease acquisition and again while
   the final workspace lock is held. Missing refs, changed heads, and mismatched
   v2 catalog messages block restart before a durable claim can be renewed.
@@ -146,6 +178,10 @@ code change must match them. See
 - `agent start --isolate` requires a committed work definition, creates or
   resumes a deterministic local branch/worktree, and grants no review,
   acceptance, merge, push, deploy, or external-write authority.
+- Maintainer Profile v1 rejects `agent start --isolate` and every host
+  installation or removal path before branch, worktree, hook, docs, runtime, or
+  profile mutation. Ordinary profiles retain their current host and isolation
+  behavior.
 - Every new ready claim binds a deterministic portable session contract stored
   beneath `.palari/packets/session-contracts/`. The contract contains no
   wall-clock compilation time or absolute local path, grants no authority by
@@ -162,6 +198,11 @@ code change must match them. See
   an isolated temporary clone. Divergent projections always require refreshed
   exact proof even when the simulated merge is clean.
 - Blocked packets must not be claimed.
+- Maintainer packets are eligible only for reversible local source work. They
+  fail closed on credentials or secrets; allowed, planned, queued, or recorded
+  external writes; push, merge, release, deploy, publish, or provider-write
+  actions; and task paths that overlap `.palari-company-os.json`,
+  `.palari-company-os/`, or `.git/`.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes

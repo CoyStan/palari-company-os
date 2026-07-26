@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .read_models import queue_items
 from .record_order import record_time_key
@@ -329,6 +329,7 @@ def complete_work(
     *,
     command: str = "",
     actor: str = "",
+    prewrite_check: Callable[[], None] | None = None,
 ) -> MutationResult:
     store = load_store(workspace_path)
     workspace = validate_data(store.data_path, store.data)
@@ -366,6 +367,7 @@ def complete_work(
             "completed",
             tuple(objects),
         ),
+        prewrite_check=prewrite_check,
     )
     return MutationResult("completed", "work_items", work_id, workspace.name)
 
@@ -819,7 +821,18 @@ def reconcile_agent_proof(
             expected_artifact_hashes,
         )
         try:
-            workspace = write_store(store, metadata=metadata, crash_hook=crash_hook)
+            workspace = write_store(
+                store,
+                metadata=metadata,
+                crash_hook=crash_hook,
+                prewrite_check=lambda: _assert_reconciliation_git_state(
+                    proof_root,
+                    workspace_path,
+                    artifacts,
+                    expected_git_head,
+                    expected_artifact_hashes,
+                ),
+            )
         except WorkspaceError as exc:
             if str(exc) in _WORKSPACE_CAS_MESSAGES:
                 raise ReconciliationStateChanged(
@@ -886,6 +899,7 @@ def _prepare_record_for_create(
             stamped,
             store.data_path.parent,
             attempts=_records(store, "attempts"),
+            governance_workspace_path=store.data_path,
         )
     if kind == "receipt":
         from .evidence_manifest import stamp_receipt_record
@@ -945,6 +959,7 @@ def _prepare_record_for_update(
                 record,
                 store.data_path.parent,
                 attempts=_records(store, "attempts"),
+                governance_workspace_path=store.data_path,
             )
         )
     if kind == "receipt":

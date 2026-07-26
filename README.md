@@ -137,6 +137,36 @@ host-neutral Git check, but only Claude and Codex have tested session profiles.
 No profile grants permission to review, approve, merge, push, deploy, call a
 provider, or perform an external write.
 
+### Maintain Palari itself
+
+Palari's own source repository has an explicit Maintainer Profile v1 for
+reversible local source work. Initialize it only from a clean, committed Git
+worktree root:
+
+```bash
+palari init --profile maintainer --json
+palari --workspace .palari-company-os.json work add \
+  "Repair one local source boundary" --modify PATH --json
+palari --workspace .palari-company-os.json agent start \
+  --next --as PALARI-ID --json
+```
+
+The exact filename `.palari-company-os.json` is the profile selector. Directory
+and default discovery continue to select ordinary `workspace.json`; hidden
+maintainer state is never discovered implicitly. Initialization adds local Git
+exclude rules and creates ignored, repository-bound state in
+`.palari-company-os.json` and `.palari-company-os/`, including its physical
+`.palari-company-os/.palari/` runtime. It does not replace or mutate a tracked
+root `workspace.json` or root `.palari`.
+
+Every generated Palari action carries the exact resolved path to
+`.palari-company-os.json` as its `--workspace` selector; the commands above use
+the root-relative equivalent. Version 1 permits local, reversible source
+maintenance only: tasks that involve credentials or secrets, external writes,
+push, merge, release, deploy, Git metadata, or the profile's own control state
+are blocked. Host installation and removal and `agent start --isolate` are
+unsupported for this profile.
+
 Use `--write PATH` when only final presence matters. When the kind of change
 matters, declare it exactly:
 
@@ -237,6 +267,8 @@ Implemented now:
 - deterministic PCAW v1 export and offline verification;
 - an Approval Inbox that safely groups eligible human actions;
 - dry-run integration plans and cancelable outbox records;
+- an explicit, ignored, repository-bound Maintainer Profile v1 for reversible
+  local maintenance of Palari's own source;
 - a bounded Linear adapter for issue reads/imports, approved comments, approved
   status updates, approved issue creation, and verified webhooks; and
 - network-free examples, CI, complete verification, and install smoke tests.
@@ -341,7 +373,7 @@ Start here:
 - [Command Reference](docs/product/command-reference.md) for CLI details;
 - [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small;
 - [Self-Hosting Maintainer Mode](docs/product/self-hosting-maintainer-mode.md)
-  for the bounded source-repair exception and isolated-state follow-up;
+  for the implemented local-only profile and its security boundary;
 - [Public Surface](docs/product/public-surface.md) for current, optional, and parked features;
 - [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation; and
 - [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import MAINTAINER_PROFILE, is_maintainer_workspace
 
 
 @dataclass(frozen=True)
@@ -294,6 +295,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             if bool(args.start_next) == bool(args.work_id):
                 raise WorkspaceError(
                     "agent start requires exactly one of WORK-ID or --next"
+                )
+            if args.isolate and is_maintainer_workspace(agent_workspace.data_path):
+                raise WorkspaceError(
+                    "maintainer profile v1 does not support agent start --isolate; "
+                    "start the task in the current Git worktree with the exact "
+                    "--workspace selector"
                 )
             if args.start_next:
                 if args.isolate:
@@ -912,8 +919,36 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "init":
         from .agent_adoption import adopt_agent_host, run_agent_hook
-        from .onramp import initialize_starter_workspace
+        from .onramp import (
+            initialize_maintainer_workspace,
+            initialize_starter_workspace,
+        )
         from .store import workspace_file_path
+
+        if args.profile == MAINTAINER_PROFILE:
+            unsupported = []
+            if args.host:
+                unsupported.append("--host")
+            if args.palari_id:
+                unsupported.append("--as")
+            if args.hook_event:
+                unsupported.append("--hook-event")
+            if unsupported:
+                raise WorkspaceError(
+                    "maintainer profile v1 does not support "
+                    + ", ".join(unsupported)
+                    + "; rerun init --profile maintainer without host adoption. "
+                    "No maintainer state was written"
+                )
+            return CommandResult(
+                "init",
+                initialize_maintainer_workspace(
+                    args.path,
+                    name=args.name,
+                    palari_name=args.palari,
+                ),
+                args.json,
+            )
 
         if args.hook_event:
             if not args.host:

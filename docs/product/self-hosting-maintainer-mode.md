@@ -2,26 +2,31 @@
 
 Palari must be repairable without making its own source candidate depend on a
 broken instance of the workflow being repaired. This document defines the
-temporary exception used for the current repair and the narrower mechanical
-profile that should replace that exception.
+temporary exception used to deliver that repair and the narrower mechanical
+profile now available for later source maintenance.
 
 ## Current Status
 
-The maintainer policy in this document is partly procedural and partly a
-follow-up design.
+Maintainer Profile v1 is implemented as an explicit, ignored,
+repository-bound local storage profile:
 
-The current repair uses the procedural exception below. Palari now retains the
-exact explicitly selected workspace filename so emitted commands do not fall
-back to a sibling `workspace.json`, but an ignored, bound live-state profile is
-**not implemented yet**. Palari must not claim that
-assignments, checks, reviews, or approvals can currently be recorded in an
-isolated local workspace while keeping this source checkout clean.
+```text
+palari init --profile maintainer
+```
+
+It records assignments, checks, reviews, approvals, and local results beneath
+the bound hidden state root while source identity remains the exact Git
+candidate. Every emitted executable action selects the exact hidden workspace;
+omitting that selector continues to resolve only an ordinary `workspace.json`.
 
 The tracked root `workspace.json` and root `.palari` directory remain product
-artifacts and historical evidence. For the current repair they may be
-inspected, but they must not be used or changed as live governance state.
-Tests that exercise workspace changes must use temporary repositories,
-temporary workspaces, or existing fixtures.
+artifacts and historical evidence. Maintainer Profile v1 neither imports nor
+mutates them. Tests that exercise profile state use temporary Git repositories
+and temporary workspaces.
+
+The source change that first implemented this profile used the bounded
+procedural exception below. A feature cannot retroactively authorize its own
+bootstrap candidate.
 
 ## Founder-Authorized Exception For This Repair
 
@@ -94,18 +99,17 @@ the following are true:
 
 Tests and review are evidence. Only the final human action is acceptance.
 
-## Proposed Mechanical Profile V1
+## Mechanical Profile V1
 
-The follow-up should add one explicit profile rather than discover Palari by
-repository name or silently select hidden state:
+The profile is selected explicitly rather than by repository name or silent
+hidden-state discovery:
 
 ```text
 palari init --profile maintainer
 ```
 
-The exact CLI remains subject to implementation review, but the profile must
-be explicit. Ordinary current-directory workspace resolution and existing
-explicit `--workspace FILE|DIR` behavior must remain unchanged.
+Ordinary current-directory workspace resolution and existing explicit
+`--workspace FILE|DIR` behavior remain unchanged.
 
 The smallest viable layout keeps the live workspace file at the repository
 root so existing source, artifact, documentation, Git, MCP, and PCAW paths keep
@@ -115,7 +119,6 @@ the repository root as their boundary:
 .palari-company-os.json
 .palari-company-os/
   binding.json
-  verification.json
   .palari/
     governance-journal.v2.jsonl
     claims/
@@ -126,6 +129,10 @@ the repository root as their boundary:
 
 Both root entries are local and ignored. The current tracked `workspace.json`
 and root `.palari` directory remain untouched.
+
+The optional `.palari-company-os/verification.json` consumed by the parked
+external-maintainer status view may coexist with this layout. It is advisory
+and is not profile binding, current check results, or approval authority.
 
 Every generated action for this profile must select the exact live workspace,
 for example:
@@ -140,7 +147,7 @@ may silently fall back to the tracked workspace.
 
 ### Exact Workspace And Control Paths
 
-The implementation should preserve two distinct internal facts:
+The implementation preserves two distinct internal facts:
 
 - `Workspace.path` remains the canonical repository and artifact root.
 - `Workspace.data_path` is the exact selected workspace file.
@@ -161,8 +168,8 @@ inspectable local files. Generated status views remain derived from them.
 
 ### Repository Binding
 
-`binding.json` should be a strict, versioned local format separate from
-workspace schema v2. It should bind at least:
+`binding.json` is a strict, versioned local format separate from workspace
+schema v2. It binds:
 
 - the `maintainer` profile;
 - one random state identifier;
@@ -184,7 +191,11 @@ Every load and write must fail closed unless:
 - neither the workspace, binding, control path, nor relevant path component is
   a symlink;
 - existing targets have the required regular-file or real-directory type;
+- existing runtime regular files have exactly one hard link, and mutable
+  append targets are rebound to the same unaliased inode after opening;
 - both local-state paths are ignored from the source worktree;
+- every exact runtime and workspace-staging target remains ignored even when
+  repository ignore rules contain higher-precedence exceptions;
 - no file beneath either local-state path is tracked; and
 - the binding remains unchanged between load and mutation.
 
@@ -198,7 +209,7 @@ authenticate a hostile process that can rewrite both state and Git metadata.
 
 ### Journal Integrity
 
-The current v2 transaction and replay rules should remain unchanged:
+The current v2 transaction and replay rules remain unchanged:
 
 - one prepared record is fsynced before workspace replacement;
 - workspace replacement is atomic and fsynced;
@@ -220,7 +231,7 @@ Palari must therefore never respond by force-adding or committing that
 workspace.
 
 For maintainer mode, the existing normalized all-agent execute/review authority
-catalog should become the mandatory immutable authority origin:
+catalog is the mandatory immutable authority origin:
 
 1. Capture the exact source Git head and dirty baseline.
 2. Compile the current normalized authority catalog from strict live workspace
@@ -234,9 +245,9 @@ catalog should become the mandatory immutable authority origin:
 6. Reject any changed actor, role, task, source, path, capability, completion
    rule, or reviewer authority.
 
-The current Git projection snapshot will not contain ignored workspace or
-journal blobs. A maintainer claim therefore also needs a strict local-state
-witness containing:
+The Git projection snapshot does not contain ignored workspace or journal
+blobs. A maintainer claim therefore also contains a strict local-state witness
+covering:
 
 - the profile-binding digest;
 - the exact workspace digest;
@@ -250,7 +261,7 @@ authority.
 
 ### Profile Capability Limits
 
-Maintainer profile v1 must reject tasks or actions that allow, plan, queue, or
+Maintainer Profile v1 rejects tasks or actions that allow, plan, queue, or
 perform:
 
 - push, merge, release, or deployment;
@@ -260,8 +271,8 @@ perform:
 - mutation of the profile's own workspace, binding, journal, assignments, or
   Git witnesses outside Palari's guarded commands.
 
-Host installation and isolated-worktree start should be explicitly unsupported
-in v1:
+Host installation and isolated-worktree start are explicitly unsupported in
+v1:
 
 - host installation changes repository-local candidate files and would defeat
   the state-only initialization boundary;
@@ -274,7 +285,7 @@ profiles retain their current host and isolation behavior.
 
 ## Compatibility
 
-The follow-up should be additive:
+The profile is additive:
 
 - workspace schema v2 remains unchanged;
 - the governance journal schemas and record bytes remain unchanged;
@@ -292,9 +303,9 @@ The follow-up should be additive:
 The binding file is a new local safety format, not workspace schema growth and
 not portable approval authority.
 
-## Acceptance Tests For The Follow-Up
+## Acceptance Tests
 
-The profile is not complete until temporary-repository tests prove:
+Temporary-repository tests cover:
 
 - initialization leaves tracked root `workspace.json` and root `.palari`
   bytes unchanged;
@@ -319,8 +330,15 @@ The profile is not complete until temporary-repository tests prove:
 - traversal, sibling-prefix confusion, and symlinks at the workspace, control,
   binding, journal, and repository-identifier paths fail before reads or
   writes;
+- noncanonical protected paths, hard-linked runtime files, and non-regular
+  runtime targets fail before a task becomes eligible or bytes are written;
+- an interrupted workspace replacement leaves staging bytes only beneath the
+  ignored bound runtime root, never as an unignored repository-root file;
 - a changed binding or workspace during a command loses the compare-and-swap
   race and writes nothing;
+- initialization rolls back its binding, runtime directory, ignore additions,
+  and repository identifier even when failure occurs immediately after an
+  atomic replacement;
 - simple local approval remains one real human action and performs no external
   effect;
 - profile tasks with external or irreversible actions are ineligible;
@@ -335,10 +353,9 @@ and a clean source worktree at every boundary.
 
 ## Migration And Rollback
 
-Maintainer profile v1 should not automatically import, move, rewrite, or
-delete an existing tracked workspace or journal. In particular, it must not
-copy this repository's root state or historical dogfood state into the new
-profile.
+Maintainer Profile v1 does not automatically import, move, rewrite, or delete
+an existing tracked workspace or journal. In particular, it does not copy this
+repository's root state or historical dogfood state into the new profile.
 
 Initial adoption should create a fresh, explicitly selected maintainer
 workspace. Existing ordinary workspaces remain ordinary and continue to work
@@ -369,25 +386,22 @@ An older Palari version that does not understand the binding and control-root
 layout must refuse or leave those files untouched; it must not reinterpret
 them as an ordinary workspace.
 
-## Tightly Scoped Delivery Plan
+## Implemented Scope
 
-The follow-up should remain one bounded storage and lifecycle slice:
+The implementation is one bounded storage and lifecycle slice:
 
-1. Extend the retained exact `Workspace.data_path` into the profile-aware
-   control-root resolver while keeping `Workspace.path` as the repository root.
-2. Add and test one binding-aware control-root resolver used by store locks,
-   journal paths, task runtime files, verification caches, and protected-path
-   checks.
-3. Add explicit maintainer initialization, local ignore preflight, strict
-   binding, and command selection without host installation.
-4. Add catalog-bound claim authority and the local workspace/journal witness;
-   remove the force-add recovery path only for a valid maintainer profile.
-5. Route review, Approval Inbox, simple approval, evidence, PCAW, history, and
-   status operations through the exact data path.
-6. Add the negative path/security tests and the complete single-maintainer
-   journey above.
-7. Update current-product, security, source-of-truth, command, backup, and
-   agent-contract documentation only after the behavior is mechanically true.
+1. `Workspace.path` remains the repository root while `Workspace.data_path`
+   retains the exact selected file.
+2. One binding-aware resolver owns store locks, journal paths, task-runtime
+   files, verification caches, and protected-path checks.
+3. Initialization performs the Git-root, clean-candidate, ignore, tracking,
+   path-type, and strict-binding preflights before use.
+4. Claims bind the authority catalog, profile and repository identifiers, Git
+   witness and lease, and exact local workspace/journal witness.
+5. Review, Approval Inbox, simple approval, evidence, PCAW, history, and status
+   operations retain the exact selected workspace.
+6. Negative path/security tests and the complete single-maintainer journey run
+   only in temporary repositories.
 
-This plan does not require a new workspace schema, background service,
+The profile adds no workspace-schema or PCAW change, background service,
 database, provider integration, secret, dashboard, or language rewrite.

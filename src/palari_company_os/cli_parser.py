@@ -5,6 +5,7 @@ from typing import Any
 
 from .agent_adoption import SUPPORTED_HOSTS
 from .workspace import default_workspace_path
+from .workspace_layout import MAINTAINER_PROFILE, ORDINARY_PROFILE
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +69,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--palari",
         default="Claude",
         help="Name for the starter agent. Defaults to Claude.",
+    )
+    init_parser.add_argument(
+        "--profile",
+        choices=(ORDINARY_PROFILE, MAINTAINER_PROFILE),
+        default=ORDINARY_PROFILE,
+        help=(
+            "Storage profile. 'ordinary' keeps workspace.json; 'maintainer' creates "
+            "explicit ignored local state for maintaining Palari itself."
+        ),
     )
     init_parser.add_argument(
         "--host",

@@ -25,17 +25,10 @@ def bind_palari_workspace_command(
 ) -> str:
     """Bind one static emitted Palari command to the exact selected workspace."""
 
-    try:
-        tokens = split(command)
-    except ValueError:
+    arguments = palari_command_parts(command)
+    if not arguments:
         return command
-    if not tokens or tokens[0] != "palari":
-        return command
-    if len(tokens) >= 2 and (
-        tokens[1] == "--workspace" or tokens[1].startswith("--workspace=")
-    ):
-        return command
-    return palari_workspace_command(workspace_path, *tokens[1:])
+    return palari_workspace_command(workspace_path, *arguments)
 
 
 def palari_command_parts(command: str) -> tuple[str, ...]:
@@ -101,6 +94,7 @@ def bind_palari_command_payload(
                 or key == "commands"
                 or key.endswith("_command")
                 or key.endswith("_commands")
+                or key == "next_action"
                 or key == "next_safe_action"
             ),
         )
@@ -145,6 +139,7 @@ def portable_palari_command_payload(
                 or key == "commands"
                 or key.endswith("_command")
                 or key.endswith("_commands")
+                or key == "next_action"
                 or key == "next_safe_action"
             ),
         )

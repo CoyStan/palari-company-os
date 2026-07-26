@@ -135,11 +135,19 @@ implementation must use them exactly.
 PCAW v1 is unsigned. It does not authenticate declared identities, authorize
 external actions, or provide portable deletion-history proof.
 
-The current durable workspace format is:
+The current durable workspace schema remains version 2. Its physical layout
+depends on the explicitly selected storage profile:
 
-- `workspace.json` with `schema_version: 2`; and
-- `.palari/governance-journal.v2.jsonl`, the file that stores tamper-evident
-  history for current changes.
+| Profile | Current state | Bound control state |
+| --- | --- | --- |
+| Ordinary | `workspace.json`, or another explicitly named workspace file | sibling `.palari/` |
+| Maintainer | root-level `.palari-company-os.json` | root-level `.palari-company-os/`, with runtime records beneath `.palari-company-os/.palari/` |
+
+Maintainer Profile v1 is initialized only with `palari init --profile
+maintainer`. It is never selected by repository name or current-directory
+discovery. Its strict `binding.json` and Git-common-directory repository
+identifier bind the hidden state to one repository; they are local safety
+preconditions, not workspace schema, human identity, or approval.
 
 New projects write v2 directly. Existing projects without journal continuity
 need an explicit v2 checkpoint before mutation. The v1 filename accepts only
@@ -147,20 +155,25 @@ strict legacy records and is never a compatibility path for v2 output.
 
 Task briefs (`packets`), assignments (`claims`), session rules
 (`session-contracts`), caches, and Git-witness files are local runtime state,
-not alternate workspace truth. These parenthetical names explain stable JSON and
-file paths; ordinary UI text uses the plain terms. `.palari/history.jsonl` is a
-preserved historical file, not a current writer or source of permission.
+not alternate workspace truth. Their stable stored paths remain `.palari/...`
+relative to the selected profile's state root; in maintainer mode their
+physical paths are beneath `.palari-company-os/.palari/`. These parenthetical
+names explain stable JSON and file paths; ordinary UI text uses the plain
+terms. `.palari/history.jsonl` is a preserved historical file, not a current
+writer or source of permission.
 
 A full history audit is explicit. Ordinary `queue`, `detail`, and `state`
 commands translate recorded data into status views; they do not re-read output
 bytes or scan all history. Commands that change trusted state and explicit
 Approval Inbox or handoff steps perform the required current verification.
 
-Palari's own source-maintenance exception and the not-yet-implemented ignored
-live-state profile are documented in
-[Self-Hosting Maintainer Mode](self-hosting-maintainer-mode.md). The current
-product does not yet claim that live dogfood governance can remain isolated
-while this source checkout stays clean.
+Palari's own source-maintenance bootstrap exception and the implemented,
+ignored Maintainer Profile v1 are documented in
+[Self-Hosting Maintainer Mode](self-hosting-maintainer-mode.md). The profile
+supports reversible local source work while keeping its live governance state
+out of the source candidate. It rejects external/provider writes, push, merge,
+release, deployment, secret or credential access, its own state paths, host
+installation, and isolated-worktree start.
 
 The only supported historical inputs are those proven by committed data:
 

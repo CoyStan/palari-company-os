@@ -51,8 +51,29 @@ workflow `release.yml`). No API token is stored in the repository.
 
 Workspace backup guidance:
 
-- `workspace.json` is the source of truth for current state
-- the v2 tamper-evident history (stored as the governance journal) is the
-  replayable change history
-- back up the complete workspace directory, including both, together
-- do not store secrets in workspace files
+- For ordinary storage, the exact selected workspace file is current state and
+  sibling `.palari/governance-journal.v2.jsonl` is replayable change history.
+  Back up the complete workspace directory, including both, together.
+- For Maintainer Profile v1, one coherent backup includes
+  `.palari-company-os.json`, the complete `.palari-company-os/` tree, the
+  matching `palari-maintainer-repository.json` beneath the Git common
+  directory, the applicable `.git/info/exclude` rules, and the source
+  repository's Git history. The binding and repository identifier are a pair;
+  do not regenerate or copy one without the other.
+- Before either backup, stop Palari writers, ensure no execution assignment is
+  active, and run the exact selected workspace's `history --json` check. A
+  pending, corrupt, truncated, divergent, or continuity-broken journal is a
+  blocker, not a backup point.
+- Restore a maintainer backup only into the same bound repository, or move the
+  complete repository and its Git common directory, hidden workspace, and
+  control state together. Copying hidden state into another clone fails closed
+  on repository identity. Maintainer Profile v1 has no import, automatic
+  migration, or rebind command.
+- `history --restore` appends a human-attributed local state restoration; it is
+  not a filesystem, Git, provider, or external-effect rollback. A later
+  external effect remains a blocker.
+- Reverting or downgrading the Palari source must leave ignored maintainer state
+  untouched. An older version that does not understand the profile should be
+  pointed at an explicitly named ordinary workspace, not allowed to reinterpret
+  or delete the hidden state.
+- Do not store secrets in workspace or binding files.

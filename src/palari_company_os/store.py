@@ -12,6 +12,12 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import (
+    assert_layout_witness,
+    resolve_workspace_layout,
+    runtime_path,
+    workspace_data_path,
+)
 
 
 STALE_WORKSPACE_LOCK_SECONDS = 30.0
@@ -23,12 +29,14 @@ class WorkspaceStore:
     data_path: Path
     data: dict[str, Any]
     loaded_hash: str | None = None
+    binding_witness: str = ""
 
     def with_data(self, data: dict[str, Any]) -> "WorkspaceStore":
         return WorkspaceStore(
             data_path=self.data_path,
             data=data,
             loaded_hash=self.loaded_hash,
+            binding_witness=self.binding_witness,
         )
 
 
@@ -39,10 +47,7 @@ class _WorkspaceLock:
 
 
 def workspace_file_path(path: Path | str) -> Path:
-    workspace_path = Path(path).expanduser().resolve()
-    if workspace_path.is_dir():
-        return workspace_path / "workspace.json"
-    return workspace_path
+    return workspace_data_path(path)
 
 
 @contextmanager
@@ -59,14 +64,27 @@ def load_store(path: Path | str) -> WorkspaceStore:
     data_path = workspace_file_path(path)
     if not data_path.exists():
         raise WorkspaceError(f"workspace file not found: {data_path}")
+    layout = resolve_workspace_layout(data_path)
     try:
         text = data_path.read_text(encoding="utf-8")
         data = json.loads(text)
+    except OSError as exc:
+        raise WorkspaceError(f"workspace file cannot be read: {data_path}: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise WorkspaceError(f"invalid workspace JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise WorkspaceError("workspace root must be a JSON object")
-    return WorkspaceStore(data_path=data_path, data=data, loaded_hash=_hash_text(text))
+    after = resolve_workspace_layout(data_path)
+    if layout.maintainer and layout.binding_witness != after.binding_witness:
+        raise WorkspaceError(
+            "maintainer profile binding changed while the workspace was loaded"
+        )
+    return WorkspaceStore(
+        data_path=data_path,
+        data=data,
+        loaded_hash=_hash_text(text),
+        binding_witness=layout.binding_witness,
+    )
 
 
 def validate_data(data_path: Path, data: dict[str, Any]) -> Workspace:
@@ -88,6 +106,21 @@ def write_store(
         )
     lock = _acquire_workspace_lock(store.data_path)
     try:
+        layout = resolve_workspace_layout(
+            store.data_path,
+            require_workspace=store.loaded_hash is not None,
+        )
+        if layout.maintainer:
+            if not store.binding_witness:
+                raise WorkspaceError(
+                    "maintainer profile writes require a binding witness captured "
+                    "before mutation"
+                )
+            assert_layout_witness(
+                store.data_path,
+                store.binding_witness,
+                require_workspace=store.loaded_hash is not None,
+            )
         _assert_workspace_file_unchanged(store)
         before_data = (
             _load_current_raw(store.data_path)
@@ -115,6 +148,17 @@ def write_store(
                 action=action,
                 timestamp=utc_timestamp(),
             )
+        def final_prewrite_check() -> None:
+            if layout.maintainer:
+                assert_layout_witness(
+                    store.data_path,
+                    store.binding_witness,
+                    require_workspace=store.loaded_hash is not None,
+                )
+                _assert_workspace_file_unchanged(store)
+            if prewrite_check is not None:
+                prewrite_check()
+
         try:
             if store.loaded_hash is None:
                 transact(
@@ -126,7 +170,7 @@ def write_store(
                     event_kind="checkpoint",
                     coverage="complete",
                     crash_hook=crash_hook,
-                    prewrite_check=prewrite_check,
+                    prewrite_check=final_prewrite_check,
                 )
             else:
                 transact(
@@ -137,7 +181,7 @@ def write_store(
                     apply=lambda: _atomic_replace_text(store.data_path, text),
                     event_kind=event_kind,
                     crash_hook=crash_hook,
-                    prewrite_check=prewrite_check,
+                    prewrite_check=final_prewrite_check,
                 )
         except JournalError as exc:
             next_action = f"; next: {exc.next_action}" if exc.next_action else ""
@@ -351,29 +395,48 @@ def _release_workspace_lock(lock: _WorkspaceLock) -> None:
 
 
 def _safe_workspace_lock_path(data_path: Path) -> Path:
-    root = data_path.parent.resolve()
     try:
-        root.mkdir(parents=True, exist_ok=True)
+        lock_path = runtime_path(
+            data_path,
+            f".palari/locks/{data_path.name}.lock",
+            require_workspace=data_path.exists(),
+        )
+        directory = lock_path.parent
+        layout = resolve_workspace_layout(
+            data_path,
+            require_workspace=data_path.exists(),
+        )
+        if not layout.maintainer:
+            try:
+                layout.state_root.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+        current = layout.state_root
+        for component in (".palari", "locks"):
+            current = current / component
+            try:
+                if current.is_symlink():
+                    raise WorkspaceError(
+                        "workspace control path must not contain symlinks: "
+                        f"{current.relative_to(layout.state_root)}"
+                    )
+                current.mkdir(mode=0o700)
+            except FileExistsError:
+                pass
+            except OSError as exc:
+                raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
+            if current.is_symlink() or not current.is_dir():
+                raise WorkspaceError(
+                    "workspace control path must be a real directory: "
+                    f"{current.relative_to(layout.state_root)}"
+                )
+        if current != directory:
+            raise WorkspaceError(WORKSPACE_LOCK_ERROR)
+        return lock_path
+    except WorkspaceError:
+        raise
     except OSError as exc:
         raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
-    current = root
-    for component in (".palari", "locks"):
-        current = current / component
-        try:
-            if current.is_symlink():
-                raise WorkspaceError(
-                    f"workspace control path must not contain symlinks: {current.relative_to(root)}"
-                )
-            current.mkdir(mode=0o700)
-        except FileExistsError:
-            pass
-        except OSError as exc:
-            raise WorkspaceError(WORKSPACE_LOCK_ERROR) from exc
-        if current.is_symlink() or not current.is_dir():
-            raise WorkspaceError(
-                f"workspace control path must be a real directory: {current.relative_to(root)}"
-            )
-    return current / f"{data_path.name}.lock"
 
 
 def _load_current_raw(data_path: Path) -> dict[str, Any]:
@@ -388,28 +451,55 @@ def _load_current_raw(data_path: Path) -> dict[str, Any]:
 
 def _atomic_replace_text(data_path: Path, text: str) -> None:
     data_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_name = ""
+    layout = resolve_workspace_layout(
+        data_path,
+        require_workspace=data_path.exists(),
+    )
+    temp_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=data_path.parent,
-            delete=False,
-        ) as handle:
-            temp_name = handle.name
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_name, data_path)
-        temp_name = ""
+        if layout.maintainer:
+            temp_path = runtime_path(
+                data_path,
+                f".palari/workspace-stage-{uuid.uuid4().hex}.tmp",
+                require_workspace=data_path.exists(),
+            )
+            descriptor = os.open(
+                temp_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                0o600,
+            )
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+        else:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=data_path.parent,
+                delete=False,
+            ) as handle:
+                temp_path = Path(handle.name)
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+        os.replace(temp_path, data_path)
+        source_directory = temp_path.parent
+        temp_path = None
         directory = os.open(data_path.parent, os.O_RDONLY)
         try:
             os.fsync(directory)
         finally:
             os.close(directory)
+        if source_directory != data_path.parent:
+            directory = os.open(source_directory, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
     finally:
-        if temp_name:
-            Path(temp_name).unlink(missing_ok=True)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _workspace_lock_pid(lock_path: Path) -> int | None:

@@ -95,10 +95,42 @@ run-to-checks path. For a diagnosis, use:
 
 Then follow the `next` action shown by the CLI.
 
+## Maintainer workspace selection or binding errors
+
+Maintainer Profile v1 is never discovered from the current directory. If an
+omitted selector reports that ordinary `workspace.json` is missing—or loads a
+tracked ordinary workspace that also exists in the repository—rerun the exact
+emitted command with the hidden file selected:
+
+```bash
+palari --workspace /repo/.palari-company-os.json validate --json
+```
+
+Keep that selector on every task, assignment, check, review, handoff, approval,
+history, and recovery command. Do not create a symlink or rename the hidden
+file to make implicit discovery work.
+
+Errors naming the maintainer binding, state identifier, repository identifier,
+Git common directory, ignore rules, tracked state, path type, or symlink are
+fail-closed identity or path-boundary failures. Stop before mutation. Do not
+copy or regenerate an identifier, force-add hidden state, edit a digest, or
+rerun `init` over the existing profile to bypass the error.
+
+For an accidental local edit, restore the exact workspace file,
+`.palari-company-os/` tree, Git-common-directory
+`palari-maintainer-repository.json`, Git exclude rules, and source repository
+history from one coherent backup only after stopping writers and assignments.
+Verify that the restored journal has no pending transaction and replays to the
+workspace before use. A complete repository move remains valid when those
+pieces move together. State copied into another clone is expected to fail with
+a repository mismatch; Maintainer Profile v1 has no rebind or import command.
+
 ## `workspace write is already in progress`
 
-Palari protects `workspace.json` writes with a small lock file under
-`.palari/locks/`. Normal commands remove the lock as soon as the write finishes.
+Palari protects the exact selected workspace with a small local lock. Ordinary
+workspace locks are under sibling `.palari/locks/`. A maintainer workspace lock
+is physically under `.palari-company-os/.palari/locks/`. Normal commands remove
+their exact lock as soon as the write finishes.
 
 If a process dies during a write, Palari reclaims the stale lock when its
 recorded `pid=` no longer runs or the lock file is older than 30 seconds. A
@@ -109,10 +141,13 @@ workspace write is already in progress; retry shortly
 ```
 
 If the message persists and you have confirmed that no Palari write command is
-running, remove the stale lock manually:
+running, remove only the exact selected workspace's stale lock. For the
+root-level profile filename, that is:
 
 ```bash
-rm .palari/locks/*.lock
+rm .palari-company-os/.palari/locks/.palari-company-os.json.lock
 ```
 
-Then rerun the original command.
+For an ordinary `workspace.json`, the corresponding exact path is
+`.palari/locks/workspace.json.lock`. Then rerun the original command with the
+same workspace selector. Never remove the entire lock or state directory.

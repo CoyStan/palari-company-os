@@ -14,6 +14,7 @@ from .agent_runtime import claim_baseline_head, start_agent
 from .read_models import detail
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import is_maintainer_workspace, resolve_workspace_layout
 
 
 def start_isolated_agent(
@@ -27,11 +28,18 @@ def start_isolated_agent(
 ) -> dict[str, Any]:
     """Create or resume one deterministic local worktree, then lock the task there."""
 
+    source_data_path = workspace_file_path(workspace_path)
+    if is_maintainer_workspace(source_data_path):
+        resolve_workspace_layout(source_data_path)
+        raise WorkspaceError(
+            "maintainer profile v1 does not support agent start --isolate; "
+            "start the task in the current Git worktree with the exact "
+            "--workspace selector"
+        )
     if not base_ref or base_ref.startswith("-") or any(
         character in base_ref for character in ("\x00", "\n", "\r")
     ):
         raise WorkspaceError("--base-ref must be a non-option Git revision")
-    source_data_path = workspace_file_path(workspace_path)
     source_workspace = Workspace.load(source_data_path)
     if source_workspace.work_item(work_id) is None:
         raise WorkspaceError(f"work item not found: {work_id}")

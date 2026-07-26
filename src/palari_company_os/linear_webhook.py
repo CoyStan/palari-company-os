@@ -18,6 +18,7 @@ from .governance_journal import MutationMetadata, utc_timestamp
 from .models import Proposal, WorkItem
 from .store import load_store, validate_data, workspace_file_path, write_store
 from .workspace import Workspace
+from .workspace_layout import assert_runtime_file_descriptor, runtime_path
 
 
 LINEAR_WEBHOOK_SECRET_REF = "env:LINEAR_WEBHOOK_SECRET"
@@ -50,7 +51,7 @@ class LinearWebhookConfig:
 
 def linear_webhook_event_log_path(workspace_path: str | Path) -> Path:
     data_path = workspace_file_path(workspace_path)
-    return data_path.parent / ".palari" / LINEAR_WEBHOOK_EVENT_LOG
+    return runtime_path(data_path, f".palari/{LINEAR_WEBHOOK_EVENT_LOG}")
 
 
 def linear_webhook_event_log_summary(workspace_path: str | Path) -> dict[str, Any]:
@@ -537,10 +538,28 @@ def _sync_external_fields(record: dict[str, Any], issue: dict[str, str]) -> None
 
 
 def _append_event_log(workspace_path: str | Path, event: dict[str, Any]) -> None:
-    path = linear_webhook_event_log_path(workspace_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True) + "\n")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = -1
+    try:
+        path = linear_webhook_event_log_path(workspace_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(path, flags, 0o600)
+        assert_runtime_file_descriptor(workspace_path, path, descriptor)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            descriptor = -1
+            handle.write(json.dumps(event, sort_keys=True) + "\n")
+    except (OSError, WorkspaceError) as exc:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise LinearWebhookError(
+            f"Cannot append the bound Palari runtime event log: {exc}",
+            code="LINEAR_WEBHOOK_EVENT_LOG_WRITE_FAILED",
+            next_action="Inspect the bound Palari runtime event log before retrying.",
+        ) from exc
 
 
 def _read_event_log(workspace_path: str | Path) -> list[dict[str, Any]]:
@@ -556,7 +575,9 @@ def _read_event_log(workspace_path: str | Path) -> list[dict[str, Any]]:
             raise LinearWebhookError(
                 "Linear webhook event log contains a non-object record",
                 code="LINEAR_WEBHOOK_EVENT_LOG_INVALID",
-                next_action="Inspect .palari/linear-events.jsonl before continuing.",
+                next_action=(
+                    "Inspect the bound Palari runtime event log before continuing."
+                ),
             )
         events.append(event)
     return events

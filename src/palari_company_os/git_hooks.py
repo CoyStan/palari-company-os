@@ -24,6 +24,8 @@ from .agent_file_changes import git_repo_root
 from .agent_runtime import load_active_claim_contexts
 from .path_policy import canonical_path_allowed, validate_workspace_path
 from .store import workspace_file_path
+from .workspace import WorkspaceError
+from .workspace_layout import is_maintainer_workspace, resolve_workspace_layout
 
 HOOK_MARKER = "palari git hook"
 
@@ -197,6 +199,12 @@ def install_git_hook(
     Idempotent: the Palari-managed hook is recognized by its marker comment
     and replaced in place.
     """
+    if is_maintainer_workspace(workspace_path):
+        resolve_workspace_layout(workspace_path)
+        raise WorkspaceError(
+            "maintainer profile v1 does not support Git hook installation or "
+            "removal; use explicit commands carrying the exact --workspace selector"
+        )
     root = Path(project_dir).expanduser().resolve()
     git_root = git_repo_root(root)
     if git_root is None:

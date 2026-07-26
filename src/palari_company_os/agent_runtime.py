@@ -26,7 +26,14 @@ from .pcaw_canonical import CanonicalJSONError, canonical_sha256, strict_json_lo
 from .store import workspace_file_path, workspace_write_lock
 from .transition_checks import assert_transition_allowed
 from .validation import COLLECTION_FILE_KEYS
+from .verification_attestations import expected_verification_commands
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import (
+    resolve_runtime_record_path,
+    resolve_workspace_layout,
+    runtime_path,
+    runtime_relative_path,
+)
 
 
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v2"
@@ -35,6 +42,21 @@ GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
 PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v2"
 PRECLAIM_SCOPE_AUTHORITY_VERSION = "palari.preclaim_scope_authority.v1"
 PRECLAIM_SCOPE_CATALOG_VERSION = "palari.preclaim_scope_catalog.v1"
+MAINTAINER_BASELINE_BINDING_VERSION = "palari.maintainer_claim_binding.v1"
+MAINTAINER_LOCAL_WITNESS_VERSION = "palari.maintainer_local_state_witness.v1"
+MAINTAINER_LOCAL_WITNESS_FIELDS = {
+    "schema_version",
+    "profile_binding_digest",
+    "binding_witness",
+    "state_id",
+    "repository_id",
+    "workspace_file_digest",
+    "workspace_digest",
+    "journal_head_record_digest",
+    "journal_record_count",
+    "replay_workspace_digest",
+    "source_git_head",
+}
 PACKET_RUNTIME_STATE_FIELDS = {
     "blockers",
     "completion_contract",
@@ -657,6 +679,8 @@ def claim_check(
     context_hash: str,
     *,
     scope_authority_workspace: Workspace | None = None,
+    allow_maintainer_journal_extension: bool = False,
+    maintainer_journal_status: str = "",
 ) -> dict[str, Any]:
     claim = read_claim(workspace_path, work_id)
     if not claim:
@@ -671,6 +695,8 @@ def claim_check(
         work_id,
         claim,
         scope_authority_workspace=scope_authority_workspace,
+        allow_maintainer_journal_extension=allow_maintainer_journal_extension,
+        maintainer_journal_status=maintainer_journal_status,
     )
     if claim_error:
         return {
@@ -762,6 +788,8 @@ def claim_integrity_error(
     allow_released_lease: bool = False,
     allow_durable_parking_transition: bool = False,
     scope_authority_workspace: Workspace | None = None,
+    allow_maintainer_journal_extension: bool = False,
+    maintainer_journal_status: str = "",
 ) -> str:
     """Validate claim structure and its immutable persisted Git baseline.
 
@@ -772,6 +800,8 @@ def claim_integrity_error(
 
     if allow_durable_parking_transition and not allow_released_lease:
         return "durable parking recovery requires released-lease handling"
+    if maintainer_journal_status and not allow_maintainer_journal_extension:
+        return "maintainer journal recovery requires explicit extension handling"
 
     error = _validate_active_claim(claim)
     if error:
@@ -803,17 +833,30 @@ def claim_integrity_error(
     baseline = persisted["git_baseline"]
     if _complete_git_baseline(baseline):
         try:
-            baseline_workspace = _scope_authority_workspace_from_git(
-                data_path,
-                baseline,
-            )
-            if baseline_workspace.work_item(work_id) is None:
+            if resolve_workspace_layout(data_path).maintainer:
+                _maintainer_baseline_binding_error(
+                    data_path,
+                    baseline,
+                    raise_error=True,
+                )
                 _scope_authority_catalog_digest(
                     baseline,
                     work_id,
                     str(claim["claimed_by"]),
                     str(claim["mode"]),
                 )
+            else:
+                baseline_workspace = _scope_authority_workspace_from_git(
+                    data_path,
+                    baseline,
+                )
+                if baseline_workspace.work_item(work_id) is None:
+                    _scope_authority_catalog_digest(
+                        baseline,
+                        work_id,
+                        str(claim["claimed_by"]),
+                        str(claim["mode"]),
+                    )
         except WorkspaceError as exc:
             return str(exc)
     projection_snapshot = claim.get("governance_projection_snapshot")
@@ -841,6 +884,10 @@ def claim_integrity_error(
             require_worktree_match=False,
             parked_work_status_from=recovery_work_status,
             scope_authority_workspace=scope_authority_workspace,
+            allow_maintainer_journal_extension=allow_maintainer_journal_extension,
+            maintainer_journal_status=maintainer_journal_status,
+            maintainer_work_id=work_id,
+            maintainer_actor=str(claim.get("claimed_by") or ""),
         )
         if snapshot_error:
             return snapshot_error
@@ -987,9 +1034,11 @@ def load_active_claim_contexts(
 
     for path in sorted(directory.glob("*.json")):
         try:
-            relative_claim_path = path.relative_to(data_path.parent).as_posix()
-            safe_claim_path = resolve_workspace_path(
-                data_path.parent, relative_claim_path, require_exists=True
+            relative_claim_path = runtime_relative_path(data_path, path)
+            safe_claim_path = resolve_runtime_record_path(
+                data_path,
+                relative_claim_path,
+                require_exists=True,
             )
             claim = _read_json_object(safe_claim_path, "claim")
         except (ValueError, WorkspaceError) as exc:
@@ -1014,8 +1063,10 @@ def load_active_claim_contexts(
             packet_relative = validate_workspace_path(str(claim["packet_path"]))
             if not packet_relative.startswith(".palari/packets/"):
                 raise ValueError("packet_path must be under .palari/packets")
-            packet_path = resolve_workspace_path(
-                data_path.parent, packet_relative, require_exists=True
+            packet_path = resolve_runtime_record_path(
+                data_path,
+                packet_relative,
+                require_exists=True,
             )
             packet = _read_json_object(packet_path, "packet")
         except (ValueError, WorkspaceError) as exc:
@@ -1106,17 +1157,11 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _runtime_relative(data_path: Path, target: Path) -> str:
-    try:
-        return target.relative_to(data_path.parent).as_posix()
-    except ValueError:
-        return target.name
+    return runtime_relative_path(data_path, target)
 
 
 def _runtime_path(data_path: Path, relative: str) -> Path:
-    try:
-        return resolve_workspace_path(data_path.parent, relative)
-    except ValueError as exc:
-        raise WorkspaceError(f"unsafe Palari runtime path {relative}: {exc}") from exc
+    return runtime_path(data_path, relative)
 
 
 def _read_json_object(path: Path, label: str) -> dict[str, Any]:
@@ -1273,8 +1318,10 @@ def _read_claim_packet(data_path: Path, claim: dict[str, Any]) -> dict[str, Any]
     packet_relative = validate_workspace_path(str(claim.get("packet_path") or ""))
     if not packet_relative.startswith(".palari/packets/"):
         raise WorkspaceError("packet_path must be under .palari/packets")
-    packet_path = resolve_workspace_path(
-        data_path.parent, packet_relative, require_exists=True
+    packet_path = resolve_runtime_record_path(
+        data_path,
+        packet_relative,
+        require_exists=True,
     )
     return _read_json_object(packet_path, "packet")
 
@@ -1297,9 +1344,13 @@ def _persisted_session_contract_error(
     ):
         return "session contract path must be under .palari/packets/session-contracts"
     try:
-        path = resolve_workspace_path(data_path.parent, normalized, require_exists=True)
+        path = resolve_runtime_record_path(
+            data_path,
+            normalized,
+            require_exists=True,
+        )
         value = strict_json_loads(path.read_bytes())
-    except (OSError, ValueError, CanonicalJSONError) as exc:
+    except (OSError, ValueError, CanonicalJSONError, WorkspaceError) as exc:
         return f"cannot read strict session contract: {exc}"
     if not isinstance(value, dict):
         return "session contract must contain a JSON object"
@@ -1394,6 +1445,55 @@ def _capture_governance_projection_snapshot(
     if not root_text or not _exact_git_sha(base_sha) or not _exact_git_sha(session_head):
         return None
     root = Path(root_text).resolve()
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        if not _git_ancestor(root_text, base_sha, session_head):
+            raise WorkspaceError(
+                "claim session head does not descend from the immutable proof baseline"
+            )
+        if scope_authority is None:
+            scope_authority = _preclaim_scope_authority_binding(
+                data_path,
+                baseline,
+                packet,
+            )
+        if scope_authority["baseline_digest"] != scope_authority["current_digest"]:
+            raise WorkspaceError(
+                "pre-claim scope authority differs from immutable baseline; "
+                "create a successor work item for the changed contract"
+            )
+        local_witness = _capture_maintainer_local_state_witness(
+            data_path,
+            source_git_head=session_head,
+        )
+        maintainer_snapshot = {
+            "schema_version": PROJECTION_SNAPSHOT_VERSION,
+            "base_sha": base_sha,
+            "session_start_head": session_head,
+            "changed_paths": [],
+            "files": [],
+            "journal_verification": {
+                "status": "valid",
+                "chain_valid": True,
+                "head_record_digest": local_witness["journal_head_record_digest"],
+                "current_workspace_digest": local_witness["workspace_digest"],
+                "replay_workspace_digest": local_witness["replay_workspace_digest"],
+                "record_count": local_witness["journal_record_count"],
+            },
+            "scope_authority": scope_authority,
+            "maintainer_local_state_witness": local_witness,
+        }
+        error = governance_projection_snapshot_error(
+            data_path,
+            baseline,
+            maintainer_snapshot,
+            require_worktree_match=True,
+        )
+        if error:
+            raise WorkspaceError(
+                "cannot capture maintainer local-state witness: " + error
+            )
+        return maintainer_snapshot
     try:
         relative_data = data_path.resolve().relative_to(root).as_posix()
     except (OSError, ValueError) as exc:
@@ -1512,6 +1612,10 @@ def governance_projection_snapshot_error(
     require_worktree_match: bool,
     parked_work_status_from: str = "",
     scope_authority_workspace: Workspace | None = None,
+    allow_maintainer_journal_extension: bool = False,
+    maintainer_journal_status: str = "",
+    maintainer_work_id: str = "",
+    maintainer_actor: str = "",
 ) -> str:
     """Return a fail-closed error for an invalid or stale claim snapshot."""
 
@@ -1540,6 +1644,41 @@ def governance_projection_snapshot_error(
     )
     if authority_error:
         return authority_error
+    if resolve_workspace_layout(data_path).maintainer:
+        baseline_error = _maintainer_baseline_binding_error(
+            data_path,
+            baseline,
+        )
+        if baseline_error:
+            return baseline_error
+        if snapshot.get("changed_paths") != [] or snapshot.get("files") != []:
+            return "maintainer local-state witness must not classify hidden state as Git files"
+        witness = snapshot.get("maintainer_local_state_witness")
+        if not isinstance(witness, dict):
+            return "maintainer local-state witness is missing"
+        try:
+            current = _capture_maintainer_local_state_witness(
+                data_path,
+                source_git_head=session_head,
+                pending_journal_status=maintainer_journal_status,
+            )
+        except WorkspaceError as exc:
+            return f"cannot verify maintainer local-state witness: {exc}"
+        if witness == current:
+            return ""
+        if not allow_maintainer_journal_extension:
+            return "maintainer workspace or journal state changed after claim start"
+        extension_error = _maintainer_local_state_extension_error(
+            data_path,
+            witness,
+            current,
+            work_id=maintainer_work_id,
+            actor=maintainer_actor,
+            pending_journal_status=maintainer_journal_status,
+        )
+        if extension_error:
+            return extension_error
+        return ""
     projection_candidates = _governance_projection_paths(relative_data)
     history_error = _governance_journal_history_error(
         root_text, base_sha, session_head, projection_candidates
@@ -1590,10 +1729,10 @@ def governance_projection_snapshot_error(
             candidate = resolve_workspace_path(root, path, require_exists=True)
             if lexical_candidate.is_symlink() or not candidate.is_file():
                 return f"governance projection worktree path is unsafe for {path}"
-            current = candidate.read_bytes()
+            current_bytes = candidate.read_bytes()
         except (OSError, ValueError) as exc:
             return f"cannot read governance projection worktree path {path}: {exc}"
-        if hashlib.sha256(current).hexdigest() != digest.removeprefix("sha256:"):
+        if hashlib.sha256(current_bytes).hexdigest() != digest.removeprefix("sha256:"):
             return f"governance projection changed after claim start: {path}"
     return ""
 
@@ -1601,6 +1740,622 @@ def governance_projection_snapshot_error(
 def _governance_projection_snapshot_digest(snapshot: dict[str, Any]) -> str:
     payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _capture_maintainer_local_state_witness(
+    data_path: Path,
+    *,
+    source_git_head: str,
+    pending_journal_status: str = "",
+) -> dict[str, Any]:
+    from .governance_journal import verify_workspace_journal
+
+    layout = resolve_workspace_layout(data_path)
+    if not layout.maintainer:
+        raise WorkspaceError("local-state witness requires a maintainer workspace")
+    if not _exact_git_sha(source_git_head):
+        raise WorkspaceError(
+            "maintainer local-state witness requires an exact source Git head"
+        )
+    report = verify_workspace_journal(data_path)
+    if not _maintainer_journal_report_is_exact(
+        report,
+        pending_journal_status=pending_journal_status,
+    ):
+        raise WorkspaceError(
+            "maintainer local-state witness requires exact unbroken journal continuity"
+        )
+    workspace_digest_value = report.get("current_workspace_digest")
+    replay_digest = report.get("replay_workspace_digest")
+    journal_head = report.get("head_record_digest")
+    record_count = report.get("record_count")
+    if not all(
+        isinstance(value, str) and _valid_sha256(value)
+        for value in (workspace_digest_value, replay_digest, journal_head)
+    ):
+        raise WorkspaceError(
+            "maintainer journal verification returned malformed state digests"
+        )
+    if not isinstance(record_count, int) or isinstance(record_count, bool) or record_count < 1:
+        raise WorkspaceError(
+            "maintainer journal verification returned an invalid record count"
+        )
+    workspace_file_digest = _file_hash(data_path)
+    confirmed = verify_workspace_journal(data_path)
+    report_fields = (
+        "status",
+        "chain_valid",
+        "record_count",
+        "head_record_digest",
+        "replay_workspace_digest",
+        "current_workspace_digest",
+        "pending",
+        "continuity",
+    )
+    if any(report.get(field) != confirmed.get(field) for field in report_fields):
+        raise WorkspaceError(
+            "maintainer workspace or journal changed while its witness was captured"
+        )
+    if not _maintainer_journal_report_is_exact(
+        confirmed,
+        pending_journal_status=pending_journal_status,
+    ):
+        raise WorkspaceError(
+            "maintainer local-state witness requires exact unbroken journal continuity"
+        )
+    confirmed_layout = resolve_workspace_layout(data_path)
+    if confirmed_layout.binding_witness != layout.binding_witness:
+        raise WorkspaceError(
+            "maintainer profile binding changed while its witness was captured"
+        )
+    return {
+        "schema_version": MAINTAINER_LOCAL_WITNESS_VERSION,
+        "profile_binding_digest": layout.binding_digest,
+        "binding_witness": layout.binding_witness,
+        "state_id": layout.state_id,
+        "repository_id": layout.repository_id,
+        "workspace_file_digest": workspace_file_digest,
+        "workspace_digest": workspace_digest_value,
+        "journal_head_record_digest": journal_head,
+        "journal_record_count": record_count,
+        "replay_workspace_digest": replay_digest,
+        "source_git_head": source_git_head,
+    }
+
+
+def _maintainer_journal_report_is_exact(
+    report: dict[str, Any],
+    *,
+    pending_journal_status: str,
+) -> bool:
+    continuity = report.get("continuity")
+    if not isinstance(continuity, dict):
+        return False
+    if (
+        not report.get("chain_valid")
+        or not continuity.get("historical_continuity")
+        or continuity.get("break_sequences")
+    ):
+        return False
+    if not pending_journal_status:
+        return bool(
+            report.get("ok")
+            and report.get("status") == "valid"
+            and report.get("pending") is None
+            and report.get("current_workspace_digest")
+            == report.get("replay_workspace_digest")
+        )
+    if pending_journal_status not in {"pending-prepare", "pending-commit"}:
+        return False
+    pending = report.get("pending")
+    if not isinstance(pending, dict) or report.get("status") != pending_journal_status:
+        return False
+    expected_position = (
+        "before" if pending_journal_status == "pending-prepare" else "after"
+    )
+    expected_workspace_digest = pending.get(
+        "before_workspace_digest"
+        if pending_journal_status == "pending-prepare"
+        else "after_workspace_digest"
+    )
+    return bool(
+        pending.get("workspace_position") == expected_position
+        and isinstance(expected_workspace_digest, str)
+        and expected_workspace_digest
+        and report.get("current_workspace_digest") == expected_workspace_digest
+        and report.get("replay_workspace_digest")
+        == pending.get("before_workspace_digest")
+    )
+
+
+def _maintainer_local_state_extension_error(
+    data_path: Path,
+    expected: dict[str, Any],
+    current: dict[str, Any],
+    *,
+    work_id: str,
+    actor: str,
+    pending_journal_status: str,
+) -> str:
+    """Allow only a verified append-only journal extension after reconciliation."""
+
+    if (
+        set(expected) != MAINTAINER_LOCAL_WITNESS_FIELDS
+        or set(current) != MAINTAINER_LOCAL_WITNESS_FIELDS
+    ):
+        return "maintainer local-state witness has an unexpected shape"
+    immutable_fields = (
+        "schema_version",
+        "profile_binding_digest",
+        "binding_witness",
+        "state_id",
+        "repository_id",
+        "source_git_head",
+    )
+    if any(expected.get(field) != current.get(field) for field in immutable_fields):
+        return "maintainer profile or source binding changed after claim start"
+    if not work_id or not actor:
+        return "maintainer journal extension has no claim-bound work or actor"
+    expected_count = expected.get("journal_record_count")
+    current_count = current.get("journal_record_count")
+    expected_head = expected.get("journal_head_record_digest")
+    current_head = current.get("journal_head_record_digest")
+    if (
+        not isinstance(expected_count, int)
+        or isinstance(expected_count, bool)
+        or expected_count < 1
+        or not isinstance(current_count, int)
+        or isinstance(current_count, bool)
+        or current_count <= expected_count
+        or not isinstance(expected_head, str)
+        or not _valid_sha256(expected_head)
+        or not isinstance(current_head, str)
+        or not _valid_sha256(current_head)
+    ):
+        return "maintainer local state is not a strict journal extension"
+    chain_error = _maintainer_journal_prefix_error(
+        data_path,
+        expected_count=expected_count,
+        expected_head=expected_head,
+        current_count=current_count,
+        current_head=current_head,
+        work_id=work_id,
+        actor=actor,
+        pending_journal_status=pending_journal_status,
+    )
+    if chain_error:
+        return chain_error
+    return ""
+
+
+def _maintainer_journal_prefix_error(
+    data_path: Path,
+    *,
+    expected_count: int,
+    expected_head: str,
+    current_count: int,
+    current_head: str,
+    work_id: str,
+    actor: str,
+    pending_journal_status: str,
+) -> str:
+    from .governance_journal import v2_journal_file_path
+
+    path = v2_journal_file_path(data_path)
+    flags = os.O_RDONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb") as handle:
+            before = os.fstat(handle.fileno())
+            observed_count = 0
+            observed_prefix = ""
+            observed_head = ""
+            records: list[dict[str, Any]] = []
+            for line in handle:
+                if not line.endswith(b"\n") or line == b"\n":
+                    return "maintainer journal extension is truncated or malformed"
+                record = strict_json_loads(line[:-1])
+                if not isinstance(record, dict):
+                    return "maintainer journal extension contains a non-object record"
+                digest = record.get("record_digest")
+                if not isinstance(digest, str) or not _valid_sha256(digest):
+                    return "maintainer journal extension contains a malformed digest"
+                observed_count += 1
+                observed_head = digest
+                records.append(record)
+                if observed_count == expected_count:
+                    observed_prefix = digest
+            after = os.fstat(handle.fileno())
+    except (CanonicalJSONError, OSError, UnicodeError, ValueError) as exc:
+        return f"cannot inspect maintainer journal extension: {exc}"
+    witness_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if any(getattr(before, field) != getattr(after, field) for field in witness_fields):
+        return "maintainer journal changed while its extension was inspected"
+    if observed_count != current_count or observed_head != current_head:
+        return "maintainer journal changed after continuity verification"
+    if observed_prefix != expected_head:
+        return "maintainer journal does not extend the claim-start prefix"
+    suffix_error = _maintainer_proof_suffix_error(
+        data_path,
+        records,
+        expected_count=expected_count,
+        work_id=work_id,
+        actor=actor,
+        pending_journal_status=pending_journal_status,
+    )
+    if suffix_error:
+        return suffix_error
+    return ""
+
+
+def _maintainer_proof_suffix_error(
+    data_path: Path,
+    records: list[dict[str, Any]],
+    *,
+    expected_count: int,
+    work_id: str,
+    actor: str,
+    pending_journal_status: str,
+) -> str:
+    """Authenticate the only journal mutation a live maintainer claim may resume."""
+
+    from .governance_journal import JournalError, _v2_after_projection
+
+    projection: dict[str, Any] | None = None
+    pending: tuple[dict[str, Any], dict[str, Any]] | None = None
+    committed = 0
+    for index, record in enumerate(records):
+        record_type = record.get("record_type")
+        if record_type == "prepare":
+            if pending is not None:
+                return "maintainer proof extension contains overlapping transactions"
+            if index >= expected_count and committed:
+                return "maintainer proof extension continues after its committed proof"
+            try:
+                after_projection = _v2_after_projection(projection, record, index)
+            except JournalError as exc:
+                return f"maintainer proof extension cannot be replayed: {exc}"
+            pending = (record, after_projection)
+            if index < expected_count:
+                continue
+            metadata = record.get("metadata")
+            if not isinstance(metadata, dict):
+                return "maintainer proof extension has no mutation metadata"
+            if (
+                metadata.get("command") != "agent advance"
+                or metadata.get("action") != "reconciled-agent-proof"
+                or metadata.get("actor") != actor
+            ):
+                return "maintainer journal extension is not claim-owned proof reconciliation"
+            objects = metadata.get("objects")
+            if not isinstance(objects, list):
+                return "maintainer proof extension has no bound proof objects"
+            keyed: dict[tuple[str, str], str] = {}
+            for item in objects:
+                if not isinstance(item, dict):
+                    return "maintainer proof extension has malformed proof objects"
+                kind = item.get("type")
+                collection = item.get("collection")
+                record_id = item.get("id")
+                if not all(
+                    isinstance(value, str) and value
+                    for value in (kind, collection, record_id)
+                ):
+                    return "maintainer proof extension has malformed proof objects"
+                assert isinstance(kind, str)
+                assert isinstance(collection, str)
+                assert isinstance(record_id, str)
+                key = (kind, collection)
+                if key in keyed:
+                    return "maintainer proof extension has duplicate proof objects"
+                keyed[key] = record_id
+            expected_keys = {
+                ("work", "work_items"),
+                ("attempt", "attempts"),
+                ("receipt", "receipts"),
+                ("evidence", "evidence_runs"),
+            }
+            if set(keyed) != expected_keys or keyed[("work", "work_items")] != work_id:
+                return "maintainer proof extension belongs to different work"
+            projection_error = _maintainer_proof_projection_error(
+                data_path,
+                projection,
+                after_projection,
+                keyed=keyed,
+                work_id=work_id,
+                actor=actor,
+            )
+            if projection_error:
+                return projection_error
+            continue
+        if record_type not in {"commit", "abort"} or pending is None:
+            return "maintainer proof extension has an unexpected journal record"
+        prepared, after_projection = pending
+        if (
+            record.get("transaction_id") != prepared.get("transaction_id")
+            or record.get("prepared_record_digest") != prepared.get("record_digest")
+        ):
+            return "maintainer proof extension terminal does not match its prepare"
+        if record_type == "commit":
+            projection = after_projection
+            if index >= expected_count:
+                committed += 1
+                if committed > 1:
+                    return "maintainer proof extension contains multiple committed mutations"
+        pending = None
+        if index == expected_count - 1 and pending is not None:
+            return "maintainer claim-start journal prefix ends mid-transaction"
+    if expected_count > len(records):
+        return "maintainer claim-start journal prefix is incomplete"
+    if pending_journal_status:
+        if pending is None:
+            return "maintainer pending proof extension has no pending prepare"
+    elif pending is not None:
+        return "maintainer proof extension ends at an unmodeled pending boundary"
+    return ""
+
+
+def _maintainer_proof_projection_error(
+    data_path: Path,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    *,
+    keyed: dict[tuple[str, str], str],
+    work_id: str,
+    actor: str,
+) -> str:
+    """Validate the exact bounded proof projection named by journal metadata."""
+
+    if not isinstance(before, dict):
+        return "maintainer proof extension has no replayable before projection"
+    collection_ids = {
+        "work_items": keyed[("work", "work_items")],
+        "attempts": keyed[("attempt", "attempts")],
+        "receipts": keyed[("receipt", "receipts")],
+        "evidence_runs": keyed[("evidence", "evidence_runs")],
+    }
+    if not _maintainer_only_bound_records_changed(before, after, collection_ids):
+        return "maintainer proof extension changes state outside its proof binding"
+    before_work = _maintainer_record_by_id(before, "work_items", work_id)
+    work = _maintainer_record_by_id(after, "work_items", work_id)
+    attempt_id = collection_ids["attempts"]
+    receipt_id = collection_ids["receipts"]
+    evidence_id = collection_ids["evidence_runs"]
+    attempt = _maintainer_record_by_id(after, "attempts", attempt_id)
+    receipt = _maintainer_record_by_id(after, "receipts", receipt_id)
+    evidence = _maintainer_record_by_id(after, "evidence_runs", evidence_id)
+    if not all(
+        isinstance(item, dict)
+        for item in (before_work, work, attempt, receipt, evidence)
+    ):
+        return "maintainer proof extension is missing a bound proof object"
+    assert isinstance(before_work, dict)
+    assert isinstance(work, dict)
+    assert isinstance(attempt, dict)
+    assert isinstance(receipt, dict)
+    assert isinstance(evidence, dict)
+    if not _maintainer_record_changes_within(
+        before_work,
+        work,
+        {"current_attempt"},
+    ):
+        return "maintainer proof extension changes task authority"
+    if (
+        before_work.get("palari") != actor
+        or work.get("current_attempt") != attempt_id
+        or attempt.get("work_item_id") != work_id
+        or attempt.get("actor") != actor
+        or attempt.get("status") not in {"complete", "completed"}
+    ):
+        return "maintainer proof extension has contradictory work or attempt binding"
+    head_sha = attempt.get("head_sha")
+    base_sha = attempt.get("base_sha")
+    commits = attempt.get("commits")
+    if (
+        not isinstance(head_sha, str)
+        or not _exact_git_sha(head_sha)
+        or not isinstance(base_sha, str)
+        or not _exact_git_sha(base_sha)
+        or not isinstance(commits, list)
+        or not commits
+        or commits[-1] != head_sha
+        or attempt.get("cleanliness") != "clean"
+    ):
+        return "maintainer proof extension has malformed exact Git evidence"
+    before_attempt = _maintainer_record_by_id(before, "attempts", attempt_id)
+    if isinstance(before_attempt, dict):
+        if not _maintainer_record_changes_within(
+            before_attempt,
+            attempt,
+            {
+                "status",
+                "head_sha",
+                "commits",
+                "cleanliness",
+                "updated_at",
+                "changed_files",
+                "output_targets",
+            },
+        ):
+            return "maintainer proof extension changes immutable attempt authority"
+    elif attempt_id != f"ATTEMPT-ADVANCE-{work_id}-{head_sha[:12].upper()}":
+        return "maintainer proof extension has an unexpected attempt identifier"
+    expected_paths = [
+        str(item.get("path"))
+        for item in work.get("path_intents", [])
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    ] or [
+        str(item)
+        for item in work.get("output_targets", [])
+        if isinstance(item, str)
+    ]
+    if (
+        attempt.get("workspace_path") != str(data_path.parent)
+        or attempt.get("allowed_paths") != expected_paths
+        or attempt.get("output_targets") != expected_paths
+        or not isinstance(attempt.get("changed_files"), list)
+        or any(
+            attempt.get(field)
+            for field in (
+                "result",
+                "forbidden_paths",
+                "model_or_worker",
+                "claim_id",
+                "claim_expires_at",
+            )
+        )
+    ):
+        return "maintainer proof extension injects ungenerated attempt state"
+    if receipt_id != f"RECEIPT-ADVANCE-{work_id}-{head_sha[:12].upper()}":
+        return "maintainer proof extension has an unexpected receipt identifier"
+    if evidence_id != f"EVIDENCE-ADVANCE-{work_id}-{head_sha[:12].upper()}":
+        return "maintainer proof extension has an unexpected evidence identifier"
+    before_receipt = _maintainer_record_by_id(before, "receipts", receipt_id)
+    before_evidence = _maintainer_record_by_id(before, "evidence_runs", evidence_id)
+    if isinstance(before_receipt, dict) and before_receipt != receipt:
+        return "maintainer proof extension rewrites an existing receipt"
+    if isinstance(before_evidence, dict) and before_evidence != evidence:
+        return "maintainer proof extension rewrites existing evidence"
+    artifacts = receipt.get("outputs_created")
+    commands = evidence.get("commands")
+    actions = receipt.get("actions_taken")
+    not_done = receipt.get("not_done")
+    changed_files = attempt.get("changed_files")
+    expected_commands = (
+        expected_verification_commands(
+            str(work.get("risk") or ""),
+            changed_files,
+            base_sha=base_sha,
+            head_sha=head_sha,
+        )
+        if isinstance(changed_files, list)
+        and all(isinstance(path, str) for path in changed_files)
+        else []
+    )
+    if (
+        receipt.get("work_item_id") != work_id
+        or receipt.get("attempt_id") != attempt_id
+        or receipt.get("actor") != actor
+        or receipt.get("sources_used") != work.get("allowed_sources")
+        or not isinstance(artifacts, list)
+        or not artifacts
+        or artifacts != attempt.get("changed_files")
+        or receipt.get("undo_refs") != artifacts
+        or actions
+        != [
+            f"Changed {len(artifacts)} bounded committed artifact(s).",
+            "Ran exact-state Palari verification profiles.",
+        ]
+        or not_done
+        != [
+            "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+        ]
+        or any(
+            receipt.get(field)
+            for field in (
+                "context_packet",
+                "context_hash",
+                "evidence_manifest_hash",
+                "planned_external_writes",
+                "queued_external_writes",
+                "external_writes",
+            )
+        )
+        or evidence.get("work_item_id") != work_id
+        or evidence.get("attempt_id") != attempt_id
+        or evidence.get("head_sha") != head_sha
+        or evidence.get("status") != "passed"
+        or evidence.get("base_ref") != base_sha
+        or evidence.get("artifacts") != artifacts
+        or evidence.get("freshness") != "exact-head"
+        or evidence.get("output_binding_version") != "palari.evidence_outputs.v1"
+        or evidence.get("previous_receipt_hash") not in {None, ""}
+        or commands != expected_commands
+        or not expected_commands
+        or evidence.get("summary")
+        != f"{len(expected_commands)} exact-state verification profile(s) passed."
+    ):
+        return "maintainer proof extension has contradictory receipt or evidence binding"
+    try:
+        projected = Workspace.from_raw(
+            after,
+            data_path.parent,
+            data_path=data_path,
+        )
+        from .evidence_manifest import verify_evidence
+
+        verification = verify_evidence(
+            projected,
+            evidence_id,
+            require_output_coverage=True,
+        )
+    except WorkspaceError as exc:
+        return f"maintainer proof extension projection is invalid: {exc}"
+    if not verification.get("ok"):
+        return "maintainer proof extension does not contain verifiable exact evidence"
+    return ""
+
+
+def _maintainer_only_bound_records_changed(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    collection_ids: dict[str, str],
+) -> bool:
+    for key in set(before) | set(after):
+        if key not in collection_ids and before.get(key) != after.get(key):
+            return False
+    for collection, allowed_id in collection_ids.items():
+        before_records = _maintainer_records_by_id(before.get(collection))
+        after_records = _maintainer_records_by_id(after.get(collection))
+        if before_records is None or after_records is None:
+            return False
+        for record_id in set(before_records) | set(after_records):
+            if (
+                record_id != allowed_id
+                and before_records.get(record_id) != after_records.get(record_id)
+            ):
+                return False
+    return True
+
+
+def _maintainer_record_changes_within(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    allowed_fields: set[str],
+) -> bool:
+    return all(
+        key in allowed_fields or before.get(key) == after.get(key)
+        for key in set(before) | set(after)
+    )
+
+
+def _maintainer_record_by_id(
+    projection: dict[str, Any],
+    collection: str,
+    record_id: str,
+) -> dict[str, Any] | None:
+    records = _maintainer_records_by_id(projection.get(collection))
+    return records.get(record_id) if records is not None else None
+
+
+def _maintainer_records_by_id(
+    value: Any,
+) -> dict[str, dict[str, Any]] | None:
+    if not isinstance(value, list):
+        return None
+    records: dict[str, dict[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            return None
+        record_id = item.get("id")
+        if not isinstance(record_id, str) or not record_id or record_id in records:
+            return None
+        records[record_id] = item
+    return records
 
 
 def _governance_journal_history_error(
@@ -1649,6 +2404,26 @@ def _capture_missing_work_scope_baseline(
     """Anchor a newly declared work contract that is not in Git yet."""
 
     work_id = _scope_authority_packet_identifier(packet, "work_item", "id")
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        current_workspace = _scope_authority_workspace_from_current(data_path)
+        if current_workspace.work_item(work_id) is None:
+            raise WorkspaceError(
+                f"pre-claim scope authority work is missing: {work_id}"
+            )
+        anchored = dict(baseline)
+        anchored["scope_authority_catalog"] = _scope_authority_catalog(
+            current_workspace,
+            work_id,
+        )
+        anchored["maintainer_profile_binding"] = {
+            "schema_version": MAINTAINER_BASELINE_BINDING_VERSION,
+            "profile": layout.profile,
+            "state_id": layout.state_id,
+            "repository_id": layout.repository_id,
+            "binding_digest": layout.binding_digest,
+        }
+        return anchored
     baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
     if baseline_workspace.work_item(work_id) is not None:
         return baseline
@@ -1757,10 +2532,10 @@ def _scope_authority_binding_for(
     *,
     current_workspace: Workspace | None = None,
 ) -> dict[str, str]:
-    baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
     if current_workspace is None:
         current_workspace = _scope_authority_workspace_from_current(data_path)
-    if baseline_workspace.work_item(work_id) is None:
+    if resolve_workspace_layout(data_path).maintainer:
+        _maintainer_baseline_binding_error(data_path, baseline, raise_error=True)
         baseline_digest = _scope_authority_catalog_digest(
             baseline,
             work_id,
@@ -1768,12 +2543,21 @@ def _scope_authority_binding_for(
             mode,
         )
     else:
-        baseline_digest = _scope_authority_digest(
-            baseline_workspace,
-            work_id,
-            palari_id,
-            mode,
-        )
+        baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
+        if baseline_workspace.work_item(work_id) is None:
+            baseline_digest = _scope_authority_catalog_digest(
+                baseline,
+                work_id,
+                palari_id,
+                mode,
+            )
+        else:
+            baseline_digest = _scope_authority_digest(
+                baseline_workspace,
+                work_id,
+                palari_id,
+                mode,
+            )
     return {
         "schema_version": PRECLAIM_SCOPE_AUTHORITY_VERSION,
         "work_item_id": work_id,
@@ -1834,12 +2618,54 @@ def _scope_authority_catalog_hash(
     if catalog is None:
         return ""
     _scope_authority_catalog_bindings(baseline, work_id)
+    maintainer_binding = baseline.get("maintainer_profile_binding")
+    payload: Any = catalog
+    if maintainer_binding is not None:
+        if not isinstance(maintainer_binding, dict):
+            raise WorkspaceError("maintainer claim binding is malformed")
+        payload = {
+            "scope_authority_catalog": catalog,
+            "maintainer_profile_binding": maintainer_binding,
+        }
     try:
-        return canonical_sha256(catalog)
+        return canonical_sha256(payload)
     except CanonicalJSONError as exc:
         raise WorkspaceError(
             f"claim-start authority catalog cannot be canonicalized: {exc}"
         ) from exc
+
+
+def _maintainer_baseline_binding_error(
+    data_path: Path,
+    baseline: dict[str, Any],
+    *,
+    raise_error: bool = False,
+) -> str:
+    layout = resolve_workspace_layout(data_path)
+    binding = baseline.get("maintainer_profile_binding")
+    error = ""
+    required = {
+        "schema_version",
+        "profile",
+        "state_id",
+        "repository_id",
+        "binding_digest",
+    }
+    if not isinstance(binding, dict) or set(binding) != required:
+        error = "immutable Git baseline has no valid maintainer profile binding"
+    elif binding.get("schema_version") != MAINTAINER_BASELINE_BINDING_VERSION:
+        error = "immutable Git baseline maintainer binding schema is unsupported"
+    elif binding.get("profile") != layout.profile:
+        error = "immutable Git baseline uses a different workspace profile"
+    elif binding.get("state_id") != layout.state_id:
+        error = "maintainer state identifier differs from the immutable baseline"
+    elif binding.get("repository_id") != layout.repository_id:
+        error = "maintainer repository identifier differs from the immutable baseline"
+    elif binding.get("binding_digest") != layout.binding_digest:
+        error = "maintainer profile binding digest differs from the immutable baseline"
+    if error and raise_error:
+        raise WorkspaceError(error)
+    return error
 
 
 def _scope_authority_catalog_bindings(
@@ -2479,7 +3305,9 @@ def _complete_git_baseline(baseline: dict[str, Any]) -> bool:
 
 
 def _exact_git_sha(value: str) -> bool:
-    return len(value) == 40 and all(char in "0123456789abcdef" for char in value)
+    return len(value) in {40, 64} and all(
+        char in "0123456789abcdef" for char in value
+    )
 
 
 def _exact_git_head(root: str) -> str:
@@ -2828,6 +3656,10 @@ def _foreign_registered_claim(
     data_path: Path,
     work_id: str,
 ) -> dict[str, Any] | None:
+    if resolve_workspace_layout(data_path).maintainer:
+        # Maintainer v1 deliberately does not support isolated worktrees. Its
+        # repository-shared Git lease is still authoritative across processes.
+        return None
     root_path = Path(root).resolve()
     try:
         relative_data = data_path.resolve().relative_to(root_path)
@@ -3111,6 +3943,16 @@ def _read_git_lease(
 
 
 def _workspace_fingerprint(data_path: Path) -> str:
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        return canonical_sha256(
+            {
+                "profile": layout.profile,
+                "state_id": layout.state_id,
+                "repository_id": layout.repository_id,
+                "binding_digest": layout.binding_digest,
+            }
+        )
     normalized = str(data_path.parent.resolve()).encode("utf-8")
     return f"sha256:{hashlib.sha256(normalized).hexdigest()}"
 

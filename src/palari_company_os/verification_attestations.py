@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .workspace import WorkspaceError
+from .workspace_layout import resolve_workspace_layout, runtime_path
 
 
 SCHEMA_VERSION = "palari.verification_attestation.v1"
@@ -144,6 +145,35 @@ def cache_key(profile: VerificationProfile, context: VerificationContext) -> str
     )
 
 
+def expected_verification_commands(
+    risk: str,
+    changed_paths: list[str],
+    *,
+    base_sha: str,
+    head_sha: str,
+) -> list[str]:
+    """Return the exact persisted command bindings for one verified candidate."""
+
+    profiles = verification_profiles(
+        risk,
+        changed_paths,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    context = default_context(
+        head_sha=head_sha,
+        base_sha=base_sha,
+        changed_paths=changed_paths,
+        cleanliness="clean",
+    )
+    commands: list[str] = []
+    for profile in profiles:
+        key = cache_key(profile, context)
+        attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
+        commands.append(f"{profile.id} attestation {attestation_id} {key}")
+    return commands
+
+
 def run_or_reuse(
     workspace_path: Path | str,
     repo_root: Path | str,
@@ -160,7 +190,12 @@ def run_or_reuse(
 
     directory = _cache_directory(Path(workspace_path), create=True)
     key = cache_key(profile, context)
-    path = directory / f"{key.removeprefix(HASH_PREFIX)}.json"
+    path = runtime_path(
+        workspace_path,
+        f".palari/verification/{key.removeprefix(HASH_PREFIX)}.json",
+    )
+    if path.parent != directory:
+        raise WorkspaceError("verification cache path changed during resolution")
     cache_observed = False
     if path.exists() and not refresh:
         attestation = _read_attestation(path)
@@ -286,18 +321,23 @@ def attestation_errors(
 
 
 def _cache_directory(workspace_path: Path, *, create: bool) -> Path:
-    root = workspace_path.resolve()
-    directory = workspace_path / ".palari" / "verification"
-    current = workspace_path
-    for part in (".palari", "verification"):
-        current = current / part
+    layout = resolve_workspace_layout(workspace_path)
+    root = layout.state_root.resolve()
+    lexical_runtime_root = layout.state_root / ".palari"
+    if lexical_runtime_root.is_symlink():
+        raise WorkspaceError(
+            f"verification cache path is a symlink: {lexical_runtime_root}"
+        )
+    runtime_root = layout.runtime_root
+    directory = runtime_root / "verification"
+    for current in (runtime_root, directory):
         if current.is_symlink():
             raise WorkspaceError(f"verification cache path is a symlink: {current}")
         if current.exists() and not current.is_dir():
             raise WorkspaceError(f"verification cache path is not a directory: {current}")
         if create and not current.exists():
-            # Create one proven parent at a time. In particular, never call
-            # mkdir(parents=True) through an unchecked .palari symlink.
+            # Create one proven parent at a time. Never traverse an unchecked
+            # runtime symlink in either storage profile.
             current.mkdir()
             if current.is_symlink():
                 raise WorkspaceError(f"verification cache path is a symlink: {current}")

@@ -11,10 +11,16 @@ from .governance_journal import (
     JOURNAL_RELATIVE_PATH,
     V2_JOURNAL_RELATIVE_PATH,
     JournalVerificationContext,
+    legacy_journal_file_path,
+    v2_journal_file_path,
 )
 from .path_policy import path_allowed, resolve_workspace_path
 from .record_order import record_time_key
 from .workspace import Workspace, WorkspaceError
+from .workspace_layout import (
+    resolve_workspace_layout,
+    workspace_data_path as resolve_workspace_data_path,
+)
 
 
 HASH_PREFIX = "sha256:"
@@ -109,13 +115,16 @@ def _tracked_dirty_paths(root: Path) -> list[str] | None:
 
 
 def _governance_projection_paths(root: Path, workspace_path: Path) -> set[str]:
-    data_path = workspace_path.expanduser().resolve()
-    if data_path.is_dir():
-        data_path /= "workspace.json"
+    data_path = resolve_workspace_data_path(workspace_path)
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        # Ignored maintainer state is local authority, never a candidate Git
+        # projection or a cleanliness exemption.
+        return set()
     candidates = {
         data_path,
-        data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
-        data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
+        v2_journal_file_path(data_path),
+        legacy_journal_file_path(data_path),
     }
     paths: set[str] = set()
     for candidate in candidates:
@@ -132,6 +141,7 @@ def stamp_evidence_record(
     *,
     attempts: list[Any] | None = None,
     path_intents: list[dict[str, Any]] | None = None,
+    governance_workspace_path: Path | None = None,
 ) -> dict[str, Any]:
     stamped = dict(record)
     if not stamped.get("output_binding_version"):
@@ -141,7 +151,7 @@ def stamp_evidence_record(
         path_intents
         if path_intents is not None
         else _workspace_work_path_intents(
-            workspace_path,
+            governance_workspace_path or workspace_path,
             str(stamped.get("work_item_id") or ""),
         )
     )
@@ -553,7 +563,9 @@ def _relocated_git_artifact_root(fallback: Path, attempt: Any) -> Path:
         raise ValueError("workspace is not contained by its current Git root") from exc
 
     head_sha = str(_field(attempt, "head_sha") or "")
-    if len(head_sha) != 40 or any(character not in "0123456789abcdef" for character in head_sha):
+    if len(head_sha) not in {40, 64} or any(
+        character not in "0123456789abcdef" for character in head_sha
+    ):
         raise ValueError("attempt candidate commit is required for portable artifact proof")
     resolved = _git_exact_object_value(
         current_root,
@@ -689,7 +701,9 @@ def _verification_artifact_hashes(
 def _workspace_data_path(workspace: Workspace) -> Path:
     """Retain exact Workspace files while supporting structural read adapters."""
 
-    return Path(getattr(workspace, "data_path", None) or workspace.path)
+    return resolve_workspace_data_path(
+        Path(getattr(workspace, "data_path", None) or workspace.path)
+    )
 
 
 def _governance_projection_artifacts(
@@ -697,16 +711,19 @@ def _governance_projection_artifacts(
     workspace_path: Path,
     artifacts: list[str],
 ) -> list[str]:
-    data_path = Path(workspace_path).expanduser().resolve(strict=False)
-    if data_path.is_dir():
-        data_path /= "workspace.json"
+    data_path = resolve_workspace_data_path(workspace_path)
+    layout = resolve_workspace_layout(data_path)
+    if layout.maintainer:
+        # The source candidate intentionally contains neither the live
+        # maintainer workspace nor its local journal.
+        return []
     projection_paths = {
         data_path,
         *(
             path
             for path in (
-                data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
-                data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
+                v2_journal_file_path(data_path),
+                legacy_journal_file_path(data_path),
             )
             if path.exists()
         ),
@@ -734,7 +751,7 @@ def _git_artifact_hashes_at_head(
     git_root = _git_root(artifact_root)
     if (
         git_root is None
-        or len(head_sha) != 40
+        or len(head_sha) not in {40, 64}
         or any(character not in "0123456789abcdef" for character in head_sha)
         or _git_exact_object_value(
             git_root,

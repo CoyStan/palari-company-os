@@ -95,7 +95,7 @@ def _build_agent_next(
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
     queue = queue_items(workspace)
     leases = git_lease_statuses(
-        workspace.path,
+        workspace.data_path,
         [work.id for work in workspace.work_items],
     )
     agents = [
@@ -140,7 +140,7 @@ def _candidates(
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     lease_statuses = leases or git_lease_statuses(
-        workspace.path,
+        workspace.data_path,
         [work.id for work in workspace.work_items],
     )
     queue_records = (

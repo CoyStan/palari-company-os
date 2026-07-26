@@ -31,6 +31,7 @@ from .models import (
 )
 from .path_policy import resolve_workspace_path
 from .record_order import record_time_key
+from .workspace_layout import resolve_workspace_layout, workspace_data_path
 from .validation import (
     COLLECTION_FILE_KEYS,
     validate_raw_contract,
@@ -106,21 +107,40 @@ class Workspace:
 
     @classmethod
     def load(cls, path: Path | str) -> "Workspace":
-        workspace_path = Path(path).expanduser().resolve()
-        data_path = workspace_path / "workspace.json" if workspace_path.is_dir() else workspace_path
-        if not data_path.exists():
-            raise WorkspaceError(f"workspace file not found: {data_path}")
-
+        data_path = workspace_data_path(path)
         return cls.from_file(data_path)
 
     @classmethod
     def from_file(cls, data_path: Path | str) -> "Workspace":
-        data_path = Path(data_path).expanduser().resolve()
+        data_path = workspace_data_path(data_path)
+        if not data_path.exists():
+            raise WorkspaceError(f"workspace file not found: {data_path}")
+        layout = resolve_workspace_layout(data_path)
         try:
-            raw = json.loads(data_path.read_text(encoding="utf-8"))
+            text = data_path.read_text(encoding="utf-8")
+            raw = json.loads(text)
+        except OSError as exc:
+            raise WorkspaceError(f"workspace file cannot be read: {data_path}: {exc}") from exc
         except json.JSONDecodeError as exc:
             raise WorkspaceError(f"invalid workspace JSON: {exc}") from exc
-        return cls.from_raw(raw, data_path.parent, data_path=data_path)
+        if (
+            layout.maintainer
+            and isinstance(raw, dict)
+            and raw.get("collection_files")
+        ):
+            raise WorkspaceError(
+                "maintainer profile v1 does not support split collection files"
+            )
+        after = resolve_workspace_layout(data_path)
+        if layout.maintainer and layout.binding_witness != after.binding_witness:
+            raise WorkspaceError(
+                "maintainer profile binding changed while the workspace was loaded"
+            )
+        return cls.from_raw(
+            raw,
+            layout.repository_root,
+            data_path=data_path,
+        )
 
     @classmethod
     def from_raw(
