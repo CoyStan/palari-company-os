@@ -133,9 +133,10 @@ palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
 ```
 
 Other agent tools can follow the provider-neutral repository rules and use the
-host-neutral Git check, but only Claude and Codex have tested session profiles.
-No profile grants permission to review, approve, merge, push, deploy, call a
-provider, or perform an external write.
+host-neutral Git check. Claude and Codex have tested structural session
+profiles; Cursor has a tested advisory host profile (`palari init --host cursor`)
+with an opt-in git commit gate. No profile grants permission to review, approve,
+merge, push, deploy, call a provider, or perform an external write.
 
 Use `--write PATH` when only final presence matters. When the kind of change
 matters, declare it exactly:
@@ -233,7 +234,7 @@ Implemented now:
 - canonical path and symlink checks, including traversal and sibling-prefix
   defenses;
 - an assignment-bound Git commit check and tested Claude and Codex hooks;
-- optional Cursor boundary setup via `palari cursor install` (project rule plus the same Git pre-commit check);
+- Cursor host adoption via `palari init --host cursor` (advisory rule by default; opt-in git gate with `--strict-git` or `palari cursor install`);
 - replayable, tamper-evident history with corruption and crash detection;
 - deterministic PCAW v1 export and offline verification;
 - an Approval Inbox that safely groups eligible human actions;

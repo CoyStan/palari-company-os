@@ -32,7 +32,7 @@ matrix.
 | Task and status recording commands | operator | Explicit local changes to current task, verification, and approval records. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
-| Cursor rule + git hook | adapter | Optional Cursor project rule plus the same Git commit boundary. |
+| Cursor host profile | adapter | `init --host cursor` installs an advisory project rule; git commit gate is opt-in (`--strict-git` / `cursor install`). See [Cursor Integration](cursor-integration.md). |
 | Claude and Codex session setup | adapter | Tested repository-local session enforcement using portable session rules. |
 | MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |

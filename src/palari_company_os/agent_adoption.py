@@ -3,12 +3,14 @@
 Adoption installs only local, inspectable guardrails:
 
 * a small managed contract in ``AGENTS.md``;
-* the existing Git commit boundary gate for every host;
-* a native session hook only for hosts whose protocol Palari implements.
+* a Git commit boundary gate for hosts that support structural commit checks
+  (Claude/Codex always; Cursor only with ``strict_git`` / explicit install);
+* a native session hook only for hosts whose protocol Palari implements
+  (Claude/Codex). Cursor uses an advisory project rule instead.
 
 It never writes user-global configuration, credentials, provider state, or
-human authority. Only hosts with a tested native session protocol are exposed
-as supported profiles.
+human authority. Only hosts with a tested local profile are exposed as
+supported profiles.
 """
 
 from __future__ import annotations
@@ -23,6 +25,11 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from .agent_file_changes import git_repo_root
+from .cursor_rules import (
+    RULE_RELATIVE_PATH,
+    prepare_cursor_rule,
+    write_cursor_rule_bytes,
+)
 from .git_hooks import install_git_hook
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
@@ -31,7 +38,8 @@ from .workspace import Workspace, WorkspaceError
 AGENTS_START = "<!-- palari:agent-contract:start -->"
 AGENTS_END = "<!-- palari:agent-contract:end -->"
 HOOK_TIMEOUT_SECONDS = 20
-SUPPORTED_HOSTS = ("claude", "codex")
+SUPPORTED_HOSTS = ("claude", "codex", "cursor")
+HOOK_HOSTS = ("claude", "codex")
 PROJECT_WRAPPER = """#!/usr/bin/env bash
 set -euo pipefail
 
@@ -48,6 +56,7 @@ def adopt_agent_host(
     project_dir: Path | str = ".",
     host: str,
     palari_id: str = "",
+    strict_git: bool = False,
 ) -> dict[str, Any]:
     """Install the strongest honest local profile available for ``host``.
 
@@ -55,12 +64,18 @@ def adopt_agent_host(
     entries are preserved.  A malformed managed block, invalid host JSON, or
     an unmanaged Git pre-commit hook blocks adoption before repository
     instructions or host settings are changed.
+
+    For ``cursor``, the session boundary is advisory and the Git commit gate is
+    opt-in via ``strict_git=True`` (or a later ``palari cursor install`` /
+    ``palari git install``). Claude and Codex always install the Git gate.
     """
     selected_host = host.strip().lower()
     if selected_host not in SUPPORTED_HOSTS:
         raise WorkspaceError(
             "--host must be one of: " + ", ".join(SUPPORTED_HOSTS)
         )
+    if strict_git and selected_host != "cursor":
+        raise WorkspaceError("--strict-git is only valid with --host cursor")
 
     root = Path(project_dir).expanduser().resolve()
     repo_root = git_repo_root(root)
@@ -84,43 +99,84 @@ def adopt_agent_host(
         raise WorkspaceError(f"{agents_path} cannot be inspected safely: {exc}") from exc
     agents_after = _merge_agents_contract(agents_before, actor)
 
-    if selected_host == "codex":
+    install_commit_gate = selected_host != "cursor" or strict_git
+    if selected_host == "cursor":
+        host_target, host_before_text, host_after_text, host_plan_kind = _prepare_cursor_profile(
+            root,
+            structural_commit=install_commit_gate,
+        )
+        host_existed = host_target.exists()
+    elif selected_host == "codex":
         host_plan = _prepare_codex_hooks(root, workspace_path, executable)
+        host_target = host_plan[0]
+        host_existed = host_target.exists()
+        host_before_text = ""
+        if host_existed:
+            try:
+                host_before_text = host_target.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise WorkspaceError(
+                    f"{host_target} cannot be inspected safely: {exc}"
+                ) from exc
+        host_after_text = json.dumps(host_plan[2], indent=2) + "\n"
+        host_plan_kind = "json"
     else:
         host_plan = _prepare_claude_hooks(root, workspace_path, executable)
-
-    host_target = host_plan[0]
-    host_existed = host_target.exists()
-    host_before_text = ""
-    if host_existed:
-        try:
-            host_before_text = host_target.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as exc:
-            raise WorkspaceError(f"{host_target} cannot be inspected safely: {exc}") from exc
+        host_target = host_plan[0]
+        host_existed = host_target.exists()
+        host_before_text = ""
+        if host_existed:
+            try:
+                host_before_text = host_target.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise WorkspaceError(
+                    f"{host_target} cannot be inspected safely: {exc}"
+                ) from exc
+        host_after_text = json.dumps(host_plan[2], indent=2) + "\n"
+        host_plan_kind = "json"
 
     changed_files: list[str] = []
+    git_result: dict[str, Any]
     try:
         if agents_after != agents_before:
             agents_path.write_text(agents_after, encoding="utf-8")
             changed_files.append(_relative(agents_path, root))
-        target, before, after = host_plan
-        if after != before:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(after, indent=2) + "\n", encoding="utf-8")
-            changed_files.append(_relative(target, root))
+        if host_plan_kind == "cursor":
+            if host_after_text != host_before_text:
+                write_cursor_rule_bytes(host_target, host_after_text)
+                changed_files.append(_relative(host_target, root))
+        else:
+            target, before, after = host_plan
+            if after != before:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(after, indent=2) + "\n", encoding="utf-8")
+                changed_files.append(_relative(target, root))
 
-        # Install the cross-host structural gate last. If it refuses a foreign
-        # or non-local target, restore the exact instruction/configuration bytes
-        # instead of leaving a half-installed profile.
-        git_result = install_git_hook(
-            root,
-            workspace_path,
-            palari_executable=executable,
-        )
-        if git_result.get("status") == "error":
-            raise WorkspaceError(
-                str(git_result.get("message", "Git hook installation failed"))
+        # Install the structural commit gate last when this host profile includes
+        # it. If it refuses a foreign or non-local target, restore the exact
+        # instruction/configuration bytes instead of leaving a half-installed
+        # profile. Cursor defaults to skipping this gate.
+        if install_commit_gate:
+            git_result = install_git_hook(
+                root,
+                workspace_path,
+                palari_executable=executable,
             )
+            if git_result.get("status") == "error":
+                raise WorkspaceError(
+                    str(git_result.get("message", "Git hook installation failed"))
+                )
+        else:
+            git_result = {
+                "schema_version": "palari.git_install.v1",
+                "status": "skipped",
+                "changed": False,
+                "message": (
+                    "Cursor host defaults to an advisory commit boundary; "
+                    "pass --strict-git or run palari cursor install / "
+                    "palari git install for structural enforcement."
+                ),
+            }
     except Exception as exc:  # noqa: BLE001 - restore exact pre-adoption state
         _restore_local_file(agents_path, existed=agents_existed, content=agents_before, root=root)
         _restore_local_file(
@@ -133,23 +189,43 @@ def adopt_agent_host(
             raise
         raise WorkspaceError(f"agent adoption failed safely and was rolled back: {exc}") from exc
 
-    target, before, after = host_plan
-    changed = after != before
+    host_changed = host_after_text != host_before_text
     if selected_host == "claude":
         activation = "active"
         next_action = "Start a new Claude Code session in this repository."
-    else:
+        settings_file = str(host_target)
+    elif selected_host == "codex":
         activation = "review-project-hooks-in-codex"
         next_action = "Open /hooks in Codex and trust the reviewed repository hook definition."
+        settings_file = str(host_target)
+    else:
+        activation = "advisory-project-rule"
+        next_action = (
+            "Open this repository in Cursor; the managed project rule is advisory. "
+            "Optional structural commits: palari cursor install or palari git install."
+        )
+        settings_file = str(host_target)
     host_result = {
-        "status": "installed" if changed else "unchanged",
-        "changed": changed,
-        "settings_file": str(target),
+        "status": "installed" if host_changed else "unchanged",
+        "changed": host_changed,
+        "settings_file": settings_file,
         "activation": activation,
         "next_action": next_action,
     }
 
-    profile = _host_profile(selected_host)
+    profile = _host_profile(selected_host, strict_git=strict_git)
+    limitations = [
+        "Git enforcement applies at commit time and is not a filesystem sandbox.",
+        "Repository-local host hooks may require the host user to review and trust them.",
+        "Actor identifiers remain declared identities, not same-OS-user authentication.",
+        "Adoption grants no review, acceptance, merge, push, deployment, provider, or external-write authority.",
+    ]
+    if selected_host == "cursor" and not install_commit_gate:
+        limitations.insert(
+            0,
+            "Cursor session boundary is advisory; commits are not gated until "
+            "--strict-git / palari cursor install / palari git install.",
+        )
     return {
         "schema_version": "palari.agent_adoption.v1",
         "status": "ready",
@@ -170,13 +246,25 @@ def adopt_agent_host(
             "authority": "agent-loop-only; no human acceptance or external-write authority",
         },
         "next_commands": _agent_next_commands(executable, workspace_path, actor),
-        "limitations": [
-            "Git enforcement applies at commit time and is not a filesystem sandbox.",
-            "Repository-local host hooks may require the host user to review and trust them.",
-            "Actor identifiers remain declared identities, not same-OS-user authentication.",
-            "Adoption grants no review, acceptance, merge, push, deployment, provider, or external-write authority.",
-        ],
+        "limitations": limitations,
     }
+
+
+def _prepare_cursor_profile(
+    root: Path,
+    *,
+    structural_commit: bool,
+) -> tuple[Path, str, str, str]:
+    """Return (target, before_text, after_text, kind) for the Cursor rule file."""
+    target = root / RULE_RELATIVE_PATH
+    _assert_local_target(root, target)
+    plan = prepare_cursor_rule(target, structural_commit=structural_commit)
+    if plan["status"] == "error":
+        raise WorkspaceError(
+            f"{target} already exists and is not Palari-managed. "
+            "Remove it manually or move it aside, then re-run."
+        )
+    return target, plan["before"], plan["after"], "cursor"
 
 
 def run_agent_hook(
@@ -189,7 +277,7 @@ def run_agent_hook(
 ) -> dict[str, Any]:
     """Run one internal host hook and return the host-native decision JSON."""
     selected = host.strip().lower()
-    if selected not in SUPPORTED_HOSTS:
+    if selected not in HOOK_HOSTS:
         return {"systemMessage": f"Unsupported Palari agent hook host: {selected}"}
     try:
         raw = (stdin if stdin is not None else sys.stdin).read()
@@ -707,7 +795,17 @@ def _resolve_palari(workspace: Workspace, explicit: str) -> str:
     )
 
 
-def _host_profile(host: str) -> dict[str, Any]:
+def _host_profile(host: str, *, strict_git: bool = False) -> dict[str, Any]:
+    if host == "cursor":
+        return {
+            "profile": "palari.cursor.v1",
+            "portable_contract": "declared",
+            "commit_boundary": "structural" if strict_git else "optional",
+            "session_boundary": "advisory",
+            "session_activation": "advisory-project-rule",
+            "human_authority": "palari-enforced",
+            "external_write_authority": "palari-enforced",
+        }
     return {
         "profile": f"palari.{host}.v1",
         "portable_contract": "declared",
