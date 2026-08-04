@@ -27,6 +27,24 @@ class ModuleResult:
     duration: float
 
 
+def _default_workers() -> int:
+    """Resolve the default worker count, honoring PALARI_TEST_WORKERS.
+
+    Constrained machines (for example small CI containers or cloud dev VMs) can
+    export ``PALARI_TEST_WORKERS=1`` to run the gate with less contention and
+    avoid load-induced timing flakes, without changing the shared default.
+    """
+    override = os.environ.get("PALARI_TEST_WORKERS", "").strip()
+    if override:
+        try:
+            value = int(override)
+        except ValueError:
+            value = 0
+        if value >= 1:
+            return value
+    return min(4, os.cpu_count() or 1)
+
+
 def _modules() -> list[str]:
     return [
         f"tests.{path.stem}"
@@ -61,8 +79,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=min(4, os.cpu_count() or 1),
-        help="Number of isolated module processes (default: up to 4).",
+        default=_default_workers(),
+        help=(
+            "Number of isolated module processes (default: up to 4, or "
+            "PALARI_TEST_WORKERS when set)."
+        ),
     )
     parser.add_argument("--list", action="store_true", help="List modules without running.")
     args = parser.parse_args(argv)
