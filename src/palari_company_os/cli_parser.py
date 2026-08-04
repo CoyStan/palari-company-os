@@ -41,6 +41,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not wait between demo acts.",
     )
     demo_parser.add_argument(
+        "--journey",
+        action="store_true",
+        help=(
+            "Narrate the solo-maintainer R2 closeout: init through review and "
+            "founder approval."
+        ),
+    )
+    demo_parser.add_argument(
         "--serve",
         action="store_true",
         help="Prepare the demo workspace and open it in live Mission Control.",

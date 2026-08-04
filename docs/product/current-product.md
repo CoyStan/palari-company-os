@@ -123,6 +123,12 @@ human approval action. Only the last command is human authority. Including
 builder start and advance, the ordinary task lifecycle is five agent commands
 and one human command. No opaque ID or digest is copied.
 
+**Current guarantee:** `palari init` seeds `HUMAN-FOUNDER`, a builder Palari,
+and `PALARI-REVIEWER`. The first R2 task for that builder has a viable authority
+plan out of the box. CI covers the product-command closeout
+(init → work add → start → advance → review → approve). Operators can replay
+the narration with `palari demo --journey --no-pause`.
+
 ## Supported verification and storage
 
 The supported portable verification format is PCAW v1: canonical, no-float

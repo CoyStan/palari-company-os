@@ -21,11 +21,22 @@ class CommandResult:
 def run_command(args: argparse.Namespace) -> CommandResult:
     if args.command == "demo":
         from .demo import run_demo
+        from .demo import run_solo_journey_demo
         from .demo import serve_demo
 
         if args.serve:
             serve_demo(args.demo_dir, host=args.host, port=args.port)
             return CommandResult("demo-serve", {}, False)
+
+        if args.journey:
+            return CommandResult(
+                "demo",
+                run_solo_journey_demo(
+                    args.demo_dir,
+                    no_pause=args.no_pause or args.json,
+                ),
+                args.json,
+            )
 
         return CommandResult(
             "demo",

@@ -13,6 +13,30 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DemoCommandTests(unittest.TestCase):
+    def test_demo_journey_reaches_founder_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            demo_dir = Path(directory) / "journey"
+            result = self.run_cli(
+                "demo",
+                "--dir",
+                str(demo_dir),
+                "--journey",
+                "--no-pause",
+                "--json",
+            )
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], "palari.demo.journey.v1")
+        titles = [step["title"] for step in payload["steps"]]
+        self.assertIn("Initialize a solo-maintainer workspace", titles)
+        self.assertIn("Founder approves once", titles)
+        self.assertTrue(
+            any(
+                "AUTHORITY_PLAN_UNSATISFIABLE" in sentence
+                for sentence in payload["plain_summary"]
+            )
+        )
+        self.assertEqual(result.returncode, 0)
+
     def test_demo_no_pause_prints_blocked_write_moment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             demo_dir = Path(directory) / "demo"

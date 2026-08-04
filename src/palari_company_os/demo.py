@@ -175,6 +175,319 @@ def serve_demo(demo_dir: str | None, *, host: str = "127.0.0.1", port: int = 0) 
             temp_directory.cleanup()
 
 
+def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
+    """Narrate init → R2 work → advance → review → founder approve for one human."""
+
+    temp_directory: tempfile.TemporaryDirectory[str] | None = None
+    if demo_dir:
+        workspace_dir = Path(demo_dir).expanduser().resolve()
+        _ensure_empty_demo_dir(workspace_dir)
+    else:
+        temp_directory = tempfile.TemporaryDirectory(prefix="palari-demo-journey-")
+        workspace_dir = Path(temp_directory.name)
+
+    try:
+        _run_demo_git(workspace_dir, "init", "-q")
+        _run_demo_git(workspace_dir, "config", "user.email", "palari-demo@local.invalid")
+        _run_demo_git(workspace_dir, "config", "user.name", "Demo Founder")
+        _run_demo_git(workspace_dir, "commit", "--allow-empty", "-qm", "initial")
+        _install_journey_verification_stubs(workspace_dir)
+
+        steps: list[dict[str, Any]] = []
+        init_step = _run_repo_step(
+            workspace_dir,
+            "Initialize a solo-maintainer workspace",
+            "Init seeds one founder, one builder agent, and one review-only agent.",
+            ["init", str(workspace_dir)],
+            workspace_flag=False,
+        )
+        steps.append(init_step)
+
+        added = _run_json(
+            workspace_dir,
+            [
+                "work",
+                "add",
+                "Ship one reviewed solo result",
+                "--create",
+                "artifacts/solo-result.txt",
+                "--risk",
+                "R2",
+                "--intensity",
+                "standard",
+                "--approvals",
+                "0",
+                "--acceptance",
+                "The exact local result is reviewed and founder-approved.",
+            ],
+        )
+        work_id = str(added["work_item"]["id"])
+        steps.append(
+            {
+                "title": "Add reviewed work for one founder",
+                "narration": (
+                    "R2 work still needs independent review and one human approval, "
+                    "even when the stored approval count is zero."
+                ),
+                "command": _display_command(
+                    workspace_dir,
+                    [
+                        "work",
+                        "add",
+                        "Ship one reviewed solo result",
+                        "--create",
+                        "artifacts/solo-result.txt",
+                        "--risk",
+                        "R2",
+                        "--intensity",
+                        "standard",
+                        "--approvals",
+                        "0",
+                    ],
+                ),
+                "stdout": (
+                    f"Task {work_id} is ready. Authority plan is viable with "
+                    "PALARI-REVIEWER and HUMAN-FOUNDER."
+                ),
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        start_command = str(added["next_commands"][0])
+        started = _run_emitted_json(workspace_dir, start_command)
+        steps.append(
+            {
+                "title": "Builder starts the task",
+                "narration": "The builder claims the task brief before editing files.",
+                "command": start_command,
+                "stdout": f"Claimed {started['entry']['selected_work_item']}.",
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        output_path = workspace_dir / "artifacts" / "solo-result.txt"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("solo maintainer reviewed bytes\n", encoding="utf-8")
+        _run_demo_git(workspace_dir, "add", "--", "artifacts/solo-result.txt")
+        _run_demo_git(
+            workspace_dir,
+            "commit",
+            "--quiet",
+            "-m",
+            "demo: solo reviewed result",
+            "--",
+            "artifacts/solo-result.txt",
+        )
+        steps.append(
+            {
+                "title": "Commit the bounded result",
+                "narration": "Only allowed files are committed inside the task brief.",
+                "command": "git commit -m 'demo: solo reviewed result'",
+                "stdout": "Committed artifacts/solo-result.txt",
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        advanced = _run_emitted_json(
+            workspace_dir,
+            str(started["entry"]["next_command"]),
+        )
+        steps.append(
+            {
+                "title": "Advance records checks and stops for review",
+                "narration": (
+                    "Advance finishes every safe mechanical step, then hands off "
+                    "to the independent reviewer."
+                ),
+                "command": str(started["entry"]["next_command"]),
+                "stdout": f"Status: {advanced.get('status')}",
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        review_actions = [
+            action
+            for action in advanced["handoff"]["agent_action_commands"]
+            if action.get("actor") == "PALARI-REVIEWER"
+        ]
+        accept_action = next(
+            action
+            for action in review_actions
+            if "--verdict accept-ready" in str(action.get("command", ""))
+        )
+        reviewer_packet = _run_emitted_json(
+            workspace_dir,
+            str(accept_action["packet_command"]),
+        )
+        concrete_review = next(
+            str(item["command"])
+            for item in reviewer_packet["review_context"]["agent_review_commands"]
+            if item.get("reviewer") == "PALARI-REVIEWER"
+            and item.get("verdict") == "accept-ready"
+        )
+        _run_emitted_json(workspace_dir, concrete_review)
+        steps.append(
+            {
+                "title": "Independent review accepts the exact candidate",
+                "narration": (
+                    "The review-only agent records an advisory accept-ready result. "
+                    "That is not human approval."
+                ),
+                "command": concrete_review,
+                "stdout": "Review recorded: accept-ready",
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        handoff = _run_json(
+            workspace_dir,
+            [
+                "agent",
+                "handoff",
+                work_id,
+                "--as",
+                "PALARI-REVIEWER",
+                "--mode",
+                "review",
+            ],
+        )
+        human_command = str(handoff["human_action_commands"][0]["command"])
+        approved = _run_emitted_json(workspace_dir, human_command)
+        steps.append(
+            {
+                "title": "Founder approves once",
+                "narration": (
+                    "The human runs the exact presentation-bound approve command. "
+                    "No digest is copied by hand."
+                ),
+                "command": human_command,
+                "stdout": (
+                    "Completed"
+                    if approved.get("completed")
+                    else json.dumps({"completed": approved.get("completed")})
+                ),
+                "stderr": "",
+                "returncode": 0,
+            }
+        )
+
+        return {
+            "schema_version": "palari.demo.journey.v1",
+            "workspace_dir": str(workspace_dir),
+            "cleanup": temp_directory is not None,
+            "no_pause": no_pause,
+            "steps": steps,
+            "plain_summary": [
+                "Init gave one founder a builder and a distinct review-only agent.",
+                "R2 work reached independent review without AUTHORITY_PLAN_UNSATISFIABLE.",
+                "One founder approval completed the task after the advisory review.",
+            ],
+            "try_next_commands": [
+                "palari demo --journey --no-pause",
+                "palari init",
+                "palari work add \"Reviewed local result\" --create notes/result.md --risk R2 --json",
+            ],
+        }
+    finally:
+        if temp_directory is not None:
+            temp_directory.cleanup()
+
+
+def _install_journey_verification_stubs(workspace_dir: Path) -> None:
+    scripts = workspace_dir / "scripts"
+    scripts.mkdir(exist_ok=True)
+    for name in ("verify.sh", "install_smoke.sh"):
+        path = scripts / name
+        path.write_text("#!/bin/sh\necho ok\nexit 0\n", encoding="utf-8")
+        path.chmod(0o755)
+    bin_dir = workspace_dir / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    package_root = Path(__file__).resolve().parents[2]
+    wrapper = bin_dir / "palari"
+    wrapper.write_text(
+        "#!/usr/bin/env bash\n"
+        f'export PYTHONPATH="{package_root / "src"}'
+        '${PYTHONPATH:+:$PYTHONPATH}"\n'
+        'exec python3 -m palari_company_os "$@"\n',
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+
+
+def _run_repo_step(
+    workspace_dir: Path,
+    title: str,
+    narration: str,
+    args: list[str],
+    *,
+    workspace_flag: bool = True,
+) -> dict[str, Any]:
+    command = (
+        _display_command(workspace_dir, args)
+        if workspace_flag
+        else " ".join(["palari", *args])
+    )
+    cli_args = (
+        ["--workspace", str(workspace_dir), *args]
+        if workspace_flag
+        else list(args)
+    )
+    result = _run_cli_raw(workspace_dir, cli_args)
+    if result.returncode != 0:
+        raise WorkspaceError(result.stderr.strip() or result.stdout.strip())
+    return {
+        "title": title,
+        "narration": narration,
+        "command": command,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "returncode": result.returncode,
+    }
+
+
+def _run_emitted_json(workspace_dir: Path, command: str) -> dict[str, Any]:
+    import shlex
+
+    arguments = shlex.split(command)
+    if not arguments or arguments[0] != "palari":
+        raise WorkspaceError(f"demo expected an emitted palari command: {command}")
+    # Emitted commands already include --workspace when needed.
+    result = _run_cli_raw(workspace_dir, arguments[1:])
+    if result.returncode != 0:
+        raise WorkspaceError(result.stderr.strip() or result.stdout.strip() or command)
+    payload = json.loads(result.stdout)
+    if not isinstance(payload, dict):
+        raise WorkspaceError("demo emitted command returned non-object JSON")
+    return payload
+
+
+def _run_cli_raw(
+    workspace_dir: Path,
+    args: list[str],
+) -> subprocess.CompletedProcess[str]:
+    command = [sys.executable, "-m", "palari_company_os", *args]
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    package_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = str(package_root / "src") + (
+        os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
+    )
+    return subprocess.run(
+        command,
+        cwd=workspace_dir,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+
+
 def _ensure_empty_demo_dir(path: Path) -> None:
     if path.exists() and any(path.iterdir()):
         raise WorkspaceError(f"demo directory must be empty: {path}")
