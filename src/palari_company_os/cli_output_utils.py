@@ -160,6 +160,12 @@ _PLAIN_DETAIL_STATE_LABELS = {
     "stale-review": "Previous review is stale",
     "review-needed": "Ready for review",
     "missing-proof": "Missing checks",
+    "changes-requested": "Needs changes",
+    "accept-ready": "Ready for approval",
+    "authority-plan-blocked": "Approval plan blocked",
+    "needs-human-decision": "Needs approval",
+    "not-required": "Not required",
+    "ready-to-record": "Ready to record",
     "pass": "Passed",
     "fail": "Failed",
     "available": "Available",
@@ -227,6 +233,155 @@ _PLAIN_MESSAGE_REPLACEMENTS = (
         "refresh checks before requesting review or approval",
     ),
     (r"\brefresh evidence and review\b", "refresh checks and review"),
+    (
+        r"\brepair the receipt and refresh evidence\b",
+        "repair the run record and refresh checks",
+    ),
+    (
+        r"\bhash the current output bytes and refresh evidence\b",
+        "hash the current output bytes and refresh checks",
+    ),
+    (r"\brefresh evidence\b", "refresh checks"),
+    (
+        r"\brun the focused verification expected for this work item\b",
+        "run the required checks for this task",
+    ),
+    (
+        r"\bno execution attempt exists yet\b",
+        "no run exists yet",
+    ),
+    (
+        r"\bthe recorded current proof derives the terminal lifecycle state\b",
+        "checks show this task is complete",
+    ),
+    (
+        r"\brecorded current proof satisfies the lifecycle completion candidate\b",
+        "current checks allow completion",
+    ),
+    (
+        r"\breconcile the terminal lifecycle state from externally verified proof\b",
+        "finish the task from the current checked records",
+    ),
+    (
+        r"\breconcile the terminal lifecycle state\b",
+        "finish the task from the current checked records",
+    ),
+    (
+        r"\binspect the current kernel diagnostics and repair the blocked proof\b",
+        "inspect the current blockers and repair the failed checks",
+    ),
+    (
+        r"\binspect the task's current proof and authority plan before retrying\b",
+        "inspect the task's current checks and approval plan before retrying",
+    ),
+    (
+        r"\brecord a receipt for the declared current attempt\b",
+        "record a run record for the current run",
+    ),
+    (
+        r"\brecord a receipt for the current attempt\b",
+        "record a run record for the current run",
+    ),
+    (
+        r"\bthe current attempt has no evidence\b",
+        "the current run has no check results",
+    ),
+    (
+        r"\bwork inside the persisted packet, then converge deterministic proof\b",
+        "work inside the saved task brief, then run checks to completion",
+    ),
+    (
+        r"\bconcrete packet-bound review commands\b",
+        "concrete task-brief review commands",
+    ),
+    (
+        r"\bresolve the packet blockers first\b",
+        "resolve the task brief blockers first",
+    ),
+    (
+        r"\bpacket blockers\b",
+        "task brief blockers",
+    ),
+    (
+        r"\bpacket-bound executable verdict commands\b",
+        "task-brief review-result commands",
+    ),
+    (
+        r"\bhuman-only executable verdict commands\b",
+        "human-only review-result commands",
+    ),
+    (
+        r"\bpacket-bound\b",
+        "task-brief",
+    ),
+    (
+        r"\bavailable verdicts\b",
+        "available review results",
+    ),
+    (
+        r"\bno human approval quorum is required\b",
+        "no human approval is required",
+    ),
+    (
+        r"\bapproval quorum is incomplete\b",
+        "required approvals are incomplete",
+    ),
+    (
+        r"\btask authority plan\b",
+        "task approval plan",
+    ),
+    (
+        r"\bauthority plan\b",
+        "approval plan",
+    ),
+    (
+        r"\bjournal continuity\b",
+        "tamper-evident history",
+    ),
+    (
+        r"\bpersisted packet\b",
+        "saved task brief",
+    ),
+    (
+        r"\bconverge deterministic proof\b",
+        "run checks to completion",
+    ),
+    (
+        r"\breleased claim for\b",
+        "released task lock for",
+    ),
+    (
+        r"\bclaim lease has expired\b",
+        "task lock has expired",
+    ),
+    (
+        r"\brenew the claim\b",
+        "renew the task lock",
+    ),
+    (
+        r"\bno remediation is required\b",
+        "no repair is required",
+    ),
+    (
+        r"\brun deterministic agent reconciliation\b",
+        "run automatic finish from current records",
+    ),
+    (
+        r"\bcurrent exact evidence\b",
+        "current check results",
+    ),
+    (
+        r"\bcurrent evidence to inspect\b",
+        "current check results to inspect",
+    ),
+    (
+        r"\bevidence-first local completion\b",
+        "checks-first local completion",
+    ),
+    (
+        r"\bmanufacturing human authority\b",
+        "creating a human approval",
+    ),
     (r"\bwork scope and acceptance target\b", "task limits and completion target"),
     (r"\bscope and acceptance target\b", "task limits and completion target"),
     (r"\bbefore any human decision or integration\b", "before any approval or integration"),

@@ -752,7 +752,7 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
                     and command.get("verdict")
                 ]
                 if verdict_commands:
-                    label = (
+                    label = plain_message(
                         "packet-bound executable verdict commands"
                         if candidate.get("agent_may_execute") is True
                         else "human-only executable verdict commands"
@@ -764,7 +764,7 @@ def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
                             f"{command['command']}"
                         )
     if payload.get("attention") == "needs-review":
-        print("Available verdicts:")
+        print(f"{plain_message('Available verdicts')}:")
         print(f"  {', '.join(payload['suggested_verdicts'])}")
         template = payload.get("review_record_command_template", "")
         if template:

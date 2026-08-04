@@ -101,12 +101,7 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
     print(f"Task: {work.get('id', '')} {work.get('title', '')}")
     print(f"Next step: {plain_step(display_step, next_command=context_command)}")
-    instruction = str(payload.get("one_sentence_instruction") or "")
-    if payload.get("status") != "ready":
-        instruction = instruction.replace(
-            "resolve the packet blockers first",
-            "resolve the task brief blockers first",
-        )
+    instruction = plain_message(payload.get("one_sentence_instruction") or "")
     print(f"Instruction: {instruction}")
     docs_state = payload.get("documentation_state") or {}
     if docs_state:
@@ -146,7 +141,7 @@ def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
         )
         print(f"Safe: {_yes_no(entry.get('safe', False))}")
         print(f"Owner: {entry.get('owner', '')}")
-        print(f"Why: {entry.get('explanation', '')}")
+        print(f"Why: {plain_message(entry.get('explanation', ''))}")
         print(
             "Next: "
             f"{plain_message(entry.get('next_command', '') or entry.get('next_action', ''))}"
@@ -224,8 +219,8 @@ def print_agent_park(payload: dict[str, Any], as_json: bool) -> None:
         return
     print(f"Task: {payload['work_item']} [Blocked]")
     print(f"Owner: {payload['parked_by']}")
-    print(f"Reason: {payload['reason']}")
-    print(f"Next: {payload['next_action']}")
+    print(f"Reason: {plain_message(payload['reason'])}")
+    print(f"Next: {plain_message(payload['next_action'])}")
     print(f"Task lock released: {_yes_no(payload['claim_released'])}")
 
 

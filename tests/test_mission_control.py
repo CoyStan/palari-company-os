@@ -92,6 +92,14 @@ class MissionControlTests(unittest.TestCase):
         self.assertIn("External writes", page.body)
         self.assertNotIn("External actions", page.body)
         self.assertIn("No external writes.", page.body)
+        self.assertNotIn("refresh evidence", page.body.lower())
+        self.assertNotIn("kernel diagnostics", page.body.lower())
+        self.assertNotIn("lifecycle completion", page.body.lower())
+        self.assertNotIn("human decision before continuing", page.body.lower())
+        self.assertIn(
+            "Resolve the approval or rejection before continuing.",
+            page.body,
+        )
         self.assertIn("Use the exact action emitted by the Approval Inbox.", page.body)
         self.assertNotIn('action="/human-decision"', page.body)
         self.assertNotIn(">Approve</button>", page.body)
