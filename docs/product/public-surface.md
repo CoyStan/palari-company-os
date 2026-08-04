@@ -32,6 +32,7 @@ matrix.
 | Task and status recording commands | operator | Explicit local changes to current task, verification, and approval records. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
+| Cursor rule + git hook | adapter | Optional Cursor project rule plus the same Git commit boundary. |
 | Claude and Codex session setup | adapter | Tested repository-local session enforcement using portable session rules. |
 | MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
@@ -46,7 +47,7 @@ matrix.
 
 ## Command surface
 
-Current CLI command count from parser inspection: **143**.
+Current CLI command count from parser inspection: **146**.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `approve`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary

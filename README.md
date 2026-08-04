@@ -233,6 +233,7 @@ Implemented now:
 - canonical path and symlink checks, including traversal and sibling-prefix
   defenses;
 - an assignment-bound Git commit check and tested Claude and Codex hooks;
+- optional Cursor boundary setup via `palari cursor install` (project rule plus the same Git pre-commit check);
 - replayable, tamper-evident history with corruption and crash detection;
 - deterministic PCAW v1 export and offline verification;
 - an Approval Inbox that safely groups eligible human actions;

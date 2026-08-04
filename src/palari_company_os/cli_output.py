@@ -281,11 +281,26 @@ def print_result(result: CommandResult) -> None:
             print_git_status(result.payload)
         return
 
+    if result.kind == "cursor-install":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_cursor_install(result.payload)
+        return
+
+    if result.kind == "cursor-status":
+        if result.as_json:
+            print_json(result.payload)
+        else:
+            print_cursor_status(result.payload)
+        return
+
     if result.kind == "git-readiness":
         if result.as_json:
             print_json(result.payload)
         else:
             print_git_readiness(result.payload)
+
         return
 
     if result.kind == "mcp-server":
@@ -1416,3 +1431,35 @@ def print_git_status(payload: dict[str, Any]) -> None:
     else:
         print("Active task locks: none")
     print(plain_message(payload.get("message", "")))
+
+
+def print_cursor_install(payload: dict[str, Any]) -> None:
+    print(f"Palari Cursor rule: {payload['status']}")
+    print(f"Rule path: {payload.get('rule_path', '')}")
+    git_hook = payload.get("git_hook")
+    if git_hook is None:
+        print("Git pre-commit hook: skipped (--no-git-hook)")
+    else:
+        print(f"Git pre-commit hook: {git_hook.get('status', '')}")
+    print(plain_message(payload.get("message", "")))
+
+
+def print_cursor_status(payload: dict[str, Any]) -> None:
+    print(f"Palari Cursor rule installed: {_yes_no(payload.get('installed', False))}")
+    if payload.get("rule_path"):
+        print(f"Rule path: {payload['rule_path']}")
+    print(f"Git pre-commit hook installed: {_yes_no(payload.get('git_hook_installed', False))}")
+    claims = payload.get("active_claims", [])
+    if claims:
+        print("Active task locks:")
+        for claim in claims:
+            writes = ", ".join(claim["allowed_write_paths"]) or "(none)"
+            print(
+                f"  {claim['work_item']} by {claim['claimed_by']} "
+                f"(mode {claim['mode']}, lease {claim['lease_expires_at']})"
+            )
+            print(f"    allowed writes: {writes}")
+    else:
+        print("Active task locks: none")
+    print(plain_message(payload.get("message", "")))
+

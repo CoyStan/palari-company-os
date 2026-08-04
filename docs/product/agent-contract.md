@@ -335,6 +335,8 @@ Implemented:
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
 - `palari git pre-commit`
+- `palari cursor install` (Cursor rule + git pre-commit boundary enforcement)
+- `palari cursor status`
 - compact agent-specific task discovery
 - compact ready/blocked task briefs
 - machine-readable task-brief compliance checks
@@ -537,6 +539,16 @@ the out-of-boundary changes are reverted or the boundary is expanded by a human.
 `palari git status` shows whether the hook is installed and lists active task locks
 with their allowed write paths. `palari git pre-commit` is the check command the
 hook calls; it can also be run manually before committing.
+
+## Cursor Enforcement
+
+`palari cursor install` brings the same boundary to the Cursor IDE. Because
+Cursor has no pre-write deny hook, it pairs an always-applied Cursor project
+rule (`.cursor/rules/palari-boundary.mdc`) that instructs the agent with the
+IDE-agnostic git pre-commit hook that structurally rejects out-of-boundary
+commits. Pass `--no-git-hook` to write only the rule; use `--remove` to
+uninstall both. `palari cursor status` reports the rule, the git hook, and the
+active task locks with their allowed write paths.
 
 The same local Git repository holds expiring task-lock leases under
 `refs/palari/leases/`. They prevent two linked worktrees from treating the same

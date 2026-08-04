@@ -17,7 +17,8 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 143)
+        self.assertEqual(len(actual), 146)
+
         self.assertEqual(actual, expected)
 
     def test_default_help_leads_with_the_ordinary_journey(self) -> None:
@@ -51,8 +52,10 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("translate those decisions", surface)
         self.assertIn("do not own a second work process", surface)
         self.assertIn("| Mission Control and local serve | visual |", surface)
+        self.assertIn("| Cursor rule + git hook | adapter |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
-        self.assertIn("Current CLI command count from parser inspection: **143**.", surface)
+        self.assertIn("Current CLI command count from parser inspection: **146**.", surface)
+
 
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")

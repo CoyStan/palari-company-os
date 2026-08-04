@@ -600,6 +600,7 @@ def _current_data() -> dict[str, Any]:
     return raw
 
 
+
 def _review_required_data() -> dict[str, Any]:
     raw = _current_data()
     raw["work_items"][0].update(
