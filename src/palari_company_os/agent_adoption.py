@@ -85,9 +85,20 @@ def adopt_agent_host(
     agents_after = _merge_agents_contract(agents_before, actor)
 
     if selected_host == "codex":
-        host_plan = _prepare_codex_hooks(root, workspace_path, executable)
+        host_plan = _prepare_codex_hooks(
+            root,
+            workspace_path,
+            executable,
+            strict=True,
+        )
     else:
-        host_plan = _prepare_claude_hooks(root, workspace_path, executable)
+        # Dogfood default: no active claim escalates to ask before edits.
+        host_plan = _prepare_claude_hooks(
+            root,
+            workspace_path,
+            executable,
+            strict=True,
+        )
 
     host_target = host_plan[0]
     host_existed = host_target.exists()
@@ -314,6 +325,8 @@ def _prepare_codex_hooks(
     root: Path,
     workspace_path: Path | str,
     executable: str,
+    *,
+    strict: bool = False,
 ) -> tuple[Path, dict[str, Any], dict[str, Any]]:
     target = root / ".codex" / "hooks.json"
     _assert_local_target(root, target)
@@ -322,7 +335,7 @@ def _prepare_codex_hooks(
     hooks = after.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise WorkspaceError(f"{target} hooks must be a JSON object")
-    managed = _codex_managed_hooks(workspace_path, executable)
+    managed = _codex_managed_hooks(workspace_path, executable, strict=strict)
     for event in ("SessionStart", "PreToolUse", "Stop"):
         entries = hooks.get(event, [])
         if not isinstance(entries, list):
@@ -438,6 +451,8 @@ def _read_host_json(target: Path) -> dict[str, Any]:
 def _codex_managed_hooks(
     workspace_path: Path | str,
     executable: str,
+    *,
+    strict: bool = False,
 ) -> dict[str, dict[str, Any]]:
     def command(event: str) -> dict[str, Any]:
         return {
@@ -447,6 +462,7 @@ def _codex_managed_hooks(
                 workspace_path,
                 host="codex",
                 event=event,
+                strict=strict and event == "pre-tool-use",
             ),
             "timeout": HOOK_TIMEOUT_SECONDS,
             "statusMessage": "Checking Palari work boundary",
@@ -538,10 +554,12 @@ def _is_managed_host_hook(hook: Any, host: str) -> bool:
 
     events = {"pre-tool-use", "stop", "session-start"}
     if (
-        len(arguments) == 6
+        arguments
         and arguments[0] == "init"
+        and len(arguments) >= 6
         and arguments[2:5] == ["--host", host, "--hook-event"]
         and arguments[5] in events
+        and arguments[6:] in ([], ["--strict"])
     ):
         return True
     if host != "claude" or arguments[:2] != ["claude", "hook"]:
@@ -560,7 +578,11 @@ def _has_canonical_executable_word(command: str, executable: str) -> bool:
 
     expected = shlex.quote(executable)
     stripped = command.lstrip()
-    return stripped == expected or stripped.startswith(expected + " ")
+    if stripped == expected or stripped.startswith(expected + " "):
+        return True
+    # Portable Claude settings keep the project-dir placeholder as the launcher.
+    portable = '"$CLAUDE_PROJECT_DIR/bin/palari"'
+    return stripped == portable or stripped.startswith(portable + " ")
 
 
 def _hook_payload_security_error(payload: dict[str, Any]) -> str:
@@ -606,21 +628,23 @@ def _host_hook_command(
     *,
     host: str,
     event: str,
+    strict: bool = False,
 ) -> str:
     workspace = _workspace_selector(workspace_path)
-    return shlex.join(
-        [
-            executable,
-            "--workspace",
-            workspace,
-            "init",
-            workspace,
-            "--host",
-            host,
-            "--hook-event",
-            event,
-        ]
-    )
+    command = [
+        executable,
+        "--workspace",
+        workspace,
+        "init",
+        workspace,
+        "--host",
+        host,
+        "--hook-event",
+        event,
+    ]
+    if strict:
+        command.append("--strict")
+    return shlex.join(command)
 
 
 def _claude_hook_command(

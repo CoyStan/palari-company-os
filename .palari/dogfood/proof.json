@@ -1,0 +1,10 @@
+{
+  "schema_version": "palari.dogfood_proof.v1",
+  "ranges": [
+    {
+      "base": "70a4372ebea13e898536163c12b1ce927f188aa8",
+      "head": "@pr-head",
+      "work_id": "SLICE-D-DOGFOOD"
+    }
+  ]
+}

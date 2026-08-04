@@ -87,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help=argparse.SUPPRESS,
     )
+    init_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     approve_parser = subparsers.add_parser(

@@ -75,12 +75,13 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
 - `--local` writes `.claude/settings.local.json` (gitignored) instead of the
   shared settings file.
 - `--strict` also escalates writes that **no** active assignment covers, and
-  writes that target paths outside the repository, to a human ask. Without it,
-  transparent file writes in sessions with no assigned task are left to
-  Claude Code's normal permission flow. Opaque, indirect, or unreviewed shell
-  execution still asks even without an assignment so hidden
-permission-changing commands cannot bypass the hook by releasing an
-assignment first. Direct writes to workspace records, split collection files,
+  writes that target paths outside the repository, to a human ask. `palari init
+  --host claude` / host adoption installs strict hooks by default for dogfood.
+  Without `--strict` on the hook-only `claude install` path, transparent file
+  writes in sessions with no assigned task are left to Claude Code's normal
+  permission flow. Opaque, indirect, or unreviewed shell execution still asks
+  even without an assignment so hidden permission-changing commands cannot
+  bypass the hook by releasing an assignment first. Direct writes to workspace records, split collection files,
   `.palari/`, and standard or linked-worktree Git metadata also remain
   protected, including `dd of=`, `-t`, and
   `--target-directory` destinations. Compact/newline shell separators and
