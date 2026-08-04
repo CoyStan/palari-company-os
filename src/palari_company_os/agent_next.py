@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_directive import enrich_blockers, resolution_summary
+from .agent_directive import AUTHORITY_BLOCKERS, enrich_blockers, resolution_summary
 from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
 from .command_surface import bind_palari_command_payload
@@ -224,6 +224,7 @@ def _candidates(
                 "packet_status": packet.get("status", "blocked"),
                 "can_start": can_start,
                 "blocker_codes": blocker_codes,
+                "authority_correction": _authority_correction(blockers),
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
                 "resolution_summary": finish.get(
@@ -387,6 +388,20 @@ def _palari_can_see_work(
     return bool(workbench and palari_id in workbench.palari_ids)
 
 
+def _authority_correction(blockers: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the first authority-plan blocker (with its smallest correction)."""
+    for blocker in blockers:
+        if blocker.get("code") in AUTHORITY_BLOCKERS:
+            message = str(blocker.get("message", "")).strip()
+            if message:
+                return {
+                    "code": str(blocker.get("code", "")),
+                    "message": message,
+                    "human_visible": True,
+                }
+    return None
+
+
 def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not candidates:
         return [
@@ -399,13 +414,26 @@ def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "human_visible": True,
             }
         ]
-    return [
+    blockers: list[dict[str, Any]] = [
         {
             "code": "NO_READY_WORK",
             "message": "Visible tasks exist, but none is currently safe to start.",
             "human_visible": True,
         }
     ]
+    # Surface the smallest safe correction when tasks are blocked by an
+    # authority plan gap, so a single-maintainer setup is not left staring at a
+    # bare NO_READY_WORK dead end.
+    seen: set[str] = set()
+    for candidate in candidates:
+        correction = candidate.get("authority_correction")
+        if not correction:
+            continue
+        message = str(correction.get("message", ""))
+        if message and message not in seen:
+            seen.add(message)
+            blockers.append(correction)
+    return blockers
 
 
 def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) -> list[str]:
