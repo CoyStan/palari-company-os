@@ -28,6 +28,15 @@ The complete check is the final candidate check. Do not run its unit suite,
 wheel build, or CLI boundaries separately and then invoke the complete profile
 again.
 
+On constrained machines (small CI containers or cloud dev VMs), the parallel
+module runner can produce load-induced timing flakes that pass in isolation and
+in a serial run. Lower the contention without changing the shared default by
+exporting `PALARI_TEST_WORKERS`:
+
+```bash
+PALARI_TEST_WORKERS=1 ./scripts/verify.sh complete
+```
+
 ## Focused development checks
 
 During implementation, name only the modules attributable to the current slice:
