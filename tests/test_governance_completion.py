@@ -26,6 +26,12 @@ REVIEWER_ID = "PALARI-REVIEWER"
 HUMAN_ID = "HUMAN-FOUNDER"
 ARTIFACT = "result.txt"
 
+# Subprocess budget for the CLI and git helpers. Generous on purpose: these
+# helpers shell out to `git` and the CLI while the parallel test gate runs many
+# modules at once, and a tight budget produced spurious `git commit` timeouts
+# under load rather than real failures.
+SUBPROCESS_TIMEOUT_SECONDS = 60
+
 
 class GovernanceCompletionTests(unittest.TestCase):
     def test_current_proof_authority_and_outcome_golden_path(self) -> None:
@@ -326,7 +332,7 @@ class GovernanceCompletionTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=10,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
         )
 
     def git(self, root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -337,7 +343,7 @@ class GovernanceCompletionTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=10,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
         )
 
     @contextmanager

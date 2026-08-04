@@ -244,6 +244,8 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
         print("Blockers:")
         for blocker in blockers:
             print(f"  - {blocker['code']}: {plain_message(blocker['message'])}")
+            if blocker.get("next_command"):
+                print(f"    fix: {blocker['next_command']}")
     candidates = payload.get("candidates", [])
     if candidates:
         print("Candidates:")
