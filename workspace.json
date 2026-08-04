@@ -45,6 +45,22 @@
       "linked_goals": [
         "GOAL-0001"
       ]
+    },
+    {
+      "linked_goals": [
+        "GOAL-0001"
+      ],
+      "forbidden_actions": [
+        "build or modify task outputs",
+        "broaden task scope",
+        "send external messages",
+        "record human approval"
+      ],
+      "id": "PALARI-REVIEWER",
+      "name": "Independent Reviewer",
+      "role": "Review-only AI partner",
+      "scope": "Inspect exact current proof in review mode without editing task outputs or granting human approval.",
+      "owner_human": "HUMAN-FOUNDER"
     }
   ],
   "sources": [
