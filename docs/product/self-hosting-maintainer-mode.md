@@ -1,5 +1,12 @@
 # Self-Hosting Maintainer Mode
 
+> **Status: design note, not a shipped feature.** The ergonomic maintainer
+> profile described below (`palari init --profile maintainer`, ignored local
+> live state, a bound control root) is **not implemented**. Only the bounded
+> "Founder-Authorized Exception For This Repair" procedure is in effect today.
+> Read the "Proposed Mechanical Profile" and later sections as future design,
+> not current behavior.
+
 Palari must be repairable without making its own source candidate depend on a
 broken instance of the workflow being repaired. This document defines the
 temporary exception used for the current repair and the narrower mechanical

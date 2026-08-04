@@ -71,6 +71,26 @@ companion and starting a new task lock.
 Path traversal, non-canonical paths, a symlink escape, malformed Git output, or
 an incomplete observation always stops safely.
 
+## `agent next` shows no ready work with `AUTHORITY_PLAN_UNSATISFIABLE`
+
+Every visible task is blocked because the workspace has no reviewer distinct
+from both the builder and the final human approver. A one-agent workspace hits
+this: the single agent is the builder, so it cannot independently review its own
+work, which would force the only qualified human to be the reviewer and leave no
+one to approve.
+
+`palari agent next` prints the smallest safe correction and a ready-to-run
+`fix:` command that adds a review-only agent linked to the task goal:
+
+```bash
+palari agent next --as PALARI-ID
+```
+
+Run the printed `fix:` command (a `palari palari create ...` that adds an
+independent review-only agent), then re-run `agent next`. `palari init` seeds
+this review-only agent for new workspaces, so a freshly initialized workspace
+does not hit this.
+
 ## `lacks required approval capability`
 
 The person named by the human-decision command does not have the task's
