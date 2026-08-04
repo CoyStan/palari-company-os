@@ -1,14 +1,16 @@
-# Authority And Gates
+# Permissions, Reviews, and Approvals
 
-Palari Company OS separates capability from authority.
+Palari separates what an agent or tool can do from what only a person may
+approve. The stored model calls this the separation of capability and
+authority.
 
-AI workers can prepare, inspect, draft, summarize, test, and recommend. Humans
-or organizations hold authority for acceptance, deployment, policy activation,
-broker side effects, spending, credential use, and other high-impact actions.
+Agents may prepare, inspect, draft, summarize, test, and recommend. People or
+organizations keep final approval for deployments, policy changes, external
+actions, spending, credential use, and other high-impact work.
 
-## Human Authority
+## Human Approval
 
-Human profiles should identify:
+A person (`human`) record identifies:
 
 - identity and aliases
 - role
@@ -16,24 +18,67 @@ Human profiles should identify:
 - approval capabilities
 - availability or capacity signals
 
-For high-risk work, quorum can require more than one qualified human. The
-system should fail closed when authority is unclear.
+High-risk work may require more than one qualified person's approval (a
+`quorum` in stored records). Palari stops safely when the required people or
+permissions are unclear.
 
-## AI Roles
+The ordinary one-task approval surface is:
 
-AI roles describe capability and bounds, not final authority. A Palari can ask a
-model or tool to perform bounded work, but the Palari cannot convert that work
-into an authority-bearing decision without the required human action.
+```bash
+palari approve WORK-ID --as HUMAN-ID --json
+```
 
-## Capabilities
+The human first inspects the concise current handoff and runs its exact emitted
+command. Palari supplies a `--presented` binding in that action, then derives
+the singleton immutable Approval Pack and uses the existing transition and
+journal machinery. It is eligible only for reversible local R1/R2 work when
+one qualified person's action completes the effective final approval count.
+For review-required work that count is at least one even when the stored
+numeric count is zero; the R1/light/no-external automatic exemption remains
+zero. This shortens navigation and local recordkeeping; it does not combine
+review with approval, weaken final human authority, approve external actions,
+or give an agent human permission. A manually entered bare command derives
+current state at invocation rather than binding an earlier handoff.
 
-Capabilities describe usable power: repo writes, external tools, skill packs,
-MCP-style adapters, integrations, playbook sources, or policy exports. A
-capability can tell an adapter what it may read, write, or request.
+`queue --approval-inbox` remains the advanced and batched surface. It names
+only commands whose human actor is viable for every selected member. A task
+with no feasible builder/reviewer/approver arrangement receives a diagnostic
+and smallest safe correction, never a command already guaranteed to fail.
 
-Capabilities do not own the acceptance gate. The exported policy explicitly
-says adapters may not accept work, expand scope, bypass evidence, or treat a
-review recommendation as human authority.
+## Agents Can Prepare, Not Approve
+
+An agent (`Palari`) record describes capabilities and limits, not final human
+permission. An agent may ask a model or tool to perform a bounded task. It
+cannot convert that run or its review into a human approval.
+
+## Authority Plan
+
+Before execution and review, Palari deterministically evaluates the task's
+builder, every eligible independent reviewer, the required human capability,
+and the number of distinct qualified final approvers left by each choice.
+
+- A builder cannot review its own run.
+- A Palari reviewer must be linked to the task goal and allowed to read every
+  selected source.
+- A human reviewer must be active and eligible for the task's project.
+- A reviewer who would consume a required final approver is rejected.
+- Final approvers exclude both the builder and selected reviewer.
+- Missing roles fail before work or review with the smallest safe correction.
+
+The starter workspace includes a review-only Palari so its sole human remains
+available for final approval. That Palari has advisory review authority only:
+it is outside the execution workbench and cannot provide human acceptance or
+perform external writes.
+
+## Allowed Tools and Actions (`capabilities`)
+
+Capabilities describe usable power: repository writes, external tools, skill
+packs, MCP-style adapters, integrations, playbooks, and policy exports. They
+tell an adapter what it may read, write, or request.
+
+A capability cannot approve a task. Exported policy explicitly forbids an
+adapter from accepting work, expanding task limits, bypassing current checks,
+or treating a review recommendation as human approval.
 
 Use:
 
@@ -43,15 +88,13 @@ palari capability check WORK-ID --json
 palari capability export-policy WORK-ID --json
 ```
 
-## Authority Profiles
+## Approval Rules (`authority_profiles`)
 
-Authority profiles describe how much human judgment a risk tier needs. Built-in
-profiles:
+An authority profile is the stored set of approval rules for each risk tier:
 
-- `solo-founder`: lightweight founder mode; R3+ work needs human acceptance.
-- `team-safe`: default team mode; R3+ work needs human acceptance and R5 needs
-  two approvals.
-- `strict`: every risk tier needs human acceptance.
+- `solo-founder`: R3+ work needs one counted human approval.
+- `team-safe`: R3+ work needs one counted human approval; R5 needs two.
+- `strict`: every risk tier needs a counted human approval.
 
 Use:
 
@@ -60,84 +103,86 @@ palari authority profiles --json
 palari authority check WORK-ID --profile team-safe --json
 ```
 
-The check is advisory until the work item declares the matching approval count,
-but the acceptance and completion gates still enforce fresh evidence, review,
-human decisions, open-decision blocking, and scope-overlap blocking.
+This command is advisory until the task declares the matching approval count.
+Completion always requires current, exact, passing check results. Independent
+review and human approval may both be omitted only for R1/light/0-approval work
+with no allowed, planned, queued, or actual external write. Every other task
+still requires independent review, explicit human approval, no open human
+question, and no unsafe overlap with another task.
 
-## Memory Is Context, Not Authority
+## Prior Context Is Not Permission
 
-Shared memory, prior decisions, outcomes, and standards can guide a Palari.
-They do not grant permission to accept, merge, deploy, spend money, change
-policy, use secrets, or perform external side effects.
+Shared context, prior decisions, results, and standards may guide an agent.
+They never grant permission to approve, merge, deploy, spend money, change
+policy, use secrets, or perform an external action.
 
-If memory conflicts with current explicit human instruction or authority
-configuration, the system should fail closed and ask for a decision.
+When prior context conflicts with a current human instruction or approval rule,
+Palari stops and asks a person.
 
-## Policy Simulation
+## Test Rules Without Applying Them
 
-Policy simulation is allowed as analysis. It can say what would happen under a
-policy, identify missing controls, or recommend safer defaults.
+Policy simulation may explain what a rule would do, identify missing checks,
+or recommend safer defaults. A simulation is never real approval and never
+activates a permission. Any future policy engine must keep simulated output
+separate from human or organizational approval.
 
-Policy simulation is not real acceptance and does not activate authority. A
-future policy engine must preserve the separation between simulated policy
-output and human or organizational authority.
+## External Action Boundaries
 
-## Broker Boundaries
+Generic tool execution is disabled. Provider-neutral integration commands only
+preview, approve, and queue local records. Linear is the one current live
+provider adapter. Its explicit send path executes only an exact approved and
+queued action; a provider label alone never means live access.
 
-Broker/tool side effects are disabled by default in the first Palari Company OS
-slice. The model can represent that a work item would need broker access, but
-it must not imply that access is live.
+Any additional live adapter must require:
 
-Future broker integration should require:
-
-- explicit resource/action permissions
-- inspectable evidence
-- fail-closed checks
-- human approval for high-risk or external side effects
+- explicit resource and action permissions
+- inspectable check results
+- checks that stop safely when check results are missing
+- human approval for high-risk or external actions
 - no raw secret exposure to models
 
-## Transition Checks
+## Required Checks (`transition_checks`)
 
-Hard gates live at trust-changing transitions, not around ordinary reading,
-planning, or local analysis.
+Palari runs deterministic checks before a trusted state change, not around
+ordinary reading, planning, or local analysis.
 
-Transition checks are internal, deterministic predicates used by existing
-mutation commands. They block proposal adoption, agent start, attempt closeout,
-evidence and accept-ready review records, human acceptance decisions, work
-acceptance/completion, integration enqueue, and live provider sends when the
-required records are missing or stale.
+These checks block proposal adoption, agent start, run closeout, check-results
+creation, an `accept-ready` review, a human approval, task acceptance or
+completion, external-action enqueue, and a live provider send when required
+records are missing, stale, or mismatched.
 
-This keeps Palari small: no policy DSL, background service, or new public
-command is needed. The rule is simply that AI or adapters can prepare work, but
-they cannot move trusted state forward unless Palari can verify the required
-workspace records.
+No policy language, background service, or extra public command is needed. An
+agent or adapter may prepare work, but Palari changes trusted state only after
+it verifies the required workspace records.
 
-## Review Gate Profiles
+The agent directive compiler is a display-only status-to-action view. It may
+name the next owner and safe command, but it cannot perform a trusted change.
+`agent start --next`, `agent advance`, and durable `agent release` still pass
+the existing start, check-results, history, file-boundary, and task-lock
+checks. None may create an independent review or human decision.
 
-Gate profiles are lightweight review contracts. They recover the useful part of
-the older Palari v05 practice: a reviewer should know which failure mode they
-are hunting before they inspect work.
+## Review Checklists (`gate_profiles`)
 
-Gate profiles do not create tickets, claims, leases, reviewer notes, acceptance
-flows, or authority. They are read-only recommendations for the kind of review a
-work item deserves.
+Gate profiles are parked, read-only review checklists rather than part of the
+normal work path. They help a reviewer name the failure mode to inspect. They
+do not create tasks, task locks, reviewer notes, approval flows, or authority.
 
-Built-in gates:
+Built-in profiles retain their exact IDs:
 
 - `prompt-authority`: untrusted source, OCR, image, or user text must not become
-  system/developer prompt authority.
-- `source-boundary`: work must use only selected or allowed sources, and receipts
-  must report source use honestly.
+  system or developer prompt authority.
+- `source-boundary`: work must use only selected or allowed sources, and run
+  records must report source use honestly.
 - `external-write`: dry-run, planned, queued, and actual external writes must
   remain distinct.
-- `human-approval`: review recommendations, approval quorum, and human authority
-  must not be bypassed.
+- `human-approval`: review recommendations, required approval count, and human
+  permission must not be bypassed.
 - `deploy-runtime`: production, beta, runtime data, storage, provider routing,
-  secrets, and deploy boundaries require explicit evidence.
+  secrets, and deployment boundaries require explicit check results.
 - `privacy-multimodal`: images, OCR, screenshots, uploads, audio, and video must
-  stay minimized, bounded, and untrusted.
-- `product-overclaim`: public or user-facing copy must not claim capabilities
-  stronger than the implemented product.
+  remain minimized, bounded, and untrusted.
+- `product-overclaim`: public copy must not claim more than the implemented
+  product can do.
 
 Use:
 
@@ -146,32 +191,94 @@ palari gate profiles --json
 palari gate recommend WORK-ID --json
 ```
 
-The output includes a compact reviewer contract: reviewer role, what to inspect,
-blocker checklist, required evidence, and the accept-ready standard. A gate
-recommendation never means the work is accepted.
+The output contains the reviewer role, inspection focus, blocker checklist,
+required check results, and `accept-ready` standard. A recommendation never
+means the task is approved.
 
-## Acceptance Records
+## Final Approval Records (`acceptance_records`)
 
-`palari work accept` is the explicit final human acceptance command. It records
-a human decision and an acceptance record after checking fresh evidence, fresh
-accept-ready review, human capability, open decisions, scope overlap, and
-evidence manifest integrity when present.
+`palari approve WORK-ID --as HUMAN-ID` is the readable ordinary
+final-human-approval surface for one eligible reversible local task; the
+handoff emits it with a presentation binding. It composes the pack transaction
+described below and writes a decision record (`human_decision`) plus approval
+record only after checking current results, a current `accept-ready` review,
+the person's capability, open questions, task overlap, effective final count,
+and the required check-results/run-record (`evidence`/`receipt`) manifest
+integrity. `palari work accept` remains the parked lower-level single-task
+recovery surface.
 
-`palari work complete` keeps the terminal status gate. For non-receipt-ready
-work, it records a missing acceptance record from the latest qualified human
-decision so completion is auditable instead of being only a status change.
+The exact protocol and field names remain important here. The review must carry
+the current `palari.review_binding.v1` binding for the exact `attempt`,
+`evidence`, `receipt`, `reviewed_head`, and task rules (`work_contract`). Changing the task
+rules, run, check results, or run record makes the review stale. A later
+timezone-ordered negative decision from the same person revokes that person's
+earlier approval. Approval counts only for the exact review and evidence
+references; contradictory or ambiguously ordered decisions stop safely. The
+review proof hash also covers the reviewer-authored verdict context, and an
+exact-bound completed task requires its matching approval record
+(`acceptance_record`).
 
-## Gate And Key Custody
+`palari human-decision pack` is the advanced human-only approval surface, not
+an agent shortcut. It ties one attributable action to an immutable Approval Pack
+and the exact presentation the person inspected, then creates one decision
+record per selected task. Pack v3 adds both declared and effective final
+approval counts to each exact member. The reader remains compatible with pack
+v2; v1 is unsupported. Decision records retain proof references, member and
+subject digests, presentation schema, surface, and digest, with one canonical
+presentation artifact per action. Missing or unsupported presentation-bound
+permission stops safely instead of being upgraded.
 
-Gate keys are authority-bearing infrastructure, not convenience tokens.
+The same rules for reviewer independence, current check results, human
+capability, and required approval count apply to individual and `approval-pack`
+decisions. Stale or individual-only tasks cannot become approved through a
+bundle. The Approval Inbox names the available modes. `approve-eligible` is one
+exact, attributable action over separately reviewed tasks.
 
-Default stance:
+Batch eligibility comes only from structured facts. R1/R2 local tasks without
+external-write permission or current external-action records may be batched.
+R3/R4/R5, unknown risk, and every external action require individual approval.
+Titles and descriptions cannot change those rules. There is no combined
+review-and-approve mode: independent review and final approval remain separate
+roles.
 
-- raw keys must not be exposed to AI models or chat context
-- humans or organizations own custody
-- AI workers can request bounded signing operations only through explicit tools
-- rotation, revocation, auditability, and recovery matter for team use
-- signed gates supplement human acceptance and quorum; they do not replace them
+The human command records approval and performs only the deterministic local
+completion that approval already permits. Both changes share one crash-safe
+history transaction. Missing approvals remain blocked; the command creates no
+review, extra vote, external action, or wider permission.
 
-Complex key custody is intentionally out of scope for the first repo slice, but
-the model leaves room for it.
+Independent review may be attributed to a declared agent when that agent did
+not build the work, is linked to its goal, and may read every selected source.
+The result remains advisory. An agent reviewer can never count as a human
+approver; approval, rejection, and Approval Pack actions remain attributable
+to a person.
+
+`palari work complete` retains the final status check. Outside the narrow
+R1/light/0-approval/no-external-action exception, it may derive a missing
+approval record from the latest qualified human-decision record. Palari prepares that
+record before checking completion and writes both in one successful change, so
+invalid or stale approval leaves no partial record. `agent advance` may invoke
+this mechanical completion after approval exists; it never creates the review
+or human-decision record. The exception waives only review and human approval, never
+current exact check results.
+
+After a `human_decision` record or `work accept`, one bounded automatic-finishing loop
+may apply only the completion already authorized. It detects cycles and lack of
+progress and stops at review, human approval, external state, an iteration
+limit, or an error. A failed automatic step keeps the human record, reports the
+next safe action, and creates no partial derived approval or final status.
+
+Generic record updates cannot set a final task status, rewrite trusted run
+fields, or change a review tied to an exact version.
+
+## Signing-Key Custody
+
+Signing keys carry real permission; they are not convenience tokens.
+
+- Never expose raw keys to an AI model or chat context.
+- People or organizations own key custody.
+- Agents may request only bounded signing operations through explicit tools.
+- Team use needs rotation, revocation, auditability, and recovery.
+- Signed checks may supplement required human approval; they never replace it.
+
+Complex key custody remains outside the current product, but the stored model
+leaves room for it.

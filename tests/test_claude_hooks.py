@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import io
+import hashlib
 import json
+import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -14,12 +18,104 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.claude_hooks import (
+    _git_metadata_roots,
+    bash_human_authority_command,
+    bash_requires_human_review,
     bash_write_targets,
     handle_hook_event,
     hooks_status,
-    install_hooks,
-    run_hook,
 )
+from palari_company_os.agent_adoption import run_agent_hook
+from palari_company_os.agent_file_changes import capture_git_baseline
+from palari_company_os.agent_packets import build_agent_brief
+from palari_company_os.agent_runtime import (
+    CLAIM_SCHEMA_VERSION,
+    GIT_WITNESS_VERSION,
+    _capture_governance_projection_snapshot,
+    _claim_git_lease,
+    _create_git_witness,
+    _governance_projection_snapshot_digest,
+    start_agent,
+)
+from palari_company_os.agent_session_contract import compile_agent_session_contract
+from palari_company_os.cli_parser import build_parser
+from palari_company_os.store import load_store, write_store
+from palari_company_os.workspace import Workspace
+from tests.test_approval_packs import make_ready_workspace
+
+
+def _write_hook_workspace(workspace_dir: Path) -> None:
+    work_ids = ("WORK-0001", "WORK-A", "WORK-B")
+    data = {
+        "schema_version": 2,
+        "name": "Hook Test Workspace",
+        "goals": [
+            {
+                "id": "GOAL-HOOK",
+                "title": "Exercise hooks",
+                "status": "active",
+                "linked_work": list(work_ids),
+            }
+        ],
+        "humans": [{"id": "HUMAN-HOOK", "name": "Hook Human"}],
+        "palaris": [
+            {
+                "id": "PALARI-SOFIA",
+                "name": "Sofia",
+                "role": "Hook worker",
+                "owner_human": "HUMAN-HOOK",
+                "linked_goals": ["GOAL-HOOK"],
+                "active_work": list(work_ids),
+            }
+        ],
+        "sources": [
+            {
+                "id": "SOURCE-HOOK",
+                "label": "Repository",
+                "kind": "repo_files",
+                "uri": ".",
+                "allowed_palaris": ["PALARI-SOFIA"],
+                "data_class": "internal",
+                "authority": "company_owned",
+                "access_mode": "read",
+                "selected": True,
+            }
+        ],
+        "work_items": [],
+        "attempts": [],
+        "evidence_runs": [],
+        "review_verdicts": [],
+        "human_decisions": [],
+        "receipts": [],
+        "decisions": [],
+        "outcomes": [],
+    }
+    default_paths = {
+        "WORK-0001": ["docs/notes.md"],
+        "WORK-A": ["docs"],
+        "WORK-B": ["docs"],
+    }
+    for work_id in work_ids:
+        data["work_items"].append(
+            {
+                "id": work_id,
+                "title": work_id,
+                "goal": "GOAL-HOOK",
+                "palari": "PALARI-SOFIA",
+                "risk": "R1",
+                "intensity": "light",
+                "status": "active",
+                "scope": "Exercise hook enforcement.",
+                "acceptance_target": "Unsafe writes are blocked.",
+                "allowed_resources": default_paths[work_id],
+                "allowed_sources": ["SOURCE-HOOK"],
+                "forbidden_actions": ["deploy"],
+                "required_approval_count": 0,
+            }
+        )
+    (workspace_dir / "workspace.json").write_text(
+        json.dumps(data, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _write_claim_and_packet(
@@ -31,30 +127,112 @@ def _write_claim_and_packet(
     allowed_write: list[str] | None = None,
     lease_minutes: int = 30,
 ) -> None:
-    packet_id = f"PACKET-{work_id}-{palari_id}-{mode.upper()}-V1"
+    workspace_file = workspace_dir / "workspace.json"
+    data = json.loads(workspace_file.read_text(encoding="utf-8"))
+    work = next(item for item in data["work_items"] if item["id"] == work_id)
+    expected_paths = list(allowed_write or [])
+    if work["allowed_resources"] != expected_paths:
+        work["allowed_resources"] = expected_paths
+        workspace_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    packet = build_agent_brief(
+        Workspace.load(workspace_dir), work_id, palari_id, "execute"
+    )
+    packet_id = str(packet["packet_id"])
     expires = datetime.now(timezone.utc) + timedelta(minutes=lease_minutes)
+    if mode != "execute":
+        packet["mode"] = mode
+    context_hash = _packet_hash(packet)
+    packet["context_hash"] = context_hash
+    session_contract = compile_agent_session_contract(packet)
+    contract_relative = (
+        ".palari/packets/session-contracts/"
+        f"{session_contract['contract_id']}.json"
+    )
+    git_baseline = capture_git_baseline(workspace_dir)
+    git_baseline_hash = _object_hash(git_baseline)
+    git_witness_ref = _create_git_witness(work_id, git_baseline)
+    claim_session = f"test-{work_id.lower()}"
+    projection_snapshot = _capture_governance_projection_snapshot(
+        workspace_file,
+        git_baseline,
+        packet,
+    )
+    projection_snapshot_digest = (
+        _governance_projection_snapshot_digest(projection_snapshot)
+        if isinstance(projection_snapshot, dict)
+        else ""
+    )
+    git_lease = _claim_git_lease(
+        work_id,
+        palari_id,
+        mode,
+        expires.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        claim_session,
+        workspace_file,
+        git_baseline,
+        projection_snapshot_digest,
+    )
     claim = {
-        "schema_version": "palari.agent_claim.v1",
+        "schema_version": CLAIM_SCHEMA_VERSION,
         "work_item": work_id,
         "claimed_by": palari_id,
         "mode": mode,
         "lease_expires_at": expires.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "packet_id": packet_id,
+        "context_hash": context_hash,
         "packet_path": f".palari/packets/{packet_id}.json",
+        "session_contract_path": contract_relative,
+        "session_contract_digest": session_contract["contract_digest"],
+        "git_baseline": git_baseline,
+        "git_baseline_hash": git_baseline_hash,
+        "git_baseline_path": f".palari/claims/{work_id}.baseline",
+        "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+        "git_witness_ref": git_witness_ref,
+        "claim_session": claim_session,
     }
-    packet = {
-        "packet_id": packet_id,
-        "allowed_paths": {
-            "read": list(allowed_write or []),
-            "write": list(allowed_write or []),
-        },
-    }
+    if isinstance(projection_snapshot, dict):
+        claim["governance_projection_snapshot"] = projection_snapshot
+        claim["governance_projection_snapshot_digest"] = (
+            projection_snapshot_digest
+        )
+    claim.update(git_lease)
     claims = workspace_dir / ".palari" / "claims"
     packets = workspace_dir / ".palari" / "packets"
+    contracts = packets / "session-contracts"
     claims.mkdir(parents=True, exist_ok=True)
-    packets.mkdir(parents=True, exist_ok=True)
+    contracts.mkdir(parents=True, exist_ok=True)
+    baseline = {
+        "schema_version": "palari.persisted_git_baseline.v1",
+        "work_item": work_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+            "+00:00", "Z"
+        ),
+        "git_baseline": git_baseline,
+        "git_baseline_hash": git_baseline_hash,
+        "git_witness_version": GIT_WITNESS_VERSION if git_witness_ref else "",
+        "git_witness_ref": git_witness_ref,
+    }
     (claims / f"{work_id}.json").write_text(json.dumps(claim), encoding="utf-8")
+    (claims / f"{work_id}.baseline").write_text(
+        json.dumps(baseline), encoding="utf-8"
+    )
     (packets / f"{packet_id}.json").write_text(json.dumps(packet), encoding="utf-8")
+    (workspace_dir / contract_relative).write_text(
+        json.dumps(session_contract), encoding="utf-8"
+    )
+
+
+def _packet_hash(packet: dict[str, Any]) -> str:
+    stable = {
+        key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
+    }
+    encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _object_hash(value: dict[str, Any]) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _git_repo(root: Path) -> None:
@@ -90,7 +268,61 @@ class PreToolUseTests(unittest.TestCase):
         _git_repo(self.repo)
         self.workspace = self.repo / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
+
+    def _start_exact_review_claim(self) -> str:
+        (self.workspace / "workspace.json").unlink()
+        workspace_file = make_ready_workspace(self.workspace, count=1)
+        store = load_store(workspace_file)
+        store.data["review_verdicts"] = []
+        store.data["palaris"].append(
+            {
+                "id": "PALARI-REVIEWER",
+                "name": "Reviewer",
+                "role": "Independent reviewer",
+                "owner_human": "HUMAN-PRODUCT",
+                "linked_goals": ["GOAL-1"],
+                "active_work": [],
+            }
+        )
+        goal = store.data["goals"][0]
+        goal["linked_palaris"] = sorted(
+            set(goal.get("linked_palaris", []) + ["PALARI-REVIEWER"])
+        )
+        write_store(store)
+        subprocess.run(
+            ["git", "-C", str(self.repo), "add", "-A"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.repo), "commit", "-qm", "review fixture"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        packet = start_agent(
+            Workspace.load(workspace_file),
+            workspace_file,
+            "WORK-001",
+            "PALARI-REVIEWER",
+            mode="review",
+        )
+        self.assertEqual(packet["status"], "ready")
+        commands = packet["review_context"]["agent_review_commands"]
+        self.assertEqual(len(commands), 4)
+        self.assertTrue(all(item["executable"] for item in commands))
+        self.assertEqual(
+            len({item["review_id"] for item in commands}),
+            len(commands),
+        )
+        command = next(
+            item["command"]
+            for item in commands
+            if item["verdict"] == "accept-ready"
+        )
+        return str(command)
 
     def test_denies_exact_write_outside_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -169,6 +401,664 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(result, {})
 
+    def test_opaque_interpreter_bash_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "python3 -c 'open(\".palari/claims/x\", \"w\").write(\"x\")'"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn("opaque interpreter", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_unreviewed_executable_bash_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "./docs/rewrite-runtime-state"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn(
+            "unreviewed executable",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_invalid_active_claim_cannot_fail_open_for_unreviewed_executable(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["context_hash"] = "sha256:tampered"
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "./docs/rewrite-runtime-state"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "ask")
+        self.assertIn(
+            "unreviewed executable",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_human_acceptance_command_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "./bin/palari --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_checkpoint_restoration_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari --workspace workspace.json history --restore=sha256:abc "
+            "--actor HUMAN-HOOK --reason exact",
+            "./bin/palari history --json --restore sha256:abc --actor HUMAN-HOOK",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(
+                    bash_human_authority_command(command),
+                    "history --restore",
+                )
+                self.assertIn("human-only", bash_requires_human_review(command))
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_approval_pack_decision_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari human-decision pack --pack-digest=sha256:abc "
+            "--human-id HUMAN-HOOK --approve-eligible",
+            "./bin/palari --workspace=workspace.json human-decision pack "
+            "--approve WORK-1 --pack-digest sha256:abc --human-id HUMAN-HOOK",
+            "git status && palari human-decision pack --defer WORK-1 "
+            "--pack-digest sha256:abc --human-id HUMAN-HOOK",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(
+                    bash_human_authority_command(command),
+                    "human-decision pack",
+                )
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_simple_approval_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "palari approve WORK-0001 --as HUMAN-HOOK --json",
+            (
+                "./bin/palari --workspace=workspace.json approve WORK-0001 "
+                "--as=HUMAN-HOOK --json"
+            ),
+            (
+                "git status && palari --workspace workspace.json approve "
+                "WORK-0001 --as HUMAN-HOOK --json"
+            ),
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(bash_human_authority_command(command), "approve")
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "human-only",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        command = (
+            "./bin/palari --work ws work accept WORK-1 --by HUMAN-FOUNDER "
+            "--reviewed-head abc123 --json"
+        )
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(command.split()[1:])
+
+    def test_dynamic_human_acceptance_command_requires_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "P=./bin/palari; $P --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("human-only", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_dynamic_human_acceptance_requires_review_without_active_claim(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "P=./bin/palari; $P --workspace workspace.json work accept WORK-1 "
+                    "--by HUMAN-FOUNDER --reviewed-head abc123 --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+
+    def test_allowed_write_cannot_mask_later_authority_or_witness_command(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            ((
+                "touch docs/notes.md ; P=./bin/palari ; $P --workspace workspace.json "
+                "work accept WORK-1 --by HUMAN-FOUNDER --reviewed-head abc123 --json"
+            ), "deny"),
+            ((
+                f"touch docs/notes.md ; git -C {self.repo} update-ref "
+                "refs/palari/claims/test abc123"
+            ), "ask"),
+            ((
+                f"touch docs/notes.md ; git -C {self.repo} reflog expire "
+                "--expire=now --all"
+            ), "ask"),
+        )
+
+        for command, expected in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), expected)
+
+    def test_packet_authority_update_is_denied_to_agent_shell(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "./bin/palari --workspace workspace.json work update WORK-0001 "
+                    "--list allowed_resources=docs/notes.md,deploy"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("work update", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_external_and_human_authority_commands_are_denied_to_agent_shell(self) -> None:
+        commands = (
+            "palari integration cancel PLAN-1 --by HUMAN-HOOK --reason no",
+            "palari integration enqueue PLAN-1 --by HUMAN-HOOK",
+            (
+                "palari integration outbox-cancel OUTBOX-1 --by HUMAN-HOOK "
+                "--reason no"
+            ),
+            "palari linear send OUTBOX-1 --by HUMAN-HOOK --confirm",
+            (
+                "palari linear start ENG-1 --as PALARI-SOFIA "
+                "--adopt-by HUMAN-HOOK"
+            ),
+            (
+                "palari linear start ENG-1 --as PALARI-SOFIA "
+                "--adopt-b=HUMAN-HOOK"
+            ),
+            "palari playbook-source update SOURCE-1 --set uri=https://example.invalid",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "deny")
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(
+                [
+                    "linear",
+                    "start",
+                    "ENG-1",
+                    "--as",
+                    "PALARI-SOFIA",
+                    "--adopt-b=HUMAN-HOOK",
+                ]
+            )
+
+    def test_hook_and_git_hook_installation_require_human_review(self) -> None:
+        for command in (
+            "palari claude install --remove",
+            "palari git install --remove",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "self-protection mutation",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_unclassified_palari_commands_fail_closed_but_agent_checks_remain_safe(self) -> None:
+        unsafe = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari unclassified-command --output /tmp/result"},
+            self.repo,
+        )
+        safe = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
+            self.repo,
+        )
+        status = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari claude status --json"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(unsafe), "ask")
+        self.assertIn(
+            "unreviewed Palari command",
+            unsafe["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+        self.assertEqual(safe, {})
+        self.assertEqual(status, {})
+
+    def test_only_agent_advance_may_mutate_agent_proof_from_shell(self) -> None:
+        advance = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws agent advance WORK-0001 "
+                    "--as PALARI-SOFIA --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(advance, {})
+        direct_mutations = (
+            "palari --workspace ws attempt record ATTEMPT-X --json",
+            "palari --workspace ws attempt update ATTEMPT-X --json",
+            "palari --workspace ws attempt closeout ATTEMPT-X --json",
+            "palari --workspace ws receipt record RECEIPT-X --json",
+            "palari --workspace ws receipt update RECEIPT-X --json",
+            "palari --workspace ws evidence record EVIDENCE-X --json",
+            "palari --workspace ws evidence update EVIDENCE-X --json",
+            (
+                "palari --workspace ws agent advance WORK-0001 "
+                "--as PALARI-SOFIA --json && "
+                "palari --workspace ws receipt record RECEIPT-X --json"
+            ),
+        )
+        for command in direct_mutations:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "unreviewed Palari command",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_individual_human_decision_remains_denied_to_agent_shell(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws human-decision record DECISION-X "
+                    "--work-item-id WORK-0001 --human-id HUMAN-HOOK --json"
+                )
+            },
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "human-only",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_agent_safe_mutations_cannot_cross_hook_workspace(self) -> None:
+        commands = (
+            "palari agent start WORK-0001 --as PALARI-SOFIA --mode execute",
+            (
+                "palari --workspace other-workspace agent start WORK-0001 "
+                "--as PALARI-SOFIA --mode execute"
+            ),
+            (
+                "palari --workspace other-workspace agent advance WORK-0001 "
+                "--as PALARI-SOFIA --json"
+            ),
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "hook workspace boundary",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+        matching = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    "palari --workspace ws agent start WORK-0001 "
+                    "--as PALARI-SOFIA --mode execute"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(matching, {})
+
+    def test_path_qualified_trusted_basenames_require_human_review(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+
+        for command in (
+            "./docs/git status",
+            "./docs/rg needle docs",
+            "./docs/echo safe-looking-output",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "path-qualified executable",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_unquoted_expansion_and_tree_copy_require_human_review(self) -> None:
+        commands = (
+            "rm -rf ws/work*",
+            "echo x > ws/work*",
+            "cp -rT malicious ws",
+            "cp -a malicious/. ws",
+            "cp --no-target-directory malicious ws",
+            "cp --parents malicious/ws/workspace.json .",
+            "cp --rec malicious/. ws",
+            "cp --target-d=ws malicious/workspace.json",
+            "dd if=/dev/zero of=~+/ws/workspace.json",
+            "ln -sfT malicious ws",
+            "git \\\nstatus",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+        quoted_pattern = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "rg 'foo.*' docs"},
+            self.repo,
+        )
+        self.assertEqual(quoted_pattern, {})
+
+    def test_hidden_backup_output_options_require_human_review(self) -> None:
+        for command in (
+            "cp --backup source docs/notes.md",
+            "cp --suf=.evil source docs/notes.md",
+            "cp -S.evil source docs/notes.md",
+            "mv -b source docs/notes.md",
+            "install --backup source docs/notes.md",
+            "install -D source docs/new/notes.md",
+            "ln -b source docs/notes.md",
+            "sed -i.bak s/a/b/ docs/notes.md",
+            "sed --in-pla=.bak s/a/b/ docs/notes.md",
+            "mkdir -p docs/new/nested",
+            "rmdir --par docs/new/nested",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_pipe_stderr_separator_cannot_hide_later_write(self) -> None:
+        for command in (
+            "true |& cp source ws/workspace.json",
+            "true <> ws/workspace.json",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_option_terminator_preserves_dash_prefixed_write_operands(self) -> None:
+        (self.repo / "-x").mkdir()
+        commands = (
+            "cp source -- -x/../ws/workspace.json",
+            "mv source -- -x/../ws/workspace.json",
+            "ln source -- -x/../ws/workspace.json",
+            "rm -- -x/../ws/workspace.json",
+            "git rm -- -x/../ws/workspace.json",
+            "git --literal-pathspecs rm -- -x/../ws/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_standard_claude_hook_settings_are_self_protected(self) -> None:
+        settings_dir = self.repo / ".claude"
+        settings_dir.mkdir()
+        (settings_dir / "settings.json").write_text("{}\n", encoding="utf-8")
+        _write_claim_and_packet(self.workspace, allowed_write=[".claude"])
+
+        exact = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(settings_dir / "settings.json")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(exact), "deny")
+        for command in (
+            "rm .claude/settings.json",
+            "rm -rf .claude",
+        ):
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_git_global_options_do_not_hide_witness_mutations(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            f"git -C {self.repo} update-ref refs/palari/claims/test abc123",
+            (
+                f"git --git-dir={self.repo / '.git'} reflog expire "
+                "--expire=now --all"
+            ),
+            (
+                f"git --work-tree {self.repo} --git-dir {self.repo / '.git'} "
+                "update-ref -d refs/palari/claims/test"
+            ),
+            f"git status\ngit -C {self.repo} reflog expire --expire=now --all",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    "Git metadata mutation",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+    def test_git_config_and_environment_cannot_launch_safe_subcommand_helpers(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            (
+                "git -c diff.external=./docs/rewrite-runtime-state diff "
+                "-- docs/notes.md"
+            ),
+            "GIT_EXTERNAL_DIFF=./docs/rewrite-runtime-state git diff -- docs/notes.md",
+            "git -C docs/nested-repo status",
+            "git --git-dir=docs/nested-repo/.git status",
+            "git diff --ext-diff -- docs/notes.md",
+            "git grep -O./docs/rewrite-runtime-state needle docs",
+            "git cat-file --filters HEAD:docs/notes.md",
+            "git grep '--open-files-in-pag=touch pager-pwn' needle",
+            "git rm --pathspec-from-file=paths",
+            "git rm --pathspec-from-f=paths",
+            "git rm ':(top)ws/workspace.json'",
+            "git rm ':(exclude)docs/safe.md'",
+            "git rm ':!docs/safe.md'",
+            "git rm 'ws/work*'",
+            "rg --pre ./docs/rewrite-runtime-state pattern docs",
+            "rg --hostname-bin=./docs/rewrite-runtime-state --hyperlink-format=default needle",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_coordinated_witness_rewrite_sequence_never_auto_authorizes(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        commands = (
+            "P=python3; $P -c 'rewrite claim and baseline'",
+            f"git -C {self.repo} update-ref -d refs/palari/claims/test",
+            f"git -C {self.repo} reflog expire --expire=now --all",
+            f"git -C {self.repo} update-ref refs/palari/claims/test abc123",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
     def test_read_tools_get_no_decision(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -190,6 +1080,129 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(relaxed, {})
         self.assertEqual(_decision(strict), "ask")
         self.assertIn("palari agent start", strict["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_workspace_truth_is_protected_even_without_active_claim(self) -> None:
+        exact = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.workspace / "workspace.json")},
+            self.repo,
+        )
+        shell = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "cp docs/new-workspace.json ws/workspace.json"},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(exact), "deny")
+        self.assertEqual(_decision(shell), "ask")
+        self.assertIn(
+            "workspace source of truth",
+            exact["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_option_encoded_governance_destinations_are_protected_without_claim(self) -> None:
+        commands = (
+            "dd if=/dev/null of=ws/workspace.json",
+            "dd if=/dev/null of=.git/config",
+            "cp --target-directory=.git docs/new-config",
+            "cp -tws malicious/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_compact_separators_cannot_hide_governance_destinations(self) -> None:
+        commands = (
+            "echo ok;cp /tmp/payload .git/config",
+            "true;dd if=/dev/null of=.git/config",
+            "printf ok\ninstall /tmp/payload ws/workspace.json",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_ordinary_directory_destinations_are_protected_without_claim(self) -> None:
+        commands = (
+            "cp malicious/workspace.json ws",
+            "mv malicious/workspace.json ws",
+            "install malicious/workspace.json ws",
+            "ln -sf malicious/workspace.json ws",
+            "git mv malicious/workspace.json ws",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_destructive_ancestor_targets_are_protected_without_claim(self) -> None:
+        commands = (
+            "rm -rf ws",
+            "rmdir ws",
+            "mv ws backup",
+            "git mv ws backup",
+            "rm -rf .",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+
+    def test_nondestructive_parent_directory_target_remains_transparent(self) -> None:
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "cp malicious/notes.txt ws"},
+            self.repo,
+        )
+
+        self.assertEqual(result, {})
+
+    def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
+        workspace_file = self.workspace / "workspace.json"
+        data = json.loads(workspace_file.read_text(encoding="utf-8"))
+        data["collection_files"] = {"goals": ["records/goals.json"]}
+        workspace_file.write_text(json.dumps(data), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.workspace / "records" / "goals.json")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "workspace source of truth",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_expired_lease_counts_as_no_claim(self) -> None:
         _write_claim_and_packet(
@@ -215,8 +1228,218 @@ class PreToolUseTests(unittest.TestCase):
             self.repo,
         )
 
-        self.assertEqual(_decision(result), "ask")
+        self.assertEqual(_decision(result), "deny")
         self.assertIn("review-mode", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_exact_review_packet_allows_its_advisory_record_command(self) -> None:
+        command = self._start_exact_review_claim()
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        without_workspace = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": command.replace(
+                    f" --workspace {self.workspace}",
+                    "",
+                    1,
+                )
+            },
+            self.workspace,
+        )
+
+        self.assertEqual(bash_human_authority_command(command), "review record")
+        self.assertEqual(result, {})
+        self.assertEqual(_decision(without_workspace), "deny")
+        env = os.environ.copy()
+        env["PATH"] = f"{REPO_ROOT / 'bin'}:{env.get('PATH', '')}"
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        executed = subprocess.run(
+            shlex.split(command),
+            cwd=self.repo,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(executed.returncode, 0, executed.stderr)
+        recorded = Workspace.load(self.workspace).review_verdicts
+        self.assertEqual(len(recorded), 1)
+
+    def test_exact_review_packet_command_rejects_a_changed_proof_binding(self) -> None:
+        command = self._start_exact_review_claim()
+        store = load_store(self.workspace)
+        store.data["work_items"][0]["acceptance_target"] = (
+            "A changed task contract the active reviewer packet did not inspect."
+        )
+        write_store(store)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{REPO_ROOT / 'bin'}:{env.get('PATH', '')}"
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        executed = subprocess.run(
+            shlex.split(command),
+            cwd=self.repo,
+            env=env,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertNotEqual(executed.returncode, 0)
+        self.assertIn(
+            "changed after this review action was emitted",
+            executed.stdout + executed.stderr,
+        )
+        self.assertEqual(Workspace.load(self.workspace).review_verdicts, [])
+
+    def test_review_packet_rejects_commands_outside_its_exact_advisory_surface(
+        self,
+    ) -> None:
+        command = self._start_exact_review_claim()
+        variants = (
+            command.replace("PALARI-REVIEWER", "HUMAN-PRODUCT"),
+            command.replace("WORK-001", "WORK-OTHER"),
+            command.replace("head-001", "another-head"),
+            command.replace(" --json", ""),
+            command.replace(" --json", " --timestamp 2026-01-01T00:00:00Z --json"),
+            command.replace(
+                " --json",
+                " --set reviewer=HUMAN-PRODUCT --json",
+            ),
+            command.replace(
+                " review record REVIEW-",
+                " review record REVIEW-TAMPERED-",
+                1,
+            ),
+            command.replace("accept-ready", "VERDICT"),
+            f"git status && {command}",
+            command.replace("palari ", "./bin/palari ", 1),
+            command.replace(
+                f"--workspace {self.workspace}",
+                "--workspace elsewhere",
+                1,
+            ),
+        )
+
+        for variant in variants:
+            with self.subTest(command=variant):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": variant},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "deny")
+                self.assertIn(
+                    "exact active review packet",
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
+        update = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    f"palari --workspace {self.workspace.name} review update "
+                    "REVIEW-PALARI-001 --set verdict=blocked --json"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(_decision(update), "deny")
+        self.assertIn(
+            "human-only",
+            update["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_review_record_requires_one_valid_review_mode_claim(self) -> None:
+        command = (
+            f"palari --workspace {self.workspace.name} review record REVIEW-PALARI-001 "
+            "--work-item-id WORK-001 --reviewed-head head-001 "
+            "--reviewer PALARI-REVIEWER "
+            f"--binding-digest {'sha256:' + ('a' * 64)} "
+            "--verdict accept-ready --json"
+        )
+        no_claim = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(no_claim), "deny")
+
+        _write_claim_and_packet(
+            self.workspace,
+            work_id="WORK-0001",
+            palari_id="PALARI-SOFIA",
+            mode="execute",
+            allowed_write=["docs/notes.md"],
+        )
+        execute_claim = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {
+                "command": (
+                    f"palari --workspace {self.workspace.name} review record REVIEW-X "
+                    "--work-item-id WORK-0001 --reviewed-head head "
+                    "--reviewer PALARI-SOFIA "
+                    f"--binding-digest {'sha256:' + ('a' * 64)} "
+                    "--verdict blocked --json"
+                )
+            },
+            self.repo,
+        )
+        self.assertEqual(_decision(execute_claim), "deny")
+        self.assertIn(
+            "not review-mode",
+            execute_claim["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_multiple_or_tampered_review_claims_cannot_use_the_exception(self) -> None:
+        command = self._start_exact_review_claim()
+        claims = self.workspace / ".palari" / "claims"
+        source_claim = claims / "WORK-001.json"
+        duplicate_claim = claims / "DUPLICATE.json"
+        duplicate_claim.write_bytes(source_claim.read_bytes())
+
+        ambiguous = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(ambiguous), "deny")
+        self.assertIn(
+            "multiple active claims",
+            ambiguous["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+        duplicate_claim.unlink()
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["agent_action_boundary"]["count"] = 5
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+        tampered = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+        self.assertEqual(_decision(tampered), "deny")
+        self.assertIn(
+            "active claim context is invalid",
+            tampered["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_path_outside_repo_is_undecided_unless_strict(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -227,8 +1450,8 @@ class PreToolUseTests(unittest.TestCase):
             self.workspace, "Write", {"file_path": str(outside)}, self.repo, strict=True
         )
 
-        self.assertEqual(relaxed, {})
-        self.assertEqual(_decision(strict), "ask")
+        self.assertEqual(_decision(relaxed), "deny")
+        self.assertEqual(_decision(strict), "deny")
 
     def test_traversal_cannot_escape_the_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs"])
@@ -242,12 +1465,98 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(_decision(result), "deny")
 
+    def test_symlink_cannot_escape_the_boundary(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs"])
+        outside = Path(self._tmp.name) / "outside"
+        outside.mkdir()
+        (self.repo / "docs").symlink_to(outside, target_is_directory=True)
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "secret.txt")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+
+    def test_tampered_packet_context_blocks_write(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["context_hash"] = "sha256:tampered"
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("context_hash", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_coordinated_packet_and_claim_rehash_cannot_expand_scope(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        packet_path = next((self.workspace / ".palari" / "packets").glob("*.json"))
+        claim_path = self.workspace / ".palari" / "claims" / "WORK-0001.json"
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        packet["allowed_paths"] = {"read": ["deploy"], "write": ["deploy"]}
+        packet["context_hash"] = _packet_hash(packet)
+        packet_path.write_text(json.dumps(packet), encoding="utf-8")
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+        claim["context_hash"] = packet["context_hash"]
+        claim_path.write_text(json.dumps(claim), encoding="utf-8")
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "deploy" / "production.yml")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn(
+            "persisted contract differs from the current packet authority",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+
+    def test_overlapping_claims_do_not_union_authority(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "deny")
+        self.assertIn("multiple active execute claims", result["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_distinct_claim_selects_single_covering_context(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs/a"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs/b"])
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Write",
+            {"file_path": str(self.repo / "docs" / "a" / "notes.md")},
+            self.repo,
+        )
+
+        self.assertEqual(_decision(result), "allow")
+        self.assertIn("WORK-A", result["hookSpecificOutput"]["permissionDecisionReason"])
+
 
 class BashWriteTargetTests(unittest.TestCase):
     def test_redirection_targets(self) -> None:
         self.assertEqual(bash_write_targets("echo x > out.txt"), ["out.txt"])
         self.assertEqual(bash_write_targets("echo x >>logs/run.log"), ["logs/run.log"])
         self.assertEqual(bash_write_targets("cmd 2> err.log"), ["err.log"])
+        self.assertEqual(bash_write_targets("true <> state.json"), ["state.json"])
 
     def test_fd_duplication_is_not_a_target(self) -> None:
         self.assertEqual(bash_write_targets("cmd > out.txt 2>&1"), ["out.txt"])
@@ -257,6 +1566,28 @@ class BashWriteTargetTests(unittest.TestCase):
         self.assertEqual(bash_write_targets("mv src.txt dst.txt"), ["src.txt", "dst.txt"])
         self.assertEqual(bash_write_targets("git rm docs/old.md"), ["docs/old.md"])
         self.assertEqual(bash_write_targets("sed -i s/a/b/ docs/x.md"), ["docs/x.md"])
+        self.assertIn(
+            "-x/../ws/workspace.json",
+            bash_write_targets("git rm -- -x/../ws/workspace.json"),
+        )
+
+    def test_option_encoded_write_destinations(self) -> None:
+        self.assertEqual(
+            bash_write_targets("dd if=/dev/null of=ws/workspace.json"),
+            ["ws/workspace.json"],
+        )
+        self.assertIn(
+            ".git",
+            bash_write_targets("cp --target-directory=.git docs/new-config"),
+        )
+        self.assertIn(
+            ".git",
+            bash_write_targets("mv -t .git docs/new-config"),
+        )
+        self.assertIn(
+            "ws/workspace.json",
+            bash_write_targets("install -tws malicious/workspace.json"),
+        )
 
     def test_read_only_commands_have_no_targets(self) -> None:
         self.assertEqual(bash_write_targets("git status"), [])
@@ -268,6 +1599,51 @@ class BashWriteTargetTests(unittest.TestCase):
             bash_write_targets("git status && rm out.txt"),
             ["out.txt"],
         )
+        self.assertIn(
+            ".git/config",
+            bash_write_targets("echo ok;cp /tmp/payload .git/config"),
+        )
+        self.assertIn(
+            ".git/config",
+            bash_write_targets("true\ndd if=/dev/null of=.git/config"),
+        )
+
+    def test_existing_directory_destination_adds_effective_basename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cwd = Path(directory)
+            (cwd / "ws").mkdir()
+
+            for command in (
+                "cp malicious/workspace.json ws",
+                "mv malicious/workspace.json ws",
+                "install malicious/workspace.json ws",
+                "ln -sf malicious/workspace.json ws",
+                "git mv malicious/workspace.json ws",
+            ):
+                with self.subTest(command=command):
+                    self.assertIn(
+                        "ws/workspace.json",
+                        bash_write_targets(command, cwd=cwd),
+                    )
+
+    def test_linked_worktree_metadata_roots_include_common_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            common = base / "main" / ".git"
+            worktree_git = common / "worktrees" / "linked"
+            linked = base / "linked"
+            worktree_git.mkdir(parents=True)
+            linked.mkdir()
+            (linked / ".git").write_text(
+                f"gitdir: {worktree_git}\n",
+                encoding="utf-8",
+            )
+            (worktree_git / "commondir").write_text("../..\n", encoding="utf-8")
+
+            roots = _git_metadata_roots(linked)
+
+            self.assertIn(worktree_git.resolve(), roots)
+            self.assertIn(common.resolve(), roots)
 
 
 class StopHookTests(unittest.TestCase):
@@ -279,7 +1655,7 @@ class StopHookTests(unittest.TestCase):
         _git_repo(self.repo)
         self.workspace = self.repo / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
         (self.repo / "docs").mkdir()
         (self.repo / "docs" / "notes.md").write_text("notes\n", encoding="utf-8")
         subprocess.run(["git", "-C", str(self.repo), "add", "-A"], check=True)
@@ -324,6 +1700,26 @@ class StopHookTests(unittest.TestCase):
 
         self.assertEqual(self._stop(), {})
 
+    def test_multiple_execute_claims_block_stop_until_pinned(self) -> None:
+        _write_claim_and_packet(self.workspace, work_id="WORK-A", allowed_write=["docs"])
+        _write_claim_and_packet(self.workspace, work_id="WORK-B", allowed_write=["docs"])
+
+        result = self._stop()
+
+        self.assertEqual(result.get("decision"), "block")
+        self.assertIn("Multiple active execute claims", result["reason"])
+
+    def test_review_mode_claim_blocks_stop_after_file_change(self) -> None:
+        _write_claim_and_packet(
+            self.workspace, mode="review", allowed_write=["docs/notes.md"]
+        )
+        (self.repo / "docs" / "notes.md").write_text("review changed\n", encoding="utf-8")
+
+        result = self._stop()
+
+        self.assertEqual(result.get("decision"), "block")
+        self.assertIn("review-mode", result["reason"])
+
 
 class SessionStartTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -331,7 +1727,7 @@ class SessionStartTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.workspace = Path(self._tmp.name) / "ws"
         self.workspace.mkdir()
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
 
     def _context(self) -> str:
         result = handle_hook_event("session-start", {"source": "startup"}, self.workspace)
@@ -353,148 +1749,83 @@ class SessionStartTests(unittest.TestCase):
         self.assertIn("palari agent start WORK-ID", context)
 
 
-class RunHookFailureTests(unittest.TestCase):
+class AgentHookFailureTests(unittest.TestCase):
     def test_malformed_stdin_fails_open(self) -> None:
-        result = run_hook("pre-tool-use", "/nonexistent", stdin=io.StringIO("not json"))
+        result = run_agent_hook(
+            "claude",
+            "pre-tool-use",
+            "/nonexistent",
+            stdin=io.StringIO("not json"),
+        )
 
-        self.assertNotIn("hookSpecificOutput", result)
-        self.assertIn("systemMessage", result)
+        self.assertEqual(result, {})
 
     def test_missing_workspace_fails_open(self) -> None:
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": "x"}})
 
-        result = run_hook("pre-tool-use", "/nonexistent", stdin=io.StringIO(payload))
+        result = run_agent_hook(
+            "claude",
+            "pre-tool-use",
+            "/nonexistent",
+            stdin=io.StringIO(payload),
+        )
 
         self.assertEqual(result, {})
 
 
-class InstallTests(unittest.TestCase):
+class StatusTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.project = Path(self._tmp.name) / "project"
         self.workspace = self.project / "ws"
         self.workspace.mkdir(parents=True)
-        (self.workspace / "workspace.json").write_text("{}", encoding="utf-8")
+        _write_hook_workspace(self.workspace)
         self.settings = self.project / ".claude" / "settings.json"
 
-    def _settings_data(self) -> dict[str, Any]:
-        return json.loads(self.settings.read_text(encoding="utf-8"))
-
-    def test_install_writes_all_three_hooks(self) -> None:
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "installed")
-        data = self._settings_data()
-        self.assertEqual(set(data["hooks"]), {"PreToolUse", "Stop", "SessionStart"})
-        pre = data["hooks"]["PreToolUse"][0]
-        self.assertEqual(pre["matcher"], "Write|Edit|NotebookEdit|Bash")
-        self.assertIn(
-            'palari --workspace "$CLAUDE_PROJECT_DIR/ws" claude hook pre-tool-use',
-            pre["hooks"][0]["command"],
-        )
-
-    def test_install_is_idempotent(self) -> None:
-        install_hooks(self.project, self.workspace)
-        before = self.settings.read_text(encoding="utf-8")
-
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "unchanged")
-        self.assertEqual(self.settings.read_text(encoding="utf-8"), before)
-
-    def test_strict_flag_is_baked_into_pre_tool_use(self) -> None:
-        install_hooks(self.project, self.workspace, strict=True)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertIn("--strict", pre["hooks"][0]["command"])
-
-    def test_install_preserves_foreign_hooks_and_settings(self) -> None:
+    def test_status_reports_current_managed_hooks_and_claims(self) -> None:
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text(
             json.dumps(
                 {
-                    "permissions": {"allow": ["Bash(npm test)"]},
                     "hooks": {
                         "PreToolUse": [
-                            {"matcher": "Bash", "hooks": [{"type": "command", "command": "lint"}]}
-                        ]
+                            {
+                                "matcher": "Write|Edit|NotebookEdit|Bash",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook pre-tool-use --strict",
+                                    }
+                                ],
+                            }
+                        ],
+                        "Stop": [
+                            {
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook stop",
+                                    }
+                                ]
+                            }
+                        ],
+                        "SessionStart": [
+                            {
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "palari claude hook session-start",
+                                    }
+                                ]
+                            }
+                        ],
                     },
                 }
-            ),
+            )
+            + "\n",
             encoding="utf-8",
         )
-
-        install_hooks(self.project, self.workspace)
-
-        data = self._settings_data()
-        self.assertEqual(data["permissions"], {"allow": ["Bash(npm test)"]})
-        commands = [
-            hook["command"]
-            for entry in data["hooks"]["PreToolUse"]
-            for hook in entry["hooks"]
-        ]
-        self.assertIn("lint", commands)
-        self.assertEqual(len(data["hooks"]["PreToolUse"]), 2)
-
-    def test_remove_deletes_only_palari_hooks(self) -> None:
-        self.settings.parent.mkdir(parents=True)
-        self.settings.write_text(
-            json.dumps(
-                {
-                    "hooks": {
-                        "Stop": [{"hooks": [{"type": "command", "command": "notify-send done"}]}]
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
-        install_hooks(self.project, self.workspace)
-
-        result = install_hooks(self.project, self.workspace, remove=True)
-
-        self.assertEqual(result["status"], "removed")
-        data = self._settings_data()
-        self.assertEqual(set(data["hooks"]), {"Stop"})
-        self.assertEqual(data["hooks"]["Stop"][0]["hooks"][0]["command"], "notify-send done")
-
-    def test_local_writes_settings_local_json(self) -> None:
-        install_hooks(self.project, self.workspace, local=True)
-
-        self.assertTrue((self.project / ".claude" / "settings.local.json").exists())
-        self.assertFalse(self.settings.exists())
-
-    def test_workspace_at_project_root_uses_bare_placeholder(self) -> None:
-        (self.project / "workspace.json").write_text("{}", encoding="utf-8")
-
-        install_hooks(self.project, self.project)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertIn('--workspace "$CLAUDE_PROJECT_DIR"', pre["hooks"][0]["command"])
-
-    def test_project_local_wrapper_is_preferred(self) -> None:
-        wrapper = self.project / "bin" / "palari"
-        wrapper.parent.mkdir(parents=True)
-        wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
-
-        install_hooks(self.project, self.workspace)
-
-        pre = self._settings_data()["hooks"]["PreToolUse"][0]
-        self.assertTrue(
-            pre["hooks"][0]["command"].startswith('"$CLAUDE_PROJECT_DIR/bin/palari"')
-        )
-
-    def test_invalid_settings_json_is_not_clobbered(self) -> None:
-        self.settings.parent.mkdir(parents=True)
-        self.settings.write_text("{broken", encoding="utf-8")
-
-        result = install_hooks(self.project, self.workspace)
-
-        self.assertEqual(result["status"], "error")
-        self.assertEqual(self.settings.read_text(encoding="utf-8"), "{broken")
-
-    def test_status_reports_install_and_claims(self) -> None:
-        install_hooks(self.project, self.workspace, strict=True)
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
         status = hooks_status(self.project, self.workspace)

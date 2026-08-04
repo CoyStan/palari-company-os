@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, TypeVar
+from typing import Any
 
 
 Record = dict[str, Any]
-T = TypeVar("T")
 
 
 def _string(record: Record, key: str, default: str = "") -> str:
@@ -169,7 +168,6 @@ class AuthorityProfile:
     mode: str = "custom"
     summary: str = ""
     require_human_for_risks: list[str] = field(default_factory=list)
-    receipt_ready_risks: list[str] = field(default_factory=list)
     minimum_approval_count: int = 1
     r5_approval_count: int = 2
     required_approval_capability: str = ""
@@ -184,7 +182,6 @@ class AuthorityProfile:
             mode=_string(record, "mode", "custom"),
             summary=_string(record, "summary"),
             require_human_for_risks=_strings(record, "require_human_for_risks"),
-            receipt_ready_risks=_strings(record, "receipt_ready_risks"),
             minimum_approval_count=_integer(record, "minimum_approval_count", 1),
             r5_approval_count=_integer(record, "r5_approval_count", 2),
             required_approval_capability=_string(record, "required_approval_capability"),
@@ -344,11 +341,15 @@ class WorkItem:
     risk: str = "R1"
     intensity: str = "light"
     status: str = "proposed"
+    terminal_disposition: str = ""
+    terminal_reason: str = ""
+    successor_work_item_id: str = ""
     scope: str = ""
     allowed_resources: list[str] = field(default_factory=list)
     allowed_sources: list[str] = field(default_factory=list)
     allowed_actions: list[str] = field(default_factory=list)
     output_targets: list[str] = field(default_factory=list)
+    path_intents: list[Record] = field(default_factory=list)
     forbidden_actions: list[str] = field(default_factory=list)
     acceptance_target: str = ""
     verification_expectations: list[str] = field(default_factory=list)
@@ -366,6 +367,10 @@ class WorkItem:
 
     @classmethod
     def from_record(cls, record: Record) -> "WorkItem":
+        declared_status = _string(record, "status", "proposed")
+        terminal_disposition = (
+            declared_status if declared_status in {"superseded", "abandoned"} else ""
+        )
         return cls(
             id=_require_id(record),
             title=_string(record, "title"),
@@ -376,12 +381,20 @@ class WorkItem:
             dependency_ids=_strings(record, "dependency_ids"),
             risk=_string(record, "risk", "R1"),
             intensity=_string(record, "intensity", "light"),
-            status=_string(record, "status", "proposed"),
+            # Non-success retirement must never satisfy consumers that treat
+            # ``closed`` as successful completion. Preserve the exact raw
+            # disposition separately for audit/output while presenting a
+            # fail-closed runtime status to legacy completion consumers.
+            status="blocked" if terminal_disposition else declared_status,
+            terminal_disposition=terminal_disposition,
+            terminal_reason=_string(record, "terminal_reason"),
+            successor_work_item_id=_string(record, "successor_work_item_id"),
             scope=_string(record, "scope"),
             allowed_resources=_strings(record, "allowed_resources"),
             allowed_sources=_strings(record, "allowed_sources"),
             allowed_actions=_strings(record, "allowed_actions"),
             output_targets=_strings(record, "output_targets"),
+            path_intents=_records(record, "path_intents"),
             forbidden_actions=_strings(record, "forbidden_actions"),
             acceptance_target=_string(record, "acceptance_target"),
             verification_expectations=_strings(record, "verification_expectations"),
@@ -687,6 +700,7 @@ class EvidenceRun:
     commands: list[str] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     artifact_hashes: list[Record] = field(default_factory=list)
+    output_binding_version: str = ""
     manifest_hash: str = ""
     receipt_hash: str = ""
     previous_receipt_hash: str = ""
@@ -706,6 +720,7 @@ class EvidenceRun:
             commands=_strings(record, "commands"),
             artifacts=_strings(record, "artifacts"),
             artifact_hashes=_records(record, "artifact_hashes"),
+            output_binding_version=_string(record, "output_binding_version"),
             manifest_hash=_string(record, "manifest_hash"),
             receipt_hash=_string(record, "receipt_hash"),
             previous_receipt_hash=_string(record, "previous_receipt_hash"),
@@ -722,6 +737,15 @@ class ReviewVerdict:
     reviewed_head: str
     reviewer: str
     verdict: str
+    binding_version: str = ""
+    attempt_id: str = ""
+    attempt_hash: str = ""
+    evidence_reference: str = ""
+    evidence_manifest_hash: str = ""
+    receipt_reference: str = ""
+    receipt_hash: str = ""
+    work_contract_hash: str = ""
+    proof_hash: str = ""
     findings: list[Record] = field(default_factory=list)
     checks_inspected: list[str] = field(default_factory=list)
     residual_risks: list[str] = field(default_factory=list)
@@ -735,6 +759,15 @@ class ReviewVerdict:
             reviewed_head=_string(record, "reviewed_head"),
             reviewer=_string(record, "reviewer"),
             verdict=_string(record, "verdict"),
+            binding_version=_string(record, "binding_version"),
+            attempt_id=_string(record, "attempt_id"),
+            attempt_hash=_string(record, "attempt_hash"),
+            evidence_reference=_string(record, "evidence_reference"),
+            evidence_manifest_hash=_string(record, "evidence_manifest_hash"),
+            receipt_reference=_string(record, "receipt_reference"),
+            receipt_hash=_string(record, "receipt_hash"),
+            work_contract_hash=_string(record, "work_contract_hash"),
+            proof_hash=_string(record, "proof_hash"),
             findings=_records(record, "findings"),
             checks_inspected=_strings(record, "checks_inspected"),
             residual_risks=_strings(record, "residual_risks"),
@@ -754,6 +787,17 @@ class HumanDecision:
     quorum_status: str = ""
     evidence_reference: str = ""
     review_reference: str = ""
+    approval_pack_id: str = ""
+    approval_pack_digest: str = ""
+    approval_pack_member_digest: str = ""
+    approval_pack_subject_digest: str = ""
+    approval_pack_request_digest: str = ""
+    approval_pack_action: str = ""
+    approval_pack_manifest: Record = field(default_factory=dict)
+    approval_presentation_schema_version: str = ""
+    approval_presentation_digest: str = ""
+    approval_presentation_surface: str = ""
+    approval_presentation: Record = field(default_factory=dict)
     timestamp: str = ""
 
     @classmethod
@@ -769,6 +813,19 @@ class HumanDecision:
             quorum_status=_string(record, "quorum_status"),
             evidence_reference=_string(record, "evidence_reference"),
             review_reference=_string(record, "review_reference"),
+            approval_pack_id=_string(record, "approval_pack_id"),
+            approval_pack_digest=_string(record, "approval_pack_digest"),
+            approval_pack_member_digest=_string(record, "approval_pack_member_digest"),
+            approval_pack_subject_digest=_string(record, "approval_pack_subject_digest"),
+            approval_pack_request_digest=_string(record, "approval_pack_request_digest"),
+            approval_pack_action=_string(record, "approval_pack_action"),
+            approval_pack_manifest=_mapping(record, "approval_pack_manifest"),
+            approval_presentation_schema_version=_string(
+                record, "approval_presentation_schema_version"
+            ),
+            approval_presentation_digest=_string(record, "approval_presentation_digest"),
+            approval_presentation_surface=_string(record, "approval_presentation_surface"),
+            approval_presentation=_mapping(record, "approval_presentation"),
             timestamp=_string(record, "timestamp"),
         )
 
@@ -886,7 +943,12 @@ class Outcome:
 
 def to_plain(value: Any) -> Any:
     if hasattr(value, "__dataclass_fields__"):
-        return asdict(value)
+        record = asdict(value)
+        if isinstance(value, WorkItem):
+            disposition = record.pop("terminal_disposition", "")
+            if disposition:
+                record["status"] = disposition
+        return record
     if isinstance(value, list):
         return [to_plain(item) for item in value]
     if isinstance(value, dict):

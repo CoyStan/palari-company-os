@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .git_hooks import active_claim_contexts, git_hook_status, install_git_hook
+from .git_hooks import git_hook_status, install_git_hook
 from .store import workspace_file_path
 
 RULE_MARKER = "palari cursor rule"
@@ -110,22 +110,12 @@ def cursor_rules_status(
     installed = _is_managed_rule(rule_path)
     git_status = git_hook_status(root, workspace_path)
 
-    contexts = active_claim_contexts(workspace_path)
     return {
         "schema_version": "palari.cursor_status.v1",
         "installed": installed,
         "rule_path": str(rule_path),
         "git_hook_installed": bool(git_status.get("installed")),
-        "active_claims": [
-            {
-                "work_item": context["claim"].get("work_item", ""),
-                "claimed_by": context["claim"].get("claimed_by", ""),
-                "mode": context["claim"].get("mode", ""),
-                "lease_expires_at": context["claim"].get("lease_expires_at", ""),
-                "allowed_write_paths": _packet_write_paths(context["packet"]),
-            }
-            for context in contexts
-        ],
+        "active_claims": list(git_status.get("active_claims") or []),
         "message": (
             "Palari Cursor rule is installed."
             if installed
@@ -180,16 +170,6 @@ def _install_message(
     if git_hook_result.get("status") == "error":
         return base + " Git pre-commit hook not installed: " + git_hook_result.get("message", "")
     return base + " Git pre-commit enforcement is active."
-
-
-def _packet_write_paths(packet: dict[str, Any]) -> list[str]:
-    paths = packet.get("allowed_paths", {})
-    if not isinstance(paths, dict):
-        return []
-    write = paths.get("write", [])
-    if not isinstance(write, list):
-        return []
-    return [str(path) for path in write if str(path)]
 
 
 def _is_managed_rule(rule_path: Path) -> bool:

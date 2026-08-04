@@ -1,43 +1,83 @@
 # Verification
 
-Use focused checks while editing, then run the normal verification stack before
-claiming the work is done.
+## Complete Candidate Check
 
-## Normal Verification
+Install the pinned development tools once, then run the same complete check
+used by CI:
 
 ```bash
-./scripts/verify.sh
-python3 -m unittest discover -s tests
+python3 -m pip install -e ".[dev]"
+./scripts/verify.sh complete
+```
+
+The `complete` profile runs each candidate boundary once:
+
+- the full current unittest suite through the parallel module runner;
+- the repository text check, Ruff, mypy, and Python compilation;
+- current example and schema syntax checks;
+- PCAW trusted-code accounting and the normative conformance corpus;
+- the agent-ready documentation check; and
+- one wheel build and isolated installed-package smoke.
+
+The installed-package smoke creates its own temporary Git repository, initializes a
+current workspace without installing a host profile, validates it, and verifies
+a copied PCAW bundle with network sockets disabled. It never executes against
+the committed example or dogfood workspace.
+
+The complete check is the final candidate check. Do not run its unit suite,
+wheel build, or CLI boundaries separately and then invoke the complete profile
+again.
+
+On constrained machines (small CI containers or cloud dev VMs), the parallel
+module runner can produce load-induced timing flakes that pass in isolation and
+in a serial run. Lower the contention without changing the shared default by
+exporting `PALARI_TEST_WORKERS`:
+
+```bash
+PALARI_TEST_WORKERS=1 ./scripts/verify.sh complete
+```
+
+## Focused development checks
+
+During implementation, name only the modules attributable to the current slice:
+
+```bash
+./scripts/verify.sh focused tests.test_governance_kernel
+./scripts/verify.sh focused tests.test_validation tests.test_transition_checks
+./scripts/verify.sh focused tests.test_agent_packets tests.test_agent_file_changes
+```
+
+Focused mode is a thin explicit unittest runner. It does not infer tests from
+changed paths and never silently expands into the complete suite. It is useful
+feedback, not candidate acceptance.
+
+Useful direct boundaries include:
+
+```bash
+python3 -S -m unittest tests.test_governance_journal \
+  tests.test_governance_journal_crash tests.test_store_journal_integration
+python3 -S -m unittest tests.test_pcaw_protocol tests.test_canonical_json
+python3 -S -m unittest tests.test_cli_smoke
 ./scripts/install_smoke.sh
 ```
 
-## Useful Focused Checks
+Run `install_smoke.sh` directly only while repairing the package boundary; the
+complete profile already includes it once.
 
-```bash
-python3 -m unittest tests.test_agent_packets
-python3 -m unittest tests.test_validation
-python3 -m unittest tests.test_integrations
-python3 -m unittest tests.test_docs
-```
+## Test architecture
 
-Use focused checks to iterate quickly. Do not treat a narrow focused check as
-proof for a broad behavior change.
-
-## CLI Smokes
-
-```bash
-./bin/palari validate --json
-./bin/palari queue --json
-./bin/palari docs check --json
-./bin/palari --workspace examples/acme-company-os agent next --json
-```
+- Rules and status decisions belong in pure evaluator tests.
+- Filesystem, symlink, Git, journal, and subprocess work belongs only at genuine
+  system boundaries.
+- CLI, task-brief, hook, MCP, status-view, and adapter tests verify translation
+  and capability limits rather than replaying the full status matrix.
+- CLI tests use temporary current workspaces.
+- PCAW conformance uses the committed normative proof corpus and performs no
+  network or workspace mutation.
+- The committed dogfood workspace is historical/operator evidence, not a
+  candidate fixture. A deliberate human audit of it is outside this gate.
 
 ## Reporting
 
-Report:
-
-- checks run
-- relevant focused tests
-- any skipped checks and why
-- changed files
-- remaining risks
+Report the focused checks run, the final candidate command and result, changed
+files, any skipped checks, and remaining risks.

@@ -7,12 +7,14 @@ into a process ritual.
 
 - public CLI commands or JSON output
 - workspace schema, validation, or collection semantics
-- agent packet, start, check, finish, handoff, doctor, or loop behavior
-- source, receipt, evidence, review, or human decision semantics
+- agent task-brief, start, check, finish, handoff, doctor, or loop behavior
+- source, run-record, check-result, review, or approval semantics
 - integration plan, approval, outbox, or external-write boundaries
-- gate profile recommendations
+- required-check profile recommendations
 - examples, quickstarts, installation, or verification commands
-- public README or showcase claims
+- public README or example claims
+- PCAW schemas, diagnostics, conformance vectors, verifier TCB, or tamper-evident
+  history semantics
 
 ## Usually No Docs Update Needed
 
@@ -27,9 +29,10 @@ into a process ritual.
 - Agent behavior: `docs/product/agent-contract.md`
 - Schema/model behavior: `docs/product/schema-and-validation.md` and
   `docs/product/core-objects.md`
-- Gates and authority: `docs/product/authority-and-gates.md`
+- Required checks and approval: `docs/product/authority-and-gates.md`
 - Verification: `docs/agent/verification.md` and `docs/product/testing-guide.md`
 - Repo orientation: `docs/agent/repo-map.md`
+- PCAW protocol: `spec/pcaw/v1/README.md` and its schemas/vectors
 
 When unsure, prefer a short truthful doc update over leaving future agents to
 rediscover the behavior from code.

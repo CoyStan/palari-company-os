@@ -2,8 +2,6 @@ include README.md LICENSE CHANGELOG.md
 recursive-include docs *.md *.svg
 recursive-include examples *.md *.json
 recursive-include schemas *.json
-recursive-include src/palari_company_os/data *.md *.json
 recursive-include tests *.py *.json
 recursive-include scripts *.py *.sh
-recursive-include workspaces *.md *.json
 include .github/workflows/ci.yml

@@ -1,15 +1,16 @@
 # Claude Instructions
 
-Use the same operating contract as every Palari-compatible coding agent:
+Use the same task rules as every Palari-compatible coding agent:
 
 ```bash
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 ```
 
-Treat the returned packet as the assignment boundary. If the packet is blocked,
-do not improvise; report the blocker or run only the listed safe commands.
+Treat the returned task brief (`packet` in JSON) as the assignment boundary. If
+the task is blocked, do not improvise; report the blocker or run only the listed
+safe commands.
 
-The shared contract lives in:
+The shared rules live in:
 
 - `AGENTS.md`
 - `docs/agent/repo-map.md`

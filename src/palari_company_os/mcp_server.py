@@ -14,7 +14,7 @@ from .agent_handoff import build_agent_handoff
 from .agent_loop import build_agent_loop
 from .agent_next import build_agent_next, build_agent_next_all
 from .agent_packets import build_agent_brief
-from .agent_runtime import release_agent, start_agent
+from .agent_runtime import release_agent, start_agent, start_next_agent
 from .models import to_plain
 from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .repo_docs import check_docs
@@ -37,7 +37,7 @@ def serve_mcp(
     input_stream: TextIO | None = None,
     output_stream: TextIO | None = None,
 ) -> None:
-    """Serve read-only Palari tools over MCP stdio JSON-RPC."""
+    """Serve bounded Palari agent-loop tools over MCP stdio JSON-RPC."""
     context = McpContext(
         workspace=str(workspace or default_workspace_path()),
         repo=str(repo),
@@ -88,80 +88,101 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_queue",
             "Palari Queue",
-            "Show work items that need attention in a Palari workspace.",
+            "Show tasks that need attention across a Palari workspace.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "include_closed": _boolean("Include closed/completed work items."),
+                "include_closed": _boolean("Include completed tasks."),
             },
         ),
         _tool(
             "palari_state",
             "Palari State",
-            "Show compact workspace state, attention counts, parallel work, and warnings.",
+            "Show compact workspace status, attention counts, parallel tasks, and warnings.",
             {"workspace": _string("Workspace directory or workspace.json path.")},
         ),
         _tool(
             "palari_detail",
-            "Palari Work Detail",
-            "Show one work item's detail, proof state, playbooks, and next actions.",
+            "Palari Task Detail",
+            "Show one task's details, check status, guidance, and next actions.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
+                "work_id": _string("Task id."),
             },
             required=["work_id"],
         ),
         _tool(
             "palari_agent_next",
             "Palari Agent Next",
-            "Show the next safe work candidates for one Palari or all Palaris.",
+            "Show the next safe task choices for one agent or all agents.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "palari_id": _string("Acting Palari id. Omit with all=true for a rollup."),
-                "all": _boolean("Show a rollup for all Palaris."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "palari_id": _string("Acting agent id. Omit with all=true for a rollup."),
+                "all": _boolean("Show a rollup for all agents."),
+                "mode": _string("Session mode.", default="execute"),
                 "limit": _integer("Maximum candidates to show.", default=5, minimum=1),
             },
         ),
         _tool(
             "palari_agent_brief",
             "Palari Agent Brief",
-            "Compile a read-only bounded packet for one Palari and work item.",
+            "Show a read-only bounded task brief for one agent and task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
+                "session_contract": _boolean(
+                    "Return the portable provider-neutral session rules."
+                ),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_start",
             "Palari Agent Start",
-            "Persist the bounded agent packet and claim one ready work item locally.",
+            "Save the task brief and lock an explicit or next safe task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
-                "lease_minutes": _integer("Claim lease duration in minutes.", default=30, minimum=1),
+                "work_id": _string("Task id."),
+                "next": _boolean("Deterministically lock the next safe task."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
+                "lease_minutes": _integer("Task lock duration in minutes.", default=30, minimum=1),
             },
-            required=["work_id", "palari_id"],
+            required=["palari_id"],
             read_only=False,
             idempotent=False,
         ),
         _tool(
             "palari_agent_check",
             "Palari Agent Check",
-            "Check whether one work item currently satisfies its agent packet contract.",
+            "Check whether one task currently follows its task brief.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
-                "changed_paths": _array("Observed changed paths to compare with write boundaries."),
-                "git_diff": _boolean("Inspect current git status against packet write boundaries."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
+                "changed_paths": _array("Changed paths to compare with task file limits."),
+                "git_diff": _boolean("Inspect current Git status against task file limits."),
             },
             required=["work_id", "palari_id"],
+        ),
+        _tool(
+            "palari_agent_advance",
+            "Palari Agent Advance",
+            "Run checks and stop at the next review, approval, or blocker.",
+            {
+                "workspace": _string("Workspace directory or workspace.json path."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "dry_run": _boolean("Return the exact plan without mutation."),
+                "refresh_verification": _boolean(
+                    "Rerun required checks instead of using advisory cache records."
+                ),
+            },
+            required=["work_id", "palari_id"],
+            read_only=False,
+            idempotent=True,
         ),
         _tool(
             "palari_agent_finish",
@@ -169,56 +190,56 @@ def tool_definitions() -> list[dict[str, Any]]:
             "Summarize whether one agent may report completion or must hand off.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_handoff",
             "Palari Agent Handoff",
-            "Compile a read-only handoff packet for review, decision, or approval.",
+            "Show a read-only handoff for review or approval.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_loop",
             "Palari Agent Loop",
-            "Show the compact read-only control loop for one agent and work item.",
+            "Show the compact read-only task flow for one agent and task.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_doctor",
             "Palari Agent Doctor",
-            "Explain the current agent loop safety state in plain language.",
+            "Explain the current task safety status in plain language.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
-                "mode": _string("Agent packet mode.", default="execute"),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
+                "mode": _string("Session mode.", default="execute"),
             },
             required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_release",
             "Palari Agent Release",
-            "Release one local agent claim without changing workspace records.",
+            "Release one local task lock without changing workspace records.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Work item id."),
-                "palari_id": _string("Acting Palari id."),
+                "work_id": _string("Task id."),
+                "palari_id": _string("Acting agent id."),
             },
             required=["work_id", "palari_id"],
             read_only=False,
@@ -288,17 +309,34 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             return build_agent_next_all(workspace, mode, limit)
         return build_agent_next(workspace, palari_id, mode, limit)
     if name == "palari_agent_brief":
-        return build_agent_brief(
+        packet = build_agent_brief(
             workspace,
             _required_string(arguments, "work_id"),
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
         )
+        if bool(arguments.get("session_contract", False)):
+            from .agent_session_contract import compile_agent_session_contract
+
+            return compile_agent_session_contract(packet)
+        return packet
     if name == "palari_agent_start":
+        work_id = str(arguments.get("work_id") or "")
+        start_next = bool(arguments.get("next", False))
+        if bool(work_id) == start_next:
+            raise ValueError("provide exactly one of work_id or next=true")
+        if start_next:
+            return start_next_agent(
+                workspace,
+                workspace_path,
+                _required_string(arguments, "palari_id"),
+                _optional_string(arguments, "mode", "execute"),
+                lease_minutes=_optional_int(arguments, "lease_minutes", 30),
+            )
         return start_agent(
             workspace,
             workspace_path,
-            _required_string(arguments, "work_id"),
+            work_id,
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
             lease_minutes=_optional_int(arguments, "lease_minutes", 30),
@@ -311,7 +349,18 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _optional_string(arguments, "mode", "execute"),
             changed_paths=_string_list(arguments.get("changed_paths", [])),
             git_diff=bool(arguments.get("git_diff", False)),
-            cwd=Path.cwd(),
+            cwd=workspace.path,
+        )
+    if name == "palari_agent_advance":
+        from .agent_advance import agent_advance
+
+        return agent_advance(
+            workspace,
+            workspace_path,
+            _required_string(arguments, "work_id"),
+            _required_string(arguments, "palari_id"),
+            dry_run=bool(arguments.get("dry_run", False)),
+            refresh_verification=bool(arguments.get("refresh_verification", False)),
         )
     if name == "palari_agent_finish":
         return build_agent_finish(
@@ -364,9 +413,9 @@ def _initialize_result(message: dict[str, Any]) -> dict[str, Any]:
             "version": __version__,
         },
         "instructions": (
-            "Use Palari tools to inspect workspace state and compile/check bounded "
-            "agent packets. Most tools are read-only; agent start/release only "
-            "persist or remove local packet and claim files."
+            "Use Palari tools to lock a bounded task, inspect its portable session rules, "
+            "check file limits, and advance deterministic checks. Agent start/release only "
+            "manage local task locks; agent advance stops before human approval."
         ),
     }
 

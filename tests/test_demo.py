@@ -19,8 +19,10 @@ class DemoCommandTests(unittest.TestCase):
             result = self.run_cli("demo", "--dir", str(demo_dir), "--no-pause")
 
         self.assertIn("*** BLOCKED:", result.stdout)
+        self.assertIn("outside Sofia's allowed files", result.stdout)
         self.assertIn("deploy/production.yml", result.stdout)
-        self.assertIn("Allowed write paths: docs/product/company-os.md", result.stdout)
+        self.assertIn("Allowed files: docs/product/company-os.md", result.stdout)
+        self.assertIn("records checks and finishes the safe local task", result.stdout)
         self.assertIn("What just happened:", result.stdout)
 
     def test_demo_json_transcript_reports_blocked_path(self) -> None:
@@ -34,6 +36,16 @@ class DemoCommandTests(unittest.TestCase):
         blocked_steps = [step for step in payload["steps"] if step.get("block_marker")]
         self.assertEqual(len(blocked_steps), 1)
         self.assertEqual(blocked_steps[0]["offending_path"], "deploy/production.yml")
+        transcript = json.dumps(payload)
+        self.assertNotIn("Docs: missing", transcript)
+        self.assertNotIn("receipt record RECEIPT-ID", transcript)
+        self.assertNotIn("evidence record EVIDENCE-ID", transcript)
+        self.assertNotIn("deterministic proof", transcript)
+        self.assertNotIn("active attempts", transcript)
+        self.assertIn("run record, and check results", transcript)
+        self.assertTrue(
+            any("agent advance WORK-0003" in step["command"] for step in payload["steps"])
+        )
 
     def test_demo_writes_only_inside_target_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -43,7 +55,8 @@ class DemoCommandTests(unittest.TestCase):
 
             self.assertEqual([path.name for path in parent.iterdir()], ["demo"])
             self.assertTrue((demo_dir / "workspace.json").exists())
-            self.assertTrue((demo_dir / ".palari" / "claims" / "WORK-0003.json").exists())
+            self.assertFalse((demo_dir / ".palari" / "claims" / "WORK-0003.json").exists())
+            self.assertTrue(any((demo_dir / ".palari" / "packets").iterdir()))
             self.assertTrue((demo_dir / "docs" / "product" / "company-os.md").exists())
 
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:

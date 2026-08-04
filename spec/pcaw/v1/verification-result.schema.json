@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palari.dev/pcaw/v1/verification-result.schema.json",
+  "title": "PCAW v1 Verification Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verified",
+    "fully_verified",
+    "acceptance_verified",
+    "verification_level",
+    "statement_digest",
+    "claimed_state",
+    "derived_lifecycle_state",
+    "subject_digest_status",
+    "verified_properties",
+    "errors",
+    "warnings",
+    "security_limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "pcaw.verification.v1" },
+    "verified": { "type": "boolean" },
+    "fully_verified": { "type": "boolean" },
+    "acceptance_verified": { "type": "boolean" },
+    "verification_level": {
+      "enum": ["full", "statement-only"]
+    },
+    "statement_digest": { "$ref": "#/$defs/statement_digest" },
+    "claimed_state": { "type": "string" },
+    "derived_lifecycle_state": { "type": "string" },
+    "subject_digest_status": {
+      "enum": ["verified", "failed", "missing", "not-checked", "not-applicable"]
+    },
+    "verified_properties": { "$ref": "#/$defs/verified_properties" },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "security_limitations": { "$ref": "#/$defs/security_limitations" }
+  },
+  "$defs": {
+    "statement_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "property_status": {
+      "enum": ["verified", "failed", "not-applicable", "not-checked"]
+    },
+    "verified_properties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_compliance",
+        "subject_integrity",
+        "evidence_freshness",
+        "receipt_binding",
+        "independent_review",
+        "human_quorum",
+        "acceptance_currency",
+        "journal_continuity"
+      ],
+      "properties": {
+        "scope_compliance": { "$ref": "#/$defs/property_status" },
+        "subject_integrity": { "$ref": "#/$defs/property_status" },
+        "evidence_freshness": { "$ref": "#/$defs/property_status" },
+        "receipt_binding": { "$ref": "#/$defs/property_status" },
+        "independent_review": { "$ref": "#/$defs/property_status" },
+        "human_quorum": { "$ref": "#/$defs/property_status" },
+        "acceptance_currency": { "$ref": "#/$defs/property_status" },
+        "journal_continuity": { "$ref": "#/$defs/property_status" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path", "message", "next_action"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "next_action": { "type": "string", "minLength": 1 }
+      }
+    },
+    "security_limitations": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "actor-attribution-declared-not-authenticated" },
+        { "const": "no-signatures-or-key-custody" },
+        { "const": "same-user-tampering-not-prevented" }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent_loop import build_agent_loop
+from .agent_operation import AgentOperation, ensure_agent_operation
+from .command_surface import palari_workspace_command
 from .workspace import Workspace
 
 
@@ -12,16 +14,32 @@ def build_agent_doctor(
     work_id: str,
     palari_id: str,
     mode: str = "execute",
+    *,
+    operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    """Explain why a work item is or is not safe for an agent right now."""
+    """Explain why a task is or is not safe for an agent right now."""
 
-    loop = build_agent_loop(workspace, work_id, palari_id, mode)
+    operation_state = ensure_agent_operation(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        operation=operation,
+    )
+    loop = build_agent_loop(
+        workspace,
+        work_id,
+        palari_id,
+        mode,
+        operation=operation_state,
+    )
     diagnosis = _diagnosis(loop)
     return {
         "schema_version": "palari.agent_doctor.v1",
         "doctor_id": _doctor_id(work_id, palari_id, mode),
         "created_at": _timestamp(),
         "workspace": loop.get("workspace", workspace.name),
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "mode": mode or "execute",
         "status": diagnosis["status"],
@@ -31,9 +49,15 @@ def build_agent_doctor(
         "agent": loop.get("agent", {}),
         "work_item": loop.get("work_item", {}),
         "next_step_type": loop.get("next_step_type", "inspect"),
-        "loop_command": _loop_command(work_id, palari_id, mode),
+        "loop_command": _loop_command(workspace, work_id, palari_id, mode),
         "checks": _doctor_checks(loop),
         "blockers": loop.get("blockers", []),
+        "owner": loop.get("owner", "agent"),
+        "agent_may_execute": loop.get("agent_may_execute", False),
+        "next_action": loop.get("next_action", {}),
+        "review_boundary": loop.get("review_boundary", False),
+        "human_boundary": loop.get("human_boundary", False),
+        "resolution_summary": loop.get("resolution_summary", {}),
         "missing_requirements": loop.get("missing_requirements", []),
         "completed_requirements": loop.get("completed_requirements", []),
         "recommended_commands": _recommended_commands(loop),
@@ -42,7 +66,7 @@ def build_agent_doctor(
         "omitted_context": [
             {
                 "kind": "detailed_payloads",
-                "reason": "Agent doctor v1 explains the current loop status. Run agent loop or the stage commands for full payloads.",
+                "reason": "Task status explains the current flow. Run agent loop or the step commands for full details.",
             }
         ],
     }
@@ -60,14 +84,14 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "ready-to-report",
             "agent_safe": True,
             "human_handoff_required": False,
-            "summary": "The agent loop checks pass. The agent may report completion with the check result.",
+            "summary": "The task checks pass. The agent may report completion with the check result.",
         }
     if handoff_required:
         return {
             "status": "human-handoff-required",
             "agent_safe": False,
             "human_handoff_required": True,
-            "summary": "This work is waiting for human review or decision context. Use agent handoff; do not run human-only commands.",
+            "summary": "This task is waiting for independent review or human approval. Use agent handoff; do not run human-only commands.",
         }
     if missing:
         labels = ", ".join(item.get("code", "") for item in missing if item.get("code"))
@@ -75,7 +99,7 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "missing-proof",
             "agent_safe": True,
             "human_handoff_required": False,
-            "summary": f"The packet is usable, but required proof is missing: {labels}.",
+            "summary": f"The task brief is usable, but required checks are missing: {labels}.",
         }
     if blockers:
         labels = ", ".join(item.get("code", "") for item in blockers if item.get("code"))
@@ -83,13 +107,13 @@ def _diagnosis(loop: dict[str, Any]) -> dict[str, Any]:
             "status": "blocked",
             "agent_safe": False,
             "human_handoff_required": False,
-            "summary": f"The packet is blocked: {labels}.",
+            "summary": f"The task brief is blocked: {labels}.",
         }
     return {
         "status": loop_status,
         "agent_safe": False,
         "human_handoff_required": False,
-        "summary": "Inspect the agent loop before proceeding.",
+        "summary": "Inspect the task flow before proceeding.",
     }
 
 
@@ -152,8 +176,23 @@ def _append_once(commands: list[str], command: str) -> None:
         commands.append(command)
 
 
-def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
+def _loop_command(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str,
+) -> str:
+    return palari_workspace_command(
+        workspace.data_path,
+        "agent",
+        "loop",
+        work_id,
+        "--as",
+        palari_id,
+        "--mode",
+        mode,
+        "--json",
+    )
 
 
 def _doctor_id(work_id: str, palari_id: str, mode: str) -> str:

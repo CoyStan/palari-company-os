@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from .workspace import WorkspaceError, default_workspace_path
+from .cli_output_utils import plain_message, plain_status, plain_step
+from .onramp import initialize_starter_workspace, quick_add_work
+from .workspace import WorkspaceError
 
 
 BLOCKED_PATH = "deploy/production.yml"
@@ -28,12 +29,12 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         workspace_dir = Path(temp_directory.name)
 
     try:
-        _copy_demo_workspace(workspace_dir)
+        _create_demo_workspace(workspace_dir)
         steps: list[dict[str, Any]] = []
         queue_step = _run_step(
             workspace_dir,
             "See today's work",
-            "Sofia has one small writing task and clear file limits.",
+            "Sofia has one small writing task with clearly allowed files.",
             ["queue"],
         )
         queue_step["display_stdout"] = _queue_display_summary(
@@ -44,14 +45,14 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             _run_step(
                 workspace_dir,
                 "Sofia starts the task",
-                "The next output says what Sofia may read and write.",
-                ["agent", "start", WORK_ID, "--as", PALARI_ID, "--mode", "execute"],
+                "The task brief says exactly what Sofia may read and change.",
+                ["agent", "start", "--next", "--as", PALARI_ID, "--mode", "execute"],
             )
         )
         blocked_step = _run_step(
             workspace_dir,
             "The unsafe change is blocked",
-            "Now the named file change is checked against Sofia's file limit.",
+            "The named file change is checked against Sofia's allowed files.",
             [
                 "agent",
                 "check",
@@ -82,13 +83,15 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             blocked_payload,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
+        blocked_step["stdout"] = blocked_step["display_stdout"]
         blocked_step.update(_blocked_highlight(blocked_payload))
         steps.append(blocked_step)
 
+        _commit_demo_change(workspace_dir)
         allowed_step = _run_step(
             workspace_dir,
-            "The file boundary passes; proof is still needed",
-            "The safe file is inside Sofia's boundary; receipt and evidence still gate completion.",
+            "Sofia's committed change stays inside the allowed files",
+            "The safe file is listed in Sofia's task brief and is ready for checks.",
             [
                 "agent",
                 "check",
@@ -119,71 +122,17 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             allowed_payload,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
+        allowed_step["stdout"] = allowed_step["display_stdout"]
         allowed_step.update(_allowed_highlight(allowed_payload))
         steps.append(allowed_step)
 
         steps.append(
             _run_step(
                 workspace_dir,
-                "Sofia records what happened",
-                "The receipt names what changed, what did not happen, and how to undo it.",
-                [
-                    "receipt",
-                    "record",
-                    "RECEIPT-DEMO",
-                    "--work-item-id",
-                    WORK_ID,
-                    "--attempt-id",
-                    "ATTEMPT-0002",
-                    "--actor",
-                    PALARI_ID,
-                    "--list",
-                    "actions_taken=edited onboarding copy",
-                    "--list",
-                    f"outputs_created={ALLOWED_PATH}",
-                    "--list",
-                    f"not_done=did not touch {BLOCKED_PATH}",
-                    "--list",
-                    f"undo_refs=revert {ALLOWED_PATH}",
-                ],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "Sofia adds proof and asks what is next",
-                "Palari now asks for review instead of pretending the work is done.",
-                [
-                    "evidence",
-                    "record",
-                    "EVIDENCE-DEMO",
-                    "--work-item-id",
-                    WORK_ID,
-                    "--attempt-id",
-                    "ATTEMPT-0002",
-                    "--head-sha",
-                    "def5678",
-                    "--status",
-                    "passed",
-                    "--summary",
-                    "Demo verification passed for allowed file boundary.",
-                ],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "The finish check stops at review",
-                "A completed-looking task still waits for the next human-facing step.",
-                ["agent", "finish", WORK_ID, "--as", PALARI_ID],
-            )
-        )
-        steps.append(
-            _run_step(
-                workspace_dir,
-                "Human approval stays human",
-                "For higher-stakes work, Palari prepares the approval handoff but does not approve it.",
-                ["agent", "handoff", "WORK-0001", "--as", PALARI_ID],
+                "One command records checks and finishes the safe local task",
+                "Advance records the committed range, run record, and check "
+                "results without copied IDs.",
+                ["agent", "advance", WORK_ID, "--as", PALARI_ID],
             )
         )
         return {
@@ -193,14 +142,15 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             "no_pause": no_pause,
             "steps": steps,
             "plain_summary": [
-                "Palari gave Sofia a small file boundary for one task.",
+                "Palari gave Sofia one task with a short list of allowed files.",
                 f"When {BLOCKED_PATH} appeared, Palari blocked it and named the exact path.",
-                "For the safe file, Palari kept a receipt and showed the next review or approval step.",
+                "For the safe committed file, one advance command recorded "
+                "checks and finished the task.",
             ],
             "try_next_commands": [
                 "palari demo",
-                "palari agent next --json",
-                "palari agent check WORK-ID --as PALARI-ID --changed PATH --json",
+                "palari agent start --next --as PALARI-ID --json",
+                "palari agent advance WORK-ID --as PALARI-ID --json",
             ],
         }
     finally:
@@ -231,11 +181,110 @@ def _ensure_empty_demo_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _copy_demo_workspace(workspace_dir: Path) -> None:
-    shutil.copytree(default_workspace_path(), workspace_dir, dirs_exist_ok=True)
+def _create_demo_workspace(workspace_dir: Path) -> None:
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    verification_script = workspace_dir / "scripts" / "verification_profiles.py"
+    verification_script.parent.mkdir(parents=True, exist_ok=True)
+    verification_script.write_text(
+        """from pathlib import Path
+import sys
+
+if len(sys.argv) < 3 or sys.argv[1] != "affected":
+    raise SystemExit("usage: verification_profiles.py affected PATH...")
+missing = [path for path in sys.argv[2:] if not Path(path).is_file()]
+if missing:
+    raise SystemExit("missing required output: " + ", ".join(missing))
+print("demo affected verification passed")
+""",
+        encoding="utf-8",
+    )
+    _run_demo_git(workspace_dir, "init", "-q")
+    initialize_starter_workspace(
+        workspace_dir,
+        name="Palari boundary demo",
+        palari_name="Sofia",
+    )
+    quick_add_work(
+        workspace_dir,
+        "Improve the Company OS onboarding note",
+        write=[ALLOWED_PATH],
+        work_id=WORK_ID,
+        risk="R1",
+        intensity="light",
+        acceptance_target="The bounded onboarding note exists and proof is current.",
+    )
+
+
+def _commit_demo_change(workspace_dir: Path) -> None:
     output_path = workspace_dir / ALLOWED_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("Draft onboarding note copy.\n", encoding="utf-8")
+    output_path.write_text(
+        "Palari gives AI work clear limits, visible checks, and human approval.\n",
+        encoding="utf-8",
+    )
+    _run_demo_git(workspace_dir, "add", "--", ALLOWED_PATH)
+    _run_demo_git(
+        workspace_dir,
+        "commit",
+        "--quiet",
+        "--only",
+        "-m",
+        "demo: allowed onboarding change",
+        "--",
+        ALLOWED_PATH,
+    )
+
+
+def _run_demo_git(workspace_dir: Path, *args: str) -> None:
+    env = os.environ.copy()
+    for key in tuple(env):
+        if key in {
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_COMMON_DIR",
+            "GIT_DIR",
+            "GIT_EXEC_PATH",
+            "GIT_INDEX_FILE",
+            "GIT_NAMESPACE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_WORK_TREE",
+        } or key.startswith("GIT_CONFIG_"):
+            env.pop(key, None)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Palari Demo",
+            "GIT_AUTHOR_EMAIL": "palari-demo@local.invalid",
+            "GIT_COMMITTER_NAME": "Palari Demo",
+            "GIT_COMMITTER_EMAIL": "palari-demo@local.invalid",
+            "GIT_PAGER": "cat",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(workspace_dir),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "commit.gpgSign=false",
+                "-c",
+                "core.fsmonitor=false",
+                *args,
+            ],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise WorkspaceError(f"demo Git operation failed: {exc}") from exc
+    if result.returncode != 0:
+        raise WorkspaceError(
+            result.stderr.strip() or result.stdout.strip() or "demo Git operation failed"
+        )
 
 
 def _run_step(
@@ -311,8 +360,8 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
         selected = items[:2]
 
     lines = [
-        f"Palari Company OS Queue: {payload.get('workspace', 'workspace')}",
-        f"Showing {len(selected)} of {len(items)} items for this demo.",
+        f"Palari Queue: {payload.get('workspace', 'workspace')}",
+        f"Showing {len(selected)} of {len(items)} tasks for this demo.",
     ]
     for item in selected:
         risk = item.get("risk", "")
@@ -322,9 +371,9 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
             [
                 "",
                 f"{label} {item.get('title', '')}".rstrip(),
-                f"  attention: {item.get('attention', 'unknown')}",
-                f"  why: {item.get('why', 'No queue reason recorded.')}",
-                f"  next: {item.get('next_action', 'Open the work detail.')}",
+                f"  status: {plain_status(item.get('attention', 'unknown'))}",
+                f"  why: {plain_message(item.get('why', 'No reason recorded.'))}",
+                f"  next: {plain_message(item.get('next_action', 'Open the task details.'))}",
             ]
         )
         active_attempts = _dict_items(item.get("active_attempts"))
@@ -333,7 +382,7 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
                 str(attempt.get("attempt_id", ""))
                 for attempt in active_attempts
             )
-            lines.append(f"  active attempts: {attempt_ids}")
+            lines.append(f"  active runs: {attempt_ids}")
 
     lines.extend(["", "Full queue: palari queue --json"])
     return "\n".join(lines)
@@ -351,9 +400,9 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
     ]
 
     lines = [
-        f"Agent check: {payload.get('check_id', 'check')}",
+        f"Task check: {payload.get('check_id', 'check')}",
         f"OK: {'yes' if payload.get('ok') else 'no'}",
-        f"Step: {payload.get('next_step_type', 'unknown')}",
+        f"Next step: {_demo_check_step(payload)}",
         f"Checks: {len(passed)} passed.",
     ]
     if focus:
@@ -361,7 +410,7 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         required = "required" if focus.get("required") else "optional"
         lines.append(
             f"  - {focus.get('code')} [{status}, {required}]: "
-            f"{focus.get('message', '')}"
+            f"{plain_message(focus.get('message', ''))}"
         )
 
     if other_failures:
@@ -370,20 +419,20 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         )
         lines.append(f"Other blockers still pending before completion: {codes}.")
 
-    next_commands = [
-        str(command)
-        for command in payload.get("next_allowed_commands", [])
-        if isinstance(command, str)
-        and (
-            command.startswith("palari receipt")
-            or command.startswith("palari evidence")
+    if focus and focus.get("status") == "pass":
+        lines.append(
+            f"Next safe action: palari agent advance {WORK_ID} "
+            f"--as {PALARI_ID} --json"
         )
-    ]
-    if next_commands:
-        lines.append("Next proof commands:")
-        for command in next_commands[:2]:
-            lines.append(f"  {command}")
     return "\n".join(lines)
+
+
+def _demo_check_step(payload: dict[str, Any]) -> str:
+    step = str(payload.get("next_step_type") or "inspect")
+    commands = [str(item) for item in payload.get("next_allowed_commands", [])]
+    if step == "start-work" and any(" agent advance " in f" {item} " for item in commands):
+        step = "check-active-proof"
+    return plain_step(step)
 
 
 def _dict_items(value: Any) -> list[dict[str, Any]]:
@@ -412,7 +461,7 @@ def _blocked_highlight(payload: dict[str, Any]) -> dict[str, Any]:
     outside = list(file_changes.get("outside_write_boundary") or [])
     allowed = list(file_changes.get("allowed_write_paths") or [])
     return {
-        "block_marker": "*** BLOCKED: file change is outside Sofia's write boundary ***",
+        "block_marker": "*** BLOCKED: file change is outside Sofia's allowed files ***",
         "offending_path": outside[0] if outside else BLOCKED_PATH,
         "allowed_write_paths": allowed,
     }
@@ -423,8 +472,8 @@ def _allowed_highlight(payload: dict[str, Any]) -> dict[str, Any]:
     inside = list(file_changes.get("inside_write_boundary") or [])
     return {
         "pass_marker": (
-            f"PATH ALLOWED: {inside[0]} is inside Sofia's write boundary."
+            f"PATH ALLOWED: {inside[0]} is in Sofia's allowed files."
             if inside
-            else "PATH ALLOWED: observed change stayed inside Sofia's write boundary."
+            else "PATH ALLOWED: observed change stayed in Sofia's allowed files."
         )
     }

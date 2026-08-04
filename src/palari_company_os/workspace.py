@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, TypeVar
 
@@ -30,6 +29,8 @@ from .models import (
     Workbench,
     WorkItem,
 )
+from .path_policy import resolve_workspace_path
+from .record_order import record_time_key
 from .validation import (
     COLLECTION_FILE_KEYS,
     validate_raw_contract,
@@ -37,7 +38,7 @@ from .validation import (
 )
 
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 T = TypeVar("T")
 
@@ -45,6 +46,7 @@ T = TypeVar("T")
 @dataclass(frozen=True)
 class Workspace:
     path: Path
+    data_path: Path
     schema_version: int
     name: str
     goals: list[Goal]
@@ -118,25 +120,31 @@ class Workspace:
             raw = json.loads(data_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise WorkspaceError(f"invalid workspace JSON: {exc}") from exc
-        return cls.from_raw(raw, data_path.parent)
+        return cls.from_raw(raw, data_path.parent, data_path=data_path)
 
     @classmethod
-    def from_raw(cls, raw: object, path: Path | str) -> "Workspace":
+    def from_raw(
+        cls,
+        raw: object,
+        path: Path | str,
+        *,
+        data_path: Path | str | None = None,
+    ) -> "Workspace":
         if not isinstance(raw, dict):
             raise WorkspaceError("workspace root must be a JSON object")
 
         schema_version = raw.get("schema_version")
         if schema_version is None:
             raise WorkspaceError(
-                "workspace schema_version is missing; run `palari migrate --write` "
-                "or add schema_version: 1"
+                "workspace schema_version is missing; only schema_version "
+                f"{CURRENT_SCHEMA_VERSION} is supported"
             )
-        if not isinstance(schema_version, int):
+        if type(schema_version) is not int:
             raise WorkspaceError("workspace schema_version must be an integer")
         if schema_version < CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
                 f"workspace schema_version {schema_version} is older than supported "
-                f"version {CURRENT_SCHEMA_VERSION}; run `palari migrate --write`"
+                f"version {CURRENT_SCHEMA_VERSION}"
             )
         if schema_version > CURRENT_SCHEMA_VERSION:
             raise WorkspaceError(
@@ -144,11 +152,17 @@ class Workspace:
                 f"version {CURRENT_SCHEMA_VERSION}"
             )
         workspace_path = Path(path).expanduser().resolve()
+        exact_data_path = (
+            Path(data_path).expanduser().resolve()
+            if data_path is not None
+            else workspace_path / "workspace.json"
+        )
         raw = _expand_collection_files(raw, workspace_path)
         validate_raw_contract(raw)
 
         workspace = cls(
             path=workspace_path,
+            data_path=exact_data_path,
             schema_version=schema_version,
             name=str(raw.get("name") or workspace_path.name),
             goals=[Goal.from_record(item) for item in _items(raw, "goals")],
@@ -410,6 +424,7 @@ class Workspace:
             self.work_items,
             "parent_work_item_id",
         )
+        _ensure_dependency_graph_has_no_cycles(self.work_items)
 
         for source_record in self.sources:
             if source_record.owner_human:
@@ -723,25 +738,20 @@ class Workspace:
 
 
 def default_workspace_path() -> Path:
-    local = Path.cwd() / "workspace.json"
-    if local.is_file():
-        return Path.cwd()
-    repo_root = Path(__file__).resolve().parents[2]
-    repo_fixture = repo_root / "examples" / "acme-company-os"
-    if repo_fixture.exists():
-        return repo_fixture
-    return _packaged_data_path("examples", "acme-company-os")
+    """Use only the operator's current directory as implicit workspace context."""
+
+    return Path.cwd()
 
 
 def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Attempt | None:
     latest: Attempt | None = None
-    latest_key: tuple[str, str, str, str] | None = None
+    latest_key = None
     for attempt in attempts:
         if attempt.work_item_id != work.id:
             continue
         if work.current_attempt and attempt.id == work.current_attempt:
             return attempt
-        key = _record_time_key(attempt)
+        key = record_time_key(attempt)
         if latest_key is None or key > latest_key:
             latest = attempt
             latest_key = key
@@ -750,28 +760,15 @@ def current_attempt_for_work(work: WorkItem, attempts: Iterable[Attempt]) -> Att
 
 def latest_for_work(records: Iterable[T], work_id: str) -> T | None:
     latest: T | None = None
-    latest_key: tuple[str, str, str, str] | None = None
+    latest_key = None
     for record in records:
         if getattr(record, "work_item_id") != work_id:
             continue
-        key = _record_time_key(record)
+        key = record_time_key(record)
         if latest_key is None or key > latest_key:
             latest = record
             latest_key = key
     return latest
-
-
-def _record_time_key(record: object) -> tuple[str, str, str, str]:
-    return (
-        str(getattr(record, "timestamp", "")),
-        str(getattr(record, "updated_at", "")),
-        str(getattr(record, "started_at", "")),
-        str(getattr(record, "id", "")),
-    )
-
-
-def _packaged_data_path(*parts: str) -> Path:
-    return Path(str(files("palari_company_os").joinpath("data", *parts)))
 
 
 def _items(raw: dict[str, object], key: str) -> list[dict[str, object]]:
@@ -837,13 +834,13 @@ def _expand_collection_files(
 def _collection_file_path(workspace_path: Path, collection: str, value: str) -> Path:
     if not value:
         raise WorkspaceError(f"workspace.collection_files.{collection} contains an empty path")
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
+    try:
+        return resolve_workspace_path(workspace_path, value)
+    except ValueError as exc:
         raise WorkspaceError(
             f"workspace.collection_files.{collection} path must be workspace-relative "
-            f"and must not contain '..': {value}"
-        )
-    return workspace_path / path
+            f"and must not contain '..': {value}: {exc}"
+        ) from exc
 
 
 def _find(records: Iterable[T], identifier: str) -> T | None:
@@ -874,6 +871,40 @@ def _ensure_parent_graph_has_no_cycles(
             if record is None:
                 break
             current = getattr(record, parent_field)
+
+
+def _ensure_dependency_graph_has_no_cycles(records: Iterable[object]) -> None:
+    by_id = {getattr(record, "id"): record for record in records}
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(record_id: str) -> None:
+        if record_id in visited:
+            return
+        if record_id in visiting:
+            start = visiting.index(record_id)
+            cycle = " -> ".join([*visiting[start:], record_id])
+            raise WorkspaceError(f"work_items dependency graph contains a cycle: {cycle}")
+
+        record = by_id[record_id]
+        dependency_ids = list(getattr(record, "dependency_ids"))
+        if len(dependency_ids) != len(set(dependency_ids)):
+            raise WorkspaceError(
+                f"work_items.{record_id}.dependency_ids contains a duplicate id"
+            )
+        if record_id in dependency_ids:
+            raise WorkspaceError(
+                f"work_items.{record_id}.dependency_ids cannot reference itself"
+            )
+
+        visiting.append(record_id)
+        for dependency_id in dependency_ids:
+            visit(dependency_id)
+        visiting.pop()
+        visited.add(record_id)
+
+    for record_id in by_id:
+        visit(record_id)
 
 
 def _validate_workbench_boundary(workspace: Workspace, work: WorkItem) -> None:

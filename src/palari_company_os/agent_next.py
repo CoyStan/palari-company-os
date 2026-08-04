@@ -3,13 +3,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .agent_packets import build_agent_brief
+from .agent_directive import AUTHORITY_BLOCKERS, enrich_blockers, resolution_summary
+from .agent_finish import build_agent_finish
+from .agent_operation import AgentOperation
+from .command_surface import bind_palari_command_payload
+from .governance_kernel import TERMINAL_WORK_STATUSES
+from .agent_runtime import git_lease_statuses
 from .read_models import queue_items
+from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
-
-
-AGENT_STARTABLE_ATTENTIONS = {"ready-for-ai-work", "needs-evidence", "changes-requested"}
-AGENT_REVIEWABLE_ATTENTIONS = {"needs-review", "receipt-ready"}
 
 
 def build_agent_next(
@@ -18,39 +20,60 @@ def build_agent_next(
     mode: str = "execute",
     limit: int = 5,
 ) -> dict[str, Any]:
+    return _build_agent_next(workspace, palari_id, mode, limit)
+
+
+def _build_agent_next(
+    workspace: Workspace,
+    palari_id: str,
+    mode: str,
+    limit: int,
+    *,
+    queue: list[Any] | None = None,
+    leases: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     palari = workspace.palari(palari_id)
     if palari is None:
-        return {
+        payload = {
             "schema_version": "palari.agent_next.v1",
             "created_at": _timestamp(),
             "workspace": workspace.name,
+            "workspace_file": str(workspace.data_path),
             "status": "blocked",
             "agent": {"id": palari_id, "found": False},
             "mode": mode or "execute",
             "ready_count": 0,
             "blocked_count": 0,
             "candidates": [],
-            "blockers": [
+            "blockers": enrich_blockers([
                 {
                     "code": "MISSING_PALARI",
                     "message": f"Palari not found: {palari_id}",
                     "human_visible": True,
                 }
-            ],
+            ]),
             "next_allowed_commands": ["palari queue --json", "palari validate --json"],
             "omitted_context": [_omitted_context(workspace)],
         }
+        return bind_palari_command_payload(workspace.data_path, payload)
 
-    candidates = _candidates(workspace, palari_id, mode or "execute")
+    candidates = _candidates(
+        workspace,
+        palari_id,
+        mode or "execute",
+        queue=queue,
+        leases=leases,
+    )
     ordered = sorted(candidates, key=lambda item: (not item["can_start"], item["queue_rank"]))
     safe_limit = max(1, limit)
     selected = ordered[:safe_limit]
     ready_count = sum(1 for item in candidates if item["can_start"])
     blocked_count = len(candidates) - ready_count
-    return {
+    payload = {
         "schema_version": "palari.agent_next.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "agent": {
             "id": palari.id,
@@ -62,22 +85,39 @@ def build_agent_next(
         "ready_count": ready_count,
         "blocked_count": blocked_count,
         "candidates": selected,
-        "blockers": [] if ready_count else _no_ready_blockers(candidates),
+        "blockers": [] if ready_count else enrich_blockers(_no_ready_blockers(candidates)),
         "next_allowed_commands": _next_commands(selected, palari_id, mode or "execute"),
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int = 5) -> dict[str, Any]:
-    agents = [build_agent_next(workspace, palari.id, mode, limit) for palari in workspace.palaris]
+    queue = queue_items(workspace)
+    leases = git_lease_statuses(
+        workspace.path,
+        [work.id for work in workspace.work_items],
+    )
+    agents = [
+        _build_agent_next(
+            workspace,
+            palari.id,
+            mode,
+            limit,
+            queue=queue,
+            leases=leases,
+        )
+        for palari in workspace.palaris
+    ]
     ready_count = sum(agent["ready_count"] for agent in agents)
     blocked_count = sum(agent["blocked_count"] for agent in agents)
     top_candidate = _all_top_candidate(agents)
     next_commands = _all_next_commands(agents, mode)
-    return {
+    payload = {
         "schema_version": "palari.agent_next_all.v1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "ready" if ready_count else "no-ready-work",
         "mode": mode or "execute",
         "ready_count": ready_count,
@@ -87,37 +127,89 @@ def build_agent_next_all(workspace: Workspace, mode: str = "execute", limit: int
         "next_allowed_commands": next_commands,
         "omitted_context": [_omitted_context(workspace)],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
-def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[str, Any]]:
+def _candidates(
+    workspace: Workspace,
+    palari_id: str,
+    mode: str,
+    *,
+    queue: list[Any] | None = None,
+    leases: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
-    for rank, item in enumerate(queue_items(workspace), start=1):
+    lease_statuses = leases or git_lease_statuses(
+        workspace.path,
+        [work.id for work in workspace.work_items],
+    )
+    queue_records = (
+        queue
+        if queue is not None
+        else queue_items(workspace)
+    )
+    for rank, item in enumerate(queue_records, start=1):
         if item.attention == "closed":
             continue
         work = workspace.work_item(item.id)
-        if work is None or not _palari_can_see_work(workspace, work, palari_id):
+        if work is None or not _palari_can_see_work(workspace, work, palari_id, mode):
             continue
-        packet = build_agent_brief(workspace, work.id, palari_id, mode)
+        operation = AgentOperation(
+            workspace=workspace,
+            work_id=work.id,
+            palari_id=palari_id,
+            mode=mode,
+        )
+        packet = operation.brief()
         blockers = packet.get("blockers", [])
-        can_start = _can_start_agent_work(item, packet, mode)
-        start_blockers = _start_blockers(item, packet, mode)
+        lease = lease_statuses[work.id]
+        claim_blocker = _claim_start_blocker(lease)
+        can_start = packet.get("status") == "ready" and claim_blocker is None
+        start_blockers = _start_blockers(packet)
+        if claim_blocker is not None:
+            start_blockers.insert(0, claim_blocker)
+        start_blockers = enrich_blockers(start_blockers)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
         check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
-        handoff_guidance = _handoff_guidance(
+        finish = build_agent_finish(
+            workspace,
             work.id,
-            item,
-            blocker_codes,
             palari_id,
-            _linked_decision_command(workspace, work.id),
+            mode,
+            operation=operation,
         )
-        next_command = _candidate_next_command(item, can_start, brief_command, handoff_guidance)
+        handoff_guidance = finish.get("handoff_guidance", [])
+        finish_commands = (
+            finish.get("next_allowed_commands", [])
+            if (
+                finish.get("status") == "converge-ready"
+                or "HUMAN_DECISION_REQUIRED" in blocker_codes
+            )
+            and not handoff_guidance
+            else []
+        )
+        next_command = _candidate_next_command(
+            item,
+            can_start,
+            brief_command,
+            handoff_guidance,
+            finish_commands,
+        )
         doctor_command = _doctor_command(work.id, palari_id, mode)
         loop_command = _loop_command(work.id, palari_id, mode)
         candidates.append(
             {
+                "workspace_file": str(workspace.data_path),
                 "queue_rank": rank,
                 "work_item_id": work.id,
+                "dependency_ids": list(work.dependency_ids),
+                "blocked_by_dependency_ids": [
+                    dependency.id
+                    for dependency in _work_dependencies(workspace, work.dependency_ids)
+                    if dependency.status not in TERMINAL_WORK_STATUSES
+                ],
+                "claim": lease,
                 "title": work.title,
                 "risk": work.risk,
                 "intensity": work.intensity,
@@ -132,10 +224,23 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                 "packet_status": packet.get("status", "blocked"),
                 "can_start": can_start,
                 "blocker_codes": blocker_codes,
+                "authority_correction": _authority_correction(blockers, workspace, work),
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
+                "resolution_summary": finish.get(
+                    "resolution_summary",
+                    resolution_summary(start_blockers),
+                ),
                 "handoff_guidance": handoff_guidance,
-                "next_step_type": item.next_step_type,
+                "next_step_type": (
+                    "review-handoff"
+                    if can_start and mode == "review"
+                    else (
+                        finish.get("next_step_type", item.next_step_type)
+                        if finish.get("status") == "converge-ready"
+                        else item.next_step_type
+                    )
+                ),
                 "next_command": next_command,
                 "doctor_command": doctor_command,
                 "loop_command": loop_command,
@@ -145,6 +250,7 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
                     brief_command,
                     check_command,
                     handoff_guidance,
+                    finish_commands,
                     next_command,
                     doctor_command,
                     loop_command,
@@ -157,18 +263,49 @@ def _candidates(workspace: Workspace, palari_id: str, mode: str) -> list[dict[st
     return candidates
 
 
+def _work_dependencies(workspace: Workspace, dependency_ids: list[str]) -> list[Any]:
+    return [
+        dependency
+        for dependency_id in dependency_ids
+        if (dependency := workspace.work_item(dependency_id)) is not None
+    ]
+
+
+def _claim_start_blocker(lease: dict[str, Any]) -> dict[str, str] | None:
+    if lease.get("status") == "invalid":
+        return {
+            "code": "CLAIM_COORDINATION_INVALID",
+            "message": (
+                f"Cross-worktree task-lock state is invalid: "
+                f"{lease.get('message', 'inspect the Git task lock')}"
+            ),
+        }
+    if lease.get("active") and not lease.get("current_workspace"):
+        return {
+            "code": "WORK_ALREADY_CLAIMED",
+            "message": (
+                f"The task is already assigned to {lease.get('claimed_by', 'another agent')} "
+                f"in another Git worktree until {lease.get('lease_expires_at', 'the lock expires')}."
+            ),
+        }
+    return None
+
+
 def _candidate_next_command(
     item: Any,
     can_start: bool,
     brief_command: str,
     handoff_guidance: list[dict[str, str]],
+    finish_commands: list[str],
 ) -> str:
-    if can_start and _has_active_proof_work(item):
+    if can_start and item.next_step_type == "check-active-proof":
         return item.next_commands[0] if item.next_commands else brief_command
     if can_start:
         return brief_command
     if handoff_guidance:
         return handoff_guidance[0]["command"]
+    if finish_commands:
+        return finish_commands[0]
     return item.next_commands[0]
 
 
@@ -178,12 +315,13 @@ def _candidate_next_commands(
     brief_command: str,
     check_command: str,
     handoff_guidance: list[dict[str, str]],
+    finish_commands: list[str],
     next_command: str,
     doctor_command: str,
     loop_command: str,
     mode: str,
 ) -> list[str]:
-    if can_start and _has_active_proof_work(item):
+    if can_start and item.next_step_type == "check-active-proof":
         commands = list(item.next_commands or [next_command, check_command])
         _append_once(commands, doctor_command)
         _append_once(commands, loop_command)
@@ -207,63 +345,19 @@ def _candidate_next_commands(
         _append_once(commands, doctor_command)
         _append_once(commands, loop_command)
         return commands
-    commands = list(item.next_commands)
+    commands = list(finish_commands or item.next_commands)
     _append_once(commands, doctor_command)
     _append_once(commands, loop_command)
     return commands
 
 
-def _has_active_proof_work(item: Any) -> bool:
-    return (
-        item.attention == "needs-evidence"
-        and item.evidence_state in {"missing", "stale", "failed"}
-        and bool(item.active_attempts)
-    )
-
-
-def _can_start_agent_work(item: Any, packet: dict[str, Any], mode: str) -> bool:
-    if mode == "review":
-        return packet.get("status") == "ready" and item.attention in AGENT_REVIEWABLE_ATTENTIONS
-    return (
-        packet.get("status") == "ready"
-        and item.ai_safe_to_proceed
-        and item.attention in AGENT_STARTABLE_ATTENTIONS
-    )
-
-
-def _start_blockers(item: Any, packet: dict[str, Any], mode: str) -> list[dict[str, Any]]:
+def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     if packet.get("status") != "ready":
         blockers.append(
             {
                 "code": "PACKET_BLOCKED",
-                "message": "The agent packet is blocked; inspect blocker_codes before starting.",
-            }
-        )
-    if mode == "review":
-        if item.attention not in AGENT_REVIEWABLE_ATTENTIONS:
-            blockers.append(
-                {
-                    "code": "ATTENTION_NOT_REVIEWABLE",
-                    "message": (
-                        f"Current attention state is {item.attention}; review mode is for "
-                        "needs-review or receipt-ready work."
-                    ),
-                }
-            )
-        return blockers
-    if not item.ai_safe_to_proceed:
-        blockers.append(
-            {
-                "code": "QUEUE_NOT_AI_SAFE",
-                "message": "The queue does not mark this work safe for autonomous AI execution.",
-            }
-        )
-    if item.attention not in AGENT_STARTABLE_ATTENTIONS:
-        blockers.append(
-            {
-                "code": "ATTENTION_NOT_STARTABLE",
-                "message": f"Current attention state is {item.attention}; follow next_action instead.",
+                "message": "The task brief is blocked; inspect blocker_codes before starting.",
             }
         )
     return blockers
@@ -281,54 +375,11 @@ def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
 
 
-def _handoff_guidance(
-    work_id: str,
-    item: Any,
-    blocker_codes: list[str],
-    palari_id: str,
-    linked_decision_command: str | None = None,
-) -> list[dict[str, str]]:
-    guidance: list[dict[str, str]] = []
-    handoff_command = f"palari agent handoff {work_id} --as {palari_id} --json"
-    if item.next_step_type == "review-handoff" or "RECEIPT_READY_REVIEW" in blocker_codes:
-        guidance.append(
-            {
-                "code": "REVIEW_HANDOFF",
-                "message": "Use agent handoff; it includes the review guide and ready-to-edit review record commands.",
-                "command": handoff_command,
-                "guide_command": f"palari review guide {work_id} --json",
-            }
-        )
-    if item.next_step_type == "human-decision" or "HUMAN_DECISION_REQUIRED" in blocker_codes:
-        guide_command = (
-            linked_decision_command
-            or (item.next_commands[0] if item.next_commands else f"palari detail {work_id} --json")
-        )
-        if linked_decision_command or guide_command.startswith("palari decision guide "):
-            code = "DECISION_HANDOFF"
-            message = "Use agent handoff; it includes the decision guide and suggested decision update commands."
-        else:
-            code = "HUMAN_APPROVAL_HANDOFF"
-            message = "Use agent handoff; it includes approval context and human-only acceptance commands."
-        guidance.append(
-            {
-                "code": code,
-                "message": message,
-                "command": handoff_command,
-                "guide_command": guide_command,
-            }
-        )
-    return guidance
-
-
-def _linked_decision_command(workspace: Workspace, work_id: str) -> str | None:
-    for decision in workspace.decisions:
-        if decision.linked_work == work_id:
-            return f"palari decision guide {decision.id} --json"
-    return None
-
-
-def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> bool:
+def _palari_can_see_work(
+    workspace: Workspace, work: Any, palari_id: str, mode: str
+) -> bool:
+    if mode == "review":
+        return palari_reviewer_candidate(workspace, work.id, palari_id) is not None
     if work.palari == palari_id:
         return True
     if not work.workbench_id:
@@ -337,22 +388,108 @@ def _palari_can_see_work(workspace: Workspace, work: Any, palari_id: str) -> boo
     return bool(workbench and palari_id in workbench.palari_ids)
 
 
+# Authority blockers that a distinct review-only agent would resolve. Missing
+# builders or missing qualified humans need a different fix, so they are excluded.
+_REVIEWER_REMEDIABLE = {
+    "AUTHORITY_PLAN_UNSATISFIABLE",
+    "REVIEWER_MISSING",
+    "REVIEWER_ROLE_MISSING",
+}
+
+
+def _authority_correction(
+    blockers: list[dict[str, Any]],
+    workspace: Workspace,
+    work: Any,
+) -> dict[str, Any] | None:
+    """Return the first authority-plan blocker (with its smallest correction).
+
+    When the blocker is one a distinct review-only agent would resolve, attach a
+    concrete, copy-pasteable ``palari palari create`` command so a single
+    maintainer can unblock in one step instead of parsing prose.
+    """
+    for blocker in blockers:
+        code = str(blocker.get("code", ""))
+        if code in AUTHORITY_BLOCKERS:
+            message = str(blocker.get("message", "")).strip()
+            if not message:
+                return None
+            correction: dict[str, Any] = {
+                "code": code,
+                "message": message,
+                "human_visible": True,
+            }
+            if code in _REVIEWER_REMEDIABLE:
+                command = _reviewer_remediation_command(workspace, work)
+                if command:
+                    correction["next_command"] = command
+            return correction
+    return None
+
+
+def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
+    """Build a ``palari palari create`` command that adds an eligible reviewer.
+
+    The reviewer is linked to the task goal (so it is eligible to review) and is
+    given review-only ``forbidden_actions`` matching what ``palari init`` seeds.
+    Returns an empty string if the workspace lacks the goal or human context
+    needed to form a safe command.
+    """
+    goal = str(getattr(work, "goal", "") or "")
+    humans = workspace.humans
+    if not goal or not humans:
+        return ""
+    owner_human = humans[0].id
+    existing = {palari.id for palari in workspace.palaris}
+    reviewer_id = "PALARI-REVIEWER"
+    if reviewer_id in existing:
+        reviewer_id = "PALARI-INDEPENDENT-REVIEWER"
+    forbidden = (
+        "build or modify task outputs,broaden task scope,"
+        "send external messages,record human approval"
+    )
+    return (
+        f"palari palari create {reviewer_id} "
+        '--name "Independent Reviewer" '
+        '--role "Review-only AI partner" '
+        f"--owner-human {owner_human} "
+        f"--list linked_goals={goal} "
+        f'--list "forbidden_actions={forbidden}"'
+    )
+
+
 def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not candidates:
         return [
             {
                 "code": "NO_ASSIGNED_WORK",
-                "message": "No visible work items are assigned to or workbench-allowed for this Palari.",
+                "message": (
+                    "No visible tasks are assigned, project-allowed, or "
+                    "eligible for independent review by this agent."
+                ),
                 "human_visible": True,
             }
         ]
-    return [
+    blockers: list[dict[str, Any]] = [
         {
             "code": "NO_READY_WORK",
-            "message": "Visible work exists, but none is currently safe to start.",
+            "message": "Visible tasks exist, but none is currently safe to start.",
             "human_visible": True,
         }
     ]
+    # Surface the smallest safe correction when tasks are blocked by an
+    # authority plan gap, so a single-maintainer setup is not left staring at a
+    # bare NO_READY_WORK dead end.
+    seen: set[str] = set()
+    for candidate in candidates:
+        correction = candidate.get("authority_correction")
+        if not correction:
+            continue
+        message = str(correction.get("message", ""))
+        if message and message not in seen:
+            seen.add(message)
+            blockers.append(correction)
+    return blockers
 
 
 def _next_commands(candidates: list[dict[str, Any]], palari_id: str, mode: str) -> list[str]:
@@ -431,7 +568,7 @@ def _all_top_candidate(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
 def _omitted_context(workspace: Workspace) -> dict[str, Any]:
     return {
         "kind": "workspace_records",
-        "reason": "Agent next v1 includes compact queue candidates, not full workspace records.",
+        "reason": "Agent next includes compact task choices, not every workspace record.",
         "counts": {
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),

@@ -1,5 +1,6 @@
 palari demo
 palari init
+palari approve
 palari queue
 palari state
 palari data
@@ -8,6 +9,9 @@ palari docs
 palari docs check
 palari docs init
 palari docs map
+palari proof
+palari proof export
+palari proof verify
 palari validate
 palari detail
 palari scope
@@ -50,7 +54,7 @@ palari agent finish
 palari agent handoff
 palari agent loop
 palari agent doctor
-palari agent done
+palari agent advance
 palari claude
 palari claude install
 palari claude status
@@ -62,15 +66,9 @@ palari git status
 palari cursor
 palari cursor install
 palari cursor status
-palari workspace
-palari workspace init
 palari mcp
 palari mcp serve
-palari migrate
 palari history
-palari dashboard
-palari desktop-prototype
-palari desktop-serve
 palari serve
 palari goal
 palari goal create
@@ -131,18 +129,13 @@ palari review update
 palari human-decision
 palari human-decision record
 palari human-decision update
+palari human-decision pack
 palari receipt
 palari receipt record
 palari receipt update
 palari outcome
 palari outcome record
 palari outcome update
-palari lifecycle
-palari lifecycle evidence
-palari lifecycle review
-palari lifecycle decide
-palari lifecycle complete
-palari lifecycle outcome
 palari maintainer
 palari maintainer status
 palari playbooks

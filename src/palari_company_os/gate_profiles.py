@@ -26,13 +26,18 @@ class GateProfile:
 GATE_PROFILES: tuple[GateProfile, ...] = (
     GateProfile(
         id="prompt-authority",
-        label="Prompt Authority",
-        summary="Checks that untrusted content cannot become system, developer, or authority text.",
+        label="Untrusted Instructions",
+        summary=(
+            "Checks that untrusted content cannot become system or developer "
+            "instructions or grant permission."
+        ),
         applies_when=[
-            "Work uses model prompts, OCR, image text, user-provided instructions, or source text as context.",
-            "The result could change agent behavior, memory, tools, safety wording, or instructions.",
+            "A task uses model prompts, OCR, image text, user-provided "
+            "instructions, or source text as context.",
+            "The result could change agent behavior, memory, tools, safety "
+            "wording, or instructions.",
         ],
-        reviewer_role="Prompt-authority reviewer",
+        reviewer_role="Untrusted-instruction reviewer",
         inspect=[
             "prompt construction and role placement",
             "untrusted source or image text handling",
@@ -40,15 +45,17 @@ GATE_PROFILES: tuple[GateProfile, ...] = (
         ],
         blocks_if=[
             "untrusted content enters system/developer prompt content",
-            "source text can override Palari authority, allowed actions, or stop conditions",
+            "source text can override Palari rules, allowed actions, or stop conditions",
             "malicious text is not covered by regression tests",
         ],
         required_evidence=[
-            "test or trace proving untrusted content stays in user/evidence context",
-            "review of prompt-building code or packet fields",
+            "test or trace proving untrusted content stays labeled as data and "
+            "never enters system or developer instructions",
+            "review of prompt-building code or task brief (`packet`) fields",
         ],
         safe_to_accept_when=(
-            "Untrusted text is clearly evidence, cannot grant authority, and has regression coverage."
+            "Untrusted text is clearly source material, cannot grant permission, "
+            "and has regression coverage."
         ),
         example_failure=(
             "OCR text saying 'ignore previous rules' is inserted into a system prompt."
@@ -56,151 +63,183 @@ GATE_PROFILES: tuple[GateProfile, ...] = (
     ),
     GateProfile(
         id="source-boundary",
-        label="Source Boundary",
-        summary="Checks that work uses only selected or allowed sources and reports source limits honestly.",
+        label="Allowed Sources",
+        summary="Checks that a task uses only allowed sources and reports source limits honestly.",
         applies_when=[
-            "Work item declares allowed sources or a receipt claims source use.",
-            "A Palari reads selected files, notes, repos, uploads, or external source snapshots.",
+            "A task declares allowed sources or its run record (`receipt`) claims source use.",
+            "An agent reads selected files, notes, repos, uploads, or external source snapshots.",
         ],
-        reviewer_role="Source-boundary reviewer",
+        reviewer_role="Allowed-sources reviewer",
         inspect=[
             "allowed_sources and source metadata",
-            "receipt sources_used",
+            "run record (`receipt`) field `sources_used`",
             "source access mode, owner, steward, freshness, and redaction fields",
         ],
         blocks_if=[
             "result uses an unallowed, missing, stale, or unselected source",
             "source permissions are broadened silently",
-            "receipt overstates what was read or hides source limits",
+            "run record overstates what was read or hides source limits",
         ],
         required_evidence=[
-            "source ids used by the attempt",
-            "receipt or evidence showing no out-of-bound source access",
+            "source IDs used by the run (`attempt`)",
+            "run record or check results showing no access outside allowed sources",
         ],
         safe_to_accept_when=(
-            "Every source used is declared, allowed for the Palari, and honestly reflected in the receipt."
+            "Every source used is declared, allowed for the agent, and honestly "
+            "listed in the run record."
         ),
         example_failure="A result cites a file that was not in allowed_sources.",
     ),
     GateProfile(
         id="external-write",
-        label="External Write",
-        summary="Checks that outside-company writes remain planned, approved, queued, or explicitly absent.",
+        label="External Actions",
+        summary=(
+            "Checks that external actions remain planned, approved, queued, or "
+            "explicitly absent."
+        ),
         applies_when=[
-            "Work has integration plans, outbox items, external write claims, or external action targets.",
-            "Allowed actions include notify, send, comment, create_issue, update_issue, or publish.",
+            "A task has integration plans, outbox items, external-write claims, "
+            "or external-action targets.",
+            "Allowed actions include notify, send, comment, create_issue, "
+            "update_issue, or publish.",
         ],
-        reviewer_role="External-write reviewer",
+        reviewer_role="External-action reviewer",
         inspect=[
             "integration plans and outbox items",
-            "receipt planned_external_writes, queued_external_writes, and external_writes",
+            "run record (`receipt`) fields `planned_external_writes`, "
+            "`queued_external_writes`, and `external_writes`",
             "allowed actions and output targets",
         ],
         blocks_if=[
             "live provider call is implied or performed by a dry-run plan",
             "external write lacks approved integration plan or queued outbox state",
-            "receipt claims actual external write when only a dry-run/queued action exists",
+            "run record claims an external write when only a dry-run or queued action exists",
         ],
         required_evidence=[
             "dry-run payload preview or outbox record",
-            "receipt distinguishing planned, queued, and actual writes",
+            "run record distinguishing planned, queued, and actual external actions",
         ],
         safe_to_accept_when=(
-            "External action state is explicit and no live side effect is claimed without authority."
+            "External-action status is explicit and no live effect is claimed "
+            "without human approval."
         ),
-        example_failure="A Slack notification is described as sent when only a dry-run payload exists.",
+        example_failure=(
+            "A Slack notification is described as sent when only a dry-run "
+            "payload exists."
+        ),
     ),
     GateProfile(
         id="human-approval",
         label="Human Approval",
-        summary="Checks that human authority, quorum, and approval capability are not bypassed.",
+        summary=(
+            "Checks that qualified people, required approval counts, and "
+            "approval permissions are not bypassed."
+        ),
         applies_when=[
-            "Work requires approval count, approval capability, high-risk decision, or integration approval.",
-            "A result is waiting on review, decision, merge, deploy, policy, or product acceptance.",
+            "A task requires an approval count, approval capability, high-risk "
+            "decision, or integration approval.",
+            "A result is waiting on review, human approval, merge, deploy, "
+            "policy, or product approval.",
         ],
-        reviewer_role="Human-authority reviewer",
+        reviewer_role="Human-approval reviewer",
         inspect=[
             "required_approval_count and required_approval_capability",
-            "review verdicts and human decision records",
-            "human profile authority and availability",
+            "review results (`review_verdicts`) and approval records (`human_decisions`)",
+            "human profile permissions and availability",
         ],
         blocks_if=[
             "agent records or implies human approval",
-            "approval quorum is unmet or counted from an unqualified human",
-            "review recommendation is treated as founder acceptance",
+            "required approvals are missing or counted from an unqualified person",
+            "review recommendation is treated as founder approval",
         ],
         required_evidence=[
             "review result when required",
-            "human decision record or explicit pending-human state",
+            "approval/rejection record (`human_decision`) or explicit needs-approval state",
         ],
         safe_to_accept_when=(
-            "The required human authority is either recorded by a qualified human or still visibly pending."
+            "A qualified person has recorded every required approval, or the "
+            "missing approval remains visible."
         ),
-        example_failure="An accept-ready review is treated as accepted without a human decision.",
+        example_failure=(
+            "An accept-ready review result is treated as approved without an "
+            "approval/rejection record (`human_decision`)."
+        ),
     ),
     GateProfile(
         id="deploy-runtime",
-        label="Deploy / Runtime",
-        summary="Checks production, runtime data, secrets, storage, provider, and deploy boundaries.",
+        label="Deployment and Runtime",
+        summary=(
+            "Checks production, runtime data, secrets, storage, provider, and "
+            "deploy boundaries."
+        ),
         applies_when=[
-            "Work touches deploy, runtime state, production, storage, provider routing, OAuth, or secrets.",
-            "Work can affect live beta, public routes, databases, or environment configuration.",
+            "A task touches deploy, runtime state, production, storage, provider "
+            "routing, OAuth, or secrets.",
+            "A task can affect live beta, public routes, databases, or environment configuration.",
         ],
         reviewer_role="Deploy/runtime reviewer",
         inspect=[
             "changed runtime/deploy/storage/provider paths",
             "secret and env-file boundaries",
-            "live smoke, rollback, and backup evidence when deployment is in scope",
+            "live smoke, rollback, and backup check results when deployment is allowed",
         ],
         blocks_if=[
-            "secrets, runtime data, or production state changed without explicit scope",
-            "deploy or provider routing changed without backup/smoke evidence",
-            "tests pass locally but live/runtime boundary remains unverified",
+            "secrets, runtime data, or production state changed outside allowed files or actions",
+            "deploy or provider routing changed without backup and smoke results",
+            "tests pass locally but the live or runtime limit remains unchecked",
         ],
         required_evidence=[
-            "scope proof for runtime/deploy files",
-            "backup/smoke notes when deployment is explicitly in scope",
+            "file-boundary check for runtime or deploy files",
+            "backup and smoke results when deployment is explicitly allowed",
         ],
         safe_to_accept_when=(
-            "Runtime-impacting changes are explicit, verified, reversible, and do not expose secrets."
+            "Runtime-impacting changes are explicit, verified, reversible, and "
+            "do not expose secrets."
         ),
         example_failure="A beta deploy modifies runtime data or provider routing without approval.",
     ),
     GateProfile(
         id="privacy-multimodal",
-        label="Privacy / Multimodal",
-        summary="Checks images, uploads, OCR, screenshots, and other rich media for privacy boundaries.",
+        label="Private Media",
+        summary=(
+            "Checks privacy limits for images, uploads, OCR, screenshots, and "
+            "other rich media."
+        ),
         applies_when=[
-            "Work reads images, screenshots, OCR, audio, video, uploads, or multimodal model output.",
-            "A source or receipt may contain private visual or file-derived content.",
+            "A task reads images, screenshots, OCR, audio, video, uploads, or "
+            "multimodal model output.",
+            "A source or run record (`receipt`) may contain private visual or "
+            "file-derived content.",
         ],
-        reviewer_role="Multimodal/privacy reviewer",
+        reviewer_role="Private-media reviewer",
         inspect=[
             "raw media storage behavior",
             "extracted text and metadata handling",
-            "logs, receipts, source records, and persistence boundaries",
+            "logs, run records, source records, and storage limits",
         ],
         blocks_if=[
-            "raw media is persisted when the contract says read-once",
+            "raw media is persisted when the task rules say read-once",
             "private extracted content is logged unnecessarily",
             "multimodal data is treated as trusted instructions",
         ],
         required_evidence=[
-            "test proving invalid/oversized media fails closed when relevant",
-            "proof raw media is not persisted beyond the declared boundary",
+            "test proving invalid or oversized media stops safely when relevant",
+            "check showing raw media is not stored beyond the allowed limit",
         ],
         safe_to_accept_when=(
-            "Media-derived content is minimized, bounded, and treated as untrusted evidence."
+            "Media-derived content is minimized, bounded, and treated as untrusted source material."
         ),
         example_failure="An uploaded screenshot is saved to workspace history without user intent.",
     ),
     GateProfile(
         id="product-overclaim",
-        label="Product Overclaim",
+        label="Honest Product Claims",
         summary="Checks public or product-facing copy for claims that exceed implemented behavior.",
         applies_when=[
-            "Work changes README, website, marketing, onboarding, public docs, or user-facing claims.",
-            "Copy describes AI capability, integrations, autonomy, memory, safety, or beta maturity.",
+            "A task changes README, website, marketing, onboarding, public docs, "
+            "or user-facing claims.",
+            "Copy describes AI capability, integrations, autonomy, memory, "
+            "safety, or beta maturity.",
         ],
         reviewer_role="Product-claim reviewer",
         inspect=[
@@ -211,11 +250,11 @@ GATE_PROFILES: tuple[GateProfile, ...] = (
         blocks_if=[
             "copy claims a capability that is mock, dry-run, planned, or not verified",
             "limitations are hidden from the target audience",
-            "AI authority or external action capability is overstated",
+            "agent permission or external-action capability is overstated",
         ],
         required_evidence=[
             "copy review against implemented behavior",
-            "clear distinction between current behavior and roadmap/future work",
+            "clear distinction between current behavior and future plans",
         ],
         safe_to_accept_when=(
             "The copy is useful, honest, and no stronger than the actual implemented product."
@@ -280,7 +319,6 @@ PRODUCT_COPY_WORDS = {
     "claims",
     "onboarding",
     "user-facing",
-    "docs/showcase",
 }
 PROMPT_WORDS = {
     "prompt",
@@ -310,7 +348,7 @@ def recommend_gates(workspace: Workspace, work_id: str) -> dict[str, Any]:
     work = workspace.work_item(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
-        raise WorkspaceError(f"unknown work item {work_id}; known work items: {known}")
+        raise WorkspaceError(f"unknown task {work_id}; known tasks: {known}")
 
     detail_payload = detail(workspace, work_id)
     context = _recommendation_context(workspace, detail_payload)
@@ -331,24 +369,26 @@ def recommend_gates(workspace: Workspace, work_id: str) -> dict[str, Any]:
     if context["source_ids"]:
         add(
             "source-boundary",
-            f"Work references allowed or receipt source ids: {', '.join(context['source_ids'])}.",
+            "Task or run record references allowed source IDs: "
+            f"{', '.join(context['source_ids'])}.",
         )
 
     if context["has_external_write_state"]:
         add(
             "external-write",
-            "Work has integration plans, outbox items, external-write receipt fields, or external action targets.",
+            "Task has integration plans, outbox items, external-write run record "
+            "fields, or external-action targets.",
         )
         add(
             "human-approval",
-            "External action plans or queued writes require explicit human authority before trust.",
+            "External action plans or queued writes require explicit human approval before use.",
         )
 
     if work.required_approval_count > 0 or _risk_at_least(work.risk, "R3"):
         add(
             "human-approval",
             (
-                f"Work requires {work.required_approval_count} human approval(s)"
+                f"Task requires {work.required_approval_count} human approval(s)"
                 f" and has risk {work.risk}."
             ),
         )
@@ -356,28 +396,30 @@ def recommend_gates(workspace: Workspace, work_id: str) -> dict[str, Any]:
     if _contains_any(context["runtime_text"], DEPLOY_WORDS):
         add(
             "deploy-runtime",
-            "Work scope or resources mention deploy/runtime/production/storage/provider boundaries.",
+            "Task files or actions mention deployment, runtime, production, "
+            "storage, or provider limits.",
         )
 
     if _contains_any(context["all_text"], MULTIMODAL_WORDS):
         add(
             "privacy-multimodal",
-            "Work or sources mention image, upload, OCR, vision, or other multimodal content.",
+            "Task or sources mention images, uploads, OCR, vision, or other media content.",
         )
         add(
             "prompt-authority",
-            "Multimodal or extracted text must stay untrusted evidence, not authority-bearing prompt text.",
+            "Media-derived or extracted text must stay untrusted source "
+            "material, not privileged prompt text.",
         )
     elif _contains_any(context["all_text"], PROMPT_WORDS):
         add(
             "prompt-authority",
-            "Work mentions prompts, instructions, model behavior, or authority-bearing text.",
+            "Task mentions prompts, instructions, model behavior, or privileged text.",
         )
 
     if _contains_any(context["copy_text"], PRODUCT_COPY_WORDS):
         add(
             "product-overclaim",
-            "Work appears to touch public, README, marketing, onboarding, or user-facing copy.",
+            "Task appears to touch public, README, marketing, onboarding, or user-facing copy.",
         )
 
     no_special = len(recommendations) == 0
@@ -402,8 +444,9 @@ def recommend_gates(workspace: Workspace, work_id: str) -> dict[str, Any]:
             {
                 "kind": "workspace_records",
                 "reason": (
-                    "Gate recommendation v1 inspects the selected work item, related sources, "
-                    "integration state, receipt, evidence, review, and human decision state only."
+                    "Review-checklist recommendation v1 inspects only the selected "
+                    "task, related sources, external-action status, run record, "
+                    "check results, review, and human approval."
                 ),
                 "counts": {
                     "work_items": len(workspace.work_items),
@@ -496,9 +539,12 @@ def _recommendation_context(workspace: Workspace, payload: dict[str, Any]) -> di
 
 def _next_action(no_special: bool, recommendations: list[dict[str, Any]]) -> str:
     if no_special:
-        return "No special gate required; use the normal receipt/evidence/review flow."
+        return (
+            "No special review checklist is needed; use the normal run record, "
+            "checks, and review path."
+        )
     labels = ", ".join(item["label"] for item in recommendations)
-    return f"Use these review contracts before trusting the work: {labels}."
+    return f"Use these review checklists before approving the task: {labels}."
 
 
 def _risk_at_least(actual: str, minimum: str) -> bool:

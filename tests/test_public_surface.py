@@ -17,30 +17,54 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 153)
+        self.assertEqual(len(actual), 146)
+
         self.assertEqual(actual, expected)
 
-    def test_public_surface_doc_classifies_core_and_visual_surfaces(self) -> None:
+    def test_default_help_leads_with_the_ordinary_journey(self) -> None:
+        help_text = build_parser().format_help()
+
+        self.assertIn(
+            "init -> work add -> agent start --next -> agent advance",
+            help_text,
+        )
+        for command in ("init", "work", "agent", "approve", "queue", "proof", "validate"):
+            self.assertRegex(help_text, rf"(?m)^    {command}\s")
+        self.assertNotIn("desktop-prototype", help_text)
+        self.assertNotIn("human-decision      ", help_text)
+
+        init_parser = _subparser("init")
+        init_help = init_parser.format_help()
+        self.assertIn("--host", init_help)
+        host_action = next(
+            action for action in init_parser._actions if "--host" in action.option_strings
+        )
+        self.assertEqual(tuple(host_action.choices), ("claude", "codex"))
+
+    def test_public_surface_doc_classifies_core_and_supported_visual_surface(self) -> None:
         surface = _read("docs/product/public-surface.md")
 
         self.assertIn(
-            "Palari core kernel = workspace schema + agent packets + boundary checks +",
+            "One pure evaluator decides task status from normalized workspace records.",
             surface,
         )
-        self.assertIn("receipts/evidence/review/acceptance + integration outbox", surface)
-        self.assertIn("| Dashboard and local serve | visual |", surface)
-        self.assertIn("| Desktop prototype and desktop serve | visual |", surface)
-        self.assertNotRegex(surface, r"(?i)dashboard and local serve \| core")
-        self.assertNotRegex(surface, r"(?i)desktop prototype and desktop serve \| core")
-        self.assertIn("Current CLI command count from parser inspection: **153**.", surface)
+        self.assertIn("allowed files, sources, and actions", surface)
+        self.assertIn("translate those decisions", surface)
+        self.assertIn("do not own a second work process", surface)
+        self.assertIn("| Mission Control and local serve | visual |", surface)
+        self.assertIn("| Cursor rule + git hook | adapter |", surface)
+        self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
+        self.assertIn("Current CLI command count from parser inspection: **146**.", surface)
+
 
     def test_provider_surface_is_bounded(self) -> None:
         surface = _read("docs/product/public-surface.md")
 
-        self.assertIn("Slack, GitHub, Jira, and email are dry-run planning providers only.", surface)
-        self.assertIn("does not execute live provider calls for them", surface)
+        self.assertIn("Generic integration records keep the provider name opaque.", surface)
+        self.assertIn("does not model Slack, GitHub, Jira, email", surface)
+        self.assertIn("adapter or enable execution", surface)
         self.assertIn("Linear is the only current live provider path.", surface)
-        self.assertIn("governed issue", surface)
+        self.assertIn("checked issue", surface)
         self.assertIn(
             "reads/imports, approved comment sends, approved issue status updates, and",
             surface,
@@ -79,6 +103,14 @@ def _collect_commands() -> list[str]:
 
     walk(build_parser())
     return commands
+
+
+def _subparser(name: str) -> Any:
+    for action in build_parser()._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and name in choices:
+            return choices[name]
+    raise AssertionError(f"missing subparser: {name}")
 
 
 def _fixture_lines(name: str) -> list[str]:

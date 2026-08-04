@@ -27,7 +27,7 @@ def capability_check(
     work = workspace.work_item(work_id)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
-        raise WorkspaceError(f"unknown work item {work_id}; known work items: {known}")
+        raise WorkspaceError(f"unknown task {work_id}; known tasks: {known}")
     palari_id = palari_id or work.palari
     catalog = capability_catalog(workspace)["capabilities"]
     allowed = [
@@ -65,7 +65,7 @@ def export_policy(
     check = capability_check(workspace, work_id, palari_id)
     work = workspace.work_item(work_id)
     if work is None:
-        raise WorkspaceError(f"unknown work item {work_id}")
+        raise WorkspaceError(f"unknown task {work_id}")
     return {
         "schema_version": "palari.capability_policy.v1",
         "workspace": workspace.name,
@@ -88,14 +88,6 @@ def export_policy(
             "evidence_and_receipts_required": True,
         },
     }
-
-
-def allowed_capabilities_for_packet(
-    workspace: Workspace,
-    work_id: str,
-    palari_id: str,
-) -> list[dict[str, Any]]:
-    return capability_check(workspace, work_id, palari_id)["allowed_capabilities"]
 
 
 def _capability_record(item: Any) -> dict[str, Any]:

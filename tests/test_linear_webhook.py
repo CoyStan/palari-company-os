@@ -3,7 +3,6 @@ from __future__ import annotations
 import hmac
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,11 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.linear_adapter import (
-    linear_doctor,
     linear_import,
-    linear_linked,
-    linear_start,
-    linear_status,
 )
 from palari_company_os.linear_webhook import (
     LinearWebhookError,
@@ -34,12 +29,15 @@ from palari_company_os.linear_webhook import (
     process_linear_webhook,
     verify_linear_webhook_payload,
 )
+from palari_company_os.proposals import adopt_proposal
 from palari_company_os.workspace import Workspace
+from tests.workspace_fixture import write_current_agent_workspace
 
 
-WORKSPACE = REPO_ROOT / "src" / "palari_company_os" / "data" / "examples" / "acme-company-os"
 SECRET = "linear-webhook-test-secret"
 NOW_MS = 1_800_000_000_000
+PALARI_ID = "PALARI-STEWARD"
+HUMAN_ID = "HUMAN-FOUNDER"
 
 
 class FakeLinearClient:
@@ -130,7 +128,7 @@ class LinearWebhookTests(unittest.TestCase):
 
     def test_linked_proposal_sync_updates_external_refs_and_dedupes_delivery(self) -> None:
         with temp_workspace() as workspace_path:
-            linear_import(workspace_path, "ENG-123", "PALARI-SOFIA", client=FakeLinearClient(issue()))
+            linear_import(workspace_path, "ENG-123", PALARI_ID, client=FakeLinearClient(issue()))
             raw = raw_payload(
                 title="Updated Linear title",
                 description="Updated Linear description",
@@ -153,8 +151,6 @@ class LinearWebhookTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             proposal = workspace.proposal("PROP-LINEAR-ENG-123")
             events = linear_webhook_events(workspace_path, limit=20)
-            doctor = linear_doctor(workspace_path)
-            linked = linear_linked(workspace_path)
 
         self.assertTrue(first["sync"]["mutated"])
         self.assertTrue(duplicate["duplicate"])
@@ -162,19 +158,22 @@ class LinearWebhookTests(unittest.TestCase):
         self.assertEqual(proposal.title, "Updated Linear title")
         self.assertEqual(proposal.summary, "Updated Linear description")
         self.assertEqual(proposal.external_updated_at, "2026-07-07T01:00:00.000Z")
-        self.assertIn("linear_webhook_secret_present", doctor["env"])
-        self.assertEqual(doctor["webhook"]["event_log"]["event_count"], 1)
-        self.assertEqual(linked["items"][0]["latest_webhook_event"]["delivery_id"], "delivery-proposal")
+        self.assertEqual(events["events"][0]["delivery_id"], "delivery-proposal")
 
     def test_linked_work_sync_updates_only_external_refs(self) -> None:
         with temp_workspace() as workspace_path:
-            linear_start(
+            linear_import(
                 workspace_path,
                 "ENG-123",
-                "PALARI-SOFIA",
-                runner="generic",
-                adopt_by="HUMAN-FOUNDER",
+                PALARI_ID,
                 client=FakeLinearClient(issue()),
+            )
+            adopt_proposal(
+                workspace_path,
+                "PROP-LINEAR-ENG-123",
+                "WORK-LINEAR-ENG-123",
+                HUMAN_ID,
+                reason="Adopt the exact translated proposal for webhook boundary testing.",
             )
             before = Workspace.load(workspace_path).work_item("WORK-LINEAR-ENG-123")
             raw = raw_payload(
@@ -192,17 +191,17 @@ class LinearWebhookTests(unittest.TestCase):
             workspace = Workspace.load(workspace_path)
             work = workspace.work_item("WORK-LINEAR-ENG-123")
             proposal = workspace.proposal("PROP-LINEAR-ENG-123")
-            status = linear_status(workspace_path, "ENG-123")
+            latest = latest_linear_webhook_events_by_key(workspace_path)
 
         self.assertEqual(work.title, before.title)
         self.assertEqual(work.scope, before.scope)
         self.assertEqual(work.external_updated_at, "2026-07-07T02:00:00.000Z")
         self.assertEqual(proposal.title, before.title)
-        self.assertEqual(status["latest_webhook_event"]["delivery_id"], "delivery-work")
+        self.assertEqual(latest["ENG-123"]["delivery_id"], "delivery-work")
 
     def test_remove_event_never_deletes_or_rewrites_linked_records(self) -> None:
         with temp_workspace() as workspace_path:
-            linear_import(workspace_path, "ENG-123", "PALARI-SOFIA", client=FakeLinearClient(issue()))
+            linear_import(workspace_path, "ENG-123", PALARI_ID, client=FakeLinearClient(issue()))
             raw = raw_payload(action="remove", title="Removed title")
             process_linear_webhook(
                 workspace_path,
@@ -381,8 +380,8 @@ Tighten the onboarding copy while keeping behavior unchanged.
 
 ```palari
 {
-  "goal": "GOAL-0001",
-  "palari": "PALARI-SOFIA",
+  "goal": "GOAL-REPO-0001",
+  "palari": "PALARI-STEWARD",
   "risk": "R1",
   "intensity": "light",
   "scope": "Tighten onboarding copy without product behavior changes.",
@@ -440,8 +439,9 @@ class TempWorkspace:
     def __enter__(self) -> str:
         self._tmp = tempfile.TemporaryDirectory()
         root = Path(self._tmp.name)
-        shutil.copytree(WORKSPACE, root / "workspace")
-        return str(root / "workspace" / "workspace.json")
+        data_path = root / "workspace.json"
+        write_current_agent_workspace(data_path)
+        return str(data_path)
 
     def __exit__(self, *_args: object) -> None:
         self._tmp.cleanup()

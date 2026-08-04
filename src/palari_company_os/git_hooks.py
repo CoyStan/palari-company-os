@@ -13,24 +13,27 @@ any environment (Windsurf, Cursor, Devin, terminal, etc.).
 
 from __future__ import annotations
 
+import os
+import shlex
 import subprocess
+import tempfile
+
 from pathlib import Path
 from typing import Any
 
 from .agent_file_changes import git_repo_root
-from .agent_runtime import claim_is_active, claims_dir
-from .path_policy import path_allowed
+from .agent_runtime import load_active_claim_contexts
+from .path_policy import canonical_path_allowed, validate_workspace_path
 from .store import workspace_file_path
 
 HOOK_MARKER = "palari git hook"
-HOOK_TIMEOUT_SECONDS = 20
 
 PRE_COMMIT_SCRIPT = """#!/bin/sh
 # {marker}
 # Palari pre-commit boundary enforcement
 # Installed by: palari git install
 # Remove by: palari git install --remove
-exec {executable} --workspace "{workspace_arg}" git pre-commit
+exec {executable} --workspace {workspace_arg} git pre-commit
 """
 
 
@@ -45,34 +48,125 @@ def pre_commit(
     Exits non-zero (via ``exit_code`` field) when staged files are outside
     the boundary, so the git commit is rejected.
     """
+    state = load_active_claim_contexts(workspace_path)
+    contexts = state["contexts"]
+    execute = [c for c in contexts if c["claim"].get("mode") == "execute"]
+    if state["errors"]:
+        return {
+            "schema_version": "palari.git_pre_commit.v1",
+            "ok": False,
+            "status": "invalid-claim",
+            "message": "Commit blocked: active Palari claim context is invalid.",
+            "staged": [],
+            "outside": [],
+            "allowed": [],
+            "errors": state["errors"],
+        }
     root = git_repo_root(Path(cwd or Path.cwd()))
     if root is None:
         return {
             "schema_version": "palari.git_pre_commit.v1",
-            "ok": True,
+            "ok": not contexts,
             "status": "no-git-repo",
-            "message": "Not inside a git repository; skipping boundary check.",
+            "message": (
+                "Commit blocked: an active Palari claim cannot be bound to a Git repository."
+                if contexts
+                else "Not inside a Git repository; no active claim requires enforcement."
+            ),
             "staged": [],
             "outside": [],
             "allowed": [],
+            "errors": (["could not locate the Git repository for this commit"] if contexts else []),
         }
-
-    contexts = active_claim_contexts(workspace_path)
-    execute = [c for c in contexts if c["claim"].get("mode") == "execute"]
-    if not execute:
+    if not contexts:
         return {
             "schema_version": "palari.git_pre_commit.v1",
             "ok": True,
             "status": "no-active-claim",
-            "message": "No active execute-mode Palari claim; skipping boundary check.",
+            "message": "No active Palari claim; skipping boundary check.",
             "staged": [],
             "outside": [],
             "allowed": [],
+            "errors": [],
+        }
+    if not _workspace_belongs_to_repo(workspace_path, root):
+        return {
+            "schema_version": "palari.git_pre_commit.v1",
+            "ok": False,
+            "status": "workspace-repo-mismatch",
+            "message": "Commit blocked: the Palari workspace is not inside this Git repository.",
+            "staged": [],
+            "outside": [],
+            "allowed": [],
+            "errors": [f"workspace {workspace_file_path(workspace_path).parent} is outside {root}"],
         }
 
-    staged = _staged_files(root)
-    allowed = _allowed_write_paths(execute)
-    outside = [path for path in staged if not path_allowed(path, allowed)]
+    staged, staged_error = _staged_files_result(root)
+    if staged_error:
+        return {
+            "schema_version": "palari.git_pre_commit.v1",
+            "ok": False,
+            "status": "git-observation-error",
+            "message": "Commit blocked: Palari could not inspect the staged files.",
+            "staged": [],
+            "outside": [],
+            "allowed": [],
+            "errors": [staged_error],
+        }
+
+    if not execute:
+        return {
+            "schema_version": "palari.git_pre_commit.v1",
+            "ok": not staged,
+            "status": "read-only-claim" if staged else "pass",
+            "message": (
+                "Commit blocked: active review-mode Palari claims are read-only."
+                if staged
+                else "No staged files; active review-mode Palari claims remain read-only."
+            ),
+            "staged": staged,
+            "outside": staged,
+            "allowed": [],
+            "errors": (["review-mode claims grant no commit authority"] if staged else []),
+        }
+
+    covering = [
+        context
+        for context in execute
+        if all(
+            canonical_path_allowed(path, _packet_write_paths(context["packet"]), root=root)
+            for path in staged
+        )
+    ]
+    if staged and len(covering) != 1:
+        covered_by_any = [
+            path
+            for path in staged
+            if any(
+                canonical_path_allowed(path, _packet_write_paths(context["packet"]), root=root)
+                for context in execute
+            )
+        ]
+        outside = [path for path in staged if path not in covered_by_any]
+        return {
+            "schema_version": "palari.git_pre_commit.v1",
+            "ok": False,
+            "status": "ambiguous-claim" if not outside else "blocked",
+            "staged": staged,
+            "outside": outside,
+            "allowed": [],
+            "errors": [
+                "staged files must be covered by exactly one active execute claim; "
+                "release or pin overlapping work before committing"
+            ],
+            "message": "Commit blocked: staged files do not bind to exactly one active claim.",
+        }
+
+    selected = covering[0] if covering else execute[0]
+    allowed = _packet_write_paths(selected["packet"])
+    outside = [
+        path for path in staged if not canonical_path_allowed(path, allowed, root=root)
+    ]
 
     return {
         "schema_version": "palari.git_pre_commit.v1",
@@ -81,6 +175,8 @@ def pre_commit(
         "staged": staged,
         "outside": outside,
         "allowed": allowed,
+        "claim": selected["claim"].get("work_item", ""),
+        "errors": [],
         "message": (
             f"Commit blocked: {len(outside)} staged file(s) outside the Palari "
             f"write boundary for active claim(s)."
@@ -95,6 +191,7 @@ def install_git_hook(
     workspace_path: Path | str,
     *,
     remove: bool = False,
+    palari_executable: Path | str | None = None,
 ) -> dict[str, Any]:
     """Install or remove the Palari pre-commit hook in ``.git/hooks/``.
 
@@ -112,9 +209,30 @@ def install_git_hook(
             "hook_path": "",
         }
 
-    hook_path = git_root / ".git" / "hooks" / "pre-commit"
-    workspace_arg = _workspace_argument(root, workspace_path)
-    executable = _palari_executable(root)
+    hook_path, hook_error = _git_hook_path(git_root)
+    if hook_path is None:
+        return {
+            "schema_version": "palari.git_install.v1",
+            "status": "error",
+            "changed": False,
+            "message": f"Cannot locate Git hook directory: {hook_error}",
+            "hook_path": "",
+        }
+    location_error = _git_hook_location_error(git_root, hook_path)
+    if location_error:
+        return {
+            "schema_version": "palari.git_install.v1",
+            "status": "error",
+            "changed": False,
+            "message": location_error,
+            "hook_path": str(hook_path),
+        }
+    workspace_arg = shlex.quote(_workspace_argument(root, workspace_path))
+    executable = (
+        shlex.quote(str(palari_executable))
+        if palari_executable is not None
+        else _palari_executable(root)
+    )
 
     if remove:
         if hook_path.exists() and _is_managed_hook(hook_path):
@@ -141,7 +259,7 @@ def install_git_hook(
     )
     existing = hook_path.read_text(encoding="utf-8") if hook_path.exists() else ""
     if _is_managed_hook_str(existing):
-        if existing.strip() == script.strip():
+        if existing.strip() == script.strip() and os.access(hook_path, os.X_OK):
             return {
                 "schema_version": "palari.git_install.v1",
                 "status": "unchanged",
@@ -149,8 +267,9 @@ def install_git_hook(
                 "hook_path": str(hook_path),
                 "message": f"Palari pre-commit hook already installed at {hook_path}.",
             }
-        hook_path.write_text(script, encoding="utf-8")
-        _make_executable(hook_path)
+        write_error = _replace_executable_hook(hook_path, script)
+        if write_error:
+            return _hook_install_error(hook_path, write_error)
         return {
             "schema_version": "palari.git_install.v1",
             "status": "updated",
@@ -171,9 +290,9 @@ def install_git_hook(
             ),
         }
 
-    hook_path.parent.mkdir(parents=True, exist_ok=True)
-    hook_path.write_text(script, encoding="utf-8")
-    _make_executable(hook_path)
+    write_error = _replace_executable_hook(hook_path, script)
+    if write_error:
+        return _hook_install_error(hook_path, write_error)
     return {
         "schema_version": "palari.git_install.v1",
         "status": "installed",
@@ -190,13 +309,14 @@ def git_hook_status(
     """Report whether the Palari pre-commit hook is installed and active claims."""
     root = Path(project_dir).expanduser().resolve()
     git_root = git_repo_root(root)
-    hook_path = (git_root / ".git" / "hooks" / "pre-commit") if git_root else None
+    hook_path, hook_error = _git_hook_path(git_root) if git_root else (None, "")
 
     installed = False
     if hook_path and hook_path.exists():
-        installed = _is_managed_hook(hook_path)
+        installed = _is_managed_hook(hook_path) and os.access(hook_path, os.X_OK)
 
-    contexts = active_claim_contexts(workspace_path)
+    state = load_active_claim_contexts(workspace_path)
+    contexts = state["contexts"]
     return {
         "schema_version": "palari.git_status.v1",
         "installed": installed,
@@ -212,6 +332,8 @@ def git_hook_status(
             }
             for context in contexts
         ],
+        "claim_errors": state["errors"],
+        "hook_error": hook_error,
         "message": (
             "Palari pre-commit hook is installed."
             if installed
@@ -220,42 +342,35 @@ def git_hook_status(
     }
 
 
-def active_claim_contexts(workspace_path: Path | str) -> list[dict[str, Any]]:
-    """Return active claims with their persisted packets."""
-    directory = claims_dir(workspace_path)
-    if not directory.is_dir():
-        return []
-    contexts: list[dict[str, Any]] = []
-    for path in sorted(directory.glob("*.json")):
-        claim = _read_json(path)
-        if claim is None or not claim_is_active(claim):
-            continue
-        packet = _read_json(_packet_file(workspace_path, claim)) or {}
-        contexts.append({"claim": claim, "packet": packet})
-    return contexts
-
-
-def _staged_files(root: Path) -> list[str]:
-    result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--cached", "--name-only", "--diff-filter=ACMRT"],
+def _staged_files_result(root: Path) -> tuple[list[str], str]:
+    try:
+        result = subprocess.run(
+        ["git", "-C", str(root), "diff", "--cached", "--name-only", "--diff-filter=ACMRTD", "-z"],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
+        text=False,
         timeout=10,
-    )
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [], f"could not inspect staged files: {exc}"
     if result.returncode != 0:
-        return []
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-
-
-def _allowed_write_paths(contexts: list[dict[str, Any]]) -> list[str]:
-    allowed: list[str] = []
-    for context in contexts:
-        for path in _packet_write_paths(context["packet"]):
-            if path not in allowed:
-                allowed.append(path)
-    return allowed
+        detail = os.fsdecode(result.stderr).strip() or f"git exited {result.returncode}"
+        return [], f"could not inspect staged files: {detail}"
+    files: list[str] = []
+    for raw in result.stdout.split(b"\0"):
+        if not raw:
+            continue
+        value = os.fsdecode(raw)
+        try:
+            normalized = validate_workspace_path(value)
+            if normalized != value:
+                raise ValueError("path is not in canonical Git form")
+        except ValueError as exc:
+            return [], f"Git reported an unsafe staged path {value!r}: {exc}"
+        if normalized not in files:
+            files.append(normalized)
+    return files, ""
 
 
 def _packet_write_paths(packet: dict[str, Any]) -> list[str]:
@@ -266,23 +381,6 @@ def _packet_write_paths(packet: dict[str, Any]) -> list[str]:
     if not isinstance(write, list):
         return []
     return [str(path) for path in write if str(path)]
-
-
-def _packet_file(workspace_path: Path | str, claim: dict[str, Any]) -> Path:
-    workspace_dir = workspace_file_path(workspace_path).parent
-    relative = str(claim.get("packet_path", ""))
-    if relative:
-        return workspace_dir / relative
-    packet_id = str(claim.get("packet_id", ""))
-    return workspace_dir / ".palari" / "packets" / f"{packet_id}.json"
-
-
-def _read_json(path: Path) -> dict[str, Any] | None:
-    try:
-        value = __import__("json").loads(path.read_text(encoding="utf-8"))
-    except (OSError, __import__("json").JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
 
 
 def _is_managed_hook(hook_path: Path) -> bool:
@@ -296,19 +394,51 @@ def _is_managed_hook_str(content: str) -> bool:
     return HOOK_MARKER in content and "palari" in content
 
 
-def _make_executable(path: Path) -> None:
+def _replace_executable_hook(path: Path, content: str) -> str:
+    """Atomically install executable hook bytes or leave the target untouched."""
+
+    temporary: Path | None = None
     try:
-        path.chmod(0o755)
-    except OSError:
-        pass
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, raw_path = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.palari-",
+        )
+        os.close(descriptor)
+        temporary = Path(raw_path)
+        temporary.write_text(content, encoding="utf-8")
+        temporary.chmod(0o755)
+        if not os.access(temporary, os.X_OK):
+            raise OSError("temporary hook did not become executable")
+        os.replace(temporary, path)
+        temporary = None
+    except OSError as exc:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+        return str(exc)
+    return ""
+
+
+def _hook_install_error(path: Path, detail: str) -> dict[str, Any]:
+    return {
+        "schema_version": "palari.git_install.v1",
+        "status": "error",
+        "changed": False,
+        "hook_path": str(path),
+        "message": f"Palari pre-commit hook was not installed safely: {detail}",
+    }
 
 
 def _workspace_argument(root: Path, workspace_path: Path | str) -> str:
-    workspace_dir = workspace_file_path(workspace_path).parent
+    data_path = workspace_file_path(workspace_path)
+    selector = data_path.parent if data_path.name == "workspace.json" else data_path
     try:
-        relative = workspace_dir.resolve().relative_to(root.resolve()).as_posix()
+        relative = selector.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
-        return str(workspace_dir)
+        return str(selector)
     if relative == ".":
         return "."
     return relative
@@ -317,5 +447,85 @@ def _workspace_argument(root: Path, workspace_path: Path | str) -> str:
 def _palari_executable(root: Path) -> str:
     """Prefer a project-local wrapper so hooks work without a pip install."""
     if (root / "bin" / "palari").is_file():
-        return f'"{root / "bin" / "palari"}"'
+        return shlex.quote(str(root / "bin" / "palari"))
     return "palari"
+
+
+def _workspace_belongs_to_repo(workspace_path: Path | str, root: Path) -> bool:
+    try:
+        workspace_file_path(workspace_path).parent.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _git_hook_path(root: Path) -> tuple[Path | None, str]:
+    try:
+        configured = subprocess.run(
+            ["git", "-C", str(root), "config", "--path", "--get", "core.hooksPath"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+        if configured.returncode == 0 and configured.stdout.strip():
+            path = Path(configured.stdout.strip()).expanduser()
+            if not path.is_absolute():
+                path = root / path
+            return path.resolve() / "pre-commit", ""
+        resolved = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--git-path", "hooks/pre-commit"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, str(exc)
+    if resolved.returncode != 0 or not resolved.stdout.strip():
+        return None, resolved.stderr.strip() or "Git returned no hook path"
+    path = Path(resolved.stdout.strip())
+    if not path.is_absolute():
+        path = root / path
+    return path.resolve(), ""
+
+
+def _git_hook_location_error(root: Path, hook_path: Path) -> str:
+    """Reject process-global or unrelated hook targets before any write.
+
+    A linked worktree legitimately shares the repository's common Git
+    directory, so both the worktree root and that exact common directory are
+    local. An arbitrary absolute ``core.hooksPath`` is not.
+    """
+
+    allowed_roots = [root.resolve()]
+    try:
+        common = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--git-common-dir"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"Cannot verify Git hook locality: {exc}"
+    if common.returncode != 0 or not common.stdout.strip():
+        return common.stderr.strip() or "Cannot verify Git common directory"
+    common_dir = Path(common.stdout.strip()).expanduser()
+    if not common_dir.is_absolute():
+        common_dir = root / common_dir
+    allowed_roots.append(common_dir.resolve())
+    resolved = hook_path.resolve()
+    for allowed in allowed_roots:
+        try:
+            resolved.relative_to(allowed)
+            return ""
+        except ValueError:
+            continue
+    return (
+        f"Refusing Git hook target outside this repository: {resolved}. "
+        "Use a repository-local core.hooksPath or remove that configuration."
+    )

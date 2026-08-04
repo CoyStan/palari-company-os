@@ -1,124 +1,168 @@
-# Glossary
+# Plain-Language Glossary
 
-Plain-language definitions for the nouns Palari Company OS uses. For the full
-data model, see [Core Objects](core-objects.md).
+Palari uses familiar words in instructions and explanations. Parentheses show
+the exact machine term used by JSON records, protocol fields, or older commands.
+For the stored data model, see [Stored Records](core-objects.md).
 
 ## Goal
 
-A goal is the reason a piece of work exists.
+The reason a piece of work exists.
 
-You see it when Palari groups tasks under a larger company outcome.
+## Agent (`Palari`)
 
-## Palari
+A named AI work partner with a clear job and limits. An agent may do and review
+work when allowed, but it cannot supply human approval.
 
-A Palari is a named AI work partner with a clear job and boundary.
+## Person (`human`)
 
-You see it when Sofia or another named AI partner asks what work is safe.
+A real person who owns, reviews, or approves work. Palari uses `human` in stored
+records and commands because it must distinguish people from agents.
 
-## Human
+## Question for a Person (`decision`)
 
-A human is a real person who owns, reviews, or approves work.
-
-You see it when Palari stops and asks a person to approve or reject something.
-
-## Decision
-
-A decision is a question that needs a clear human answer.
-
-You see it when work cannot continue until someone chooses between options.
+A choice that needs an explicit human answer before work can continue.
 
 ## Source
 
-A source is selected context the work is allowed to read.
+A selected file, note, document, or other context that a task is allowed to
+read.
 
-You see it when Palari shows which note, file, or document an AI partner may use.
+## Playbook (`playbook_source`)
 
-## Playbook Source
+Outside operating guidance that Palari may recommend. It can explain how to
+work, but it cannot grant permission or approval.
 
-A playbook source is outside operating guidance Palari may recommend.
+## Allowed Tool or Action (`capability`)
 
-You see it when Palari suggests a lightweight skill or practice for how to work.
+Something an agent or adapter is allowed to use within stated limits. A
+capability does not grant permission to approve completed work.
 
-## Capability
+## Approval Rules (`authority_profile`)
 
-A capability is governed power an adapter or Palari may use inside a boundary.
+The rules connecting risk to the number and kind of human approvals a task
+needs. Stored profiles include `solo-founder`, `team-safe`, and `strict`.
 
-You see it when Palari exports what tools, paths, or actions are allowed for one work item.
+## External Connection (`integration`)
 
-## Authority Profile
+A declared boundary for an external service. Its provider identifier is opaque;
+the record alone does not call the service.
 
-An authority profile is the risk and quorum posture for accepting work.
+## External Action Preview (`integration_plan`)
 
-You see it when Palari checks whether R3, R4, or R5 work needs human approval.
+A dry-run record showing the exact external action Palari would request. It
+does not perform that action.
 
-## Integration
+## Queued External Action (`integration_outbox_item`)
 
-An integration is a declared external service boundary.
+An approved external action waiting at the send boundary. Queued does not mean
+sent, and only a supported adapter may execute it.
 
-You see it when Palari previews a possible Slack, GitHub, Jira, or email action.
+## Project (`workbench`)
 
-## Integration Plan
+A group of related goals, tasks, agents, people, sources, and output targets.
 
-An integration plan is a dry-run preview of one external action.
+## Task (`work_item`)
 
-You see it when Palari shows the payload it would send before anything live can happen.
+One assignment with an objective, allowed files, sources, and actions, expected
+outputs, required checks, and stop conditions.
 
-## Integration Outbox Item
+## Proposed Task (`proposal`)
 
-An integration outbox item is an approved external action waiting at the future send boundary.
+Planned work that has not become an active task. A person must adopt it before
+an agent can treat it as assigned work.
 
-You see it when a human has approved a dry-run action but Palari still has not called the provider.
+## Task Brief (`packet`)
 
-## Work Item
+The bounded instructions returned when an agent starts a task. A task brief
+tells the agent what it may read, change, and do.
 
-A work item is one bounded assignment.
+## Session Rules (`session_contract`)
 
-You see it when an AI partner gets one objective, allowed inputs, allowed outputs, and stop rules.
+A portable, provider-neutral form of the task limits. It declares boundaries;
+it is not an operating-system sandbox.
 
-## Proposal
+## Task Lock (`claim`)
 
-A proposal is planned work that has not become an accepted work item yet.
+A local, expiring assignment that prevents two linked worktrees from owning the
+same task at once.
 
-You see it when an AI partner can suggest work but a human still has to adopt it.
+## Run (`attempt`)
 
-## Attempt
+One concrete try at completing a task. It records the actor, repository state,
+changed files, and task limits.
 
-An attempt is one concrete try at doing a work item.
+## Run Record (`receipt`)
 
-You see it when Palari records who or what started the work and what changed.
+A human-readable account of what a run read, changed, skipped, left undoable,
+planned externally, or actually sent externally.
 
-## Evidence Run
+## Check Results (`evidence_run`)
 
-An evidence run is proof that checks or verification were run.
+The commands, results, output hashes, run-record hash, and exact commit checked
+for one task. Current check results are required before completion.
 
-You see it when Palari records commands, results, artifacts, and the code state they checked.
+## Review Result (`review_verdict`)
 
-## Review Verdict
+An independent review tied to the exact run and check results. The stored
+values remain `accept-ready`, `changes-requested`,
+`needs-human-decision`, and `blocked`.
 
-A review verdict is an independent judgment on whether work is ready.
+## Approval or Rejection (`human_decision`)
 
-You see it when a reviewer says accept-ready, changes-requested, blocked, or needs a human decision.
+A human choice tied to the exact reviewed version. It may approve, reject, or
+block work, depending on the stored `decision` and `status` values.
 
-## Human Decision
+## Approval Record (`acceptance_record`)
 
-A human decision is an authority-bearing approval, rejection, or blocker.
+The audit record showing which qualified person approved which exact review and
+check results under which approval rules.
 
-You see it when AI work is reviewed but still needs a person to make the final call.
+## Approval Bundle (`Approval Pack`)
 
-## Acceptance Record
+An immutable group of separately checked and reviewed tasks prepared for one
+short human approval session. Bundling attention never combines evidence,
+widens task limits, or makes blocked work eligible.
 
-An acceptance record is the audit trail of final human acceptance.
+## Approval Inbox
 
-You see it when Palari records who accepted reviewed evidence and under which authority profile.
+The status view that shows tasks awaiting human attention. It may present one
+exact action for eligible tasks while listing stale, blocked, or individual-only
+tasks separately.
 
-## Receipt
+## Result (`outcome`)
 
-A receipt is the human-readable record of what happened.
+What was learned after a task closes, including whether the work helped,
+failed, or created follow-up work.
 
-You see it when Palari lists what was read, changed, skipped, left undoable, or only planned.
+## Status (`lifecycle_state`)
 
-## Outcome
+Where a task currently stands. Operator-facing status should normally be one of
+ready, in progress, blocked, needs review, needs approval, or complete. Stored
+enum values remain unchanged.
 
-An outcome is what was learned after the work closes.
+## Required Check (`transition_gate`)
 
-You see it when Palari records whether the work helped, failed, or created follow-up work.
+A deterministic rule Palari evaluates before a trusted state change, such as
+starting, accepting, completing, queuing, or sending work.
+
+## Status View (`projection` or `read_model`)
+
+A derived explanation of recorded state. A status view may show the next safe
+action, but it cannot approve work or change trusted state.
+
+## Tamper-Evident History (`governance_journal`)
+
+The append-only, hash-chained record of successful workspace changes. It can be
+replayed and checked for corruption, missing entries, reordering, and
+divergence.
+
+## Restore Point (`governed_checkpoint`)
+
+A content-addressed saved workspace state in the tamper-evident history.
+Restoring it appends a new history entry; it never erases later history.
+
+## Verification Report (`proof`)
+
+A portable statement that another party can check offline. PCAW v1 uses exact
+protocol terms such as subject, artifact, digest, predicate, and attestation;
+those terms remain unchanged in protocol documentation and data.

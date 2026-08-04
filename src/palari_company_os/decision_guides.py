@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from shlex import quote
 from typing import Any
 
+from .command_surface import bind_palari_command_payload
 from .read_models import detail
 from .workspace import Workspace
 
@@ -11,11 +12,12 @@ from .workspace import Workspace
 def build_decision_guide(workspace: Workspace, target_id: str) -> dict[str, Any]:
     decision = _resolve_decision(workspace, target_id)
     work_detail = detail(workspace, decision.linked_work) if decision.linked_work else None
-    return {
+    payload = {
         "schema_version": "palari.decision_guide.v1",
         "guide_id": f"DECISION-GUIDE-{decision.id}-V1",
         "created_at": _timestamp(),
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "would_mutate": False,
         "status": decision.status,
         "decision": _decision_summary(decision),
@@ -51,6 +53,7 @@ def build_decision_guide(workspace: Workspace, target_id: str) -> dict[str, Any]
             }
         ],
     }
+    return bind_palari_command_payload(workspace.data_path, payload)
 
 
 def _resolve_decision(workspace: Workspace, target_id: str) -> Any:
@@ -128,7 +131,7 @@ def _decision_focus(decision: Any, work_detail: dict[str, Any] | None) -> list[s
     if work and work.get("forbidden_actions"):
         focus.append("Confirm the decision does not authorize forbidden actions without a new scoped change.")
     if decision.required_human:
-        focus.append(f"Decision authority is expected from {decision.required_human}.")
+        focus.append(f"The required decision maker is {decision.required_human}.")
     if decision.status != "open":
         focus.append("Decision is not open; verify whether the recorded result still reflects current intent.")
     return focus

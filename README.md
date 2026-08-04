@@ -3,7 +3,7 @@
 AI agents can change files faster than people can review them. Palari gives
 them a visible boundary and stops them when they cross it.
 
-![Palari terminal showing a blocked write outside the approved boundary](docs/assets/palari-blocked-terminal.png)
+![Palari terminal showing a blocked change outside the allowed files](docs/assets/palari-blocked-terminal.png)
 
 Maya asks Sofia to clean up launch notes.
 
@@ -14,7 +14,7 @@ Then Sofia tries to touch `deploy/production.yml`.
 Palari stops the run:
 
 ```text
-*** BLOCKED: file change is outside Sofia's write boundary ***
+*** BLOCKED: file change is outside Sofia's allowed files ***
 changed: deploy/production.yml
 allowed: docs/product/company-os.md
 ```
@@ -41,361 +41,362 @@ python3 -m pip install -e .
 palari demo
 ```
 
-The demo is offline and uses a throwaway temp directory. It shows the blocked
-file change, a passing in-bound change, and the human handoff.
+The offline demo uses a temporary directory. It shows Palari blocking a
+disallowed file change, allowing a committed in-bound change, and running the
+checks needed to complete safe low-risk local work.
 
-Then open the live local supervision desk:
-
-```bash
-./bin/palari serve --as HUMAN-FOUNDER
-```
-
-`serve` is local only by default. It lets you click through work that needs
-human attention while the files remain the source of truth.
-
-Live demo: [coystan.github.io/palari-company-os](https://coystan.github.io/palari-company-os/).
-
-To adopt it in your own repo, three commands give Claude Code an enforced
-write boundary:
-
-```bash
-palari init
-palari work add "Clean up launch notes" --write docs/notes.md
-palari claude install
-```
-
-Working in Cursor (or another editor)? `palari cursor install` writes an
-always-applied `.cursor/rules` boundary rule and wires the IDE-agnostic git
-pre-commit hook, so the same boundary is enforced at commit time regardless of
-model.
-
-See the [Quickstart](docs/product/quickstart.md) for the full path.
-
-## What Palari Is
-
-[![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20alpha-8a6d3b.svg)](docs/product/roadmap.md)
-
-Palari Company OS is a local, file-backed control plane for AI-assisted work.
-It helps humans and AI agents agree on:
-
-- what the agent is trying to do
-- which sources it may read
-- which files or outputs it may change
-- what it actually used, created, skipped, or left undoable
-- when a human must review or approve the work
-
-It is not another chatbot. It is the operating contract around AI work: goals,
-workbenches, named AI partners, bounded work items, receipts, evidence, review,
-human decisions, and outcomes.
-
-New to those words? Start with the plain-language
-[Glossary](docs/product/glossary.md).
-
-## What Works Today
-
-This is a **v0.1 alpha local CLI**. It runs from local files, has no runtime
-package dependencies beyond the Python standard library, and does not require
-API keys, cloud accounts, databases, Slack, GitHub apps, Google Drive, or a
-background service.
-
-Implemented now:
-
-- strict workspace schema and validation
-- goals, humans, Palaris, workbenches, sources, work items, attempts, receipts,
-  evidence, reviews, human decisions, outcomes, and history
-- queue, detail, state, history, dashboard, and desktop prototype views
-- agent packets for bounded AI-agent context
-- local packet persistence and lightweight claims for `agent start`
-- file-change boundary checks for `agent check --changed` and `--git-diff`
-- structural boundary enforcement inside Claude Code via `palari claude install`
-  (out-of-boundary writes are denied by hooks, not just reported)
-- source and receipt trust records
-- parallel workbench modeling and conflict warnings
-- dry-run integration plans, approvals, and cancelable outbox records
-- a governed Linear adapter: `linear connect` setup, issue discovery and
-  imports, pull sync, human-approved comment, status-update, and
-  issue-creation sends, and verified Issue webhooks
-  ([Linear Operating Loop](docs/product/linear-operating-loop.md))
-- external playbook recommendations as lightweight guidance
-- example and dogfood workspaces
-- CI, local verification, and install smoke tests
-
-Not implemented yet:
-
-- live Slack, GitHub, Jira, email, Google Drive, or document connector execution
-- hosted web app or multi-user server
-- background agent runner
-- real broker execution
-- real policy acceptance
-- secret manager or signed key custody
-- autonomous acceptance, merge, push, or deploy
-- live external writes outside the approved Linear path (Linear comment sends,
-  issue status updates, and issue creation are the only live writes, and each
-  requires an approved plan first)
-
-## Try More Locally
-
-Run the local verification:
-
-```bash
-./scripts/verify.sh
-```
-
-Copy the demo workspace into `/tmp` so experiments do not modify the committed
-example files:
-
-```bash
-rm -rf /tmp/palari-company-os-demo
-cp -R examples/acme-company-os /tmp/palari-company-os-demo
-```
-
-Inspect the work queue:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo queue
-```
-
-Open one work item:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo detail WORK-0001
-```
-
-Open the live local supervision desk:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo serve --as HUMAN-FOUNDER
-```
-
-Or prepare the demo workspace and open the same live view in one command:
+Open the same temporary demo in the local supervision view:
 
 ```bash
 ./bin/palari demo --serve
 ```
 
-Generate a static dashboard for sharing, publishing, or GitHub Pages:
+The server listens locally by default. The files remain the source of truth.
 
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo dashboard --out /tmp/palari-company-dashboard
-```
+See the full [Quickstart](docs/product/quickstart.md) when you are ready to use
+Palari in your own repository.
 
-Then open:
+## What Palari does
 
-```text
-/tmp/palari-company-dashboard/index.html
-```
+[![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/current-product.md)
 
-Generate the standalone desktop prototype:
+Palari is a local system that makes AI work reviewable. It helps a human and an
+agent agree on:
 
-```bash
-./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-```
+- the task;
+- the files, sources, and actions the agent may use;
+- what the run changed or could not finish;
+- which checks passed for this exact version;
+- whether independent review is required; and
+- when a human must approve or reject the result.
 
-Then open:
+Palari works around coding agents and AI tools. It is not a chatbot or model
+provider, and it does not automatically merge, deploy, or approve work.
 
-```text
-/tmp/palari-desktop-prototype/index.html
-```
-
-## Agent Workflow
-
-The `agent` commands are mostly meant for coding agents or AI operators. Humans
-can run them to inspect the contract, but the normal idea is that an agent asks
-Palari what work is safe, reads one compact packet, starts a bounded local
-attempt, checks its file changes, and releases or finishes cleanly.
-
-Find the next useful item:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent next --as PALARI-SOFIA --json
-```
-
-Read the packet the agent would receive:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-```
-
-Start the copied demo work item. This persists the packet and creates a local
-claim in the `/tmp` demo workspace:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-```
-
-Check whether an observed file change stays inside the allowed boundary:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
-```
-
-Release the local claim:
-
-```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent release WORK-0003 --as PALARI-SOFIA --json
-```
-
-In plain language:
+The work process is:
 
 ```text
-find safe work -> read the packet -> claim the local attempt
-  -> compare changes against the boundary -> release, finish, or ask for help
+goal
+-> task and limits
+-> run
+-> run record and current check results
+-> independent review when required
+-> human approval when required
+-> result
 ```
 
-## Core Concepts
+The [Glossary](docs/product/glossary.md) explains the few older technical names
+that remain in stable commands, JSON fields, and file paths.
 
-| Concept | Plain meaning |
-| --- | --- |
-| Goal | Why the work exists. |
-| Human | A person with ownership, review, or approval authority. |
-| Palari | A named AI work partner with scope and standards. |
-| Workbench | A bounded arena of sources, people, Palaris, targets, and parallel work. |
-| Source | Selected context the work may read. |
-| Work item | One bounded unit of intended work. |
-| Attempt | One concrete execution of that work. |
-| Receipt | Human-facing record of what was used, created, skipped, and left undoable. |
-| Evidence | Verification tied to the attempt or artifact state. |
-| Review | Independent inspection of the result or evidence. |
-| Human decision | Explicit approval, rejection, or blocker. |
-| Outcome | What was learned after the work closed. |
+## Use it in your repository
 
-The product loop is:
-
-```text
-goal -> workbench -> selected sources -> work item -> attempt
-  -> receipt -> evidence or review when needed
-    -> human decision when needed -> outcome
-```
-
-## Useful Commands
+Initialize Palari, add one task, and let an agent take the next safe task:
 
 ```bash
-# Read models
-./bin/palari queue
-./bin/palari detail WORK-0001
-./bin/palari state
-./bin/palari history
+palari init --palari Agent --host codex --json
+palari work add "Clean up launch notes" --write docs/notes.md --json
+palari agent start --next --as PALARI-AGENT --json
+```
 
-# Safety and boundaries
-./bin/palari validate
-./bin/palari scope WORK-0001 --changed examples/acme-company-os/workspace.json
+`init` creates missing `AGENTS.md` and `docs/agent/` guidance without
+overwriting existing instructions. In a Git worktree it also makes one local,
+path-limited starter commit containing only new Palari records and generated
+agent docs. With `--host`, that commit includes new repository-local host settings
+and installs the assignment-bound Git commit check. Unrelated staged and
+unstaged work is excluded.
 
-# Agent contract
-./bin/palari agent next --as PALARI-SOFIA --json
-./bin/palari agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
+Choose `claude` or `codex`. Codex asks you to trust the exact repository hook once
+through `/hooks`; Palari cannot grant that host trust itself. Existing root
+instructions and host configuration stay untouched. Nested Palari workspaces use
+the enclosing Git root.
 
-# Lightweight process guidance
-./bin/palari playbooks sources
-./bin/palari playbooks recommend WORK-0003
+The agent receives a task brief (`packet` in stored JSON and file paths),
+portable session rules (`session-contract`), and a local assignment (`claim`).
+These technical names remain stable for compatibility; ordinary messages use
+the plain words.
+
+After doing and committing the bounded work, use the opaque task ID returned by
+`start`:
+
+```bash
+palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
+```
+
+Do not infer a sequential task ID. Unrelated opaque IDs can run in parallel.
+For a repository that already has Palari records, run this once:
+
+```bash
+palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
+```
+
+Other agent tools can follow the provider-neutral repository rules and use the
+host-neutral Git check, but only Claude and Codex have tested session profiles.
+No profile grants permission to review, approve, merge, push, deploy, call a
+provider, or perform an external write.
+
+Use `--write PATH` when only final presence matters. When the kind of change
+matters, declare it exactly:
+
+```bash
+palari work add "Replace obsolete guidance" \
+  --create docs/new.md --modify docs/current.md --delete docs/obsolete.md
+```
+
+## The ordinary agent path
+
+Most work needs two commands.
+
+1. Take the next safe task:
+
+   ```bash
+   palari agent start --next --as PALARI-CLAUDE --json
+   ```
+
+   Palari selects one eligible task, saves its task brief and session rules,
+   and creates a local assignment. `agent next`, `brief`, and explicit `start
+   WORK-ID` remain available for inspection and controlled selection.
+
+2. After editing and committing only allowed files, run automatic finishing:
+
+   ```bash
+   palari agent advance WORK-ID --as PALARI-CLAUDE --json
+   ```
+
+   Palari identifies the exact committed change and runs fixed built-in
+   verification profiles rather than task prose. For R1 work, the authoritative
+   profile is an exact base-to-head `git diff --check` over the changed paths.
+   Palari records the run, run record, and current check results. Every
+   completion requires current exact checks. Only R1/light work with zero
+   required approvals and no external writes may finish without independent
+   review and human approval. Every other task stops at the next real boundary.
+
+`agent advance` never records a review result or human approval. Use
+`--dry-run` to inspect its plan.
+
+If a task is interrupted, record why before releasing the assignment:
+
+```bash
+palari agent release WORK-ID --as PALARI-CLAUDE \
+  --reason "Waiting for product direction" \
+  --next-action "Ask the founder to choose the final wording" --json
+```
+
+This records the blocker and next safe action. It does not invent completion
+records or approval. A legacy workspace without writable tamper-evident history
+receives an exact `history --checkpoint` command instead.
+
+## The ordinary human path
+
+After an independent review, inspect the concise human handoff and run its
+exact human action once:
+
+```bash
+palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact human_action_commands[].command from this handoff.
+```
+
+Initialization provides a distinct review-only agent so a one-person
+workspace does not spend its only human authority on review. Before work
+starts, Palari checks that the builder, reviewer, and qualified final approver
+can remain distinct. The emitted action is an explicit-workspace
+`palari approve ... --presented DIGEST` command. The digest is inserted by
+Palari, not copied by the human, and binds the action to the presentation just
+inspected. `approve` revalidates the exact checks, review, artifact, and journal,
+then records approval and local completion in one transaction. If relevant
+state changed, approval fails safely with the next correction. A manually
+entered bare `approve` command instead derives current state at invocation.
+
+`palari queue --approval-inbox --json` and its
+`palari human-decision pack ...` actions remain available for advanced and
+batched approval. Agents may present human actions but must not run them.
+Supported session hooks block recognized agent invocations, but Palari does
+not authenticate processes that share the same operating-system user.
+
+## What works today
+
+Palari is a **v0.2 alpha local CLI**. It uses ordinary local files, has no
+runtime package dependencies beyond the Python standard library, and needs no
+API key, cloud account, database, or background service for core use.
+
+Implemented now:
+
+- strict local workspace schema and validation;
+- bounded tasks with explicit create, modify, and delete paths;
+- deterministic safe-task selection and local assignment;
+- task briefs and portable session rules for agents;
+- current run records, check results, independent reviews, and human approvals;
+- one `agent advance` path that completes every safe mechanical step;
+- concise queue, detail, state, history, and Mission Control views;
+- canonical path and symlink checks, including traversal and sibling-prefix
+  defenses;
+- an assignment-bound Git commit check and tested Claude and Codex hooks;
+- optional Cursor boundary setup via `palari cursor install` (project rule plus the same Git pre-commit check);
+- replayable, tamper-evident history with corruption and crash detection;
+- deterministic PCAW v1 export and offline verification;
+- an Approval Inbox that safely groups eligible human actions;
+- dry-run integration plans and cancelable outbox records;
+- a bounded Linear adapter for issue reads/imports, approved comments, approved
+  status updates, approved issue creation, and verified webhooks; and
+- network-free examples, CI, complete verification, and install smoke tests.
+
+Not implemented:
+
+- a hosted multi-user service;
+- a background agent runner;
+- authenticated same-user identity or signed key custody;
+- autonomous review, approval, merge, push, or deployment;
+- live Slack, GitHub, Jira, email, Google Drive, or document writes;
+- generic provider execution beyond the approved Linear path; or
+- portable deletion-history verification in PCAW v1.
+
+## Portable verification
+
+Palari's protocol is **Proof-Carrying AI Work (PCAW)**. An independent party
+can take one canonical statement plus its named artifacts and verify it offline
+without the original workspace, AI provider, network, credentials, or source
+contents. `artifact`, `subject`, `digest`, and `predicate` remain exact protocol
+terms in the normative [PCAW v1 specification](spec/pcaw/v1/README.md).
+
+Run the two-minute network-free demonstration:
+
+```bash
+./scripts/pcaw_demo.sh
+```
+
+It verifies an accepted output, changes one governed byte, and reports the
+exact digest mismatch.
+
+## Useful commands
+
+```bash
+# Status views
+palari queue
+palari detail WORK-ID
+palari state
+
+# Tamper-evident history audit and recovery
+palari history
+
+# Safety boundaries
+palari validate
+palari scope WORK-ID --changed docs/notes.md
+
+# Agent path
+palari agent next --as PALARI-ID --json
+palari agent start --next --as PALARI-ID --json
+palari agent brief WORK-ID --as PALARI-ID --mode execute --json
+palari agent check WORK-ID --as PALARI-ID --mode execute --json
+palari agent advance WORK-ID --as PALARI-ID --json
+palari agent release WORK-ID --as PALARI-ID \
+  --reason "Paused" --next-action "Resume from the recorded blocker" --json
 
 # Agent-ready repo docs
-./bin/palari docs check --json
-./bin/palari docs map
-./bin/palari docs init --dry-run --json
+palari docs check --json
+palari docs map
+palari docs init --dry-run --json
 
-# Static visual surfaces
-./bin/palari dashboard --out /tmp/palari-company-dashboard
-./bin/palari serve --as HUMAN-FOUNDER
-./bin/palari desktop-prototype --out /tmp/palari-desktop-prototype
-./bin/palari desktop-serve --out /tmp/palari-desktop-prototype --port 8787
+# Local human supervision
+palari serve --as HUMAN-ID
 ```
 
 Use `--json` when wiring Palari into agents, scripts, or other tools.
 
-## Repository Layout
+## Repository layout
 
 ```text
 bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
 schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
-workspaces/palari-company-os/      Repo dogfood workspace
+workspaces/palari-company-os/      Historical, non-live dogfood evidence
 docs/product/                      Product and operator documentation
-docs/agent/                        Agent-ready repo orientation and invariants
-docs/showcase/                     Optional public examples and vignettes
-docs/archive/                      Historical plans and speculative research
-scripts/verify.sh                  Full local verification
+docs/agent/                        Agent-ready repo orientation and rules
+scripts/verify.sh                  Complete local verification
 scripts/install_smoke.sh           Isolated package install smoke
 tests/                             Unit and fixture tests
 ```
 
 ## Golden Paths
 
-- **Demo:** run `./bin/palari demo`, then open `./bin/palari serve --as HUMAN-FOUNDER`.
+- **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
 - **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
-- **Linear dogfood:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
-- **Evidence and acceptance:** read [Authority And Gates](docs/product/authority-and-gates.md).
-- **Surface audit:** read [Public Surface](docs/product/public-surface.md).
+- **Human loop:** inspect `palari agent handoff WORK-ID --as PALARI-REVIEWER
+  --mode review --json`, then have the human run its exact emitted
+  `human_action_commands[].command` once.
+- **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
+- **Checks and approval:** read [Checks And Approval](docs/product/authority-and-gates.md).
+- **Product map:** read [Public Surface](docs/product/public-surface.md).
 
 ## Documentation
 
 Start here:
 
-- [Quickstart](docs/product/quickstart.md) for the shortest command path
-- [Glossary](docs/product/glossary.md) for plain-language definitions
-- [Product Model](docs/product/company-os.md) for the larger concept
-- [Agent Contract](docs/product/agent-contract.md) for AI-agent packet behavior
-- [Agent Loop Smoke](docs/product/agent-loop-smoke.md) for an end-to-end agent command walkthrough
-- [Command Reference](docs/product/command-reference.md) for CLI details
-- [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small
-- [Public Surface](docs/product/public-surface.md) for what is core, optional, or future
-- [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation
-- [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for boundaries agents must preserve
+- [Current Product](docs/product/current-product.md) for what Palari supports;
+- [Quickstart](docs/product/quickstart.md) for the shortest command path;
+- [Plain Language](docs/product/plain-language.md) for the words people see;
+- [Glossary](docs/product/glossary.md) for stable technical names;
+- [Agent Contract](docs/product/agent-contract.md) for agent task rules;
+- [Command Reference](docs/product/command-reference.md) for CLI details;
+- [Minimality Contract](docs/product/minimality-contract.md) for keeping Palari small;
+- [Self-Hosting Maintainer Mode](docs/product/self-hosting-maintainer-mode.md)
+  for the bounded source-repair exception and isolated-state follow-up;
+- [Public Surface](docs/product/public-surface.md) for current, optional, and parked features;
+- [Agent Repo Map](docs/agent/repo-map.md) for implementation orientation; and
+- [Agent Contracts And Invariants](docs/agent/contracts-and-invariants.md) for
+  safety rules agents must preserve.
 
-Then go deeper:
+More detail:
 
-- [AI Work Vignettes](docs/showcase/ai-work-vignettes.md)
 - [Core Objects](docs/product/core-objects.md)
-- [Authority And Gates](docs/product/authority-and-gates.md)
-- [Schema And Validation](docs/product/schema-and-validation.md)
-- [Lifecycle Guide](docs/product/lifecycle-guide.md)
-- [External Playbooks](docs/product/playbooks.md)
+- [Checks And Approval](docs/product/authority-and-gates.md)
+- [Stored Data And Validation](docs/product/schema-and-validation.md)
+- [Work Process Guide](docs/product/lifecycle-guide.md)
 - [Testing Guide](docs/product/testing-guide.md)
 - [Security Notes](docs/product/security.md)
-- [Roadmap](docs/product/roadmap.md)
+- [Parked Roadmap](docs/product/roadmap.md)
 - [Changelog](CHANGELOG.md)
 
 ## Verification
 
-Run the normal local verification stack:
-
 ```bash
-./scripts/verify.sh
-python3 -m unittest discover -s tests
-./scripts/install_smoke.sh
+python3 -m pip install -e ".[dev]"
+./scripts/verify.sh complete
+./scripts/verify.sh focused tests.test_agent_packets
 ```
 
-`./scripts/verify.sh` runs unit tests, Python compilation, JSON validity checks,
-the lightweight style checker, and CLI smoke checks. `install_smoke.sh` creates
-a temporary virtual environment, builds and installs a wheel, imports it, checks
-the installed `palari` command, and confirms packaged default fixtures work.
+`complete` is the authoritative local check. It runs the current unit suite,
+static and schema checks, PCAW conformance, temporary CLI boundary checks, and
+one isolated wheel install smoke. `focused` runs only named test modules and is
+not a final approval check.
 
-GitHub Actions runs the core checks on Python 3.10 and 3.12.
+GitHub Actions runs the complete candidate check once on Python 3.12. Python
+3.10, 3.11, 3.13, and 3.14 receive thin source-import, central-rules, and CLI
+help compatibility checks.
 
-## Design Principles
+## Design principles
 
-- **Human authority stays explicit.** AI can prepare and explain work; it does
-  not silently accept, merge, deploy, activate policy, or expand its own scope.
-- **Sources are selected.** A Palari should know what it can read and what it
-  cannot read.
-- **Receipts are for trust.** Receipts explain what happened in human terms;
-  they are not a replacement for governance evidence.
-- **Risk changes intensity.** Low-risk local work can stay light. Higher-risk
-  work still requires stronger proof and human decisions.
-- **Read models do not mutate authority.** Queue, detail, state, dashboard, and
-  prototypes are derived from workspace data.
-- **Ordinary software maintenance wins.** The repo should stay simple,
-  inspectable, dependency-light, and easy for humans and agents to work on.
+- **Human approval stays explicit.** AI can prepare and explain work; it cannot
+  silently approve, merge, deploy, activate policy, or widen its own limits.
+- **Inputs are selected.** An agent should know what it may read and what it
+  may not read.
+- **Run records explain what happened.** They help humans inspect a run but do
+  not replace exact check results.
+- **Checks are universal; extra steps follow risk.** Every completion needs
+  current exact checks. Review and approval are added when the risk requires
+  them.
+- **Status views do not grant permission.** Queue, detail, state, and Mission
+  Control display recorded decisions; trusted commands enforce them.
+- **Ordinary software maintenance wins.** Palari should stay simple,
+  inspectable, dependency-light, and easy for humans and agents to change.
 
 ## Contributing
 
-This project is early and still changing quickly. Small, focused improvements
-are preferred. Good first contributions include documentation fixes, failing
-fixture reductions, command examples, and tests around existing behavior.
+Palari is early and changes quickly. Small, focused improvements are preferred.
+Good first contributions include documentation fixes, smaller fixtures, command
+examples, and tests around existing behavior.
 
 See [Contributing](docs/product/contributing.md) for local development notes.
 

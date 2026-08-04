@@ -15,7 +15,7 @@ The first implementation provides:
 - `palari docs check`
 - `palari docs map`
 - `palari docs init` dry-run and explicit write behavior
-- `documentation_state` and `recommended_docs` hints in agent packets and
+- `documentation_state` and `recommended_docs` hints in agent task briefs and
   checks
 
 Still future:
@@ -30,7 +30,7 @@ Still future:
 Palari Company OS should treat repo documentation as operational context for
 agents. The goal is not more ceremony. The goal is to keep the important truth
 of a repository close to the work so an agent can start faster, stay inside
-scope, and avoid rediscovering the same architecture and safety constraints from
+the allowed files and actions, and avoid rediscovering the same architecture and safety constraints from
 raw code every time.
 
 The system should answer:
@@ -77,7 +77,7 @@ to the relevant deeper docs. It should not become a full manual.
 The agent should load context in layers:
 
 1. Root agent entrypoint.
-2. Work-item packet from Palari.
+2. Task brief from Palari.
 3. Relevant repo map or invariant docs.
 4. Relevant code and tests.
 
@@ -87,7 +87,7 @@ boundaries.
 ### 4. Documentation Follows Behavior
 
 Docs should be updated when a change alters public commands, schema semantics,
-agent behavior, source/receipt behavior, gates, integrations, examples, or
+agent behavior, source/run-record behavior, required checks, integrations, examples, or
 operator workflows.
 
 Docs should not require a ritual for every tiny internal refactor.
@@ -95,7 +95,7 @@ Docs should not require a ritual for every tiny internal refactor.
 ### 5. Guidance, Not Ceremony
 
 Agent-ready docs should not reintroduce old Palari Orchestrator process objects.
-No tickets, claims, reviewer notes, worktrees, ADP, or acceptance ceremonies are
+No tickets, task locks, reviewer notes, worktrees, ADP, or approval ceremonies are
 needed for documentation itself.
 
 ### 6. Verifiable Freshness
@@ -117,7 +117,7 @@ The root agent entrypoint should remain short and practical:
 - verification commands
 - strict boundaries
 - links to canonical docs
-- how to use Palari agent packet commands
+- how to use Palari task-brief commands
 
 It should avoid detailed architecture and long policy explanations.
 
@@ -153,7 +153,7 @@ It should include:
 - schema and validation locations
 - examples and dogfood workspace locations
 - test organization
-- dashboard/prototype locations
+- Mission Control and other supported visual-surface locations
 - docs that must be updated for common changes
 
 #### `docs/agent/contracts-and-invariants.md`
@@ -166,12 +166,12 @@ It should include:
 - no raw secrets in workspace data
 - integrations are dry-run unless explicitly upgraded
 - external writes require explicit approval/outbox boundary
-- receipts are human-facing trust records
-- evidence and review are different from receipts
-- gates recommend review focus but do not grant authority
-- agent packets define allowed paths, sources, actions, and stop conditions
-- `agent start` persists the packet and claim; `agent brief` is read-only
-- `agent check` verifies proof state and observed changes
+- run records are human-facing records of what happened
+- check results and reviews are different from run records
+- suggested checks recommend review focus but do not grant approval
+- task briefs define allowed files, sources, actions, and stop conditions
+- `agent start` saves the task brief and task lock; `agent brief` is read-only
+- `agent check` verifies check status and observed changes
 
 #### `docs/agent/common-workflows.md`
 
@@ -182,7 +182,7 @@ Examples:
 - add a CLI command
 - add a schema field
 - add a validation rule
-- add a source or receipt behavior
+- add a source or run-record behavior
 - add an integration dry-run action
 - update examples and tests
 - update docs when behavior changes
@@ -199,7 +199,7 @@ It should include:
 - focused test patterns
 - install smoke
 - JSON smoke expectations
-- when browser/dashboard verification matters
+- when browser-visible surface verification matters
 - how to report skipped checks honestly
 
 #### `docs/agent/documentation-freshness.md`
@@ -211,9 +211,9 @@ It should include:
 - command changes update command reference
 - schema/model changes update schema docs and core object docs
 - agent command changes update agent contract
-- source/receipt changes update source-of-truth or relevant product docs
-- gate changes update authority-and-gates
-- example behavior changes update quickstart/showcase docs where needed
+- source/run-record changes update source-of-truth or relevant product docs
+- required-check changes update authority-and-gates
+- example behavior changes update quickstart and example docs where needed
 
 ## Path-Specific Guidance
 
@@ -244,13 +244,14 @@ Examples:
 Agent-ready documentation should become part of the Palari Company OS model
 without becoming a new ceremony layer.
 
-### Work Items
+### Tasks
 
-Work items may eventually reference relevant docs:
+Palari derives relevant documentation hints from each task's files and risk. The
+hints appear in the compiled task brief; they are not a new source of permission:
 
 ```json
 {
-  "id": "WORK-1234",
+  "work_item": "WORK-1234",
   "recommended_docs": [
     "docs/agent/repo-map.md",
     "docs/agent/contracts-and-invariants.md"
@@ -260,17 +261,17 @@ Work items may eventually reference relevant docs:
 
 This is advisory context, not authority.
 
-### Agent Packets
+### Task Briefs
 
-`palari agent brief` and `palari agent start` should eventually include compact
-documentation hints:
+`palari agent brief`, `palari agent start`, and `palari agent check` include
+compact documentation hints:
 
 ```json
 {
   "recommended_docs": [
     {
       "path": "docs/agent/contracts-and-invariants.md",
-      "why": "This work changes receipt and integration boundary behavior."
+      "why": "This task changes run-record and integration-boundary behavior."
     }
   ],
   "omitted_context": [
@@ -279,24 +280,24 @@ documentation hints:
 }
 ```
 
-The packet should not dump full docs unless explicitly requested. It should
+The task brief does not dump full docs. It should
 point to the right docs.
 
-### Gates
+### Required Checks
 
-Gate recommendations can reference docs as review aids:
+Required-check recommendations can reference docs as review aids:
 
-- source-boundary -> source and receipt docs
-- external-write -> integration and outbox docs
-- deploy-runtime -> release and operations docs
-- product-overclaim -> README/showcase/docs maturity guidance
+- `source-boundary` -> source and run-record docs
+- `external-write` -> integration and outbox docs
+- `deploy-runtime` -> release and operations docs
+- `product-overclaim` -> README/example/docs maturity guidance
 
-The gate still remains read-only and advisory.
+The recommendation remains read-only and advisory.
 
-### Receipts
+### Run Records
 
-Receipts should not become documentation records, but they can reference changed
-docs when a work item updates public behavior:
+Run records should not become documentation records, but they can reference changed
+docs when a task updates public behavior:
 
 ```json
 {
@@ -338,7 +339,7 @@ Example status:
 }
 ```
 
-Missing documentation should not block work unless a specific work item requires
+Missing documentation should not block work unless a specific task requires
 documentation as an output or evidence record.
 
 ### `palari docs init`
@@ -426,11 +427,11 @@ Target behavior:
 Agent-ready documentation should not:
 
 - create tickets
-- create claims
+- create task locks
 - create reviewer notes
-- require acceptance workflows
+- require approval workflows
 - replace source code as truth
-- replace tests as proof
+- replace tests as verification
 - store canonical knowledge only in machine-local memory
 - auto-generate docs that humans and agents cannot trust
 - require huge always-loaded instruction files
@@ -445,10 +446,10 @@ Did this change alter any of these?
 - public CLI commands
 - JSON output shape
 - workspace schema or validation
-- agent packet/check/start behavior
-- sources, receipts, evidence, review, or human decision semantics
+- agent task-brief/check/start behavior
+- sources, run records, check results, review, or approval semantics
 - integration/outbox behavior
-- gate recommendations
+- required-check recommendations
 - examples or quickstarts
 - installation or verification commands
 
@@ -458,9 +459,9 @@ If no, no docs update is needed.
 
 This rule should remain a judgment call, not a ceremony checklist.
 
-## Phased Roadmap
+## Delivery Status
 
-### Phase 1: Documentation Foundation
+### Complete: Documentation Foundation
 
 Create the canonical `docs/agent/` set:
 
@@ -478,9 +479,9 @@ Success criteria:
 - docs do not overclaim implementation maturity
 - no new process objects are introduced
 
-### Phase 2: Lightweight Freshness Checks
+### Complete: Lightweight Freshness Checks
 
-Add `palari docs check`.
+`palari docs check` provides the lightweight freshness check.
 
 Success criteria:
 
@@ -490,18 +491,18 @@ Success criteria:
 - runs inside normal verification
 - does not require new dependencies
 
-### Phase 3: Agent Packet Doc Hints
+### Complete: Task-Brief Doc Hints
 
-Add `recommended_docs` to agent brief/start/check outputs.
+`recommended_docs` is present in agent brief/start/check outputs.
 
 Success criteria:
 
 - doc hints are compact and deterministic
-- packet does not dump whole docs
+- task brief does not dump whole docs
 - omitted context is explicit
 - agents can find the right docs faster
 
-### Phase 4: Path-Specific Agent Guidance
+### Future: Path-Specific Agent Guidance
 
 Add sparse nested `AGENTS.md` files only where needed.
 
@@ -511,7 +512,7 @@ Success criteria:
 - no duplicated canonical rules
 - instructions differ materially by path
 
-### Phase 5: Budgeted Context Packs
+### Future: Budgeted Context Packs
 
 Add optional budget-aware context support.
 
@@ -531,13 +532,14 @@ Success criteria:
 
 This system fits the current model:
 
-- work items remain the unit of intended work
-- attempts remain concrete executions
-- receipts remain human-facing trust records
-- evidence/review/human decisions remain separate governance records
-- integrations remain dry-run until future live execution is explicitly designed
-- gates remain read-only review recommendations
-- agent packets remain bounded execution contracts
+- tasks remain the unit of intended work
+- runs remain concrete executions
+- run records remain human-facing trust records
+- checks, reviews, and approvals remain separate records
+- generic integrations remain dry-run; a supported live adapter still requires
+  the explicit plan, approval, outbox, and send boundaries
+- required-check recommendations remain read-only review aids
+- task briefs remain bounded execution instructions
 
 Agent-ready docs should make those primitives easier to use. They should not
 replace or weaken them.

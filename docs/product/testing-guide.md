@@ -1,69 +1,78 @@
 # Testing Guide
 
-The main verification command is:
+Palari has one authoritative candidate command:
 
 ```bash
-./scripts/verify.sh
+python3 -m pip install -e ".[dev]"
+./scripts/verify.sh complete
 ```
 
-It runs:
+`./scripts/verify.sh` defaults to `complete`. The complete check runs the current test
+suite once, static checks once, PCAW conformance once, and one isolated wheel
+build/install smoke. CI invokes this command on Python 3.12. Python 3.10, 3.11,
+3.13, and 3.14 run only source import, pure rules-and-checks, and CLI-help
+compatibility checks.
 
-- unit tests
-- style checks with `scripts/check_style.py`
-- Python compilation
-- JSON validity checks for example workspaces and schemas
-- CLI smoke checks for `validate`, `state`, `queue`, `detail`, `scope`,
-  `history`, and `maintainer status`
-- validation and queue/detail/history smoke checks for the repo dogfood
-  workspace at `workspaces/palari-company-os`
+CI runs branch candidates through `pull_request` and runs `push` only on
+`main`, so an open pull request is not evaluated again merely because its branch
+was pushed. Superseded runs are cancelled.
 
-The package install smoke command is:
+## What the candidate proves
+
+The complete profile includes:
+
+1. exhaustive pure rules, task-limit, and canonicalization tests;
+2. focused filesystem, symlink, history, verification, and required stored-format
+   reader tests;
+3. one temporary-workspace CLI golden path and structured failures;
+4. supported adapter contract tests separated from core permission tests;
+5. repository text checks, Ruff, mypy, compilation, schema checks, agent-ready
+   documentation checks, PCAW TCB accounting, and PCAW conformance; and
+6. one wheel built and installed into an isolated temporary virtual environment.
+
+The installed smoke initializes a temporary Git workspace without a host
+profile, validates the installed CLI there, and verifies a copied PCAW bundle
+with network sockets disabled. It does not depend on packaged example data and
+does not exercise integration approval or human-decision ceremony.
+
+The committed dogfood workspace is permanent historical/operator evidence. It
+is excluded from candidate style, CLI, and package checks. Full dogfood audit is
+an explicit human operator action, not a prerequisite for ordinary development.
+
+## Focused iteration
+
+Name the relevant test modules while changing a coherent slice:
+
+```bash
+./scripts/verify.sh focused tests.test_governance_kernel
+./scripts/verify.sh focused tests.test_validation tests.test_transition_checks
+./scripts/verify.sh focused tests.test_integrations tests.test_linear_adapter
+```
+
+Focused mode validates and runs only the named `tests.test_*` modules. It has no
+changed-path registry and no hidden fallback to the complete suite. Run the
+complete profile only after focused repairs stabilize.
+
+For the package boundary alone:
 
 ```bash
 ./scripts/install_smoke.sh
 ```
 
-It creates a temporary virtual environment, installs the package in editable
-mode, imports `palari_company_os`, and runs the installed `palari` command
-against the example workspace.
+This direct command is diagnostic; a successful complete profile has already
+run the same smoke once.
 
-Focused commands:
+## Performance and fixture rules
 
-```bash
-python3 -m pip install -e .
-python3 -m unittest discover -s tests
-python3 -m compileall -q src
-python3 -m json.tool examples/acme-company-os/workspace.json
-python3 -m json.tool workspaces/palari-company-os/workspace.json
-python3 -m json.tool schemas/workspace.schema.json
-./bin/palari --workspace workspaces/palari-company-os validate
-./bin/palari --workspace workspaces/palari-company-os queue
-./bin/palari --workspace tests/fixtures/workspaces/split-workspace validate
-./bin/palari --workspace tests/fixtures/workspaces/split-workspace detail WORK-SPLIT
-```
+- Keep lifecycle matrices pure and deterministic.
+- Use temporary current workspaces for CLI and mutation tests.
+- Create Git repositories, spawn Palari, copy workspaces, scan journals, and
+  build packages only when that operation is the behavior under test.
+- Give each retained public surface one or two translation tests rather than a
+  duplicate rules matrix.
+- Profile only the slowest meaningful areas reported by the parallel runner.
+- Never make persistent caches, the committed example, or dogfood history into
+  permission to approve.
 
-The test suite covers:
-
-- model loading
-- strict validation fixtures
-- unknown-field rejection
-- unsupported schema version rejection
-- cross-reference validation
-- invalid lifecycle state rejection
-- queue state
-- detail assembly
-- stale evidence
-- stale review
-- scope allow/block behavior
-- append-only history events for successful mutations
-- failed mutations do not append history events
-- human authority and approval capability
-- quorum completion gates
-- valid accepted/completed work
-- authoring commands
-- lifecycle commands
-- migration from legacy unversioned workspaces
-- read-only split workspace collection files
-- write refusal for split workspaces
-- external maintainer status
-- dogfood workspace validation and read-model smoke checks
+When a candidate fails, reproduce the exact failure with focused tests, repair
+it, and rerun the complete check only after the focused checks are stable.

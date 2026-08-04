@@ -8,39 +8,6 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 mkdir -p "$assets_dir"
 
-echo "Generating dashboard HTML..."
-"$repo_dir/bin/palari" --workspace "$repo_dir/examples/acme-company-os" dashboard --out "$tmp_dir/dashboard" >/dev/null
-
-python3 - "$tmp_dir/dashboard/index.html" "$tmp_dir/dashboard/index-light.html" "$tmp_dir/dashboard/index-dark.html" <<'PY'
-from pathlib import Path
-import sys
-
-source = Path(sys.argv[1])
-light = Path(sys.argv[2])
-dark = Path(sys.argv[3])
-html = source.read_text(encoding="utf-8")
-marker = '<script src="app.js"></script>'
-if marker not in html:
-    raise SystemExit("dashboard HTML did not contain app.js marker")
-
-light.write_text(
-    html.replace(
-        marker,
-        '<script>localStorage.setItem("palari-dashboard-theme", "light");</script>\n'
-        '  <script src="app.js"></script>',
-    ),
-    encoding="utf-8",
-)
-dark.write_text(
-    html.replace(
-        marker,
-        '<script>localStorage.setItem("palari-dashboard-theme", "dark");</script>\n'
-        '  <script src="app.js"></script>',
-    ),
-    encoding="utf-8",
-)
-PY
-
 python3 - "$tmp_dir/blocked-terminal.html" <<'PY'
 from pathlib import Path
 import sys
@@ -133,8 +100,8 @@ Path(sys.argv[1]).write_text(
 </head>
 <body>
   <main>
-    <div class="caption">Palari stops an AI file change outside the approved boundary.</div>
-    <section class="terminal" aria-label="Palari blocked write terminal output">
+    <div class="caption">Palari stops an AI change outside its allowed files.</div>
+    <section class="terminal" aria-label="Palari blocked file-change output">
       <div class="chrome">
         <span class="dot red"></span>
         <span class="dot yellow"></span>
@@ -142,12 +109,12 @@ Path(sys.argv[1]).write_text(
         <span class="title">palari demo</span>
       </div>
       <pre><span class="command">$ palari agent check WORK-0003 --as PALARI-SOFIA --changed deploy/production.yml</span>
-Agent check: CHECK-WORK-0003-PALARI-SOFIA-EXECUTE-V1
+Task check: CHECK-WORK-0003-PALARI-SOFIA-EXECUTE-V1
 OK: no
 
-<span class="blocked">*** BLOCKED: file change is outside Sofia's write boundary ***</span>
+<span class="blocked">*** BLOCKED: file change is outside Sofia's allowed files ***</span>
 Offending path: <span class="path">deploy/production.yml</span>
-Allowed write paths: <span class="allowed">docs/product/company-os.md</span></pre>
+Allowed files: <span class="allowed">docs/product/company-os.md</span></pre>
     </section>
   </main>
 </body>
@@ -168,7 +135,7 @@ done
 if [[ -z "$browser_cmd" ]]; then
   cat >&2 <<'EOF'
 No Chromium-compatible browser was found.
-Dashboard HTML was regenerated, but PNG screenshots were not captured.
+Demo HTML was generated, but PNG screenshots were not captured.
 Install chromium, chromium-browser, google-chrome, or google-chrome-stable and rerun this script.
 EOF
   exit 0
@@ -198,9 +165,5 @@ capture() {
 }
 
 capture "$tmp_dir/blocked-terminal.html" "$assets_dir/palari-blocked-terminal.png" "1440,760"
-capture "$tmp_dir/dashboard/index-light.html" "$assets_dir/palari-dashboard-light-desktop.png" "1440,900"
-capture "$tmp_dir/dashboard/index-dark.html" "$assets_dir/palari-dashboard-dark-desktop.png" "1440,900"
-capture "$tmp_dir/dashboard/index-light.html" "$assets_dir/palari-dashboard-light-mobile.png" "375,812"
-capture "$tmp_dir/dashboard/index-dark.html" "$assets_dir/palari-dashboard-dark-mobile.png" "375,812"
 
 echo "Demo assets written to $assets_dir"

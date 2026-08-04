@@ -1,0 +1,1 @@
+../../../valid/accepted/outputs/result.txt

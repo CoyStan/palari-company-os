@@ -1,28 +1,27 @@
 # External Playbooks
 
-Palari Company OS can link to external operating playbooks without making them
-the source of authority.
+Palari can link to outside operating guides without letting them change task
+permissions or approval rules.
 
-The first supported pattern is Superpowers compatibility. A workspace can point
-at `obra/Superpowers`, list the specific skills it wants to allow, and then let
-Palari recommend those skills for a work item.
+This recommendation feature is parked pending a product decision. It is not a
+current product feature and carries no pre-1.0 compatibility promise. The
+retained pattern can point to `obra/Superpowers`, allow a specific list of
+skills, and recommend those skills for a task. Recommendations do not become
+required steps or grant permission.
 
-Palari still owns:
+Palari remains the source of truth for:
 
-- goals
-- scope
-- selected sources
-- allowed actions
-- authority boundaries
-- receipts
-- evidence
-- review
-- human decisions
-- outcomes
+- goals;
+- allowed files, sources, and actions;
+- required checks and approvals;
+- run records and check results;
+- independent review results;
+- human approvals; and
+- final results.
 
-External playbooks contribute process guidance only.
+External playbooks provide process guidance only.
 
-## Workspace Contract
+## Stored format
 
 Declare a playbook source in `workspace.json`:
 
@@ -51,7 +50,7 @@ Declare a playbook source in `workspace.json`:
 }
 ```
 
-Work items can pin human- or Palari-selected skills:
+A task can pin skills selected by a human or agent:
 
 ```json
 {
@@ -62,28 +61,27 @@ Work items can pin human- or Palari-selected skills:
 }
 ```
 
-Validation fails closed if a work item references a missing playbook source or a
-skill not listed by that source.
+Validation stops safely if a task names a missing playbook source or a skill
+that source does not allow.
 
-## Core Default Set
+## Retained default set
 
 Palari starts with three Superpowers skills as the default operating set for
-active repo work:
+active repository tasks:
 
 - `superpowers:verification-before-completion`
 - `superpowers:executing-plans`
 - `superpowers:systematic-debugging`
 
-The point is not to outsource judgment to Superpowers. The point is to give a
-Palari a small reusable operating loop:
+These skills do not replace judgment. They give an agent a small reusable
+working loop:
 
-- keep the work structured and resumable
-- verify before completion claims
-- switch into a disciplined repair loop when evidence or review fails
+- keep the task structured and resumable;
+- verify before saying it is complete; and
+- use a disciplined repair loop when checks or review fail.
 
-These defaults are exposed in `playbooks sources`, included in recommendation
-payloads for open work when available, and dogfooded in the Palari Company OS
-workspace.
+These defaults appear in `playbooks sources`, are included in recommendations
+for open tasks when available, and are used in Palari's own repository.
 
 ## Commands
 
@@ -94,19 +92,19 @@ List configured sources and available playbooks:
 ./bin/palari playbooks sources --json
 ```
 
-Ask Palari which playbooks fit a work item:
+Ask Palari which playbooks fit a task:
 
 ```bash
 ./bin/palari playbooks recommend WORK-0003
 ./bin/palari playbooks recommend WORK-0003 --json
 ```
 
-The recommendation output includes short operating guidance for each recommended
-playbook. This guidance is intentionally lightweight: it helps an agent start
-well, but it does not create a packet, gate, claim, review, or approval step.
-The work item's scope and authority remain the source of truth.
+The result includes one short `action_guidance` sentence for each recommended
+playbook. This guidance helps an agent start, but it does not create a task
+brief, required check, assignment, review result, or approval. The task's
+allowed files, sources, actions, and approval rules remain the source of truth.
 
-Create a playbook source with the normal authoring command:
+Create a playbook source with the existing command:
 
 ```bash
 ./bin/palari playbook-source create superpowers \
@@ -118,34 +116,37 @@ Create a playbook source with the normal authoring command:
   --list included_playbooks=brainstorming,writing-plans,verification-before-completion
 ```
 
-## Recommendation Loop
+## Recommendation loop
 
 Palari combines two signals:
 
-- selected playbooks already listed on the work item
-- automatic recommendations from work state
+- playbooks already selected on the task; and
+- automatic suggestions based on task status.
 
 Each recommendation also carries one practical `action_guidance` sentence for
-CLI output and future UI/agent use.
+CLI output and possible future UI or agent use.
 
 Examples:
 
-- no attempt yet: consider brainstorming and planning skills
-- open work: include the core default operating set when available
-- attempt exists but evidence is missing: use verification-before-completion
-- evidence passed but review is missing: use requesting-code-review
-- evidence failed or review requested changes: use systematic-debugging
-- high-risk or high-intensity work: consider subagent-driven-development
-- outcome has failures or follow-ups: use executing-plans
+- no run yet: consider brainstorming and planning skills;
+- open task: include the default set when available;
+- a run exists but check results are missing: use
+  `verification-before-completion`;
+- checks passed but independent review is missing: use
+  `requesting-code-review`;
+- checks failed or review requested changes: use `systematic-debugging`;
+- high-risk or high-intensity task: consider `subagent-driven-development`;
+  and
+- a final result lists failures or follow-up work: use `executing-plans`.
 
-This is the start of a self-improving loop. As work accumulates outcomes,
-failures, and follow-ups, Palari can recommend better operating playbooks for
-future work packets.
+As completed tasks record results, failures, and follow-ups, maintainers can
+improve these deterministic recommendations. Palari does not learn or execute
+external instructions by itself.
 
 ## Boundaries
 
-Do not treat imported playbooks as authority. They are guidance that must sit
-inside the Palari work boundary.
+Do not treat imported playbooks as permission or approval. They are guidance
+that must stay inside the Palari task boundary.
 
-Do not blindly sync or execute external instructions. Pin sources by URI/ref,
-list allowed skills explicitly, and keep workspace validation strict.
+Do not blindly sync or execute external instructions. Pin sources by URI and
+ref, list allowed skills explicitly, and keep workspace validation strict.

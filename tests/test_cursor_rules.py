@@ -16,10 +16,10 @@ from palari_company_os.cursor_rules import (
     cursor_rules_status,
     install_cursor_rules,
 )
+from palari_company_os.agent_runtime import start_agent
+from palari_company_os.authoring import create_record
 from palari_company_os.workspace import Workspace as Ws
-
-
-DOGFOOD = REPO_ROOT / "workspaces" / "palari-company-os"
+from tests.workspace_fixture import write_current_agent_workspace
 
 
 class CursorRulesTests(unittest.TestCase):
@@ -27,10 +27,7 @@ class CursorRulesTests(unittest.TestCase):
         self._tmp = tempfile.mkdtemp()
         self.workspace_path = Path(self._tmp) / "ws"
         self.workspace_path.mkdir()
-        shutil.copy2(DOGFOOD / "workspace.json", self.workspace_path / "workspace.json")
-        palari_dir = self.workspace_path / ".palari"
-        if palari_dir.exists():
-            shutil.rmtree(palari_dir)
+        write_current_agent_workspace(self.workspace_path / "workspace.json")
         self._git_init()
 
     def tearDown(self) -> None:
@@ -66,9 +63,6 @@ class CursorRulesTests(unittest.TestCase):
         )
 
     def _start_claim(self) -> None:
-        from palari_company_os.agent_runtime import start_agent
-        from palari_company_os.authoring import create_record
-
         create_record(
             str(self.workspace_path),
             "work",
@@ -93,8 +87,12 @@ class CursorRulesTests(unittest.TestCase):
             command="test",
         )
         ws = Ws.load(self.workspace_path)
-        result = start_agent(ws, self.workspace_path, "WORK-TEST-CURSOR", "PALARI-STEWARD", "execute")
-        assert result.get("start", {}).get("status") == "claimed", f"Claim failed: {result.get('start', {})}"
+        result = start_agent(
+            ws, self.workspace_path, "WORK-TEST-CURSOR", "PALARI-STEWARD", "execute"
+        )
+        assert result.get("start", {}).get("status") == "claimed", (
+            f"Claim failed: {result.get('start', {})}"
+        )
 
     def _rule_path(self) -> Path:
         return Path(self._tmp) / RULE_RELATIVE_PATH

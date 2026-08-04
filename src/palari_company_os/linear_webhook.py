@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .errors import WorkspaceError
-from .history import append_history_event
+from .governance_journal import MutationMetadata, utc_timestamp
 from .models import Proposal, WorkItem
 from .store import load_store, validate_data, workspace_file_path, write_store
 from .workspace import Workspace
@@ -377,7 +377,6 @@ def _sync_issue_event(workspace_path: str | Path, issue: dict[str, str], action:
     mutated = False
     updated_proposals: list[str] = []
     updated_work: list[str] = []
-    history_events: list[tuple[str, str, str, dict[str, Any], dict[str, Any]]] = []
 
     for proposal in proposal_matches:
         record = _record_by_id(proposals, proposal.id)
@@ -389,7 +388,6 @@ def _sync_issue_event(workspace_path: str | Path, issue: dict[str, str], action:
         if record != before:
             mutated = True
             updated_proposals.append(proposal.id)
-            history_events.append(("proposal", "proposals", proposal.id, before, deepcopy(record)))
 
     for work in work_matches:
         record = _record_by_id(work_items, work.id)
@@ -398,12 +396,25 @@ def _sync_issue_event(workspace_path: str | Path, issue: dict[str, str], action:
         if record != before:
             mutated = True
             updated_work.append(work.id)
-            history_events.append(("work-item", "work_items", work.id, before, deepcopy(record)))
 
     if mutated:
-        workspace = write_store(store)
-        for object_type, collection, object_id, before, after in history_events:
-            _append_sync_history(store.data_path, workspace, object_type, collection, object_id, before, after)
+        objects = tuple(
+            {"type": "proposal", "collection": "proposals", "id": object_id}
+            for object_id in updated_proposals
+        ) + tuple(
+            {"type": "work", "collection": "work_items", "id": object_id}
+            for object_id in updated_work
+        )
+        write_store(
+            store,
+            metadata=MutationMetadata(
+                command="linear webhook",
+                actor="linear-webhook",
+                action="synced",
+                timestamp=utc_timestamp(),
+                objects=objects,
+            ),
+        )
     return {
         "mutated": mutated,
         "reason": "linked_records_synced" if mutated else "linked_records_already_current",
@@ -412,30 +423,6 @@ def _sync_issue_event(workspace_path: str | Path, issue: dict[str, str], action:
         "updated_proposals": updated_proposals,
         "updated_work_items": updated_work,
     }
-
-
-def _append_sync_history(
-    workspace_path: str | Path,
-    workspace: Workspace,
-    object_type: str,
-    object_collection: str,
-    object_id: str,
-    before: dict[str, Any],
-    after: dict[str, Any],
-) -> None:
-    append_history_event(
-        workspace_path,
-        schema_version=workspace.schema_version,
-        command="linear webhook",
-        action="synced",
-        object_type=object_type,
-        object_collection=object_collection,
-        object_id=object_id,
-        actor="linear-webhook",
-        before=before,
-        after=after,
-    )
-
 
 def _event_record(
     workspace_path: str | Path,

@@ -5,6 +5,13 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .authority_plan import build_authority_plan
+from .command_surface import bind_palari_command_payload, palari_workspace_command
+from .governance_kernel import (
+    EXTERNAL_WRITE_ACTIONS,
+    TERMINAL_WORK_STATUSES,
+    low_risk_completion_policy_applies,
+)
 from .read_models import detail
 from .repo_docs import documentation_state, recommended_docs_for_work
 from .review_guides import build_review_guide
@@ -12,8 +19,6 @@ from .workspace import Workspace
 
 
 SUPPORTED_MODES = {"execute", "review"}
-TERMINAL_WORK_STATUSES = {"completed", "closed", "done"}
-EXTERNAL_WRITE_ACTIONS = {"external_write", "write_external", "write"}
 
 
 def build_agent_brief(
@@ -33,6 +38,7 @@ def build_agent_brief(
         "created_at": created_at,
         "mode": mode,
         "workspace": workspace.name,
+        "workspace_file": str(workspace.data_path),
         "status": "blocked",
         "agent": _palari_ref(palari_id, palari),
         "work_item": _work_ref(work_id, work),
@@ -48,21 +54,49 @@ def build_agent_brief(
         return _finalize_packet(packet, blockers)
 
     work_detail = detail(workspace, work.id)
-    blockers.extend(_work_blockers(workspace, work_detail, palari_id, mode))
+    current_attempt = work_detail.get("attempt") or {}
+    authority_plan = build_authority_plan(
+        workspace,
+        work.id,
+        builder_id=(
+            palari_id
+            if mode == "execute"
+            else str(current_attempt.get("actor", ""))
+        ),
+        reviewer_id=palari_id if mode == "review" else "",
+    )
+    work_detail = _effective_approval_projection(work_detail, authority_plan)
+    review_context = (
+        _review_context(workspace, work.id, mode)
+        if mode == "review"
+        and work_detail["attention"] == "needs-review"
+        else None
+    )
+    blockers.extend(
+        _work_blockers(
+            workspace,
+            work_detail,
+            palari_id,
+            mode,
+            review_context,
+            authority_plan,
+        )
+    )
     status = "blocked" if blockers else "ready"
     proof_state = _proof_state(work_detail)
-    review_context = _review_context(workspace, work.id, mode)
     capability_policy = _capability_policy(workspace, work.id, palari_id)
 
     packet.update(
         {
             "status": status,
-            "agent": _palari_packet(work_detail["palari"], palari_id),
+            "agent": _palari_ref(palari_id, palari),
             "work_item": _work_packet(work_detail["work_item"]),
             "goal": _goal_packet(work_detail["goal"]),
             "workbench": _workbench_packet(work_detail["workbench"]),
             "dependencies": [_dependency_packet(item) for item in work_detail["dependencies"]],
-            "one_sentence_instruction": _instruction(work_detail, status, mode),
+            "one_sentence_instruction": _instruction(
+                work_detail, status, mode, palari.name
+            ),
             "allowed_paths": _allowed_paths(work_detail["work_item"], mode),
             "allowed_resources": list(work.allowed_resources),
             "allowed_capabilities": capability_policy["allowed_capabilities"],
@@ -72,23 +106,35 @@ def build_agent_brief(
             "required_output": _required_output(work_detail["work_item"], mode),
             "completion_contract": _completion_contract(work_detail, mode),
             "stop_conditions": _stop_conditions(work_detail, status, mode),
-            "state": _state_packet(work_detail),
+            "state": _state_packet(work_detail, status, blockers),
             "proof_state": proof_state,
+            "authority_plan": authority_plan,
             "documentation_state": docs_state,
             "recommended_docs": recommended_docs_for_work(work_detail, workspace.path),
             "next_allowed_commands": _next_allowed_commands(
+                workspace,
                 work.id,
                 palari_id,
                 status,
                 mode,
-                proof_state,
+                review_context,
             ),
             "blockers": blockers,
         }
     )
     if review_context:
         packet["review_context"] = review_context
-        packet["human_action_boundary"] = _human_action_boundary()
+        if review_context["human_review_commands"]:
+            packet["human_action_boundary"] = _human_action_boundary()
+        matching_agent_commands = [
+            item
+            for item in review_context["agent_review_commands"]
+            if item.get("reviewer") == palari_id
+        ]
+        if matching_agent_commands:
+            packet["agent_action_boundary"] = _agent_action_boundary(
+                matching_agent_commands
+            )
     return _finalize_packet(packet, blockers)
 
 
@@ -132,22 +178,68 @@ def _work_blockers(
     work_detail: dict[str, Any],
     palari_id: str,
     mode: str,
+    review_context: dict[str, Any] | None = None,
+    authority_plan: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     work = work_detail["work_item"]
     workbench = work_detail["workbench"]
+    attention = work_detail["attention"]
     assigned = work.get("palari") == palari_id
     allowed_by_workbench = bool(workbench and palari_id in workbench.get("palari_ids", []))
-    if not assigned and not allowed_by_workbench:
+    reviewer_ids = {
+        candidate.get("id")
+        for candidate in (review_context or {}).get("reviewer_candidates", [])
+        if candidate.get("identity_type") == "palari"
+    }
+    current_review = work_detail.get("review") or {}
+    recorded_current_reviewer = bool(
+        mode == "review"
+        and attention == "needs-human-decision"
+        and current_review.get("reviewer") == palari_id
+    )
+    assigned_for_mode = (
+        palari_id in reviewer_ids or recorded_current_reviewer
+        if mode == "review"
+        else assigned or allowed_by_workbench
+    )
+    if not assigned_for_mode:
+        missing = (
+            "eligible independent Palari reviewer"
+            if mode == "review"
+            else "assigned or workbench-allowed Palari"
+        )
         blockers.append(
             _blocker(
                 "PALARI_NOT_ASSIGNED",
-                f"{palari_id} is not assigned to {work['id']} or allowed by its workbench.",
-                missing="assigned or workbench-allowed Palari",
+                f"{palari_id} is not authorized for {mode} mode on {work['id']}.",
+                missing=missing,
             )
         )
 
     if mode == "execute":
+        if (
+            authority_plan
+            and authority_plan["requires_review"]
+            and not authority_plan["viable"]
+        ):
+            blockers.append(
+                _blocker(
+                    str(
+                        authority_plan["code"]
+                        or "AUTHORITY_PLAN_UNSATISFIABLE"
+                    ),
+                    (
+                        f"{authority_plan['message']} Smallest safe correction: "
+                        f"{authority_plan['smallest_correction']}"
+                    ).strip(),
+                    missing=(
+                        "viable independent reviewer and qualified human approver"
+                        if authority_plan["requires_human_approval"]
+                        else "viable independent reviewer"
+                    ),
+                )
+            )
         for dependency in work_detail["dependencies"]:
             if dependency.get("status") not in TERMINAL_WORK_STATUSES:
                 blockers.append(
@@ -196,15 +288,14 @@ def _work_blockers(
                 )
             )
 
-    attention = work_detail["attention"]
     if mode == "review":
-        if attention in {"needs-review", "receipt-ready"}:
-            if work_detail.get("evidence") is None and work_detail.get("receipt") is None:
+        if attention == "needs-review":
+            if work_detail.get("evidence") is None:
                 blockers.append(
                     _blocker(
                         "REVIEW_CONTEXT_MISSING",
-                        "Review mode needs evidence or a receipt to inspect.",
-                        missing="reviewable evidence or receipt",
+                        "Review mode needs current evidence to inspect.",
+                        missing="reviewable evidence",
                     )
                 )
             return blockers
@@ -223,7 +314,7 @@ def _work_blockers(
         blockers.append(
             _blocker(
                 "REVIEW_NOT_READY",
-                f"Current attention state is {attention}; review mode is for needs-review or receipt-ready work.",
+                "The work is not ready for independent review; current exact evidence is required first.",
                 missing="review-ready work",
             )
         )
@@ -241,6 +332,14 @@ def _work_blockers(
         blockers.append(_blocker("WORK_BLOCKED", work_detail["why"], missing="unblocked work"))
     elif attention == "closed":
         blockers.append(_blocker("WORK_CLOSED", work_detail["why"], missing="open work item"))
+    elif attention == "ready-to-complete":
+        blockers.append(
+            _blocker(
+                "TERMINALIZATION_PENDING",
+                work_detail["why"],
+                missing="deterministic terminal reconciliation",
+            )
+        )
     elif attention == "ready-to-integrate":
         blockers.append(
             _blocker(
@@ -257,23 +356,78 @@ def _work_blockers(
                 missing="review-mode packet",
             )
         )
-    elif attention == "receipt-ready":
-        blockers.append(
-            _blocker(
-                "RECEIPT_READY_REVIEW",
-                work_detail["why"],
-                missing="human output review or follow-up",
-            )
-        )
-
     return blockers
+
+
+def _effective_approval_projection(
+    work_detail: dict[str, Any],
+    authority_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Project the effective approval floor without rewriting durable policy."""
+
+    work = work_detail["work_item"]
+    safety = work_detail["safety"]
+    effective_count = int(
+        authority_plan.get("effective_final_approval_count", 0)
+    )
+    declared_count = int(authority_plan.get("required_approval_count", 0))
+    current_count = _approval_progress_current(
+        str(safety.get("approval_progress", ""))
+    )
+    reviewed_nonterminal_candidate = bool(
+        work_detail.get("attention") == "ready-to-complete"
+        and str(work.get("status", "")) not in TERMINAL_WORK_STATUSES
+        and work_detail.get("review") is not None
+        and safety.get("review_state") == "accept-ready"
+    )
+    if not (
+        authority_plan.get("requires_review")
+        and effective_count > declared_count
+        and current_count < effective_count
+        and reviewed_nonterminal_candidate
+    ):
+        return work_detail
+
+    projected = dict(work_detail)
+    projected["attention"] = "needs-human-decision"
+    projected["why"] = (
+        "Review is accept-ready, but effective final approval quorum is "
+        f"incomplete ({current_count}/{effective_count})."
+    )
+    projected["next_action"] = (
+        "Collect the required current decision from a qualified human."
+    )
+    projected["next_step_type"] = "human-decision"
+    projected["safety"] = {
+        **safety,
+        "ai_safe_to_proceed": False,
+        "waiting_on_human": True,
+        "integration_state": "not-ready",
+        "approval_progress": f"{current_count}/{effective_count}",
+        "acceptance_state": "pending",
+    }
+    return projected
+
+
+def _approval_progress_current(progress: str) -> int:
+    try:
+        current, _ = progress.split("/", 1)
+        return max(0, int(current))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _finalize_packet(packet: dict[str, Any], blockers: list[dict[str, Any]]) -> dict[str, Any]:
     packet["blockers"] = blockers
     packet["status"] = "blocked" if blockers else packet.get("status", "ready")
-    packet["context_hash"] = _context_hash(packet)
-    return packet
+    workspace_file = str(packet.get("workspace_file") or "")
+    bound = (
+        bind_palari_command_payload(workspace_file, packet)
+        if workspace_file
+        else packet
+    )
+    bound["context_hash"] = _context_hash(bound)
+    return bound
 
 
 def _palari_ref(palari_id: str, palari: Any) -> dict[str, Any]:
@@ -391,7 +545,9 @@ def _source_packet(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _instruction(work_detail: dict[str, Any], status: str, mode: str) -> str:
+def _instruction(
+    work_detail: dict[str, Any], status: str, mode: str, acting_palari_name: str
+) -> str:
     work = work_detail["work_item"]
     palari = work_detail["palari"] or {"name": work.get("palari", "Palari")}
     if status == "blocked":
@@ -399,7 +555,7 @@ def _instruction(work_detail: dict[str, Any], status: str, mode: str) -> str:
     objective = work.get("scope") or work.get("title", "")
     if mode == "review":
         return (
-            f"{palari.get('name', work.get('palari', 'Palari'))} should review "
+            f"{acting_palari_name} should independently review "
             f"{work['id']} against its scope, evidence, receipt, and forbidden actions."
         )
     return (
@@ -414,9 +570,14 @@ def _allowed_paths(work: dict[str, Any], mode: str) -> dict[str, list[str]]:
             "read": list(work.get("allowed_resources", [])),
             "write": [],
         }
+    path_intents = _path_intents(work)
     return {
         "read": list(work.get("allowed_resources", [])),
-        "write": list(work.get("output_targets", []) or work.get("allowed_resources", [])),
+        "write": (
+            [item["path"] for item in path_intents]
+            if path_intents
+            else list(work.get("output_targets", []) or work.get("allowed_resources", []))
+        ),
     }
 
 
@@ -439,23 +600,57 @@ def _required_output(work: dict[str, Any], mode: str) -> dict[str, Any]:
             "must_not": [
                 "edit work outputs",
                 "record a human review without explicit human instruction",
+                "record a Palari review under any identity other than the packet actor",
+                "convert an advisory review into human acceptance",
                 "perform external writes",
             ],
         }
-    return {
-        "output_targets": list(work.get("output_targets", [])),
+    path_intents = _path_intents(work)
+    required = {
+        "output_targets": (
+            [item["path"] for item in path_intents if item["intent"] != "delete"]
+            if path_intents
+            else list(work.get("output_targets", []))
+        ),
         "fallback_write_paths": list(work.get("allowed_resources", [])),
         "acceptance_target": work.get("acceptance_target", ""),
         "verification_expectations": list(work.get("verification_expectations", [])),
         "must_not": list(work.get("forbidden_actions", [])),
     }
+    if path_intents:
+        required["path_intents"] = path_intents
+    return required
+
+
+def _path_intents(work: dict[str, Any]) -> list[dict[str, str]]:
+    value = work.get("path_intents", [])
+    if not isinstance(value, list):
+        return []
+    return [
+        {"path": str(item["path"]), "intent": str(item["intent"])}
+        for item in value
+        if isinstance(item, dict)
+        and isinstance(item.get("path"), str)
+        and item.get("path")
+        and item.get("intent") in {"create", "modify", "delete"}
+    ]
 
 
 def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, Any]:
     if mode == "review":
+        if work_detail["attention"] == "needs-human-decision":
+            return {
+                "requires_receipt": True,
+                "requires_evidence": True,
+                "requires_review": True,
+                "requires_human_decision": True,
+                "external_writes_allowed": False,
+                "external_write_actions": [],
+                "review_mode": True,
+            }
         return {
             "requires_receipt": False,
-            "requires_evidence": False,
+            "requires_evidence": True,
             "requires_review": False,
             "requires_human_decision": False,
             "external_writes_allowed": False,
@@ -464,20 +659,21 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
         }
     work = work_detail["work_item"]
     external_actions = sorted(set(work.get("allowed_actions", [])) & EXTERNAL_WRITE_ACTIONS)
-    low_risk_light = (
-        work.get("risk") in {"R1", "R2"}
-        and work.get("required_approval_count", 0) == 0
-        and not external_actions
+    receipt = work_detail.get("receipt") or {}
+    low_risk_light = low_risk_completion_policy_applies(
+        risk=str(work.get("risk", "")),
+        intensity=str(work.get("intensity", "")),
+        required_approval_count=int(work.get("required_approval_count", 0)),
+        allowed_actions=list(work.get("allowed_actions", [])),
+        external_writes=list(receipt.get("external_writes", [])),
+        planned_external_writes=list(receipt.get("planned_external_writes", [])),
+        queued_external_writes=list(receipt.get("queued_external_writes", [])),
     )
-    evidence_state = work_detail["safety"]["evidence_state"]
-    receipt_ready = low_risk_light and work_detail["safety"]["receipt_state"] == "ready"
     return {
         "requires_receipt": True,
-        "requires_evidence": False
-        if receipt_ready
-        else evidence_state in {"missing", "stale", "failed"} or not low_risk_light,
+        "requires_evidence": True,
         "requires_review": not low_risk_light,
-        "requires_human_decision": work.get("required_approval_count", 0) > 0,
+        "requires_human_decision": not low_risk_light,
         "external_writes_allowed": bool(external_actions),
         "external_write_actions": external_actions,
     }
@@ -501,13 +697,25 @@ def _stop_conditions(work_detail: dict[str, Any], status: str, mode: str) -> lis
     return conditions
 
 
-def _state_packet(work_detail: dict[str, Any]) -> dict[str, Any]:
+def _state_packet(
+    work_detail: dict[str, Any],
+    status: str,
+    blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    safety = dict(work_detail["safety"])
+    next_action = work_detail["next_action"]
+    next_step_type = work_detail["next_step_type"]
+    if status == "blocked" and safety.get("ai_safe_to_proceed"):
+        safety["ai_safe_to_proceed"] = False
+        next_step_type = "blocked"
+        if blockers:
+            next_action = str(blockers[0].get("message") or next_action)
     return {
         "attention": work_detail["attention"],
         "why": work_detail["why"],
-        "next_action": work_detail["next_action"],
-        "next_step_type": work_detail["next_step_type"],
-        "safety": work_detail["safety"],
+        "next_action": next_action,
+        "next_step_type": next_step_type,
+        "safety": safety,
         "active_parallel_attempts": work_detail["active_parallel_attempts"],
         "coordination_warnings": work_detail["coordination_warnings"],
     }
@@ -522,6 +730,9 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
                 "id",
                 "attempt_id",
                 "outputs_created",
+                "planned_external_writes",
+                "queued_external_writes",
+                "external_writes",
                 "context_packet",
                 "context_hash",
                 "receipt_hash",
@@ -587,51 +798,86 @@ def _record_ref(record: dict[str, Any] | None, fields: list[str]) -> dict[str, A
 
 
 def _next_allowed_commands(
+    workspace: Workspace,
     work_id: str,
     palari_id: str,
     status: str,
     mode: str,
-    proof_state: dict[str, Any] | None = None,
+    review_context: dict[str, Any] | None = None,
 ) -> list[str]:
     if status == "blocked":
         return [
-            f"palari detail {work_id} --json",
-            "palari queue --json",
-            "palari validate --json",
+            palari_workspace_command(
+                workspace.data_path,
+                "detail",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(workspace.data_path, "queue", "--json"),
+            palari_workspace_command(workspace.data_path, "validate", "--json"),
         ]
     if mode == "review":
-        return [
-            f"palari review guide {work_id} --json",
-            f"palari detail {work_id} --json",
-            "palari validate --json",
+        commands = [
+            palari_workspace_command(
+                workspace.data_path,
+                "review",
+                "guide",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(
+                workspace.data_path,
+                "detail",
+                work_id,
+                "--json",
+            ),
+            palari_workspace_command(workspace.data_path, "validate", "--json"),
         ]
+        commands.extend(
+            item["command"]
+            for item in (review_context or {}).get("agent_review_commands", [])
+            if item.get("reviewer") == palari_id
+        )
+        return commands
     return [
-        f"palari scope {work_id} --json",
-        f"palari detail {work_id} --json",
-        "palari validate --json",
-        _receipt_command(work_id, palari_id, proof_state),
+        palari_workspace_command(
+            workspace.data_path,
+            "scope",
+            work_id,
+            "--json",
+        ),
+        palari_workspace_command(
+            workspace.data_path,
+            "detail",
+            work_id,
+            "--json",
+        ),
+        palari_workspace_command(workspace.data_path, "validate", "--json"),
+        palari_workspace_command(
+            workspace.data_path,
+            "agent",
+            "advance",
+            work_id,
+            "--as",
+            palari_id,
+            "--json",
+        ),
     ]
-
-
-def _receipt_command(
-    work_id: str,
-    palari_id: str,
-    proof_state: dict[str, Any] | None = None,
-) -> str:
-    attempt = (proof_state or {}).get("attempt")
-    attempt_id = attempt.get("id", "ATTEMPT-ID") if isinstance(attempt, dict) else "ATTEMPT-ID"
-    return (
-        "palari receipt record RECEIPT-ID "
-        f"--work-item-id {work_id} --attempt-id {attempt_id} --actor {palari_id} --json"
-    )
 
 
 def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, Any] | None:
     if mode != "review":
         return None
     guide = build_review_guide(workspace, work_id)
+    commands = guide.get("review_record_commands", [])
     return {
-        "command": f"palari review guide {work_id} --json",
+        "command": palari_workspace_command(
+            workspace.data_path,
+            "review",
+            "guide",
+            work_id,
+            "--json",
+        ),
         "status": guide.get("status", ""),
         "attention": guide.get("attention", ""),
         "why": guide.get("why", ""),
@@ -642,6 +888,12 @@ def _review_context(workspace: Workspace, work_id: str, mode: str) -> dict[str, 
         "reviewer_candidates": guide.get("reviewer_candidates", []),
         "suggested_verdicts": guide.get("suggested_verdicts", []),
         "review_record_commands": guide.get("review_record_commands", []),
+        "agent_review_commands": [
+            item for item in commands if item.get("identity_type") == "palari"
+        ],
+        "human_review_commands": [
+            item for item in commands if item.get("identity_type") == "human"
+        ],
     }
 
 
@@ -650,13 +902,30 @@ def _human_action_boundary() -> dict[str, Any]:
         "agent_may_execute": False,
         "agent_allowed_use": "Quote or summarize human-only commands for a human supervisor.",
         "human_only_command_fields": [
-            "review_context.review_record_commands[].command",
-            "review_context.reviewer_candidates[].review_record_command",
+            "review_context.human_review_commands[].command",
         ],
         "must_not": [
-            "Do not run review record commands.",
+            "Do not run human review record commands.",
             "Do not claim to be the human reviewer.",
             "Do not convert a review recommendation into human acceptance.",
+        ],
+    }
+
+
+def _agent_action_boundary(commands: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "agent_may_execute": True,
+        "agent_action_command_fields": [
+            "review_context.agent_review_commands[].command",
+        ],
+        "count": len(commands),
+        "must": [
+            "Execute only the command whose reviewer matches this packet actor.",
+            "Keep the verdict advisory; it never records human acceptance.",
+        ],
+        "must_not": [
+            "Do not record a verdict for the builder identity.",
+            "Do not run any human review or human-decision command.",
         ],
     }
 
@@ -685,7 +954,6 @@ def _omitted_context(workspace: Workspace) -> dict[str, Any]:
             "work_items": len(workspace.work_items),
             "palaris": len(workspace.palaris),
             "sources": len(workspace.sources),
-            "history_events": "not included",
         },
     }
 
