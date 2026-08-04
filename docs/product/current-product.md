@@ -221,7 +221,10 @@ Unsupported Cursor, Devin, GLM, and generic session aliases have been removed.
 So have the provider-specific Slack, GitHub, Jira, and email preview shapes,
 the desktop prototype, its demo schema and showcase, and Pages deployment.
 Mission Control is the one supported local human UI. Historical completion
-documents do not define today's product.
+documents do not define today's product. The PR #19 completion contracts for
+journal v2, golden-path repair, and universal/invisible adoption are archived
+under `docs/archive/pr19-contracts/` with a supersession map; they are not
+current operator docs.
 
 ## Non-goals and compatibility
 

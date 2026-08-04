@@ -219,7 +219,9 @@ committed prepare is a full content-bound checkpoint. Later mutation prepares
 replace the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
 `add` and `replace` carry the exact value; `remove` carries no value. Applying
 the delta must reproduce the recorded workspace digest and the delta must equal
-the deterministic minimal diff, otherwise verification fails closed.
+the deterministic minimal diff, otherwise verification fails closed. Historical
+completion-contract notes from the original journal-v2 landing are archived at
+`docs/archive/pr19-contracts/compact-journal-v2-contract.md`.
 
 An already-journaled v1 workspace activates v2 only through an explicit,
 idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified
