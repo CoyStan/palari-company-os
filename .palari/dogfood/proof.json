@@ -1,4 +1,10 @@
 {
   "schema_version": "palari.dogfood_proof.v1",
-  "ranges": []
+  "ranges": [
+    {
+      "base": "a557733d18a4d957eaf41daf48adeb6be9da7b85",
+      "head": "1890a91c08581d4bbf3a6b838b8c7aefd4e9f756",
+      "work_id": "DOGFOOD-HARDEN"
+    }
+  ]
 }
