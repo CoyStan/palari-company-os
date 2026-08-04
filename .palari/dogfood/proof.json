@@ -2,9 +2,9 @@
   "schema_version": "palari.dogfood_proof.v1",
   "ranges": [
     {
-      "base": "70a4372ebea13e898536163c12b1ce927f188aa8",
+      "base": "a00406d617685b4ed774a59c436db72d942a85dd",
       "head": "@pr-head",
-      "work_id": "SLICE-D-DOGFOOD"
+      "work_id": "CLEANUP-DEPS"
     }
   ]
 }

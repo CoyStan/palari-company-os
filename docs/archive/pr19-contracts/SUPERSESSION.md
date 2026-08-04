@@ -1,8 +1,8 @@
 # PR #19 supersession inventory
 
-PR: https://github.com/CoyStan/palari-company-os/pull/19  
-Branch: `codex/invisible-adoption-fast-journal`  
-Decision: **close without mega-rebase**; retain only unique contract docs here.
+- PR: https://github.com/CoyStan/palari-company-os/pull/19
+- Branch: `codex/invisible-adoption-fast-journal`
+- Decision: **close without mega-rebase**; retain only unique contract docs here.
 
 ## Themes → where they landed on `main`
 

@@ -28,8 +28,8 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
-    "mypy==2.1.0",
-    "ruff==0.15.20",
+    "mypy==2.3.0",
+    "ruff==0.16.0",
 ]
 
 [project.scripts]
