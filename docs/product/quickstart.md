@@ -116,25 +116,28 @@ Unrelated opaque task IDs can run in parallel.
 
 ## One-action host setup
 
-Fresh repositories can pass `--host claude` or `--host codex` to `init`.
-Existing Palari workspaces use the same explicit action:
+Fresh repositories can pass `--host claude`, `--host codex`, or
+`--host cursor` to `init`. Existing Palari workspaces use the same explicit
+action:
 
 ```bash
 palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 ```
 
-Both profiles install the portable repository rules, structural Git commit
-boundary, and tested session hooks. Codex requires one native `/hooks` review
-before its repository hooks activate. Other agent tools can consume the
-provider-neutral rules and Git boundary without being advertised as tested
-session profiles.
+Claude and Codex install the portable repository rules, structural Git commit
+boundary, and tested session hooks (strict no-claim on adoption). Codex requires
+one native `/hooks` review before its repository hooks activate. Cursor installs
+an advisory project rule by default; opt into the Git gate with `--strict-git`
+or later `palari cursor install`. Other unnamed agent tools can consume the
+provider-neutral rules and Git boundary without a named session profile.
 
 No profile grants review, human approval, merge, push, deployment, provider,
 or external-write permission. Nested workspaces install at the enclosing Git
 root. Existing root instructions or host configuration remain outside the
 starter commit and require the one returned review/setup action. `palari claude
-install` remains available for hook-only setup, repair, and removal. See
-[Claude Code Integration](claude-code-integration.md).
+install` remains available for Claude hook-only setup, repair, and removal. See
+[Claude Code Integration](claude-code-integration.md) and
+[Cursor Integration](cursor-integration.md).
 
 ## Optional local desk
 
@@ -142,8 +145,11 @@ install` remains available for hook-only setup, repair, and removal. See
 palari serve --as HUMAN-FOUNDER
 ```
 
-Run this inside the repository initialized above. This local supervision view
-is optional; it is not part of provider-neutral setup or verification.
+Run this inside the repository initialized above. This local Mission Control
+view is optional; it is not part of provider-neutral setup or verification. For
+one eligible reversible local task it can offer a guarded one-click Approve
+(`POST /approve-work`) on the same presentation-bound authority path as
+`palari human-decision approve --presented …`.
 
 ## Verify The Repo
 

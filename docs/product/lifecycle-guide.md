@@ -51,12 +51,14 @@ palari agent advance WORK-ID --as PALARI-ID --json
 The comment says `packet` because that is the stored machine name; operators
 can read it as the task brief.
 
-`--host` accepts `claude` or `codex`. Initialization installs portable
-instructions, the task-lock Git check, and a tested session-hook adapter.
-Existing workspaces use `palari init WORKSPACE-DIR --host HOST --as PALARI-ID
---json`; initialization still refuses an existing workspace when no host is
-given. Other agent hosts may consume the provider-neutral session rules without
-being advertised as supported profiles.
+`--host` accepts `claude`, `codex`, or `cursor`. Claude and Codex install
+portable instructions, the task-lock Git check, and a tested session-hook
+adapter (strict no-claim on adoption). Cursor installs an advisory project rule
+by default; pass `--strict-git` (or later `cursor install` / `git install`) for
+the commit gate. Existing workspaces use
+`palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json`; initialization
+still refuses an existing workspace when no host is given. Other unnamed agent
+hosts may consume the provider-neutral session rules without a named profile.
 
 The presence-only `--write` form requires an output to exist. Use repeatable
 `--create`, `--modify`, and `--delete` when the exact change type matters; exact

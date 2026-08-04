@@ -87,11 +87,12 @@ decision; it does not promote the item into the supported product.
 | CURRENT-ADAPTER | CLI parser, dispatch, output, and installed entry point | The CLI is the supported local translation boundary. Its 143-path snapshot is a measurement, not a retention requirement. |
 | CURRENT-ADAPTER | MCP stdio server | Current MCP tools expose bounded read/agent operations without review, human-decision, acceptance, deploy, push, or external-write authority. Retain protocol and capability-limit wiring only. |
 | CURRENT-ADAPTER | Git commit gate | The Git hook is an optional structural enforcement boundary over the same packet/path decisions. Retain boundary wiring, not a second governance matrix. |
-| CURRENT-ADAPTER | Claude and Codex session adoption | Current docs identify these as the two tested session adapters. They may enforce the portable contract but grant no review or human authority. |
-| HISTORICAL-ONLY | Removed Cursor, Devin, GLM, and generic session-profile aliases | No native adapter, committed configuration fixture, or stored workspace field distinguished these labels. They duplicated the host-neutral contract and Git gate while exposing an unsupported compatibility surface; Git preserves their history. |
+| CURRENT-ADAPTER | Claude and Codex session adoption | Tested structural session adapters: portable contract, claim-bound Git commit gate, and session hooks (strict no-claim on adoption). Grant no review or human authority. |
+| CURRENT-ADAPTER | Cursor host adoption | Tested advisory host profile (`init --host cursor` / `cursor install`). Git commit gate is opt-in (`--strict-git`, `cursor install`, or `git install`). Grant no review or human authority. |
+| HISTORICAL-ONLY | Removed Devin, GLM, and generic session-profile aliases | Those labels duplicated the host-neutral contract without a supported adapter surface; Git preserves their history. (A current Cursor host profile remains — see CURRENT-ADAPTER above.) |
 | CURRENT-ADAPTER | Linear issue/comment/webhook adapter | `linear-operating-loop.md` is an explicit current adapter contract. Provider writes are downstream of the core plan/approval/outbox boundary. Adapter tests should cover translation, redaction, signature/deduplication, and capability limits only. |
 | EXPERIMENTAL | Slack, GitHub, Jira, and email provider preview shapes | `public-surface.md` labels them future and no live adapter exists. Generic plan/outbox behavior does not require permanent provider-specific pseudo-support. |
-| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It projects current read models and delegates integration-plan decisions to the governed integration service. Its duplicate raw decision synthesis was removed; exact human acceptance remains exclusive to the CLI's human-only simple or advanced pack action. |
+| CURRENT-ADAPTER | Local Mission Control | Current Quickstart presents `serve` as optional local human supervision. It projects current read models and delegates integration-plan decisions to the governed integration service. For one eligible reversible local task it also exposes guarded one-click Approve (`POST /approve-work`) on the same presentation-bound path as CLI `approve --presented`. Advanced or batched Approval Inbox / pack actions remain CLI-only. |
 | EXPERIMENTAL | Static desktop prototype, desktop server, assets, desktop demo, and Pages deployment | The desktop contract explicitly calls this a static prototype rather than a supported backend or schema. It is not part of the thesis and creates a separate visual compatibility obligation. |
 | CURRENT-ADAPTER | Agent-ready repository docs (`docs check/init/map`) | This reachable optional adapter produces and validates repository orientation used by adoption. It must not govern product state. |
 | CURRENT-ADAPTER | Network-free demo and ACME example | The primary first-run path exercises the current route in a temporary Git workspace. It is a boundary smoke/example, not a second lifecycle. |
@@ -185,7 +186,7 @@ journal, subprocess, or installation work is justified.
 | `test_workspace_init.py` | Duplicate initialization command | Delete with `workspace init`; top-level onramp tests own initialization. |
 | `test_data_map.py` | Optional legacy-history visualization | Delete or park with the unsupported view; it currently depends on the duplicate history log. |
 | `test_playbooks.py` | Optional recommendation UX | Keep outside core only if the adapter receives an explicit current contract. |
-| `test_mission_control.py` | Local read-only UI plus integration-plan server/CSRF/CAS | Retain as optional adapter wiring tests only while the UI remains supported; exact human acceptance stays outside this surface. |
+| `test_mission_control.py` | Local UI plus integration-plan server/CSRF/CAS and guarded `/approve-work` | Retain as optional adapter wiring tests; Approve must stay presentation-bound and eligible-task-only, not a raw decision form. |
 | `test_desktop_prototype.py` | Static prototype rendering/JavaScript | Delete with the experimental prototype. |
 | `test_demo.py` | Temporary first-run story | Retain one boundary smoke outside the kernel suite if the demo remains the first-run path. |
 | `test_docs.py` | Normative documentation and generated agent docs | Retain a narrower current-doc contract after historical completion documents are removed. |
@@ -267,9 +268,9 @@ evidence used to choose each slice. The reduction produced these dispositions:
   schema-v2 records without `path_intents` or `output_binding_version`, plus
   unbound non-accepting reviews, remain behind narrow read-only boundaries and
   gain no stronger authority by inference.
-- Cursor, Devin, GLM, and generic session-profile aliases were removed. Claude
-  and Codex remain the two tested session adapters over the same portable
-  contract and host-neutral Git boundary.
+- Devin, GLM, and generic session-profile aliases were removed. Claude and
+  Codex remain tested structural session adapters; Cursor is a tested advisory
+  host with an opt-in Git commit gate over the same portable contract.
 - Speculative provider-specific preview shapes were removed. The generic
   external-action path is opaque and non-executing; Linear remains the only
   supported live provider adapter.
@@ -286,8 +287,9 @@ evidence used to choose each slice. The reduction produced these dispositions:
   kernel decisions or genuine system boundaries. The committed example and
   dogfood workspace are not executable candidate fixtures.
 - Exact human acceptance is exposed through the presentation-bound simple
-  handoff action or the advanced Approval Inbox, not a raw Mission Control
-  decision form. Approval Pack batching now
+  handoff action, the advanced Approval Inbox, or Mission Control's guarded
+  one-task Approve (`/approve-work`) for eligible reversible local work — not
+  a raw Mission Control decision form. Approval Pack batching now
   derives in the kernel only from declared risk, canonical external-write
   authority, and recorded external effects; prose keywords grant no authority.
 - CI now has one authoritative complete candidate on Python 3.12, thin

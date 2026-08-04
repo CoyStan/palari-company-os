@@ -57,10 +57,11 @@ repository milestones, not a production Company OS release.
   the named test modules. CI runs the complete check once on Python 3.12, one
   wheel build/install smoke, and thin import/central-rules/help checks on the
   other supported interpreters.
-- Removed unsupported Cursor, Devin, GLM, and generic session-profile aliases.
-  Claude and Codex are the tested session adapters; other harnesses may consume
-  the provider-neutral rules and host-neutral Git boundary without being
-  advertised as supported profiles.
+- Removed unsupported Devin, GLM, and generic session-profile aliases. Claude
+  and Codex remain tested structural session adapters; Cursor is a tested
+  advisory host profile (`init --host cursor`) with an opt-in Git commit gate.
+  Other unnamed harnesses may still consume the provider-neutral rules and
+  host-neutral Git boundary without a named session profile.
 - Made generic external-action previews opaque and provider-neutral instead of
   maintaining speculative Slack, GitHub, Jira, or email payload shapes. Linear
   remains the only current live provider adapter.
@@ -73,13 +74,18 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
-- Added a Cursor integration for cross-platform boundary enforcement: `palari
-  cursor install` writes an always-applied `.cursor/rules/palari-boundary.mdc`
-  project rule and (unless `--no-git-hook`) wires the IDE-agnostic git
-  pre-commit hook, so the packet write boundary is instructed in-editor and
-  structurally enforced at commit time regardless of model. `palari cursor
-  status` reports the rule, the hook, and active claims with allowed write
-  paths.
+- Added Mission Control one-task Approve: `POST /approve-work` on
+  `palari serve` for eligible reversible local work, on the same
+  presentation-bound authority path as `human-decision approve --presented`.
+- Added graduated Agent dogfood gate on this repository: `scripts/check_dogfood.py`
+  (CI), `scripts/dogfood_agent.sh` claim bootstrap, and coverage via passed
+  evidence or exact-SHA `.palari/dogfood/proof.json` ranges.
+- Added a Cursor integration for cross-platform boundary guidance: `palari
+  init --host cursor` installs an advisory `.cursor/rules/palari-boundary.mdc`
+  rule without the git gate by default. `palari cursor install` (or
+  `--strict-git` / `git install`) opts into the IDE-agnostic git pre-commit
+  hook. `palari cursor status` reports the rule, the hook, and active claims
+  with allowed write paths.
 - Completed the governed Linear loop: `palari linear connect` verifies
   credentials and prepares the integration record (reporting a missing
   `LINEAR_API_KEY` as a structured blocker instead of an error), `palari

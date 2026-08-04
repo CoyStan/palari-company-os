@@ -46,25 +46,29 @@ second review-only Palari, writes only missing agent-ready guidance, and makes
 one path-limited local commit of the new local rules file plus those generated
 docs. The reviewer is linked to the starter goal and source but is not in the
 execution workbench; it cannot build, provide human approval, broaden scope, or
-perform external writes. Add `--host claude` or `--host codex` to
-install the portable session rules, task-lock-bound Git check, and the
-selected tested repository-local host hooks in the same anchored action. Existing
-guidance, host configuration, and unrelated staged or unstaged paths are
-preserved rather than absorbed into the bootstrap commit. This is an immutable
-baseline bootstrap, not review, approval, or authenticated human attribution.
+perform external writes. Add `--host claude`, `--host codex`, or
+`--host cursor` in the same anchored action. Claude and Codex install the
+portable session rules, task-lock-bound Git check, and tested repository-local
+session hooks (strict no-claim on adoption). Cursor installs an advisory project
+rule only unless `--strict-git` is also passed. Existing guidance, host
+configuration, and unrelated staged or unstaged paths are preserved rather than
+absorbed into the bootstrap commit. This is an immutable baseline bootstrap, not
+review, approval, or authenticated human attribution.
 `palari work add` idempotently recovers a missing starter anchor before changing
 the work declaration. If a manually assembled workspace still has no committed
 authority origin, `agent start` fails closed with one exact `git add` plus
 path-limited `git commit --only` recovery action.
 
 An existing Palari workspace uses the same idempotent action: `palari init
-WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude` or
-`codex`. Without explicit `--host`, `init` still refuses an existing workspace.
-Both profiles have tested native session adapters; Codex project hooks require
-explicit `/hooks` trust. Other harnesses may consume the provider-neutral
-session rules and host-neutral Git check without a named session profile. Adoption
-grants no review, approval, merge, push, deployment, provider, or
-external-write permission.
+WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude`,
+`codex`, or `cursor`. Without explicit `--host`, `init` still refuses an existing
+workspace. Claude and Codex have tested structural session adapters; Codex
+project hooks require explicit `/hooks` trust. Cursor has a tested advisory host
+profile with an opt-in Git commit gate (`--strict-git`, `cursor install`, or
+`git install`). Other harnesses may consume the provider-neutral session rules
+and host-neutral Git check without a named session profile. Adoption grants no
+review, approval, merge, push, deployment, provider, or external-write
+permission.
 
 The ordinary loop is deliberately short:
 

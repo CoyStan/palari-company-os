@@ -248,10 +248,12 @@ code change must match them. See
   and destructive protected-path or standard Claude-settings ancestors require
   review. Git pathspec magic/globs, dash-prefixed operands after `--`, and
   agent-safe Palari mutations pointed at another workspace also require review.
-- Supported host adoption always installs or reuses the portable repository
-  contract and claim-bound Git commit gate. Claude and Codex are the two tested
-  session adapters; Codex requires explicit repository-hook trust. No profile may
-  grant review or human authority.
+- Supported host adoption installs or reuses the portable repository contract.
+  Claude and Codex also install the claim-bound Git commit gate and tested
+  session hooks (strict no-claim on adoption); Codex requires explicit
+  repository-hook trust. Cursor is a tested advisory host profile — the Git
+  commit gate is opt-in (`--strict-git`, `cursor install`, or `git install`).
+  No profile may grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.
 - Canonical path, traversal, symlink, ambiguous-claim, and incomplete Git
