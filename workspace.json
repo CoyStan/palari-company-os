@@ -153,7 +153,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "completed",
       "scope": "Audit and complete the approved vocabulary migration across public documentation, generated guidance, operator-facing CLI and MCP text, the local human view, demo generator, and tests. Preserve exact commands, flags, JSON keys, stored values, IDs, schemas, PCAW, journals, Approval Packs, and hashed session-contract bytes.",
       "allowed_resources": [
         "README.md",
@@ -208,7 +208,7 @@
         "./scripts/verify.sh complete"
       ],
       "required_approval_count": 1,
-      "current_attempt": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-2B02BD15D452"
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888"
     }
   ],
   "attempts": [
@@ -331,6 +331,57 @@
         "tests/test_operator_journeys.py",
         "tests/test_plain_language.py",
         "tests/test_public_surface.py"
+      ],
+      "output_targets": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "scripts",
+        "src",
+        "tests",
+        "schemas"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/workspace",
+      "base_sha": "60cf9580040ae917feb2867e761ae7a84831b970",
+      "allowed_paths": [
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs",
+        "examples",
+        "scripts",
+        "src",
+        "tests",
+        "schemas"
+      ],
+      "started_at": "2026-08-04T04:33:41Z",
+      "head_sha": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0",
+      "commits": [
+        "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-04T04:33:41Z",
+      "changed_files": [
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_output_integrations.py",
+        "src/palari_company_os/cli_output_utils.py",
+        "src/palari_company_os/mission_control.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_mission_control.py",
+        "tests/test_plain_language.py"
       ],
       "output_targets": [
         "README.md",
@@ -916,6 +967,77 @@
       "receipt_hash": "sha256:68854632efd78891e31c98690a89135118b7b860ae8d9dd57db074afbcf22675",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:e203007d4102129002157ad83c02f95db7bee880169baca6e87e338cc083b3e8"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "head_sha": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0",
+      "status": "passed",
+      "base_ref": "60cf9580040ae917feb2867e761ae7a84831b970",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-32DBCBA2ADD65303 sha256:00ad5b2626b7e4ecffb87e00acbf3be81807f336022a169a32dbcba2add65303",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-74D6BE7F9A83498A sha256:712c320e1fd1de3899b0e0956e597b3b78dd4b10f5bab87f74d6be7f9a83498a",
+        "docs-check attestation VERIFY-DOCS-CHECK-0B6E82D1589056B7 sha256:f4126ed326f298b468cfb4449a36b3525f73d4f70f6171640b6e82d1589056b7"
+      ],
+      "artifacts": [
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_output_integrations.py",
+        "src/palari_company_os/cli_output_utils.py",
+        "src/palari_company_os/mission_control.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_mission_control.py",
+        "tests/test_plain_language.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "sha256": "sha256:3b40359282d25b298dfab00ad57612b5378c797d659b814afe8478ea97d787ac",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_agent.py",
+          "sha256": "sha256:2f845c4099b8be83175a2e1fb633d788d064c2e6cebf2cf9048bd588a576433f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_integrations.py",
+          "sha256": "sha256:b18ba6bbdf3e8445cf1946fbde2d757902783f692321603077ca3af55f0bfdbf",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_utils.py",
+          "sha256": "sha256:1f975ec747664bf098d879abbb9e64dbdc8a22787796e91a1f9e7fd894fa87a0",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/mission_control.py",
+          "sha256": "sha256:a09088c6dae97c928d953e1fa5cf99101763abb5f18ccd14be9dbf43f0278cce",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_cli_smoke.py",
+          "sha256": "sha256:5f74b03d1c2f1f8741a4486534f073f4d5ac99cd3aed38fd53df4de025f8beac",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_mission_control.py",
+          "sha256": "sha256:071c5bfbdf19460c27c2fd92e28d4f202d33e77e0080912f3a1f20b70b918ba0",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_plain_language.py",
+          "sha256": "sha256:7f8dfc2dd4b7aad478e93284710fcb5965a82e28062b9e5669cbe965ca39a935",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-04T04:33:41Z",
+      "receipt_hash": "sha256:5f39909de3f02f90997c76f0457103d017b43bddd8eccea887f135d2998e0054",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:e9600eb1b4448e21641c2cd2d0f7d9e4c84cfce47b3d092c1dac34a618cc1a98"
     }
   ],
   "review_verdicts": [
@@ -943,9 +1065,358 @@
       "reviewer": "HUMAN-FOUNDER",
       "verdict": "changes-requested",
       "timestamp": "2026-07-21T00:44:30Z"
+    },
+    {
+      "id": "REVIEW-5D0954881B27E8FC0129F7D2",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "reviewed_head": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0",
+      "reviewer": "PALARI-REVIEWER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-08-04T04:40:58.217999Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "attempt_hash": "sha256:a3c0120d7ae7cbce5d13cdecb45e3fac3ddcca21e0d040139125cd203e207410",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "evidence_manifest_hash": "sha256:e9600eb1b4448e21641c2cd2d0f7d9e4c84cfce47b3d092c1dac34a618cc1a98",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "receipt_hash": "sha256:5f39909de3f02f90997c76f0457103d017b43bddd8eccea887f135d2998e0054",
+      "work_contract_hash": "sha256:d6af991f5405c9cdc7b659ea68a5cc5d8667be52ee720fa3119b92bea966ab5f",
+      "proof_hash": "sha256:0c7ac80e0af116481fb5e21e083ccdfca1d8702f23a071e6bd2dc7b3dd379745"
     }
   ],
-  "human_decisions": [],
+  "human_decisions": [
+    {
+      "id": "PACK-DECISION-35697E56AA8F4BF3C0AA",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "approval-pack",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "review_reference": "REVIEW-5D0954881B27E8FC0129F7D2",
+      "approval_pack_id": "PACK-EB1074FA9B6824D2",
+      "approval_pack_digest": "sha256:f7a4a1ebd2c5c07b4a32d15946023b633d056c0c20c1779a4093ce2fa0baec02",
+      "approval_pack_member_digest": "sha256:7bc95c522064a55ab578940763038af98354e93aed1eb158e88f40da6948c5d4",
+      "approval_pack_subject_digest": "sha256:17a9386ceaaa88d0a8f9a1afb5ce777fd4214e98f1ed1093e7f1a2456e66f453",
+      "approval_pack_request_digest": "sha256:6ddd7aab395bb90dba68e39c3b99953626ce92886877aadb6221d2667d87773c",
+      "approval_pack_action": "approve",
+      "approval_presentation_schema_version": "palari.approval-presentation.v1",
+      "approval_presentation_digest": "sha256:30811c85e37d1aebc3f4f787ab3e653bbfd51f9a9f4a75ed3a74531b55885fca",
+      "approval_presentation_surface": "palari.human-decision-pack.v1",
+      "timestamp": "2026-08-04T04:51:00.792698Z",
+      "approval_pack_manifest": {
+        "schema_version": "palari.approval-pack.v3",
+        "pack_id": "PACK-EB1074FA9B6824D2",
+        "base": {
+          "workspace_digest": "sha256:57c486ec61176e5c05dbaa53c74befefa7300732c09d6e53edba32035efe644c",
+          "checkpoint_digest": "sha256:57c486ec61176e5c05dbaa53c74befefa7300732c09d6e53edba32035efe644c",
+          "journal_head_digest": "sha256:c9d7d7d6483db23657c20c353198464cd7afbfe1d3fbb80a37b59202b358897e"
+        },
+        "members": [
+          {
+            "id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+            "kind": "work-item",
+            "title": "Finish the plain-language product migration",
+            "subject_digest": "sha256:17a9386ceaaa88d0a8f9a1afb5ce777fd4214e98f1ed1093e7f1a2456e66f453",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 1,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "AGENTS.md",
+                "CHANGELOG.md",
+                "CLAUDE.md",
+                "README.md",
+                "docs",
+                "examples",
+                "pyproject.toml",
+                "schemas",
+                "scripts",
+                "src",
+                "tests"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "review_reference": "REVIEW-5D0954881B27E8FC0129F7D2",
+              "reviewed_head": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0"
+            },
+            "outputs": [
+              {
+                "path": "src/palari_company_os/cli_output.py",
+                "sha256": "sha256:3b40359282d25b298dfab00ad57612b5378c797d659b814afe8478ea97d787ac"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_agent.py",
+                "sha256": "sha256:2f845c4099b8be83175a2e1fb633d788d064c2e6cebf2cf9048bd588a576433f"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_integrations.py",
+                "sha256": "sha256:b18ba6bbdf3e8445cf1946fbde2d757902783f692321603077ca3af55f0bfdbf"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_utils.py",
+                "sha256": "sha256:1f975ec747664bf098d879abbb9e64dbdc8a22787796e91a1f9e7fd894fa87a0"
+              },
+              {
+                "path": "src/palari_company_os/mission_control.py",
+                "sha256": "sha256:a09088c6dae97c928d953e1fa5cf99101763abb5f18ccd14be9dbf43f0278cce"
+              },
+              {
+                "path": "tests/test_cli_smoke.py",
+                "sha256": "sha256:5f74b03d1c2f1f8741a4486534f073f4d5ac99cd3aed38fd53df4de025f8beac"
+              },
+              {
+                "path": "tests/test_mission_control.py",
+                "sha256": "sha256:071c5bfbdf19460c27c2fd92e28d4f202d33e77e0080912f3a1f20b70b918ba0"
+              },
+              {
+                "path": "tests/test_plain_language.py",
+                "sha256": "sha256:7f8dfc2dd4b7aad478e93284710fcb5965a82e28062b9e5669cbe965ca39a935"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "AGENTS.md",
+              "CHANGELOG.md",
+              "CLAUDE.md",
+              "README.md",
+              "docs",
+              "examples",
+              "pyproject.toml",
+              "schemas",
+              "scripts",
+              "src",
+              "tests"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-AEA240C5ED8E490BBA5DC7495587D2DB from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:7bc95c522064a55ab578940763038af98354e93aed1eb158e88f40da6948c5d4"
+          }
+        ],
+        "execution_order": [
+          "WORK-AEA240C5ED8E490BBA5DC7495587D2DB"
+        ],
+        "cumulative_effect_summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-AEA240C5ED8E490BBA5DC7495587D2DB from its exact reviewed proof"
+        },
+        "external_effects": [],
+        "estimated_resources": {
+          "cost": "not-declared",
+          "time": "not-declared",
+          "items": 1
+        },
+        "lifecycle_state": "parked",
+        "security_limitations": [
+          "Actor attribution is declared, not cryptographically authenticated.",
+          "Pack approval grants no authority beyond each member's existing boundaries.",
+          "External and irreversible effects remain parked and are not locally undoable."
+        ],
+        "pack_digest": "sha256:f7a4a1ebd2c5c07b4a32d15946023b633d056c0c20c1779a4093ce2fa0baec02"
+      },
+      "approval_presentation": {
+        "schema_version": "palari.approval-presentation.v1",
+        "decision_surface": "palari.human-decision-pack.v1",
+        "pack": {
+          "pack_id": "PACK-EB1074FA9B6824D2",
+          "pack_digest": "sha256:f7a4a1ebd2c5c07b4a32d15946023b633d056c0c20c1779a4093ce2fa0baec02"
+        },
+        "action": {
+          "available": [
+            "approve",
+            "approve-eligible",
+            "defer",
+            "reject"
+          ],
+          "primary": "approve-eligible",
+          "execution_order": [
+            "WORK-AEA240C5ED8E490BBA5DC7495587D2DB"
+          ],
+          "local_convergence": "atomic-when-authorized"
+        },
+        "summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-AEA240C5ED8E490BBA5DC7495587D2DB from its exact reviewed proof"
+        },
+        "members": [
+          {
+            "id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+            "kind": "work-item",
+            "title": "Finish the plain-language product migration",
+            "subject_digest": "sha256:17a9386ceaaa88d0a8f9a1afb5ce777fd4214e98f1ed1093e7f1a2456e66f453",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 1,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "AGENTS.md",
+                "CHANGELOG.md",
+                "CLAUDE.md",
+                "README.md",
+                "docs",
+                "examples",
+                "pyproject.toml",
+                "schemas",
+                "scripts",
+                "src",
+                "tests"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+              "review_reference": "REVIEW-5D0954881B27E8FC0129F7D2",
+              "reviewed_head": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0"
+            },
+            "outputs": [
+              {
+                "path": "src/palari_company_os/cli_output.py",
+                "sha256": "sha256:3b40359282d25b298dfab00ad57612b5378c797d659b814afe8478ea97d787ac"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_agent.py",
+                "sha256": "sha256:2f845c4099b8be83175a2e1fb633d788d064c2e6cebf2cf9048bd588a576433f"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_integrations.py",
+                "sha256": "sha256:b18ba6bbdf3e8445cf1946fbde2d757902783f692321603077ca3af55f0bfdbf"
+              },
+              {
+                "path": "src/palari_company_os/cli_output_utils.py",
+                "sha256": "sha256:1f975ec747664bf098d879abbb9e64dbdc8a22787796e91a1f9e7fd894fa87a0"
+              },
+              {
+                "path": "src/palari_company_os/mission_control.py",
+                "sha256": "sha256:a09088c6dae97c928d953e1fa5cf99101763abb5f18ccd14be9dbf43f0278cce"
+              },
+              {
+                "path": "tests/test_cli_smoke.py",
+                "sha256": "sha256:5f74b03d1c2f1f8741a4486534f073f4d5ac99cd3aed38fd53df4de025f8beac"
+              },
+              {
+                "path": "tests/test_mission_control.py",
+                "sha256": "sha256:071c5bfbdf19460c27c2fd92e28d4f202d33e77e0080912f3a1f20b70b918ba0"
+              },
+              {
+                "path": "tests/test_plain_language.py",
+                "sha256": "sha256:7f8dfc2dd4b7aad478e93284710fcb5965a82e28062b9e5669cbe965ca39a935"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "AGENTS.md",
+              "CHANGELOG.md",
+              "CLAUDE.md",
+              "README.md",
+              "docs",
+              "examples",
+              "pyproject.toml",
+              "schemas",
+              "scripts",
+              "src",
+              "tests"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-AEA240C5ED8E490BBA5DC7495587D2DB from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:7bc95c522064a55ab578940763038af98354e93aed1eb158e88f40da6948c5d4",
+            "decision_state": {
+              "state": "eligible",
+              "reasons": [],
+              "next_safe_action": "Approve WORK-AEA240C5ED8E490BBA5DC7495587D2DB from this exact pack or leave it parked."
+            },
+            "decision_context": []
+          }
+        ],
+        "external_effects": [],
+        "security_limitations": [
+          "The digest proves these canonical presentation-artifact bytes, not browser layout or font rendering.",
+          "The bound decision surface records that these bytes were made available; compromised software could display different bytes.",
+          "The binding does not prove that a person read, understood, or exercised sound judgment about the presentation.",
+          "Actor attribution remains declared rather than cryptographically authenticated."
+        ]
+      }
+    }
+  ],
   "receipts": [
     {
       "id": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-2B02BD15D452",
@@ -1150,6 +1621,45 @@
       ],
       "timestamp": "2026-07-21T00:30:11Z",
       "receipt_hash": "sha256:68854632efd78891e31c98690a89135118b7b860ae8d9dd57db074afbcf22675"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 8 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_output_integrations.py",
+        "src/palari_company_os/cli_output_utils.py",
+        "src/palari_company_os/mission_control.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_mission_control.py",
+        "tests/test_plain_language.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_output_integrations.py",
+        "src/palari_company_os/cli_output_utils.py",
+        "src/palari_company_os/mission_control.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_mission_control.py",
+        "tests/test_plain_language.py"
+      ],
+      "timestamp": "2026-08-04T04:33:41Z",
+      "previous_receipt_hash": "sha256:68854632efd78891e31c98690a89135118b7b860ae8d9dd57db074afbcf22675",
+      "receipt_hash": "sha256:5f39909de3f02f90997c76f0457103d017b43bddd8eccea887f135d2998e0054"
     }
   ],
   "decisions": [],
@@ -1194,5 +1704,21 @@
   "integration_plans": [],
   "integration_outbox": [],
   "proposals": [],
-  "acceptance_records": []
+  "acceptance_records": [
+    {
+      "id": "ACCEPTANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-HUMAN-FOUNDER",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "f2297ab898883d4e5003c0affa6c14f7a7c7b7f0",
+      "status": "accepted",
+      "decision_id": "PACK-DECISION-35697E56AA8F4BF3C0AA",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-F2297AB89888",
+      "review_reference": "REVIEW-5D0954881B27E8FC0129F7D2",
+      "receipt_hash": "sha256:5f39909de3f02f90997c76f0457103d017b43bddd8eccea887f135d2998e0054",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "approval pack authority",
+      "accepted_at": "2026-08-04T04:51:00.792698Z"
+    }
+  ]
 }
