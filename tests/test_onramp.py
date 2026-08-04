@@ -125,6 +125,38 @@ class InitTests(unittest.TestCase):
             {blocker["code"] for blocker in packet["blockers"]},
         )
 
+    def test_single_maintainer_can_start_reviewed_work_out_of_the_box(self) -> None:
+        # A solo maintainer (one human + the seeded builder + the seeded
+        # review-only agent) must be able to progress reviewed, approval-gated
+        # work without adding a second human or a second builder identity.
+        initialize_starter_workspace(self.project)
+        result = quick_add_work(
+            self.project,
+            "Ship a reviewed change",
+            write=["docs/change.md"],
+            risk="R2",
+            intensity="standard",
+            approvals=1,
+        )
+
+        packet = build_agent_brief(
+            Workspace.load(self.project),
+            result["work_item"]["id"],
+            "PALARI-CLAUDE",
+            "execute",
+        )
+
+        self.assertEqual(packet["status"], "ready")
+        self.assertTrue(packet["authority_plan"]["viable"])
+        self.assertIn(
+            "PALARI-REVIEWER",
+            [reviewer["id"] for reviewer in packet["authority_plan"]["viable_reviewers"]],
+        )
+        self.assertEqual(
+            packet["authority_plan"]["qualified_approver_ids"],
+            ["HUMAN-FOUNDER"],
+        )
+
     def test_init_refuses_existing_workspace(self) -> None:
         initialize_starter_workspace(self.project)
 
