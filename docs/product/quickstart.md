@@ -48,8 +48,12 @@ palari agent start --next --as PALARI-AGENT --json
 `init` creates the starter workspace records and returns the declared builder
 agent ID; `--palari Agent` produces `PALARI-AGENT` here. It also creates a
 distinct review-only `PALARI-REVIEWER` linked to the starter goal but not to
-the execution workbench. `work add` returns an opaque, collision-resistant
-task ID. `start --next` selects one eligible task, first verifies that a viable
+the execution workbench. That trio is the solo-maintainer guarantee: one
+founder can finish reviewed (R2) work with ordinary product commands—builder
+start/advance, review-only accept-ready, then one founder `approve`—without
+adding identities first. Run `palari demo --journey --no-pause` to see the
+full closeout. `work add` returns an opaque, collision-resistant task ID.
+`start --next` selects one eligible task, first verifies that a viable
 reviewer and qualified final approver remain, saves its task brief and portable
 session rules, and creates a local assignment. The stored files retain the
 technical names `packet`, `session-contract`, and `claim` for compatibility.

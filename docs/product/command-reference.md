@@ -43,10 +43,14 @@ provide human approval. Initialization refuses to overwrite an existing
 contains a `workspace.json`, every command uses it as the default workspace,
 so no `--workspace` flag is needed after `init`.
 
-Add `--host claude` or `--host codex` to make first setup one anchored action.
-Both profiles install or reuse the portable repository rules, install the
-assignment-bound Git commit check, and add tested repository-local session hooks.
-Codex requires explicit `/hooks` review before its hooks activate.
+Add `--host claude`, `--host codex`, or `--host cursor` to make first setup one
+anchored action. Claude and Codex install or reuse the portable repository
+rules, install the assignment-bound Git commit check, and add tested
+repository-local session hooks. Codex requires explicit `/hooks` review before
+its hooks activate. Cursor installs the portable rules plus an advisory project
+rule only; pass `--strict-git` (or later `palari cursor install` /
+`palari git install`) for the optional commit gate. See
+[Cursor Integration](cursor-integration.md).
 Existing workspaces use the same `init` action with an explicit path and host:
 
 ```bash
@@ -914,6 +918,8 @@ installed hooks and active assignments. See
 ## Cursor Enforcement
 
 ```bash
+./bin/palari init --host cursor
+./bin/palari init --host cursor --strict-git
 ./bin/palari --workspace workspaces/palari-company-os cursor install
 ./bin/palari --workspace workspaces/palari-company-os cursor install --no-git-hook
 ./bin/palari --workspace workspaces/palari-company-os cursor install --remove
@@ -922,16 +928,15 @@ installed hooks and active assignments. See
 ```
 
 Cursor does not expose a pre-write "deny this edit" hook the way Claude Code
-does, so `cursor install` pairs two layers. It writes an always-applied Cursor
-project rule to `.cursor/rules/palari-boundary.mdc` that tells any Cursor agent
-how to discover and respect its packet boundary, and — unless `--no-git-hook`
-is passed — it also installs the IDE-agnostic git pre-commit hook so the
-boundary is structurally enforced at commit time regardless of editor or model.
-The rule file is static and durable: it points agents at `palari agent`
-commands and `cursor status` rather than embedding per-work-item paths that
-would go stale. `cursor status` reports the installed rule, the git hook, and
-the active claims with their allowed write paths. `--remove` removes the
-Palari-managed rule and hook.
+does. `init --host cursor` installs an always-applied advisory project rule at
+`.cursor/rules/palari-boundary.mdc` and does **not** install the git commit gate
+by default (lockout-safe for Cloud agents). `cursor install` is the explicit
+hard path: it writes/updates that rule and — unless `--no-git-hook` — installs
+the IDE-agnostic git pre-commit hook. The rule points agents at `palari agent`
+commands and `cursor status` rather than embedding per-work-item paths.
+`cursor status` reports the rule, the git hook, and active claims. With no
+active claim, commits are allowed. See
+[Cursor Integration](cursor-integration.md).
 
 ## Playbooks
 
@@ -1260,11 +1265,14 @@ Important boundaries:
 - It binds to `127.0.0.1` by default.
 - `--host` values outside localhost print a warning because this v1 server has
   no login/auth layer.
-- Tasks needing human approval are read-only in Mission Control. A qualified
-  human runs the exact presentation-bound `approve` command emitted by the
-  inspected handoff, or intentionally uses the advanced Approval Inbox action;
-  Mission Control exposes no raw decision-record endpoint or form.
-- Mutating requests require a per-session CSRF token embedded in the page.
+- For one eligible reversible local task, Mission Control shows a one-click
+  Approve control that posts to `/approve-work` with the same presentation
+  digest and authority path as CLI `approve --presented …`. Ineligible,
+  external, irreversible, multi-approval, or unqualified cases stay read-only
+  and point at the Approval Inbox / emitted handoff command. Mission Control
+  exposes no raw decision-record endpoint or form.
+- Mutating requests require a per-session CSRF token embedded in the page and
+  a workspace-hash compare-and-swap; stale presentation digests fail closed.
 - Integration-plan decisions go through the guarded integration service,
   including workspace validation, stale-write conflict checks, and the
   workspace write lock.

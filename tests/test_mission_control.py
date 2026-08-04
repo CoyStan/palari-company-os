@@ -39,6 +39,7 @@ from palari_company_os.mission_control import (
 )
 from palari_company_os.store import load_store, write_store
 from palari_company_os.workspace import Workspace
+from tests.test_approval_packs import OUTPUT, make_ready_workspace
 from tests.workspace_fixture import write_current_agent_workspace
 
 
@@ -287,6 +288,149 @@ class MissionControlTests(unittest.TestCase):
         self.assertEqual(result.kind, "mission-control-serve")
         self.assertEqual(result.payload, payload)
         self.assertFalse(result.as_json)
+
+    def test_eligible_work_shows_one_click_approve_and_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = make_ready_workspace(Path(directory), count=1)
+            server = create_mission_control_server(
+                workspace_file,
+                "HUMAN-PRODUCT",
+                port=0,
+                csrf_token=CSRF_TOKEN,
+            )
+            try:
+                page = request(server, "GET", "/")
+                self.assertEqual(page.body.count('action="/approve-work"'), 1)
+                self.assertIn('name="work_id" value="WORK-001"', page.body)
+                self.assertIn(">Approve</button>", page.body)
+                self.assertNotIn('action="/human-decision"', page.body)
+                digest = _presented_digest(page.body)
+                response = post_form(
+                    server,
+                    "/approve-work",
+                    {
+                        "csrf_token": CSRF_TOKEN,
+                        "workspace_hash": workspace_hash(workspace_file),
+                        "work_id": "WORK-001",
+                        "presented_digest": digest,
+                        "reason": "Mission Control approval.",
+                    },
+                )
+            finally:
+                server.server_close()
+
+            payload = json.loads(response.body)
+            self.assertEqual(response.status, 200)
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["completed"])
+            self.assertEqual(payload["work_id"], "WORK-001")
+            work = next(
+                item
+                for item in Workspace.load(workspace_file).work_items
+                if item.id == "WORK-001"
+            )
+            self.assertEqual(work.status, "completed")
+
+    def test_approve_work_csrf_and_cas_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace_file = make_ready_workspace(Path(directory), count=1)
+            server = create_mission_control_server(
+                workspace_file,
+                "HUMAN-PRODUCT",
+                port=0,
+                csrf_token=CSRF_TOKEN,
+            )
+            with patch("palari_company_os.mission_control.approve_work") as approve:
+                try:
+                    missing_csrf = post_form(
+                        server,
+                        "/approve-work",
+                        {
+                            "workspace_hash": workspace_hash(workspace_file),
+                            "work_id": "WORK-001",
+                            "presented_digest": "sha256:" + ("a" * 64),
+                        },
+                    )
+                    stale_hash = workspace_hash(workspace_file)
+                    raw = json.loads(workspace_file.read_text(encoding="utf-8"))
+                    raw["name"] = "Out-of-band edit"
+                    workspace_file.write_text(
+                        json.dumps(raw, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                    stale_workspace = post_form(
+                        server,
+                        "/approve-work",
+                        {
+                            "csrf_token": CSRF_TOKEN,
+                            "workspace_hash": stale_hash,
+                            "work_id": "WORK-001",
+                            "presented_digest": "sha256:" + ("a" * 64),
+                        },
+                    )
+                finally:
+                    server.server_close()
+
+        self.assertEqual(missing_csrf.status, 403)
+        self.assertEqual(stale_workspace.status, 409)
+        approve.assert_not_called()
+
+    def test_ineligible_human_and_stale_presentation_hide_or_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace_file = make_ready_workspace(root, count=1)
+            unqualified = create_mission_control_server(
+                workspace_file,
+                "HUMAN-UNQUALIFIED",
+                port=0,
+                csrf_token=CSRF_TOKEN,
+            )
+            try:
+                page = request(unqualified, "GET", "/")
+            finally:
+                unqualified.server_close()
+            self.assertNotIn('action="/approve-work"', page.body)
+            self.assertIn("Use the exact action emitted by the Approval Inbox.", page.body)
+
+            server = create_mission_control_server(
+                workspace_file,
+                "HUMAN-PRODUCT",
+                port=0,
+                csrf_token=CSRF_TOKEN,
+            )
+            try:
+                page = request(server, "GET", "/")
+                digest = _presented_digest(page.body)
+                (root / OUTPUT).write_text("changed after render\n", encoding="utf-8")
+                response = post_form(
+                    server,
+                    "/approve-work",
+                    {
+                        "csrf_token": CSRF_TOKEN,
+                        "workspace_hash": workspace_hash(workspace_file),
+                        "work_id": "WORK-001",
+                        "presented_digest": digest,
+                        "reason": "Mission Control approval.",
+                    },
+                )
+            finally:
+                server.server_close()
+
+            self.assertEqual(response.status, 400)
+            self.assertIn("presentation changed", response.body.lower())
+            work = next(
+                item
+                for item in Workspace.load(workspace_file).work_items
+                if item.id == "WORK-001"
+            )
+            self.assertNotEqual(work.status, "completed")
+
+
+def _presented_digest(page_body: str) -> str:
+    marker = 'name="presented_digest" value="'
+    start = page_body.index(marker) + len(marker)
+    end = page_body.index('"', start)
+    return page_body[start:end]
 
 
 @contextmanager

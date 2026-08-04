@@ -41,6 +41,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not wait between demo acts.",
     )
     demo_parser.add_argument(
+        "--journey",
+        action="store_true",
+        help=(
+            "Narrate the solo-maintainer R2 closeout: init through review and "
+            "founder approval."
+        ),
+    )
+    demo_parser.add_argument(
         "--serve",
         action="store_true",
         help="Prepare the demo workspace and open it in live Mission Control.",
@@ -74,6 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
         choices=SUPPORTED_HOSTS,
         default="",
         help="Also install and anchor one tested local agent-host profile.",
+    )
+    init_parser.add_argument(
+        "--strict-git",
+        action="store_true",
+        help=(
+            "With --host cursor, also install the git pre-commit commit gate "
+            "(opt-in; Cursor defaults to advisory-only)."
+        ),
     )
     init_parser.add_argument(
         "--as",
@@ -565,13 +581,16 @@ def _add_git_parser(subparsers: Any) -> None:
 def _add_cursor_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "cursor",
-        help="Enforce packet write boundaries in Cursor (rule + git hook).",
+        help="Install Cursor advisory boundary rule (optional git commit gate).",
     )
     nested = parser.add_subparsers(dest="cursor_command", required=True)
 
     install = nested.add_parser(
         "install",
-        help="Write the Palari boundary rule into .cursor/rules/ and wire the git hook.",
+        help=(
+            "Write the Palari boundary rule into .cursor/rules/ and, unless "
+            "--no-git-hook, install the git pre-commit gate."
+        ),
     )
     install.add_argument(
         "--project-dir",

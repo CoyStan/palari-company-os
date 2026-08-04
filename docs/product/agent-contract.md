@@ -335,7 +335,8 @@ Implemented:
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
 - `palari git pre-commit`
-- `palari cursor install` (Cursor rule + git pre-commit boundary enforcement)
+- `palari init --host cursor` (advisory Cursor rule; optional `--strict-git`)
+- `palari cursor install` (Cursor rule; git pre-commit gate on by default)
 - `palari cursor status`
 - compact agent-specific task discovery
 - compact ready/blocked task briefs
@@ -542,13 +543,15 @@ hook calls; it can also be run manually before committing.
 
 ## Cursor Enforcement
 
-`palari cursor install` brings the same boundary to the Cursor IDE. Because
-Cursor has no pre-write deny hook, it pairs an always-applied Cursor project
-rule (`.cursor/rules/palari-boundary.mdc`) that instructs the agent with the
-IDE-agnostic git pre-commit hook that structurally rejects out-of-boundary
-commits. Pass `--no-git-hook` to write only the rule; use `--remove` to
-uninstall both. `palari cursor status` reports the rule, the git hook, and the
-active task locks with their allowed write paths.
+`palari init --host cursor` installs an always-applied advisory Cursor project
+rule (`.cursor/rules/palari-boundary.mdc`) without the git commit gate. Because
+Cursor has no pre-write deny hook, structural enforcement is opt-in via
+`--strict-git`, `palari cursor install`, or `palari git install`. Pass
+`--no-git-hook` on `cursor install` to write only the rule; use `--remove` to
+uninstall the managed rule and hook. With no active claim, commits are allowed.
+`palari cursor status` reports the rule, the git hook, and the active task locks
+with their allowed write paths. See
+[Cursor Integration](cursor-integration.md).
 
 ## Dogfood enforcement
 

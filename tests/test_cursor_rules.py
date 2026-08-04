@@ -152,15 +152,27 @@ class CursorRulesTests(unittest.TestCase):
         self.assertFalse(result["changed"])
         self.assertIn("hand-written", rule_path.read_text(encoding="utf-8"))
 
-    def test_install_without_git_repo_still_writes_rule(self) -> None:
+    def test_install_without_git_repo_is_refused(self) -> None:
+        from palari_company_os.workspace import WorkspaceError
+
         no_git = tempfile.mkdtemp()
         try:
-            result = install_cursor_rules(no_git, self.workspace_path)
-            self.assertEqual(result["status"], "installed")
-            self.assertTrue((Path(no_git) / RULE_RELATIVE_PATH).exists())
-            self.assertEqual(result["git_hook"]["status"], "error")
+            with self.assertRaisesRegex(WorkspaceError, "requires a Git repository"):
+                install_cursor_rules(no_git, Path(no_git) / "workspace.json")
+            self.assertFalse((Path(no_git) / RULE_RELATIVE_PATH).exists())
         finally:
             shutil.rmtree(no_git, ignore_errors=True)
+
+    def test_install_rolls_back_rule_when_git_hook_fails(self) -> None:
+        hook_dir = Path(self._tmp) / ".git" / "hooks"
+        hook_dir.mkdir(parents=True, exist_ok=True)
+        foreign = hook_dir / "pre-commit"
+        foreign.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        result = install_cursor_rules(self._tmp, self.workspace_path)
+        self.assertEqual(result["status"], "error")
+        self.assertFalse(result["changed"])
+        self.assertFalse(self._rule_path().exists())
+        self.assertIn("rolled back", result["message"])
 
     def test_status_shows_installed(self) -> None:
         install_cursor_rules(self._tmp, self.workspace_path)

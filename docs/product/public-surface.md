@@ -32,11 +32,11 @@ matrix.
 | Task and status recording commands | operator | Explicit local changes to current task, verification, and approval records. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
-| Cursor rule + git hook | adapter | Optional Cursor project rule plus the same Git commit boundary. |
+| Cursor host profile | adapter | `init --host cursor` installs an advisory project rule; git commit gate is opt-in (`--strict-git` / `cursor install`). See [Cursor Integration](cursor-integration.md). |
 | Claude and Codex session setup | adapter | Tested repository-local session enforcement using portable session rules. |
 | MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
-| Mission Control and local serve | visual | Local supervision surface, not part of the central evaluator. |
+| Mission Control and local serve | visual | Local supervision surface with guarded integration-plan decisions and one-task exact approve; not a second evaluator. |
 | ACME workspace | example | Repository example only; it is not packaged data, a default workspace, or the source of truth for candidate tests. |
 | Restore-point recovery and split collections | parked | Reachable local recovery/read features pending a product decision; neither can approve or complete work. |
 | Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no permission or pre-1.0 compatibility promise. |

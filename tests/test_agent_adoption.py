@@ -267,9 +267,9 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertNotIn("AGENTS.md", result["changed_files"])
 
     def test_removed_host_profiles_are_rejected_before_writing(self) -> None:
-        for host in ("cursor", "devin", "glm", "generic"):
+        for host in ("devin", "glm", "generic"):
             with self.subTest(host=host):
-                with self.assertRaisesRegex(WorkspaceError, "claude, codex"):
+                with self.assertRaisesRegex(WorkspaceError, "claude, codex, cursor"):
                     adopt_agent_host(
                         self.workspace,
                         project_dir=self.tmp,
@@ -279,7 +279,104 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertFalse((self.tmp / "AGENTS.md").exists())
         self.assertFalse((self.tmp / ".claude").exists())
         self.assertFalse((self.tmp / ".codex").exists())
+        self.assertFalse((self.tmp / ".cursor").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+
+    def test_cursor_adoption_is_advisory_without_git_hook_by_default(self) -> None:
+        result = adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="cursor",
+            palari_id="PALARI-STEWARD",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
+        self.assertEqual(result["enforcement"]["commit_boundary"], "optional")
+        self.assertEqual(result["git_gate"]["status"], "skipped")
+        self.assertTrue((self.tmp / "AGENTS.md").exists())
+        self.assertTrue((self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").is_file())
+        self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
+        rule = (self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Session boundary is advisory", rule)
+
+    def test_cursor_adoption_strict_git_installs_commit_gate(self) -> None:
+        result = adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="cursor",
+            palari_id="PALARI-STEWARD",
+            strict_git=True,
+        )
+
+        self.assertEqual(result["enforcement"]["commit_boundary"], "structural")
+        self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
+        self.assertEqual(result["git_gate"]["status"], "installed")
+        self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
+        rule = (self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("git pre-commit hook rejects", rule)
+
+    def test_cursor_strict_git_rejected_for_other_hosts(self) -> None:
+        with self.assertRaisesRegex(WorkspaceError, "--strict-git is only valid"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="claude",
+                palari_id="PALARI-STEWARD",
+                strict_git=True,
+            )
+
+    def test_cursor_stuck_claim_release_allows_commits_again(self) -> None:
+        from palari_company_os.agent_runtime import release_agent
+        from palari_company_os.git_hooks import pre_commit
+
+        adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="cursor",
+            palari_id="PALARI-STEWARD",
+            strict_git=True,
+        )
+        create_record(
+            str(self.workspace),
+            "work",
+            {
+                "id": "WORK-CURSOR-STUCK",
+                "title": "Stuck claim recovery",
+                "palari": "PALARI-STEWARD",
+                "goal": "GOAL-REPO-0001",
+                "workbench_id": "WORKBENCH-REPO-FOUNDATION",
+                "risk": "R1",
+                "intensity": "light",
+                "required_approval_count": 0,
+                "scope": "Test scope",
+                "acceptance_target": "Test acceptance",
+                "status": "active",
+                "allowed_resources": ["README.md"],
+                "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
+                "output_targets": ["README.md"],
+                "forbidden_actions": ["deploy"],
+                "verification_expectations": ["echo ok"],
+            },
+            command="test",
+        )
+        ws = Workspace.load(self.workspace)
+        start = start_agent(
+            ws, self.workspace, "WORK-CURSOR-STUCK", "PALARI-STEWARD", "execute"
+        )
+        self.assertEqual(start.get("start", {}).get("status"), "claimed")
+        (self.tmp / "outside.txt").write_text("leak\n", encoding="utf-8")
+        self._git("add", "outside.txt")
+        blocked = pre_commit(self.workspace, cwd=self.tmp)
+        self.assertFalse(blocked["ok"])
+        release_agent(ws, self.workspace, "WORK-CURSOR-STUCK", "PALARI-STEWARD")
+        allowed = pre_commit(self.workspace, cwd=self.tmp)
+        self.assertTrue(allowed["ok"])
+        self.assertEqual(allowed["status"], "no-active-claim")
 
     def test_adoption_refuses_malformed_managed_block_without_installing_hook(self) -> None:
         (self.tmp / "AGENTS.md").write_text(
