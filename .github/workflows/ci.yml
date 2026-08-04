@@ -65,3 +65,42 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/src
         run: python -S -m palari_company_os --help
+
+  dogfood:
+    name: Agent dogfood gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check claim-bound agent commits
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          labels=()
+          IFS=',' read -r -a raw_labels <<< "${PR_LABELS:-}"
+          for label in "${raw_labels[@]}"; do
+            if [[ -n "${label}" ]]; then
+              labels+=(--label "${label}")
+            fi
+          done
+          python3 scripts/check_dogfood.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --workspace workspace.json \
+            "${labels[@]}" \
+            --json

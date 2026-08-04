@@ -953,7 +953,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 raise WorkspaceError("--hook-event requires --host")
             return CommandResult(
                 "agent-hook",
-                run_agent_hook(args.host, args.hook_event, args.path),
+                run_agent_hook(
+                    args.host,
+                    args.hook_event,
+                    args.path,
+                    strict=bool(getattr(args, "strict", False)),
+                ),
                 True,
             )
 

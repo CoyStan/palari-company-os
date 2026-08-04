@@ -553,6 +553,22 @@ uninstall the managed rule and hook. With no active claim, commits are allowed.
 with their allowed write paths. See
 [Cursor Integration](cursor-integration.md).
 
+## Dogfood enforcement
+
+On this repository, agent PRs are expected to follow
+`start → edit → advance → review`. Claude/Codex adoption installs strict
+session hooks so sessions with no active claim escalate before edits (Codex
+maps unsupported ask decisions to deny). Use
+`./scripts/dogfood_agent.sh PALARI-ID` to claim work and print
+`allowed_paths.write`.
+
+CI runs `scripts/check_dogfood.py` on pull requests. Known agent authors
+(`Cursor Agent`, `Claude`) and PRs labeled `agent` / `cursor` must have
+covering advance/evidence ranges in `workspace.json` or
+`.palari/dogfood/proof.json`. Humans may still commit with no active claim;
+on labeled PRs they may add a `skip-dogfood: <reason>` trailer. That trailer
+is rejected for known agent authors.
+
 The same local Git repository holds expiring task-lock leases under
 `refs/palari/leases/`. They prevent two linked worktrees from treating the same
 task as actively owned while allowing unrelated tasks to proceed. They are

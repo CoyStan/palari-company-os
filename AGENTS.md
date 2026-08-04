@@ -154,6 +154,22 @@ explicit `/hooks` trust. `palari claude install` remains the hook-only
 management, repair, and removal surface; see
 `docs/product/claude-code-integration.md`.
 
+## Dogfood on this repository
+
+Agent edits to this repo should use a real claim/packet loop:
+
+```bash
+./scripts/dogfood_agent.sh PALARI-ID
+# edit only allowed_paths.write, commit, then:
+palari agent advance WORK-ID --as PALARI-ID --json
+```
+
+Claude/Codex host adoption installs **strict** session hooks (`no claim ⇒ ask`;
+Codex maps ask to deny). Cursor remains advisory unless git gating is opted in.
+CI's Agent dogfood gate checks agent-authored commits for covering
+advance/evidence ranges (or a human-only `skip-dogfood: <reason>` trailer on
+labeled PRs). Humans can still commit with no active claim.
+
 ## Agent-Ready Repo Docs
 
 Use these committed docs before rereading large parts of the repo:
