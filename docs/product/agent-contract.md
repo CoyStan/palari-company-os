@@ -550,6 +550,14 @@ commits. Pass `--no-git-hook` to write only the rule; use `--remove` to
 uninstall both. `palari cursor status` reports the rule, the git hook, and the
 active task locks with their allowed write paths.
 
+## Historical adoption contracts
+
+Early universal-adoption and invisible-surface completion contracts from
+PR #19 are archived under `docs/archive/pr19-contracts/`. Current adoption
+behavior is defined by this document, the command reference, and
+`palari init --host …` / host install commands — not by those archived
+checklists.
+
 The same local Git repository holds expiring task-lock leases under
 `refs/palari/leases/`. They prevent two linked worktrees from treating the same
 task as actively owned while allowing unrelated tasks to proceed. They are
