@@ -283,6 +283,37 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(handoff["next_step_type"], "blocked")
         self.assertEqual(handoff["human_action_commands"], [])
 
+    def test_agent_next_surfaces_authority_correction_when_only_blocker(self) -> None:
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 1,
+                "required_approval_capability": "product",
+            }
+        )
+        data["humans"][0]["approval_capabilities"] = ["product"]
+        data["palaris"] = [data["palaris"][0]]
+        data["goals"][0]["linked_palaris"] = [PALARI_ID]
+        workspace = Workspace.from_raw(data, self.root)
+
+        result = build_agent_next(workspace, PALARI_ID)
+
+        self.assertEqual(result["status"], "no-ready-work")
+        self.assertEqual(result["ready_count"], 0)
+        codes = {blocker["code"] for blocker in result["blockers"]}
+        self.assertIn("NO_READY_WORK", codes)
+        self.assertIn("AUTHORITY_PLAN_UNSATISFIABLE", codes)
+        authority = next(
+            blocker
+            for blocker in result["blockers"]
+            if blocker["code"] == "AUTHORITY_PLAN_UNSATISFIABLE"
+        )
+        self.assertIn("Smallest safe correction", authority["message"])
+        candidate = result["candidates"][0]
+        self.assertIsNotNone(candidate["authority_correction"])
+
     def test_execute_packet_is_ready_when_reviewer_preserves_the_human_approver(
         self,
     ) -> None:
