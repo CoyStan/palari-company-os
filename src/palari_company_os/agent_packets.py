@@ -767,7 +767,7 @@ def _proof_state(work_detail: dict[str, Any]) -> dict[str, Any]:
 def _attempt_ref(record: dict[str, Any] | None) -> dict[str, Any] | None:
     if record is None:
         return None
-    payload = {
+    payload: dict[str, Any] = {
         field: record.get(field, "")
         for field in (
             "id",

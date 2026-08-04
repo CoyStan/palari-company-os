@@ -39,7 +39,7 @@ class PublicSurfaceTests(unittest.TestCase):
         host_action = next(
             action for action in init_parser._actions if "--host" in action.option_strings
         )
-        self.assertEqual(tuple(host_action.choices), ("claude", "codex"))
+        self.assertEqual(tuple(host_action.choices), ("claude", "codex", "cursor"))
 
     def test_public_surface_doc_classifies_core_and_supported_visual_surface(self) -> None:
         surface = _read("docs/product/public-surface.md")
@@ -52,7 +52,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("translate those decisions", surface)
         self.assertIn("do not own a second work process", surface)
         self.assertIn("| Mission Control and local serve | visual |", surface)
-        self.assertIn("| Cursor rule + git hook | adapter |", surface)
+        self.assertIn("| Cursor host profile | adapter |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
         self.assertIn("Current CLI command count from parser inspection: **146**.", surface)
 
