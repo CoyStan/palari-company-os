@@ -4,6 +4,15 @@ Humans can always land emergency fixes with no active claim. Agent-authored
 commits (or commits on PRs labeled ``agent`` / ``cursor``) must either be
 covered by a recorded advance/evidence range in the dogfood workspace, or —
 for human authors only — carry an explicit ``skip-dogfood: <reason>`` trailer.
+
+Coverage is intentionally strict:
+
+- workspace coverage comes only from **passed** evidence runs (bare attempts
+  do not count);
+- ``.palari/dogfood/proof.json`` ranges must use immutable exact Git object
+  SHAs — floating tokens such as ``@pr-head`` are rejected;
+- commits that only update the proof file itself are allowed so an exact tip
+  SHA can be attested after the bounded work lands.
 """
 
 from __future__ import annotations
@@ -34,6 +43,7 @@ AGENT_NAMES = frozenset(
     }
 )
 PROOF_RELATIVE_PATH = ".palari/dogfood/proof.json"
+_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -76,7 +86,9 @@ def check_dogfood_range(
     label_set = {str(item).strip().lower() for item in (labels or set()) if str(item).strip()}
     labeled = bool(label_set & AGENT_LABELS)
     commits = list_commits(root, base=base, head=head, git_runner=git_runner)
-    ranges = load_coverage_ranges(root, workspace_path, pr_head=head)
+    loaded = load_coverage_ranges(root, workspace_path)
+    ranges = loaded["ranges"]
+    proof_errors = loaded["proof_errors"]
     findings: list[dict[str, Any]] = []
     for commit in commits:
         agentish = commit.is_agent_author() or labeled
@@ -86,6 +98,15 @@ def check_dogfood_range(
                     "sha": commit.sha,
                     "status": "allow",
                     "reason": "human commit outside agent dogfood gate",
+                }
+            )
+            continue
+        if is_proof_only_commit(root, commit.sha, git_runner=git_runner):
+            findings.append(
+                {
+                    "sha": commit.sha,
+                    "status": "allow",
+                    "reason": "proof attestation commit (only updates dogfood proof file)",
                 }
             )
             continue
@@ -134,9 +155,20 @@ def check_dogfood_range(
             }
         )
     denied = [item for item in findings if item["status"] == "deny"]
+    if proof_errors:
+        denied = [
+            {
+                "sha": "",
+                "status": "deny",
+                "reason": error["reason"],
+                "proof_entry": error,
+            }
+            for error in proof_errors
+        ] + denied
+    ok = not denied
     return {
         "schema_version": "palari.dogfood_check.v1",
-        "ok": not denied,
+        "ok": ok,
         "base": base,
         "head": head,
         "labeled": labeled,
@@ -145,10 +177,11 @@ def check_dogfood_range(
         "denials": denied,
         "findings": findings,
         "coverage_ranges": ranges,
+        "proof_errors": proof_errors,
         "message": (
             "Dogfood check passed."
-            if not denied
-            else f"Dogfood check failed for {len(denied)} commit(s)."
+            if ok
+            else f"Dogfood check failed for {len(denied)} finding(s)."
         ),
     }
 
@@ -201,51 +234,74 @@ def list_commits(
 def load_coverage_ranges(
     repo: Path,
     workspace_path: Path | str,
-    *,
-    pr_head: str = "",
-) -> list[dict[str, str]]:
+) -> dict[str, Any]:
+    """Load exact coverage ranges from proof file and passed evidence only."""
     ranges: list[dict[str, str]] = []
+    proof_errors: list[dict[str, str]] = []
     proof_path = repo / PROOF_RELATIVE_PATH
     if proof_path.is_file():
         try:
             payload = json.loads(proof_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError):
             payload = {}
+            proof_errors.append(
+                {
+                    "base": "",
+                    "head": "",
+                    "reason": (
+                        f"{PROOF_RELATIVE_PATH} is not valid JSON; "
+                        "fix it or remove invalid ranges"
+                    ),
+                }
+            )
         if isinstance(payload, dict):
             for item in payload.get("ranges") or []:
                 if not isinstance(item, dict):
                     continue
-                base = str(item.get("base") or "").strip()
-                head = str(item.get("head") or "").strip()
-                if head == "@pr-head":
-                    head = pr_head.strip()
-                if base and head:
-                    ranges.append(
+                raw_base = str(item.get("base") or "").strip()
+                raw_head = str(item.get("head") or "").strip()
+                base = normalize_exact_sha(raw_base)
+                head = normalize_exact_sha(raw_head)
+                if base is None or head is None:
+                    proof_errors.append(
                         {
-                            "base": base,
-                            "head": head,
-                            "source": "proof-file",
+                            "base": raw_base,
+                            "head": raw_head,
                             "work_id": str(item.get("work_id") or ""),
+                            "reason": (
+                                "dogfood proof ranges must use immutable exact "
+                                "Git SHAs (7–40 hex); floating tokens such as "
+                                "@pr-head are rejected"
+                            ),
                         }
                     )
+                    continue
+                ranges.append(
+                    {
+                        "base": base,
+                        "head": head,
+                        "source": "proof-file",
+                        "work_id": str(item.get("work_id") or ""),
+                    }
+                )
     data_path = workspace_file_path(
         workspace_path if Path(workspace_path).is_absolute() else repo / str(workspace_path)
     )
     if not data_path.is_file():
-        return ranges
+        return {"ranges": ranges, "proof_errors": proof_errors}
     try:
         workspace = Workspace.load(data_path)
     except Exception:  # noqa: BLE001 - dogfood check fails open to empty coverage
-        return ranges
+        return {"ranges": ranges, "proof_errors": proof_errors}
     attempts = {item.id: item for item in workspace.attempts}
     for evidence in workspace.evidence_runs:
         if str(evidence.status).lower() not in {"passed", "pass", "ok"}:
             continue
-        head = str(evidence.head_sha or "").strip()
-        base = str(evidence.base_ref or "").strip()
-        if not base:
+        head = normalize_exact_sha(str(evidence.head_sha or "").strip())
+        base = normalize_exact_sha(str(evidence.base_ref or "").strip())
+        if base is None:
             attempt = attempts.get(evidence.attempt_id)
-            base = str(getattr(attempt, "base_sha", "") or "").strip()
+            base = normalize_exact_sha(str(getattr(attempt, "base_sha", "") or "").strip())
         if base and head:
             ranges.append(
                 {
@@ -255,19 +311,47 @@ def load_coverage_ranges(
                     "work_id": str(evidence.work_item_id or ""),
                 }
             )
-    for attempt in workspace.attempts:
-        base = str(attempt.base_sha or "").strip()
-        head = str(attempt.head_sha or "").strip()
-        if base and head:
-            ranges.append(
-                {
-                    "base": base,
-                    "head": head,
-                    "source": f"attempt:{attempt.id}",
-                    "work_id": str(attempt.work_item_id or ""),
-                }
-            )
-    return ranges
+    # Bare attempts without passed evidence intentionally do not grant coverage.
+    return {"ranges": ranges, "proof_errors": proof_errors}
+
+
+def normalize_exact_sha(value: str) -> str | None:
+    """Return a hex Git object name, or None for floating/non-SHA tokens."""
+    text = str(value or "").strip()
+    if not text or text.startswith("@"):
+        return None
+    if not _SHA_RE.fullmatch(text):
+        return None
+    return text.lower()
+
+
+def is_proof_only_commit(
+    repo: Path,
+    commit: str,
+    *,
+    git_runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> bool:
+    """True when the commit only updates the dogfood proof attestation file."""
+    runner = git_runner or subprocess.run
+    result = runner(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            commit,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False
+    paths = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return bool(paths) and set(paths) == {PROOF_RELATIVE_PATH}
 
 
 def covering_range(

@@ -45,7 +45,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(result["message"])
         for item in result["denials"]:
-            print(f"- {item['sha'][:12]}: {item['reason']}")
+            sha = str(item.get("sha") or "proof")
+            print(f"- {sha[:12]}: {item['reason']}")
     return 0 if result["ok"] else 1
 
 

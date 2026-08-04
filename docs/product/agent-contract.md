@@ -564,10 +564,13 @@ maps unsupported ask decisions to deny). Use
 
 CI runs `scripts/check_dogfood.py` on pull requests. Known agent authors
 (`Cursor Agent`, `Claude`) and PRs labeled `agent` / `cursor` must have
-covering advance/evidence ranges in `workspace.json` or
-`.palari/dogfood/proof.json`. Humans may still commit with no active claim;
-on labeled PRs they may add a `skip-dogfood: <reason>` trailer. That trailer
-is rejected for known agent authors.
+covering **passed** evidence ranges in `workspace.json`, or exact Git SHA
+ranges in `.palari/dogfood/proof.json`. Floating tokens such as `@pr-head`
+are rejected; bare attempts without passed evidence do not grant coverage.
+Commits that only update the proof file are allowed for tip attestation.
+Humans may still commit with no active claim; on labeled PRs they may add a
+`skip-dogfood: <reason>` trailer. That trailer is rejected for known agent
+authors.
 
 ## Historical adoption contracts
 

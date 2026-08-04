@@ -9,6 +9,10 @@ repository milestones, not a production Company OS release.
 
 ### Fixed
 
+- Hardened the Agent dogfood gate: `.palari/dogfood/proof.json` must use
+  immutable exact Git SHAs (floating `@pr-head` tokens are rejected), coverage
+  comes only from **passed** evidence runs (bare attempts do not count), and
+  proof-only commits may attest an exact tip SHA.
 - Bound new `accept-ready` reviews to the exact final run, run record, check
   manifest, reviewed head, and task rules. Approval, completion, status views,
   and required approvals now fail closed on stale or contradictory records.

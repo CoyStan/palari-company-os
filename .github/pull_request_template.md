@@ -14,8 +14,10 @@ Agent PRs should follow:
 
 CI's **Agent dogfood gate** requires agent-authored commits (authors such as
 `Cursor Agent` / `Claude`, or PRs labeled `agent` / `cursor`) to be covered by
-a recorded advance/evidence range in `workspace.json` or
-`.palari/dogfood/proof.json`.
+a **passed** evidence range in `workspace.json` or an exact-SHA range in
+`.palari/dogfood/proof.json`. Floating tokens such as `@pr-head` are rejected;
+bare attempts without passed evidence do not count. A commit that only updates
+the proof file is allowed so an exact tip SHA can be attested.
 
 Humans may land emergency fixes without a claim. On an `agent`/`cursor`-labeled
 PR, human commits may use a commit trailer:

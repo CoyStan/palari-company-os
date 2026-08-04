@@ -166,9 +166,11 @@ palari agent advance WORK-ID --as PALARI-ID --json
 
 Claude/Codex host adoption installs **strict** session hooks (`no claim ⇒ ask`;
 Codex maps ask to deny). Cursor remains advisory unless git gating is opted in.
-CI's Agent dogfood gate checks agent-authored commits for covering
-advance/evidence ranges (or a human-only `skip-dogfood: <reason>` trailer on
-labeled PRs). Humans can still commit with no active claim.
+CI's Agent dogfood gate checks agent-authored commits for covering **passed**
+evidence ranges or exact-SHA entries in `.palari/dogfood/proof.json` (floating
+`@pr-head` tokens and bare attempts do not count; proof-only commits may
+attest an exact tip). Humans may use a `skip-dogfood: <reason>` trailer on
+labeled PRs. Humans can still commit with no active claim.
 
 ## Agent-Ready Repo Docs
 
