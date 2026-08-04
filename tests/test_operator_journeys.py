@@ -54,6 +54,195 @@ PROOF_COLLECTIONS = (
 class OperatorJourneyTests(unittest.TestCase):
     """The interruption journey that is not covered by the CLI golden path."""
 
+    def test_init_never_blocks_first_r2_work_with_authority_plan_unsatisfiable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "founder-repo"
+            root.mkdir()
+            self.run_git(root, "init", "-q")
+            self.run_git(root, "config", "user.email", "test@example.invalid")
+            self.run_git(root, "config", "user.name", "Test Founder")
+            self.run_git(root, "commit", "--allow-empty", "-qm", "initial")
+
+            self._run_cli_json("init", str(root), "--json")
+            workspace_file = root / "workspace.json"
+            added = self._run_cli_json(
+                "--workspace",
+                str(workspace_file),
+                "work",
+                "add",
+                "Solo maintainer reviewed result",
+                "--create",
+                "artifacts/solo.txt",
+                "--risk",
+                "R2",
+                "--intensity",
+                "standard",
+                "--approvals",
+                "0",
+                "--json",
+            )
+            self.assertTrue(added["authority_plan"]["viable"])
+            viable_ids = [
+                str(item.get("id", ""))
+                for item in added["authority_plan"].get("viable_reviewers", [])
+            ]
+            self.assertIn("PALARI-REVIEWER", viable_ids)
+            self.assertNotEqual(
+                added["authority_plan"].get("code"),
+                "AUTHORITY_PLAN_UNSATISFIABLE",
+            )
+
+            nxt = self._run_cli_json(
+                "--workspace",
+                str(workspace_file),
+                "agent",
+                "next",
+                "--as",
+                "PALARI-CLAUDE",
+                "--json",
+            )
+            blocker_codes = [
+                str(item.get("code", ""))
+                for item in nxt.get("blockers", [])
+            ]
+            for candidate in nxt.get("candidates", []):
+                blocker_codes.extend(str(code) for code in candidate.get("blocker_codes", []))
+            self.assertNotIn("AUTHORITY_PLAN_UNSATISFIABLE", blocker_codes)
+            self.assertGreaterEqual(int(nxt.get("ready_count", 0)), 1)
+
+    def test_solo_maintainer_product_command_r2_closeout_without_advance_mocks(
+        self,
+    ) -> None:
+        """Product CLI only: init → work → start → advance → review → approve.
+
+        Verification uses workspace-local stub scripts so the journey exercises
+        real advance/reconcile code without patching internals or low-level
+        receipt/evidence/work-accept commands.
+        """
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "founder-repo"
+            root.mkdir()
+            self.run_git(root, "init", "-q")
+            self.run_git(root, "config", "user.email", "test@example.invalid")
+            self.run_git(root, "config", "user.name", "Test Founder")
+            self.run_git(root, "commit", "--allow-empty", "-qm", "initial")
+
+            self._run_cli_json("init", str(root), "--json")
+            workspace_file = root / "workspace.json"
+            self._install_fast_verification_stubs(root)
+
+            invoked: list[str] = []
+            output_path = "artifacts/founder-result.txt"
+            added = self._run_cli_json(
+                "--workspace",
+                str(workspace_file),
+                "work",
+                "add",
+                "Prepare one reviewed founder result",
+                "--create",
+                output_path,
+                "--risk",
+                "R2",
+                "--intensity",
+                "standard",
+                "--approvals",
+                "0",
+                "--acceptance",
+                "The exact local result is reviewed and founder-approved.",
+                "--verify",
+                "Bounded deterministic checks pass.",
+                "--json",
+            )
+            invoked.append("work add")
+            work_id = str(added["work_item"]["id"])
+            self.assertTrue(added["authority_plan"]["viable"])
+
+            started = self._run_emitted_json(added["next_commands"][0])
+            invoked.append("agent start")
+            self.assertEqual(started["start"]["status"], "claimed")
+
+            output = root / output_path
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text("exact founder-reviewed bytes\n", encoding="utf-8")
+            self.run_git(root, "add", "--", output_path)
+            self.run_git(root, "commit", "-qm", "add bounded founder result")
+
+            advanced = self._run_emitted_json(started["entry"]["next_command"])
+            invoked.append("agent advance")
+            self.assertEqual(advanced["status"], "review-required")
+
+            review_actions = [
+                action
+                for action in advanced["handoff"]["agent_action_commands"]
+                if action["actor"] == "PALARI-REVIEWER"
+            ]
+            accept_action = next(
+                action
+                for action in review_actions
+                if "--verdict accept-ready" in action["command"]
+            )
+            reviewer_packet = self._run_emitted_json(accept_action["packet_command"])
+            invoked.append("agent start review")
+            concrete_review = next(
+                item["command"]
+                for item in reviewer_packet["review_context"]["agent_review_commands"]
+                if item["reviewer"] == "PALARI-REVIEWER"
+                and item["verdict"] == "accept-ready"
+            )
+            self.assertIn("review record", concrete_review)
+            review_result = self._run_emitted_json(concrete_review)
+            invoked.append("review record")
+            self.assertEqual(review_result["action"], "created")
+
+            reviewer_handoff = self._run_emitted_json(
+                palari_workspace_command(
+                    workspace_file,
+                    "agent",
+                    "handoff",
+                    work_id,
+                    "--as",
+                    "PALARI-REVIEWER",
+                    "--mode",
+                    "review",
+                    "--json",
+                )
+            )
+            invoked.append("agent handoff")
+            human_action = reviewer_handoff["human_action_commands"][0]
+            self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")
+            self.assertIn("approve", human_action["command"])
+            self.assertNotIn(" receipt ", f" {human_action['command']} ")
+            self.assertNotIn(" evidence ", f" {human_action['command']} ")
+            self.assertNotIn(" work accept ", f" {human_action['command']} ")
+
+            approved = self._run_emitted_json(human_action["command"])
+            invoked.append("approve")
+            final = Workspace.load(workspace_file)
+            journal = verify_workspace_journal(workspace_file)
+            work = final.work_item(work_id)
+
+            self.assertTrue(approved["completed"])
+            self.assertEqual(work.status, "completed")
+            self.assertEqual(len(final.review_verdicts), 1)
+            self.assertEqual(len(final.human_decisions), 1)
+            self.assertEqual(len(final.acceptance_records), 1)
+            self.assertTrue(journal["chain_valid"])
+            self.assertEqual(
+                invoked,
+                [
+                    "work add",
+                    "agent start",
+                    "agent advance",
+                    "agent start review",
+                    "review record",
+                    "agent handoff",
+                    "approve",
+                ],
+            )
+
     def test_default_single_founder_r2_journey_reaches_terminal_from_emitted_actions(
         self,
     ) -> None:
@@ -746,6 +935,26 @@ class OperatorJourneyTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+
+    @staticmethod
+    def _install_fast_verification_stubs(root: Path) -> None:
+        scripts = root / "scripts"
+        scripts.mkdir(exist_ok=True)
+        for name in ("verify.sh", "install_smoke.sh"):
+            path = scripts / name
+            path.write_text("#!/bin/sh\necho ok\nexit 0\n", encoding="utf-8")
+            path.chmod(0o755)
+        bin_dir = root / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        wrapper = bin_dir / "palari"
+        wrapper.write_text(
+            "#!/usr/bin/env bash\n"
+            f'export PYTHONPATH="{REPO_ROOT / "src"}'
+            '${PYTHONPATH:+:$PYTHONPATH}"\n'
+            'exec python3 -m palari_company_os "$@"\n',
+            encoding="utf-8",
+        )
+        wrapper.chmod(0o755)
 
     def _run_emitted_json(self, command: str) -> dict[str, Any]:
         arguments = shlex.split(command)

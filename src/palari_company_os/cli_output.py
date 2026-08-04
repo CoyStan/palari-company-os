@@ -428,7 +428,10 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
-    print("Palari demo: blocked file change in under two minutes")
+    if payload.get("schema_version") == "palari.demo.journey.v1":
+        print("Palari demo: solo-maintainer reviewed closeout")
+    else:
+        print("Palari demo: blocked file change in under two minutes")
     print(f"Demo workspace: {payload['workspace_dir']}")
     print()
     for index, step in enumerate(payload["steps"], start=1):
