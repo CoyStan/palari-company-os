@@ -94,6 +94,12 @@ class PlainLanguageContractTests(unittest.TestCase):
         self.assertEqual(plain_step_status("closed-out"), "Done")
         self.assertEqual(plain_detail_state("waiting-on-evidence"), "Waiting for checks")
         self.assertEqual(plain_detail_state("blocked-by-decision"), "Waiting for decision")
+        self.assertEqual(plain_detail_state("changes-requested"), "Needs changes")
+        self.assertEqual(plain_detail_state("accept-ready"), "Ready for approval")
+        self.assertEqual(
+            plain_detail_state("authority-plan-blocked"),
+            "Approval plan blocked",
+        )
 
     def test_machine_prose_is_translated_only_at_the_text_boundary(self) -> None:
         self.assertEqual(
@@ -133,6 +139,40 @@ class PlainLanguageContractTests(unittest.TestCase):
                 "Repair only the reviewed findings, then refresh evidence and review."
             ),
             "Repair only the reviewed findings, then refresh checks and review.",
+        )
+        self.assertEqual(
+            plain_message(
+                "Inspect the current kernel diagnostics and repair the blocked proof."
+            ),
+            "Inspect the current blockers and repair the failed checks.",
+        )
+        self.assertEqual(
+            plain_message(
+                "Recorded current proof satisfies the lifecycle completion candidate."
+            ),
+            "Current checks allow completion.",
+        )
+        self.assertEqual(
+            plain_message(
+                "Reconcile the terminal lifecycle state from externally verified proof."
+            ),
+            "Finish the task from the current checked records.",
+        )
+        self.assertEqual(
+            plain_message("Record a receipt for the current attempt."),
+            "Record a run record for the current run.",
+        )
+        self.assertEqual(
+            plain_message("Use an active qualified approver listed by the task authority plan."),
+            "Use an active qualified approver listed by the task approval plan.",
+        )
+        self.assertEqual(
+            plain_message("Do not execute WORK-1 yet; resolve the packet blockers first."),
+            "Do not execute WORK-1 yet; resolve the task brief blockers first.",
+        )
+        self.assertEqual(
+            plain_message("Repair journal continuity before continuing."),
+            "Repair tamper-evident history before continuing.",
         )
         self.assertEqual(
             plain_message("Honest product claims require support."),

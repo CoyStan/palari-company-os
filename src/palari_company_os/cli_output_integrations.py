@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .cli_output_utils import print_json, yes_no as _yes_no
+from .cli_output_utils import plain_message, print_json, yes_no as _yes_no
 
 
 def print_integrations(payload: dict[str, Any], as_json: bool) -> None:
@@ -37,7 +37,7 @@ def print_integration_check(payload: dict[str, Any], as_json: bool) -> None:
         print(f"Blocked actions: {', '.join(payload['blocked_actions'])}")
     print("Secret: reference present" if payload["secret_ref_present"] else "Secret: none")
     for note in payload["notes"]:
-        print(f"- {note}")
+        print(f"- {plain_message(note)}")
 
 
 def print_integration_plan(payload: dict[str, Any], as_json: bool) -> None:
@@ -56,7 +56,7 @@ def print_integration_plan(payload: dict[str, Any], as_json: bool) -> None:
         print("External write: planned only; no provider call was made.")
     else:
         print("Recorded plan: no (preview only)")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_integration_plan_decision(payload: dict[str, Any], as_json: bool) -> None:
@@ -69,8 +69,8 @@ def print_integration_plan_decision(payload: dict[str, Any], as_json: bool) -> N
     print(f"By: {human['id']} ({human['name']})")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
     if plan.get("decision_reason"):
-        print(f"Reason: {plan['decision_reason']}")
-    print(f"Next: {payload['next_action']}")
+        print(f"Reason: {plain_message(plan['decision_reason'])}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_integration_enqueue(payload: dict[str, Any], as_json: bool) -> None:
@@ -83,7 +83,7 @@ def print_integration_enqueue(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Plan: {item['plan_id']} | Work: {item['work_item_id']}")
     print(f"By: {human['id']} ({human['name']})")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_integration_outbox_check(payload: dict[str, Any], as_json: bool) -> None:
@@ -101,10 +101,10 @@ def print_integration_outbox_check(payload: dict[str, Any], as_json: bool) -> No
     if failed:
         print("Failed checks:")
         for check in failed:
-            print(f"- {check['code']}: {check['message']}")
+            print(f"- {check['code']}: {plain_message(check['message'])}")
     else:
         print("Checks: pass")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_integration_outbox_cancel(payload: dict[str, Any], as_json: bool) -> None:
@@ -116,8 +116,8 @@ def print_integration_outbox_cancel(payload: dict[str, Any], as_json: bool) -> N
     print(f"Integration outbox canceled: {item['id']}")
     print(f"Plan: {item['plan_id']} | Work: {item['work_item_id']}")
     print(f"By: {human['id']} ({human['name']})")
-    print(f"Reason: {item['cancel_reason']}")
+    print(f"Reason: {plain_message(item['cancel_reason'])}")
     print(f"Provider call: {_yes_no(payload['would_call_provider'])}")
-    print(f"Next: {payload['next_action']}")
+    print(f"Next: {plain_message(payload['next_action'])}")
 
 

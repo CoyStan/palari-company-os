@@ -302,9 +302,9 @@ class CliSmokeTests(unittest.TestCase):
             print_review_guide(payload, False)
 
         text = output.getvalue()
-        self.assertIn("packet-bound executable verdict commands:", text)
+        self.assertIn("task-brief review-result commands:", text)
         self.assertIn(f"accept-ready: {agent_command}", text)
-        self.assertIn("human-only executable verdict commands:", text)
+        self.assertIn("human-only review-result commands:", text)
         self.assertIn(f"blocked: {human_command}", text)
         self.assertIn("Non-executable reference template:", text)
         self.assertIn("REVIEW-ID", text)

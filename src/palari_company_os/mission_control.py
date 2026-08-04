@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from .cli_output_utils import plain_message
 from .integrations import decide_integration_plan
 from .read_models import detail, queue_items
 from .store import workspace_file_path
@@ -265,8 +266,8 @@ def _needs_lane(
               <div>
                 <span class="item-id">{_e(item.id)}</span>
                 <h2>{_e(item.title)}</h2>
-                <p>{_e(item.why)}</p>
-                <p class="next">{_e(item.next_action)}</p>
+                <p>{_e(plain_message(item.why))}</p>
+                <p class="next">{_e(plain_message(item.next_action))}</p>
               </div>
               <div class="actions"><span class="muted">{_e(action_hint)}</span></div>
             </article>
