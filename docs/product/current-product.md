@@ -189,8 +189,8 @@ Supported connections consume the same central decisions:
 - MCP stdio with explicit capability limits;
 - Linear issue, comment, and webhook translation through the required
   plan, approval, and outbox steps;
-- local Mission Control for read-only supervision and guarded integration-plan
-  decisions; and
+- local Mission Control for supervision, guarded integration-plan decisions,
+  and one-task exact approval for eligible reversible local work; and
 - agent-ready repository documentation plus the network-free demo.
 
 A connection cannot widen a task's allowed files, sources, or actions; approve

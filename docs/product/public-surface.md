@@ -36,7 +36,7 @@ matrix.
 | Claude and Codex session setup | adapter | Tested repository-local session enforcement using portable session rules. |
 | MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
-| Mission Control and local serve | visual | Local supervision surface, not part of the central evaluator. |
+| Mission Control and local serve | visual | Local supervision surface with guarded integration-plan decisions and one-task exact approve; not a second evaluator. |
 | ACME workspace | example | Repository example only; it is not packaged data, a default workspace, or the source of truth for candidate tests. |
 | Restore-point recovery and split collections | parked | Reachable local recovery/read features pending a product decision; neither can approve or complete work. |
 | Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no permission or pre-1.0 compatibility promise. |

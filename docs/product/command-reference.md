@@ -1260,11 +1260,14 @@ Important boundaries:
 - It binds to `127.0.0.1` by default.
 - `--host` values outside localhost print a warning because this v1 server has
   no login/auth layer.
-- Tasks needing human approval are read-only in Mission Control. A qualified
-  human runs the exact presentation-bound `approve` command emitted by the
-  inspected handoff, or intentionally uses the advanced Approval Inbox action;
-  Mission Control exposes no raw decision-record endpoint or form.
-- Mutating requests require a per-session CSRF token embedded in the page.
+- For one eligible reversible local task, Mission Control shows a one-click
+  Approve control that posts to `/approve-work` with the same presentation
+  digest and authority path as CLI `approve --presented …`. Ineligible,
+  external, irreversible, multi-approval, or unqualified cases stay read-only
+  and point at the Approval Inbox / emitted handoff command. Mission Control
+  exposes no raw decision-record endpoint or form.
+- Mutating requests require a per-session CSRF token embedded in the page and
+  a workspace-hash compare-and-swap; stale presentation digests fail closed.
 - Integration-plan decisions go through the guarded integration service,
   including workspace validation, stale-write conflict checks, and the
   workspace write lock.
