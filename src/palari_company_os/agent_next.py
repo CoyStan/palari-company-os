@@ -224,7 +224,7 @@ def _candidates(
                 "packet_status": packet.get("status", "blocked"),
                 "can_start": can_start,
                 "blocker_codes": blocker_codes,
-                "authority_correction": _authority_correction(blockers),
+                "authority_correction": _authority_correction(blockers, workspace, work),
                 "start_blocker_codes": [blocker["code"] for blocker in start_blockers],
                 "start_blockers": start_blockers,
                 "resolution_summary": finish.get(
@@ -388,18 +388,74 @@ def _palari_can_see_work(
     return bool(workbench and palari_id in workbench.palari_ids)
 
 
-def _authority_correction(blockers: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Return the first authority-plan blocker (with its smallest correction)."""
+# Authority blockers that a distinct review-only agent would resolve. Missing
+# builders or missing qualified humans need a different fix, so they are excluded.
+_REVIEWER_REMEDIABLE = {
+    "AUTHORITY_PLAN_UNSATISFIABLE",
+    "REVIEWER_MISSING",
+    "REVIEWER_ROLE_MISSING",
+}
+
+
+def _authority_correction(
+    blockers: list[dict[str, Any]],
+    workspace: Workspace,
+    work: Any,
+) -> dict[str, Any] | None:
+    """Return the first authority-plan blocker (with its smallest correction).
+
+    When the blocker is one a distinct review-only agent would resolve, attach a
+    concrete, copy-pasteable ``palari palari create`` command so a single
+    maintainer can unblock in one step instead of parsing prose.
+    """
     for blocker in blockers:
-        if blocker.get("code") in AUTHORITY_BLOCKERS:
+        code = str(blocker.get("code", ""))
+        if code in AUTHORITY_BLOCKERS:
             message = str(blocker.get("message", "")).strip()
-            if message:
-                return {
-                    "code": str(blocker.get("code", "")),
-                    "message": message,
-                    "human_visible": True,
-                }
+            if not message:
+                return None
+            correction: dict[str, Any] = {
+                "code": code,
+                "message": message,
+                "human_visible": True,
+            }
+            if code in _REVIEWER_REMEDIABLE:
+                command = _reviewer_remediation_command(workspace, work)
+                if command:
+                    correction["next_command"] = command
+            return correction
     return None
+
+
+def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
+    """Build a ``palari palari create`` command that adds an eligible reviewer.
+
+    The reviewer is linked to the task goal (so it is eligible to review) and is
+    given review-only ``forbidden_actions`` matching what ``palari init`` seeds.
+    Returns an empty string if the workspace lacks the goal or human context
+    needed to form a safe command.
+    """
+    goal = str(getattr(work, "goal", "") or "")
+    humans = workspace.humans
+    if not goal or not humans:
+        return ""
+    owner_human = humans[0].id
+    existing = {palari.id for palari in workspace.palaris}
+    reviewer_id = "PALARI-REVIEWER"
+    if reviewer_id in existing:
+        reviewer_id = "PALARI-INDEPENDENT-REVIEWER"
+    forbidden = (
+        "build or modify task outputs,broaden task scope,"
+        "send external messages,record human approval"
+    )
+    return (
+        f"palari palari create {reviewer_id} "
+        '--name "Independent Reviewer" '
+        '--role "Review-only AI partner" '
+        f"--owner-human {owner_human} "
+        f"--list linked_goals={goal} "
+        f'--list "forbidden_actions={forbidden}"'
+    )
 
 
 def _no_ready_blockers(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:

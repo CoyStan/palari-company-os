@@ -314,6 +314,39 @@ class AgentPacketProjectionTests(unittest.TestCase):
         candidate = result["candidates"][0]
         self.assertIsNotNone(candidate["authority_correction"])
 
+        # The correction is actionable: a concrete command that adds an eligible
+        # review-only agent linked to the task goal.
+        command = authority["next_command"]
+        self.assertIn("palari create PALARI-REVIEWER", command)
+        self.assertIn("--owner-human HUMAN-OWNER", command)
+        self.assertIn("linked_goals=GOAL-PACKET", command)
+
+    def test_agent_next_authority_correction_omits_command_for_missing_approver(
+        self,
+    ) -> None:
+        # A missing qualified *human* approver is not fixed by adding a reviewer,
+        # so no reviewer-creation command should be suggested.
+        data = _workspace_data()
+        data["work_items"][0].update(
+            {
+                "risk": "R2",
+                "intensity": "standard",
+                "required_approval_count": 0,
+            }
+        )
+        data["humans"][0]["availability"] = "inactive"
+        data["palaris"] = [data["palaris"][0]]
+        data["goals"][0]["linked_palaris"] = [PALARI_ID]
+        workspace = Workspace.from_raw(data, self.root)
+
+        result = build_agent_next(workspace, PALARI_ID)
+
+        candidate = result["candidates"][0]
+        correction = candidate["authority_correction"]
+        self.assertIsNotNone(correction)
+        self.assertEqual(correction["code"], "APPROVER_ROLE_MISSING")
+        self.assertNotIn("next_command", correction)
+
     def test_execute_packet_is_ready_when_reviewer_preserves_the_human_approver(
         self,
     ) -> None:
