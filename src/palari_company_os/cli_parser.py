@@ -76,6 +76,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also install and anchor one tested local agent-host profile.",
     )
     init_parser.add_argument(
+        "--strict-git",
+        action="store_true",
+        help=(
+            "With --host cursor, also install the git pre-commit commit gate "
+            "(opt-in; Cursor defaults to advisory-only)."
+        ),
+    )
+    init_parser.add_argument(
         "--as",
         dest="palari_id",
         default="",
@@ -560,13 +568,16 @@ def _add_git_parser(subparsers: Any) -> None:
 def _add_cursor_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "cursor",
-        help="Enforce packet write boundaries in Cursor (rule + git hook).",
+        help="Install Cursor advisory boundary rule (optional git commit gate).",
     )
     nested = parser.add_subparsers(dest="cursor_command", required=True)
 
     install = nested.add_parser(
         "install",
-        help="Write the Palari boundary rule into .cursor/rules/ and wire the git hook.",
+        help=(
+            "Write the Palari boundary rule into .cursor/rules/ and, unless "
+            "--no-git-hook, install the git pre-commit gate."
+        ),
     )
     install.add_argument(
         "--project-dir",

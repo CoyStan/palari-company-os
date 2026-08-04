@@ -946,6 +946,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 True,
             )
 
+        strict_git = bool(getattr(args, "strict_git", False))
+        if strict_git and args.host != "cursor":
+            raise WorkspaceError("--strict-git is only valid with --host cursor")
+
         if workspace_file_path(args.path).exists() and args.host:
             return CommandResult(
                 "agent-adopt",
@@ -954,6 +958,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     project_dir=workspace_file_path(args.path).parent,
                     host=args.host,
                     palari_id=args.palari_id,
+                    strict_git=strict_git,
                 ),
                 args.json,
             )
@@ -967,6 +972,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 name=args.name,
                 palari_name=args.palari,
                 host=args.host,
+                strict_git=strict_git,
             ),
             args.json,
         )
