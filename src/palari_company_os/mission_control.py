@@ -12,9 +12,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from .agent_handoff import simple_approval_offer_for_human
 from .cli_output_utils import plain_message
 from .integrations import decide_integration_plan
 from .read_models import detail, queue_items
+from .simple_approval import approve_work
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
 
@@ -109,6 +111,9 @@ def make_mission_control_handler(config: MissionControlConfig) -> type[BaseHTTPR
             if parsed.path == "/integration-plan":
                 self._handle_integration_plan()
                 return
+            if parsed.path == "/approve-work":
+                self._handle_approve_work()
+                return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
 
         def log_message(self, format: str, *args: Any) -> None:
@@ -132,6 +137,49 @@ def make_mission_control_handler(config: MissionControlConfig) -> type[BaseHTTPR
                     {
                         "ok": True,
                         "status": result["status"],
+                        "workspace_hash": workspace_hash(config.workspace_path),
+                    },
+                )
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+
+        def _handle_approve_work(self) -> None:
+            payload = self._read_payload()
+            blocked = self._guard_mutation(payload)
+            if blocked:
+                return
+            work_id = str(payload.get("work_id") or "")
+            presented = str(payload.get("presented_digest") or "")
+            try:
+                offer = simple_approval_offer_for_human(
+                    Workspace.load(config.workspace_path),
+                    work_id,
+                    config.human_id,
+                )
+                if offer is None or (
+                    presented and presented != offer["presentation_digest"]
+                ):
+                    if presented:
+                        raise WorkspaceError(
+                            "approval presentation changed, refresh before approving"
+                        )
+                    raise WorkspaceError(
+                        "task is not eligible for one-click Mission Control approval"
+                    )
+                result = approve_work(
+                    str(config.workspace_path),
+                    work_id,
+                    config.human_id,
+                    reason=str(payload.get("reason") or "Mission Control approval."),
+                    presented_digest=presented or offer["presentation_digest"],
+                )
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "ok": True,
+                        "status": result.get("status", "approved"),
+                        "completed": bool(result.get("completed")),
+                        "work_id": work_id,
                         "workspace_hash": workspace_hash(config.workspace_path),
                     },
                 )
@@ -255,11 +303,23 @@ def _needs_lane(
         return '<p class="empty">Nothing needs you. Your agents are inside their boundaries.</p>'
     cards = []
     for item in needs:
-        action_hint = (
-            "Use the exact action emitted by the Approval Inbox."
-            if item.next_step_type == "human-decision"
-            else "No direct UI action yet."
-        )
+        offer = None
+        if item.next_step_type == "human-decision":
+            offer = simple_approval_offer_for_human(workspace, item.id, config.human_id)
+        if offer is not None:
+            actions = _approve_work_form(
+                offer["work_id"],
+                offer["presentation_digest"],
+                config,
+                current_hash,
+            )
+        elif item.next_step_type == "human-decision":
+            actions = (
+                '<span class="muted">Use the exact action emitted by the '
+                "Approval Inbox.</span>"
+            )
+        else:
+            actions = '<span class="muted">No direct UI action yet.</span>'
         cards.append(
             f"""
             <article class="need-card">
@@ -269,7 +329,7 @@ def _needs_lane(
                 <p>{_e(plain_message(item.why))}</p>
                 <p class="next">{_e(plain_message(item.next_action))}</p>
               </div>
-              <div class="actions"><span class="muted">{_e(action_hint)}</span></div>
+              <div class="actions">{actions}</div>
             </article>
             """
         )
@@ -316,6 +376,24 @@ def _integration_plan_form(
       <input type="hidden" name="action" value="{_e(action)}">
       <input type="hidden" name="reason" value="Mission Control {label.lower()}">
       <button class="button button-{_e(action)}" type="submit">{_e(label)}</button>
+    </form>
+    """
+
+
+def _approve_work_form(
+    work_id: str,
+    presented_digest: str,
+    config: MissionControlConfig,
+    current_hash: str,
+) -> str:
+    return f"""
+    <form method="post" action="/approve-work">
+      <input type="hidden" name="csrf_token" value="{_e(config.csrf_token)}">
+      <input type="hidden" name="workspace_hash" value="{_e(current_hash)}">
+      <input type="hidden" name="work_id" value="{_e(work_id)}">
+      <input type="hidden" name="presented_digest" value="{_e(presented_digest)}">
+      <input type="hidden" name="reason" value="Mission Control approval.">
+      <button class="button button-approve" type="submit">Approve</button>
     </form>
     """
 

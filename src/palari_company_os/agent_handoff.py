@@ -19,6 +19,35 @@ from .workspace import Workspace, WorkspaceError
 from .workspace_read_models import approval_inbox
 
 
+def simple_approval_offer_for_human(
+    workspace: Workspace,
+    work_id: str,
+    human_id: str,
+) -> dict[str, str] | None:
+    """Return one exact presentation-bound approve offer for ``human_id``, if any.
+
+    Reuses the same Approval Pack / simple-approval command compilation as
+    agent handoff. Returns ``None`` when the task is not eligible for a
+    one-click reversible-local approval by that human.
+    """
+    handoff = _human_approval_handoff(workspace, work_id)
+    pack = handoff.get("approval_pack") or {}
+    if not pack.get("available"):
+        return None
+    for command in pack.get("simple_approval_commands") or []:
+        if str(command.get("human_id") or "") != human_id:
+            continue
+        digest = str(command.get("presentation_digest") or "")
+        if not digest:
+            return None
+        return {
+            "work_id": work_id,
+            "human_id": human_id,
+            "presentation_digest": digest,
+        }
+    return None
+
+
 def build_agent_handoff(
     workspace: Workspace,
     work_id: str,
