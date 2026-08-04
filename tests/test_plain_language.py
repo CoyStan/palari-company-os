@@ -129,6 +129,12 @@ class PlainLanguageContractTests(unittest.TestCase):
             "A run exists without check results; verify before reporting completion.",
         )
         self.assertEqual(
+            plain_message(
+                "Repair only the reviewed findings, then refresh evidence and review."
+            ),
+            "Repair only the reviewed findings, then refresh checks and review.",
+        )
+        self.assertEqual(
             plain_message("Honest product claims require support."),
             "Honest product claims require support.",
         )

@@ -226,6 +226,7 @@ _PLAIN_MESSAGE_REPLACEMENTS = (
         r"\brefresh evidence before requesting review or human decision\b",
         "refresh checks before requesting review or approval",
     ),
+    (r"\brefresh evidence and review\b", "refresh checks and review"),
     (r"\bwork scope and acceptance target\b", "task limits and completion target"),
     (r"\bscope and acceptance target\b", "task limits and completion target"),
     (r"\bbefore any human decision or integration\b", "before any approval or integration"),
