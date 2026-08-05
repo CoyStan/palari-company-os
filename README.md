@@ -27,13 +27,14 @@ That is the product: AI work with a boundary you can inspect.
 
 Requirements: Python 3.10 or newer and Git.
 
-Zero-install demo once the package is on PyPI (see
-[Release and operations](docs/product/release-and-operations.md) for the first
-publish):
+Zero-install demo (after the first PyPI publish of this version):
 
 ```bash
 uvx --from palari-company-os palari demo --no-pause
 ```
+
+See [Release and operations](docs/product/release-and-operations.md) to cut a
+tagged release.
 
 Two commands from a fresh clone:
 

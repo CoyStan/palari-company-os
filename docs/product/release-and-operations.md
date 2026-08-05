@@ -3,7 +3,7 @@
 Current version:
 
 ```text
-0.2.0
+0.2.1
 ```
 
 Supported Python:
@@ -49,8 +49,8 @@ One-time human setup before the first tagged release: PyPI publishing uses
 for this repository (owner `CoyStan`, repository `palari-company-os`,
 workflow `release.yml`). No API token is stored in the repository.
 
-Until that trusted publisher exists and a matching `vX.Y.Z` tag is pushed, the
-package is **not** on PyPI. After the first successful publish, the zero-install
+A pending trusted publisher becomes active on the first successful publish.
+After `vX.Y.Z` is pushed and the Release workflow succeeds, the zero-install
 demo is:
 
 ```bash
