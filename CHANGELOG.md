@@ -78,6 +78,15 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
+- Added an integrity-grade drop-a-receipt page under `verify/` (unsigned PCAW
+  v1 work-state/digest checks, GitHub Pages workflow, README badge). Explicitly
+  not WRP-10 and not full CLI governance verify.
+- Added experimental distribution notes and an HN draft sourced from the
+  landscape survey (`docs/product/distribution.md`,
+  `docs/product/agent-company-landscape-hn-draft.md`).
+- Documented the post-PyPI zero-install demo:
+  `uvx --from palari-company-os palari demo --no-pause` (requires trusted
+  publisher + first `v*` tag).
 - Added the July 2026 agent-company landscape survey as an experimental research
   document (`docs/product/agent-company-landscape.md`), linked from the public
   surface map and Blueprint §6. It is not product status or a backlog.

@@ -45,6 +45,8 @@ matrix.
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |
 | Agent-company landscape survey | experimental | July 2026 research snapshot scoring ~60 systems on five governed-company properties; not current product status or a backlog. See [agent-company-landscape.md](agent-company-landscape.md). |
+| Drop-a-receipt verifier (`verify/`) | experimental | Static unsigned PCAW v1 integrity page (work-state/digest bindings). Not WRP-10 and not full CLI governance verify. |
+| Distribution workstream | experimental | Measured external adoption notes; not a product feature surface. See [distribution.md](distribution.md). |
 | `docs/archive/pr19-contracts/` | historical | Archived PR #19 completion contracts; not current operator docs. See that folder's `SUPERSESSION.md`. |
 
 ## Command surface
