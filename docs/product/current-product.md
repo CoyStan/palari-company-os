@@ -58,7 +58,7 @@ An operator initializes a repository once, creates a bounded task, and checks
 its status:
 
 ```text
-palari init [--host claude|codex]
+palari init [--host claude|codex|cursor] [--strict-git]
 palari work add TITLE --create PATH | --modify PATH | --delete PATH
 palari queue
 palari detail WORK-ID
@@ -191,7 +191,9 @@ Supported connections consume the same central decisions:
 
 - the local CLI;
 - the Git commit boundary;
-- tested Claude and Codex session setup;
+- tested Claude and Codex session setup (structural hooks + git gate);
+- tested Cursor advisory host setup (opt-in git gate via `--strict-git` /
+  `cursor install`);
 - MCP stdio with explicit capability limits;
 - Linear issue, comment, and webhook translation through the required
   plan, approval, and outbox steps;
@@ -217,12 +219,15 @@ with work that has since shipped, so it is neither current status nor an
 execution backlog. The Palari Blueprint is `EXPERIMENTAL` research for possible
 future protocol work, not a supported product promise.
 
-Unsupported Cursor, Devin, GLM, and generic session aliases have been removed.
-So have the provider-specific Slack, GitHub, Jira, and email preview shapes,
-the desktop prototype, its demo schema and showcase, and Pages deployment.
-Mission Control is the one supported local human UI. Historical completion
-documents do not define today's product. The PR #19 completion contracts for
-journal v2, golden-path repair, and universal/invisible adoption are archived
+Unsupported Devin, GLM, and generic session aliases have been removed. A
+current Cursor host profile remains (`init --host cursor`: advisory rule by
+default; git gate opt-in). Provider-specific Slack, GitHub, Jira, and email
+preview shapes, the desktop prototype, its demo schema and showcase, and Pages
+deployment are also removed. Mission Control is the one supported local human
+UI, including guarded one-task Approve for eligible reversible local work.
+Historical completion documents do not define today's product. The PR #19
+completion contracts for journal v2, golden-path repair, and universal/invisible
+adoption are archived
 under `docs/archive/pr19-contracts/` with a supersession map; they are not
 current operator docs.
 

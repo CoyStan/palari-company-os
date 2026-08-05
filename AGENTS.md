@@ -148,11 +148,14 @@ command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
 
 Fresh Git repositories may use `palari init --host HOST`; existing workspaces use
 the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
-where `HOST` is `claude` or `codex`. Both profiles install the portable session
-rules, commit-time Git boundary, and tested session hooks; Codex requires
-explicit `/hooks` trust. `palari claude install` remains the hook-only
-management, repair, and removal surface; see
-`docs/product/claude-code-integration.md`.
+where `HOST` is `claude`, `codex`, or `cursor`. Claude and Codex install the
+portable session rules, commit-time Git boundary, and tested session hooks
+(strict no-claim behavior on adoption); Codex requires explicit `/hooks` trust.
+Cursor installs an advisory project rule by default — the Git commit gate is
+opt-in via `--strict-git`, `palari cursor install`, or `palari git install`.
+`palari claude install` remains the Claude hook-only management surface; see
+`docs/product/claude-code-integration.md` and
+`docs/product/cursor-integration.md`.
 
 ## Dogfood on this repository
 

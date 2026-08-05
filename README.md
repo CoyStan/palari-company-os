@@ -104,14 +104,16 @@ palari agent start --next --as PALARI-AGENT --json
 `init` creates missing `AGENTS.md` and `docs/agent/` guidance without
 overwriting existing instructions. In a Git worktree it also makes one local,
 path-limited starter commit containing only new Palari records and generated
-agent docs. With `--host`, that commit includes new repository-local host settings
-and installs the assignment-bound Git commit check. Unrelated staged and
-unstaged work is excluded.
+agent docs. With `--host claude` or `--host codex`, that commit includes new
+repository-local host settings and installs the assignment-bound Git commit
+check. With `--host cursor`, it installs an advisory project rule; pass
+`--strict-git` to include the Git commit check. Unrelated staged and unstaged
+work is excluded.
 
-Choose `claude` or `codex`. Codex asks you to trust the exact repository hook once
-through `/hooks`; Palari cannot grant that host trust itself. Existing root
-instructions and host configuration stay untouched. Nested Palari workspaces use
-the enclosing Git root.
+Choose `claude`, `codex`, or `cursor`. Codex asks you to trust the exact
+repository hook once through `/hooks`; Palari cannot grant that host trust
+itself. Existing root instructions and host configuration stay untouched. Nested
+Palari workspaces use the enclosing Git root.
 
 The agent receives a task brief (`packet` in stored JSON and file paths),
 portable session rules (`session-contract`), and a local assignment (`claim`).

@@ -1,12 +1,18 @@
-# Palari Company OS Dogfood Workspace
+# Palari Company OS Dogfood Workspace (historical)
 
-This workspace uses Palari Company OS to track real work on this repository.
-It is separate from the small ACME demo workspace and should grow as the repo
-does.
+This directory is **historical, non-live dogfood evidence** for Palari Company
+OS. It is separate from the small ACME demo workspace. Do not treat it as the
+live self-hosting workspace for current repository work.
 
-The workspace is repo-local dogfooding, not a legacy ticket workflow. It records
-goals, Palaris, humans, work, evidence, review, human decisions, and outcomes
-using the same model the CLI exposes to other users.
+Live dogfood on this repository is the CI **Agent dogfood gate**
+(`scripts/check_dogfood.py`), optional claim bootstrap via
+`scripts/dogfood_agent.sh`, and exact-SHA / passed-evidence coverage — not
+growing this workspace as if it were the active queue.
+
+The records below remain useful for inspection of the same model the CLI
+exposes to other users (goals, Palaris, humans, work, evidence, review, human
+decisions, and outcomes). They are frozen operator evidence, not a mandate to
+keep landing new live work here.
 
 The completed foundation work item is a retrospective record of repo work that
 had already been reviewed, accepted, committed, and pushed outside this
@@ -35,16 +41,15 @@ review-mode packet/check commands visible in detail and dashboard, made
 execute-mode check commands explicit, and made CLI text output print its mode.
 It is receipt-ready rather than accepted.
 
-The workspace keeps two active workbenches: `Repo Foundation` for ordinary
-implementation and maintenance work, and `Product Architecture` for authority,
-broker, policy, and task-sizing decisions. That keeps agent packets tied to a
-bounded arena instead of a flat task list.
+The workspace keeps two workbenches in the frozen record: `Repo Foundation` for
+ordinary implementation and maintenance work, and `Product Architecture` for
+authority, broker, policy, and task-sizing decisions.
 
 Committed paths in this workspace should be repo-relative or workspace-relative.
 Avoid machine-local absolute paths so the workspace remains portable across
 clones.
 
-Useful commands:
+Useful inspection commands (read-only against frozen evidence):
 
 ```bash
 ./bin/palari --workspace workspaces/palari-company-os validate

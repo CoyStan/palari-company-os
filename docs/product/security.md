@@ -187,21 +187,23 @@ Safety rules:
   complete scan.
 - `palari init --host HOST` creates and adopts a fresh workspace; `palari init
   WORKSPACE-DIR --host HOST --as PALARI-ID` idempotently adopts an existing
-  one; `HOST` is `claude` or `codex`. Both install or reuse the portable
-  contract and claim-bound Git commit gate without granting authority. Claude
-  and Codex have tested repository-local session adapters; Codex hooks activate
-  only after explicit host `/hooks` review. No profile is an OS sandbox, and
-  an unrestricted same-user process can still rewrite local files or Git
-  metadata. Nested workspace adoption resolves and preflights the
-  enclosing Git root before any write, so existing root instructions or host
-  configuration cannot be silently absorbed into the bootstrap commit.
-  A symlinked workspace file or escaping managed target fails before the
-  workspace is loaded or repository files are written. Generated commands use an
-  inspectable repository-local launcher when present; otherwise they preserve the
-  absolute Palari entrypoint currently running or a validated `PATH` entry.
-  `palari claude install` remains the hook-only management, repair, and removal
-  surface. It manages current Palari entries without duplicating them and
-  preserves co-located foreign host hooks.
+  one; `HOST` is `claude`, `codex`, or `cursor`. Claude and Codex install or
+  reuse the portable contract, claim-bound Git commit gate, and tested
+  repository-local session hooks (strict no-claim on adoption) without granting
+  authority; Codex hooks activate only after explicit host `/hooks` review.
+  Cursor installs an advisory project rule by default; the Git commit gate is
+  opt-in via `--strict-git`, `palari cursor install`, or `palari git install`.
+  No profile is an OS sandbox, and an unrestricted same-user process can still
+  rewrite local files or Git metadata. Nested workspace adoption resolves and
+  preflights the enclosing Git root before any write, so existing root
+  instructions or host configuration cannot be silently absorbed into the
+  bootstrap commit. A symlinked workspace file or escaping managed target fails
+  before the workspace is loaded or repository files are written. Generated
+  commands use an inspectable repository-local launcher when present; otherwise
+  they preserve the absolute Palari entrypoint currently running or a validated
+  `PATH` entry. `palari claude install` remains the Claude hook-only management,
+  repair, and removal surface. It manages current Palari entries without
+  duplicating them and preserves co-located foreign host hooks.
 - Starter initialization declares a second, review-only Palari linked to the
   goal but outside the execution workbench. Source and goal linkage permit
   exact advisory review; the absence of workbench execution membership and
