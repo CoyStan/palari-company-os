@@ -10,7 +10,17 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [{name = "CoyStan"}]
-keywords = ["ai", "company-os", "governance", "workflow", "cli"]
+keywords = [
+    "ai",
+    "ai-agents",
+    "agent-governance",
+    "audit-trail",
+    "claude-code",
+    "company-os",
+    "governance",
+    "workflow",
+    "cli",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

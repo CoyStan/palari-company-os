@@ -134,6 +134,9 @@ When adding a command, update parser, dispatch, output, tests, and
 - `docs/product/agent-company-landscape.md`: experimental July 2026 research
   survey (~60 systems scored on five governed-company properties); not product
   status. Companion short snapshot lives in `palari-blueprint.md` §6.
+- `verify/`: experimental unsigned PCAW integrity drop-a-receipt page (not
+  WRP-10). See `verify/README.md`.
+- `docs/product/distribution.md`: experimental external-adoption measurements.
 
 ## Examples And Workspaces
 

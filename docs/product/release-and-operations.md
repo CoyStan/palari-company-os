@@ -49,6 +49,19 @@ One-time human setup before the first tagged release: PyPI publishing uses
 for this repository (owner `CoyStan`, repository `palari-company-os`,
 workflow `release.yml`). No API token is stored in the repository.
 
+Until that trusted publisher exists and a matching `vX.Y.Z` tag is pushed, the
+package is **not** on PyPI. After the first successful publish, the zero-install
+demo is:
+
+```bash
+uvx --from palari-company-os palari demo --no-pause
+```
+
+GitHub Pages for the integrity-grade drop-a-receipt page deploys from `verify/`
+via `.github/workflows/pages.yml`. One-time human setup: enable GitHub Pages
+with **GitHub Actions** as the source for this repository. The page is
+unsigned-integrity only — see `verify/README.md`.
+
 Workspace backup guidance:
 
 - `workspace.json` is the source of truth for current state

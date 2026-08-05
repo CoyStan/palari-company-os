@@ -27,18 +27,26 @@ That is the product: AI work with a boundary you can inspect.
 
 Requirements: Python 3.10 or newer and Git.
 
+Zero-install demo once the package is on PyPI (see
+[Release and operations](docs/product/release-and-operations.md) for the first
+publish):
+
+```bash
+uvx --from palari-company-os palari demo --no-pause
+```
+
 Two commands from a fresh clone:
 
 ```bash
 git clone https://github.com/CoyStan/palari-company-os.git && cd palari-company-os
-./bin/palari demo
+./bin/palari demo --no-pause
 ```
 
-Or install it first:
+Or install from a checkout:
 
 ```bash
 python3 -m pip install -e .
-palari demo
+palari demo --no-pause
 ```
 
 The offline demo uses a temporary directory. It shows Palari blocking a
@@ -59,9 +67,16 @@ Palari in your own repository.
 ## What Palari does
 
 [![CI](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml/badge.svg)](https://github.com/CoyStan/palari-company-os/actions/workflows/ci.yml)
+[![Verify a receipt](https://img.shields.io/badge/verify-drop%20a%20receipt-0b5f6b.svg)](https://coystan.github.io/palari-company-os/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v0.2%20alpha-8a6d3b.svg)](docs/product/current-product.md)
+
+This repository dogfoods its own agent PRs with evidence/proof ranges. Drop an
+unsigned PCAW receipt in the browser verifier
+([what it checks](verify/README.md)) or run
+`palari proof verify statement.json --subject-root DIR` for full CLI checks.
+Demo receipt: `verify/fixtures/accepted/statement.json`.
 
 Palari is a local system that makes AI work reviewable. It helps a human and an
 agent agree on:

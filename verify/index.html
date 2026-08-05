@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palari — drop a receipt</title>
+  <style>
+    :root {
+      --ink: #14201c;
+      --muted: #4a5a54;
+      --paper: #f3f1ea;
+      --panel: #fffdf8;
+      --line: #c9c2b4;
+      --ok: #1f6b4a;
+      --bad: #8b2e2e;
+      --accent: #0b5f6b;
+      --mono: "IBM Plex Mono", "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace;
+      --sans: "IBM Plex Sans", "Source Sans 3", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #d9ebe7 0%, transparent 55%),
+        linear-gradient(180deg, #ebe6da 0%, var(--paper) 40%, #e7e2d6 100%);
+      font-family: var(--sans);
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+    main {
+      max-width: 46rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    .brand {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 0.35rem;
+      font-weight: 700;
+    }
+    .lede {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 36rem;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 1.1rem 1.15rem;
+      margin: 0 0 1rem;
+    }
+    .drop {
+      border: 1.5px dashed var(--accent);
+      background: rgba(11, 95, 107, 0.04);
+      padding: 1.4rem 1rem;
+      text-align: center;
+      cursor: pointer;
+    }
+    .drop.drag { background: rgba(11, 95, 107, 0.1); }
+    .drop strong { display: block; margin-bottom: 0.25rem; }
+    .drop span { color: var(--muted); font-size: 0.95rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.85rem 0 0; }
+    button, .btn {
+      appearance: none;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #f7f4ec;
+      font: inherit;
+      padding: 0.45rem 0.8rem;
+      border-radius: 2px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.secondary, .btn.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    h2 {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.65rem;
+    }
+    ul.checks { list-style: none; padding: 0; margin: 0; }
+    ul.checks li {
+      display: grid;
+      grid-template-columns: 1.4rem 1fr;
+      gap: 0.55rem;
+      padding: 0.45rem 0;
+      border-top: 1px solid var(--line);
+      font-size: 0.95rem;
+    }
+    ul.checks li:first-child { border-top: 0; }
+    .mark { font-family: var(--mono); font-weight: 700; }
+    .mark.ok { color: var(--ok); }
+    .mark.bad { color: var(--bad); }
+    .meta {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      word-break: break-all;
+      color: var(--muted);
+      margin: 0.75rem 0 0;
+    }
+    .honesty {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .status {
+      font-size: 1.15rem;
+      font-weight: 650;
+      margin: 0 0 0.75rem;
+    }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    footer {
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    footer a { color: var(--accent); }
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">Palari</p>
+    <p class="lede">
+      Drop an unsigned PCAW receipt. This page checks integrity bindings in your
+      browser — no upload. It does not verify signatures or replace the CLI.
+    </p>
+
+    <section class="panel drop" id="dropzone" tabindex="0" role="button" aria-label="Drop PCAW statement JSON">
+      <strong>Drop <code>statement.json</code> here</strong>
+      <span>or click to choose a file. Optionally add artifact files after.</span>
+      <input id="statementInput" type="file" accept="application/json,.json" />
+    </section>
+
+    <div class="row">
+      <button type="button" id="loadDemo">Load accepted demo receipt</button>
+      <button type="button" class="secondary" id="loadTampered">Load tampered demo</button>
+      <label class="btn secondary" for="artifactInput">Add artifact files</label>
+      <input id="artifactInput" type="file" multiple />
+    </div>
+
+    <section class="panel" id="results" hidden>
+      <h2>Result</h2>
+      <p class="status" id="status"></p>
+      <ul class="checks" id="checks"></ul>
+      <p class="meta" id="meta"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Honesty</h2>
+      <ul class="honesty">
+        <li>Unsigned PCAW v1 only — no signatures, keys, or trusted time.</li>
+        <li>Not WRP-10 (the signed drop-a-receipt design in the Blueprint).</li>
+        <li>Governance properties (review, quorum, acceptance) stay CLI-only:
+          <code>palari proof verify statement.json --subject-root DIR</code></li>
+        <li>This repository dogfoods its own agent PRs with evidence/proof ranges.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <a href="https://github.com/CoyStan/palari-company-os">Source</a>
+      ·
+      <a href="https://github.com/CoyStan/palari-company-os/blob/main/verify/README.md">What this checks</a>
+      ·
+      <a href="https://github.com/CoyStan/palari-company-os/blob/main/docs/product/agent-company-landscape.md">Landscape survey</a>
+    </footer>
+  </main>
+  <script src="./pcaw_integrity.js"></script>
+  <script>
+    const dropzone = document.getElementById("dropzone");
+    const statementInput = document.getElementById("statementInput");
+    const artifactInput = document.getElementById("artifactInput");
+    const results = document.getElementById("results");
+    const statusEl = document.getElementById("status");
+    const checksEl = document.getElementById("checks");
+    const metaEl = document.getElementById("meta");
+    const artifacts = {};
+
+    async function readFile(file) {
+      const buf = await file.arrayBuffer();
+      return new Uint8Array(buf);
+    }
+
+    async function run(text) {
+      const report = await PcawIntegrity.verifyStatementIntegrity(text, artifacts);
+      results.hidden = false;
+      statusEl.textContent = report.message;
+      statusEl.className = "status " + (report.ok ? "ok" : "bad");
+      checksEl.innerHTML = "";
+      for (const item of report.checks) {
+        const li = document.createElement("li");
+        const mark = document.createElement("span");
+        mark.className = "mark " + (item.ok ? "ok" : "bad");
+        mark.textContent = item.ok ? "OK" : "!!";
+        const detail = document.createElement("span");
+        detail.textContent = item.id + " — " + item.detail;
+        li.append(mark, detail);
+        checksEl.appendChild(li);
+      }
+      if (report.meta) {
+        metaEl.textContent =
+          "claimed_state=" + report.meta.claimed_state +
+          "  statement_digest=sha256:" + report.meta.statement_digest;
+      } else {
+        metaEl.textContent = "";
+      }
+    }
+
+    async function loadText(text) { await run(text); }
+
+    dropzone.addEventListener("click", () => statementInput.click());
+    dropzone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") statementInput.click();
+    });
+    ["dragenter", "dragover"].forEach((name) => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.add("drag");
+      });
+    });
+    ["dragleave", "drop"].forEach((name) => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("drag");
+      });
+    });
+    dropzone.addEventListener("drop", async (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      const bytes = await readFile(file);
+      await loadText(new TextDecoder("utf-8").decode(bytes));
+    });
+    statementInput.addEventListener("change", async () => {
+      const file = statementInput.files && statementInput.files[0];
+      if (!file) return;
+      const bytes = await readFile(file);
+      await loadText(new TextDecoder("utf-8").decode(bytes));
+    });
+    artifactInput.addEventListener("change", async () => {
+      for (const file of artifactInput.files || []) {
+        artifacts[file.name] = await readFile(file);
+      }
+    });
+
+    document.getElementById("loadDemo").addEventListener("click", async () => {
+      const res = await fetch("./fixtures/accepted/statement.json");
+      await loadText(await res.text());
+    });
+    document.getElementById("loadTampered").addEventListener("click", async () => {
+      const res = await fetch("./fixtures/accepted/statement.json");
+      const text = await res.text();
+      const obj = JSON.parse(text);
+      obj.predicate.governance_case.contract.title =
+        (obj.predicate.governance_case.contract.title || "") + " TAMPER";
+      await loadText(JSON.stringify(obj));
+    });
+  </script>
+</body>
+</html>
