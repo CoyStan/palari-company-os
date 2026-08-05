@@ -2,9 +2,9 @@
   "schema_version": "palari.dogfood_proof.v1",
   "ranges": [
     {
-      "base": "f32e9578d117b83ab9e906943b2d1c641581639c",
-      "head": "59635efe803d656edd00f796e97ea45580b72f72",
-      "work_id": "LANDSCAPE-RESCUE"
+      "base": "54529e8e2cf5a0869116d822dc6f27d013a235c8",
+      "head": "596446fbccc86978468dcec3816cf02c8842ec97",
+      "work_id": "DISTRIBUTION-WEDGE"
     }
   ]
 }
