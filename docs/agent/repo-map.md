@@ -131,6 +131,9 @@ When adding a command, update parser, dispatch, output, tests, and
 - `docs/product/`: current product and operator documentation. Completed
   implementation contracts remain available through Git history rather than as
   supported runtime documentation.
+- `docs/product/agent-company-landscape.md`: experimental July 2026 research
+  survey (~60 systems scored on five governed-company properties); not product
+  status. Companion short snapshot lives in `palari-blueprint.md` §6.
 
 ## Examples And Workspaces
 

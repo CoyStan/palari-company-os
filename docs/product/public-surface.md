@@ -44,6 +44,7 @@ matrix.
 | Self-hosting maintainer state profile | deferred | The policy and migration plan are documented, but live governance state is not yet isolated from the source checkout. No runtime mode is shipped. |
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |
+| Agent-company landscape survey | experimental | July 2026 research snapshot scoring ~60 systems on five governed-company properties; not current product status or a backlog. See [agent-company-landscape.md](agent-company-landscape.md). |
 | `docs/archive/pr19-contracts/` | historical | Archived PR #19 completion contracts; not current operator docs. See that folder's `SUPERSESSION.md`. |
 
 ## Command surface

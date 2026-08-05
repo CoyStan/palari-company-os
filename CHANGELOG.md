@@ -78,6 +78,9 @@ repository milestones, not a production Company OS release.
 
 ### Added
 
+- Added the July 2026 agent-company landscape survey as an experimental research
+  document (`docs/product/agent-company-landscape.md`), linked from the public
+  surface map and Blueprint §6. It is not product status or a backlog.
 - Added Mission Control one-task Approve: `POST /approve-work` on
   `palari serve` for eligible reversible local work, on the same
   presentation-bound authority path as `human-decision approve --presented`.

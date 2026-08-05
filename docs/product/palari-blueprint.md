@@ -254,7 +254,10 @@ revocation statements, and a shared append-only log.
 
 This is a 2026-07-16 snapshot, not an exhaustive market claim. Projects move
 quickly; exact popularity, maturity, feature, and company-status claims must be
-rechecked before publication or strategy decisions.
+rechecked before publication or strategy decisions. For the fuller July 2026
+five-property survey of ~60 systems (open-source, commercial, enterprise, and
+research), see [Agent-Company Landscape](agent-company-landscape.md) — research
+only, not a product promise.
 
 **Native platform controls — the commoditization front.** Claude Code ships
 an OS-enforced sandbox (Seatbelt / bubblewrap + seccomp; runtime open-sourced
