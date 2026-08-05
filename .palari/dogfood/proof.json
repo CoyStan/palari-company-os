@@ -2,9 +2,9 @@
   "schema_version": "palari.dogfood_proof.v1",
   "ranges": [
     {
-      "base": "588f1263e17b3bca23aa26a549260ebd7e375a42",
-      "head": "4dfc71bf02a641f89817ded30f4ce3ff7cb08836",
-      "work_id": "RELEASE-0.2.1"
+      "base": "76ca2f3017ae40ce15615e4d9bdc445882ae9439",
+      "head": "be321de6e3206eccef553d8d035b53810432a731",
+      "work_id": "AUTOPILOT-HANDOFF"
     }
   ]
 }
