@@ -87,7 +87,11 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   `--target-directory` destinations. Compact/newline shell separators and
   ordinary existing-directory copy/move/link/install destinations resolve to
   their effective paths. Git repository overrides and ripgrep helper-launching
-  options ask rather than inheriting a read-only classification. Abbreviated
+  options ask rather than inheriting a read-only classification. A narrow
+  verification allowlist lets bare `python3 -S -m unittest …`,
+  `python3 -m ruff check …`, and `python3 -m mypy …` pass without a human ask
+  so claim-bound autopilot stays quiet; wrappers such as `timeout` / `env` /
+  `python3 -c` and write-capable `ruff --fix` still ask. Abbreviated
   global CLI options are rejected, protected command pairs are scanned
   defensively, destructive parent-directory targets remain protected, and new
   or unclassified Palari commands fail closed to a human ask. The standard

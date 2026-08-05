@@ -414,6 +414,54 @@ class PreToolUseTests(unittest.TestCase):
         self.assertEqual(_decision(result), "ask")
         self.assertIn("opaque interpreter", result["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_safe_python_verification_commands_are_quiet(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        quiet = (
+            "python3 -S -m unittest discover -s tests",
+            "python3 -S -m unittest tests.test_claude_hooks",
+            "python3 -m ruff check .",
+            "python3 -m ruff check src/palari_company_os/claude_hooks.py",
+            "python3 -m mypy src/palari_company_os/claude_hooks.py",
+            "palari agent check WORK-0001 --as PALARI-SOFIA --json",
+            "palari --workspace ws agent advance WORK-0001 --as PALARI-SOFIA --json",
+            "palari --workspace ws agent handoff WORK-0001 --as PALARI-SOFIA --json",
+        )
+        for command in quiet:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(result, {})
+
+    def test_unsafe_python_and_wrappers_still_ask(self) -> None:
+        _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
+        cases = (
+            ("timeout 300 python3 -S -m unittest discover -s tests", "unreviewed executable"),
+            ("python3 -m pytest tests", "opaque interpreter"),
+            ("python3 -c 'print(1)'", "opaque interpreter"),
+            ("python3 -m unittest discover -s tests", "opaque interpreter"),
+            ("python3 -m ruff format .", "opaque interpreter"),
+            ("python3 -m ruff check --fix .", "opaque interpreter"),
+            ("/usr/bin/python3 -S -m unittest discover -s tests", "path-qualified"),
+            ("python3 evil.py", "opaque interpreter"),
+        )
+        for command, needle in cases:
+            with self.subTest(command=command):
+                result = _pre_tool_use(
+                    self.workspace,
+                    "Bash",
+                    {"command": command},
+                    self.repo,
+                )
+                self.assertEqual(_decision(result), "ask")
+                self.assertIn(
+                    needle,
+                    result["hookSpecificOutput"]["permissionDecisionReason"],
+                )
+
     def test_unreviewed_executable_bash_requires_human_review(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
 
@@ -1747,6 +1795,14 @@ class SessionStartTests(unittest.TestCase):
 
         self.assertIn("palari agent next --json", context)
         self.assertIn("palari agent start WORK-ID", context)
+
+    def test_session_start_includes_autopilot_until_handoff_guidance(self) -> None:
+        context = self._context()
+
+        self.assertIn("Autopilot until handoff", context)
+        self.assertIn("Do not wrap commands in timeout", context)
+        self.assertIn("python3 -S -m unittest", context)
+        self.assertIn("palari agent handoff", context)
 
 
 class AgentHookFailureTests(unittest.TestCase):

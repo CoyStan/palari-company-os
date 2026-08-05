@@ -49,6 +49,10 @@ boundary. Before changing files, discover and respect your current boundary.
 - Only edit files inside the packet `allowed_paths.write`. Check your changes
   against the boundary before committing:
   - `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
+- Autopilot until handoff: no `timeout`/`bash -c` wrappers; verify with
+  `python3 -S -m unittest …` / `python3 -m ruff check …`; use bare
+  `palari agent advance` then `palari agent handoff`. Humans approve in the
+  inbox — not every shell step.
 - Stop for every blocker, missing source, human decision, or external write.
 
 {enforcement}

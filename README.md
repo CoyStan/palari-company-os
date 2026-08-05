@@ -1,7 +1,10 @@
 # Palari Company OS
 
-AI agents can change files faster than people can review them. Palari gives
-them a visible boundary and stops them when they cross it.
+Let agents work while you sleep. Wake up to an approval inbox, not a mess.
+
+Palari is local governance that makes unattended autonomy honest: a visible
+task boundary, recorded checks, and human approval when it matters — so you
+can leave agents alone without guessing what they did.
 
 ![Palari terminal showing a blocked change outside the allowed files](docs/assets/palari-blocked-terminal.png)
 

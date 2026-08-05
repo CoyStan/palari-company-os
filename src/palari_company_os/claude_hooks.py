@@ -550,6 +550,52 @@ def bash_human_authority_command(command: str) -> str:
     return ""
 
 
+_SAFE_PYTHON_PREFIX_FLAGS = frozenset({"-S", "-I", "-E", "-s", "-B", "-u"})
+
+
+def _is_safe_python_verification(tokens: list[str], index: int) -> bool:
+    """Return whether ``python[3] -m …`` is a read-only verification command.
+
+    Allows only the repo's ordinary check surfaces so autopilot sessions stay
+    quiet without opening ``python -c``, scripts, pytest, or write-capable ruff
+    subcommands. Path-qualified interpreters remain rejected by the caller.
+    """
+
+    args: list[str] = []
+    for token in tokens[index + 1 :]:
+        if token in SHELL_COMMAND_SEPARATORS:
+            break
+        args.append(token)
+    if not args or "-c" in args:
+        return False
+    try:
+        module_flag = args.index("-m")
+    except ValueError:
+        return False
+    if module_flag + 1 >= len(args):
+        return False
+    for item in args[:module_flag]:
+        if item not in _SAFE_PYTHON_PREFIX_FLAGS:
+            return False
+    module = args[module_flag + 1]
+    rest = args[module_flag + 2 :]
+    if module == "unittest":
+        # Match repo convention: isolate stdlib unittest from site packages.
+        return "-S" in args[:module_flag]
+    if module == "ruff":
+        if not rest or rest[0] != "check":
+            return False
+        for item in rest[1:]:
+            if item == "--fix" or item.startswith("--fix=") or item.startswith(
+                "--output-file"
+            ):
+                return False
+        return True
+    if module == "mypy":
+        return "--install-types" not in rest
+    return False
+
+
 def bash_requires_human_review(command: str) -> str:
     """Return why a target-free shell command is too opaque to auto-authorize."""
 
@@ -579,6 +625,13 @@ def bash_requires_human_review(command: str) -> str:
             return "opaque interpreter ."
         if token != name:
             return f"unreviewed executable (path-qualified executable {token})"
+        # Narrow verification allowlist: keep python opaque in general, but let
+        # claim-bound autopilot run the repo's read-only check commands without
+        # a human ask. Wrappers such as timeout/env still ask above/via opaque.
+        if name in {"python", "python3"} and _is_safe_python_verification(
+            tokens, index
+        ):
+            continue
         if name in OPAQUE_INTERPRETERS:
             return f"opaque interpreter {name}"
         write_reason = _write_command_semantics_reason(tokens, index, name)
@@ -1503,6 +1556,19 @@ def _session_start(
                 "this session.",
             ]
         )
+    lines.extend(
+        [
+            "Autopilot until handoff (stay governed, stay quiet):",
+            "- Do not wrap commands in timeout/env/bash -c; run them directly.",
+            "- Verify with: python3 -S -m unittest … and python3 -m ruff check …",
+            "- Invoke the agent loop as bare `palari agent …` (not ./bin/palari).",
+            "- Edit only allowed_paths.write; then "
+            "`palari agent advance WORK-ID --as PALARI-ID --json` and "
+            "`palari agent handoff WORK-ID --as PALARI-ID --json`.",
+            "- Stop for human review/approval — that is the morning inbox, not "
+            "shell babysitting.",
+        ]
+    )
     lines.append("</palari-contract>")
     return {
         "hookSpecificOutput": {

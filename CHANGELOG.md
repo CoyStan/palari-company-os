@@ -7,6 +7,14 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+### Added
+
+- Autopilot-until-handoff quieting for Claude dogfood: bare
+  `python3 -S -m unittest`, `python3 -m ruff check`, and `python3 -m mypy`
+  no longer force a human ask; `timeout` / `python -c` / write-capable ruff
+  still escalate. SessionStart, AGENTS adoption text, and Cursor rules tell
+  agents to work inside a claim and hand off to the approval inbox.
+
 ## [0.2.1] - 2026-08-05
 
 ### Fixed
