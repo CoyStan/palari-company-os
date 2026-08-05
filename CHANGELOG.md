@@ -7,6 +7,8 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-05
+
 ### Fixed
 
 - Hardened the Agent dogfood gate: `.palari/dogfood/proof.json` must use
@@ -84,9 +86,8 @@ repository milestones, not a production Company OS release.
 - Added experimental distribution notes and an HN draft sourced from the
   landscape survey (`docs/product/distribution.md`,
   `docs/product/agent-company-landscape-hn-draft.md`).
-- Documented the post-PyPI zero-install demo:
-  `uvx --from palari-company-os palari demo --no-pause` (requires trusted
-  publisher + first `v*` tag).
+- Documented the zero-install demo:
+  `uvx --from palari-company-os palari demo --no-pause`.
 - Added the July 2026 agent-company landscape survey as an experimental research
   document (`docs/product/agent-company-landscape.md`), linked from the public
   surface map and Blueprint §6. It is not product status or a backlog.
