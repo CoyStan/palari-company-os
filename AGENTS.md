@@ -169,6 +169,9 @@ palari agent advance WORK-ID --as PALARI-ID --json
 
 Claude/Codex host adoption installs **strict** session hooks (`no claim ⇒ ask`;
 Codex maps ask to deny). Cursor remains advisory unless git gating is opted in.
+Autopilot until handoff: claim first, no `timeout` wrappers, verify with bare
+`python3 -S -m unittest` / `python3 -m ruff check`, then `agent advance` and
+`agent handoff` — humans meet work in the approval inbox, not every shell.
 CI's Agent dogfood gate checks agent-authored commits for covering **passed**
 evidence ranges or exact-SHA entries in `.palari/dogfood/proof.json` (floating
 `@pr-head` tokens and bare attempts do not count; proof-only commits may

@@ -795,7 +795,13 @@ human or external-write boundary, commit the bounded change, then run:
 
 ```bash
 palari agent advance WORK-ID --as {palari_id} --json
+palari agent handoff WORK-ID --as {palari_id} --json
 ```
+
+Autopilot until handoff: do not wrap commands in `timeout` / `env` / `bash -c`;
+run `python3 -S -m unittest …` and `python3 -m ruff check …` directly; use bare
+`palari agent …` (not `./bin/palari`). Human review and approval are the inbox —
+not every shell prompt.
 
 Use `palari agent doctor WORK-ID --as {palari_id} --json` for one actionable
 diagnosis. Never manufacture review, human approval, merge, push, deployment,
