@@ -2,9 +2,9 @@
   "schema_version": "palari.dogfood_proof.v1",
   "ranges": [
     {
-      "base": "54529e8e2cf5a0869116d822dc6f27d013a235c8",
-      "head": "35a1b122db47538c667f53ef7dd92b35c40bcc70",
-      "work_id": "DISTRIBUTION-WEDGE"
+      "base": "588f1263e17b3bca23aa26a549260ebd7e375a42",
+      "head": "4dfc71bf02a641f89817ded30f4ce3ff7cb08836",
+      "work_id": "RELEASE-0.2.1"
     }
   ]
 }
