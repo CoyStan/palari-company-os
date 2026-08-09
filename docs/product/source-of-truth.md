@@ -13,7 +13,9 @@ workspace.json
 
 The technical name for this file's role is the current-state `projection`.
 The ACME example lives at `examples/acme-company-os/workspace.json`; this
-repository's own records live at `workspaces/palari-company-os/workspace.json`.
+repository's live records are the root `workspace.json`. Frozen older dogfood
+records are packed in `workspaces/palari-company-os/past.tgz` and can be
+unpacked for read-only inspection.
 
 Queue, detail, and state are display-only status views (`read_models`) derived
 from `workspace.json`. They do not inspect output bytes or scan history.

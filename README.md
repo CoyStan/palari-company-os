@@ -345,7 +345,7 @@ bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
 schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
-workspaces/palari-company-os/      Historical, non-live dogfood evidence
+workspaces/palari-company-os/      Packed historical dogfood evidence
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and rules
 scripts/verify.sh                  Complete local verification

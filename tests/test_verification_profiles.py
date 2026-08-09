@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import subprocess
 import sys
+import tarfile
 import unittest
 from pathlib import Path
 
@@ -10,15 +12,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER = REPO_ROOT / "scripts" / "verification_profiles.py"
 PARALLEL_RUNNER = REPO_ROOT / "scripts" / "parallel_unittest.py"
-STYLE_HELPER = REPO_ROOT / "scripts" / "check_style.py"
 SPEC = importlib.util.spec_from_file_location("verification_profiles", HELPER)
 assert SPEC is not None and SPEC.loader is not None
 verification_profiles = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(verification_profiles)
-STYLE_SPEC = importlib.util.spec_from_file_location("check_style", STYLE_HELPER)
-assert STYLE_SPEC is not None and STYLE_SPEC.loader is not None
-check_style = importlib.util.module_from_spec(STYLE_SPEC)
-STYLE_SPEC.loader.exec_module(check_style)
 
 
 class VerificationProfileTests(unittest.TestCase):
@@ -102,12 +99,30 @@ class VerificationProfileTests(unittest.TestCase):
         self.assertNotIn("integration plan", script)
         self.assertNotIn("integration approve", script)
 
-    def test_repository_style_check_excludes_historical_dogfood(self) -> None:
-        dogfood = REPO_ROOT / "workspaces" / "palari-company-os" / "workspace.json"
-        current_schema = REPO_ROOT / "schemas" / "workspace.schema.json"
+    def test_historical_dogfood_archive_keeps_the_exact_files(self) -> None:
+        root = REPO_ROOT / "workspaces" / "palari-company-os"
+        expected = {
+            "workspace.json": (
+                "ef41b9befb6a9bcd46dbe808653d75dd"
+                "7f2fdb824f02963e7e6d369903b9daed"
+            ),
+            ".palari/governance-journal.v1.jsonl": (
+                "4ba8d1edce02adb07eefd647ff17d1df"
+                "c9ed58fc4145ec8e28c1133005cbe076"
+            ),
+            ".palari/history.jsonl": (
+                "de471342c068809b00e4483010030526"
+                "32e015a748016e6e2d23264777ff6a38"
+            ),
+        }
 
-        self.assertTrue(check_style._skip(dogfood, REPO_ROOT))
-        self.assertFalse(check_style._skip(current_schema, REPO_ROOT))
+        with tarfile.open(root / "past.tgz", "r:gz") as archive:
+            self.assertEqual(set(archive.getnames()), set(expected))
+            for name, digest in expected.items():
+                stored = archive.extractfile(name)
+                self.assertIsNotNone(stored)
+                self.assertEqual(hashlib.sha256(stored.read()).hexdigest(), digest)
+        self.assertFalse((root / "workspace.json").exists())
 
     def test_parallel_runner_lists_every_test_module_deterministically(self) -> None:
         result = subprocess.run(

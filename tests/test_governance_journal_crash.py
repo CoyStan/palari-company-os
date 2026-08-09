@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import tarfile
 import tempfile
 import unittest
+from functools import cache
 from pathlib import Path
 
 
@@ -23,13 +25,8 @@ from palari_company_os.governance_journal import (
 
 
 TIMESTAMP = "2026-07-14T12:00:00Z"
-COMMITTED_V1_FIXTURE = (
-    REPO_ROOT
-    / "workspaces"
-    / "palari-company-os"
-    / ".palari"
-    / "governance-journal.v1.jsonl"
-)
+COMMITTED_V1_ARCHIVE = REPO_ROOT / "workspaces" / "palari-company-os" / "past.tgz"
+COMMITTED_V1_MEMBER = ".palari/governance-journal.v1.jsonl"
 COMMITTED_V1_PAIR_SHA256 = (
     "2a9adc1844c3eeb710087dd35032fb978845da80bb0230b433686eba8de6218b"
 )
@@ -317,8 +314,7 @@ def write_workspace(data_path: Path, data: dict[str, object]) -> None:
 def install_committed_v1_predecessor(
     data_path: Path,
 ) -> tuple[dict[str, object], bytes]:
-    with COMMITTED_V1_FIXTURE.open("rb") as source:
-        pair = source.readline() + source.readline()
+    pair = committed_v1_pair()
     if hashlib.sha256(pair).hexdigest() != COMMITTED_V1_PAIR_SHA256:
         raise AssertionError("tracked v1 predecessor fixture changed")
     records = [json.loads(line) for line in pair.splitlines()]
@@ -333,6 +329,15 @@ def install_committed_v1_predecessor(
     legacy.write_bytes(pair)
     write_workspace(data_path, projection)
     return projection, pair
+
+
+@cache
+def committed_v1_pair() -> bytes:
+    with tarfile.open(COMMITTED_V1_ARCHIVE, "r:gz") as archive:
+        source = archive.extractfile(COMMITTED_V1_MEMBER)
+        if source is None:
+            raise AssertionError("packed v1 predecessor fixture is missing")
+        return source.readline() + source.readline()
 
 
 if __name__ == "__main__":

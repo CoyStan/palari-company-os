@@ -4,9 +4,11 @@ import hashlib
 import json
 import os
 import sys
+import tarfile
 import tempfile
 import unittest
 from copy import deepcopy
+from functools import cache
 from pathlib import Path
 from unittest.mock import patch
 
@@ -42,13 +44,8 @@ from palari_company_os.workspace import WorkspaceError
 
 
 TIMESTAMP = "2026-07-14T12:00:00Z"
-COMMITTED_V1_FIXTURE = (
-    REPO_ROOT
-    / "workspaces"
-    / "palari-company-os"
-    / ".palari"
-    / "governance-journal.v1.jsonl"
-)
+COMMITTED_V1_ARCHIVE = REPO_ROOT / "workspaces" / "palari-company-os" / "past.tgz"
+COMMITTED_V1_MEMBER = ".palari/governance-journal.v1.jsonl"
 COMMITTED_V1_PAIR_SHA256 = (
     "2a9adc1844c3eeb710087dd35032fb978845da80bb0230b433686eba8de6218b"
 )
@@ -864,8 +861,7 @@ def install_committed_v1_predecessor(
 ) -> tuple[dict[str, object], bytes]:
     """Copy one bounded, committed v1 transaction without invoking a writer."""
 
-    with COMMITTED_V1_FIXTURE.open("rb") as source:
-        pair = source.readline() + source.readline()
+    pair = committed_v1_pair()
     if hashlib.sha256(pair).hexdigest() != COMMITTED_V1_PAIR_SHA256:
         raise AssertionError("tracked v1 predecessor fixture changed")
     records = [json.loads(line) for line in pair.splitlines()]
@@ -879,6 +875,15 @@ def install_committed_v1_predecessor(
     legacy.write_bytes(pair)
     data_path.write_text(json.dumps(projection), encoding="utf-8")
     return projection, pair
+
+
+@cache
+def committed_v1_pair() -> bytes:
+    with tarfile.open(COMMITTED_V1_ARCHIVE, "r:gz") as archive:
+        source = archive.extractfile(COMMITTED_V1_MEMBER)
+        if source is None:
+            raise AssertionError("packed v1 predecessor fixture is missing")
+        return source.readline() + source.readline()
 
 
 def read_records(data_path: Path) -> list[dict[str, object]]:

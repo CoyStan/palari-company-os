@@ -1,15 +1,16 @@
 # Palari Company OS Dogfood Workspace (historical)
 
 This directory is **historical, non-live dogfood evidence** for Palari Company
-OS. It is separate from the small ACME demo workspace. Do not treat it as the
-live self-hosting workspace for current repository work.
+OS. Its three data files are packed byte-for-byte in `past.tgz` so old records
+do not make every checkout large. It is separate from the small ACME demo
+workspace. Do not treat it as live state for current repository work.
 
 Live dogfood on this repository is the CI **Agent dogfood gate**
 (`scripts/check_dogfood.py`), optional claim bootstrap via
 `scripts/dogfood_agent.sh`, and exact-SHA / passed-evidence coverage — not
 growing this workspace as if it were the active queue.
 
-The records below remain useful for inspection of the same model the CLI
+The packed records remain useful for inspection of the same model the CLI
 exposes to other users (goals, Palaris, humans, work, evidence, review, human
 decisions, and outcomes). They are frozen operator evidence, not a mandate to
 keep landing new live work here.
@@ -49,17 +50,14 @@ Committed paths in this workspace should be repo-relative or workspace-relative.
 Avoid machine-local absolute paths so the workspace remains portable across
 clones.
 
-Useful inspection commands (read-only against frozen evidence):
+Unpack once, then use read-only commands against the frozen evidence:
 
 ```bash
-./bin/palari --workspace workspaces/palari-company-os validate
-./bin/palari --workspace workspaces/palari-company-os queue
-./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0001
-./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0006
-./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0007
-./bin/palari --workspace workspaces/palari-company-os detail WORK-REPO-0008
-./bin/palari --workspace workspaces/palari-company-os agent next --as PALARI-STEWARD --json
-./bin/palari --workspace workspaces/palari-company-os agent finish WORK-REPO-0006 --as PALARI-STEWARD --json
-./bin/palari --workspace workspaces/palari-company-os agent handoff WORK-REPO-0007 --as PALARI-STEWARD --json
-./bin/palari --workspace workspaces/palari-company-os history
+mkdir -p /tmp/palari-past
+tar -xzf workspaces/palari-company-os/past.tgz -C /tmp/palari-past
+./bin/palari --workspace /tmp/palari-past validate
+./bin/palari --workspace /tmp/palari-past queue
+./bin/palari --workspace /tmp/palari-past detail WORK-REPO-0001
+./bin/palari --workspace /tmp/palari-past agent next --as PALARI-STEWARD --json
+./bin/palari --workspace /tmp/palari-past history
 ```

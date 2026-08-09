@@ -145,8 +145,8 @@ When adding a command, update parser, dispatch, output, tests, and
 ## Examples And Workspaces
 
 - `examples/acme-company-os/`: small example workspace.
-- `workspaces/palari-company-os/`: historical, non-live dogfood evidence for
-  this repo; do not use it as live self-hosting state.
+- `workspaces/palari-company-os/`: packed historical dogfood evidence for this
+  repo; unpack it only for read-only inspection. Do not use it as live state.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.
