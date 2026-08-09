@@ -4060,6 +4060,61 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56"
+    },
+    {
+      "id": "WORK-1D49BB500C7C47549EA46ED1C035BC33",
+      "title": "Remove stale Approval Pack compatibility claims",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Remove false pack-v2 support claims and legacy wording; keep the strict current v3 reader.",
+      "allowed_resources": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/security.md",
+        "tests/test_approval_packs.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/security.md",
+        "tests/test_approval_packs.py"
+      ],
+      "conflict_targets": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/security.md",
+        "tests/test_approval_packs.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Docs state that only Approval Pack v3 is supported, the test name describes current behavior, focused tests pass, and docs checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_approval_packs",
+        "palari docs check --json",
+        "python3 -S scripts/check_repo_tree.py --part checks"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/security.md",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
