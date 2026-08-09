@@ -3888,7 +3888,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Delete the PCAW reader shim for statements without explicit reviewer roles.",
       "allowed_resources": [
         "src/palari_company_os/governance_case.py",
@@ -4058,7 +4058,8 @@
           "path": "verify/fixtures/accepted/statement.json",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56"
     }
   ],
   "attempts": [
@@ -5797,6 +5798,90 @@
         "verify/fixtures/accepted/statement.json"
       ],
       "output_targets": [
+        "verify/fixtures/accepted/statement.json"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56",
+      "work_item_id": "WORK-B76AE4140C4C40EBBFE5952F2FBDBF19",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "cadb1857a3cb3df5325d56127e40af5c4719f506",
+      "allowed_paths": [
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/README.md",
+        "docs/product/security.md",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "started_at": "2026-08-09T23:16:21Z",
+      "head_sha": "fbca2cd31c565e1cae6708fdba5808345336dd49",
+      "commits": [
+        "fbca2cd31c565e1cae6708fdba5808345336dd49"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T23:16:21Z",
+      "changed_files": [
+        "docs/product/security.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/README.md",
+        "docs/product/security.md",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
         "verify/fixtures/accepted/statement.json"
       ]
     }
@@ -8198,6 +8283,153 @@
       "receipt_hash": "sha256:52be1cbb44ca115609a0f242a766ba0ca71bdcdbe5776e8b497756a3e0d2b763",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:22274930daba2f9bafd7aaefb85bfc2b680e123880b6789da4346984471c3037"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56",
+      "work_item_id": "WORK-B76AE4140C4C40EBBFE5952F2FBDBF19",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56",
+      "head_sha": "fbca2cd31c565e1cae6708fdba5808345336dd49",
+      "status": "passed",
+      "base_ref": "cadb1857a3cb3df5325d56127e40af5c4719f506",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-A15F41FA19F8CCAE sha256:9c2ee6420484b39262b67bbe0b985ea78c6a0f4eafc3af61a15f41fa19f8ccae"
+      ],
+      "artifacts": [
+        "docs/product/security.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:b6dc0c23b7e82eb8776ad3e85c65f107330a4c0d1f8cca538df9fcf2a087778c",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/README.md",
+          "sha256": "sha256:d042675909d7176f296757e1e83e7092aee1bdc6dc90e2d61feb7fb67583aaf6",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/statement.schema.json",
+          "sha256": "sha256:1361a5912dceb87a5e48d036e30ee7b7d8f4298b479361cf8971ddbe41bdb47b",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/trusted-code.json",
+          "sha256": "sha256:59dbeb7e98a470dcff2f1ebc03cc817b2f0c62c944ae56f56b7e42bf3892fe63",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+          "sha256": "sha256:b196208df8d0f5c5265604dd4c4e83258bd3993f9a76125f391d3d1ca67af3b7",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+          "sha256": "sha256:1eb1d5faa55f2aaa0af455535cfb7e3bb96a81235145883ff47b82022d5cb448",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+          "sha256": "sha256:a7ccbafd021a31c131acf68d087eb24647fd5b9a6823c33684f449feb4d5dbe2",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+          "sha256": "sha256:6c9a24b080d179d7fff1845de855c9aa5d4b5a348de0c38ca9ed8e730d12f76a",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+          "sha256": "sha256:bb95dfcebd877cd96c12e44298a089a8909dc947c4f2ac8e0fd1626dccd60844",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+          "sha256": "sha256:1dcd4b33820b9cd4670b6b5fced8a150acd98289166e112abdb5fe153d042fa0",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+          "sha256": "sha256:d35378f2870a472c8d33ca8c4dcd789fe2a394946eeecbee3373abd3b7454ab7",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+          "sha256": "sha256:81654aad63daf155e6287ba94701d6b1fb489a557450cecc66b44c04082e299c",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+          "sha256": "sha256:3e447246c6ec35dd3306bc761229e0be1811f42cced20f200b8606480a5c690c",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+          "sha256": "sha256:ba03a6704ddf53c2c35e58b1e73aab25787c55e6ba6f5fda095d585760a1ee42",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+          "sha256": "sha256:f8762b7612d1b638b62805c4e9811027c28964a39832d28bc798f0b2b699da16",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+          "sha256": "sha256:715519c6ccaa1304eaa1f2182020bc737628c5c1ca6f025000e72c44bb0a1019",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+          "sha256": "sha256:022d189fc22f5827bd52df678e2f16c5d67dc50c182dee65080c0f49e5258f68",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+          "sha256": "sha256:757672aeffb98f66dc0e7682d0295c95b2dfca4506b74cd4a18bf90b63b1446f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/governance_case.py",
+          "sha256": "sha256:c605a7b0c5471e59f68a18739b47de6049509a599bb20da5663d3ef466c8a44d",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_pcaw_protocol.py",
+          "sha256": "sha256:928e1d43a242927b4c1b204e65bb834f28f46866f6437f9f2447802238f36263",
+          "status": "present"
+        },
+        {
+          "path": "verify/fixtures/accepted/statement.json",
+          "sha256": "sha256:022d189fc22f5827bd52df678e2f16c5d67dc50c182dee65080c0f49e5258f68",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T23:16:21Z",
+      "receipt_hash": "sha256:666adf8a70b4b8c5ee0f6ecc009466f663c4d8ff90ee9719515983da942fe5c8",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:4d5ea411e096f1f4248ceac909cd01253bc0b35f50bc7be83c7a42955bb2a6b5"
     }
   ],
   "review_verdicts": [
@@ -10204,6 +10436,70 @@
       ],
       "timestamp": "2026-08-09T22:34:29Z",
       "receipt_hash": "sha256:52be1cbb44ca115609a0f242a766ba0ca71bdcdbe5776e8b497756a3e0d2b763"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56",
+      "work_item_id": "WORK-B76AE4140C4C40EBBFE5952F2FBDBF19",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-B76AE4140C4C40EBBFE5952F2FBDBF19-FBCA2CD31C56",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 21 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/product/security.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/product/security.md",
+        "spec/pcaw/v1/README.md",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "tests/test_pcaw_protocol.py",
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "timestamp": "2026-08-09T23:16:21Z",
+      "receipt_hash": "sha256:666adf8a70b4b8c5ee0f6ecc009466f663c4d8ff90ee9719515983da942fe5c8"
     }
   ],
   "decisions": [],
