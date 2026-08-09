@@ -6884,14 +6884,6 @@
   ],
   "review_verdicts": [
     {
-      "id": "REVIEW-PLAIN-LANGUAGE-2B02BD1-FOUNDER",
-      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
-      "reviewed_head": "2b02bd15d4522adc34aa0baf51c7a236230bfa76",
-      "reviewer": "HUMAN-FOUNDER",
-      "verdict": "changes-requested",
-      "timestamp": "2026-07-21T00:42:03.616605Z"
-    },
-    {
       "binding_version": "palari.review_binding.v1",
       "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-2B02BD15D452",
       "attempt_hash": "sha256:97f78d763741442118912eb328c4b13e71d10799832130c960ef22243f61a805",
