@@ -253,7 +253,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertFalse(inbox["primary_action"]["available"])
         self.assertEqual(inbox["approval_commands"], [])
 
-    def test_legacy_review_that_consumed_the_only_approver_stays_blocked(self) -> None:
+    def test_reviewer_who_is_the_only_approver_stays_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
             store = load_store(data_path)

@@ -281,8 +281,8 @@ explicit reviewer-role list fail closed.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
 each member digest are persisted with the human decision. Pack-v3 actions
-retain declared and effective final counts; the reader remains compatible with
-pack v2. Both versions require and persist the digest of a strict canonical
+retain declared and effective final counts. Other pack versions fail closed.
+Pack v3 requires and persists the digest of a strict canonical
 decision presentation covering the pack, proof, boundaries, effects, available
 actions, execution order, and relevant current decisions. Current bytes,
 review, recursively bound dependency state, authority, effective final count,

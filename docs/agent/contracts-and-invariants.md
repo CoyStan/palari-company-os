@@ -54,7 +54,7 @@ code change must match them. See
   individually gated.
 - Approval Pack v3 decisions bind the exact canonical presentation artifact
   named by the human command and retain both declared and effective final
-  approval counts. The reader remains compatible with pack v2. Relevant
+  approval counts. Only pack v3 is supported; other versions fail closed. Relevant
   decision-context changes stale the old presentation. One action may perform
   only crash-safe local automatic finishing already allowed by current
   authority; it cannot manufacture review, another vote, external effects, or
