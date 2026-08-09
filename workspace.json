@@ -997,6 +997,261 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-50616AF06BE74D4B912AB1ADE96A0659-ED8898D67B32"
+    },
+    {
+      "id": "WORK-D138C37110A2407F9D02ECCF2D1B75D8",
+      "title": "Pack old dogfood data",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "blocked",
+      "scope": "Pack only frozen historical dogfood data; keep every stored byte recoverable and do not change app behavior.",
+      "allowed_resources": [
+        "workspaces/palari-company-os",
+        "tests",
+        "docs",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The three expanded historical data files are replaced by one tested archive, docs show how to inspect it, and all checks pass.",
+      "verification_expectations": [
+        "Compare archived files byte-for-byte with their tracked inputs.",
+        "Run focused archive tests and complete repository checks."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "workspaces/palari-company-os/past.tgz",
+          "intent": "create"
+        },
+        {
+          "path": "workspaces/palari-company-os/README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_verification_profiles.py",
+          "intent": "modify"
+        },
+        {
+          "path": "workspaces/palari-company-os/workspace.json",
+          "intent": "delete"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+          "intent": "delete"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/history.jsonl",
+          "intent": "delete"
+        }
+      ],
+      "current_attempt": "ATTEMPT-PARK-3EABD2F9F14F7ABAB9140E96"
+    },
+    {
+      "id": "WORK-6A306DE45AEA46BCA69425C3D188B70E",
+      "title": "Pack old dogfood fixture",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "blocked",
+      "scope": "Pack frozen dogfood data and update its two test readers; keep every stored byte recoverable and do not change app behavior.",
+      "allowed_resources": [
+        "workspaces/palari-company-os",
+        "tests",
+        "docs",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "conflict_targets": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The expanded history is one tested archive, fixture readers use it without extraction, docs show inspection steps, and all checks pass.",
+      "verification_expectations": [
+        "Check all three archived file hashes.",
+        "Run journal, crash, archive, docs, and complete repository checks."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "workspaces/palari-company-os/past.tgz",
+          "intent": "create"
+        },
+        {
+          "path": "workspaces/palari-company-os/README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_verification_profiles.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_governance_journal.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_governance_journal_crash.py",
+          "intent": "modify"
+        },
+        {
+          "path": "workspaces/palari-company-os/workspace.json",
+          "intent": "delete"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+          "intent": "delete"
+        },
+        {
+          "path": "workspaces/palari-company-os/.palari/history.jsonl",
+          "intent": "delete"
+        }
+      ],
+      "current_attempt": "ATTEMPT-PARK-43D5AC42CE2026FFC1F76AAD"
+    },
+    {
+      "id": "WORK-B7D6E75DD22B4415893E69606FED80F2",
+      "title": "Record packed data proof",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Add one exact checked Git range for the packed historical data commit; change no product behavior.",
+      "allowed_resources": [
+        "scripts/check_dogfood.py",
+        ".palari/dogfood/proof.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        ".palari/dogfood/proof.json"
+      ],
+      "conflict_targets": [
+        ".palari/dogfood/proof.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The exact product range is covered by dogfood proof and the dogfood gate passes.",
+      "verification_expectations": [
+        "Run the dogfood proof gate."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": ".palari/dogfood/proof.json",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD"
     }
   ],
   "attempts": [
@@ -1497,6 +1752,106 @@
       ],
       "output_targets": [
         "src/palari_company_os/agent_advance.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-PARK-3EABD2F9F14F7ABAB9140E96",
+      "work_item_id": "WORK-D138C37110A2407F9D02ECCF2D1B75D8",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "5952e3def15b555bd48e161658d6fefd5ae9d805",
+      "head_sha": "5952e3def15b555bd48e161658d6fefd5ae9d805",
+      "changed_files": [
+        "README.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "allowed_paths": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "claim_id": "e46ba43d4fde4826a5ab1acb77b9f714",
+      "claim_expires_at": "2026-08-09T19:41:18Z",
+      "cleanliness": "dirty",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create a replacement bounded task that also updates those fixture readers to load the packed copy.\",\"observation\":{\"all_changed_paths\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/workspace.json\"],\"base_sha\":\"5952e3def15b555bd48e161658d6fefd5ae9d805\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"5952e3def15b555bd48e161658d6fefd5ae9d805\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/governance-journal.v1.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/workspace.json\"],\"missing_required_outputs\":[],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[],\"working_tree\":{\"deleted\":[\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/workspace.json\"],\"modified\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/README.md\"],\"untracked\":[]}},\"packet\":{\"claim_session\":\"e46ba43d4fde4826a5ab1acb77b9f714\",\"claim_workspace_file_hash\":\"sha256:ee06f0709cf305d5b8bcfbfe6c0fe97f41fd524d88f2a6b262e8c6264ffc882f\",\"context_hash\":\"sha256:6b01bd8c471cda6704a6cb5a6f13330d3753feb36c3fd284923ee612e8f651a4\",\"git_lease_oid\":\"6d0a6f1961c91d38e1987d25f54b43aa64832239\",\"git_lease_ref\":\"refs/palari/leases/WORK-D138C37110A2407F9D02ECCF2D1B75D8-b42e32e56b3d\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:c4c4bc8abf359aa05337fe56563178d9ea86c198980876649c655dc91663e319\",\"packet_id\":\"PACKET-WORK-D138C37110A2407F9D02ECCF2D1B75D8-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-D138C37110A2407F9D02ECCF2D1B75D8-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:248627607a0c1587ef458286ede8d441c29ec3216825a1fc27f691acc3093b3b\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The full test gate found two undeclared test modules that read the historical v1 file directly.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:ac635fde0e65240597dcc66d1129a28601cabebf3a2fb5323d58670af5239f58\"}",
+      "started_at": "2026-08-09T19:11:18Z"
+    },
+    {
+      "id": "ATTEMPT-PARK-43D5AC42CE2026FFC1F76AAD",
+      "work_item_id": "WORK-6A306DE45AEA46BCA69425C3D188B70E",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "5952e3def15b555bd48e161658d6fefd5ae9d805",
+      "head_sha": "328397422ba134c9afc3ba4406f8cd3a1d86c6fd",
+      "changed_files": [
+        "README.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/workspace.json"
+      ],
+      "allowed_paths": [
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "README.md",
+        "docs/product/source-of-truth.md",
+        "docs/agent/repo-map.md",
+        "tests/test_verification_profiles.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl"
+      ],
+      "claim_id": "5c4c234bb64d4db0af4be8e4a6024355",
+      "claim_expires_at": "2026-08-09T19:45:23Z",
+      "cleanliness": "clean",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Keep the verified product commit and add an exact-SHA dogfood proof entry for its checked range.\",\"observation\":{\"all_changed_paths\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_governance_journal.py\",\"tests/test_governance_journal_crash.py\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/past.tgz\",\"workspaces/palari-company-os/workspace.json\"],\"base_sha\":\"5952e3def15b555bd48e161658d6fefd5ae9d805\",\"committed_paths\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_governance_journal.py\",\"tests/test_governance_journal_crash.py\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/past.tgz\",\"workspaces/palari-company-os/workspace.json\"],\"errors\":[],\"head_sha\":\"328397422ba134c9afc3ba4406f8cd3a1d86c6fd\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/governance-journal.v1.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_governance_journal.py\",\"tests/test_governance_journal_crash.py\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/past.tgz\",\"workspaces/palari-company-os/workspace.json\"],\"missing_required_outputs\":[\"README.md\",\"docs/agent/repo-map.md\",\"docs/product/source-of-truth.md\",\"tests/test_governance_journal.py\",\"tests/test_governance_journal_crash.py\",\"tests/test_verification_profiles.py\",\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"workspaces/palari-company-os/.palari/history.jsonl\",\"workspaces/palari-company-os/README.md\",\"workspaces/palari-company-os/past.tgz\",\"workspaces/palari-company-os/workspace.json\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"create\",\"path\":\"workspaces/palari-company-os/past.tgz\",\"reason\":\"Create intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"workspaces/palari-company-os/README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/source-of-truth.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/repo-map.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_verification_profiles.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_journal.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_journal_crash.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"delete\",\"path\":\"workspaces/palari-company-os/workspace.json\",\"reason\":\"Delete intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"delete\",\"path\":\"workspaces/palari-company-os/.palari/governance-journal.v1.jsonl\",\"reason\":\"Delete intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"delete\",\"path\":\"workspaces/palari-company-os/.palari/history.jsonl\",\"reason\":\"Delete intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"5c4c234bb64d4db0af4be8e4a6024355\",\"claim_workspace_file_hash\":\"sha256:dc8c42dc000f23dfadb11af8b79c27358a83277c9411b006c5d60e8562a971c8\",\"context_hash\":\"sha256:b9f3e0fbe0c5f94ec00c8e0d396e327a57697cdd8d06c370ee4fa01692b5e595\",\"git_lease_oid\":\"919c4475158025b92e8ef9de96cbf5d4b99b7ff6\",\"git_lease_ref\":\"refs/palari/leases/WORK-6A306DE45AEA46BCA69425C3D188B70E-c1fc98e46e62\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:91c15c52b5988573c2f344800f4a17ff63d003b2b945fd79ba75caf6e292f8bb\",\"packet_id\":\"PACKET-WORK-6A306DE45AEA46BCA69425C3D188B70E-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-6A306DE45AEA46BCA69425C3D188B70E-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:96b12cf9fa4273cd0bf33cd7e347d048232359acc5189cf46fca55b48bcb1a7e\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"Proof reconciliation reported the same state-change stop after two exact retries, although preflight, path intents, and all repository checks passed.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:415ad45071bbffce341ba8669c0dd3e116750329c417e9973d6ac88c4fc895a0\"}",
+      "started_at": "2026-08-09T19:15:23Z",
+      "commits": [
+        "328397422ba134c9afc3ba4406f8cd3a1d86c6fd"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD",
+      "work_item_id": "WORK-B7D6E75DD22B4415893E69606FED80F2",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "328397422ba134c9afc3ba4406f8cd3a1d86c6fd",
+      "allowed_paths": [
+        ".palari/dogfood/proof.json"
+      ],
+      "started_at": "2026-08-09T19:20:04Z",
+      "head_sha": "c3b0c2e10ebd00dc8f8b2412a7b1c2d876b0ddcc",
+      "commits": [
+        "c3b0c2e10ebd00dc8f8b2412a7b1c2d876b0ddcc"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T19:20:04Z",
+      "changed_files": [
+        ".palari/dogfood/proof.json"
+      ],
+      "output_targets": [
+        ".palari/dogfood/proof.json"
       ]
     }
   ],
@@ -2604,6 +2959,33 @@
       "receipt_hash": "sha256:58733494186bb134e0f657902e302989a39adcad16c59932e15a9c36c635cc73",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:6072c38ea8266d3cc90517acba05d9f6d37a7b7173064adda3c1d19a01a08778"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD",
+      "work_item_id": "WORK-B7D6E75DD22B4415893E69606FED80F2",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD",
+      "head_sha": "c3b0c2e10ebd00dc8f8b2412a7b1c2d876b0ddcc",
+      "status": "passed",
+      "base_ref": "328397422ba134c9afc3ba4406f8cd3a1d86c6fd",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-3723715C24F370D4 sha256:68080a1a20c49afe0d08503771a75332c11486ae40e87ae63723715c24f370d4"
+      ],
+      "artifacts": [
+        ".palari/dogfood/proof.json"
+      ],
+      "artifact_hashes": [
+        {
+          "path": ".palari/dogfood/proof.json",
+          "sha256": "sha256:f7e6e2c94d0f686e484218963eda3bbe3ae0c3e22c00a3dfa42de98459ff59d3",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T19:20:04Z",
+      "receipt_hash": "sha256:c617eb19257650306540898aefad65ac44cd2dfc1ff99829a766c9d0f019c90c",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:181aba667403ee0fac853c815a2c31e57c76ad739ac123f039676c115e282bbb"
     }
   ],
   "review_verdicts": [
@@ -3992,6 +4374,30 @@
       ],
       "timestamp": "2026-08-09T19:07:45Z",
       "receipt_hash": "sha256:58733494186bb134e0f657902e302989a39adcad16c59932e15a9c36c635cc73"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD",
+      "work_item_id": "WORK-B7D6E75DD22B4415893E69606FED80F2",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 1 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        ".palari/dogfood/proof.json"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        ".palari/dogfood/proof.json"
+      ],
+      "timestamp": "2026-08-09T19:20:04Z",
+      "receipt_hash": "sha256:c617eb19257650306540898aefad65ac44cd2dfc1ff99829a766c9d0f019c90c"
     }
   ],
   "decisions": [],
@@ -4065,7 +4471,17 @@
         "docs/product/claude-code-integration.md",
         "docs/agent/common-workflows.md",
         "src/palari_company_os/workspace.py",
-        "src/palari_company_os/agent_advance.py"
+        "src/palari_company_os/agent_advance.py",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md",
+        "docs/product/source-of-truth.md",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/workspace.json",
+        "workspaces/palari-company-os/.palari/governance-journal.v1.jsonl",
+        "workspaces/palari-company-os/.palari/history.jsonl",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        ".palari/dogfood/proof.json"
       ]
     }
   ],
