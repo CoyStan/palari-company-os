@@ -36,8 +36,8 @@ truncation, reordering, forks, and disagreement with the current workspace.
 A manual-repair restore point keeps a visible continuity break instead of
 rewriting history.
 
-New workspaces create v2 directly. Existing workspaces without this history
-reject ordinary writes until an explicit checkpoint creates v2.
+New workspaces create v2 directly. Workspaces without this history reject all
+writes and cannot add it in place.
 
 ## Safe Concurrent Writes
 

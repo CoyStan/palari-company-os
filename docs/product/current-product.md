@@ -170,8 +170,8 @@ The current durable workspace format is:
 - `.palari/governance-journal.v2.jsonl`, the file that stores tamper-evident
   history for current changes.
 
-New projects write v2 directly. Existing projects without journal continuity
-need an explicit v2 checkpoint before mutation.
+New projects write v2 directly. A workspace without current journal continuity
+is unsupported and cannot be upgraded in place.
 
 Task briefs (`packets`), assignments (`claims`), session rules
 (`session-contracts`), caches, and Git-witness files are local runtime state,
@@ -249,9 +249,7 @@ generic live provider execution, or autonomous review or approval. Its core
 rules and offline verification need neither the network nor runtime packages
 beyond the Python standard library.
 
-Palari is pre-1.0. Compatibility is retained only for a real committed stored
-format and only behind one explicit reader or migration boundary. Public
-commands, aliases, schemas, fixtures, tests, and documents are not retained
-merely because they existed in version 0.2.0. Deliberate removals receive no
-alias, wrapper, or shim. Historical records stay immutable in Git; historical
+Palari is pre-1.0 and supports only its current stored formats. Old commands,
+aliases, schemas, and stored formats fail closed; there are no upgrade readers,
+wrappers, or shims. Historical records stay immutable in Git; historical
 implementations do not remain executable forever.

@@ -67,8 +67,8 @@ allowed files, sources, or actions.
 run, the reason, repository observation, and next safe action, then releases
 the assignment. It creates no run record, check results, review result,
 approval, final result, or automatic-finishing permission. It requires writable
-tamper-evident history; on a legacy workspace, run the exact returned
-`history --checkpoint` command instead of assuming earlier continuity.
+tamper-evident history. Workspaces without current history are unsupported and
+cannot be upgraded in place.
 
 After independent review, `agent handoff` shows the current presentation and
 an exact presentation-bound command. For one eligible reversible local task,

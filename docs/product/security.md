@@ -150,9 +150,8 @@ Safety rules:
   before releasing the owned execute claim. Crash retry is idempotent only for
   the exact same durable record and repository state. It creates no receipt,
   evidence, review, decision, acceptance, outcome, or convergence.
-  Parking requires a current writable governance journal; legacy workspaces
-  fail before mutation with an explicit `history --checkpoint` next action and
-  never receive a retroactive continuity claim.
+  Parking requires a current writable governance journal. Workspaces without
+  one fail before mutation and cannot be upgraded in place.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari
@@ -261,9 +260,9 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-New workspaces and explicit restore points for existing workspaces without history
-write v2 directly. Ordinary mutation of such a workspace fails closed until that
-restore point exists.
+New workspaces write v2 directly. Manual repair of a current workspace may add
+an explicit continuity-break restore point. A workspace with no current history
+fails closed and cannot be upgraded in place.
 
 V2 mutation prepares contain deterministic add/remove/replace values rather
 than another full status snapshot. A restore point still contains one full

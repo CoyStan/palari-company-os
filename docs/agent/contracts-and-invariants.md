@@ -168,7 +168,7 @@ code change must match them. See
   authority field before the exact attempt is released. It never creates
   receipt, evidence, review, human decision, acceptance, outcome, or convergence
   records. It requires an existing writable journal. A workspace without one
-  needs an explicit checkpoint with a visible pre-checkpoint boundary.
+  is unsupported and cannot be upgraded in place.
 - `agent advance` is the sole current execution-to-proof path. It attributes
   every committed path from the persisted claim-start head to current `HEAD`,
   not merely the tip commit. The claim, companion baseline, Git witness ref,

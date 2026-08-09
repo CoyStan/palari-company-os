@@ -181,9 +181,8 @@ the deterministic minimal diff, otherwise verification fails closed. Historical
 completion-contract notes from the original journal-v2 landing remain
 available in Git history.
 
-An existing workspace with no journal rejects ordinary mutations until an
-explicit checkpoint creates v2. A newly created workspace starts directly with
-a complete v2 checkpoint.
+A workspace with no journal rejects mutations and cannot add one in place. A
+newly created workspace starts directly with a complete v2 checkpoint.
 
 V2 verification reads one JSONL record at a time and retains only the current
 workspace projection, pending prepare, and fixed-size chain state. No advisory

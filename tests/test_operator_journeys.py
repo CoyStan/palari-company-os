@@ -23,7 +23,6 @@ from palari_company_os.cli import main as cli_main
 from palari_company_os.cli_output_agent import print_agent_park
 from palari_company_os.command_surface import palari_workspace_command
 from palari_company_os.governance_journal import (
-    checkpoint_workspace_journal,
     journal_file_path,
     verify_workspace_journal,
 )
@@ -854,7 +853,7 @@ class OperatorJourneyTests(unittest.TestCase):
             before = workspace_file.read_bytes()
             with self.assertRaisesRegex(
                 WorkspaceError,
-                "history --checkpoint.*Create journal",
+                "current governance journal.*upgrades.*unsupported",
             ):
                 park_agent(
                     workspace_file,
@@ -911,7 +910,8 @@ class OperatorJourneyTests(unittest.TestCase):
                 if palari["id"] == PALARI_ID:
                     palari["active_work"] = [WORK_ID]
             write_store(store)
-            shutil.rmtree(root / ".palari", ignore_errors=True)
+            if not journal:
+                shutil.rmtree(root / ".palari")
             (root / ALLOWED_PATH).write_text("initial copy\n", encoding="utf-8")
 
             self.run_git(root, "init", "-q")
@@ -919,12 +919,6 @@ class OperatorJourneyTests(unittest.TestCase):
             self.run_git(root, "config", "user.name", "Test")
             self.run_git(root, "add", "-A")
             self.run_git(root, "commit", "-qm", "current fixture")
-            if journal:
-                checkpoint_workspace_journal(
-                    workspace_file,
-                    PALARI_ID,
-                    reason="Activate current journal for the parking journey.",
-                )
             yield workspace_file
 
     @staticmethod

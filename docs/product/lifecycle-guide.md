@@ -112,9 +112,8 @@ palari agent release WORK-ID --as PALARI-ID \
 This records one blocked run and its next safe action, then releases ownership.
 It creates no run record, check results, review, approval, completion, or result.
 The workspace must already have writable tamper-evident history (the
-`governance_journal`). A workspace without it receives the exact explicit
-`history --checkpoint` action; Palari does not pretend earlier history is
-continuous.
+`governance_journal`). A workspace without it is unsupported and cannot be
+upgraded in place.
 
 ## Historical Retired Tasks
 

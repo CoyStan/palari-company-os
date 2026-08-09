@@ -46,9 +46,8 @@ If execution is interrupted before the check results are ready, run `palari agen
 WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Durable release
 records blocked status and the next action before releasing the task lock. It
 does not create a run record or check results, and it grants no permission. It
-requires writable tamper-evident history; a workspace without it must first run
-the exact returned `history --checkpoint`
-action. Use `next`, `brief`, explicit `start`, `check`,
+requires writable tamper-evident history; a workspace without it is unsupported
+and cannot be upgraded in place. Use `next`, `brief`, explicit `start`, `check`,
 `finish`, `handoff`, `doctor`, and `loop` as optional inspection and recovery
 surfaces rather than mandatory ceremony.
 

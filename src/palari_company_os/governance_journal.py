@@ -27,7 +27,7 @@ V2_JOURNAL_RELATIVE_PATH = ".palari/governance-journal.v2.jsonl"
 HASH_PREFIX = "sha256:"
 
 EVENT_KINDS = {"checkpoint", "mutation", "restoration"}
-COVERAGE_MODES = {"complete", "from-checkpoint", "continuous", "continuity-break"}
+COVERAGE_MODES = {"complete", "continuous", "continuity-break"}
 RECORD_TYPES = {"prepare", "commit", "abort"}
 
 V2_PREPARE_FIELDS = {
@@ -559,26 +559,30 @@ def _checkpoint_workspace_journal(
     if current_data is None:
         raise JournalError("JOURNAL_WORKSPACE_INVALID", "workspace file does not exist")
     journal_path = journal_file_path(data_path)
-    coverage = "from-checkpoint"
-    if journal_path.exists():
-        state = _active_state(data_path)
-        if state.pending is not None:
-            raise JournalError(
-                "JOURNAL_PENDING_PREPARE",
-                "cannot checkpoint while a prepared transaction is pending",
-                next_action="Recover the pending transaction first.",
-            )
-        current_digest = workspace_digest(current_data)
-        if current_digest == state.replay_digest:
-            return _operator_report(_state_report(data_path, state, current_data))
-        if current_digest != state.replay_digest and not acknowledge_break:
-            raise JournalError(
-                "JOURNAL_WORKSPACE_DIVERGENCE",
-                "workspace differs from the committed journal projection",
-                next_action="Restore it or explicitly acknowledge a continuity break.",
-            )
-        if current_digest != state.replay_digest:
-            coverage = "continuity-break"
+    if not journal_path.exists():
+        raise JournalError(
+            "JOURNAL_NOT_ENABLED",
+            "workspace has no current governance journal",
+            next_action=(
+                "Use a workspace created by current Palari; in-place upgrades are unsupported."
+            ),
+        )
+    state = _active_state(data_path)
+    if state.pending is not None:
+        raise JournalError(
+            "JOURNAL_PENDING_PREPARE",
+            "cannot checkpoint while a prepared transaction is pending",
+            next_action="Recover the pending transaction first.",
+        )
+    current_digest = workspace_digest(current_data)
+    if current_digest == state.replay_digest:
+        return _operator_report(_state_report(data_path, state, current_data))
+    if not acknowledge_break:
+        raise JournalError(
+            "JOURNAL_WORKSPACE_DIVERGENCE",
+            "workspace differs from the committed journal projection",
+            next_action="Restore it or explicitly acknowledge a continuity break.",
+        )
     metadata = MutationMetadata(
         command="history checkpoint",
         actor=actor,
@@ -593,7 +597,7 @@ def _checkpoint_workspace_journal(
         metadata=metadata,
         apply=lambda: None,
         event_kind="checkpoint",
-        coverage=coverage,
+        coverage="continuity-break",
     )
     return _operator_report(report)
 
@@ -766,7 +770,7 @@ def transact(
             )
 
     has_records = state.record_count > 0
-    initial_coverage_ok = coverage in {"complete", "from-checkpoint"}
+    initial_coverage_ok = coverage == "complete"
     if not has_records and not (event_kind == "checkpoint" and initial_coverage_ok):
         raise JournalError(
             "JOURNAL_MISSING_CHECKPOINT",
@@ -1006,10 +1010,10 @@ def _verify_v2_prepare(
                 "the first v2 transaction must be a checkpoint",
                 path=f"$[{index}].event_kind",
             )
-        if record["coverage"] not in {"complete", "from-checkpoint"}:
+        if record["coverage"] != "complete":
             raise JournalError(
                 "JOURNAL_INVALID_COVERAGE",
-                "a new v2 journal starts complete or from-checkpoint",
+                "a new v2 journal must start with complete coverage",
                 path=f"$[{index}].coverage",
             )
         if record["expected_before_workspace_digest"] is not None:
@@ -1844,8 +1848,8 @@ def _report_not_enabled(data_path: Path | str) -> dict[str, Any]:
         "diagnostics": [
             _diagnostic(
                 "JOURNAL_NOT_ENABLED",
-                "workspace has no governance journal checkpoint",
-                "Create an explicit checkpoint to begin v2 continuity coverage.",
+                "workspace has no current governance journal",
+                "Use a workspace created by current Palari; in-place upgrades are unsupported.",
                 severity="warning",
             )
         ],

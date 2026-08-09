@@ -340,9 +340,8 @@ def _ensure_journal(workspace_path: Path | str, palari_id: str) -> None:
     data_path = workspace_file_path(workspace_path)
     if not journal_file_path(data_path).exists():
         raise WorkspaceError(
-            "cannot park work without a governance journal; next action: "
-            f"palari history --checkpoint --actor {palari_id} "
-            "--reason 'Create journal before parking work' --json"
+            "cannot park work without a current governance journal; "
+            "in-place upgrades of unjournaled workspaces are unsupported"
         )
     report = verify_workspace_journal(data_path)
     if not (

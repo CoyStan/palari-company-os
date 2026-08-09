@@ -218,8 +218,8 @@ palari agent release WORK-ID --as PALARI-CLAUDE \
 ```
 
 This records the blocker and next safe action. It does not invent completion
-records or approval. A workspace without tamper-evident history receives an
-exact `history --checkpoint` command instead.
+records or approval. A workspace without current tamper-evident history is
+unsupported and cannot be upgraded in place.
 
 ## The ordinary human path
 

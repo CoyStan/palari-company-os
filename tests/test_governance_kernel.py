@@ -164,7 +164,7 @@ def accepted_case(*, claimed_state: str = "accepted", terminal: bool = False) ->
     observations = IntegrityObservations(
         subject_integrity=IntegrityObservation("verified", ("all subjects match",)),
         evidence_integrity=IntegrityObservation("verified", ("manifest matches",)),
-        journal_continuity=IntegrityObservation("not-required", ("legacy checkpoint",)),
+        journal_continuity=IntegrityObservation("not-required", ("journal not claimed",)),
     )
     return replace(
         partial,

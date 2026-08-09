@@ -177,13 +177,14 @@ proof verification or a full history audit.
 
 ```bash
 palari history --json
-palari history --checkpoint --actor HUMAN-ID --reason "Start history" --json
+palari history --checkpoint --acknowledge-break --actor HUMAN-ID \
+  --reason "Record a manual repair" --json
 palari history --recover --actor HUMAN-ID --json
 ```
 
-Plain `history` verifies continuity. `--checkpoint` starts history for a
-workspace without it; `--acknowledge-break` makes a manual
-history break visible. `--recover` resolves a prepared local transaction when
+Plain `history` verifies continuity. `--checkpoint --acknowledge-break` makes a
+manual history break visible in a current journal. It cannot add history to an
+unjournaled workspace. `--recover` resolves a prepared local transaction when
 safe. Content-addressed restore-point browsing and restoration were removed.
 
 ## Portable Proof

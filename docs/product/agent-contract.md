@@ -140,8 +140,7 @@ repository state. Parking creates no run record, check results, review,
 approval, or result. Use bare `agent release` only when no
 durable interrupted-work record is required. Parking requires an activated,
 writable tamper-evident history. A workspace without one fails before mutation
-with the exact `history --checkpoint` command; it never silently claims
-continuity for earlier history.
+and cannot be upgraded in place.
 
 For independent inspection work, use `--mode review` after a task is in
 `needs-review`. The task brief is read-only with respect to outputs. It

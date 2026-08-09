@@ -42,7 +42,6 @@ from palari_company_os.evidence_manifest import (
 from palari_company_os.governance_journal import (
     MutationMetadata,
     _prepare_v2_record,
-    checkpoint_workspace_journal,
     journal_file_path,
     pending_workspace_journal_context,
     transact,
@@ -578,11 +577,6 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = Path(tempfile.mkdtemp())
         write_current_agent_workspace(self.temp_dir / "workspace.json")
-        palari = self.temp_dir / ".palari"
-        if palari.exists():
-            shutil.rmtree(palari)
-        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
-        self.assertTrue(checkpoint["ok"])
         self.work_id = "WORK-TEST-ADVANCE"
         create_record(
             str(self.temp_dir),
@@ -1842,8 +1836,6 @@ class NonGitAgentStartTests(unittest.TestCase):
             command="test non-Git setup",
             actor="PALARI-STEWARD",
         )
-        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
-        self.assertTrue(checkpoint["ok"])
         (self.temp_dir / "README.md").write_text("before\n", encoding="utf-8")
         self.assertFalse((self.temp_dir / ".git").exists())
 

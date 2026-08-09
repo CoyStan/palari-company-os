@@ -292,24 +292,40 @@ class GovernanceJournalTests(unittest.TestCase):
         self.assertEqual([change["path"] for change in delta], ["/a-", "/a/z"])
         self.assertTrue(report["ok"])
 
-    def test_legacy_checkpoint_is_explicit_and_idempotent(self) -> None:
+    def test_unjournaled_workspace_cannot_be_upgraded(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             data_path = root / "workspace.json"
-            data_path.write_text(json.dumps(workspace("Legacy")), encoding="utf-8")
+            data_path.write_text(json.dumps(workspace("Unjournaled")), encoding="utf-8")
 
-            first = checkpoint_workspace_journal(
+            report = checkpoint_workspace_journal(
                 root,
                 "PALARI-STEWARD",
-                reason="Start coverage without claiming old history",
+                reason="Try to add history in place",
                 timestamp=TIMESTAMP,
             )
-            second = checkpoint_workspace_journal(root, "PALARI-STEWARD", timestamp=TIMESTAMP)
 
-        self.assertTrue(first["ok"])
-        self.assertTrue(first["enabled"])
-        self.assertEqual(first["continuity"]["initial_coverage"], "from-checkpoint")
-        self.assertEqual(second["record_count"], 2)
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["errors"][0]["code"], "JOURNAL_NOT_ENABLED")
+        self.assertFalse(journal_file_path(data_path).exists())
+
+    def test_from_checkpoint_coverage_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            initial = workspace("Unsupported coverage")
+
+            with self.assertRaisesRegex(
+                JournalError, "must begin with an explicit checkpoint"
+            ):
+                run_change(
+                    data_path,
+                    before=None,
+                    after=initial,
+                    event_kind="checkpoint",
+                    coverage="from-checkpoint",
+                )
+
+        self.assertFalse(journal_file_path(data_path).exists())
 
     def test_manual_edit_requires_visible_continuity_break(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -611,10 +627,12 @@ class GovernanceJournalTests(unittest.TestCase):
             with self.assertRaisesRegex(JournalError, "contains a symlink"):
                 journal_file_path(data_path)
 
-    def test_operator_verify_reports_unjournaled_workspace_as_not_enabled(self) -> None:
+    def test_operator_verify_rejects_unjournaled_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "workspace.json").write_text(json.dumps(workspace("Legacy")), encoding="utf-8")
+            (root / "workspace.json").write_text(
+                json.dumps(workspace("Unjournaled")), encoding="utf-8"
+            )
             report = verify_workspace_journal(root)
 
         self.assertFalse(report["enabled"])
