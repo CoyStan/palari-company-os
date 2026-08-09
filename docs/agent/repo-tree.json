@@ -361,12 +361,12 @@
           "files": ["examples/"]
         },
         {
-          "name": "past",
-          "files": ["workspaces/"]
+          "name": "run",
+          "files": [".palari/"]
         },
         {
           "name": "live",
-          "files": [".palari/", "workspace.json"]
+          "files": ["workspace.json"]
         }
       ]
     }
