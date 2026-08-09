@@ -3617,7 +3617,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Delete the last allowance for undated integration plans and queue records.",
       "allowed_resources": [
         "src/palari_company_os/validation.py",
@@ -3667,7 +3667,8 @@
           "path": "tests/test_integrations.py",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93"
     }
   ],
   "attempts": [
@@ -5272,6 +5273,39 @@
         "docs/product/security.md",
         "docs/product/agent-loop-smoke.md",
         "docs/agent/contracts-and-invariants.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93",
+      "work_item_id": "WORK-AA2075C3955144BAA4B8B162F6D98602",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "e272514e496aa6736194b5061186faf640a0814a",
+      "allowed_paths": [
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_mission_control.py",
+        "tests/test_integrations.py"
+      ],
+      "started_at": "2026-08-09T22:24:44Z",
+      "head_sha": "bb2ce2f49c9312828991e4bcfbfa52a396eb9cba",
+      "commits": [
+        "bb2ce2f49c9312828991e4bcfbfa52a396eb9cba"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T22:24:44Z",
+      "changed_files": [
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "tests/test_mission_control.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_mission_control.py",
+        "tests/test_integrations.py"
       ]
     }
   ],
@@ -7465,6 +7499,51 @@
       "receipt_hash": "sha256:09b9e5b92d2edd91add1af2b974aef1bd912cbfbb94b094488a4559292b430f4",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:a3ea3aa40bca009a91ed3223bfb59dfab6ff677d2b708c387082c9a539c83739"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93",
+      "work_item_id": "WORK-AA2075C3955144BAA4B8B162F6D98602",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93",
+      "head_sha": "bb2ce2f49c9312828991e4bcfbfa52a396eb9cba",
+      "status": "passed",
+      "base_ref": "e272514e496aa6736194b5061186faf640a0814a",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-FA1DDD6F4D8BF50C sha256:3215d1f8b284710ebbcac6f4be0461db7c3a7a7a936fe972fa1ddd6f4d8bf50c"
+      ],
+      "artifacts": [
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "tests/test_mission_control.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:1efec9e2c9318319a178dea8234c21efde2e62b288c9f4b0e085fb8904b2bdb5",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:adca25295e7516a62ac9dc609f768f724d46e0c06d4858628560e3344f6512b6",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_integrations.py",
+          "sha256": "sha256:0c8a4830ca9acfc7405b54948b323493776506936b507da00e50e7ece523ec65",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_mission_control.py",
+          "sha256": "sha256:beb15b5677506f6e9ffc537e6f2341e6e24d19ade656b7f405a1af4788b0aa29",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T22:24:44Z",
+      "receipt_hash": "sha256:5c24e86b6a367c7bb76e009f87c59a23e88738967cfd6aaca6b6dece40703826",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:e9e0751833a510687afbffd90779efb369d4158abacea949aad891d8b1bfb48d"
     }
   ],
   "review_verdicts": [
@@ -9357,6 +9436,36 @@
       ],
       "timestamp": "2026-08-09T22:21:23Z",
       "receipt_hash": "sha256:09b9e5b92d2edd91add1af2b974aef1bd912cbfbb94b094488a4559292b430f4"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93",
+      "work_item_id": "WORK-AA2075C3955144BAA4B8B162F6D98602",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 4 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "tests/test_mission_control.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/validation.py",
+        "tests/test_integrations.py",
+        "tests/test_mission_control.py"
+      ],
+      "timestamp": "2026-08-09T22:24:44Z",
+      "receipt_hash": "sha256:5c24e86b6a367c7bb76e009f87c59a23e88738967cfd6aaca6b6dece40703826"
     }
   ],
   "decisions": [],
