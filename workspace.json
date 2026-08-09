@@ -1723,6 +1723,123 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34"
+    },
+    {
+      "id": "WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5",
+      "title": "Remove old task ids and status",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Remove custom task IDs and the deprecated capability status; generate current IDs only.",
+      "allowed_resources": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "work add has no --id option, demos use generated task IDs, deprecated capability status is rejected, and checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_onramp tests.test_cli_smoke tests.test_demo tests.test_validation"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/demo.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_cli_smoke.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_demo.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0"
     }
   ],
   "attempts": [
@@ -2526,6 +2643,63 @@
         "docs/product/command-reference.md",
         "docs/product/lifecycle-guide.md",
         "docs/product/quickstart.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0",
+      "work_item_id": "WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "7b993e9feda2805adaca426d94751b23c65d0d42",
+      "allowed_paths": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md"
+      ],
+      "started_at": "2026-08-09T20:35:11Z",
+      "head_sha": "6da2c2999ec083b68f08781ad5f157a6b85e082b",
+      "commits": [
+        "6da2c2999ec083b68f08781ad5f157a6b85e082b"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T20:35:11Z",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_onramp.py",
+        "tests/test_validation.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_onramp.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md"
       ]
     }
   ],
@@ -3867,6 +4041,99 @@
       "receipt_hash": "sha256:d2d8fb36624de69ced75ff53f1edd2a8248b00a1b2ba0119f7c08afb21d45cf8",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:af5e7600575b99a400cadebc5c2f7f01fdfa6119a38e185e573468be32cd1471"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0",
+      "work_item_id": "WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0",
+      "head_sha": "6da2c2999ec083b68f08781ad5f157a6b85e082b",
+      "status": "passed",
+      "base_ref": "7b993e9feda2805adaca426d94751b23c65d0d42",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-55EE15BF291D63EF sha256:a3ad4d17deb4639d9b30139d85c964c0c44b193e8dc52c1855ee15bf291d63ef"
+      ],
+      "artifacts": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_onramp.py",
+        "tests/test_validation.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:db68d6da9b64ca57c4c2ab245924b2cf6af15ffdaf4599f656cbbf3760f2bf68",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:59a1f4a609b45d9a6862dde12eb147a5a44666cd4ad915f7f6bbbc618909e73b",
+          "status": "present"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:1e3625dc871822af378204f5abd8016125a3583f923fe623ac4106c31e20a520",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:c993decf7ee486a9cf53b29d6f625159b5de89ab3c10ff41f648172920d7be9f",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:7ebff3e11a9be194b1b2a07b1162d652ac5d4b5cc117b866231d40378565d2fd",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/demo.py",
+          "sha256": "sha256:fce534a3202b038f835e0a3c8778d8205f5c51432cd0623a72526699db9f6952",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "sha256": "sha256:52131dcacaa872bb29e332e1e32d2156a85e6379f7824124ba33143b7d429fef",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:ad8121bd8d1f292cb0e88960b03707859196b488716805fec88e304f686e8cd4",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_cli_smoke.py",
+          "sha256": "sha256:3641bf177f99ccfb709a44a03f917f9331a37d605b2a1029486c0e05d2a356cc",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_demo.py",
+          "sha256": "sha256:74376895e6914a2fee2151fb7767028064d98c4bcf674259ec0dfa8b587939b6",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "sha256": "sha256:6dcf57e7ee5469e2193d451d440f0ca70179991889e51a0db8bd0704b671694b",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "sha256": "sha256:d0d804d1950033796d566ab75900e7956d3033669f991ff6968c93863c4b1cad",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T20:35:11Z",
+      "receipt_hash": "sha256:1ec98f6a2d2283018d61ac1082e8196685d550c81b1fa09150034d20534c8f6d",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:f9e9419f75ef5ef1499ba9263e1c47ab9773a2e46482109036a4c66d58e13b8c"
     }
   ],
   "review_verdicts": [
@@ -5393,6 +5660,52 @@
       ],
       "timestamp": "2026-08-09T20:28:36Z",
       "receipt_hash": "sha256:d2d8fb36624de69ced75ff53f1edd2a8248b00a1b2ba0119f7c08afb21d45cf8"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0",
+      "work_item_id": "WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 12 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_onramp.py",
+        "tests/test_validation.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py",
+        "tests/test_onramp.py",
+        "tests/test_validation.py"
+      ],
+      "timestamp": "2026-08-09T20:35:11Z",
+      "receipt_hash": "sha256:1ec98f6a2d2283018d61ac1082e8196685d550c81b1fa09150034d20534c8f6d"
     }
   ],
   "decisions": [],
@@ -5496,7 +5809,9 @@
         "tests/test_decision_guides.py",
         "tests/test_linear_adapter.py",
         "docs/product/lifecycle-guide.md",
-        "docs/product/quickstart.md"
+        "docs/product/quickstart.md",
+        "tests/test_cli_smoke.py",
+        "tests/test_demo.py"
       ]
     }
   ],
