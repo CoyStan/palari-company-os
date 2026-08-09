@@ -3607,6 +3607,67 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-75D8F76939FB425891B3863BE252A21A-4B7A90FDF388"
+    },
+    {
+      "id": "WORK-AA2075C3955144BAA4B8B162F6D98602",
+      "title": "Require integration record times",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Delete the last allowance for undated integration plans and queue records.",
+      "allowed_resources": [
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_mission_control.py",
+        "tests/test_integrations.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_mission_control.py",
+        "tests/test_integrations.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/validation.py",
+        "schemas/workspace.schema.json",
+        "tests/test_mission_control.py",
+        "tests/test_integrations.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Every integration plan and queue record requires a timezone-bearing timestamp, and the full repository check passes.",
+      "verification_expectations": [
+        "python -m unittest tests.test_validation tests.test_integrations tests.test_mission_control",
+        "./scripts/verify.sh complete"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_mission_control.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_integrations.py",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
