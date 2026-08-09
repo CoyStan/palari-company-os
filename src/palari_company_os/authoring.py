@@ -31,10 +31,18 @@ def _assert_reconciliation_git_state(
 ) -> None:
     from .evidence_manifest import git_artifact_state
 
+    delete_intents = [
+        {"path": item["path"], "intent": "delete"}
+        for item in expected_artifact_hashes
+        if item.get("status") == "absent"
+        and item.get("sha256") == "sha256:absent"
+        and isinstance(item.get("path"), str)
+    ]
     artifact_state = git_artifact_state(
         Path(proof_root),
         artifacts,
         governance_workspace_path=Path(governance_workspace_path),
+        path_intents=delete_intents,
     )
     if (
         artifact_state["head_sha"] != expected_git_head

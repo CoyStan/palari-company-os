@@ -27,6 +27,7 @@ from palari_company_os.agent_runtime import (
     start_agent,
 )
 from palari_company_os.authoring import (
+    _assert_reconciliation_git_state,
     create_human_decision,
     create_record,
     reconcile_agent_proof,
@@ -116,6 +117,21 @@ class PathIntentAncestryTests(unittest.TestCase):
         self.assertEqual(
             [item["status"] for item in result["checks"]],
             ["verified", "verified", "verified"],
+        )
+
+    def test_final_reconciliation_keeps_a_verified_delete_absent(self) -> None:
+        _assert_reconciliation_git_state(
+            str(self.root),
+            str(self.root / "workspace.json"),
+            ["delete.txt"],
+            self.head,
+            [
+                {
+                    "path": "delete.txt",
+                    "sha256": "sha256:absent",
+                    "status": "absent",
+                }
+            ],
         )
 
     def test_mislabeled_and_unchanged_intents_fail_closed(self) -> None:
