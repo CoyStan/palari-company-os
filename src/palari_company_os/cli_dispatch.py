@@ -930,7 +930,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 scope=args.scope,
                 acceptance_target=args.acceptance,
                 verify=args.verify,
-                work_id=args.work_id,
                 approvals=args.approvals,
                 dependencies=args.dependencies,
                 parallel_policy=args.parallel_policy,

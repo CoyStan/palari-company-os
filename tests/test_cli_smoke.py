@@ -75,9 +75,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn("work_item", detail_json)
 
     def test_scope_command_translates_allow_and_deny_decisions(self) -> None:
-        allowed = self.run_json(
-            "scope", WORK_ID, "--changed", "README.md", "--json"
-        )
+        allowed = self.run_json("scope", WORK_ID, "--changed", "README.md", "--json")
         denied = self.run_json(
             "scope",
             WORK_ID,
@@ -99,8 +97,6 @@ class CliSmokeTests(unittest.TestCase):
             "work",
             "add",
             "Create the CLI boundary artifact",
-            "--id",
-            "WORK-CLI-DEPENDENT",
             "--as",
             PALARI_ID,
             "--goal",
@@ -131,15 +127,11 @@ class CliSmokeTests(unittest.TestCase):
         payload = self.run_json("history", "--json")
 
         self.assertTrue(payload["ok"])
-        self.assertEqual(
-            payload["journal_schema_version"], "palari.governance-journal.v2"
-        )
+        self.assertEqual(payload["journal_schema_version"], "palari.governance-journal.v2")
         self.assertGreaterEqual(payload["committed_transactions"], 2)
 
     def test_agent_parse_errors_remain_structured_json(self) -> None:
-        result = self.run_cli(
-            "agent", "brief", WORK_ID, "--as", "--json", check=False
-        )
+        result = self.run_cli("agent", "brief", WORK_ID, "--as", "--json", check=False)
         payload = self.json_object(result)
 
         self.assertEqual(result.returncode, 2)
@@ -253,8 +245,7 @@ class CliSmokeTests(unittest.TestCase):
                     "reason": "Independent and source-authorized.",
                     "agent_may_execute": True,
                     "review_packet_command": (
-                        "palari agent start WORK-CLI --as PALARI-REVIEWER "
-                        "--mode review --json"
+                        "palari agent start WORK-CLI --as PALARI-REVIEWER --mode review --json"
                     ),
                     "review_record_commands": [
                         {
@@ -311,9 +302,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertNotIn("ready-to-edit", text)
 
     def test_approval_parse_and_runtime_errors_are_structured_json(self) -> None:
-        parse_result = self.run_cli(
-            "approve", WORK_ID, "--as", "--json", check=False
-        )
+        parse_result = self.run_cli("approve", WORK_ID, "--as", "--json", check=False)
         parse_payload = self.json_object(parse_result)
 
         self.assertEqual(parse_result.returncode, 2)
@@ -354,9 +343,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(len(next_commands), 2)
         self.assertTrue(
             all(
-                command.startswith(
-                    f"palari --workspace {self.workspace_file.parent} "
-                )
+                command.startswith(f"palari --workspace {self.workspace_file.parent} ")
                 for command in next_commands
             )
         )
@@ -458,9 +445,7 @@ class CliSmokeTests(unittest.TestCase):
     def run_json(self, *args: str) -> dict[str, Any]:
         return self.json_object(self.run_cli(*args))
 
-    def json_object(
-        self, result: subprocess.CompletedProcess[str]
-    ) -> dict[str, Any]:
+    def json_object(self, result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as error:
@@ -469,9 +454,7 @@ class CliSmokeTests(unittest.TestCase):
             self.fail(f"CLI output was not a JSON object: {payload!r}")
         return payload
 
-    def run_cli(
-        self, *args: str, check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
+    def run_cli(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         return self.run_cli_for(self.workspace_file, *args, check=check)
 
     def run_cli_for(

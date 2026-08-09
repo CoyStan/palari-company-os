@@ -354,7 +354,6 @@ def quick_add_work(
     scope: str = "",
     acceptance_target: str = "",
     verify: list[str] | None = None,
-    work_id: str = "",
     approvals: int = 0,
     dependencies: list[str] | None = None,
     parallel_policy: str = "independent",
@@ -391,7 +390,7 @@ def quick_add_work(
     goal = _resolve_default(store.data, "goals", goal_id, "--goal")
     collection = "proposals" if idea else "work_items"
     id_factory = generate_proposal_id if idea else generate_work_id
-    resolved_id = work_id.strip() or id_factory(_collection_ids(store.data, collection))
+    resolved_id = id_factory(_collection_ids(store.data, collection))
     dependency_ids = _normalized_ids(dependencies or [], "--depends-on")
     if parallel_policy not in {"independent", "coordinate", "exclusive"}:
         raise WorkspaceError(

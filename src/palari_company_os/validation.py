@@ -483,7 +483,7 @@ CAPABILITY_KINDS = {
     "playbook",
     "policy",
 }
-CAPABILITY_STATUSES = {"enabled", "disabled", "review", "deprecated"}
+CAPABILITY_STATUSES = {"enabled", "disabled", "review"}
 PROPOSAL_STATUSES = {"proposed", "under-review", "adopted", "rejected", "deferred"}
 AUTHORITY_MODES = {"solo-founder", "team-safe", "strict", "custom"}
 ATTEMPT_STATUSES = {"active", "complete", "completed", "failed", "blocked"}

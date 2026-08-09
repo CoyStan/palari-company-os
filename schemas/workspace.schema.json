@@ -193,7 +193,7 @@
         "provider": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["enabled", "disabled", "review", "deprecated"]
+          "enum": ["enabled", "disabled", "review"]
         },
         "owner_human": { "type": "string" },
         "allowed_actions": { "$ref": "#/$defs/string_list" },

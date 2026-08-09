@@ -15,7 +15,6 @@ from .workspace import WorkspaceError
 
 BLOCKED_PATH = "deploy/production.yml"
 ALLOWED_PATH = "docs/product/company-os.md"
-WORK_ID = "WORK-0003"
 PALARI_ID = "PALARI-SOFIA"
 
 
@@ -29,7 +28,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         workspace_dir = Path(temp_directory.name)
 
     try:
-        _create_demo_workspace(workspace_dir)
+        work_id = _create_demo_workspace(workspace_dir)
         steps: list[dict[str, Any]] = []
         queue_step = _run_step(
             workspace_dir,
@@ -37,7 +36,9 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             "Sofia has one small writing task with clearly allowed files.",
             ["queue"],
         )
-        queue_step["display_stdout"] = _queue_display_summary(_run_json(workspace_dir, ["queue"]))
+        queue_step["display_stdout"] = _queue_display_summary(
+            _run_json(workspace_dir, ["queue"]), work_id
+        )
         steps.append(queue_step)
         steps.append(
             _run_step(
@@ -54,7 +55,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             [
                 "agent",
                 "check",
-                WORK_ID,
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
@@ -68,7 +69,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             [
                 "agent",
                 "check",
-                WORK_ID,
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
@@ -79,6 +80,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         )
         blocked_step["display_stdout"] = _agent_check_display_summary(
             blocked_payload,
+            work_id=work_id,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         blocked_step["stdout"] = blocked_step["display_stdout"]
@@ -93,7 +95,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             [
                 "agent",
                 "check",
-                WORK_ID,
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
@@ -107,7 +109,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             [
                 "agent",
                 "check",
-                WORK_ID,
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
@@ -118,6 +120,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         )
         allowed_step["display_stdout"] = _agent_check_display_summary(
             allowed_payload,
+            work_id=work_id,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         allowed_step["stdout"] = allowed_step["display_stdout"]
@@ -130,7 +133,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
                 "One command records checks and finishes the safe local task",
                 "Advance records the committed range, run record, and check "
                 "results without copied IDs.",
-                ["agent", "advance", WORK_ID, "--as", PALARI_ID],
+                ["agent", "advance", work_id, "--as", PALARI_ID],
             )
         )
         return {
@@ -485,7 +488,7 @@ def _ensure_empty_demo_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _create_demo_workspace(workspace_dir: Path) -> None:
+def _create_demo_workspace(workspace_dir: Path) -> str:
     workspace_dir.mkdir(parents=True, exist_ok=True)
     verification_script = workspace_dir / "scripts" / "verification_profiles.py"
     verification_script.parent.mkdir(parents=True, exist_ok=True)
@@ -508,15 +511,15 @@ print("demo affected verification passed")
         name="Palari boundary demo",
         palari_name="Sofia",
     )
-    quick_add_work(
+    result = quick_add_work(
         workspace_dir,
         "Improve the Company OS onboarding note",
         create=[ALLOWED_PATH],
-        work_id=WORK_ID,
         risk="R1",
         intensity="light",
         acceptance_target="The bounded onboarding note exists and proof is current.",
     )
+    return str(result["work_item"]["id"])
 
 
 def _commit_demo_change(workspace_dir: Path) -> None:
@@ -647,16 +650,16 @@ def _display_command(workspace_dir: Path, args: list[str]) -> str:
     return " ".join(["palari", "--workspace", str(workspace_dir), *args])
 
 
-def _queue_display_summary(payload: dict[str, Any]) -> str:
+def _queue_display_summary(payload: dict[str, Any], work_id: str) -> str:
     items = _dict_items(payload.get("queue"))
     selected: list[dict[str, Any]] = []
 
-    target = _first_item(items, "id", WORK_ID)
+    target = _first_item(items, "id", work_id)
     if target:
         selected.append(target)
 
     for item in items:
-        if item.get("id") != WORK_ID and item.get("waiting_on_human"):
+        if item.get("id") != work_id and item.get("waiting_on_human"):
             selected.append(item)
             break
 
@@ -691,7 +694,7 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) -> str:
+def _agent_check_display_summary(payload: dict[str, Any], *, work_id: str, focus_code: str) -> str:
     checks = _dict_items(payload.get("checks"))
     passed = [check for check in checks if check.get("status") == "pass"]
     failed = [check for check in checks if check.get("status") != "pass"]
@@ -717,7 +720,7 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         lines.append(f"Other blockers still pending before completion: {codes}.")
 
     if focus and focus.get("status") == "pass":
-        lines.append(f"Next safe action: palari agent advance {WORK_ID} --as {PALARI_ID} --json")
+        lines.append(f"Next safe action: palari agent advance {work_id} --as {PALARI_ID} --json")
     return "\n".join(lines)
 
 

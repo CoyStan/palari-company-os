@@ -11,9 +11,9 @@ code change must match them. See
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
-- Task IDs are identity only. New quick-created work uses collision-resistant
-  opaque IDs; legacy IDs remain valid. Dependency authority exists only through
-  explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
+- Task IDs are identity only. New work uses collision-resistant opaque IDs.
+  Dependency authority exists only through explicit, reference-valid,
+  duplicate-free, acyclic `dependency_ids` edges.
 - New workspaces begin replayable v2 tamper-evident history. A workspace with a
   committed valid v1 journal is read-only until an operator explicitly
   activates v2. That activation does not rewrite v1: the v2 restore point

@@ -87,9 +87,7 @@ def current_completed_workspace_data() -> dict[str, Any]:
     data["acceptance_records"] = []
     work["status"] = "active"
     structural_workspace = Workspace.from_raw(data, FIXTURES)
-    data["review_verdicts"], data["human_decisions"], data["acceptance_records"] = (
-        proof_records
-    )
+    data["review_verdicts"], data["human_decisions"], data["acceptance_records"] = proof_records
     work["status"] = "completed"
 
     review = data["review_verdicts"][0]
@@ -133,6 +131,20 @@ def bounded_workspace_data() -> dict[str, Any]:
 
 
 class WorkspaceContractTests(unittest.TestCase):
+    def test_deprecated_capability_status_is_rejected(self) -> None:
+        data = fixture_data()
+        data["capabilities"] = [
+            {
+                "id": "CAPABILITY-OLD",
+                "label": "Old capability",
+                "kind": "repo",
+                "status": "deprecated",
+            }
+        ]
+
+        with self.assertRaisesRegex(WorkspaceError, "unsupported value 'deprecated'"):
+            Workspace.from_raw(data, FIXTURES)
+
     def test_load_retains_the_exact_selected_workspace_filename(self) -> None:
         data_path = FIXTURES / "valid-workspace.json"
 
@@ -156,9 +168,7 @@ class WorkspaceContractTests(unittest.TestCase):
             "palari_company_os.pcaw_workspace.recorded_governance_projection",
             side_effect=AssertionError("historical migration must not claim current proof"),
         ):
-            historical = Workspace.load(
-                FIXTURES / "valid-accepted-completed-work.json"
-            )
+            historical = Workspace.load(FIXTURES / "valid-accepted-completed-work.json")
 
         self.assertEqual(historical.work_items[0].status, "completed")
         self.assertEqual(historical.evidence_runs[0].output_binding_version, "")
@@ -381,21 +391,15 @@ class WorkspaceContractTests(unittest.TestCase):
     def test_source_and_memory_references_fail_closed(self) -> None:
         cases: tuple[tuple[Callable[[dict[str, Any]], None], str], ...] = (
             (
-                lambda data: data["sources"][0].__setitem__(
-                    "allowed_palaris", ["PALARI-MISSING"]
-                ),
+                lambda data: data["sources"][0].__setitem__("allowed_palaris", ["PALARI-MISSING"]),
                 "allowed_palaris references missing id PALARI-MISSING",
             ),
             (
-                lambda data: data["sources"][0].__setitem__(
-                    "steward_human", "HUMAN-MISSING"
-                ),
+                lambda data: data["sources"][0].__setitem__("steward_human", "HUMAN-MISSING"),
                 "steward_human references missing id HUMAN-MISSING",
             ),
             (
-                lambda data: data["palaris"][0].__setitem__(
-                    "memory_sources", ["SOURCE-MISSING"]
-                ),
+                lambda data: data["palaris"][0].__setitem__("memory_sources", ["SOURCE-MISSING"]),
                 "memory_sources references missing id SOURCE-MISSING",
             ),
         )
@@ -564,8 +568,7 @@ class JournaledStoreTests(unittest.TestCase):
 
             self.assertEqual(load_store(data_path).data["name"], "Updated through current store")
             records = [
-                json.loads(line)
-                for line in journal_path.read_text(encoding="utf-8").splitlines()
+                json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()
             ]
             self.assertGreater(len(records), initial_record_count)
             self.assertEqual(

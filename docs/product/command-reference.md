@@ -32,7 +32,7 @@ palari work add "Draft the next note" --idea --create notes/next.md --json
 Use repeatable `--create`, `--modify`, and `--delete` options for exact path
 intent. Other task options include `--read`, `--as`, `--goal`, `--workbench`,
 `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`, `--depends-on`,
-`--parallel-policy`, `--approvals`, and `--id`.
+`--parallel-policy`, and `--approvals`.
 
 `--idea` stores the same bounded plan without creating a task or granting
 authority. The response emits `palari approve IDEA-ID --as HUMAN-ID --json` for

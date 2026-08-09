@@ -582,12 +582,15 @@ class WorkAddTests(unittest.TestCase):
         self.assertIn("--modify", help_text)
         self.assertIn("--delete", help_text)
         self.assertNotIn("--write", help_text)
+        self.assertNotIn("--id", help_text.split())
 
-        error = io.StringIO()
-        with redirect_stderr(error), self.assertRaises(SystemExit) as rejected:
-            build_parser().parse_args(["work", "add", "Old path", "--write", "docs/old.md"])
-        self.assertEqual(rejected.exception.code, 2)
-        self.assertIn("unrecognized arguments: --write", error.getvalue())
+        for old_option in ("--write", "--id"):
+            with self.subTest(old_option=old_option):
+                error = io.StringIO()
+                with redirect_stderr(error), self.assertRaises(SystemExit) as rejected:
+                    build_parser().parse_args(["work", "add", "Old path", old_option, "old-value"])
+                self.assertEqual(rejected.exception.code, 2)
+                self.assertIn(f"unrecognized arguments: {old_option}", error.getvalue())
 
     def test_work_add_idempotently_recovers_an_unanchored_git_workspace(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
@@ -659,16 +662,6 @@ class WorkAddTests(unittest.TestCase):
         )
         self.assertNotEqual(first_id, second_id)
 
-    def test_work_add_preserves_explicit_legacy_id(self) -> None:
-        result = quick_add_work(
-            self.project,
-            "Legacy import",
-            create=["docs/legacy.md"],
-            work_id="WORK-0001",
-        )
-
-        self.assertEqual(result["work_item"]["id"], "WORK-0001")
-
     def test_opaque_id_retries_a_collision_without_scanning_numeric_ids(self) -> None:
         collision = UUID("00000000-0000-4000-8000-000000000001")
         fresh = UUID("00000000-0000-4000-8000-000000000002")
@@ -697,7 +690,7 @@ class WorkAddTests(unittest.TestCase):
         )
         self.assertEqual(second["work_item"]["parallel_policy"], "coordinate")
 
-    def test_work_add_rejects_missing_duplicate_and_self_dependencies(self) -> None:
+    def test_work_add_rejects_missing_and_duplicate_dependencies(self) -> None:
         first = quick_add_work(self.project, "One", create=["docs/a.md"])
         first_id = first["work_item"]["id"]
         with self.assertRaisesRegex(WorkspaceError, "unknown work item"):
@@ -713,14 +706,6 @@ class WorkAddTests(unittest.TestCase):
                 "Duplicate",
                 create=["docs/duplicate.md"],
                 dependencies=[first_id, first_id],
-            )
-        with self.assertRaisesRegex(WorkspaceError, "cannot reference the new work item"):
-            quick_add_work(
-                self.project,
-                "Self",
-                create=["docs/self.md"],
-                work_id="WORK-SELF",
-                dependencies=["WORK-SELF"],
             )
 
     def test_workbench_outputs_grow_with_the_work_boundary(self) -> None:

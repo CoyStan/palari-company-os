@@ -1031,12 +1031,6 @@ def _add_work_parser(subparsers: Any) -> None:
         help="Verification expectation (repeatable).",
     )
     add.add_argument(
-        "--id",
-        dest="work_id",
-        default="",
-        help="Explicit task or idea id. Defaults to a collision-resistant opaque id.",
-    )
-    add.add_argument(
         "--depends-on",
         dest="dependencies",
         action="append",
