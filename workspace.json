@@ -749,7 +749,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "completed",
       "scope": "Add an agent-created idea mode to work add; ideas grant no authority, and only a human may approve one into a task. This successor corrects the stored-link validation boundary.",
       "allowed_resources": [
         "tests/test_work_ideas.py",
@@ -2905,6 +2905,541 @@
           "Actor attribution remains declared rather than cryptographically authenticated."
         ]
       }
+    },
+    {
+      "id": "PACK-DECISION-34FF8E5CB5B9A90F42C6",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "approval-pack",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "review_reference": "REVIEW-8D1176D37928BCCE8B4E5FC0",
+      "approval_pack_id": "PACK-D4D2D0B97CEB4C55",
+      "approval_pack_digest": "sha256:db27fbae6838e67e16f61311aed6d216238d0df62f0918b95e52aed78535343e",
+      "approval_pack_member_digest": "sha256:7381fc8469f163590aa344db0971ba5d65562166deddc0233d81243776c36225",
+      "approval_pack_subject_digest": "sha256:25fae1f7f3500d7dff61644a8966e02c648251a93c8ba2b52d3552661f67f44a",
+      "approval_pack_request_digest": "sha256:19ba687d4063309a947a950c9487726fa5cc475e3d25390b644f0ac98e69f9c7",
+      "approval_pack_action": "approve",
+      "approval_presentation_schema_version": "palari.approval-presentation.v1",
+      "approval_presentation_digest": "sha256:58b82b6a3298c6635871202fc3bfb9788a0a55600c87e6cf19d7c040e5a9e051",
+      "approval_presentation_surface": "palari.human-decision-pack.v1",
+      "timestamp": "2026-08-09T18:34:35.535704Z",
+      "approval_pack_manifest": {
+        "schema_version": "palari.approval-pack.v3",
+        "pack_id": "PACK-D4D2D0B97CEB4C55",
+        "base": {
+          "workspace_digest": "sha256:1d17db768138b19e26e8f7a95f4bc1c9494b82026baefe7ac40fa27f85fad839",
+          "checkpoint_digest": "sha256:1d17db768138b19e26e8f7a95f4bc1c9494b82026baefe7ac40fa27f85fad839",
+          "journal_head_digest": "sha256:d29b5c55d5877b04457033483c1dfddedebf681287f171a4db5e3e00cfb32a33"
+        },
+        "members": [
+          {
+            "id": "WORK-87721E1D3240463392995829230E3275",
+            "kind": "work-item",
+            "title": "Let agents add safe work ideas",
+            "subject_digest": "sha256:25fae1f7f3500d7dff61644a8966e02c648251a93c8ba2b52d3552661f67f44a",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "README.md",
+                "docs/agent/common-workflows.md",
+                "docs/agent/contracts-and-invariants.md",
+                "docs/agent/documentation-freshness.md",
+                "docs/agent/repo-map.md",
+                "docs/product/agent-contract.md",
+                "docs/product/claude-code-integration.md",
+                "docs/product/command-reference.md",
+                "docs/product/core-objects.md",
+                "docs/product/current-product.md",
+                "docs/product/public-surface.md",
+                "schemas/workspace.schema.json",
+                "src/palari_company_os/claude_hooks.py",
+                "src/palari_company_os/cli_dispatch.py",
+                "src/palari_company_os/cli_output.py",
+                "src/palari_company_os/cli_parser.py",
+                "src/palari_company_os/linear_adapter.py",
+                "src/palari_company_os/models.py",
+                "src/palari_company_os/onramp.py",
+                "src/palari_company_os/proposals.py",
+                "src/palari_company_os/transition_checks.py",
+                "src/palari_company_os/validation.py",
+                "src/palari_company_os/work_identity.py",
+                "src/palari_company_os/workspace.py",
+                "tests/test_claude_hooks.py",
+                "tests/test_work_ideas.py"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "review_reference": "REVIEW-8D1176D37928BCCE8B4E5FC0",
+              "reviewed_head": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950"
+            },
+            "outputs": [
+              {
+                "path": "README.md",
+                "sha256": "sha256:0e9445c3553d35a9229bd39551cee7f7fa396080d5c59bfce66117d958ea5903"
+              },
+              {
+                "path": "docs/agent/common-workflows.md",
+                "sha256": "sha256:8354d4e7e8fdc9b112c8e5c1f299fa7b464ff01b87baf02b4128d470268d8508"
+              },
+              {
+                "path": "docs/agent/contracts-and-invariants.md",
+                "sha256": "sha256:5b9c94cc73429d76c60ddfbe5794a510cd7e133f6cee99969166cf06694aceb9"
+              },
+              {
+                "path": "docs/agent/documentation-freshness.md",
+                "sha256": "sha256:12c3767adda67fea2b46402f0355d5673b94617b8b9728a8ee217493694758cd"
+              },
+              {
+                "path": "docs/agent/repo-map.md",
+                "sha256": "sha256:90cb6fd4957a06e1fd9a0a21c471c26b19d5bc101b239f50af10af02d9918924"
+              },
+              {
+                "path": "docs/product/agent-contract.md",
+                "sha256": "sha256:62c19e7c7ec7e8fa73e795d58fbf846f156251a987c95d9e6cc894164cfa1d4c"
+              },
+              {
+                "path": "docs/product/claude-code-integration.md",
+                "sha256": "sha256:eeac786e96954bf38b76f24053fa63bbddd1fec9dca7821de8a774c6541ccf1d"
+              },
+              {
+                "path": "docs/product/command-reference.md",
+                "sha256": "sha256:e2dc1269a666d66333ec6e5da6be62707d8b58ea93a7bb7b40f7baa462e8a7d8"
+              },
+              {
+                "path": "docs/product/core-objects.md",
+                "sha256": "sha256:95952c1b0a3310d3667dbac3b3995d428d49ce01c182e3f9eea3c3af8ef1a7f8"
+              },
+              {
+                "path": "docs/product/current-product.md",
+                "sha256": "sha256:b92aa71dca628ea19827c165e6f9ae03182280cda4c3d2d98bba459b5fd89389"
+              },
+              {
+                "path": "docs/product/public-surface.md",
+                "sha256": "sha256:87971f6249c706780e50aaa535b8938ff9ba477b01d743b781373f2b03df1ebc"
+              },
+              {
+                "path": "schemas/workspace.schema.json",
+                "sha256": "sha256:045667c697e8636fc0ae7b0ad0ecfaf9fec4fdf3770f451584975376a0ec775d"
+              },
+              {
+                "path": "src/palari_company_os/claude_hooks.py",
+                "sha256": "sha256:404a3f3fb320f7bc160167d5f88e33ece1244bb30fd40ee0b67e004c0e4aa51c"
+              },
+              {
+                "path": "src/palari_company_os/cli_dispatch.py",
+                "sha256": "sha256:c444f9cafa0a4bd1685cc0d9caa628f2d4de0f9876163de064914590f7977923"
+              },
+              {
+                "path": "src/palari_company_os/cli_output.py",
+                "sha256": "sha256:2170608fff856962eaac81b2b0edffbf2dff7118df2587b94dbfc74732333b0d"
+              },
+              {
+                "path": "src/palari_company_os/cli_parser.py",
+                "sha256": "sha256:1b2abc0f089c34823c30bf956d7b7c279bc2a0cb0f586c0eac6277981f24145a"
+              },
+              {
+                "path": "src/palari_company_os/linear_adapter.py",
+                "sha256": "sha256:e7f838bf8cfc579d2dce48f28fc3a2d8e85b4e32be4815805dec7bd158a47b87"
+              },
+              {
+                "path": "src/palari_company_os/models.py",
+                "sha256": "sha256:3a54400f725e0a829845da080a1e910b475ac26a7f4b936bdef2b0056145bf88"
+              },
+              {
+                "path": "src/palari_company_os/onramp.py",
+                "sha256": "sha256:345656bd4df2ae0c87ad2f09ae1f35ec4bbe5dd6ce4aeb205e24f57a63bd9107"
+              },
+              {
+                "path": "src/palari_company_os/proposals.py",
+                "sha256": "sha256:c92ea346378bc35f62195fe73d2d0f8b512262f486be691d0d227640cf3feafd"
+              },
+              {
+                "path": "src/palari_company_os/transition_checks.py",
+                "sha256": "sha256:5a8eb0fb1df98283a29dc5ce867ddfb7cf47ca92ad8f7e72398b6a11c22a59ac"
+              },
+              {
+                "path": "src/palari_company_os/validation.py",
+                "sha256": "sha256:1d29892c5ffb74e7eeb8e9a91d7b1aacb87e176a396d22b83b6ee0da664a24a7"
+              },
+              {
+                "path": "src/palari_company_os/work_identity.py",
+                "sha256": "sha256:a1c095a6bbe2243b01d9eb63c33538bd416b74de823ca48b0c918c6946db0753"
+              },
+              {
+                "path": "src/palari_company_os/workspace.py",
+                "sha256": "sha256:d1faf15745336292c9d3752a98f5f7ff9c07a3acf0a2ab0da5301740a0886204"
+              },
+              {
+                "path": "tests/test_claude_hooks.py",
+                "sha256": "sha256:151c246209321808b98305a23ac0752b250bc1ee2d3fbc2ff5b84fd530d6a889"
+              },
+              {
+                "path": "tests/test_work_ideas.py",
+                "sha256": "sha256:9c4c63045e540c3188e7bfe75b42e575f009cdfe01702ce5414ce389368ab3b0"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "README.md",
+              "docs/agent/common-workflows.md",
+              "docs/agent/contracts-and-invariants.md",
+              "docs/agent/documentation-freshness.md",
+              "docs/agent/repo-map.md",
+              "docs/product/agent-contract.md",
+              "docs/product/claude-code-integration.md",
+              "docs/product/command-reference.md",
+              "docs/product/core-objects.md",
+              "docs/product/current-product.md",
+              "docs/product/public-surface.md",
+              "schemas/workspace.schema.json",
+              "src/palari_company_os/claude_hooks.py",
+              "src/palari_company_os/cli_dispatch.py",
+              "src/palari_company_os/cli_output.py",
+              "src/palari_company_os/cli_parser.py",
+              "src/palari_company_os/linear_adapter.py",
+              "src/palari_company_os/models.py",
+              "src/palari_company_os/onramp.py",
+              "src/palari_company_os/proposals.py",
+              "src/palari_company_os/transition_checks.py",
+              "src/palari_company_os/validation.py",
+              "src/palari_company_os/work_identity.py",
+              "src/palari_company_os/workspace.py",
+              "tests/test_claude_hooks.py",
+              "tests/test_work_ideas.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-87721E1D3240463392995829230E3275 from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:7381fc8469f163590aa344db0971ba5d65562166deddc0233d81243776c36225"
+          }
+        ],
+        "execution_order": [
+          "WORK-87721E1D3240463392995829230E3275"
+        ],
+        "cumulative_effect_summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-87721E1D3240463392995829230E3275 from its exact reviewed proof"
+        },
+        "external_effects": [],
+        "estimated_resources": {
+          "cost": "not-declared",
+          "time": "not-declared",
+          "items": 1
+        },
+        "lifecycle_state": "parked",
+        "security_limitations": [
+          "Actor attribution is declared, not cryptographically authenticated.",
+          "Pack approval grants no authority beyond each member's existing boundaries.",
+          "External and irreversible effects remain parked and are not locally undoable."
+        ],
+        "pack_digest": "sha256:db27fbae6838e67e16f61311aed6d216238d0df62f0918b95e52aed78535343e"
+      },
+      "approval_presentation": {
+        "schema_version": "palari.approval-presentation.v1",
+        "decision_surface": "palari.human-decision-pack.v1",
+        "pack": {
+          "pack_id": "PACK-D4D2D0B97CEB4C55",
+          "pack_digest": "sha256:db27fbae6838e67e16f61311aed6d216238d0df62f0918b95e52aed78535343e"
+        },
+        "action": {
+          "available": [
+            "approve",
+            "approve-eligible",
+            "defer",
+            "reject"
+          ],
+          "primary": "approve-eligible",
+          "execution_order": [
+            "WORK-87721E1D3240463392995829230E3275"
+          ],
+          "local_convergence": "atomic-when-authorized"
+        },
+        "summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-87721E1D3240463392995829230E3275 from its exact reviewed proof"
+        },
+        "members": [
+          {
+            "id": "WORK-87721E1D3240463392995829230E3275",
+            "kind": "work-item",
+            "title": "Let agents add safe work ideas",
+            "subject_digest": "sha256:25fae1f7f3500d7dff61644a8966e02c648251a93c8ba2b52d3552661f67f44a",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "README.md",
+                "docs/agent/common-workflows.md",
+                "docs/agent/contracts-and-invariants.md",
+                "docs/agent/documentation-freshness.md",
+                "docs/agent/repo-map.md",
+                "docs/product/agent-contract.md",
+                "docs/product/claude-code-integration.md",
+                "docs/product/command-reference.md",
+                "docs/product/core-objects.md",
+                "docs/product/current-product.md",
+                "docs/product/public-surface.md",
+                "schemas/workspace.schema.json",
+                "src/palari_company_os/claude_hooks.py",
+                "src/palari_company_os/cli_dispatch.py",
+                "src/palari_company_os/cli_output.py",
+                "src/palari_company_os/cli_parser.py",
+                "src/palari_company_os/linear_adapter.py",
+                "src/palari_company_os/models.py",
+                "src/palari_company_os/onramp.py",
+                "src/palari_company_os/proposals.py",
+                "src/palari_company_os/transition_checks.py",
+                "src/palari_company_os/validation.py",
+                "src/palari_company_os/work_identity.py",
+                "src/palari_company_os/workspace.py",
+                "tests/test_claude_hooks.py",
+                "tests/test_work_ideas.py"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+              "review_reference": "REVIEW-8D1176D37928BCCE8B4E5FC0",
+              "reviewed_head": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950"
+            },
+            "outputs": [
+              {
+                "path": "README.md",
+                "sha256": "sha256:0e9445c3553d35a9229bd39551cee7f7fa396080d5c59bfce66117d958ea5903"
+              },
+              {
+                "path": "docs/agent/common-workflows.md",
+                "sha256": "sha256:8354d4e7e8fdc9b112c8e5c1f299fa7b464ff01b87baf02b4128d470268d8508"
+              },
+              {
+                "path": "docs/agent/contracts-and-invariants.md",
+                "sha256": "sha256:5b9c94cc73429d76c60ddfbe5794a510cd7e133f6cee99969166cf06694aceb9"
+              },
+              {
+                "path": "docs/agent/documentation-freshness.md",
+                "sha256": "sha256:12c3767adda67fea2b46402f0355d5673b94617b8b9728a8ee217493694758cd"
+              },
+              {
+                "path": "docs/agent/repo-map.md",
+                "sha256": "sha256:90cb6fd4957a06e1fd9a0a21c471c26b19d5bc101b239f50af10af02d9918924"
+              },
+              {
+                "path": "docs/product/agent-contract.md",
+                "sha256": "sha256:62c19e7c7ec7e8fa73e795d58fbf846f156251a987c95d9e6cc894164cfa1d4c"
+              },
+              {
+                "path": "docs/product/claude-code-integration.md",
+                "sha256": "sha256:eeac786e96954bf38b76f24053fa63bbddd1fec9dca7821de8a774c6541ccf1d"
+              },
+              {
+                "path": "docs/product/command-reference.md",
+                "sha256": "sha256:e2dc1269a666d66333ec6e5da6be62707d8b58ea93a7bb7b40f7baa462e8a7d8"
+              },
+              {
+                "path": "docs/product/core-objects.md",
+                "sha256": "sha256:95952c1b0a3310d3667dbac3b3995d428d49ce01c182e3f9eea3c3af8ef1a7f8"
+              },
+              {
+                "path": "docs/product/current-product.md",
+                "sha256": "sha256:b92aa71dca628ea19827c165e6f9ae03182280cda4c3d2d98bba459b5fd89389"
+              },
+              {
+                "path": "docs/product/public-surface.md",
+                "sha256": "sha256:87971f6249c706780e50aaa535b8938ff9ba477b01d743b781373f2b03df1ebc"
+              },
+              {
+                "path": "schemas/workspace.schema.json",
+                "sha256": "sha256:045667c697e8636fc0ae7b0ad0ecfaf9fec4fdf3770f451584975376a0ec775d"
+              },
+              {
+                "path": "src/palari_company_os/claude_hooks.py",
+                "sha256": "sha256:404a3f3fb320f7bc160167d5f88e33ece1244bb30fd40ee0b67e004c0e4aa51c"
+              },
+              {
+                "path": "src/palari_company_os/cli_dispatch.py",
+                "sha256": "sha256:c444f9cafa0a4bd1685cc0d9caa628f2d4de0f9876163de064914590f7977923"
+              },
+              {
+                "path": "src/palari_company_os/cli_output.py",
+                "sha256": "sha256:2170608fff856962eaac81b2b0edffbf2dff7118df2587b94dbfc74732333b0d"
+              },
+              {
+                "path": "src/palari_company_os/cli_parser.py",
+                "sha256": "sha256:1b2abc0f089c34823c30bf956d7b7c279bc2a0cb0f586c0eac6277981f24145a"
+              },
+              {
+                "path": "src/palari_company_os/linear_adapter.py",
+                "sha256": "sha256:e7f838bf8cfc579d2dce48f28fc3a2d8e85b4e32be4815805dec7bd158a47b87"
+              },
+              {
+                "path": "src/palari_company_os/models.py",
+                "sha256": "sha256:3a54400f725e0a829845da080a1e910b475ac26a7f4b936bdef2b0056145bf88"
+              },
+              {
+                "path": "src/palari_company_os/onramp.py",
+                "sha256": "sha256:345656bd4df2ae0c87ad2f09ae1f35ec4bbe5dd6ce4aeb205e24f57a63bd9107"
+              },
+              {
+                "path": "src/palari_company_os/proposals.py",
+                "sha256": "sha256:c92ea346378bc35f62195fe73d2d0f8b512262f486be691d0d227640cf3feafd"
+              },
+              {
+                "path": "src/palari_company_os/transition_checks.py",
+                "sha256": "sha256:5a8eb0fb1df98283a29dc5ce867ddfb7cf47ca92ad8f7e72398b6a11c22a59ac"
+              },
+              {
+                "path": "src/palari_company_os/validation.py",
+                "sha256": "sha256:1d29892c5ffb74e7eeb8e9a91d7b1aacb87e176a396d22b83b6ee0da664a24a7"
+              },
+              {
+                "path": "src/palari_company_os/work_identity.py",
+                "sha256": "sha256:a1c095a6bbe2243b01d9eb63c33538bd416b74de823ca48b0c918c6946db0753"
+              },
+              {
+                "path": "src/palari_company_os/workspace.py",
+                "sha256": "sha256:d1faf15745336292c9d3752a98f5f7ff9c07a3acf0a2ab0da5301740a0886204"
+              },
+              {
+                "path": "tests/test_claude_hooks.py",
+                "sha256": "sha256:151c246209321808b98305a23ac0752b250bc1ee2d3fbc2ff5b84fd530d6a889"
+              },
+              {
+                "path": "tests/test_work_ideas.py",
+                "sha256": "sha256:9c4c63045e540c3188e7bfe75b42e575f009cdfe01702ce5414ce389368ab3b0"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "README.md",
+              "docs/agent/common-workflows.md",
+              "docs/agent/contracts-and-invariants.md",
+              "docs/agent/documentation-freshness.md",
+              "docs/agent/repo-map.md",
+              "docs/product/agent-contract.md",
+              "docs/product/claude-code-integration.md",
+              "docs/product/command-reference.md",
+              "docs/product/core-objects.md",
+              "docs/product/current-product.md",
+              "docs/product/public-surface.md",
+              "schemas/workspace.schema.json",
+              "src/palari_company_os/claude_hooks.py",
+              "src/palari_company_os/cli_dispatch.py",
+              "src/palari_company_os/cli_output.py",
+              "src/palari_company_os/cli_parser.py",
+              "src/palari_company_os/linear_adapter.py",
+              "src/palari_company_os/models.py",
+              "src/palari_company_os/onramp.py",
+              "src/palari_company_os/proposals.py",
+              "src/palari_company_os/transition_checks.py",
+              "src/palari_company_os/validation.py",
+              "src/palari_company_os/work_identity.py",
+              "src/palari_company_os/workspace.py",
+              "tests/test_claude_hooks.py",
+              "tests/test_work_ideas.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-87721E1D3240463392995829230E3275 from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:7381fc8469f163590aa344db0971ba5d65562166deddc0233d81243776c36225",
+            "decision_state": {
+              "state": "eligible",
+              "reasons": [],
+              "next_safe_action": "Approve WORK-87721E1D3240463392995829230E3275 from this exact pack or leave it parked."
+            },
+            "decision_context": []
+          }
+        ],
+        "external_effects": [],
+        "security_limitations": [
+          "The digest proves these canonical presentation-artifact bytes, not browser layout or font rendering.",
+          "The bound decision surface records that these bytes were made available; compromised software could display different bytes.",
+          "The binding does not prove that a person read, understood, or exercised sound judgment about the presentation.",
+          "Actor attribution remains declared rather than cryptographically authenticated."
+        ]
+      }
     }
   ],
   "receipts": [
@@ -3437,6 +3972,21 @@
       "quorum_status": "met",
       "reason": "approval pack authority",
       "accepted_at": "2026-08-04T04:51:00.792698Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-87721E1D3240463392995829230E3275-HUMAN-FOUNDER",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950",
+      "status": "accepted",
+      "decision_id": "PACK-DECISION-34FF8E5CB5B9A90F42C6",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "review_reference": "REVIEW-8D1176D37928BCCE8B4E5FC0",
+      "receipt_hash": "sha256:3397fdbe0ac4df68425f4202669bd30c8ee9d0c5c776a17345d87fcebe772701",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "approval pack authority",
+      "accepted_at": "2026-08-09T18:34:35.535704Z"
     }
   ]
 }
