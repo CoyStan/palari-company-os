@@ -3679,7 +3679,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Delete PCAW legacy_binding and keep only the current review digests.",
       "allowed_resources": [
         "src/palari_company_os/governance_case.py",
@@ -3835,7 +3835,8 @@
           "path": "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012"
     }
   ],
   "attempts": [
@@ -5473,6 +5474,84 @@
         "schemas/workspace.schema.json",
         "tests/test_mission_control.py",
         "tests/test_integrations.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012",
+      "work_item_id": "WORK-0AC2970F41F943E4A564E10B6C22FEE6",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "f4d23c00a13e6c9f464bf616fd81375a4faa2402",
+      "allowed_paths": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+      ],
+      "started_at": "2026-08-09T22:32:12Z",
+      "head_sha": "2e3e5f3690122a42d0402c04b81f7bf4dac84c5f",
+      "commits": [
+        "2e3e5f3690122a42d0402c04b81f7bf4dac84c5f"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T22:32:12Z",
+      "changed_files": [
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
       ]
     }
   ],
@@ -7711,6 +7790,141 @@
       "receipt_hash": "sha256:5c24e86b6a367c7bb76e009f87c59a23e88738967cfd6aaca6b6dece40703826",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:e9e0751833a510687afbffd90779efb369d4158abacea949aad891d8b1bfb48d"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012",
+      "work_item_id": "WORK-0AC2970F41F943E4A564E10B6C22FEE6",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012",
+      "head_sha": "2e3e5f3690122a42d0402c04b81f7bf4dac84c5f",
+      "status": "passed",
+      "base_ref": "f4d23c00a13e6c9f464bf616fd81375a4faa2402",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-003C1EA654532085 sha256:ff1b1637a9a0eae1c8cc52a3d02578d7136853cf3bec3e38003c1ea654532085"
+      ],
+      "artifacts": [
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "spec/pcaw/v1/statement.schema.json",
+          "sha256": "sha256:4ff3f2c795db638504df8e99f4aae4539dc9b1a7e4d4249222225896b2fed0d8",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/trusted-code.json",
+          "sha256": "sha256:42a5d037029176ffa4a740896159a32ae71d860de6b62358968b526c79c4173d",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+          "sha256": "sha256:654aa9d98f585dc8844d43042a7025d8c479117096119c52e3dae70ada0f0ac4",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+          "sha256": "sha256:26270140ccffe1a6d5122473477ef13aca92f81748feb663597dd302e919dbb7",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+          "sha256": "sha256:7ae15d39821ce93c1f9317e7ce952a36a48ef790be199c71b7a6500663c72fab",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+          "sha256": "sha256:ecfd215955d4e20e3c4470cb445ea17510b646c37b2724795cdb29704b062716",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+          "sha256": "sha256:7153485d45c4cd749ec735331312e116b1060a5d7b70cc0d708cbf84a3fdd567",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+          "sha256": "sha256:114e18494394e272353c1268af3678ed1189baa0d2ad826871c45262fb21e2db",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+          "sha256": "sha256:ef6d9d70ee218e9dd3e428364e4f5f00f68bc5e8872488b25e002ec549a008f9",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+          "sha256": "sha256:c0a369ca24bb24f792f51b5a194a6054a7c4d7e998bd65e5a8ad846108a3514e",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+          "sha256": "sha256:6f9120e4c5a2a8250f4b9a1bec6137cb706dd4adeebd41c8a5b383ed817f5e48",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+          "sha256": "sha256:993af4e01485a078c3a63960ebfc0b1ba903f245df1579ebfa070eb24f4a5573",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+          "sha256": "sha256:9ed52eb882d32bd3731f5ec1b206a610a6f84cf04f4186836058db09daa53322",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+          "sha256": "sha256:f5186394ca92cf0604ea131b0ef764f24bf118ade34c60e6fb8fcbabfbd76677",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+          "sha256": "sha256:3e8aca3d1a252419480fbb3a06c04268bb7943474a519ca46b8ccd5e32b29cac",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+          "sha256": "sha256:a6345a4fa51e3c09d646675bccb12a1369e698604c52a2a41a46da6cf45feec0",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/governance_case.py",
+          "sha256": "sha256:8768e8c23cf5e8fbd9e7c245d58a69c49d6db7110d51404d7bdd67e9806edb21",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/pcaw_workspace.py",
+          "sha256": "sha256:1f6f94bc2c844ec4c45f25478509846bef7a031e82ce8d88edfe45293fa6f067",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_governance_kernel.py",
+          "sha256": "sha256:6a963587d12606505ace813779f1a0939db43c9233dedfe81f8a980d29fd7e7b",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T22:32:12Z",
+      "receipt_hash": "sha256:148fad9059fcb03e2a326a7e4c0e0cd08be1127e7f6c1a8a3e7e9a5414c28dea",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:b000ebfd538703f9d783209861c2a89bc2c99d4de52919897315e4b3de139528"
     }
   ],
   "review_verdicts": [
@@ -9633,6 +9847,66 @@
       ],
       "timestamp": "2026-08-09T22:24:44Z",
       "receipt_hash": "sha256:5c24e86b6a367c7bb76e009f87c59a23e88738967cfd6aaca6b6dece40703826"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012",
+      "work_item_id": "WORK-0AC2970F41F943E4A564E10B6C22FEE6",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 19 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py"
+      ],
+      "timestamp": "2026-08-09T22:32:12Z",
+      "receipt_hash": "sha256:148fad9059fcb03e2a326a7e4c0e0cd08be1127e7f6c1a8a3e7e9a5414c28dea"
     }
   ],
   "decisions": [],
