@@ -937,7 +937,9 @@ def _projection_bound_preflight(
         palari_id,
         declared_changed,
         packet=augmented_packet,
-        allow_current_proof_projection=allow_current_proof_projection,
+        # These exact bytes were present when the claim began. They are
+        # control state, not an uncommitted task output.
+        allow_current_proof_projection=True,
         scope_authority_workspace=scope_authority_workspace,
     )
     if not result.get("ok"):
