@@ -158,9 +158,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 if isinstance(item, dict)
             }
             exit_code = (
-                0
-                if payload.get("verified")
-                else 2 if "PROOF_UNREADABLE" in error_codes else 1
+                0 if payload.get("verified") else 2 if "PROOF_UNREADABLE" in error_codes else 1
             )
             return CommandResult(
                 "proof",
@@ -323,9 +321,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.agent_command == "start":
             if bool(args.start_next) == bool(args.work_id):
-                raise WorkspaceError(
-                    "agent start requires exactly one of WORK-ID or --next"
-                )
+                raise WorkspaceError("agent start requires exactly one of WORK-ID or --next")
             if args.start_next:
                 if args.isolate:
                     raise WorkspaceError(
@@ -535,7 +531,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 cursor_rules_status(args.project_dir or Path.cwd(), args.workspace),
                 args.json,
             )
-
 
     if args.command == "mcp" and args.mcp_command == "serve":
         from .mcp_server import serve_mcp
@@ -923,7 +918,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             quick_add_work(
                 args.workspace,
                 args.title,
-                write=args.write,
                 create=args.create,
                 modify=args.modify,
                 delete=args.delete,

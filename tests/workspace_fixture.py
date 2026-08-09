@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from palari_company_os.store import WorkspaceStore, write_store
-from palari_company_os.validation import COLLECTION_FILE_KEYS
+from palari_company_os.validation import ALL_COLLECTION_KEYS
 
 
 def write_current_agent_workspace(destination: Path) -> None:
@@ -14,7 +14,7 @@ def write_current_agent_workspace(destination: Path) -> None:
         "schema_version": 2,
         "name": "Current Agent Test Workspace",
     }
-    for collection in COLLECTION_FILE_KEYS:
+    for collection in ALL_COLLECTION_KEYS:
         data[collection] = []
     data["humans"] = [
         {
@@ -107,7 +107,7 @@ def current_recommendation_data() -> dict[str, Any]:
         "schema_version": 2,
         "name": "Current Recommendation Contract",
     }
-    for collection in COLLECTION_FILE_KEYS:
+    for collection in ALL_COLLECTION_KEYS:
         data[collection] = []
     data["humans"] = [
         {

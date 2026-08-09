@@ -62,7 +62,7 @@ OPTIONAL_COLLECTION_KEYS = (
     "proposals",
     "acceptance_records",
 )
-COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
+ALL_COLLECTION_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
 ROOT_FIELDS = {
     "schema_version",
@@ -544,6 +544,8 @@ def validate_raw_contract(raw: dict[str, object]) -> None:
     for key in OPTIONAL_COLLECTION_KEYS:
         if key in raw:
             _validate_collection(raw, key)
+
+
 def _validate_collection(raw: dict[str, object], key: str) -> None:
     records = raw[key]
     if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
@@ -703,15 +705,15 @@ def validate_workspace_contract(workspace: Any) -> None:
             _require_hash_prefix("review_verdicts", review.id, field, value)
 
     for decision in workspace.decisions:
-        _require_allowed_value("decisions", decision.id, "status", decision.status, DECISION_STATUSES)
+        _require_allowed_value(
+            "decisions", decision.id, "status", decision.status, DECISION_STATUSES
+        )
 
     latest_human_decisions: dict[tuple[str, str], HumanDecision] = {}
     for human_decision in workspace.human_decisions:
         key = (human_decision.work_item_id, human_decision.human_id)
         previous = latest_human_decisions.get(key)
-        if previous is None or _decision_order_key(human_decision) > _decision_order_key(
-            previous
-        ):
+        if previous is None or _decision_order_key(human_decision) > _decision_order_key(previous):
             latest_human_decisions[key] = human_decision
 
     for human_decision in workspace.human_decisions:
@@ -737,9 +739,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             QUORUM_STATUSES,
         )
         if not human_decision.timestamp:
-            raise WorkspaceError(
-                f"human_decisions.{human_decision.id}.timestamp is required"
-            )
+            raise WorkspaceError(f"human_decisions.{human_decision.id}.timestamp is required")
         try:
             parsed_timestamp = datetime.fromisoformat(
                 human_decision.timestamp.replace("Z", "+00:00")
@@ -767,9 +767,7 @@ def validate_workspace_contract(workspace: Any) -> None:
         _validate_approval_pack_decision(human_decision)
         if _is_acceptance(human_decision):
             latest_for_human = (
-                latest_human_decisions[
-                    (human_decision.work_item_id, human_decision.human_id)
-                ].id
+                latest_human_decisions[(human_decision.work_item_id, human_decision.human_id)].id
                 == human_decision.id
             )
             decision_evidence = evidence_by_id.get(human_decision.evidence_reference)
@@ -871,6 +869,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             _validate_retired_work(workspace, work)
         elif work.status in TERMINAL_WORK_STATUSES:
             _validate_completed_work(workspace, work, attempts_by_id)
+
 
 def _reject_unknown_fields(label: str, record: dict[str, object], allowed: set[str]) -> None:
     unknown = sorted(set(record) - allowed)
@@ -983,7 +982,9 @@ def _validate_capability(capability: Capability) -> None:
 def _validate_authority_profile(profile: AuthorityProfile) -> None:
     _require_allowed_value("authority_profiles", profile.id, "mode", profile.mode, AUTHORITY_MODES)
     for risk in profile.require_human_for_risks:
-        _require_allowed_value("authority_profiles", profile.id, "require_human_for_risks", risk, RISKS)
+        _require_allowed_value(
+            "authority_profiles", profile.id, "require_human_for_risks", risk, RISKS
+        )
     if profile.minimum_approval_count < 0:
         raise WorkspaceError(
             f"authority_profiles.{profile.id}.minimum_approval_count must be zero or greater"
@@ -1032,7 +1033,11 @@ def _validate_proposal(
         raise WorkspaceError(f"proposals.{proposal.id}.reason is required when {proposal.status}")
     if proposal.decision_id:
         decision = decisions_by_id[proposal.decision_id]
-        if decision.linked_work and proposal.linked_work and decision.linked_work != proposal.linked_work:
+        if (
+            decision.linked_work
+            and proposal.linked_work
+            and decision.linked_work != proposal.linked_work
+        ):
             raise WorkspaceError(
                 f"proposals.{proposal.id}.decision_id links to decision {decision.id} "
                 f"for different work item {decision.linked_work}"
@@ -1105,13 +1110,11 @@ def _validate_integration_plan(
     if plan.status in {"approved", "rejected", "canceled"}:
         if not plan.reviewed_by:
             raise WorkspaceError(
-                f"integration_plans.{plan.id}.reviewed_by is required when status is "
-                f"{plan.status}"
+                f"integration_plans.{plan.id}.reviewed_by is required when status is {plan.status}"
             )
         if not plan.reviewed_at:
             raise WorkspaceError(
-                f"integration_plans.{plan.id}.reviewed_at is required when status is "
-                f"{plan.status}"
+                f"integration_plans.{plan.id}.reviewed_at is required when status is {plan.status}"
             )
         human = humans_by_id[plan.reviewed_by]
         work = work_by_id[plan.work_item_id]
@@ -1252,16 +1255,16 @@ def _validate_integration_outbox_item(
         raise WorkspaceError(f"integration_outbox.{item.id}.payload_preview must be an object")
     if not isinstance(item.source_boundary, dict):
         raise WorkspaceError(f"integration_outbox.{item.id}.source_boundary must be an object")
-    _validate_no_raw_secret_values(f"integration_outbox.{item.id}.payload_preview", item.payload_preview)
+    _validate_no_raw_secret_values(
+        f"integration_outbox.{item.id}.payload_preview", item.payload_preview
+    )
     if item.payload_preview != plan.payload_preview:
         raise WorkspaceError(
-            f"integration_outbox.{item.id}.payload_preview does not match approved "
-            f"plan {plan.id}"
+            f"integration_outbox.{item.id}.payload_preview does not match approved plan {plan.id}"
         )
     if item.source_boundary != plan.source_boundary:
         raise WorkspaceError(
-            f"integration_outbox.{item.id}.source_boundary does not match approved "
-            f"plan {plan.id}"
+            f"integration_outbox.{item.id}.source_boundary does not match approved plan {plan.id}"
         )
 
 
@@ -1379,13 +1382,10 @@ def _validate_path_intents(
                 normalize_path,
             ):
                 raise WorkspaceError(
-                    f"{collection}.{work.id}.path_intents paths overlap by prefix: "
-                    f"{other}, {path}"
+                    f"{collection}.{work.id}.path_intents paths overlap by prefix: {other}, {path}"
                 )
         if not boundaries or not _path_allowed(path, boundaries, normalize_path):
-            raise WorkspaceError(
-                f"{label}.path includes path outside declared boundaries: {path}"
-            )
+            raise WorkspaceError(f"{label}.path includes path outside declared boundaries: {path}")
 
 
 def _validate_receipt_boundaries(
@@ -1451,9 +1451,7 @@ def _path_allowed(
             normalized_boundary = normalize_path(boundary)
         except ValueError:
             continue
-        if normalized == normalized_boundary or normalized.startswith(
-            f"{normalized_boundary}/"
-        ):
+        if normalized == normalized_boundary or normalized.startswith(f"{normalized_boundary}/"):
             return True
     return False
 
@@ -1483,7 +1481,7 @@ def _undo_ref_path(undo_ref: str) -> str:
     lower = stripped.lower()
     for prefix in ("delete ", "remove ", "revert ", "restore ", "unlink "):
         if lower.startswith(prefix):
-            return stripped[len(prefix):].strip()
+            return stripped[len(prefix) :].strip()
     if "/" in stripped or "." in stripped:
         return stripped
     return ""
@@ -1510,13 +1508,11 @@ def _validate_accepted_human_decision(
         )
     if not decision.evidence_reference:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.evidence_reference is required "
-            "for accepted decisions"
+            f"human_decisions.{decision.id}.evidence_reference is required for accepted decisions"
         )
     if not decision.review_reference:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is required "
-            "for accepted decisions"
+            f"human_decisions.{decision.id}.review_reference is required for accepted decisions"
         )
     evidence = evidence_by_id[decision.evidence_reference]
     review = reviews_by_id[decision.review_reference]
@@ -1531,11 +1527,7 @@ def _validate_accepted_human_decision(
             f"review for {review.work_item_id}, not {work.id}"
         )
     attempt = attempts_by_id[evidence.attempt_id]
-    if (
-        require_current
-        and work.current_attempt
-        and evidence.attempt_id != work.current_attempt
-    ):
+    if require_current and work.current_attempt and evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
             f"human_decisions.{decision.id}.evidence_reference is not for "
             f"current attempt {work.current_attempt}"
@@ -1549,8 +1541,7 @@ def _validate_accepted_human_decision(
         )
     if review.attempt_id != evidence.attempt_id:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is bound to a "
-            "different attempt"
+            f"human_decisions.{decision.id}.review_reference is bound to a different attempt"
         )
     from .governance_binding import work_contract_hash
 
@@ -1605,9 +1596,7 @@ def _validate_acceptance_record(
     if not acceptance.decision_id:
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.decision_id is required")
     if not acceptance.evidence_reference:
-        raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.evidence_reference is required"
-        )
+        raise WorkspaceError(f"acceptance_records.{acceptance.id}.evidence_reference is required")
     if not acceptance.review_reference:
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.review_reference is required")
     evidence = evidence_by_id[acceptance.evidence_reference]
@@ -1727,13 +1716,9 @@ def _require_timezone_timestamp(
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (OverflowError, ValueError) as exc:
-        raise WorkspaceError(
-            f"{collection}.{record_id}.{field} must be ISO-8601"
-        ) from exc
+        raise WorkspaceError(f"{collection}.{record_id}.{field} must be ISO-8601") from exc
     if parsed.utcoffset() is None:
-        raise WorkspaceError(
-            f"{collection}.{record_id}.{field} must include a timezone"
-        )
+        raise WorkspaceError(f"{collection}.{record_id}.{field} must include a timezone")
     try:
         parsed.astimezone(timezone.utc)
     except OverflowError as exc:
@@ -1805,8 +1790,7 @@ def _validate_historical_completed_work(
         )
     if attempt.cleanliness.lower() not in {"clean", "pristine"}:
         raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current attempt "
-            f"{attempt.id} is not clean"
+            f"work_items.{work.id}.status is terminal but current attempt {attempt.id} is not clean"
         )
     if evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
@@ -1874,9 +1858,7 @@ def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
                 )
             continue
         if work.terminal_disposition not in RETIRED_WORK_STATUSES:
-            raise WorkspaceError(
-                f"work_items.{work.id}.terminal_disposition is invalid"
-            )
+            raise WorkspaceError(f"work_items.{work.id}.terminal_disposition is invalid")
         if not work.terminal_reason.strip():
             raise WorkspaceError(
                 f"work_items.{work.id}.terminal_reason is required when "
@@ -1913,9 +1895,7 @@ def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
     for work_id in sorted(work_by_id):
         visit(work_id)
 
-    retired_ids = {
-        work.id for work in work_by_id.values() if work.terminal_disposition
-    }
+    retired_ids = {work.id for work in work_by_id.values() if work.terminal_disposition}
     for work in work_by_id.values():
         retired_dependencies = sorted(set(work.dependency_ids) & retired_ids)
         if retired_dependencies:
@@ -1931,9 +1911,7 @@ def _validate_retired_work(
     work: WorkItem,
 ) -> None:
     if _open_linked_decision(workspace, work.id) is not None:
-        raise WorkspaceError(
-            f"work_items.{work.id} cannot be retired with open decisions"
-        )
+        raise WorkspaceError(f"work_items.{work.id} cannot be retired with open decisions")
     active_attempts = sorted(
         attempt.id
         for attempt in workspace.attempts
@@ -2107,9 +2085,7 @@ def _validate_evidence_manifest_shape(evidence: EvidenceRun, work: WorkItem) -> 
         digest = artifact_hash.get("sha256")
         status = artifact_hash.get("status")
         if not isinstance(path, str) or not path:
-            raise WorkspaceError(
-                f"evidence_runs.{evidence.id}.artifact_hashes items require path"
-            )
+            raise WorkspaceError(f"evidence_runs.{evidence.id}.artifact_hashes items require path")
         if not isinstance(digest, str) or not digest.startswith("sha256:"):
             raise WorkspaceError(
                 f"evidence_runs.{evidence.id}.artifact_hashes.{path} requires sha256 digest"
@@ -2268,13 +2244,9 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
             f"human_decisions.{decision.id} has incomplete approval-pack binding: {missing}"
         )
     if decision.acceptance_mode != "approval-pack":
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.acceptance_mode must be approval-pack"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id}.acceptance_mode must be approval-pack")
     if decision.approval_pack_action not in APPROVAL_PACK_ACTIONS:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.approval_pack_action is unsupported"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id}.approval_pack_action is unsupported")
     for field in (
         "approval_pack_digest",
         "approval_pack_member_digest",
@@ -2283,26 +2255,20 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
     ):
         value = getattr(decision, field)
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
-            raise WorkspaceError(
-                f"human_decisions.{decision.id}.{field} must be a sha256 digest"
-            )
+            raise WorkspaceError(f"human_decisions.{decision.id}.{field} must be a sha256 digest")
     expected = {
         "approve": ({"accepted", "approved"}, {"accepted", "approved"}),
         "reject": ({"rejected"}, {"rejected"}),
         "defer": ({"deferred"}, {"deferred"}),
     }[decision.approval_pack_action]
     if decision.decision not in expected[0] or decision.status not in expected[1]:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id} action contradicts decision or status"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id} action contradicts decision or status")
     presentation_fields = {
         "approval_presentation_schema_version": decision.approval_presentation_schema_version,
         "approval_presentation_digest": decision.approval_presentation_digest,
         "approval_presentation_surface": decision.approval_presentation_surface,
     }
-    presentation_present = {
-        key for key, value in presentation_fields.items() if value
-    }
+    presentation_present = {key for key, value in presentation_fields.items() if value}
     if not presentation_present:
         if decision.approval_presentation:
             raise WorkspaceError(
@@ -2343,9 +2309,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
 
     for pack_digest, bound in grouped.items():
         manifests = [
-            decision.approval_pack_manifest
-            for decision in bound
-            if decision.approval_pack_manifest
+            decision.approval_pack_manifest for decision in bound if decision.approval_pack_manifest
         ]
         if len(manifests) != 1:
             raise WorkspaceError(
@@ -2359,11 +2323,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions approval pack {pack_digest} manifest digest does not match"
             )
-        unbound = [
-            decision.id
-            for decision in bound
-            if not decision.approval_presentation_digest
-        ]
+        unbound = [decision.id for decision in bound if not decision.approval_presentation_digest]
         if unbound:
             raise WorkspaceError(
                 "human_decisions approval pack requires presentation binding: "
@@ -2372,9 +2332,9 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
         presentation_groups: dict[str, list[HumanDecision]] = {}
         for decision in bound:
             if decision.approval_presentation_digest:
-                presentation_groups.setdefault(
-                    decision.approval_presentation_digest, []
-                ).append(decision)
+                presentation_groups.setdefault(decision.approval_presentation_digest, []).append(
+                    decision
+                )
         from .approval_presentations import (
             approval_presentation_digest,
             validate_approval_presentation,
@@ -2429,8 +2389,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
                     (
                         item
                         for item in workspace.attempts
-                        if item.work_item_id == work.id
-                        and item.id == member["proof"]["attempt_id"]
+                        if item.work_item_id == work.id and item.id == member["proof"]["attempt_id"]
                     ),
                     None,
                 )
@@ -2456,9 +2415,9 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
 def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:
     seen: dict[tuple[str, str, str, datetime], str] = {}
     for decision in decisions:
-        timestamp = datetime.fromisoformat(
-            decision.timestamp.replace("Z", "+00:00")
-        ).astimezone(timezone.utc)
+        timestamp = datetime.fromisoformat(decision.timestamp.replace("Z", "+00:00")).astimezone(
+            timezone.utc
+        )
         key = (
             decision.work_item_id,
             decision.human_id,

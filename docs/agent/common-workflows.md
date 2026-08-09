@@ -33,9 +33,8 @@ the advanced/batched path.
 There is one Git repo and one Palari work list. A part is a small work area,
 not a nested repo or a separate ticket store.
 
-Use `work add --write PATH` when only final presence matters. Use
-repeatable `--create`, `--modify`, and `--delete` instead when the exact final
-mutation class matters; do not mix exact intents with `--write`.
+Use repeatable `work add --create`, `--modify`, and `--delete` paths. Every task
+must say what kind of file change it will make.
 
 To let an agent grow a goal without granting itself work, use `palari work add
 TITLE --idea` with the same file, project, dependency, check, and approval

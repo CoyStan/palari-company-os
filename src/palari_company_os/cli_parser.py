@@ -43,10 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.add_argument(
         "--journey",
         action="store_true",
-        help=(
-            "Narrate the solo-maintainer R2 closeout: init through review and "
-            "founder approval."
-        ),
+        help=("Narrate the solo-maintainer R2 closeout: init through review and founder approval."),
     )
     demo_parser.add_argument(
         "--serve",
@@ -771,7 +768,11 @@ def _add_linear_parser(subparsers: Any) -> None:
     )
     push.add_argument("work_id")
     push.add_argument("--as", dest="actor", required=True, help="Acting agent or human id.")
-    push.add_argument("--team", default="", help="Linear team key. Defaults to the only visible team at send time.")
+    push.add_argument(
+        "--team",
+        default="",
+        help="Linear team key. Defaults to the only visible team at send time.",
+    )
     push.add_argument("--record", action="store_true", help="Record the approval plan.")
     push.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -994,21 +995,12 @@ def _add_work_parser(subparsers: Any) -> None:
         action="store_true",
         help="Store an authority-free idea instead of creating a task.",
     )
-    add.add_argument(
-        "--write",
-        action="append",
-        default=[],
-        help="Allowed write path (repeatable). Becomes the enforced write boundary.",
-    )
     for intent in ("create", "modify", "delete"):
         add.add_argument(
             f"--{intent}",
             action="append",
             default=[],
-            help=(
-                f"Exact path that this task must {intent} (repeatable). "
-                "Do not combine exact intents with legacy --write."
-            ),
+            help=f"Exact path that this task must {intent} (repeatable).",
         )
     add.add_argument(
         "--read",
@@ -1020,10 +1012,7 @@ def _add_work_parser(subparsers: Any) -> None:
         "--as",
         dest="palari_id",
         default="",
-        help=(
-            "Acting agent id. Defaults to the project's sole "
-            "execute-authorized agent."
-        ),
+        help=("Acting agent id. Defaults to the project's sole execute-authorized agent."),
     )
     add.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
     add.add_argument(

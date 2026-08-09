@@ -117,7 +117,7 @@ Initialize Palari, add one task, and let an agent take the next safe task:
 
 ```bash
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --write docs/notes.md --json
+palari work add "Clean up launch notes" --create docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
@@ -171,8 +171,7 @@ profiles; Cursor has a tested advisory host profile (`palari init --host cursor`
 with an opt-in git commit gate. No profile grants permission to review, approve,
 merge, push, deploy, call a provider, or perform an external write.
 
-Use `--write PATH` when only final presence matters. When the kind of change
-matters, declare it exactly:
+Tell Palari what kind of file change the task must make:
 
 ```bash
 palari work add "Replace obsolete guidance" \

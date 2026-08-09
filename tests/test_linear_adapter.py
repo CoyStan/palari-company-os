@@ -32,7 +32,7 @@ from palari_company_os.linear_adapter import (
     parse_palari_block,
 )
 from palari_company_os.store import WorkspaceStore, write_store
-from palari_company_os.validation import COLLECTION_FILE_KEYS
+from palari_company_os.validation import ALL_COLLECTION_KEYS
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -95,9 +95,7 @@ class FakeLinearClient:
         }
 
     def create_issue(self, team_id: str, title: str, description: str) -> dict[str, Any]:
-        self.created_issues.append(
-            {"team_id": team_id, "title": title, "description": description}
-        )
+        self.created_issues.append({"team_id": team_id, "title": title, "description": description})
         return {
             "id": "created-issue-1",
             "identifier": "ENG-901",
@@ -142,7 +140,8 @@ class LinearAdapterContractTests(unittest.TestCase):
         )
         runner_action = next(
             action
-            for action in build_parser()._subparsers._group_actions[0]
+            for action in build_parser()
+            ._subparsers._group_actions[0]
             .choices["linear"]
             ._subparsers._group_actions[0]
             .choices["start"]
@@ -447,7 +446,7 @@ Tighten the onboarding copy while keeping behavior unchanged.
 
 def workspace_data() -> dict[str, Any]:
     data: dict[str, Any] = {"schema_version": 2, "name": "Linear Adapter Contract"}
-    for collection in COLLECTION_FILE_KEYS:
+    for collection in ALL_COLLECTION_KEYS:
         data[collection] = []
     data["goals"] = [
         {

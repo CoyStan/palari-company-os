@@ -12,7 +12,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.cli_dispatch import run_command
 from palari_company_os.cli_parser import build_parser
 from palari_company_os.decision_guides import build_decision_guide
-from palari_company_os.validation import COLLECTION_FILE_KEYS
+from palari_company_os.validation import ALL_COLLECTION_KEYS
 from palari_company_os.workspace import Workspace
 
 
@@ -21,7 +21,7 @@ def _workspace() -> Workspace:
         "schema_version": 2,
         "name": "Decision Guide Contract",
     }
-    for collection in COLLECTION_FILE_KEYS:
+    for collection in ALL_COLLECTION_KEYS:
         raw[collection] = []
     raw["goals"] = [
         {
@@ -98,9 +98,7 @@ class DecisionGuideTests(unittest.TestCase):
         self.assertEqual(payload["required_human"]["id"], "HUMAN-OWNER")
         self.assertIn("safe default", " ".join(payload["decision_focus"]))
         self.assertIn('--set "result=..."', payload["decision_update_command_template"])
-        commands = {
-            item["result"]: item["command"] for item in payload["decision_update_commands"]
-        }
+        commands = {item["result"]: item["command"] for item in payload["decision_update_commands"]}
         self.assertIn(
             "--set 'result=Defer until evidence exists'",
             commands["Defer until evidence exists"],

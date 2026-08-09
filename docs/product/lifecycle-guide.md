@@ -42,7 +42,7 @@ copy IDs and digests by hand:
 
 ```bash
 palari init --host codex
-palari work add "Draft onboarding note" --write docs/onboarding.md
+palari work add "Draft onboarding note" --create docs/onboarding.md
 palari agent start --next --as PALARI-ID --json
 # work inside the packet and commit the bounded result
 palari agent advance WORK-ID --as PALARI-ID --json
@@ -60,9 +60,8 @@ the commit gate. Existing workspaces use
 still refuses an existing workspace when no host is given. Other unnamed agent
 hosts may consume the provider-neutral session rules without a named profile.
 
-The presence-only `--write` form requires an output to exist. Use repeatable
-`--create`, `--modify`, and `--delete` when the exact change type matters; exact
-intents cannot be mixed with `--write`.
+Use repeatable `--create`, `--modify`, and `--delete` paths so every task says
+what kind of file change it will make.
 
 `start --next` chooses one task the queue already considers safe, writes its
 task brief and portable session rules, and acquires its task lock (`claim`).

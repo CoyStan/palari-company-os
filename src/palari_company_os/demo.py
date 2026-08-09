@@ -37,9 +37,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             "Sofia has one small writing task with clearly allowed files.",
             ["queue"],
         )
-        queue_step["display_stdout"] = _queue_display_summary(
-            _run_json(workspace_dir, ["queue"])
-        )
+        queue_step["display_stdout"] = _queue_display_summary(_run_json(workspace_dir, ["queue"]))
         steps.append(queue_step)
         steps.append(
             _run_step(
@@ -326,8 +324,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
         concrete_review = next(
             str(item["command"])
             for item in reviewer_packet["review_context"]["agent_review_commands"]
-            if item.get("reviewer") == "PALARI-REVIEWER"
-            and item.get("verdict") == "accept-ready"
+            if item.get("reviewer") == "PALARI-REVIEWER" and item.get("verdict") == "accept-ready"
         )
         _run_emitted_json(workspace_dir, concrete_review)
         steps.append(
@@ -390,7 +387,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             "try_next_commands": [
                 "palari demo --journey --no-pause",
                 "palari init",
-                "palari work add \"Reviewed local result\" --create notes/result.md --risk R2 --json",
+                'palari work add "Reviewed local result" --create notes/result.md --risk R2 --json',
             ],
         }
     finally:
@@ -428,15 +425,9 @@ def _run_repo_step(
     workspace_flag: bool = True,
 ) -> dict[str, Any]:
     command = (
-        _display_command(workspace_dir, args)
-        if workspace_flag
-        else " ".join(["palari", *args])
+        _display_command(workspace_dir, args) if workspace_flag else " ".join(["palari", *args])
     )
-    cli_args = (
-        ["--workspace", str(workspace_dir), *args]
-        if workspace_flag
-        else list(args)
-    )
+    cli_args = ["--workspace", str(workspace_dir), *args] if workspace_flag else list(args)
     result = _run_cli_raw(workspace_dir, cli_args)
     if result.returncode != 0:
         raise WorkspaceError(result.stderr.strip() or result.stdout.strip())
@@ -520,7 +511,7 @@ print("demo affected verification passed")
     quick_add_work(
         workspace_dir,
         "Improve the Company OS onboarding note",
-        write=[ALLOWED_PATH],
+        create=[ALLOWED_PATH],
         work_id=WORK_ID,
         risk="R1",
         intensity="light",
@@ -692,8 +683,7 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
         active_attempts = _dict_items(item.get("active_attempts"))
         if active_attempts:
             attempt_ids = ", ".join(
-                str(attempt.get("attempt_id", ""))
-                for attempt in active_attempts
+                str(attempt.get("attempt_id", "")) for attempt in active_attempts
             )
             lines.append(f"  active runs: {attempt_ids}")
 
@@ -706,11 +696,7 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
     passed = [check for check in checks if check.get("status") == "pass"]
     failed = [check for check in checks if check.get("status") != "pass"]
     focus = _first_item(checks, "code", focus_code)
-    other_failures = [
-        check
-        for check in failed
-        if check.get("code") != focus_code
-    ]
+    other_failures = [check for check in failed if check.get("code") != focus_code]
 
     lines = [
         f"Task check: {payload.get('check_id', 'check')}",
@@ -727,16 +713,11 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         )
 
     if other_failures:
-        codes = ", ".join(
-            str(check.get("code", "UNKNOWN")) for check in other_failures
-        )
+        codes = ", ".join(str(check.get("code", "UNKNOWN")) for check in other_failures)
         lines.append(f"Other blockers still pending before completion: {codes}.")
 
     if focus and focus.get("status") == "pass":
-        lines.append(
-            f"Next safe action: palari agent advance {WORK_ID} "
-            f"--as {PALARI_ID} --json"
-        )
+        lines.append(f"Next safe action: palari agent advance {WORK_ID} --as {PALARI_ID} --json")
     return "\n".join(lines)
 
 
