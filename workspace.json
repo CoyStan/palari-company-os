@@ -3377,6 +3377,235 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88"
+    },
+    {
+      "id": "WORK-75D8F76939FB425891B3863BE252A21A",
+      "title": "Require current proof records",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Delete support for evidence, reviews, and trust records that lack current exact bindings or dates.",
+      "allowed_resources": [
+        "tests/fixtures/workspaces/notes/output.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/review_guides.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_advance.py",
+        "tests/test_transition_checks.py",
+        "tests/test_approval_packs.py",
+        "tests/test_pcaw_protocol.py",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "examples/acme-company-os/workspace.json",
+        "examples/acme-company-os/README.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/agent/contracts-and-invariants.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "tests/fixtures/workspaces/notes/output.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/review_guides.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_advance.py",
+        "tests/test_transition_checks.py",
+        "tests/test_approval_packs.py",
+        "tests/test_pcaw_protocol.py",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "examples/acme-company-os/workspace.json",
+        "examples/acme-company-os/README.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/agent/contracts-and-invariants.md"
+      ],
+      "conflict_targets": [
+        "tests/fixtures/workspaces/notes/output.md",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/authoring.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/review_guides.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_validation.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_advance.py",
+        "tests/test_transition_checks.py",
+        "tests/test_approval_packs.py",
+        "tests/test_pcaw_protocol.py",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "examples/acme-company-os/workspace.json",
+        "examples/acme-company-os/README.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/core-objects.md",
+        "docs/product/agent-contract.md",
+        "docs/product/security.md",
+        "docs/product/agent-loop-smoke.md",
+        "docs/agent/contracts-and-invariants.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Old proof records fail closed, all stored examples use current records, and the full repository check passes.",
+      "verification_expectations": [
+        "python -m unittest tests.test_validation tests.test_agent_file_changes tests.test_agent_advance tests.test_transition_checks tests.test_approval_packs tests.test_pcaw_protocol",
+        "./scripts/verify.sh complete"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "tests/fixtures/workspaces/notes/output.md",
+          "intent": "create"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/governance_binding.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/transition_checks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/review_guides.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/pcaw_workspace.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_file_changes.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_transition_checks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_pcaw_protocol.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/fixtures/workspaces/valid-workspace.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+          "intent": "modify"
+        },
+        {
+          "path": "examples/acme-company-os/workspace.json",
+          "intent": "modify"
+        },
+        {
+          "path": "examples/acme-company-os/README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/security.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-loop-smoke.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
@@ -8833,7 +9062,13 @@
         "tests/test_linear_webhook.py",
         "tests/test_mcp_server.py",
         "tests/test_mission_control.py",
-        "tests/test_plain_language.py"
+        "tests/test_plain_language.py",
+        "tests/fixtures/workspaces/notes/output.md",
+        "src/palari_company_os/governance_binding.py",
+        "src/palari_company_os/review_guides.py",
+        "tests/test_pcaw_protocol.py",
+        "examples/acme-company-os/README.md",
+        "docs/product/agent-loop-smoke.md"
       ]
     }
   ],
