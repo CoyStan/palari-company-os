@@ -1252,6 +1252,98 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-B7D6E75DD22B4415893E69606FED80F2-C3B0C2E10EBD"
+    },
+    {
+      "id": "WORK-2CB1C974DF324BD3BBA452B9756CF7AB",
+      "title": "Give code parts local checks",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Extend the one checked repo map with five code parts, owned files, public doors, and focused checks; move no product code and add no registry.",
+      "allowed_resources": [
+        "src/palari_company_os",
+        "tests",
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md"
+      ],
+      "conflict_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Every source file has one code part, every code part has owned doors and focused tests, the work check runs alone, and all repository checks pass.",
+      "verification_expectations": [
+        "Run python3 -S scripts/check_repo_tree.py --part work.",
+        "Run focused repo-tree tests and the complete repository checks."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "docs/agent/repo-tree.json",
+          "intent": "modify"
+        },
+        {
+          "path": "scripts/check_repo_tree.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_repo_tree.py",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/verification.md",
+          "intent": "modify"
+        },
+        {
+          "path": "AGENTS.md",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984"
     }
   ],
   "attempts": [
@@ -1852,6 +1944,51 @@
       ],
       "output_targets": [
         ".palari/dogfood/proof.json"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984",
+      "work_item_id": "WORK-2CB1C974DF324BD3BBA452B9756CF7AB",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "14d706fcefb8c2cfc501995a69c323cc5fabb786",
+      "allowed_paths": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md"
+      ],
+      "started_at": "2026-08-09T19:33:41Z",
+      "head_sha": "696505fa9984bd58e4bfb0eb42c1886247fd5bb1",
+      "commits": [
+        "696505fa9984bd58e4bfb0eb42c1886247fd5bb1"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T19:33:41Z",
+      "changed_files": [
+        "AGENTS.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/agent/verification.md",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/verification.md",
+        "AGENTS.md"
       ]
     }
   ],
@@ -2986,6 +3123,75 @@
       "receipt_hash": "sha256:c617eb19257650306540898aefad65ac44cd2dfc1ff99829a766c9d0f019c90c",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:181aba667403ee0fac853c815a2c31e57c76ad739ac123f039676c115e282bbb"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984",
+      "work_item_id": "WORK-2CB1C974DF324BD3BBA452B9756CF7AB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984",
+      "head_sha": "696505fa9984bd58e4bfb0eb42c1886247fd5bb1",
+      "status": "passed",
+      "base_ref": "14d706fcefb8c2cfc501995a69c323cc5fabb786",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-3DFF3052A8021575 sha256:8a60a7a0949f907a36b969755e7157e0e7cb753bddd52a133dff3052a8021575"
+      ],
+      "artifacts": [
+        "AGENTS.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/agent/verification.md",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "sha256:db2031c7754d2e62da4bf00ce9aef4e0f6b4a6c928acd608d782c0835151267a",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:b2c474785344b657400061efb65a9b9cb20a6d31025d600ba284762402a266c7",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:167446eab91fa3e9084e4502bcdedcf9e31444d9d6d91028d5cc0b4fd20e33a5",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:c43ab21ff3ff9e23552b99acad9b4af2d641c9a22d65583bc22ac6f345195117",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-tree.json",
+          "sha256": "sha256:e65517d87e1eba5028394f97ea153d702ab795a42686bf6d46212ffc1b6a289d",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/verification.md",
+          "sha256": "sha256:272e68f70c218b1e79185ae74fdd09d7b035033d6e420101ac3ac64d1a2e6e65",
+          "status": "present"
+        },
+        {
+          "path": "scripts/check_repo_tree.py",
+          "sha256": "sha256:e1fd75563db74b77a6a6dd684c4d36efd4d25742f028b4d1eb45d16ba1dc8377",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_repo_tree.py",
+          "sha256": "sha256:ee1e1163a42e0297fbdecc47919f75a055d19f91c3a21f0065936aaba7a817e0",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T19:33:41Z",
+      "receipt_hash": "sha256:61d0410376de22bee5602780455fa360544db44689632d0edd16419dabecb62d",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:c9685880929228a9169afb0f5e1b040ebf8a727a3eeacb12f934364e376b80f6"
     }
   ],
   "review_verdicts": [
@@ -4398,6 +4604,44 @@
       ],
       "timestamp": "2026-08-09T19:20:04Z",
       "receipt_hash": "sha256:c617eb19257650306540898aefad65ac44cd2dfc1ff99829a766c9d0f019c90c"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984",
+      "work_item_id": "WORK-2CB1C974DF324BD3BBA452B9756CF7AB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 8 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "AGENTS.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/agent/verification.md",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "AGENTS.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/agent/verification.md",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py"
+      ],
+      "timestamp": "2026-08-09T19:33:41Z",
+      "receipt_hash": "sha256:61d0410376de22bee5602780455fa360544db44689632d0edd16419dabecb62d"
     }
   ],
   "decisions": [],
@@ -4481,7 +4725,8 @@
         "workspaces/palari-company-os/.palari/history.jsonl",
         "tests/test_governance_journal.py",
         "tests/test_governance_journal_crash.py",
-        ".palari/dogfood/proof.json"
+        ".palari/dogfood/proof.json",
+        "docs/agent/verification.md"
       ]
     }
   ],
