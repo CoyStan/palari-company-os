@@ -1592,6 +1592,137 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB"
+    },
+    {
+      "id": "WORK-9E915E95D6D147FC9259B6494AA957FB",
+      "title": "Remove old write path",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Remove the old task --write path and the last split-file name; keep current exact path intents.",
+      "allowed_resources": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "New work requires create, modify, or delete paths; --write is rejected; old split-file naming is gone; focused tests pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_onramp tests.test_cli_smoke tests.test_demo tests.test_decision_guides tests.test_linear_adapter"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/demo.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/workspace_fixture.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_decision_guides.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_linear_adapter.py",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/quickstart.md",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34"
     }
   ],
   "attempts": [
@@ -2332,6 +2463,69 @@
       "output_targets": [
         "src/palari_company_os/authoring.py",
         "tests/test_agent_advance.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34",
+      "work_item_id": "WORK-9E915E95D6D147FC9259B6494AA957FB",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "870fdf424e45c67bad01bfaec97a24bb756b74b4",
+      "allowed_paths": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
+      ],
+      "started_at": "2026-08-09T20:28:36Z",
+      "head_sha": "1097f1fb4e347502ff6696aa0e619c4abdba9999",
+      "commits": [
+        "1097f1fb4e347502ff6696aa0e619c4abdba9999"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T20:28:36Z",
+      "changed_files": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
       ]
     }
   ],
@@ -3568,6 +3762,111 @@
       "receipt_hash": "sha256:0a768ed3e8b5aaf844e7e6901e80cb80308173ed2affafe71a7b2f0e1e51104d",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:c2944c64a6457f08deeb3e57d63e080857104ed43e0839de0df3fd0c0c67d288"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34",
+      "work_item_id": "WORK-9E915E95D6D147FC9259B6494AA957FB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34",
+      "head_sha": "1097f1fb4e347502ff6696aa0e619c4abdba9999",
+      "status": "passed",
+      "base_ref": "870fdf424e45c67bad01bfaec97a24bb756b74b4",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-60D2C82F16437BA0 sha256:893d9637514dcd556af69f7b985a52ac89f3d9cb5ba1308560d2c82f16437ba0"
+      ],
+      "artifacts": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "README.md",
+          "sha256": "sha256:123ca56135f71bb8b7cd0a9b3da72c88e296e4304a09a07075dbb12f7e3305b9",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:54eacec1b10bebb22ecd3d2a8600da8752b94c35e1bdc226f732043dbf9d9d25",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:2de4899f50678d599938cc5057f1634b79afac2120039605d376b4bd71a95e9c",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "sha256": "sha256:62f0a31b124f4387181c7a2fb02da7e6a7a5b31adffe3020a218f91e3ed03c5d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/quickstart.md",
+          "sha256": "sha256:7a6dbfee2cc8d9af063d23d994b957a6e86552dd15776bcfd4772f9e0f772f5c",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:28f9f84fcecf99eeed6c052378662542e8ba459c78ecdd8622ee18623bca04f8",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:75faa287720cbe48f38d593dec3bdc3acbd8c60f842a8319472b94b776382554",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/demo.py",
+          "sha256": "sha256:9017119e2379c542afd9b1e829ddd012513f3e0e75a6ff301b56cf96f5034b80",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "sha256": "sha256:272ff67761222643a475975bcd19fd26f4b3420180cc7c50b4c7aff9da8aa34a",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:1a28f5a2c5a83e67de7deaa77e4565875cb51666840b8b6dace0dffbe6c0c29a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_decision_guides.py",
+          "sha256": "sha256:1206da7edb86a3ca2939b71c5d37a1437558cb2af81ba047e8bbacc59c4b2ea0",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_linear_adapter.py",
+          "sha256": "sha256:2c78d40846c351ae92a2d7954cf45d87b7158896c2a55bc2cb3590a70ee5c900",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "sha256": "sha256:de00957715e60c7e26c22c3d0e6aaba4ad83c684cc6cd504b33c1b0d14ffa270",
+          "status": "present"
+        },
+        {
+          "path": "tests/workspace_fixture.py",
+          "sha256": "sha256:1522233dd76bd63058f40a8a5dcb38640dd1ce1877c02582a8530631564231d2",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T20:28:36Z",
+      "receipt_hash": "sha256:d2d8fb36624de69ced75ff53f1edd2a8248b00a1b2ba0119f7c08afb21d45cf8",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:af5e7600575b99a400cadebc5c2f7f01fdfa6119a38e185e573468be32cd1471"
     }
   ],
   "review_verdicts": [
@@ -5044,6 +5343,56 @@
       ],
       "timestamp": "2026-08-09T20:18:59Z",
       "receipt_hash": "sha256:0a768ed3e8b5aaf844e7e6901e80cb80308173ed2affafe71a7b2f0e1e51104d"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34",
+      "work_item_id": "WORK-9E915E95D6D147FC9259B6494AA957FB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-9E915E95D6D147FC9259B6494AA957FB-1097F1FB4E34",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 14 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/product/command-reference.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/demo.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/validation.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py"
+      ],
+      "timestamp": "2026-08-09T20:28:36Z",
+      "receipt_hash": "sha256:d2d8fb36624de69ced75ff53f1edd2a8248b00a1b2ba0119f7c08afb21d45cf8"
     }
   ],
   "decisions": [],
@@ -5140,7 +5489,14 @@
         "tests/fixtures/workspaces/split-workspace/records/work-items.json",
         "tests/fixtures/workspaces/split-workspace/workspace.json",
         "src/palari_company_os/authoring.py",
-        "tests/test_agent_advance.py"
+        "tests/test_agent_advance.py",
+        "src/palari_company_os/demo.py",
+        "tests/test_onramp.py",
+        "tests/workspace_fixture.py",
+        "tests/test_decision_guides.py",
+        "tests/test_linear_adapter.py",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/quickstart.md"
       ]
     }
   ],
