@@ -2746,9 +2746,10 @@ def _pending_advance_recovery_error(
     current_attempt_reusable = (
         isinstance(current_attempt, dict)
         and current_attempt.get("actor") == palari_id
-        and (
-            current_attempt.get("status") not in {"complete", "completed"}
-            or current_attempt_head == head_sha
+        and _attempt_reusable_for_head(
+            str(current_attempt.get("status") or ""),
+            current_attempt_head,
+            head_sha,
         )
     )
     expected_attempt_id = (
@@ -3254,10 +3255,18 @@ def _select_attempt(
         )
         if current is not None and current.actor == palari_id:
             current_head = current.head_sha or (current.commits[-1] if current.commits else "")
-            if current.status not in {"complete", "completed"} or current_head == head_sha:
+            if _attempt_reusable_for_head(current.status, current_head, head_sha):
                 return current
     expected_id = _proof_id("ATTEMPT-ADVANCE", work_id, head_sha)
     return next((item for item in workspace.attempts if item.id == expected_id), None)
+
+
+def _attempt_reusable_for_head(status: str, current_head: str, head_sha: str) -> bool:
+    """Keep active proof work, but never reopen a failed or parked attempt."""
+
+    return status == "active" or (
+        status in {"complete", "completed"} and current_head == head_sha
+    )
 
 
 def _current_receipt(workspace: Workspace, work: Any) -> Any | None:

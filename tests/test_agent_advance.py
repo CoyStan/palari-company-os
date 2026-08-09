@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_advance import (
+    _attempt_reusable_for_head,
     _git_commit_timestamp,
     _verify_path_intents,
     agent_advance,
@@ -64,6 +65,20 @@ from palari_company_os.verification_attestations import (
 from palari_company_os.workspace import Workspace as Ws
 from palari_company_os.workspace import WorkspaceError
 from tests.workspace_fixture import write_current_agent_workspace
+
+
+class AttemptReuseTests(unittest.TestCase):
+    def test_parked_or_failed_attempt_starts_fresh(self) -> None:
+        for status in ("blocked", "failed"):
+            with self.subTest(status=status):
+                self.assertFalse(
+                    _attempt_reusable_for_head(status, "old-head", "new-head")
+                )
+
+    def test_active_attempt_continues_and_complete_attempt_is_idempotent(self) -> None:
+        self.assertTrue(_attempt_reusable_for_head("active", "old-head", "new-head"))
+        self.assertTrue(_attempt_reusable_for_head("complete", "same-head", "same-head"))
+        self.assertFalse(_attempt_reusable_for_head("complete", "old-head", "new-head"))
 
 
 class PathIntentAncestryTests(unittest.TestCase):
