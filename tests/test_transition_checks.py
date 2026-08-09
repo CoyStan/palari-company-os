@@ -16,7 +16,6 @@ from palari_company_os.authoring import update_record
 from palari_company_os.evidence_manifest import (
     stamp_evidence_record,
     stamp_receipt_record,
-    verify_evidence,
 )
 from palari_company_os.governance_binding import (
     current_review_binding,
@@ -116,12 +115,13 @@ class TransitionCheckTests(unittest.TestCase):
             raw = _review_required_data()
             _add_exact_evidence(raw, root)
             review = _add_bound_review(raw, root)
+            head_sha = raw["attempts"][0]["head_sha"]
             raw["human_decisions"] = [
                 {
                     "id": "DECISION-1",
                     "work_item_id": "WORK-1",
                     "human_id": "HUMAN-OWNER",
-                    "reviewed_head": "head-1",
+                    "reviewed_head": head_sha,
                     "decision": "accepted",
                     "status": "accepted",
                     "acceptance_mode": "human",
@@ -136,7 +136,7 @@ class TransitionCheckTests(unittest.TestCase):
                     "id": "ACCEPTANCE-1",
                     "work_item_id": "WORK-1",
                     "human_id": "HUMAN-OWNER",
-                    "reviewed_head": "head-1",
+                    "reviewed_head": head_sha,
                     "status": "accepted",
                     "decision_id": "DECISION-1",
                     "evidence_reference": "EVIDENCE-1",
@@ -160,27 +160,28 @@ class TransitionCheckTests(unittest.TestCase):
             _add_exact_evidence(raw, root)
             _add_bound_review(raw, root)
             workspace = _workspace(raw, root)
+            head_sha = raw["attempts"][0]["head_sha"]
 
             qualified = check_transition(
                 workspace,
                 "work_accept",
                 "WORK-1",
                 actor="HUMAN-OWNER",
-                context={"reviewed_head": "head-1"},
+                context={"reviewed_head": head_sha},
             )
             unqualified = check_transition(
                 workspace,
                 "work_accept",
                 "WORK-1",
                 actor="HUMAN-OBSERVER",
-                context={"reviewed_head": "head-1"},
+                context={"reviewed_head": head_sha},
             )
             inactive = check_transition(
                 workspace,
                 "work_accept",
                 "WORK-1",
                 actor="HUMAN-INACTIVE",
-                context={"reviewed_head": "head-1"},
+                context={"reviewed_head": head_sha},
             )
 
         self.assertTrue(qualified.ok, qualified.to_dict())
@@ -213,13 +214,12 @@ class TransitionCheckTests(unittest.TestCase):
             binding, errors = current_review_binding(
                 workspace,
                 "WORK-1",
-                require_output_coverage=True,
             )
             self.assertEqual(errors, [])
             binding_digest = canonical_sha256(binding)
             context = {
                 "work_item_id": "WORK-1",
-                "reviewed_head": "head-1",
+                "reviewed_head": raw["attempts"][0]["head_sha"],
                 "verdict": "accept-ready",
                 "review_binding_digest": binding_digest,
             }
@@ -279,6 +279,7 @@ class TransitionCheckTests(unittest.TestCase):
             _add_exact_evidence(raw, root)
             _add_bound_review(raw, root, reviewer="HUMAN-OWNER")
             workspace = _workspace(raw, root)
+            head_sha = raw["attempts"][0]["head_sha"]
 
             cases = (
                 (
@@ -286,13 +287,13 @@ class TransitionCheckTests(unittest.TestCase):
                     "DECISION-NEW",
                     {
                         "work_item_id": "WORK-1",
-                        "reviewed_head": "head-1",
+                        "reviewed_head": head_sha,
                     },
                 ),
                 (
                     "work_accept",
                     "WORK-1",
-                    {"reviewed_head": "head-1"},
+                    {"reviewed_head": head_sha},
                 ),
             )
             for transition, target_id, context in cases:
@@ -334,13 +335,14 @@ class TransitionCheckTests(unittest.TestCase):
             ]
             _add_exact_evidence(raw, root)
             _add_bound_review(raw, root)
+            head_sha = raw["attempts"][0]["head_sha"]
 
             result = check_transition(
                 _workspace(raw, root),
                 "work_accept",
                 "WORK-1",
                 actor="HUMAN-OWNER",
-                context={"reviewed_head": "head-1"},
+                context={"reviewed_head": head_sha},
             )
 
         self.assertIn(
@@ -396,30 +398,25 @@ class TransitionCheckTests(unittest.TestCase):
             root = Path(directory) / "evidence"
             raw = _current_data()
             _add_exact_evidence(raw, root)
+            head_sha = raw["attempts"][0]["head_sha"]
             _write_workspace(root, raw)
 
-            with self.assertRaisesRegex(WorkspaceError, "does not match attempt head head-1"):
+            with self.assertRaisesRegex(WorkspaceError, "does not match attempt head"):
                 update_record(root, "evidence", "EVIDENCE-1", {"head_sha": "wrong-head"})
             self.assertEqual(
                 _stored_record(root, "evidence_runs", "EVIDENCE-1")["head_sha"],
-                "head-1",
+                head_sha,
             )
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "review"
             raw = _review_required_data()
             raw["review_verdicts"] = [_unbound_review()]
-            _write_workspace(root, raw)
-
             with self.assertRaisesRegex(
                 WorkspaceError,
-                "accept-ready review requires complete exact proof",
+                r"review_verdicts.*missing field\(s\)",
             ):
-                update_record(root, "review", "REVIEW-HISTORICAL", {"verdict": "accept-ready"})
-            self.assertEqual(
-                _stored_record(root, "review_verdicts", "REVIEW-HISTORICAL")["verdict"],
-                "changes-requested",
-            )
+                _write_workspace(root, raw)
 
     def test_bound_review_is_immutable_and_later_metadata_edits_fail_closed(
         self,
@@ -458,35 +455,7 @@ class TransitionCheckTests(unittest.TestCase):
                 )
             evidence = _stored_record(root, "evidence_runs", "EVIDENCE-1")
 
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "historical-metadata"
-            raw = _current_data()
-            _add_exact_evidence(raw, root)
-            raw["review_verdicts"] = [_unbound_review()]
-            _write_workspace(root, raw)
-
-            update_record(
-                root,
-                "evidence",
-                "EVIDENCE-1",
-                {"summary": "Current proof note clarified."},
-            )
-            update_record(
-                root,
-                "review",
-                "REVIEW-HISTORICAL",
-                {"residual_risks": ["Review must still be rerun."]},
-            )
-
-            edited_evidence = _stored_record(root, "evidence_runs", "EVIDENCE-1")
-            review = _stored_record(root, "review_verdicts", "REVIEW-HISTORICAL")
-            workspace = Workspace.load(root)
-            verification = verify_evidence(workspace, "EVIDENCE-1")
-
         self.assertEqual(evidence["summary"], "Focused exact verification passed.")
-        self.assertEqual(edited_evidence["summary"], "Current proof note clarified.")
-        self.assertTrue(verification["ok"], verification)
-        self.assertEqual(review["residual_risks"], ["Review must still be rerun."])
 
 
 def _current_data() -> dict[str, Any]:
@@ -549,7 +518,7 @@ def _current_data() -> dict[str, Any]:
             "scope": "Use the selected source to create one local summary.",
             "allowed_actions": ["local_write"],
             "output_targets": ["notes/summary.md"],
-            "path_intents": [],
+            "path_intents": [{"path": "notes/summary.md", "intent": "modify"}],
             "acceptance_target": "Exact local evidence is current.",
             "verification_expectations": [],
             "current_attempt": "ATTEMPT-1",
@@ -581,6 +550,7 @@ def _current_data() -> dict[str, Any]:
                     "work_item_id": "WORK-1",
                     "actor": "PALARI-BUILDER",
                     "status": "complete",
+                    "started_at": "2026-07-18T00:00:00Z",
                     "commits": ["head-1"],
                     "changed_files": ["notes/summary.md"],
                     "cleanliness": "clean",
@@ -619,14 +589,15 @@ def _review_required_data() -> dict[str, Any]:
 def _evidence_record(
     raw: dict[str, Any],
     *,
-    head_sha: str = "head-1",
-    base_ref: str = "",
+    head_sha: str | None = None,
+    base_ref: str | None = None,
 ) -> dict[str, Any]:
+    attempt = raw["attempts"][0]
     record: dict[str, Any] = {
         "id": "EVIDENCE-1",
         "work_item_id": "WORK-1",
         "attempt_id": "ATTEMPT-1",
-        "head_sha": head_sha,
+        "head_sha": head_sha or attempt.get("head_sha", "head-1"),
         "status": "passed",
         "commands": ["python3 -m unittest tests.test_governance_kernel"],
         "artifacts": ["notes/summary.md"],
@@ -635,15 +606,48 @@ def _evidence_record(
         "freshness": "exact-head",
         "timestamp": "2026-07-18T00:02:00Z",
     }
-    if base_ref:
-        record["base_ref"] = base_ref
+    effective_base = base_ref if base_ref is not None else attempt.get("base_sha", "")
+    if effective_base:
+        record["base_ref"] = effective_base
     return record
 
 
 def _add_exact_evidence(raw: dict[str, Any], root: Path) -> dict[str, Any]:
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "config", "user.email", "test@example.com"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "config", "user.name", "Palari Test"],
+        check=True,
+    )
     output = root / "notes/summary.md"
     output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("Previous summary.\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "-qm", "add previous summary"],
+        check=True,
+    )
+    base_sha = _git_head(root)
     output.write_text("Current exact summary.\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", "notes/summary.md"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "-qm", "update exact summary"],
+        check=True,
+    )
+    head_sha = _git_head(root)
+    raw["attempts"][0].update(
+        {
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "commits": [head_sha],
+            "workspace_path": str(root.resolve()),
+            "allowed_paths": ["notes/summary.md"],
+        }
+    )
     evidence = stamp_evidence_record(
         _evidence_record(raw),
         root,
@@ -663,14 +667,13 @@ def _add_bound_review(
     binding, errors = current_review_binding(
         workspace,
         "WORK-1",
-        require_output_coverage=True,
     )
     if errors:
         raise AssertionError(errors)
     review = {
         "id": "REVIEW-1",
         "work_item_id": "WORK-1",
-        "reviewed_head": "head-1",
+        "reviewed_head": raw["attempts"][0]["head_sha"],
         "reviewer": reviewer,
         "verdict": "accept-ready",
         "timestamp": "2026-07-18T00:02:30Z",

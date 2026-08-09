@@ -1568,7 +1568,7 @@ def _completed_projection(
     )
     if evidence is None:
         return None
-    verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+    verification = verify_evidence(workspace, evidence.id)
     if not verification["ok"]:
         errors = verification.get("errors", [])
         detail = "; ".join(str(item) for item in errors[:3])
@@ -2017,7 +2017,7 @@ def _stale_projection_refresh_context(
             "code": "REFRESH_EVIDENCE_MISSING",
             "message": "The completed run has no passing checks tied to its exact version.",
         }
-    verification = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+    verification = verify_evidence(workspace, evidence.id)
     if not verification["ok"]:
         detail = "; ".join(str(item) for item in verification.get("errors", [])[:3])
         return {
@@ -2852,7 +2852,6 @@ def _pending_advance_recovery_error(
     evidence_verification = verify_evidence(
         projected_workspace,
         expected_evidence_id,
-        require_output_coverage=True,
     )
     if not evidence_verification["ok"]:
         return "The pending journal projection does not contain verifiable exact evidence."

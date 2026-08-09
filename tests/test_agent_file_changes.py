@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_file_changes import inspect_file_changes
 from palari_company_os.agent_packets import _allowed_paths, _required_output
 from palari_company_os.evidence_manifest import (
+    OUTPUT_BINDING_VERSION,
     artifact_hashes_at_root,
     evidence_manifest_hash,
     verify_evidence,
@@ -177,6 +178,7 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
                         "status": "absent",
                     }
                 ],
+                "output_binding_version": OUTPUT_BINDING_VERSION,
                 "summary": "Deletion verified.",
                 "freshness": "exact-head",
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -184,7 +186,6 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
             record["manifest_hash"] = evidence_manifest_hash(record)
             evidence = SimpleNamespace(
                 **record,
-                output_binding_version="",
                 receipt_hash="",
                 previous_receipt_hash="",
             )
@@ -209,11 +210,7 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
                 work_item=lambda work_id: work if work_id == "WORK-1" else None,
             )
 
-            report = verify_evidence(
-                workspace,
-                "EVIDENCE-1",
-                require_output_coverage=False,
-            )
+            report = verify_evidence(workspace, "EVIDENCE-1")
 
             self.assertTrue(report["artifact_hashes_ok"])
 

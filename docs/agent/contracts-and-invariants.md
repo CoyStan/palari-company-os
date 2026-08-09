@@ -82,9 +82,8 @@ code change must match them. See
   reviewed head, and work contract. Concrete Review Guide actions carry the
   current binding digest and fail if that proof changes before recording.
   Bound reviews are immutable.
-- Schema v2 loads historical unbound non-accepting reviews for inspection, but
-  rejects unbound `accept-ready`. Older workspace schema versions fail closed;
-  current runtime does not infer or manufacture upgraded authority.
+- Schema v2 rejects every unbound review. Older workspace schema versions fail
+  closed; current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a prior rejection or defer does not suppress a
   later exact approval action, while contradictory or ambiguous ordering fails

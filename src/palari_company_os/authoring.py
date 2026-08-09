@@ -420,7 +420,6 @@ def reconcile_agent_proof(
     evidence_verification = verify_evidence(
         staged_workspace,
         evidence_id,
-        require_output_coverage=True,
     )
     if not evidence_verification["ok"]:
         missing = [
@@ -569,13 +568,11 @@ def _prepare_record_for_create(
         binding, errors = current_review_binding(
             workspace,
             str(stamped.get("work_item_id") or ""),
-            require_output_coverage=True,
         )
-        if stamped.get("verdict") == "accept-ready" and errors:
-            raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")
-        if not errors:
-            stamped.update(binding)
-            stamped["proof_hash"] = review_proof_hash(stamped)
+        if errors:
+            raise WorkspaceError(f"cannot bind review: {errors[0]}")
+        stamped.update(binding)
+        stamped["proof_hash"] = review_proof_hash(stamped)
         return stamped
     return record
 
@@ -650,7 +647,6 @@ def _prepare_record_for_update(
         binding, errors = current_review_binding(
             workspace,
             str(record.get("work_item_id") or ""),
-            require_output_coverage=True,
         )
         if errors:
             raise WorkspaceError(f"cannot bind accept-ready review: {errors[0]}")

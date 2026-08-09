@@ -228,9 +228,9 @@ Safety rules:
   output artifacts, whose current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
-  values, UTC-normalization overflows, and equivalent-instant competitors fail
-  closed, so offset spelling or caller-chosen ids cannot hide later adverse
-  evidence, review, or revocation.
+  values, missing times, UTC-normalization overflows, and equivalent-instant
+  competitors fail closed, so offset spelling or caller-chosen ids cannot hide
+  later adverse evidence, review, or revocation.
 
 The local JSON and claim hashes detect mismatch and accidental tampering; they
 are not signatures and do not authenticate a human identity against an

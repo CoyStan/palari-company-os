@@ -199,8 +199,6 @@ def stored_evidence_integrity_errors(
     receipt: Any | None,
     *,
     path_intents: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
-    require_output_coverage: bool = True,
-    require_version: bool = True,
 ) -> list[str]:
     """Verify stored exact-proof metadata without reading artifact bytes."""
 
@@ -208,7 +206,7 @@ def stored_evidence_integrity_errors(
     receipt_record = _plain_record(receipt) if receipt is not None else None
     evidence_id = str(evidence_record.get("id", ""))
     errors: list[str] = []
-    if require_version and evidence_record.get("output_binding_version") != OUTPUT_BINDING_VERSION:
+    if evidence_record.get("output_binding_version") != OUTPUT_BINDING_VERSION:
         errors.append(f"evidence {evidence_id} has no current output binding version")
     if (
         not evidence_record.get("manifest_hash")
@@ -253,11 +251,10 @@ def stored_evidence_integrity_errors(
         if receipt_record is not None
         else []
     )
-    if require_output_coverage:
-        if not artifacts:
-            errors.append(f"evidence {evidence_id} versioned output proof is vacuous")
-        if not outputs or not set(outputs).issubset(artifacts):
-            errors.append(f"evidence {evidence_id} receipt outputs are not artifact-hashed")
+    if not artifacts:
+        errors.append(f"evidence {evidence_id} output proof is empty")
+    if not outputs or not set(outputs).issubset(artifacts):
+        errors.append(f"evidence {evidence_id} receipt outputs are not artifact-hashed")
     return list(dict.fromkeys(errors))
 
 
@@ -283,7 +280,6 @@ def verify_evidence(
     workspace: Workspace,
     evidence_id: str,
     *,
-    require_output_coverage: bool | None = None,
     journal_context: JournalVerificationContext | None = None,
 ) -> dict[str, Any]:
     evidence = next((item for item in workspace.evidence_runs if item.id == evidence_id), None)
@@ -356,12 +352,7 @@ def verify_evidence(
         and not unhashed_outputs
     )
     output_binding_version = str(getattr(evidence, "output_binding_version", "") or "")
-    output_binding_version_ok = output_binding_version in {"", OUTPUT_BINDING_VERSION}
-    coverage_required = (
-        output_binding_version == OUTPUT_BINDING_VERSION
-        if require_output_coverage is None
-        else require_output_coverage
-    )
+    output_binding_version_ok = output_binding_version == OUTPUT_BINDING_VERSION
     status_ok = evidence.status == "passed"
     journal_verification: dict[str, Any] | None = None
     journal_continuity_ok = True
@@ -380,7 +371,7 @@ def verify_evidence(
         and journal_continuity_ok
         and output_binding_version_ok
         and path_intent_verification["ok"]
-        and (output_coverage_ok or not coverage_required)
+        and output_coverage_ok
         and all(item["ok"] for item in receipt_checks)
     )
     return {
@@ -404,15 +395,11 @@ def verify_evidence(
         "output_binding_version": output_binding_version,
         "output_binding_version_ok": output_binding_version_ok,
         "output_coverage_ok": output_coverage_ok,
-        "output_coverage_required": coverage_required,
+        "output_coverage_required": True,
         "declared_receipt_outputs": declared_outputs,
         "unhashed_receipt_outputs": unhashed_outputs,
         "receipt_checks": receipt_checks,
-        "limitations": (
-            []
-            if coverage_required
-            else ["legacy evidence does not claim complete receipt-output coverage"]
-        ),
+        "limitations": [],
     }
 
 
@@ -501,7 +488,7 @@ def evidence_artifact_root(
     proof moves to another linked worktree or clone, the current Git root is
     accepted only when it contains the exact recorded candidate commit. Every
     artifact must still stay inside the attempt's explicit allowed-path
-    boundary. Legacy or incomplete attempts retain workspace-local behavior.
+    boundary.
     """
 
     fallback = Path(workspace_path).expanduser().resolve()
@@ -515,8 +502,6 @@ def evidence_artifact_root(
     root_value = str(_field(attempt, "workspace_path") or "")
     allowed_paths = _string_list(_field(attempt, "allowed_paths"))
     forbidden_paths = _string_list(_field(attempt, "forbidden_paths"))
-    if not allowed_paths and not forbidden_paths:
-        return fallback
     if not root_value or not allowed_paths:
         raise ValueError("attempt artifact boundary requires workspace_path and allowed_paths")
     if any(not path_allowed(artifact, allowed_paths) for artifact in artifacts):

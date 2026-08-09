@@ -470,10 +470,9 @@ mutation commands are denied from the supported agent shell.
 Latest evidence, review, receipt, attempt, acceptance, outcome, and integration
 records are ordered by timezone-normalized UTC instants. ISO offset spelling
 cannot make an older pass or acceptance outrank a semantically later failure,
-rejection, or revocation. Malformed, timezone-free, missing-while-competing, and
+rejection, or revocation. Missing, malformed, timezone-free, and
 equivalent-instant ordering claims fail closed; record ids never decide trust
-authority. A single undated schema-v2 legacy record may remain only when no
-ordering choice exists; multiple competing records must all be dated.
+authority.
 
 Agent command failures are JSON when `--json` is requested. The payload uses
 `ok: false`, a stable error code where possible, the message, target task and

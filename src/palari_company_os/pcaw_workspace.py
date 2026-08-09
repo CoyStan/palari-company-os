@@ -781,7 +781,6 @@ def _evidence_observation(
         result = verify_evidence(
             workspace,
             evidence.id,
-            require_output_coverage=True,
             journal_context=journal_context,
         )
     except (OSError, ValueError, WorkspaceError) as exc:
@@ -854,7 +853,6 @@ def _review_binding_current(
             errors = current_review_binding_errors(
                 workspace,
                 review,
-                require_output_coverage=True,
                 journal_context=journal_context,
             )
         else:

@@ -169,14 +169,14 @@ records include a hash and may link to the previous run record for the task.
 Verification tied to one task and run. It records commands, status, head SHA,
 outputs, output hashes, manifest hash, exact run-record hash, summary, and time.
 
-New records include `output_binding_version`, require at least one output, and
+Every record includes `output_binding_version`, requires at least one output, and
 give every run-record output either its present digest or the exact absent
 tombstone required by a declared delete intent. The manifest covers the
 run-record hash, output-binding version, outputs, and verification fields, so a
 change on either side invalidates the results.
 
-Pre-PCAW records without that version remain readable. They cannot support a
-new strict review or approval until the checks are refreshed.
+Records without that version are rejected. Checks must be rerun to create a
+current evidence record.
 
 ## Review Result (`review_verdict`)
 
@@ -192,9 +192,9 @@ manifest, run record, reviewed head, and task rules. Its proof hash also covers
 the reviewer, verdict, findings, inspected checks, remaining risks, and time.
 The result is immutable; any substantive change requires a new review.
 
-Schema v2 rejects an unbound `accept-ready` result. The narrow historical
-reader keeps unbound negative results inspectable but never treats an old
-unbound `accept-ready` value as approval evidence.
+Schema v2 rejects every unbound review result. All verdicts name and hash the
+exact attempt, evidence, run record, task contract, proof, reviewed head, and
+time they describe.
 
 ## Approval or Rejection (`human_decision`)
 

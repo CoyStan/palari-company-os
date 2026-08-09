@@ -704,17 +704,17 @@ class EvidenceRun:
     attempt_id: str
     head_sha: str
     status: str
+    artifacts: list[str]
+    artifact_hashes: list[Record]
+    output_binding_version: str
+    manifest_hash: str
+    receipt_hash: str
+    timestamp: str
     base_ref: str = ""
     commands: list[str] = field(default_factory=list)
-    artifacts: list[str] = field(default_factory=list)
-    artifact_hashes: list[Record] = field(default_factory=list)
-    output_binding_version: str = ""
-    manifest_hash: str = ""
-    receipt_hash: str = ""
     previous_receipt_hash: str = ""
     summary: str = ""
     freshness: str = ""
-    timestamp: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "EvidenceRun":
@@ -745,19 +745,19 @@ class ReviewVerdict:
     reviewed_head: str
     reviewer: str
     verdict: str
-    binding_version: str = ""
-    attempt_id: str = ""
-    attempt_hash: str = ""
-    evidence_reference: str = ""
-    evidence_manifest_hash: str = ""
-    receipt_reference: str = ""
-    receipt_hash: str = ""
-    work_contract_hash: str = ""
-    proof_hash: str = ""
+    binding_version: str
+    attempt_id: str
+    attempt_hash: str
+    evidence_reference: str
+    evidence_manifest_hash: str
+    receipt_reference: str
+    receipt_hash: str
+    work_contract_hash: str
+    proof_hash: str
+    timestamp: str
     findings: list[Record] = field(default_factory=list)
     checks_inspected: list[str] = field(default_factory=list)
     residual_risks: list[str] = field(default_factory=list)
-    timestamp: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "ReviewVerdict":

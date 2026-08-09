@@ -67,6 +67,26 @@ ALL_COLLECTION_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 REQUIRED_RECORD_FIELDS = {
     "work_items": {"path_intents"},
     "proposals": {"path_intents"},
+    "evidence_runs": {
+        "artifacts",
+        "artifact_hashes",
+        "output_binding_version",
+        "manifest_hash",
+        "receipt_hash",
+        "timestamp",
+    },
+    "review_verdicts": {
+        "binding_version",
+        "attempt_id",
+        "attempt_hash",
+        "evidence_reference",
+        "evidence_manifest_hash",
+        "receipt_reference",
+        "receipt_hash",
+        "work_contract_hash",
+        "proof_hash",
+        "timestamp",
+    },
 }
 
 ROOT_FIELDS = {
@@ -693,16 +713,11 @@ def validate_workspace_contract(workspace: Any) -> None:
                 f"review_verdicts.{review.id}.reviewer must be independent from "
                 f"attempt actor {attempt.actor}"
             )
-        if review.binding_version:
-            from .governance_binding import review_binding_integrity_errors
+        from .governance_binding import review_binding_integrity_errors
 
-            binding_errors = review_binding_integrity_errors(workspace, review)
-            if binding_errors:
-                raise WorkspaceError(f"review_verdicts.{review.id}: {binding_errors[0]}")
-        elif review.verdict == "accept-ready":
-            raise WorkspaceError(
-                f"review_verdicts.{review.id}.verdict accept-ready requires exact proof binding"
-            )
+        binding_errors = review_binding_integrity_errors(workspace, review)
+        if binding_errors:
+            raise WorkspaceError(f"review_verdicts.{review.id}: {binding_errors[0]}")
         for field, value in (
             ("attempt_hash", review.attempt_hash),
             ("evidence_manifest_hash", review.evidence_manifest_hash),
@@ -838,11 +853,13 @@ def validate_workspace_contract(workspace: Any) -> None:
         "integration_plans",
         workspace.integration_plans,
         ("timestamp",),
+        require_timestamp=False,
     )
     _validate_ordered_trust_records(
         "integration_outbox",
         workspace.integration_outbox,
         ("timestamp",),
+        require_timestamp=False,
     )
 
     for acceptance in workspace.acceptance_records:
@@ -1666,13 +1683,10 @@ def _validate_ordered_trust_records(
     collection: str,
     records: Iterable[Any],
     timestamp_fields: tuple[str, ...],
+    *,
+    require_timestamp: bool = True,
 ) -> None:
-    """Reject malformed or ambiguous timestamps used for latest-record selection.
-
-    Schema v2 historically allowed one undated record. Keep that representation
-    loadable when no ordering choice exists, but require an unambiguous instant as
-    soon as two records compete for the same work item.
-    """
+    """Reject missing, malformed, or ambiguous trust-record timestamps."""
 
     grouped: dict[str, list[Any]] = {}
     for record in records:
@@ -1691,14 +1705,10 @@ def _validate_ordered_trust_records(
                 values.append((field, value))
 
             if not values:
-                if len(work_records) > 1:
-                    fields = " or ".join(timestamp_fields)
-                    raise WorkspaceError(
-                        f"{collection}.{record_id}.{fields} is required because "
-                        f"{work_id} has multiple {collection} records; latest record "
-                        "would be ambiguous"
-                    )
-                continue
+                fields = " or ".join(timestamp_fields)
+                if not require_timestamp and len(work_records) == 1:
+                    continue
+                raise WorkspaceError(f"{collection}.{record_id}.{fields} is required")
 
             effective = timestamp_order(values[0][1])
             previous = seen.get(effective)
@@ -1738,10 +1748,6 @@ def _validate_completed_work(
     evidence = _latest_for_work(workspace.evidence_runs, work.id)
     if evidence is None:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
-    if not evidence.output_binding_version:
-        _validate_historical_completed_work(workspace, work, attempts_by_id, evidence)
-        return
-
     from .pcaw_workspace import recorded_governance_projection
 
     projection = recorded_governance_projection(workspace, work.id)
@@ -1763,90 +1769,6 @@ def _validate_completed_work(
         f"work_items.{work.id}.status is terminal but current recorded proof "
         f"does not derive completed: {reason}"
     )
-
-
-def _validate_historical_completed_work(
-    workspace: Any,
-    work: WorkItem,
-    attempts_by_id: dict[str, Attempt],
-    evidence: EvidenceRun,
-) -> None:
-    """Load the one committed unversioned terminal format for migration only."""
-
-    if _open_linked_decision(workspace, work.id) is not None:
-        raise WorkspaceError(f"work_items.{work.id}.status cannot be terminal with open decisions")
-    if not work.current_attempt:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current_attempt is missing"
-        )
-    attempt = attempts_by_id[work.current_attempt]
-    unfinished_dependencies = _unfinished_dependency_ids(workspace, work)
-    if unfinished_dependencies:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but dependencies are unfinished: "
-            f"{', '.join(unfinished_dependencies)}"
-        )
-    if attempt.status not in {"complete", "completed"}:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current attempt "
-            f"{attempt.id} is {attempt.status}"
-        )
-    if attempt.cleanliness.lower() not in {"clean", "pristine"}:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current attempt {attempt.id} is not clean"
-        )
-    if evidence.attempt_id != work.current_attempt:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but latest evidence is "
-            f"not for current attempt {work.current_attempt}"
-        )
-    _require_fresh_passed_evidence(work.id, attempt, evidence)
-    if _historical_low_risk_completion(workspace, work, attempt):
-        return
-    review = _latest_for_work(workspace.review_verdicts, work.id)
-    if review is None:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but review is missing")
-    _require_fresh_accept_ready_review(work.id, evidence, review)
-    if review.binding_version:
-        from .governance_binding import review_binding_integrity_errors, work_contract_hash
-
-        # The committed migration fixture pairs unversioned evidence with a
-        # versioned review. Validate that stored binding without promoting the
-        # historical evidence format to current completion authority.
-        binding_errors = review_binding_integrity_errors(workspace, review)
-        if review.work_contract_hash != work_contract_hash(work):
-            binding_errors.append(f"review {review.id} work contract is stale")
-        if binding_errors:
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but exact review proof is stale: "
-                f"{binding_errors[0]}"
-            )
-        matching_acceptance = _latest_for_work(workspace.acceptance_records, work.id)
-        if matching_acceptance is None:
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but exact acceptance record is missing"
-            )
-        if matching_acceptance.status != "accepted":
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but latest acceptance record "
-                f"{matching_acceptance.id} is {matching_acceptance.status}"
-            )
-        if (
-            matching_acceptance.review_reference != review.id
-            or matching_acceptance.evidence_reference != evidence.id
-            or matching_acceptance.reviewed_head != review.reviewed_head
-            or matching_acceptance.receipt_hash != review.receipt_hash
-        ):
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but latest acceptance record "
-                "does not match current exact proof"
-            )
-    count = _historical_qualified_approval_count(workspace, work, review)
-    if count < work.required_approval_count:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but approval quorum is "
-            f"{count}/{work.required_approval_count}"
-        )
 
 
 def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
@@ -1968,38 +1890,10 @@ def _stored_evidence_integrity_errors(
     ]
     receipt = max(receipts, key=record_time_key) if receipts else None
     work = workspace.work_item(evidence.work_item_id)
-    versioned = bool(evidence.output_binding_version)
     return stored_evidence_integrity_errors(
         evidence,
         receipt,
         path_intents=work.path_intents if work is not None else [],
-        require_output_coverage=versioned,
-        require_version=versioned,
-    )
-
-
-def _historical_low_risk_completion(
-    workspace: Any,
-    work: WorkItem,
-    attempt: Attempt,
-) -> bool:
-    """Load committed R1/R2 evidence history without granting current authority."""
-
-    if (
-        work.risk not in {"R1", "R2"}
-        or work.required_approval_count != 0
-        or bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
-        or attempt.status not in {"complete", "completed"}
-        or _unfinished_dependency_ids(workspace, work)
-    ):
-        return False
-    receipt = _latest_for_work(workspace.receipts, work.id)
-    return bool(
-        receipt is not None
-        and receipt.attempt_id == work.current_attempt
-        and not receipt.external_writes
-        and not receipt.planned_external_writes
-        and not receipt.queued_external_writes
     )
 
 
@@ -2076,6 +1970,21 @@ def _validate_receipt(
 
 
 def _validate_evidence_manifest_shape(evidence: EvidenceRun, work: WorkItem) -> None:
+    from .evidence_manifest import OUTPUT_BINDING_VERSION
+
+    if evidence.output_binding_version != OUTPUT_BINDING_VERSION:
+        raise WorkspaceError(
+            f"evidence_runs.{evidence.id}.output_binding_version must be "
+            f"{OUTPUT_BINDING_VERSION}"
+        )
+    if not evidence.artifacts:
+        raise WorkspaceError(f"evidence_runs.{evidence.id}.artifacts must not be empty")
+    if not evidence.artifact_hashes:
+        raise WorkspaceError(
+            f"evidence_runs.{evidence.id}.artifact_hashes must not be empty"
+        )
+    if not evidence.timestamp:
+        raise WorkspaceError(f"evidence_runs.{evidence.id}.timestamp is required")
     delete_paths = {
         str(item.get("path"))
         for item in work.path_intents
@@ -2179,39 +2088,6 @@ def _require_fresh_accept_ready_review(
         )
     if review.reviewed_head != evidence.head_sha:
         raise WorkspaceError(f"work_items.{work_id} review {review.id} is stale")
-
-
-def _historical_qualified_approval_count(
-    workspace: Any,
-    work: WorkItem,
-    review: ReviewVerdict,
-) -> int:
-    seen_humans: set[str] = set()
-    humans_by_id = {human.id: human for human in workspace.humans}
-    latest_by_human: dict[str, HumanDecision] = {}
-    for decision in workspace.human_decisions:
-        if decision.work_item_id != work.id:
-            continue
-        if decision.reviewed_head != review.reviewed_head:
-            continue
-        previous = latest_by_human.get(decision.human_id)
-        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
-            latest_by_human[decision.human_id] = decision
-    for decision in latest_by_human.values():
-        if not _is_acceptance(decision):
-            continue
-        if (
-            decision.review_reference != review.id
-            or decision.evidence_reference != review.evidence_reference
-        ):
-            continue
-        human = humans_by_id.get(decision.human_id)
-        if work.required_approval_capability and (
-            human is None or work.required_approval_capability not in human.approval_capabilities
-        ):
-            continue
-        seen_humans.add(decision.human_id)
-    return len(seen_humans)
 
 
 def _decision_order_key(decision: HumanDecision) -> tuple[datetime, str]:

@@ -153,6 +153,12 @@ class PCAWProtocolTests(unittest.TestCase):
         self.assertIn("ARTIFACT_CHECKS_SKIPPED", _warning_codes(report))
 
     def test_repeated_export_is_byte_identical_across_process_environment(self) -> None:
+        workspace_data = json.loads(ACCEPTED_WORKSPACE.read_text(encoding="utf-8"))
+        self.assertEqual(
+            workspace_data["evidence_runs"][0]["output_binding_version"],
+            "palari.evidence_outputs.v1",
+        )
+        self.assertTrue(workspace_data["review_verdicts"][0]["proof_hash"])
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             first = root / "first.json"

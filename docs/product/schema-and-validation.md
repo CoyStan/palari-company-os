@@ -41,8 +41,9 @@ Validation checks:
 - basic field types
 - supported stored values for task status, risk, intensity, check status,
   review result, approval or rejection, and result status
-- optional evidence `output_binding_version`; newly authored evidence uses
-  `palari.evidence_outputs.v1` to bind every receipt output to an artifact digest
+- required evidence `output_binding_version` equal to
+  `palari.evidence_outputs.v1`, with every run-record output bound to an artifact
+  digest
 - unique ids per collection
 - task goal and agent references
 - task project, parent task, and dependency references
@@ -115,9 +116,7 @@ Validation checks:
   instants, not lexical timestamp spellings; malformed or timezone-free values
   and instants outside the UTC-normalizable datetime range fail closed, and two
   records for the same work item cannot claim the same instant because their
-  latest-state order would be ambiguous. For schema-v2 compatibility, one
-  undated record remains loadable only when no ordering choice exists; once a
-  work item has multiple records of that kind, every record must be dated
+  latest-state order would be ambiguous. Missing timestamps also fail closed
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
 - pack-bound human decisions require a complete exact pack/member/subject/
@@ -195,9 +194,8 @@ supported runtime schema migration because no committed real stored fixture
 requires one. An old workspace must be converted outside the current runtime
 and validated as schema v2 before Palari will load it.
 
-Schema v2 deliberately makes the exact review binding non-optional for
-`accept-ready`. Historical unbound non-accepting verdicts remain inspectable,
-but no legacy marker can manufacture acceptance authority.
+Schema v2 makes the exact review binding non-optional for every verdict. An
+unbound review is rejected instead of loaded as weaker proof.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

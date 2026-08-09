@@ -336,9 +336,7 @@ def _check_review_record(
     binding: dict[str, str] = {}
     proof_errors: list[str] = []
     if supplied_binding_digest or verdict == "accept-ready":
-        binding, proof_errors = current_review_binding(
-            workspace, work_id, require_output_coverage=True
-        )
+        binding, proof_errors = current_review_binding(workspace, work_id)
     if supplied_binding_digest:
         if proof_errors:
             blockers.append(

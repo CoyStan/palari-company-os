@@ -3,9 +3,8 @@
 This example workspace demonstrates Palari's basic work process with one JSON source
 file:
 
-Some saved example values intentionally retain older wording so compatibility
-tests can prove that current commands render legacy work clearly. New records
-should follow the [plain-language guide](../../docs/product/plain-language.md).
+The saved records use the current format. Human-facing text follows the
+[plain-language guide](../../docs/product/plain-language.md).
 
 ```text
 Goal -> agent -> allowed sources -> task -> run -> run record -> check results

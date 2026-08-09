@@ -1496,7 +1496,6 @@ def make_ready_workspace(
         binding, errors = current_review_binding(
             workspace,
             work_id,
-            require_output_coverage=True,
         )
         if errors:
             raise AssertionError(errors)

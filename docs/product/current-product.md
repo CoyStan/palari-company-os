@@ -190,12 +190,10 @@ live-state profile are documented in
 product does not yet claim that live dogfood governance can remain isolated
 while this source checkout stays clean.
 
-The only supported old proof inputs are those proven by committed data:
-
-- historical `evidence` records without `output_binding_version`, which remain
-  inspectable without gaining stronger permission; and
-- unbound negative or non-accepting review records, which remain inspectable
-  but can never satisfy a required review or approval.
+Proof records have one current shape. Evidence requires exact output, manifest,
+run-record, and time bindings. Every review requires an exact attempt, evidence,
+run-record, task-contract, proof, and time binding. Missing fields fail closed;
+Palari does not load an older proof shape for inspection.
 
 The code-shaped names above are retained only where they identify exact stored
 fields or formats. There is no supported migration from unversioned, v0, or v1

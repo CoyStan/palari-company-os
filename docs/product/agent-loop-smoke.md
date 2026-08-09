@@ -68,8 +68,8 @@ present.
 ## Review-Handoff Smoke
 
 Use the same isolated copy to inspect the reviewer and supervisor boundary. The
-ACME example deliberately contains historical verification states, so a command may
-report that the selected Palari lacks current review eligibility. That
+The ACME example contains unfinished tasks without proof records, so a command
+may report that the selected Palari lacks current review eligibility. That
 fail-closed result is part of this read-only smoke; it must not be bypassed by
 recording a review or human approval.
 

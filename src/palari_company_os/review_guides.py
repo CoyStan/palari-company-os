@@ -45,7 +45,6 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
     review_binding, review_binding_errors = current_review_binding(
         workspace,
         work_id,
-        require_output_coverage=True,
     )
     review_record_commands = _review_record_commands(
         workspace,
