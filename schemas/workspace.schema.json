@@ -274,7 +274,7 @@
     "integration_plan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "integration_id", "work_item_id", "event", "action"],
+      "required": ["id", "integration_id", "work_item_id", "event", "action", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "integration_id": { "type": "string" },
@@ -321,7 +321,7 @@
     "integration_outbox_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "plan_id", "integration_id", "work_item_id", "event", "action", "enqueued_by"],
+      "required": ["id", "plan_id", "integration_id", "work_item_id", "event", "action", "enqueued_by", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "plan_id": { "type": "string" },

@@ -580,6 +580,7 @@ def add_mission_control_records(
                 },
                 "risk": "standard",
                 "approval_required": True,
+                "timestamp": "2026-07-18T10:05:00Z",
             }
         ]
 

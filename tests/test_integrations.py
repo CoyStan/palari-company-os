@@ -368,6 +368,22 @@ class IntegrationBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "approval_required must be true"):
             Workspace.from_raw(raw, Path("/tmp/palari-integration-boundary"))
 
+    def test_integration_records_require_current_times(self) -> None:
+        cases = (
+            ("integration_plans", _approved_plan),
+            ("integration_outbox", _queued_outbox),
+        )
+        for collection, factory in cases:
+            raw = _raw_with_approved_outbox()
+            raw[collection] = [factory()]
+            raw[collection][0].pop("timestamp")
+            with self.subTest(collection=collection):
+                with self.assertRaisesRegex(
+                    WorkspaceError,
+                    rf"{collection}.*timestamp is required",
+                ):
+                    Workspace.from_raw(raw, Path("/tmp/palari-integration-boundary"))
+
     def test_recorded_plan_cannot_contain_raw_secret_material(self) -> None:
         raw = _base_raw()
         plan = _approved_plan()

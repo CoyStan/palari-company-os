@@ -853,13 +853,11 @@ def validate_workspace_contract(workspace: Any) -> None:
         "integration_plans",
         workspace.integration_plans,
         ("timestamp",),
-        require_timestamp=False,
     )
     _validate_ordered_trust_records(
         "integration_outbox",
         workspace.integration_outbox,
         ("timestamp",),
-        require_timestamp=False,
     )
 
     for acceptance in workspace.acceptance_records:
@@ -1683,8 +1681,6 @@ def _validate_ordered_trust_records(
     collection: str,
     records: Iterable[Any],
     timestamp_fields: tuple[str, ...],
-    *,
-    require_timestamp: bool = True,
 ) -> None:
     """Reject missing, malformed, or ambiguous trust-record timestamps."""
 
@@ -1706,8 +1702,6 @@ def _validate_ordered_trust_records(
 
             if not values:
                 fields = " or ".join(timestamp_fields)
-                if not require_timestamp and len(work_records) == 1:
-                    continue
                 raise WorkspaceError(f"{collection}.{record_id}.{fields} is required")
 
             effective = timestamp_order(values[0][1])
