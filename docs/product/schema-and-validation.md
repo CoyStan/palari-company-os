@@ -49,7 +49,7 @@ Validation checks:
 - task allowed-source references
 - task source and output targets stay inside its project boundary when a
   `workbench` is declared
-- optional work-item `path_intents` use only exact canonical repository paths
+- required work-item and proposal `path_intents` use only exact canonical repository paths
   and `create`, `modify`, or `delete`; paths must be unique, prefix-disjoint,
   and inside the declared write boundary
 - parent workbench and parent work item graphs do not contain cycles
@@ -146,9 +146,8 @@ Validation checks:
 
 ### Exact Path Intents And Deletion Tombstones
 
-`path_intents` is additive. Historical work items may omit it and keep the
-existing `output_targets` presence contract. When present, it becomes the exact
-mutation contract:
+Every task and proposal stores `path_intents`. An empty list grants no write
+path. Non-empty lists are the exact mutation contract:
 
 ```json
 {

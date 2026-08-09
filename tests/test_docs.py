@@ -348,7 +348,11 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual(payload["repo"], str(repo))
 
     def test_agent_packet_includes_compact_doc_hints(self) -> None:
-        workspace = Workspace.from_raw(current_recommendation_data(), REPO_ROOT)
+        data = current_recommendation_data()
+        data["work_items"][0]["path_intents"] = [
+            {"path": "notes/result.md", "intent": "modify"}
+        ]
+        workspace = Workspace.from_raw(data, REPO_ROOT)
 
         packet = build_agent_brief(workspace, "WORK-1", "PALARI-1", "execute")
 

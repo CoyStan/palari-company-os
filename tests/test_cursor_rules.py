@@ -81,6 +81,7 @@ class CursorRulesTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy"],
                 "verification_expectations": ["echo ok"],
             },

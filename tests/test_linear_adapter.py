@@ -249,6 +249,10 @@ class LinearAdapterContractTests(unittest.TestCase):
         self.assertEqual(matching[0].id, "PROP-LINEAR-ENG-123")
         self.assertEqual(matching[0].external_provider, "linear")
         self.assertEqual(matching[0].allowed_resources, ["docs/product/company-os.md"])
+        self.assertEqual(
+            matching[0].path_intents,
+            [{"path": "docs/product/company-os.md", "intent": "modify"}],
+        )
         self.assertIsNone(workspace.work_item("WORK-LINEAR-ENG-123"))
 
     def test_start_cannot_create_human_authority_or_use_retired_runners(self) -> None:
@@ -533,6 +537,9 @@ def work_item(
         "allowed_sources": ["SOURCE-LOCAL"],
         "allowed_actions": ["local_write"],
         "output_targets": ["docs/product/company-os.md"],
+        "path_intents": [
+            {"path": "docs/product/company-os.md", "intent": "modify"}
+        ],
         "forbidden_actions": ["external_write"],
         "acceptance_target": "The exact documentation result is inspectable.",
         "required_approval_count": 1,

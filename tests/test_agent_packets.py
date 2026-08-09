@@ -75,6 +75,7 @@ def _workspace_data(*, include_unrelated: bool = False) -> dict[str, Any]:
             "allowed_resources": [ALLOWED_PATH],
             "allowed_sources": [],
             "output_targets": [ALLOWED_PATH],
+            "path_intents": [{"path": ALLOWED_PATH, "intent": "modify"}],
             "forbidden_actions": ["deploy"],
             "verification_expectations": ["focused packet test passes"],
         }
@@ -97,6 +98,7 @@ def _workspace_data(*, include_unrelated: bool = False) -> dict[str, Any]:
                 "allowed_resources": ["unrelated.txt"],
                 "allowed_sources": [],
                 "output_targets": ["unrelated.txt"],
+                "path_intents": [{"path": "unrelated.txt", "intent": "modify"}],
                 "forbidden_actions": [],
                 "verification_expectations": ["unrelated check passes"],
             }

@@ -749,6 +749,7 @@ class WorkAddTests(unittest.TestCase):
             packet["required_output"]["output_targets"],
             ["docs/new.md", "docs/existing.md"],
         )
+        self.assertEqual(packet["required_output"]["path_intents"], work.path_intents)
 
     def test_work_add_validation_failure_leaves_workspace_and_journal_unchanged(self) -> None:
         workspace_file = self.project / "workspace.json"

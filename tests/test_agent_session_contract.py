@@ -70,17 +70,21 @@ class AgentSessionContractTests(unittest.TestCase):
         self.assertNotEqual(_context_hash(tampered_packet), packet["context_hash"])
         self.assertEqual(
             first["contract_digest"],
-            "sha256:1910cd0c9a95f1adca44cf8945269ae2d634a740ba5940e5b6b7bb8f58ae60f7",
+            "sha256:6267a3ae85996d287e2493b250b642fd84e90dfba1ba9a1dd7aca1f841948e6d",
         )
         self.assertEqual(
             first["contract_id"],
-            "SESSION-CONTRACT-1910CD0C9A95F1ADCA44CF89",
+            "SESSION-CONTRACT-6267A3AE85996D287E2493B2",
         )
         self.assertEqual(first["status"], "ready")
         binding = first["contract"]["packet_binding"]
         self.assertFalse(binding["grants_authority"])
         self.assertTrue(binding["claim_required"])
         self.assertEqual(first["contract"]["scope"]["write_paths"], [ALLOWED_PATH])
+        self.assertEqual(
+            packet["required_output"]["path_intents"],
+            [{"path": ALLOWED_PATH, "intent": "modify"}],
+        )
         properties = {
             item["id"]: item["status"]
             for item in first["contract"]["enforcement"]["properties"]

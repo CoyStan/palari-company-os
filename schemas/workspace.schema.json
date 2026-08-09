@@ -396,7 +396,7 @@
     "work_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "goal", "palari"],
+      "required": ["id", "title", "goal", "palari", "path_intents"],
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
@@ -463,7 +463,7 @@
     "proposal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "goal", "palari"],
+      "required": ["id", "title", "goal", "palari", "path_intents"],
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },

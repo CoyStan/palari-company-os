@@ -64,6 +64,11 @@ OPTIONAL_COLLECTION_KEYS = (
 )
 ALL_COLLECTION_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
 
+REQUIRED_RECORD_FIELDS = {
+    "work_items": {"path_intents"},
+    "proposals": {"path_intents"},
+}
+
 ROOT_FIELDS = {
     "schema_version",
     "name",
@@ -553,6 +558,9 @@ def _validate_collection(raw: dict[str, object], key: str) -> None:
     for index, record in enumerate(records):
         label = _record_label(key, index, record)
         _reject_unknown_fields(label, record, ALLOWED_RECORD_FIELDS[key])
+        missing = sorted(REQUIRED_RECORD_FIELDS.get(key, set()) - set(record))
+        if missing:
+            raise WorkspaceError(f"{label} is missing field(s): {', '.join(missing)}")
 
 
 def validate_workspace_contract(workspace: Any) -> None:
@@ -1337,12 +1345,7 @@ def _validate_path_intents(
     *,
     collection: str = "work_items",
 ) -> None:
-    """Validate the additive exact-path mutation contract.
-
-    Legacy work items omit ``path_intents`` and retain their existing
-    output-target semantics. Once the field is present, every entry is an
-    exact canonical path with one unambiguous final-state intent.
-    """
+    """Validate the exact-path mutation contract."""
 
     seen: set[str] = set()
     boundaries = _write_boundaries(work)

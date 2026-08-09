@@ -190,10 +190,8 @@ live-state profile are documented in
 product does not yet claim that live dogfood governance can remain isolated
 while this source checkout stays clean.
 
-The only supported historical inputs are those proven by committed data:
+The only supported old proof inputs are those proven by committed data:
 
-- schema-v2 `work_items` records without additive `path_intents`, interpreted
-  only with their older presence rules;
 - historical `evidence` records without `output_binding_version`, which remain
   inspectable without gaining stronger permission; and
 - unbound negative or non-accepting review records, which remain inspectable

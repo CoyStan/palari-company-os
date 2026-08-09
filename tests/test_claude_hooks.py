@@ -108,6 +108,10 @@ def _write_hook_workspace(workspace_dir: Path) -> None:
                 "scope": "Exercise hook enforcement.",
                 "acceptance_target": "Unsafe writes are blocked.",
                 "allowed_resources": default_paths[work_id],
+                "path_intents": [
+                    {"path": path, "intent": "modify"}
+                    for path in default_paths[work_id]
+                ],
                 "allowed_sources": ["SOURCE-HOOK"],
                 "forbidden_actions": ["deploy"],
                 "required_approval_count": 0,
@@ -133,6 +137,9 @@ def _write_claim_and_packet(
     expected_paths = list(allowed_write or [])
     if work["allowed_resources"] != expected_paths:
         work["allowed_resources"] = expected_paths
+        work["path_intents"] = [
+            {"path": path, "intent": "modify"} for path in expected_paths
+        ]
         workspace_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     packet = build_agent_brief(
         Workspace.load(workspace_dir), work_id, palari_id, "execute"

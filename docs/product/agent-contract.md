@@ -362,8 +362,8 @@ Implemented:
 - deterministic portable session-contract compilation, inspection, persistence,
   and task-lock binding
 - optional changed-file boundary checks
-- explicit create/modify/delete path intent with exact absent-path deletion
-  tombstones; legacy work retains presence-required output behavior
+- required create/modify/delete path rules with exact absent-path deletion
+  tombstones
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
 - assignment-start commit-range verification for `agent advance`, preserved across release and
   restart so earlier out-of-boundary commits remain visible
@@ -418,13 +418,13 @@ listed separately and not attributed to the agent; a changed fingerprint is
 attributed normally. This is intentionally content-blind: Palari compares Git
 status and file metadata, rejects traversal/symlink escape and incomplete
 observations, and never treats the baseline as cryptographic provenance.
-When a task declares `path_intents`, each exact normalized path is one of
+Every task declares `path_intents`; each exact normalized path is one of
 `create`, `modify`, or `delete`. Create and modify require a regular file in the
 expected Git change class; delete requires the exact path to be absent and the
 Git observation to report deletion. That absent-path record is a local
 deletion tombstone, not a missing-output exception. Unsafe, overlapping,
-duplicate, symlinked, mismatched, or undeclared paths fail closed. Tasks
-without `path_intents` keep their historical presence-required behavior.
+duplicate, symlinked, mismatched, or undeclared paths fail closed. Read paths
+and output names never add write permission.
 Execute-mode hooks additionally rebuild the current task brief from project
 truth before granting writes, so coordinated edits to a brief and task lock
 cannot expand the task limits. There is no generic public task-update command,

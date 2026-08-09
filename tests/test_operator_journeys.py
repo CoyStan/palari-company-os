@@ -854,7 +854,7 @@ class OperatorJourneyTests(unittest.TestCase):
             before = workspace_file.read_bytes()
             with self.assertRaisesRegex(
                 WorkspaceError,
-                "history --checkpoint.*Activate journal",
+                "history --checkpoint.*Create journal",
             ):
                 park_agent(
                     workspace_file,

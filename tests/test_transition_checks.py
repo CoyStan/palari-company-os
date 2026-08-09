@@ -549,6 +549,7 @@ def _current_data() -> dict[str, Any]:
             "scope": "Use the selected source to create one local summary.",
             "allowed_actions": ["local_write"],
             "output_targets": ["notes/summary.md"],
+            "path_intents": [],
             "acceptance_target": "Exact local evidence is current.",
             "verification_expectations": [],
             "current_attempt": "ATTEMPT-1",

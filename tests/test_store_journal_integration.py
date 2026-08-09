@@ -184,6 +184,7 @@ class StoreJournalIntegrationTests(unittest.TestCase):
                     "palari": data["work_items"][0]["palari"],
                     "status": "adopted",
                     "linked_work": "WORK-1",
+                    "path_intents": [],
                 }
             ]
             write_store(WorkspaceStore(data_path=data_path, data=data))

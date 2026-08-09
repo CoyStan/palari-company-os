@@ -1431,6 +1431,7 @@ def make_ready_workspace(
                 "allowed_resources": [output_path],
                 "allowed_actions": ["write local draft"],
                 "output_targets": [output_path],
+                "path_intents": [],
                 "forbidden_actions": ["external writes", "send messages"],
                 "acceptance_target": "Human confirms the exact reviewed local draft.",
                 "current_attempt": attempt_id,

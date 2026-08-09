@@ -390,6 +390,7 @@
         "examples/acme-company-os/workspace.json",
         "docs/product/company-os.md"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "deploy",
         "send messages",
@@ -421,6 +422,7 @@
       "allowed_resources": [
         "support boundary proposal"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "connect live inbox",
         "read customer data",
@@ -448,6 +450,7 @@
       "allowed_resources": [
         "docs/product/company-os.md"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "change schemas",
         "change authority behavior"
@@ -478,6 +481,7 @@
       "allowed_resources": [
         "examples/acme-company-os/workspace.json"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "merge",
         "deploy"
@@ -503,6 +507,7 @@
       "allowed_resources": [
         "docs/product/command-reference.md"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "deploy"
       ],
@@ -531,6 +536,7 @@
       "allowed_resources": [
         "docs/product/schema-and-validation.md"
       ],
+      "path_intents": [],
       "forbidden_actions": [
         "deploy"
       ],
@@ -567,6 +573,12 @@
       ],
       "output_targets": [
         "examples/acme-company-os/outputs/beta-launch-summary.md"
+      ],
+      "path_intents": [
+        {
+          "path": "examples/acme-company-os/outputs/beta-launch-summary.md",
+          "intent": "modify"
+        }
       ],
       "conflict_targets": [
         "examples/acme-company-os/outputs/beta-launch-summary.md"

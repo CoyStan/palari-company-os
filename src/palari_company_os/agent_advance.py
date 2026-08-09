@@ -884,7 +884,7 @@ def _projection_bound_preflight(
             scope_authority_workspace=scope_authority_workspace,
         )
     required = packet.get("required_output") or {}
-    outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
+    outputs = required.get("output_targets") or []
     governed_projection = [
         path
         for path in classified
@@ -1733,6 +1733,7 @@ def _refresh_stale_projection(
         "workspace_digest",
         "attempt_id",
         "evidence_id",
+        "attempt_base_sha",
         "proof_head",
         "head_sha",
         "committed_paths",
@@ -1781,7 +1782,7 @@ def _refresh_stale_projection(
             "actor": palari_id,
             "status": "active",
             "workspace_path": refresh["git_root"],
-            "base_sha": refresh["proof_head"],
+            "base_sha": refresh["attempt_base_sha"],
             "allowed_paths": list(refresh["artifacts"]),
         },
         receipt_record={
@@ -1801,7 +1802,7 @@ def _refresh_stale_projection(
             "attempt_id": attempt_id,
             "head_sha": refresh["head_sha"],
             "status": "passed",
-            "base_ref": refresh["proof_head"],
+            "base_ref": refresh["attempt_base_sha"],
             "commands": commands,
             "artifacts": list(refresh["artifacts"]),
             "artifact_hashes": list(refresh["artifact_hashes"]),
@@ -2138,6 +2139,7 @@ def _stale_projection_refresh_context(
         "workspace_digest": workspace_digest(load_store(workspace_path).data),
         "attempt_id": attempt.id,
         "evidence_id": evidence.id,
+        "attempt_base_sha": attempt.base_sha,
         "proof_head": proof_head,
         "head_sha": head_sha,
         "committed_paths": committed_paths,

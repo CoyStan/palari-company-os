@@ -41,6 +41,7 @@
       "risk": "R2",
       "intensity": "standard",
       "status": "in-review",
+      "path_intents": [],
       "current_attempt": "ATTEMPT-1",
       "required_approval_count": 1,
       "required_approval_capability": "product"

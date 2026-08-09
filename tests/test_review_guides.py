@@ -199,7 +199,12 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertEqual(payload["receipt"]["id"], "RECEIPT-1")
 
     def test_current_exact_proof_yields_read_only_review_guide(self) -> None:
-        payload = build_review_guide(_workspace(), "WORK-1")
+        workspace = _workspace()
+        self.assertEqual(
+            workspace.work_item("WORK-1").path_intents,
+            [{"path": "notes/output.md", "intent": "modify"}],
+        )
+        payload = build_review_guide(workspace, "WORK-1")
 
         self.assertEqual(payload["schema_version"], "palari.review_guide.v2")
         self.assertEqual(payload["guide_id"], "REVIEW-GUIDE-WORK-1-V2")

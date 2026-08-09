@@ -92,6 +92,7 @@ class WorkIdeaTests(unittest.TestCase):
         self.assertEqual(work.palari, idea.palari)
         self.assertEqual(work.allowed_resources, idea.allowed_resources)
         self.assertEqual(work.path_intents, idea.path_intents)
+        self.assertEqual(work.output_targets, ["docs/launch.md"])
         self.assertEqual(
             workspace.workbenches[0].output_target_ids,
             ["docs/launch.md"],

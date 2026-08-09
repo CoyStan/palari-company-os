@@ -1093,6 +1093,7 @@ def _proposal_fields_from_issue(
             f"Linear palari block targets {fields['palari']}, not command actor {palari_id}"
         )
     status = "proposed" if block.valid else "under-review"
+    output_targets = fields.get("output_targets", [])
     return {
         "title": issue["title"],
         "goal": fields["goal"],
@@ -1106,7 +1107,10 @@ def _proposal_fields_from_issue(
         "allowed_resources": fields.get("allowed_resources", []),
         "allowed_sources": fields.get("allowed_sources", []),
         "allowed_actions": fields.get("allowed_actions", []),
-        "output_targets": fields.get("output_targets", []),
+        "output_targets": output_targets,
+        "path_intents": [
+            {"path": path, "intent": "modify"} for path in output_targets
+        ],
         "forbidden_actions": fields.get("forbidden_actions", []),
         "acceptance_target": fields.get("acceptance_target", ""),
         "verification_expectations": fields.get("verification_expectations", []),

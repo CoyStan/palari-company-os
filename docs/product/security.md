@@ -142,8 +142,8 @@ Safety rules:
   `delete` intent authorizes only its exact normalized path and succeeds only
   when Git reports deletion and the path is absent. Create/modify mismatches,
   traversal, symlink escape, duplicate or prefix-overlapping intents, and
-  undeclared changes fail closed. Legacy work without path intents keeps its
-  presence-required output semantics.
+  undeclared changes fail closed. Output and read lists cannot replace the
+  required path rules.
 - durable `agent release` is claim-bound interruption state, not completion. It records a
   blocked attempt, packet/head/workspace bindings, observed boundary changes,
   a human-readable reason, and one next safe action in a journaled mutation

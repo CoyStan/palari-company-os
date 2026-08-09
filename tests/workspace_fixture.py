@@ -163,6 +163,7 @@ def current_recommendation_data() -> dict[str, Any]:
             "allowed_resources": ["notes/source.md"],
             "allowed_sources": ["SOURCE-1"],
             "output_targets": ["notes/result.md"],
+            "path_intents": [{"path": "notes/result.md", "intent": "modify"}],
             "forbidden_actions": ["external_write"],
             "required_approval_count": 0,
             "recommended_playbooks": [

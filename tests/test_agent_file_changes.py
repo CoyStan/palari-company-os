@@ -38,7 +38,7 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
         self.assertEqual(required["output_targets"], ["src/new.py"])
         self.assertEqual(required["path_intents"], work["path_intents"])
 
-    def test_legacy_packet_shape_is_unchanged_without_path_intents(self) -> None:
+    def test_packet_without_path_intents_has_no_write_outputs(self) -> None:
         required = _required_output(
             {
                 "allowed_resources": ["src"],
@@ -47,8 +47,8 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
             "execute",
         )
 
-        self.assertNotIn("path_intents", required)
-        self.assertEqual(required["output_targets"], ["src/result.py"])
+        self.assertEqual(required["path_intents"], [])
+        self.assertEqual(required["output_targets"], [])
 
     def test_declared_delete_is_satisfied_only_when_exact_path_is_absent(self) -> None:
         with tempfile.TemporaryDirectory() as root_name:
@@ -223,7 +223,6 @@ class DeletionAwareFileChangeTests(unittest.TestCase):
             "allowed_paths": {"write": [path]},
             "required_output": {
                 "output_targets": [] if intent == "delete" else [path],
-                "fallback_write_paths": [path],
                 "path_intents": [{"path": path, "intent": intent}],
             },
         }

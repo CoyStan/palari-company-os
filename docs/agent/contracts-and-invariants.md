@@ -33,8 +33,8 @@ code change must match them. See
   only an in-memory request context. Persistent caches never become authority.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
-  delete requires an absent exact path plus an observed Git deletion. Legacy
-  work without intents retains its presence-required output behavior.
+  delete requires an absent exact path plus an observed Git deletion. Every
+  task and proposal must store this field, even when the list is empty.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
 - V2 verification streams records and retains one replay projection rather than
   all records or projections. Request-local reuse may remove duplicate scans

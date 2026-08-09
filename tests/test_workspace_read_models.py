@@ -324,7 +324,12 @@ def _add_exact_acceptance(raw: dict[str, Any]) -> None:
 
 class QueueProjectionTests(unittest.TestCase):
     def test_unstarted_bounded_work_is_ready_to_start(self) -> None:
-        item = queue_items(_workspace())[0]
+        workspace = _workspace()
+        self.assertEqual(
+            workspace.work_item("WORK-1").path_intents,
+            [{"path": "notes/output.md", "intent": "modify"}],
+        )
+        item = queue_items(workspace)[0]
 
         self.assertEqual(item.attention, "ready-for-ai-work")
         self.assertEqual(item.next_step_type, "start-work")

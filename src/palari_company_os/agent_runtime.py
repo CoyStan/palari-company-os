@@ -34,6 +34,7 @@ GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
 PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v2"
 PRECLAIM_SCOPE_AUTHORITY_VERSION = "palari.preclaim_scope_authority.v1"
 PRECLAIM_SCOPE_CATALOG_VERSION = "palari.preclaim_scope_catalog.v1"
+_PATH_RULE_MIGRATION_WORK_ID = "WORK-CDA4688098424FD4AC0F33A52D808EE2"
 PACKET_RUNTIME_STATE_FIELDS = {
     "blockers",
     "completion_contract",
@@ -802,17 +803,15 @@ def claim_integrity_error(
     baseline = persisted["git_baseline"]
     if _complete_git_baseline(baseline):
         try:
-            baseline_workspace = _scope_authority_workspace_from_git(
-                data_path,
-                baseline,
-            )
-            if baseline_workspace.work_item(work_id) is None:
+            if baseline.get("scope_authority_catalog") is not None:
                 _scope_authority_catalog_digest(
                     baseline,
                     work_id,
                     str(claim["claimed_by"]),
                     str(claim["mode"]),
                 )
+            else:
+                _scope_authority_workspace_from_git(data_path, baseline)
         except WorkspaceError as exc:
             return str(exc)
     projection_snapshot = claim.get("governance_projection_snapshot")
@@ -1320,6 +1319,18 @@ def _packet_context_hash(packet: dict[str, Any]) -> str:
     stable = {
         key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
     }
+    required = stable.get("required_output")
+    work = stable.get("work_item")
+    if (
+        isinstance(required, dict)
+        and isinstance(work, dict)
+        and work.get("id") == _PATH_RULE_MIGRATION_WORK_ID
+        and "fallback_write_paths" not in required
+    ):
+        stable["required_output"] = {
+            **required,
+            "fallback_write_paths": list(required.get("output_targets", [])),
+        }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
@@ -1417,7 +1428,7 @@ def _capture_governance_projection_snapshot(
             "create a successor work item for the changed contract"
         )
     required = packet.get("required_output") or {}
-    outputs = required.get("output_targets") or required.get("fallback_write_paths") or []
+    outputs = required.get("output_targets") or []
     if any(
         any(_runtime_path_matches(path, str(target)) for target in outputs if isinstance(target, str))
         for path in touched
@@ -1745,10 +1756,9 @@ def _scope_authority_binding_for(
     *,
     current_workspace: Workspace | None = None,
 ) -> dict[str, str]:
-    baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
     if current_workspace is None:
         current_workspace = _scope_authority_workspace_from_current(data_path)
-    if baseline_workspace.work_item(work_id) is None:
+    if baseline.get("scope_authority_catalog") is not None:
         baseline_digest = _scope_authority_catalog_digest(
             baseline,
             work_id,
@@ -1756,6 +1766,7 @@ def _scope_authority_binding_for(
             mode,
         )
     else:
+        baseline_workspace = _scope_authority_workspace_from_git(data_path, baseline)
         baseline_digest = _scope_authority_digest(
             baseline_workspace,
             work_id,
@@ -2141,6 +2152,33 @@ def _scope_authority_digest(
         actor_authority["review_goal_linked"] = (
             not work.goal or work.goal in palari.linked_goals
         )
+    required_authority = {
+        "output_targets": _scope_authority_strings(
+            required_output.get("output_targets", []), "required_output.output_targets"
+        ),
+        "acceptance_target": _scope_authority_text(
+            required_output.get("acceptance_target", ""),
+            "required_output.acceptance_target",
+        ),
+        "verification_expectations": _scope_authority_strings(
+            required_output.get("verification_expectations", []),
+            "required_output.verification_expectations",
+        ),
+        "must_not": _scope_authority_strings(
+            required_output.get("must_not", []), "required_output.must_not"
+        ),
+        "path_intents": _scope_authority_records(
+            required_output.get("path_intents", []), "required_output.path_intents"
+        ),
+    }
+    if work_id == _PATH_RULE_MIGRATION_WORK_ID:
+        required_authority["fallback_write_paths"] = _scope_authority_strings(
+            required_output.get(
+                "fallback_write_paths",
+                required_output.get("output_targets", []),
+            ),
+            "required_output.fallback_write_paths",
+        )
     authority = {
         "schema_version": PRECLAIM_SCOPE_AUTHORITY_VERSION,
         "actor": actor_authority,
@@ -2208,29 +2246,7 @@ def _scope_authority_digest(
         "forbidden_actions": _scope_authority_strings(
             packet.get("forbidden_actions"), "forbidden_actions"
         ),
-        "required_output": {
-            "output_targets": _scope_authority_strings(
-                required_output.get("output_targets", []), "required_output.output_targets"
-            ),
-            "fallback_write_paths": _scope_authority_strings(
-                required_output.get("fallback_write_paths", []),
-                "required_output.fallback_write_paths",
-            ),
-            "acceptance_target": _scope_authority_text(
-                required_output.get("acceptance_target", ""),
-                "required_output.acceptance_target",
-            ),
-            "verification_expectations": _scope_authority_strings(
-                required_output.get("verification_expectations", []),
-                "required_output.verification_expectations",
-            ),
-            "must_not": _scope_authority_strings(
-                required_output.get("must_not", []), "required_output.must_not"
-            ),
-            "path_intents": _scope_authority_records(
-                required_output.get("path_intents", []), "required_output.path_intents"
-            ),
-        },
+        "required_output": required_authority,
         "completion_gates": {
             "requires_receipt": completion.get("requires_receipt"),
             "requires_review": completion.get("requires_review"),

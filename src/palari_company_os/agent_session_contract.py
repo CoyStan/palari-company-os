@@ -432,7 +432,7 @@ def _body_error(body: dict[str, Any]) -> str:
     if error:
         return error
     required_output = obligations["required_output"]
-    for field in ("fallback_write_paths", "output_targets"):
+    for field in ("output_targets",):
         if field in required_output:
             try:
                 _paths(required_output[field], f"obligations.required_output.{field}")

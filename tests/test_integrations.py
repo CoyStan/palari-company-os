@@ -73,6 +73,9 @@ def _work(work_id: str, source_id: str) -> dict[str, Any]:
         "allowed_sources": [source_id],
         "allowed_actions": ["local_write"],
         "output_targets": [f"notes/{work_id.lower()}.md"],
+        "path_intents": [
+            {"path": f"notes/{work_id.lower()}.md", "intent": "modify"}
+        ],
         "forbidden_actions": ["external_write"],
         "acceptance_target": "The bounded result is inspectable.",
         "required_approval_count": 1,

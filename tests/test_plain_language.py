@@ -470,6 +470,8 @@ class PlainLanguageContractTests(unittest.TestCase):
             "outcomes",
         ):
             self.assertIn(name, schema["properties"])
+        self.assertIn("path_intents", schema["$defs"]["work_item"]["required"])
+        self.assertIn("path_intents", schema["$defs"]["proposal"]["required"])
 
 
 if __name__ == "__main__":

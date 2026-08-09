@@ -158,7 +158,10 @@ class WorkspaceContractTests(unittest.TestCase):
         historical = Workspace.load(FIXTURES / "valid-workspace.json")
 
         self.assertEqual(current.schema_version, 2)
-        self.assertEqual(current.work_items[0].path_intents, [])
+        self.assertEqual(
+            current.work_items[0].path_intents,
+            [{"path": "notes/summary.md", "intent": "modify"}],
+        )
         self.assertEqual(historical.evidence_runs[0].output_binding_version, "")
         self.assertEqual(historical.review_verdicts[0].binding_version, "")
         self.assertEqual(historical.review_verdicts[0].verdict, "blocked")
@@ -316,6 +319,7 @@ class WorkspaceContractTests(unittest.TestCase):
                 "goal": "GOAL-1",
                 "palari": "PALARI-1",
                 "parent_work_item_id": "WORK-1",
+                "path_intents": [],
             }
         )
         with self.assertRaisesRegex(WorkspaceError, "work_items parent graph contains a cycle"):
@@ -335,6 +339,7 @@ class WorkspaceContractTests(unittest.TestCase):
                         "title": "Second work",
                         "goal": "GOAL-1",
                         "palari": "PALARI-1",
+                        "path_intents": [],
                     }
                 )
                 data["work_items"][0]["dependency_ids"] = dependency_ids
@@ -350,6 +355,7 @@ class WorkspaceContractTests(unittest.TestCase):
                 "goal": "GOAL-1",
                 "palari": "PALARI-1",
                 "dependency_ids": ["WORK-1"],
+                "path_intents": [],
             }
         )
         with self.assertRaisesRegex(WorkspaceError, "dependency graph contains a cycle"):

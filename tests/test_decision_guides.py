@@ -61,6 +61,7 @@ def _workspace() -> Workspace:
             "allowed_resources": ["notes/decision.md"],
             "allowed_actions": ["local_write"],
             "output_targets": ["notes/decision.md"],
+            "path_intents": [{"path": "notes/decision.md", "intent": "modify"}],
             "forbidden_actions": ["external_write"],
             "acceptance_target": "The choice is explicit.",
             "required_approval_count": 1,

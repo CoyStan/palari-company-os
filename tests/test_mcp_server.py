@@ -44,6 +44,7 @@ class McpServerContractTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy"],
                 "acceptance_target": "Exact proof is reviewable.",
                 "required_approval_count": 1,

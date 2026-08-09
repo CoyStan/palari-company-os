@@ -24,6 +24,7 @@ class ApprovalPresentationTests(unittest.TestCase):
             root = Path(directory)
             data_path = make_ready_workspace(root, count=1)
             store = load_store(data_path)
+            self.assertEqual(store.data["work_items"][0]["path_intents"], [])
             first = build_approval_inbox(Workspace.load(data_path), store.data)
             second = build_approval_inbox(Workspace.load(data_path), store.data)
             first_pack = first["packs"][0]

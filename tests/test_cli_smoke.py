@@ -120,6 +120,7 @@ class CliSmokeTests(unittest.TestCase):
         )
         self.assertEqual(work["dependency_ids"], [WORK_ID])
         self.assertEqual(work["parallel_policy"], "coordinate")
+        self.assertEqual(work["path_intents"], payload["path_intents"])
         self.assertEqual(work["allowed_sources"], ["SOURCE-REPO-FOUNDATION"])
         self.assertEqual(payload["workbench_outputs_added"], ["docs/cli-boundary.md"])
 
