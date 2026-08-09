@@ -175,6 +175,19 @@ evidence ranges or exact-SHA entries in `.palari/dogfood/proof.json` (floating
 attest an exact tip). Humans may use a `skip-dogfood: <reason>` trailer on
 labeled PRs. Humans can still commit with no active claim.
 
+## Code parts
+
+Use `docs/agent/repo-tree.json` as the one ownership map. Normal code work has
+one primary part: `base`, `work`, `checks`, `links`, or `views`. Edit its owned
+files, use its listed doors, and run:
+
+```bash
+python3 -S scripts/check_repo_tree.py --part PART
+```
+
+If a listed door changes, also test the parts that use it. Keep one Git repo
+and one Palari work list; do not add nested repos or separate ticket stores.
+
 ## Agent-Ready Repo Docs
 
 Use these committed docs before rereading large parts of the repo:

@@ -18,8 +18,20 @@ the assignment boundary. Exact stored names appear in backticks when needed.
    presentation-bound command. For one eligible local task, a qualified human
    runs that emitted `palari approve ... --presented DIGEST` command once; the
    digest is machine-supplied and is not copied. A manually typed bare
-   `approve` derives current state at invocation. The Approval Inbox remains
-   the advanced/batched path.
+`approve` derives current state at invocation. The Approval Inbox remains
+the advanced/batched path.
+
+## Change One Code Part
+
+1. Find the part in `docs/agent/repo-tree.json` and edit only its owned files by
+   default.
+2. Use its listed doors when another part needs it.
+3. Run `python3 -S scripts/check_repo_tree.py --part PART` while working.
+4. If a door changed, also test the parts that use it. Run the complete check
+   before the final candidate when the task requires it.
+
+There is one Git repo and one Palari work list. A part is a small work area,
+not a nested repo or a separate ticket store.
 
 Use `work add --write PATH` when only final presence matters. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final

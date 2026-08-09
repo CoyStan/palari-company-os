@@ -114,7 +114,193 @@
       "parts": [
         {
           "name": "code",
-          "files": ["src/"]
+          "parts": [
+            {
+              "name": "base",
+              "files": [
+                "src/palari_company_os/__init__.py",
+                "src/palari_company_os/capabilities.py",
+                "src/palari_company_os/errors.py",
+                "src/palari_company_os/models.py",
+                "src/palari_company_os/mutation_context.py",
+                "src/palari_company_os/path_policy.py",
+                "src/palari_company_os/py.typed",
+                "src/palari_company_os/record_order.py",
+                "src/palari_company_os/scope.py",
+                "src/palari_company_os/store.py",
+                "src/palari_company_os/validation.py",
+                "src/palari_company_os/workspace.py"
+              ],
+              "door": [
+                "src/palari_company_os/models.py",
+                "src/palari_company_os/store.py",
+                "src/palari_company_os/validation.py",
+                "src/palari_company_os/workspace.py"
+              ],
+              "check": [
+                "tests.test_filesystem_security",
+                "tests.test_path_policy",
+                "tests.test_store_journal_integration",
+                "tests.test_validation"
+              ]
+            },
+            {
+              "name": "work",
+              "files": [
+                "src/palari_company_os/agent_advance.py",
+                "src/palari_company_os/agent_checks.py",
+                "src/palari_company_os/agent_directive.py",
+                "src/palari_company_os/agent_doctor.py",
+                "src/palari_company_os/agent_file_changes.py",
+                "src/palari_company_os/agent_finish.py",
+                "src/palari_company_os/agent_handoff.py",
+                "src/palari_company_os/agent_home.py",
+                "src/palari_company_os/agent_loop.py",
+                "src/palari_company_os/agent_next.py",
+                "src/palari_company_os/agent_operation.py",
+                "src/palari_company_os/agent_packets.py",
+                "src/palari_company_os/agent_parking.py",
+                "src/palari_company_os/agent_runtime.py",
+                "src/palari_company_os/agent_session_contract.py",
+                "src/palari_company_os/authoring.py",
+                "src/palari_company_os/onramp.py",
+                "src/palari_company_os/proposals.py",
+                "src/palari_company_os/work_identity.py"
+              ],
+              "door": [
+                "src/palari_company_os/agent_advance.py",
+                "src/palari_company_os/agent_home.py",
+                "src/palari_company_os/agent_runtime.py",
+                "src/palari_company_os/onramp.py"
+              ],
+              "check": [
+                "tests.test_agent_advance",
+                "tests.test_agent_file_changes",
+                "tests.test_agent_home",
+                "tests.test_agent_packets",
+                "tests.test_agent_session_contract",
+                "tests.test_custom_workspace_projection",
+                "tests.test_onramp",
+                "tests.test_operator_journeys",
+                "tests.test_work_ideas"
+              ]
+            },
+            {
+              "name": "checks",
+              "files": [
+                "src/palari_company_os/approval_packs.py",
+                "src/palari_company_os/approval_presentations.py",
+                "src/palari_company_os/authority_plan.py",
+                "src/palari_company_os/decision_guides.py",
+                "src/palari_company_os/dogfood_check.py",
+                "src/palari_company_os/evidence_manifest.py",
+                "src/palari_company_os/governance_binding.py",
+                "src/palari_company_os/governance_case.py",
+                "src/palari_company_os/governance_convergence.py",
+                "src/palari_company_os/governance_journal.py",
+                "src/palari_company_os/governance_kernel.py",
+                "src/palari_company_os/pcaw_canonical.py",
+                "src/palari_company_os/pcaw_export.py",
+                "src/palari_company_os/pcaw_protocol.py",
+                "src/palari_company_os/pcaw_subjects.py",
+                "src/palari_company_os/pcaw_workspace.py",
+                "src/palari_company_os/review_guides.py",
+                "src/palari_company_os/simple_approval.py",
+                "src/palari_company_os/transition_checks.py",
+                "src/palari_company_os/verification_attestations.py"
+              ],
+              "door": [
+                "src/palari_company_os/approval_packs.py",
+                "src/palari_company_os/governance_kernel.py",
+                "src/palari_company_os/pcaw_protocol.py",
+                "src/palari_company_os/simple_approval.py"
+              ],
+              "check": [
+                "tests.test_approval_packs",
+                "tests.test_approval_presentations",
+                "tests.test_canonical_json",
+                "tests.test_decision_guides",
+                "tests.test_dogfood_check",
+                "tests.test_governance_explorer",
+                "tests.test_governance_journal",
+                "tests.test_governance_journal_crash",
+                "tests.test_governance_kernel",
+                "tests.test_pcaw_protocol",
+                "tests.test_review_guides",
+                "tests.test_transition_checks"
+              ]
+            },
+            {
+              "name": "links",
+              "files": [
+                "src/palari_company_os/agent_adoption.py",
+                "src/palari_company_os/agent_isolation.py",
+                "src/palari_company_os/claude_hooks.py",
+                "src/palari_company_os/cursor_rules.py",
+                "src/palari_company_os/git_hooks.py",
+                "src/palari_company_os/integration_contracts.py",
+                "src/palari_company_os/integrations.py",
+                "src/palari_company_os/linear_adapter.py",
+                "src/palari_company_os/linear_blocks.py",
+                "src/palari_company_os/linear_core.py",
+                "src/palari_company_os/linear_webhook.py",
+                "src/palari_company_os/mcp_server.py"
+              ],
+              "door": [
+                "src/palari_company_os/agent_adoption.py",
+                "src/palari_company_os/integrations.py",
+                "src/palari_company_os/linear_adapter.py",
+                "src/palari_company_os/mcp_server.py"
+              ],
+              "check": [
+                "tests.test_agent_adoption",
+                "tests.test_claude_hooks",
+                "tests.test_cursor_rules",
+                "tests.test_git_hooks",
+                "tests.test_integrations",
+                "tests.test_linear_adapter",
+                "tests.test_linear_webhook",
+                "tests.test_mcp_server"
+              ]
+            },
+            {
+              "name": "views",
+              "files": [
+                "src/palari_company_os/__main__.py",
+                "src/palari_company_os/cli.py",
+                "src/palari_company_os/cli_dispatch.py",
+                "src/palari_company_os/cli_output.py",
+                "src/palari_company_os/cli_output_agent.py",
+                "src/palari_company_os/cli_output_integrations.py",
+                "src/palari_company_os/cli_output_utils.py",
+                "src/palari_company_os/cli_parser.py",
+                "src/palari_company_os/command_surface.py",
+                "src/palari_company_os/demo.py",
+                "src/palari_company_os/mission_control.py",
+                "src/palari_company_os/read_model_commands.py",
+                "src/palari_company_os/read_model_coordination.py",
+                "src/palari_company_os/read_models.py",
+                "src/palari_company_os/repo_docs.py",
+                "src/palari_company_os/workspace_read_models.py"
+              ],
+              "door": [
+                "src/palari_company_os/cli.py",
+                "src/palari_company_os/demo.py",
+                "src/palari_company_os/mission_control.py",
+                "src/palari_company_os/read_models.py"
+              ],
+              "check": [
+                "tests.test_cli_smoke",
+                "tests.test_demo",
+                "tests.test_docs",
+                "tests.test_mission_control",
+                "tests.test_plain_language",
+                "tests.test_public_surface",
+                "tests.test_verify_page",
+                "tests.test_workspace_read_models"
+              ]
+            }
+          ]
         },
         {
           "name": "run",

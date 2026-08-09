@@ -11,7 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from check_repo_tree import check_repo_tree
+from check_repo_tree import check_repo_tree, part_command
 
 
 class RepoTreeTests(unittest.TestCase):
@@ -20,9 +20,36 @@ class RepoTreeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"], result["problems"])
         self.assertGreater(result["files"], 200)
-        self.assertEqual(result["end_parts"], 11)
+        self.assertEqual(result["end_parts"], 15)
         self.assertEqual(result["records"], 21)
         self.assertEqual(result["product_end_parts"], 22)
+        self.assertEqual(result["code_parts"], 5)
+
+    def test_work_has_owned_doors_and_one_local_check(self) -> None:
+        command = part_command(REPO_ROOT, "work")
+
+        self.assertEqual(command[1:3], ["-S", str(REPO_ROOT / "scripts/verification_profiles.py")])
+        self.assertIn("tests.test_agent_advance", command)
+        self.assertIn("tests.test_work_ideas", command)
+        self.assertNotIn("tests.test_linear_adapter", command)
+
+    def test_code_door_must_belong_to_its_part(self) -> None:
+        tree = json.loads(
+            (REPO_ROOT / "docs" / "agent" / "repo-tree.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        app = next(part for part in tree["parts"] if part["name"] == "app")
+        code = next(part for part in app["parts"] if part["name"] == "code")
+        work = next(part for part in code["parts"] if part["name"] == "work")
+        work["door"][0] = "src/palari_company_os/cli.py"
+
+        result = self._check(tree, [])
+
+        self.assertIn(
+            "code part door is not owned: work (src/palari_company_os/cli.py)",
+            result["problems"],
+        )
 
     def test_gap_fails(self) -> None:
         result = self._check(_tree(["known.txt"]), ["known.txt", "lost.txt"])

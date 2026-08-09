@@ -8,6 +8,24 @@ tracked file in one branch. Each split has three to five plain-named parts,
 with no overlap and no gaps. Run `python3 -S scripts/check_repo_tree.py` after
 changing a record type or adding, moving, or removing a file.
 
+## Code Parts
+
+The `app/code` branch has five parts: `base`, `work`, `checks`, `links`, and
+`views`. Each part lists three facts in the same checked tree:
+
+- `files`: the source files it owns;
+- `door`: the files other parts should use; and
+- `check`: the focused tests for that part.
+
+Run one part without scanning or testing unrelated code:
+
+```bash
+python3 -S scripts/check_repo_tree.py --part work
+```
+
+The files remain in one Python package for now. The map creates a clear work
+boundary without nested repos, a second work list, or empty folders.
+
 Descriptions use the plain product words from
 [Plain Language](../product/plain-language.md). Python modules and stored field
 names stay exact because this is also a source-code map.

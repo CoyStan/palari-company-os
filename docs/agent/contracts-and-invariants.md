@@ -302,6 +302,13 @@ code change must match them. See
 - Repo truth belongs in committed docs, not machine-local memory.
 - Every tracked file belongs to one branch in `docs/agent/repo-tree.json`.
   Each split has three to five plain-named parts, with no overlap and no gaps.
+- Every source file belongs to one code part. Each code part names its owned
+  files, public doors, and focused tests in that same tree.
+- New cross-part use should enter through a listed door. A door change needs
+  checks for the parts that use it; old imports are not silently treated as
+  clean architecture.
+- Normal work targets one primary code part and starts with that part's check.
+  Git history and the Palari work list stay shared by the whole repo.
 - `AGENTS.md` should stay compact and point to deeper canonical docs.
 - Update docs when commands, schema, agent behavior, integrations, required checks, or
   examples change in ways future agents need to know.

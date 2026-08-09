@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ PLAIN_NAMES = {
     "records", "reviews", "choices", "results", "limits", "sources", "guides",
     "rules", "outside", "apps", "plans", "queue",
     "now", "next", "later", "allowed", "ask", "never",
+    "base", "links", "views",
 }
 
 
@@ -31,6 +33,7 @@ def check_repo_tree(repo: Path | str) -> dict[str, Any]:
     product_leaves: list[tuple[str, list[str]]] = []
     _check_part(tree, "repo", problems, leaves, "files", is_root=True)
     _check_part(tree.get("product"), "product", problems, product_leaves, "records", is_root=True)
+    code_parts = _check_code_parts(tree, root, problems)
     files = _repo_files(root, problems)
     matches: dict[str, list[str]] = {
         path: [name for name, rules in leaves if any(_matches(path, rule) for rule in rules)]
@@ -46,7 +49,45 @@ def check_repo_tree(repo: Path | str) -> dict[str, Any]:
             problems.append(f"part has no files: {name}")
     records = _record_names(root, problems)
     _check_exact_members(records, product_leaves, "record", problems)
-    return _result(problems, len(files), len(leaves), len(records), _end_count(tree.get("product")))
+    return _result(
+        problems,
+        len(files),
+        len(leaves),
+        len(records),
+        _end_count(tree.get("product")),
+        code_parts,
+    )
+
+
+def part_command(repo: Path | str, name: str) -> list[str]:
+    root = Path(repo).resolve()
+    result = check_repo_tree(root)
+    if not result["ok"]:
+        raise ValueError("repo tree must pass before a part check can run")
+    tree = json.loads((root / TREE_PATH).read_text(encoding="utf-8"))
+    part = _code_part(tree, name)
+    if part is None:
+        raise ValueError(f"unknown code part: {name}")
+    return [
+        sys.executable,
+        "-S",
+        str(root / "scripts" / "verification_profiles.py"),
+        *part["check"],
+    ]
+
+
+def run_part_check(repo: Path | str, name: str) -> int:
+    root = Path(repo).resolve()
+    try:
+        command = part_command(root, name)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"Part check failed: {exc}")
+        return 1
+    print(f"Running {name} check: {' '.join(command[3:])}", flush=True)
+    run = subprocess.run(command, cwd=root, check=False)
+    if run.returncode == 0:
+        print(f"Part {name} check passed.")
+    return run.returncode
 
 
 def _check_part(
@@ -108,6 +149,68 @@ def _repo_files(root: Path, problems: list[str]) -> list[str]:
     return sorted(path for path in run.stdout.decode().split("\0") if path)
 
 
+def _check_code_parts(tree: Any, root: Path, problems: list[str]) -> int:
+    code = _child(_child(tree, "app"), "code")
+    if not isinstance(code, dict) or not isinstance(code.get("parts"), list):
+        problems.append("repo/app/code needs child parts")
+        return 0
+    parts = code["parts"]
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        name = str(part.get("name") or "missing")
+        files = part.get("files")
+        doors = part.get("door")
+        checks = part.get("check")
+        if not isinstance(doors, list) or not 1 <= len(doors) <= 5 or not all(
+            isinstance(door, str) for door in doors
+        ):
+            problems.append(f"code part needs one to five doors: {name}")
+        elif isinstance(files, list):
+            for door in doors:
+                if not any(
+                    isinstance(rule, str) and _matches(door, rule) for rule in files
+                ):
+                    problems.append(f"code part door is not owned: {name} ({door})")
+                elif not (root / door).is_file():
+                    problems.append(f"code part door is missing: {name} ({door})")
+        if not isinstance(checks, list) or not checks or not all(
+            isinstance(module, str) for module in checks
+        ):
+            problems.append(f"code part needs focused tests: {name}")
+            continue
+        if len(checks) != len(set(checks)):
+            problems.append(f"code part repeats a focused test: {name}")
+        for module in checks:
+            test_path = root / (module.replace(".", "/") + ".py")
+            if not module.startswith("tests.test_") or not test_path.is_file():
+                problems.append(f"code part has unknown focused test: {name} ({module})")
+    return len(parts)
+
+
+def _code_part(tree: Any, name: str) -> dict[str, Any] | None:
+    code = _child(_child(tree, "app"), "code")
+    if not isinstance(code, dict) or not isinstance(code.get("parts"), list):
+        return None
+    found = [
+        part
+        for part in code["parts"]
+        if isinstance(part, dict) and part.get("name") == name
+    ]
+    return found[0] if len(found) == 1 else None
+
+
+def _child(part: Any, name: str) -> dict[str, Any] | None:
+    if not isinstance(part, dict) or not isinstance(part.get("parts"), list):
+        return None
+    found = [
+        child
+        for child in part["parts"]
+        if isinstance(child, dict) and child.get("name") == name
+    ]
+    return found[0] if len(found) == 1 else None
+
+
 def _record_names(root: Path, problems: list[str]) -> list[str]:
     try:
         schema = json.loads((root / "schemas/workspace.schema.json").read_text(encoding="utf-8"))
@@ -145,7 +248,12 @@ def _end_count(part: Any) -> int:
 
 
 def _result(
-    problems: list[str], files: int, leaves: int, records: int = 0, product_leaves: int = 0
+    problems: list[str],
+    files: int,
+    leaves: int,
+    records: int = 0,
+    product_leaves: int = 0,
+    code_parts: int = 0,
 ) -> dict[str, Any]:
     return {
         "schema_version": "palari.repo_tree_check.v1",
@@ -154,6 +262,7 @@ def _result(
         "end_parts": leaves,
         "records": records,
         "product_end_parts": product_leaves,
+        "code_parts": code_parts,
         "problems": problems,
     }
 
@@ -162,7 +271,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check the repo's simple product and file tree.")
     parser.add_argument("--repo", default=".")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--part", help="Run one code part's focused tests.")
     args = parser.parse_args()
+    if args.part:
+        if args.json:
+            parser.error("--json cannot be used with --part")
+        return run_part_check(args.repo, args.part)
     result = check_repo_tree(args.repo)
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
