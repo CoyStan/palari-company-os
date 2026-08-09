@@ -32,10 +32,21 @@ strengthens the core rules and checks or adds optional surface area.
 - Add narrow adapters before generic provider frameworks.
 - Prefer one local file and one explicit command over hidden orchestration.
 
+## Recursive MECE Rule Of Three
+
+- The product framework has three roots: **Memory**, **Initiative**, and
+  **Control**. Every conceptual component belongs to exactly one root.
+- Any component may have zero to three child components. The same limit applies
+  recursively at every depth.
+- Sibling components must be mutually exclusive and collectively exhaustive of
+  their parent. Merge, rename, or move overlaps before adding another child.
+
+Ordinary data fields inside a leaf are not new conceptual components.
+
 ## Size Budget
 
 The August 2026 baseline was 56,122 production Python lines and 146 parser
-commands. The first minimality pass reduced that to at most 53,100 lines and 81
+commands. The first minimality pass reduced that to at most 53,100 lines and 82
 commands without removing the supported lifecycle or adapters. `check_style.py`
 enforces the production ceiling.
 

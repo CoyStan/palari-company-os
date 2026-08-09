@@ -201,6 +201,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .agent_checks import build_agent_check
         from .agent_doctor import build_agent_doctor
         from .agent_finish import build_agent_finish
+        from .agent_home import build_agent_home
         from .agent_handoff import build_agent_handoff
         from .agent_loop import build_agent_loop
         from .agent_next import build_agent_next, build_agent_next_all
@@ -263,6 +264,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if agent_workspace is None:
             agent_workspace = Workspace.load(args.workspace)
+        if args.agent_command == "home":
+            return CommandResult(
+                "agent-home",
+                build_agent_home(agent_workspace, args.palari_id),
+                args.json,
+            )
         if args.agent_command == "next":
             if args.all or not args.palari_id:
                 return CommandResult(

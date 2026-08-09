@@ -54,6 +54,8 @@ When adding a command, update parser, dispatch, output, tests, and
 
 ## Agent Runtime
 
+- `src/palari_company_os/agent_home.py`: persistent read-only agent view under
+  Memory, Initiative, and Control; it grants no task authority.
 - `src/palari_company_os/agent_packets.py`: `agent brief` task-brief contract.
 - `src/palari_company_os/agent_session_contract.py`: pure deterministic
   provider-neutral session-contract projection, strict validation, digest, and

@@ -284,6 +284,9 @@ def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
 def _add_agent_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("agent", help="Give AI agents bounded task briefs.")
     nested = parser.add_subparsers(dest="agent_command", required=True, metavar="ACTION")
+    home = nested.add_parser("home", help="Resume through Memory, Initiative, and Control.")
+    home.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
+    home.add_argument("--json", action="store_true", help="Emit JSON.")
     next_parser = nested.add_parser(
         "next",
         help="Show the next safe tasks for one agent or all agents.",
@@ -426,7 +429,7 @@ def _add_agent_parser(subparsers: Any) -> None:
 
     actions = {action.dest: action for action in nested._choices_actions}
     nested._choices_actions = [
-        actions[name] for name in ("start", "advance", "release", "doctor")
+        actions[name] for name in ("home", "start", "advance", "release", "doctor")
     ]
 
 

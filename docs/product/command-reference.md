@@ -47,6 +47,16 @@ palari reviewer add PALARI-REVIEWER --goal GOAL-ID --owner HUMAN-ID --json
 
 ## Agent Work
 
+Resume one agent without choosing a task first:
+
+```bash
+palari agent home --as PALARI-ID [--json]
+```
+
+The read-only response is organized as Memory, Initiative, and Control. Each
+has three MECE children. It summarizes existing workspace truth and safe next
+commands; it does not grant write, approval, or external-action authority.
+
 The ordinary agent path is two commands around the bounded implementation:
 
 ```bash
@@ -70,6 +80,7 @@ palari agent release WORK-ID --as PALARI-ID \
 Read-only recovery and inspection commands remain available:
 
 ```bash
+palari agent home --as PALARI-ID --json
 palari agent next [--as PALARI-ID|--all] --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent check WORK-ID --as PALARI-ID --git-diff --json

@@ -43,6 +43,7 @@ palari linear webhook events
 palari linear post-gate
 palari linear send
 palari agent
+palari agent home
 palari agent next
 palari agent brief
 palari agent start

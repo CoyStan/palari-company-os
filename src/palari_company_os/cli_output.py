@@ -11,6 +11,7 @@ from .cli_output_agent import (
     print_agent_advance,
     print_agent_finish,
     print_agent_handoff,
+    print_agent_home,
     print_agent_loop,
     print_agent_next,
     print_agent_next_all,
@@ -179,6 +180,10 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-next":
         print_agent_next(result.payload, result.as_json)
+        return
+
+    if result.kind == "agent-home":
+        print_agent_home(result.payload, result.as_json)
         return
 
     if result.kind == "agent-next-all":

@@ -293,6 +293,26 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
         for command in commands:
             print(f"  {command}")
 
+def print_agent_home(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    agent = payload.get("agent") or {}
+    components = payload.get("components") or {}
+    identity = (components.get("memory") or {}).get("identity") or {}
+    print(f"Agent home: {agent.get('id', '')} ({identity.get('name', 'unknown')})")
+    print(f"Status: {plain_status(payload.get('status', 'waiting'))}")
+    for parent in ("memory", "initiative", "control"):
+        print(parent.title())
+        for child, value in (components.get(parent) or {}).items():
+            if isinstance(value, list):
+                summary = value[0].get("title", value[0].get("message", "present")) if value else "none"
+            elif isinstance(value, dict):
+                summary = value.get("name", value.get("rule", f"{len(value)} fields"))
+            else:
+                summary = "none" if value is None else str(value)
+            print(f"  {child.title()}: {plain_message(str(summary))}")
+
 
 def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:

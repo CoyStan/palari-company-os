@@ -54,6 +54,17 @@ qualified human must approve it afterward.
 
 ## Ordinary paths
 
+An agent can resume its ongoing relationship before entering task mechanics:
+
+```text
+palari agent home --as PALARI-ID
+```
+
+The read-only home has three components: Memory (identity, direction, history),
+Initiative (now, next, later), and Control (allowed, ask, never). It grants no
+permission and creates no durable memory; current workspace records remain the
+truth. Tasks stay underneath as the bounded execution unit.
+
 An operator initializes a repository once, creates a bounded task, and checks
 its status:
 

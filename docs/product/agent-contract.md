@@ -23,12 +23,19 @@ palari agent start --next --as PALARI-ID --json
 Explicit inspection and selection remain available:
 
 ```bash
+palari agent home --as PALARI-ID --json
 palari agent next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json
 palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
+
+`agent home` is the persistent relationship entry point. It projects current
+workspace truth into Memory, Initiative, and Control, with at most three MECE
+children under every conceptual component. It is read-only: it does not invent
+memory, create work, claim a task, or widen authority. Concrete writes still
+require a ready task brief and assignment.
 
 `palari agent brief` is a read-only preview. `palari agent start` is the normal
 entry point for ready work: it saves the exact task brief the agent received,
