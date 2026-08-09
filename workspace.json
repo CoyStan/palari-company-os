@@ -1344,6 +1344,254 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-2CB1C974DF324BD3BBA452B9756CF7AB-696505FA9984"
+    },
+    {
+      "id": "WORK-85EFBB3930E840C2883AB8CA30A1C7D4",
+      "title": "Remove unused old support",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "standard",
+      "status": "blocked",
+      "scope": "Remove parked split-file storage, Approval Pack v2 reading, and unused compatibility fields; preserve current stored work history.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/source-of-truth.md",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/source-of-truth.md",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/source-of-truth.md",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Split-file storage and Pack v2 are rejected, unused compatibility fields are gone, current workspace loads, and all checks pass.",
+      "verification_expectations": [
+        "Run focused storage, approval, hook, and full repository checks."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/approval_packs.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/store.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/verification_attestations.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/workspace.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_filesystem_security.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-tree.json",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/claude-code-integration.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+          "intent": "delete"
+        },
+        {
+          "path": "tests/fixtures/workspaces/split-workspace/workspace.json",
+          "intent": "delete"
+        }
+      ],
+      "current_attempt": "ATTEMPT-PARK-5A96DD48CCCF554B2D850E96"
+    },
+    {
+      "id": "WORK-980326529EB947FBB6359DB49D188356",
+      "title": "Keep delete proof stable",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Make final proof reconciliation preserve exact delete tombstones; change no approval or storage rules.",
+      "allowed_resources": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "A committed delete remains absent through final proof reconciliation and the cleanup task can advance.",
+      "verification_expectations": [
+        "Run focused agent advance tests and full repository checks."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB"
     }
   ],
   "attempts": [
@@ -1989,6 +2237,101 @@
         "docs/agent/common-workflows.md",
         "docs/agent/verification.md",
         "AGENTS.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-PARK-5A96DD48CCCF554B2D850E96",
+      "work_item_id": "WORK-85EFBB3930E840C2883AB8CA30A1C7D4",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "35ffa9829c6cd7f9a242806f3af0f4a9a53bfe34",
+      "head_sha": "350b981afd5005866658e856c73d34a77442f748",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/source-of-truth.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace.py",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py"
+      ],
+      "allowed_paths": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/verification_attestations.py",
+        "src/palari_company_os/workspace.py",
+        "schemas/workspace.schema.json",
+        "tests/test_approval_packs.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/source-of-truth.md",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json"
+      ],
+      "claim_id": "c6516e3fb9f24d3f844ffaa0906ea7b6",
+      "claim_expires_at": "2026-08-09T20:33:25Z",
+      "cleanliness": "clean",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Fix delete-proof reconciliation in authoring.py with a focused regression test, then restart and advance this cleanup.\",\"observation\":{\"all_changed_paths\":[\"docs/agent/contracts-and-invariants.md\",\"docs/agent/repo-map.md\",\"docs/agent/repo-tree.json\",\"docs/product/agent-contract.md\",\"docs/product/claude-code-integration.md\",\"docs/product/current-product.md\",\"docs/product/public-surface.md\",\"docs/product/schema-and-validation.md\",\"docs/product/source-of-truth.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/approval_packs.py\",\"src/palari_company_os/claude_hooks.py\",\"src/palari_company_os/store.py\",\"src/palari_company_os/validation.py\",\"src/palari_company_os/verification_attestations.py\",\"src/palari_company_os/workspace.py\",\"tests/fixtures/workspaces/split-workspace/records/work-items.json\",\"tests/fixtures/workspaces/split-workspace/workspace.json\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_filesystem_security.py\",\"tests/test_validation.py\"],\"base_sha\":\"35ffa9829c6cd7f9a242806f3af0f4a9a53bfe34\",\"committed_paths\":[\"docs/agent/contracts-and-invariants.md\",\"docs/agent/repo-map.md\",\"docs/agent/repo-tree.json\",\"docs/product/agent-contract.md\",\"docs/product/claude-code-integration.md\",\"docs/product/current-product.md\",\"docs/product/public-surface.md\",\"docs/product/schema-and-validation.md\",\"docs/product/source-of-truth.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/approval_packs.py\",\"src/palari_company_os/claude_hooks.py\",\"src/palari_company_os/store.py\",\"src/palari_company_os/validation.py\",\"src/palari_company_os/verification_attestations.py\",\"src/palari_company_os/workspace.py\",\"tests/fixtures/workspaces/split-workspace/records/work-items.json\",\"tests/fixtures/workspaces/split-workspace/workspace.json\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_filesystem_security.py\",\"tests/test_validation.py\"],\"errors\":[],\"head_sha\":\"350b981afd5005866658e856c73d34a77442f748\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/governance-journal.v1.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"docs/agent/contracts-and-invariants.md\",\"docs/agent/repo-map.md\",\"docs/agent/repo-tree.json\",\"docs/product/agent-contract.md\",\"docs/product/claude-code-integration.md\",\"docs/product/current-product.md\",\"docs/product/public-surface.md\",\"docs/product/schema-and-validation.md\",\"docs/product/source-of-truth.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/approval_packs.py\",\"src/palari_company_os/claude_hooks.py\",\"src/palari_company_os/store.py\",\"src/palari_company_os/validation.py\",\"src/palari_company_os/verification_attestations.py\",\"src/palari_company_os/workspace.py\",\"tests/fixtures/workspaces/split-workspace/records/work-items.json\",\"tests/fixtures/workspaces/split-workspace/workspace.json\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_filesystem_security.py\",\"tests/test_validation.py\"],\"missing_required_outputs\":[\"docs/agent/contracts-and-invariants.md\",\"docs/agent/repo-map.md\",\"docs/agent/repo-tree.json\",\"docs/product/agent-contract.md\",\"docs/product/claude-code-integration.md\",\"docs/product/current-product.md\",\"docs/product/public-surface.md\",\"docs/product/schema-and-validation.md\",\"docs/product/source-of-truth.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/approval_packs.py\",\"src/palari_company_os/claude_hooks.py\",\"src/palari_company_os/store.py\",\"src/palari_company_os/validation.py\",\"src/palari_company_os/verification_attestations.py\",\"src/palari_company_os/workspace.py\",\"tests/fixtures/workspaces/split-workspace/records/work-items.json\",\"tests/fixtures/workspaces/split-workspace/workspace.json\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_filesystem_security.py\",\"tests/test_validation.py\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_runtime.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/approval_packs.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/claude_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/store.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/verification_attestations.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/workspace.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"schemas/workspace.schema.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_approval_packs.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_claude_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_filesystem_security.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/repo-map.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/repo-tree.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/claude-code-integration.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/public-surface.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/schema-and-validation.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/source-of-truth.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"delete\",\"path\":\"tests/fixtures/workspaces/split-workspace/records/work-items.json\",\"reason\":\"Delete intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"delete\",\"path\":\"tests/fixtures/workspaces/split-workspace/workspace.json\",\"reason\":\"Delete intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"c6516e3fb9f24d3f844ffaa0906ea7b6\",\"claim_workspace_file_hash\":\"sha256:52c7ce86c6cd9ffe7c2dd200b8cec75260285baccbc2114ce5e5226267df77f1\",\"context_hash\":\"sha256:67208449d7aae4a9f5431ccb80ddcd5a9d5a2ea6ec4298ea85fa824be0991287\",\"git_lease_oid\":\"0b1e22f4de5882cb7497080a5ce61ac9c18773cd\",\"git_lease_ref\":\"refs/palari/leases/WORK-85EFBB3930E840C2883AB8CA30A1C7D4-83adbef3f1c0\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:59fbe1bd2902ec754fca08e50d9023eeb14a312b7d8fc80245a8c5ccc40e9c97\",\"packet_id\":\"PACKET-WORK-85EFBB3930E840C2883AB8CA30A1C7D4-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-85EFBB3930E840C2883AB8CA30A1C7D4-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:5e72e3de62d7e220d34474c9c21c4f6a0b076a92c0ce246bc732b165d6350c4f\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"Delete proof changes absent to missing during final reconciliation, so the committed cleanup cannot record evidence.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:5ca1d0948d8dc247a68cd4f311fce13212893497cfcd0871890282c51a14d263\"}",
+      "started_at": "2026-08-09T20:03:25Z",
+      "commits": [
+        "350b981afd5005866658e856c73d34a77442f748"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB",
+      "work_item_id": "WORK-980326529EB947FBB6359DB49D188356",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "350b981afd5005866658e856c73d34a77442f748",
+      "allowed_paths": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "started_at": "2026-08-09T20:18:59Z",
+      "head_sha": "93c1290873fb2bf9619ba43e6642629ded1565c5",
+      "commits": [
+        "93c1290873fb2bf9619ba43e6642629ded1565c5"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T20:18:59Z",
+      "changed_files": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
       ]
     }
   ],
@@ -3192,6 +3535,39 @@
       "receipt_hash": "sha256:61d0410376de22bee5602780455fa360544db44689632d0edd16419dabecb62d",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:c9685880929228a9169afb0f5e1b040ebf8a727a3eeacb12f934364e376b80f6"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB",
+      "work_item_id": "WORK-980326529EB947FBB6359DB49D188356",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB",
+      "head_sha": "93c1290873fb2bf9619ba43e6642629ded1565c5",
+      "status": "passed",
+      "base_ref": "350b981afd5005866658e856c73d34a77442f748",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-E50E39C2BB185138 sha256:601a251bf9d1f47082d901e2f637bcdc4a1a97d7ca462b15e50e39c2bb185138"
+      ],
+      "artifacts": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/authoring.py",
+          "sha256": "sha256:f6c8d4fbb66d3663db407f2c71301a9284649d091b5307efab5a8c44089df68a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:4c415883e83c92cd10c6a24d0b2d7f47478a7cf0642721cd279db7cfb0e6f013",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T20:18:59Z",
+      "receipt_hash": "sha256:0a768ed3e8b5aaf844e7e6901e80cb80308173ed2affafe71a7b2f0e1e51104d",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:c2944c64a6457f08deeb3e57d63e080857104ed43e0839de0df3fd0c0c67d288"
     }
   ],
   "review_verdicts": [
@@ -4642,6 +5018,32 @@
       ],
       "timestamp": "2026-08-09T19:33:41Z",
       "receipt_hash": "sha256:61d0410376de22bee5602780455fa360544db44689632d0edd16419dabecb62d"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB",
+      "work_item_id": "WORK-980326529EB947FBB6359DB49D188356",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-980326529EB947FBB6359DB49D188356-93C1290873FB",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 2 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
+      ],
+      "timestamp": "2026-08-09T20:18:59Z",
+      "receipt_hash": "sha256:0a768ed3e8b5aaf844e7e6901e80cb80308173ed2affafe71a7b2f0e1e51104d"
     }
   ],
   "decisions": [],
@@ -4726,7 +5128,19 @@
         "tests/test_governance_journal.py",
         "tests/test_governance_journal_crash.py",
         ".palari/dogfood/proof.json",
-        "docs/agent/verification.md"
+        "docs/agent/verification.md",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/approval_packs.py",
+        "src/palari_company_os/store.py",
+        "src/palari_company_os/verification_attestations.py",
+        "tests/test_approval_packs.py",
+        "tests/test_filesystem_security.py",
+        "tests/test_validation.py",
+        "docs/product/schema-and-validation.md",
+        "tests/fixtures/workspaces/split-workspace/records/work-items.json",
+        "tests/fixtures/workspaces/split-workspace/workspace.json",
+        "src/palari_company_os/authoring.py",
+        "tests/test_agent_advance.py"
       ]
     }
   ],
