@@ -29,7 +29,7 @@ matrix.
 | Queue, detail, state | operator | Recorded status views for ordinary orientation; they do not recheck output bytes or all history. |
 | History audit | operator | Explicit replay, continuity, and recovery inspection; not an ordinary status dependency. |
 | PCAW export and verification | core | Deterministic, offline statements and output-integrity checks. |
-| Task and status recording commands | operator | Explicit local changes to current task, verification, and approval records. |
+| Task creation and exact review recording | operator | Narrow local changes needed by the supported journey; proof records are produced by `agent advance`. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
 | Cursor host profile | adapter | `init --host cursor` installs an advisory project rule; git commit gate is opt-in (`--strict-git` / `cursor install`). See [Cursor Integration](cursor-integration.md). |
@@ -38,20 +38,20 @@ matrix.
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
 | Mission Control and local serve | visual | Local supervision surface with guarded integration-plan decisions and one-task exact approve; not a second evaluator. |
 | ACME workspace | example | Repository example only; it is not packaged data, a default workspace, or the source of truth for candidate tests. |
-| Restore-point recovery and split collections | parked | Reachable local recovery/read features pending a product decision; neither can approve or complete work. |
-| Data map, maintainer, gate, and playbook recommendations | parked | Advisory views with no permission or pre-1.0 compatibility promise. |
-| Broad generic planning and record authoring | parked | Retained while classification is ambiguous; the ordinary first-use path does not depend on it. |
+| Split collections | parked | A legacy reader remains pending a stored-format decision; it cannot approve or complete work. |
 | Self-hosting maintainer state profile | deferred | The policy and migration plan are documented, but live governance state is not yet isolated from the source checkout. No runtime mode is shipped. |
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |
 | Agent-company landscape survey | experimental | July 2026 research snapshot scoring ~60 systems on five governed-company properties; not current product status or a backlog. See [agent-company-landscape.md](agent-company-landscape.md). |
 | Drop-a-receipt verifier (`verify/`) | experimental | Static unsigned PCAW v1 integrity page (work-state/digest bindings). Not WRP-10 and not full CLI governance verify. |
 | Distribution workstream | experimental | Measured external adoption notes; not a product feature surface. See [distribution.md](distribution.md). |
-| `docs/archive/pr19-contracts/` | historical | Archived PR #19 completion contracts; not current operator docs. See that folder's `SUPERSESSION.md`. |
 
 ## Command surface
 
-Current CLI command count from parser inspection: **146**.
+Current CLI command count from parser inspection: **81**. The August 2026
+minimality pass removed 65 commands: generic record mutation, restore-point
+recovery, and advisory data-map, maintainer, gate, and playbook views. The
+ordinary journey, supported adapters, and safety boundaries remain.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `approve`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
@@ -70,14 +70,9 @@ shortcut and synthetic legacy-workspace `migrate` command are not retained.
 New commands should remain rare and must expose a distinct current safety
 capability.
 
-`superseded` and `abandoned` are exact stored final statuses, not aliases for
-completion. Tasks with those statuses leave the default queue, agent candidate
-list, and Approval Inbox. `queue --include-closed` and `detail` preserve the
-reason and optional successor for audit. Once recorded, the retired task rules
-and all linked proposal, run, verification, review, approval, result, and
-external-action records are immutable in storage. Follow-up belongs in an
-explicit successor task. The retirement operation may change only the final
-status fields and cannot bundle new check results or approval.
+Historical `superseded` and `abandoned` records remain inspectable. They leave
+the default queue, agent candidate list, and Approval Inbox; `queue
+--include-closed` and `detail` preserve their reason and optional successor.
 
 ## Provider boundary
 

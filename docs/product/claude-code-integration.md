@@ -92,10 +92,9 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   defensively, destructive parent-directory targets remain protected, and new
   or unclassified Palari commands fail closed to a human ask. The standard
   Claude settings files that hold these hooks are protected from direct edits
-  and destructive parent operations. `history --restore` is classified as a
-  human-only permission-changing command even when its options are reordered
-  or use `--restore=...`; an agent shell receives a deny before any local
-  restoration.
+  and destructive parent operations. Removed restore-point spellings remain
+  classified as authority-shaped input; an agent shell receives a deny before
+  an obsolete command can reach workspace mutation.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

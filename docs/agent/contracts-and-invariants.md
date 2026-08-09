@@ -278,13 +278,8 @@ code change must match them. See
   grants no acceptance, merge, push, deployment, or external-write authority.
 - PCAW v1 does not claim portable deletion-history proof. Local workspace
   deletion tombstones remain outside the v1 protocol guarantee.
-- Every committed journal projection is a content-addressed checkpoint.
-  Restoration appends a human-attributed transition only for an effect-free
-  local chain. Every committed projection after the earliest matching digest
-  is inspected; external effects block restoration before any projection
-  change, even if later local state hid the effect or returned to the target.
-- `history --restore` is a human-only shell authority command. An agent cannot
-  acquire it by supplying a declared human id.
+- Removed restore-point spellings remain denied by session hooks as obsolete
+  authority-shaped input.
 
 ## Sources, Run Records, And External Actions
 

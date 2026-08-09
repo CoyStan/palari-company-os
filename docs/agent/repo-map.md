@@ -14,7 +14,7 @@ names stay exact because this is also a source-code map.
 - `src/palari_company_os/workspace.py`: workspace loading and split collection files.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
 - `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
-  history, restore points, verification, and crash recovery.
+  history, explicit activation, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
@@ -23,8 +23,6 @@ names stay exact because this is also a source-code map.
   transaction.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
   approval view, validation, and exact presentation digest.
-- `src/palari_company_os/checkpoints.py`: content-addressed restore-point
-  listing and append-only human restoration.
 - `src/palari_company_os/workspace_read_models.py`: product-facing exact
   Approval Inbox adapter over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
@@ -36,7 +34,8 @@ names stay exact because this is also a source-code map.
   state transitions.
 - `src/palari_company_os/authority_plan.py`: pure builder/reviewer/final-human
   role feasibility and smallest-correction diagnostics.
-- `src/palari_company_os/authoring.py`: create and update work-process records.
+- `src/palari_company_os/authoring.py`: atomic proof reconciliation, exact
+  review recording, and completion helpers.
 - `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
   and atomic `work add` quick-create for existing repos.
 - `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
@@ -104,8 +103,6 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `src/palari_company_os/integrations.py`: dry-run integration plans, decisions,
   and outbox records.
-- `src/palari_company_os/gate_profiles.py`: read-only review gate profiles.
-- `src/palari_company_os/playbooks.py`: external playbook recommendations.
 - `src/palari_company_os/review_guides.py`: read-only review guides.
 - `src/palari_company_os/governance_binding.py`: exact attempt, receipt,
   evidence, work-contract, and review proof binding.
@@ -122,8 +119,6 @@ When adding a command, update parser, dispatch, output, tests, and
 - `CLAUDE.md`: thin Claude adapter that points to shared repo truth.
 - `docs/product/current-product.md`: normative supported-product boundary,
   lifecycle, storage, adapters, and compatibility policy.
-- `docs/product/current-product-recovery-inventory.md`: measured recovery
-  baseline, capability classifications, and test/CI inventory.
 - `docs/product/self-hosting-maintainer-mode.md`: bounded source-repair
   exception, current isolation limitation, and the exact ignored-state
   follow-up design.
@@ -159,12 +154,9 @@ runtime state.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.
-- `tests/test_gate_profiles.py`: review gate recommendations.
 - `tests/test_docs.py`: docs and agent-ready documentation behavior.
 - `tests/test_approval_packs.py`: batching, staleness, authority, policy, and
   crash recovery.
-- `tests/test_reversible_checkpoints.py`: exact projection restoration,
-  append-only journal behavior, non-guarantees, and crash recovery.
 
 Prefer focused regression tests for a discovered failure mode, then run the full
 verification stack before claiming done.

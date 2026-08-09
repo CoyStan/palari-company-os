@@ -117,31 +117,11 @@ The workspace must already have writable tamper-evident history (the
 --checkpoint` activation action; Palari does not pretend the earlier history is
 continuous.
 
-## Retire Obsolete Tasks Without Calling Them Complete
+## Historical Retired Tasks
 
-When an unclaimed task is genuinely obsolete, give it an explicit final status
-through the existing update command:
-
-```bash
-palari work update WORK-OLD \
-  --status superseded \
-  --terminal-reason "A narrower contract now owns the objective." \
-  --successor-work-item-id WORK-NEW --json
-
-palari work update WORK-EXPERIMENT \
-  --status abandoned \
-  --terminal-reason "The experiment no longer earns operator attention." --json
-```
-
-`superseded` and `abandoned` close the task without claiming success. They do
-not create a run, run record, check results, review, human-decision record,
-approval, or result. A reason is required. A successor is optional, but it must name a
-different existing task.
-
-Palari rejects successor cycles, retirement during an active run, retirement
-with an open decision or unresolved external action, and retirement while other
-tasks still depend on the old task. Point each dependent task to the explicit
-successor first.
+Stored `superseded` and `abandoned` tasks remain inspectable and never count as
+completed work. The generic task-update command was removed in the minimality
+pass; create an explicit successor task for new work.
 
 Retired tasks disappear from the ordinary queue, `agent next`, and Approval
 Inbox. They remain visible through `queue --include-closed` and `detail`, and an

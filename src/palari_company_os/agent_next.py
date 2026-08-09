@@ -405,7 +405,7 @@ def _authority_correction(
     """Return the first authority-plan blocker (with its smallest correction).
 
     When the blocker is one a distinct review-only agent would resolve, attach a
-    concrete, copy-pasteable ``palari palari create`` command so a single
+    concrete, copy-pasteable ``palari reviewer add`` command so a single
     maintainer can unblock in one step instead of parsing prose.
     """
     for blocker in blockers:
@@ -428,7 +428,7 @@ def _authority_correction(
 
 
 def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
-    """Build a ``palari palari create`` command that adds an eligible reviewer.
+    """Build a ``palari reviewer add`` command that adds an eligible reviewer.
 
     The reviewer is linked to the task goal (so it is eligible to review) and is
     given review-only ``forbidden_actions`` matching what ``palari init`` seeds.
@@ -444,17 +444,9 @@ def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
     reviewer_id = "PALARI-REVIEWER"
     if reviewer_id in existing:
         reviewer_id = "PALARI-INDEPENDENT-REVIEWER"
-    forbidden = (
-        "build or modify task outputs,broaden task scope,"
-        "send external messages,record human approval"
-    )
     return (
-        f"palari palari create {reviewer_id} "
-        '--name "Independent Reviewer" '
-        '--role "Review-only AI partner" '
-        f"--owner-human {owner_human} "
-        f"--list linked_goals={goal} "
-        f'--list "forbidden_actions={forbidden}"'
+        f"palari reviewer add {reviewer_id} "
+        f"--goal {goal} --owner {owner_human}"
     )
 
 

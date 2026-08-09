@@ -160,8 +160,8 @@ Safety rules:
   path-qualified executables, unquoted pathname expansion, tree-shaped writes,
   hidden backup outputs, hook self-modification, unclassified Palari commands,
   dynamic shell indirection, and Git witness mutations even when Git global
-  options precede the subcommand. Generic work updates are blocked
-  while a claim is active, and active claims cannot be renewed against changed
+  options precede the subcommand. Generic public work updates are absent, and
+  active claims cannot be renewed against changed
   packet authority. Shell review is segment-independent: an observed allowed
   write cannot mask a later unsafe segment, and command environment assignments,
   execution-capable Git config/diff options, and `rg --pre` require review.
@@ -318,19 +318,10 @@ supports the narrower claim that those bytes were made available to the
 decision action. Neither claim proves browser pixels under compromised
 software, human attention, understanding, or judgment.
 
-Restore-point recovery is local state restoration, not external rollback.
-Sent messages, filings, payments, access changes, and provider effects cannot
-be reversed by replacing `workspace.json`. When effect-bearing run-record fields
-or a sent/failed outbox transition show that an effect occurred or may have
-occurred after the selected restore point, restoration fails closed before
-changing local state. Detection scans all committed projections after the
-earliest occurrence of the selected content digest, including when a later
-projection removed the record or returned to the same bytes. Compensation must
-be a separate governed action; it is never inferred from local restoration.
+Restore-point recovery is not part of the current product. Removed restoration
+spellings remain denied by session hooks, and external compensation must always
+be a separate governed action.
 
-`history --restore` is human-only in the supported session-hook enforcement
-boundaries. A declared human id is attribution, not authority delegation:
-agent-issued shell commands are denied before they can mutate the workspace.
 `human-decision pack` receives the same hard denial; agent Bash cannot record
 approve, reject, or defer authority through a bare, reordered, path-qualified,
 equals-form, or compound command.

@@ -205,14 +205,13 @@ A connection cannot widen a task's allowed files, sources, or actions; approve
 work; combine builder and reviewer; create human permission; bypass checks; or
 turn a queued external action into an executed one.
 
-## Parked features
+## Parked and removed features
 
-Several reachable features remain parked because maintainers could not safely
-delete or promote them: restore-point recovery, the split-collection reader,
-broad manual planning and record authoring beyond the ordinary first-use path,
-and the data-map, maintainer, gate, and playbook recommendation views. They are
-not part of the current core, do not grant permission, and carry no pre-1.0
-compatibility promise. Ordinary work must not depend on them.
+The split-collection reader remains parked pending a stored-format decision.
+The August 2026 minimality pass deleted restore-point recovery, broad manual
+record authoring, and the data-map, maintainer, gate, and playbook recommendation
+commands. Git history retains them; the installed product does not. Ordinary
+work never depended on those paths.
 
 The large roadmap is also parked as `AMBIGUOUS`: it mixes unresolved strategy
 with work that has since shipped, so it is neither current status nor an
@@ -225,11 +224,9 @@ default; git gate opt-in). Provider-specific Slack, GitHub, Jira, and email
 preview shapes, the desktop prototype, its demo schema and showcase, and Pages
 deployment are also removed. Mission Control is the one supported local human
 UI, including guarded one-task Approve for eligible reversible local work.
-Historical completion documents do not define today's product. The PR #19
-completion contracts for journal v2, golden-path repair, and universal/invisible
-adoption are archived
-under `docs/archive/pr19-contracts/` with a supersession map; they are not
-current operator docs.
+Historical completion documents do not define today's product. Superseded PR
+#19 implementation contracts remain available in Git history rather than the
+current checkout.
 
 ## Non-goals and compatibility
 

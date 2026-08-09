@@ -133,19 +133,7 @@ class DocumentationTests(unittest.TestCase):
 
     def test_historical_implementation_docs_are_not_current_product_docs(self) -> None:
         archive = REPO_ROOT / "docs/archive"
-        allowed_archive = {
-            archive / "pr19-contracts" / "README.md",
-            archive / "pr19-contracts" / "SUPERSESSION.md",
-            archive / "pr19-contracts" / "compact-journal-v2-contract.md",
-            archive / "pr19-contracts" / "golden-path-repair-contract.md",
-            archive / "pr19-contracts" / "invisible-adoption-foundation-contract.md",
-            archive / "pr19-contracts" / "invisible-product-surface-contract.md",
-            archive / "pr19-contracts" / "universal-agent-adoption-contract.md",
-        }
-        self.assertEqual(
-            {path for path in archive.rglob("*") if path.is_file()},
-            allowed_archive,
-        )
+        self.assertEqual({path for path in archive.rglob("*") if path.is_file()}, set())
         self.assertFalse((REPO_ROOT / "docs/plans").exists())
         self.assertFalse((REPO_ROOT / "docs/research").exists())
         self.assertFalse((REPO_ROOT / "docs/product/ai-ops-memory-roadmap-review.md").exists())

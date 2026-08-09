@@ -43,16 +43,16 @@ record a new review. Reviews tied to an exact version are immutable.
 
 ## `evidence manifest verification failed`
 
-Run:
+Rerun the supported reconciler for the task:
 
 ```bash
-palari evidence verify EVIDENCE-ID --json
+palari agent advance WORK-ID --as PALARI-ID --refresh-verification --json
 ```
 
 Palari stops when the manifest is missing, the exact run record is missing or
 mismatched, an output changed, an output path is unsafe, or the run record no
-longer matches its hash. Record a fresh run record (`receipt`) first, then fresh
-check results (`evidence`) for the current run version.
+longer matches its hash. `agent advance` regenerates the coupled run record and
+check results for the current run version when that is safe.
 
 ## `Git baseline ...` or unexpected file-boundary failure
 
@@ -86,7 +86,7 @@ one to approve.
 palari agent next --as PALARI-ID
 ```
 
-Run the printed `fix:` command (a `palari palari create ...` that adds an
+Run the printed `fix:` command (a `palari reviewer add ...` that adds an
 independent review-only agent), then re-run `agent next`. `palari init` seeds
 this review-only agent for new workspaces, so a freshly initialized workspace
 does not hit this.

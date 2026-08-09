@@ -32,6 +32,18 @@ strengthens the core rules and checks or adds optional surface area.
 - Add narrow adapters before generic provider frameworks.
 - Prefer one local file and one explicit command over hidden orchestration.
 
+## Size Budget
+
+The August 2026 baseline was 56,122 production Python lines and 146 parser
+commands. The first minimality pass reduced that to at most 53,100 lines and 81
+commands without removing the supported lifecycle or adapters. `check_style.py`
+enforces the production ceiling.
+
+An 80% reduction would mean roughly 11,224 production lines. That remains a
+useful architecture challenge, not a license to compress safety logic or remove
+supported behavior. Further cuts must first prove equivalent init → bounded
+work → advance → independent review → human approval → proof behavior.
+
 ## Review Questions
 
 Before merging a feature, ask:

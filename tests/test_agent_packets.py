@@ -317,9 +317,9 @@ class AgentPacketProjectionTests(unittest.TestCase):
         # The correction is actionable: a concrete command that adds an eligible
         # review-only agent linked to the task goal.
         command = authority["next_command"]
-        self.assertIn("palari create PALARI-REVIEWER", command)
-        self.assertIn("--owner-human HUMAN-OWNER", command)
-        self.assertIn("linked_goals=GOAL-PACKET", command)
+        self.assertIn("reviewer add PALARI-REVIEWER", command)
+        self.assertIn("--owner HUMAN-OWNER", command)
+        self.assertIn("--goal GOAL-PACKET", command)
 
     def test_agent_next_authority_correction_omits_command_for_missing_approver(
         self,

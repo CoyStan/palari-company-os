@@ -214,14 +214,14 @@ def _check_attempt_closeout(
                 TransitionBlocker(
                     "EVIDENCE_MISSING",
                     f"attempt {attempt_id} cannot close out without evidence for head {head_sha}",
-                    (
-                        "palari evidence record EVIDENCE-ID "
-                        f"--work-item-id {attempt.work_item_id} --attempt-id {attempt_id} "
-                        f"--head-sha {head_sha} --status passed --json"
-                    ),
+                    f"palari agent advance {attempt.work_item_id} "
+                    f"--as {attempt.actor or 'PALARI-ID'} --json",
                 )
             )
-    next_commands.append(f"palari attempt closeout {attempt_id} --json")
+    next_commands.append(
+        f"palari agent advance {attempt.work_item_id} "
+        f"--as {attempt.actor or 'PALARI-ID'} --json"
+    )
 
 
 def _check_evidence_record(
@@ -259,8 +259,8 @@ def _check_evidence_record(
     if _evidence(workspace, evidence_id) is not None and not context.get("allow_existing"):
         blockers.append(TransitionBlocker("EVIDENCE_EXISTS", f"evidence already exists: {evidence_id}"))
     next_commands.append(
-        f"palari evidence record {evidence_id or 'EVIDENCE-ID'} "
-        f"--work-item-id {work_id or 'WORK-ID'} --attempt-id {attempt_id or 'ATTEMPT-ID'} --json"
+        f"palari agent advance {work_id or 'WORK-ID'} "
+        f"--as {attempt.actor or 'PALARI-ID'} --json"
     )
 
 
@@ -576,7 +576,7 @@ def _check_acceptance_prerequisites(
             )
             blockers.append(_candidate_blocker(work_id, candidate, diagnostic))
     next_commands.append(
-        f"palari work accept {work_id} --by HUMAN-ID --reviewed-head HEAD --json"
+        f"palari queue --approval-inbox --select {work_id} --json"
     )
     return candidate
 

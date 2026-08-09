@@ -183,11 +183,10 @@ when they need that orientation. Missing docs are low context, not a work
 blocker; use `palari docs init --dry-run --json` to inspect the proposed starter
 set.
 
-## Suggested Review Checks
+## Review Focus
 
-`palari gate recommend WORK-ID --json` is a read-only companion to task briefs
-and review guides. It does not review work or grant approval. It chooses the
-review checks likely to matter for the selected task:
+Task briefs and exact review guides identify the checks likely to matter for
+the selected task:
 
 - prompt permission
 - source boundary
@@ -197,11 +196,8 @@ review checks likely to matter for the selected task:
 - privacy/multimodal
 - product overclaim
 
-Each suggested check includes a reviewer role, what to inspect, a blocker
-checklist, required check results, and the accept-ready standard. Simple
-low-risk work can return `no_special_gate_required: true`; that means use the
-normal run-record/check/review loop, not that review is waived where the task
-requires it.
+The guide includes the reviewer role, what to inspect, current run/check
+context, and exact verdict actions. It does not review work or grant approval.
 
 ## Task Brief Status
 
@@ -416,8 +412,8 @@ duplicate, symlinked, mismatched, or undeclared paths fail closed. Tasks
 without `path_intents` keep their historical presence-required behavior.
 Execute-mode hooks additionally rebuild the current task brief from project
 truth before granting writes, so coordinated edits to a brief and task lock
-cannot expand the task limits. A generic `work update` cannot mutate a task
-while any local lock is active, and `agent start` refuses to renew an active
+cannot expand the task limits. There is no generic public task-update command,
+and `agent start` refuses to renew an active
 lock when the current project would compile different permissions. After release or
 expiry, a same-ID execution-contract change still cannot start: exact
 baseline/current authority comparison fails before lease creation and final
@@ -494,8 +490,8 @@ When the next step is a human handoff, `agent finish` also returns
 `handoff_guidance`. Review handoffs point to `review guide`, which includes
 review focus, run-record limits, and concrete exact review record commands for
 each supported verdict. Placeholder templates are explicitly non-executable.
-Decision handoffs point to `decision guide`, which includes suggested decision
-update commands. The agent still does not record those human actions itself.
+Decision handoffs point to `decision guide`, which presents the question and
+safe options. The agent still does not record human authority itself.
 
 `agent handoff` compiles the final handoff brief for that moment. It wraps the
 `agent finish` result and includes compact `review guide` or `decision guide`
@@ -578,11 +574,9 @@ authors.
 
 ## Historical adoption contracts
 
-Early universal-adoption and invisible-surface completion contracts from
-PR #19 are archived under `docs/archive/pr19-contracts/`. Current adoption
-behavior is defined by this document, the command reference, and
-`palari init --host …` / host install commands — not by those archived
-checklists.
+Early universal-adoption and invisible-surface completion contracts remain in
+Git history. Current adoption behavior is defined by this document, the command
+reference, and `palari init --host …` / host install commands.
 
 The same local Git repository holds expiring task-lock leases under
 `refs/palari/leases/`. They prevent two linked worktrees from treating the same
