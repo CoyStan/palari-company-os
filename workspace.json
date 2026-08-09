@@ -3847,7 +3847,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Replace the copied browser fixture with the current accepted PCAW vector.",
       "allowed_resources": [
         "verify/fixtures/accepted/statement.json"
@@ -3876,7 +3876,8 @@
           "path": "verify/fixtures/accepted/statement.json",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A"
     }
   ],
   "attempts": [
@@ -5592,6 +5593,30 @@
         "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
         "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
         "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A",
+      "work_item_id": "WORK-1EC60B2EC46F4965A3038C3963BF4377",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "67a1bcdc3fa644c9263f95a6790e872f2d72508b",
+      "allowed_paths": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "started_at": "2026-08-09T22:34:29Z",
+      "head_sha": "acefc9ff9a5a6aabe22a1804ed33ddc059dd0806",
+      "commits": [
+        "acefc9ff9a5a6aabe22a1804ed33ddc059dd0806"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T22:34:29Z",
+      "changed_files": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "output_targets": [
+        "verify/fixtures/accepted/statement.json"
       ]
     }
   ],
@@ -7965,6 +7990,33 @@
       "receipt_hash": "sha256:148fad9059fcb03e2a326a7e4c0e0cd08be1127e7f6c1a8a3e7e9a5414c28dea",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:b000ebfd538703f9d783209861c2a89bc2c99d4de52919897315e4b3de139528"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A",
+      "work_item_id": "WORK-1EC60B2EC46F4965A3038C3963BF4377",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A",
+      "head_sha": "acefc9ff9a5a6aabe22a1804ed33ddc059dd0806",
+      "status": "passed",
+      "base_ref": "67a1bcdc3fa644c9263f95a6790e872f2d72508b",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-EBF001E078328BE1 sha256:e6e52b732cdcbe3d482442f481b8b6edef09cc599fb01838ebf001e078328be1"
+      ],
+      "artifacts": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "verify/fixtures/accepted/statement.json",
+          "sha256": "sha256:3e8aca3d1a252419480fbb3a06c04268bb7943474a519ca46b8ccd5e32b29cac",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T22:34:29Z",
+      "receipt_hash": "sha256:52be1cbb44ca115609a0f242a766ba0ca71bdcdbe5776e8b497756a3e0d2b763",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:22274930daba2f9bafd7aaefb85bfc2b680e123880b6789da4346984471c3037"
     }
   ],
   "review_verdicts": [
@@ -9947,6 +9999,30 @@
       ],
       "timestamp": "2026-08-09T22:32:12Z",
       "receipt_hash": "sha256:148fad9059fcb03e2a326a7e4c0e0cd08be1127e7f6c1a8a3e7e9a5414c28dea"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A",
+      "work_item_id": "WORK-1EC60B2EC46F4965A3038C3963BF4377",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-1EC60B2EC46F4965A3038C3963BF4377-ACEFC9FF9A5A",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 1 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "timestamp": "2026-08-09T22:34:29Z",
+      "receipt_hash": "sha256:52be1cbb44ca115609a0f242a766ba0ca71bdcdbe5776e8b497756a3e0d2b763"
     }
   ],
   "decisions": [],
