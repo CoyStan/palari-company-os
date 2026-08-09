@@ -530,6 +530,431 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491"
+    },
+    {
+      "id": "WORK-F1B3D289508F4A3E8E10C663C121B534",
+      "title": "Let agents add safe work ideas",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "blocked",
+      "scope": "Add an agent-created idea mode to work add; ideas grant no authority, and only a human may approve one into a task.",
+      "allowed_resources": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "conflict_targets": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Agents can add bounded ideas, human approval creates an equivalent task, direct task creation remains compatible, and all checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_work_ideas tests.test_claude_hooks",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "tests/test_work_ideas.py",
+          "intent": "create"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/proposals.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/work_identity.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/transition_checks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/linear_adapter.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/claude-code-integration.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/documentation-freshness.md",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-PARK-17C1F67A7C381E3C21A8B608"
+    },
+    {
+      "id": "WORK-87721E1D3240463392995829230E3275",
+      "title": "Let agents add safe work ideas",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Add an agent-created idea mode to work add; ideas grant no authority, and only a human may approve one into a task. This successor corrects the stored-link validation boundary.",
+      "allowed_resources": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "conflict_targets": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Agents can add bounded ideas, human approval creates an equivalent task, direct task creation remains compatible, and all checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_work_ideas tests.test_claude_hooks",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "tests/test_work_ideas.py",
+          "intent": "create"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/proposals.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/work_identity.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/workspace.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/transition_checks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/linear_adapter.py",
+          "intent": "modify"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/claude-code-integration.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/documentation-freshness.md",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB"
     }
   ],
   "attempts": [
@@ -866,6 +1291,146 @@
         "README.md",
         "AGENTS.md",
         "tests/test_docs.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-PARK-17C1F67A7C381E3C21A8B608",
+      "work_item_id": "WORK-F1B3D289508F4A3E8E10C663C121B534",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "b57a7397353881bffedac401f5698f3f109e82b4",
+      "head_sha": "b57a7397353881bffedac401f5698f3f109e82b4",
+      "changed_files": [],
+      "allowed_paths": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "claim_id": "775d6c735edf493d81a4324830713aa8",
+      "claim_expires_at": "2026-08-09T18:41:37Z",
+      "cleanliness": "clean",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create a corrected successor task that also permits src/palari_company_os/workspace.py, then implement the same bounded idea flow.\",\"observation\":{\"all_changed_paths\":[],\"base_sha\":\"b57a7397353881bffedac401f5698f3f109e82b4\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"b57a7397353881bffedac401f5698f3f109e82b4\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/governance-journal.v1.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[],\"missing_required_outputs\":[\"README.md\",\"docs/agent/common-workflows.md\",\"docs/agent/contracts-and-invariants.md\",\"docs/agent/documentation-freshness.md\",\"docs/agent/repo-map.md\",\"docs/product/agent-contract.md\",\"docs/product/claude-code-integration.md\",\"docs/product/command-reference.md\",\"docs/product/core-objects.md\",\"docs/product/current-product.md\",\"docs/product/public-surface.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/claude_hooks.py\",\"src/palari_company_os/cli_dispatch.py\",\"src/palari_company_os/cli_output.py\",\"src/palari_company_os/cli_parser.py\",\"src/palari_company_os/linear_adapter.py\",\"src/palari_company_os/models.py\",\"src/palari_company_os/onramp.py\",\"src/palari_company_os/proposals.py\",\"src/palari_company_os/transition_checks.py\",\"src/palari_company_os/validation.py\",\"src/palari_company_os/work_identity.py\",\"tests/test_claude_hooks.py\",\"tests/test_work_ideas.py\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"absent\",\"intent\":\"create\",\"path\":\"tests/test_work_ideas.py\",\"reason\":\"Create intent requires the exact path to be a file.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/cli_parser.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/cli_dispatch.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/cli_output.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/onramp.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/proposals.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/work_identity.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/models.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/claude_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/transition_checks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/linear_adapter.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"schemas/workspace.schema.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_claude_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/command-reference.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/core-objects.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/claude-code-integration.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/public-surface.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/repo-map.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/common-workflows.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/documentation-freshness.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"775d6c735edf493d81a4324830713aa8\",\"claim_workspace_file_hash\":\"sha256:c7954e39a86807b12a9e7d93b2a342cfbf2bfdb6554fb04ab39ec59fa152e14d\",\"context_hash\":\"sha256:b6c44f19bde88d99b0e8920efffbceec8b55f7eb05e92ddb677200ee0a1d1520\",\"git_lease_oid\":\"9c5704614fa38caeda7f5190808806a4b417d69d\",\"git_lease_ref\":\"refs/palari/leases/WORK-F1B3D289508F4A3E8E10C663C121B534-1a64c61eb85a\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:b90f4596e2ea3219fe82261b696ca2cd84024b6d4b57c88a1b85923ff80620ea\",\"packet_id\":\"PACKET-WORK-F1B3D289508F4A3E8E10C663C121B534-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-F1B3D289508F4A3E8E10C663C121B534-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:83651f90ec7dd6943f13c2a23934eeec93ce119b2de22354f55d9fa7477f3814\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The task boundary omitted src/palari_company_os/workspace.py, which must validate the project and dependency links added to bounded ideas. It was inspected, but no product file was changed.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:3554e3f4d2965fd8c60ee14357a590f5abbf59aeaccc2f05c388424362d9e8db\"}",
+      "started_at": "2026-08-09T18:11:37Z"
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "b57a7397353881bffedac401f5698f3f109e82b4",
+      "allowed_paths": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
+      ],
+      "started_at": "2026-08-09T18:25:14Z",
+      "head_sha": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950",
+      "commits": [
+        "a6ca2ddb00cb96186fa9c053fe54a0e505b51950"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T18:25:14Z",
+      "changed_files": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/workspace.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_work_ideas.py"
+      ],
+      "output_targets": [
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/workspace.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "README.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/core-objects.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/public-surface.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/documentation-freshness.md"
       ]
     }
   ],
@@ -1767,6 +2332,185 @@
       "receipt_hash": "sha256:cba1d822e473e26723c7eb4d7e3adf6f9e1b9983b9009730230cbea98694a141",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:a284746fb278598dfdcc940249fde95fc66a2b9e214ad42b6ef6fb2748501d75"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "head_sha": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950",
+      "status": "passed",
+      "base_ref": "b57a7397353881bffedac401f5698f3f109e82b4",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-82444621BF9246E8 sha256:a934015be2dbe4107516a3c64e6a1a92f61d02babf67a30282444621bf9246e8",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-3332009634283A69 sha256:d850af62962d776d519403c9dafe285352e09c2beb1247e83332009634283a69",
+        "docs-check attestation VERIFY-DOCS-CHECK-AA02849C528B20F2 sha256:cbc1a408112be2d2e9c91d4532d79aea8ea4e95930bb1f94aa02849c528b20f2"
+      ],
+      "artifacts": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/workspace.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_work_ideas.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "README.md",
+          "sha256": "sha256:0e9445c3553d35a9229bd39551cee7f7fa396080d5c59bfce66117d958ea5903",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:8354d4e7e8fdc9b112c8e5c1f299fa7b464ff01b87baf02b4128d470268d8508",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:5b9c94cc73429d76c60ddfbe5794a510cd7e133f6cee99969166cf06694aceb9",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/documentation-freshness.md",
+          "sha256": "sha256:12c3767adda67fea2b46402f0355d5673b94617b8b9728a8ee217493694758cd",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:90cb6fd4957a06e1fd9a0a21c471c26b19d5bc101b239f50af10af02d9918924",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:62c19e7c7ec7e8fa73e795d58fbf846f156251a987c95d9e6cc894164cfa1d4c",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/claude-code-integration.md",
+          "sha256": "sha256:eeac786e96954bf38b76f24053fa63bbddd1fec9dca7821de8a774c6541ccf1d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:e2dc1269a666d66333ec6e5da6be62707d8b58ea93a7bb7b40f7baa462e8a7d8",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "sha256": "sha256:95952c1b0a3310d3667dbac3b3995d428d49ce01c182e3f9eea3c3af8ef1a7f8",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "sha256": "sha256:b92aa71dca628ea19827c165e6f9ae03182280cda4c3d2d98bba459b5fd89389",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "sha256": "sha256:87971f6249c706780e50aaa535b8938ff9ba477b01d743b781373f2b03df1ebc",
+          "status": "present"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:045667c697e8636fc0ae7b0ad0ecfaf9fec4fdf3770f451584975376a0ec775d",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/claude_hooks.py",
+          "sha256": "sha256:404a3f3fb320f7bc160167d5f88e33ece1244bb30fd40ee0b67e004c0e4aa51c",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_dispatch.py",
+          "sha256": "sha256:c444f9cafa0a4bd1685cc0d9caa628f2d4de0f9876163de064914590f7977923",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output.py",
+          "sha256": "sha256:2170608fff856962eaac81b2b0edffbf2dff7118df2587b94dbfc74732333b0d",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:1b2abc0f089c34823c30bf956d7b7c279bc2a0cb0f586c0eac6277981f24145a",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/linear_adapter.py",
+          "sha256": "sha256:e7f838bf8cfc579d2dce48f28fc3a2d8e85b4e32be4815805dec7bd158a47b87",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/models.py",
+          "sha256": "sha256:3a54400f725e0a829845da080a1e910b475ac26a7f4b936bdef2b0056145bf88",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "sha256": "sha256:345656bd4df2ae0c87ad2f09ae1f35ec4bbe5dd6ce4aeb205e24f57a63bd9107",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/proposals.py",
+          "sha256": "sha256:c92ea346378bc35f62195fe73d2d0f8b512262f486be691d0d227640cf3feafd",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/transition_checks.py",
+          "sha256": "sha256:5a8eb0fb1df98283a29dc5ce867ddfb7cf47ca92ad8f7e72398b6a11c22a59ac",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:1d29892c5ffb74e7eeb8e9a91d7b1aacb87e176a396d22b83b6ee0da664a24a7",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/work_identity.py",
+          "sha256": "sha256:a1c095a6bbe2243b01d9eb63c33538bd416b74de823ca48b0c918c6946db0753",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/workspace.py",
+          "sha256": "sha256:d1faf15745336292c9d3752a98f5f7ff9c07a3acf0a2ab0da5301740a0886204",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "sha256": "sha256:151c246209321808b98305a23ac0752b250bc1ee2d3fbc2ff5b84fd530d6a889",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_work_ideas.py",
+          "sha256": "sha256:9c4c63045e540c3188e7bfe75b42e575f009cdfe01702ce5414ce389368ab3b0",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T18:25:14Z",
+      "receipt_hash": "sha256:3397fdbe0ac4df68425f4202669bd30c8ee9d0c5c776a17345d87fcebe772701",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:acbf4e652d499894774fcb386046b9cbb34415ef8b333b2e9947a691baffc81e"
     }
   ],
   "review_verdicts": [
@@ -1811,6 +2555,23 @@
       "receipt_hash": "sha256:5f39909de3f02f90997c76f0457103d017b43bddd8eccea887f135d2998e0054",
       "work_contract_hash": "sha256:d6af991f5405c9cdc7b659ea68a5cc5d8667be52ee720fa3119b92bea966ab5f",
       "proof_hash": "sha256:0c7ac80e0af116481fb5e21e083ccdfca1d8702f23a071e6bd2dc7b3dd379745"
+    },
+    {
+      "id": "REVIEW-8D1176D37928BCCE8B4E5FC0",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "reviewed_head": "a6ca2ddb00cb96186fa9c053fe54a0e505b51950",
+      "reviewer": "PALARI-REVIEWER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-08-09T18:27:43.883646Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "attempt_hash": "sha256:dce5f39e8414570be882e806817f4123d003762f1131e61dea3147a16ae8c241",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "evidence_manifest_hash": "sha256:acbf4e652d499894774fcb386046b9cbb34415ef8b333b2e9947a691baffc81e",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "receipt_hash": "sha256:3397fdbe0ac4df68425f4202669bd30c8ee9d0c5c776a17345d87fcebe772701",
+      "work_contract_hash": "sha256:c4f10e4d1ac47a3c59cda9c2173d158a36caacd488c87704c17fddf995a5ea35",
+      "proof_hash": "sha256:3c47336d3f3a871fec66ae68af414b86481bc9b6aac1a943d11906f833592747"
     }
   ],
   "human_decisions": [
@@ -2505,6 +3266,80 @@
       ],
       "timestamp": "2026-08-09T17:56:51Z",
       "receipt_hash": "sha256:cba1d822e473e26723c7eb4d7e3adf6f9e1b9983b9009730230cbea98694a141"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "work_item_id": "WORK-87721E1D3240463392995829230E3275",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-87721E1D3240463392995829230E3275-A6CA2DDB00CB",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 26 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/workspace.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_work_ideas.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/claude-code-integration.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/public-surface.md",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/cli_dispatch.py",
+        "src/palari_company_os/cli_output.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/workspace.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_work_ideas.py"
+      ],
+      "timestamp": "2026-08-09T18:25:14Z",
+      "receipt_hash": "sha256:3397fdbe0ac4df68425f4202669bd30c8ee9d0c5c776a17345d87fcebe772701"
     }
   ],
   "decisions": [],
@@ -2563,7 +3398,21 @@
         "docs/product/plain-language.md",
         "docs/product/core-objects.md",
         "docs/product/glossary.md",
-        "tests/test_docs.py"
+        "tests/test_docs.py",
+        "tests/test_work_ideas.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/proposals.py",
+        "src/palari_company_os/work_identity.py",
+        "src/palari_company_os/models.py",
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/claude_hooks.py",
+        "src/palari_company_os/transition_checks.py",
+        "src/palari_company_os/linear_adapter.py",
+        "schemas/workspace.schema.json",
+        "tests/test_claude_hooks.py",
+        "docs/product/claude-code-integration.md",
+        "docs/agent/common-workflows.md",
+        "src/palari_company_os/workspace.py"
       ]
     }
   ],
