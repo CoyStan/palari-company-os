@@ -4126,7 +4126,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "blocked",
       "scope": "Remove the old-workspace checkpoint upgrade path while keeping current workspace creation and manual continuity-break repair.",
       "allowed_resources": [
         "src/palari_company_os/governance_journal.py",
@@ -4290,7 +4290,8 @@
           "path": "spec/pcaw/v1/README.md",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-PARK-5EC6156DFBABAAE6223AB8E8"
     }
   ],
   "attempts": [
@@ -6145,6 +6146,42 @@
         "docs/product/security.md",
         "tests/test_approval_packs.py"
       ]
+    },
+    {
+      "id": "ATTEMPT-PARK-5EC6156DFBABAAE6223AB8E8",
+      "work_item_id": "WORK-2F068D05A5AA43A6BF75DC697EB0090D",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "1ba5aea0522a1fc7be2f0869a02c61fad5577455",
+      "head_sha": "1ba5aea0522a1fc7be2f0869a02c61fad5577455",
+      "changed_files": [],
+      "allowed_paths": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/agent_parking.py",
+        "spec/pcaw/v1/trusted-code.json",
+        "tests/test_governance_journal.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "AGENTS.md",
+        "README.md",
+        "docs/product/current-product.md",
+        "docs/product/security.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/agent-contract.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "spec/pcaw/v1/README.md"
+      ],
+      "claim_id": "8036e343646a4f6d953cae90021471e7",
+      "claim_expires_at": "2026-08-09T23:53:57Z",
+      "cleanliness": "clean",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create a corrected task without that manifest, restore the bounded edits, and run the declared checks.\",\"observation\":{\"all_changed_paths\":[],\"base_sha\":\"1ba5aea0522a1fc7be2f0869a02c61fad5577455\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"1ba5aea0522a1fc7be2f0869a02c61fad5577455\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[],\"missing_required_outputs\":[\"AGENTS.md\",\"README.md\",\"docs/agent/common-workflows.md\",\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/command-reference.md\",\"docs/product/current-product.md\",\"docs/product/lifecycle-guide.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"docs/product/source-of-truth.md\",\"spec/pcaw/v1/README.md\",\"spec/pcaw/v1/trusted-code.json\",\"src/palari_company_os/agent_parking.py\",\"src/palari_company_os/governance_journal.py\",\"tests/test_agent_advance.py\",\"tests/test_governance_journal.py\",\"tests/test_governance_kernel.py\",\"tests/test_operator_journeys.py\",\"tests/test_store_journal_integration.py\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/governance_journal.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_parking.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"spec/pcaw/v1/trusted-code.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_journal.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_store_journal_integration.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_operator_journeys.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_kernel.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"AGENTS.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/security.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/lifecycle-guide.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/source-of-truth.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/schema-and-validation.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/common-workflows.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/command-reference.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"spec/pcaw/v1/README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"8036e343646a4f6d953cae90021471e7\",\"claim_workspace_file_hash\":\"sha256:959423253c2f7727261b46c4ba87a6e0e96655c196af75c08ec306a3e4eb4d67\",\"context_hash\":\"sha256:80b80ca04b9e70e64abb051cc034990e698d3009c9a3afdfac7b30b822b77454\",\"git_lease_oid\":\"03e93b53e62e138cfe04533f439814b6157cd875\",\"git_lease_ref\":\"refs/palari/leases/WORK-2F068D05A5AA43A6BF75DC697EB0090D-a8a06c23e64f\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:d4fcc12b6b2de13cb97e85dc707e4dde7ad5acae5e107eecb75f6046e6c65bdb\",\"packet_id\":\"PACKET-WORK-2F068D05A5AA43A6BF75DC697EB0090D-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-2F068D05A5AA43A6BF75DC697EB0090D-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:4c147fc2d7f4f6d80311770fa0c38951b8702813a2a7b6e2314dd438fcc809d4\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The task included a generated manifest that this code path does not affect.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:c3bf4a46822695323a3e8a8c87f815ae6952ed18a62205ed49293f9fe71a75b3\"}",
+      "started_at": "2026-08-09T23:23:57Z"
     }
   ],
   "evidence_runs": [
