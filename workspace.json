@@ -4459,7 +4459,8 @@
           "path": "spec/pcaw/v1/README.md",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324"
     }
   ],
   "attempts": [
@@ -6350,6 +6351,84 @@
       "cleanliness": "clean",
       "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create a corrected task without that manifest, restore the bounded edits, and run the declared checks.\",\"observation\":{\"all_changed_paths\":[],\"base_sha\":\"1ba5aea0522a1fc7be2f0869a02c61fad5577455\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"1ba5aea0522a1fc7be2f0869a02c61fad5577455\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[],\"missing_required_outputs\":[\"AGENTS.md\",\"README.md\",\"docs/agent/common-workflows.md\",\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/command-reference.md\",\"docs/product/current-product.md\",\"docs/product/lifecycle-guide.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"docs/product/source-of-truth.md\",\"spec/pcaw/v1/README.md\",\"spec/pcaw/v1/trusted-code.json\",\"src/palari_company_os/agent_parking.py\",\"src/palari_company_os/governance_journal.py\",\"tests/test_agent_advance.py\",\"tests/test_governance_journal.py\",\"tests/test_governance_kernel.py\",\"tests/test_operator_journeys.py\",\"tests/test_store_journal_integration.py\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/governance_journal.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_parking.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"spec/pcaw/v1/trusted-code.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_journal.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_store_journal_integration.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_operator_journeys.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_governance_kernel.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"AGENTS.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/security.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/lifecycle-guide.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/source-of-truth.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/schema-and-validation.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/common-workflows.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/command-reference.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"spec/pcaw/v1/README.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"8036e343646a4f6d953cae90021471e7\",\"claim_workspace_file_hash\":\"sha256:959423253c2f7727261b46c4ba87a6e0e96655c196af75c08ec306a3e4eb4d67\",\"context_hash\":\"sha256:80b80ca04b9e70e64abb051cc034990e698d3009c9a3afdfac7b30b822b77454\",\"git_lease_oid\":\"03e93b53e62e138cfe04533f439814b6157cd875\",\"git_lease_ref\":\"refs/palari/leases/WORK-2F068D05A5AA43A6BF75DC697EB0090D-a8a06c23e64f\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:d4fcc12b6b2de13cb97e85dc707e4dde7ad5acae5e107eecb75f6046e6c65bdb\",\"packet_id\":\"PACKET-WORK-2F068D05A5AA43A6BF75DC697EB0090D-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-2F068D05A5AA43A6BF75DC697EB0090D-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:4c147fc2d7f4f6d80311770fa0c38951b8702813a2a7b6e2314dd438fcc809d4\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The task included a generated manifest that this code path does not affect.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:c3bf4a46822695323a3e8a8c87f815ae6952ed18a62205ed49293f9fe71a75b3\"}",
       "started_at": "2026-08-09T23:23:57Z"
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "1b81048231dc454a49fb29ac5e0d0673ca7aac36",
+      "allowed_paths": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/agent_parking.py",
+        "tests/test_governance_journal.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "AGENTS.md",
+        "README.md",
+        "docs/product/current-product.md",
+        "docs/product/security.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/agent-contract.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "spec/pcaw/v1/README.md"
+      ],
+      "started_at": "2026-08-09T23:32:56Z",
+      "head_sha": "a862a7e5e32451ac2a1d7a76f04b7004b586692d",
+      "commits": [
+        "a862a7e5e32451ac2a1d7a76f04b7004b586692d"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T23:32:56Z",
+      "changed_files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "spec/pcaw/v1/README.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_store_journal_integration.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/agent_parking.py",
+        "tests/test_governance_journal.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_kernel.py",
+        "AGENTS.md",
+        "README.md",
+        "docs/product/current-product.md",
+        "docs/product/security.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/agent-contract.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/command-reference.md",
+        "spec/pcaw/v1/README.md"
+      ]
     }
   ],
   "evidence_runs": [
@@ -8935,6 +9014,143 @@
       "receipt_hash": "sha256:964d8c097ab04fe367098d535c5c2d97c366ede2d4b57e9b6be9c55ecff0ae96",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:989d532a06efc71ac6edcfb5b0583d0f56d1a652e5f777dc91e25e15cea8dd32"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "head_sha": "a862a7e5e32451ac2a1d7a76f04b7004b586692d",
+      "status": "passed",
+      "base_ref": "1b81048231dc454a49fb29ac5e0d0673ca7aac36",
+      "commands": [
+        "complete attestation VERIFY-COMPLETE-DB4B031FE413F696 sha256:a693fa922c78bfe703907556bed9241b1aed324f4d49687adb4b031fe413f696",
+        "install-smoke attestation VERIFY-INSTALL-SMOKE-1D32EC889458D874 sha256:5512bc9d939302fb032ff269d55aa9d4dfe96d00d616caef1d32ec889458d874",
+        "docs-check attestation VERIFY-DOCS-CHECK-93C63A9549F168C9 sha256:70552c2640b53c066fd32645e93d69c6aaeecf9de216866893c63a9549f168c9"
+      ],
+      "artifacts": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "spec/pcaw/v1/README.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_store_journal_integration.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "sha256:83d01582aae00c412573cc78cd6849f17f04ae8fd7ad621f8f40cf801f0b8801",
+          "status": "present"
+        },
+        {
+          "path": "README.md",
+          "sha256": "sha256:10476917f84af01289259fc04016176cddafa024e63930673c2b09f78a8a3675",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:bd7f93c720780294b545f89df359f0a037de6a4cb56d59e3f33e3a72787df285",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:fe1eb5a59d7071355d780678ce82294fcacce20674dad0cb7a9253924b46f680",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:d39d8eb2fb7a1e6aa661e230f89940b3da6172a72cb8cba1788681722e1da0b0",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:335520469bab753ba62aaeaa068c1b472a79b414def2c48e675949a9314f4553",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "sha256": "sha256:dd76acbe3407c68f464b8ee2f4e80334697350b34fefcaced8c0937284b598cb",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "sha256": "sha256:f26a1b524ee6115228c59079b2707dc3d24e45290e0c778588bd3e7da3585579",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "sha256": "sha256:11c825c3d71ea7e06ad71afb458f1e050d2fd63d1bac167677ccee97348202bc",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:ef04ac36ab15fe4fb123ac746d96662566bd54a2725464d530cecfd8f23138e5",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "sha256": "sha256:03c0d84f0a6909e5c48edb3f9adf0a9c0716a3846f86f90c2115340254a96e9f",
+          "status": "present"
+        },
+        {
+          "path": "spec/pcaw/v1/README.md",
+          "sha256": "sha256:c1a885e7821e77d0ca6094e24943b83f99277609ce5a052ba851081e57c837e7",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "sha256": "sha256:51f17d81cc9cbb71401dc87899f0068c99d5b545df09108c27841ee0bccec526",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/governance_journal.py",
+          "sha256": "sha256:c0dfa1a725698118f73a47ee0518bfb8fa17783d28614e2fe169da61805c00ad",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:74d5792df076bc7eba18a30cf102a834460538c7abf6db9a8684dc8d8e3436ee",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_governance_journal.py",
+          "sha256": "sha256:a0af13de580fb5b6116a390dc6680231512cd97fb9afb338c5195ae25aebd2eb",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_governance_kernel.py",
+          "sha256": "sha256:667575500f9b477c79c6ae12108c652aa2c9a454da0f983ffa3fcc6dd9904a48",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_operator_journeys.py",
+          "sha256": "sha256:26b9a2e6a6693c5d43d0d46373efd69d134eb19b5e55dde5adfd8264f274096a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_store_journal_integration.py",
+          "sha256": "sha256:9cb8174139ece509358e944a5ed05478740298d2a0d39f54c26a02f2d2cae3c3",
+          "status": "present"
+        }
+      ],
+      "summary": "3 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T23:32:56Z",
+      "receipt_hash": "sha256:8b3f11f580950e598f8f0f025764898bd361e1201f507e57b5334fa6bb33b46a",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:bb6d282fc0367ae830b68ac32b3549267e3c2e84c8fd6a4abba845660771ab20"
     }
   ],
   "review_verdicts": [
@@ -11033,6 +11249,66 @@
       ],
       "timestamp": "2026-08-09T23:21:05Z",
       "receipt_hash": "sha256:964d8c097ab04fe367098d535c5c2d97c366ede2d4b57e9b6be9c55ecff0ae96"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 19 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "spec/pcaw/v1/README.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_store_journal_integration.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "spec/pcaw/v1/README.md",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/governance_journal.py",
+        "tests/test_agent_advance.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_kernel.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_store_journal_integration.py"
+      ],
+      "timestamp": "2026-08-09T23:32:56Z",
+      "receipt_hash": "sha256:8b3f11f580950e598f8f0f025764898bd361e1201f507e57b5334fa6bb33b46a"
     }
   ],
   "decisions": [],
