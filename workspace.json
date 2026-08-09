@@ -2935,7 +2935,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Remove support for tasks and proposals that rely on output or read paths when exact path rules are missing.",
       "allowed_resources": [
         "src/palari_company_os/validation.py",
@@ -3307,7 +3307,8 @@
           "path": "tests/workspace_fixture.py",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3"
     }
   ],
   "attempts": [
@@ -4481,6 +4482,297 @@
       "cleanliness": "dirty",
       "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create the final replacement task with linear_adapter.py and tests/workspace_fixture.py added, then rerun focused and complete checks.\",\"observation\":{\"all_changed_paths\":[\"examples/acme-company-os/workspace.json\",\"src/palari_company_os/validation.py\",\"tests/test_agent_adoption.py\",\"tests/test_agent_packets.py\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_cursor_rules.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_transition_checks.py\"],\"base_sha\":\"16833f24e63e5d803b4d7a1738ca8e2300a3be2e\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"16833f24e63e5d803b4d7a1738ca8e2300a3be2e\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"examples/acme-company-os/workspace.json\",\"src/palari_company_os/validation.py\",\"tests/test_agent_adoption.py\",\"tests/test_agent_packets.py\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_cursor_rules.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_transition_checks.py\"],\"missing_required_outputs\":[\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/current-product.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_file_changes.py\",\"src/palari_company_os/agent_packets.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/agent_session_contract.py\",\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"tests/fixtures/workspaces/valid-workspace.json\",\"tests/test_agent_advance.py\",\"tests/test_agent_file_changes.py\",\"tests/test_agent_session_contract.py\",\"tests/test_approval_presentations.py\",\"tests/test_cli_smoke.py\",\"tests/test_custom_workspace_projection.py\",\"tests/test_onramp.py\",\"tests/test_operator_journeys.py\",\"tests/test_plain_language.py\",\"tests/test_review_guides.py\",\"tests/test_store_journal_integration.py\",\"tests/test_validation.py\",\"tests/test_work_ideas.py\",\"tests/test_workspace_read_models.py\"],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_packets.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_file_changes.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_runtime.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_session_contract.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"schemas/workspace.schema.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-workspace.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_file_changes.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_session_contract.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_approval_presentations.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_cli_smoke.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_custom_workspace_projection.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_onramp.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_operator_journeys.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_plain_language.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_review_guides.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_store_journal_integration.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_work_ideas.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_workspace_read_models.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/schema-and-validation.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/security.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[\"examples/acme-company-os/workspace.json\",\"src/palari_company_os/validation.py\",\"tests/test_agent_adoption.py\",\"tests/test_agent_packets.py\",\"tests/test_approval_packs.py\",\"tests/test_claude_hooks.py\",\"tests/test_cursor_rules.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_transition_checks.py\"],\"untracked\":[]}},\"packet\":{\"claim_session\":\"17800eee17644d458c03d7c48ffdcfaa\",\"claim_workspace_file_hash\":\"sha256:a5a5457c5debff0d34a4890dc1d0b196be5b03ec2d45de947fc26a04c33db91e\",\"context_hash\":\"sha256:e2f321bd4741f3d74d3e0c920546330579d6c345eded0cf30bfbc3fd33e71fa4\",\"git_lease_oid\":\"ea86eb0a1d06ba802420c16e2169d04d5323e384\",\"git_lease_ref\":\"refs/palari/leases/WORK-EBC299D96FD241E38DD60552B3233282-76d5246377f3\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:4692cedd8acbf05486d9155014c279589b03861195c93b99eb0d61a7a6c4c099\",\"packet_id\":\"PACKET-WORK-EBC299D96FD241E38DD60552B3233282-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-EBC299D96FD241E38DD60552B3233282-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:b2e810d6b9ca5c4506e585dc1cbcdeb1cb7e702e2a8c42a93ec642c05ee618f1\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"Imported Linear proposals need the same required path rules, and the shared current test workspace must be updated; both files are outside this claim.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:422d5fe3171cbabbee1b8e478e6a56e4b5fb7f685d0ec10c82707d8765a69817\"}",
       "started_at": "2026-08-09T21:13:42Z"
+    },
+    {
+      "id": "ATTEMPT-PARK-4CCC0516F5EDBEA7FDEC5C7D",
+      "work_item_id": "WORK-CDA4688098424FD4AC0F33A52D808EE2",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "16833f24e63e5d803b4d7a1738ca8e2300a3be2e",
+      "head_sha": "7ee86deea3c0674330743e3f68209b2434e2e246",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "tests/workspace_fixture.py"
+      ],
+      "allowed_paths": [
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "schemas/workspace.schema.json",
+        "examples/acme-company-os/workspace.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "src/palari_company_os/linear_adapter.py",
+        "tests/workspace_fixture.py"
+      ],
+      "claim_id": "b19ab9fb99bc46478a40220da6279337",
+      "claim_expires_at": "2026-08-09T21:48:00Z",
+      "cleanliness": "clean",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Restart the same task from the committed current projection and advance its preserved code range.\",\"observation\":{\"all_changed_paths\":[\".palari/governance-journal.v2.jsonl\",\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/current-product.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"examples/acme-company-os/workspace.json\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_file_changes.py\",\"src/palari_company_os/agent_packets.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/agent_session_contract.py\",\"src/palari_company_os/linear_adapter.py\",\"src/palari_company_os/validation.py\",\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"tests/fixtures/workspaces/valid-workspace.json\",\"tests/test_agent_adoption.py\",\"tests/test_agent_advance.py\",\"tests/test_agent_file_changes.py\",\"tests/test_agent_packets.py\",\"tests/test_agent_session_contract.py\",\"tests/test_approval_packs.py\",\"tests/test_approval_presentations.py\",\"tests/test_claude_hooks.py\",\"tests/test_cli_smoke.py\",\"tests/test_cursor_rules.py\",\"tests/test_custom_workspace_projection.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_onramp.py\",\"tests/test_operator_journeys.py\",\"tests/test_plain_language.py\",\"tests/test_review_guides.py\",\"tests/test_store_journal_integration.py\",\"tests/test_transition_checks.py\",\"tests/test_validation.py\",\"tests/test_work_ideas.py\",\"tests/test_workspace_read_models.py\",\"tests/workspace_fixture.py\",\"workspace.json\"],\"base_sha\":\"16833f24e63e5d803b4d7a1738ca8e2300a3be2e\",\"committed_paths\":[\".palari/governance-journal.v2.jsonl\",\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/current-product.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"examples/acme-company-os/workspace.json\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_file_changes.py\",\"src/palari_company_os/agent_packets.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/agent_session_contract.py\",\"src/palari_company_os/linear_adapter.py\",\"src/palari_company_os/validation.py\",\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"tests/fixtures/workspaces/valid-workspace.json\",\"tests/test_agent_adoption.py\",\"tests/test_agent_advance.py\",\"tests/test_agent_file_changes.py\",\"tests/test_agent_packets.py\",\"tests/test_agent_session_contract.py\",\"tests/test_approval_packs.py\",\"tests/test_approval_presentations.py\",\"tests/test_claude_hooks.py\",\"tests/test_cli_smoke.py\",\"tests/test_cursor_rules.py\",\"tests/test_custom_workspace_projection.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_onramp.py\",\"tests/test_operator_journeys.py\",\"tests/test_plain_language.py\",\"tests/test_review_guides.py\",\"tests/test_store_journal_integration.py\",\"tests/test_transition_checks.py\",\"tests/test_validation.py\",\"tests/test_work_ideas.py\",\"tests/test_workspace_read_models.py\",\"tests/workspace_fixture.py\",\"workspace.json\"],\"errors\":[],\"head_sha\":\"7ee86deea3c0674330743e3f68209b2434e2e246\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/current-product.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"examples/acme-company-os/workspace.json\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_file_changes.py\",\"src/palari_company_os/agent_packets.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/agent_session_contract.py\",\"src/palari_company_os/linear_adapter.py\",\"src/palari_company_os/validation.py\",\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"tests/fixtures/workspaces/valid-workspace.json\",\"tests/test_agent_adoption.py\",\"tests/test_agent_advance.py\",\"tests/test_agent_file_changes.py\",\"tests/test_agent_packets.py\",\"tests/test_agent_session_contract.py\",\"tests/test_approval_packs.py\",\"tests/test_approval_presentations.py\",\"tests/test_claude_hooks.py\",\"tests/test_cli_smoke.py\",\"tests/test_cursor_rules.py\",\"tests/test_custom_workspace_projection.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_onramp.py\",\"tests/test_operator_journeys.py\",\"tests/test_plain_language.py\",\"tests/test_review_guides.py\",\"tests/test_store_journal_integration.py\",\"tests/test_transition_checks.py\",\"tests/test_validation.py\",\"tests/test_work_ideas.py\",\"tests/test_workspace_read_models.py\",\"tests/workspace_fixture.py\"],\"missing_required_outputs\":[\"docs/agent/contracts-and-invariants.md\",\"docs/product/agent-contract.md\",\"docs/product/current-product.md\",\"docs/product/schema-and-validation.md\",\"docs/product/security.md\",\"examples/acme-company-os/workspace.json\",\"schemas/workspace.schema.json\",\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_file_changes.py\",\"src/palari_company_os/agent_packets.py\",\"src/palari_company_os/agent_runtime.py\",\"src/palari_company_os/agent_session_contract.py\",\"src/palari_company_os/linear_adapter.py\",\"src/palari_company_os/validation.py\",\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"tests/fixtures/workspaces/valid-workspace.json\",\"tests/test_agent_adoption.py\",\"tests/test_agent_advance.py\",\"tests/test_agent_file_changes.py\",\"tests/test_agent_packets.py\",\"tests/test_agent_session_contract.py\",\"tests/test_approval_packs.py\",\"tests/test_approval_presentations.py\",\"tests/test_claude_hooks.py\",\"tests/test_cli_smoke.py\",\"tests/test_cursor_rules.py\",\"tests/test_custom_workspace_projection.py\",\"tests/test_decision_guides.py\",\"tests/test_docs.py\",\"tests/test_git_hooks.py\",\"tests/test_integrations.py\",\"tests/test_linear_adapter.py\",\"tests/test_linear_webhook.py\",\"tests/test_mcp_server.py\",\"tests/test_mission_control.py\",\"tests/test_onramp.py\",\"tests/test_operator_journeys.py\",\"tests/test_plain_language.py\",\"tests/test_review_guides.py\",\"tests/test_store_journal_integration.py\",\"tests/test_transition_checks.py\",\"tests/test_validation.py\",\"tests/test_work_ideas.py\",\"tests/test_workspace_read_models.py\",\"tests/workspace_fixture.py\"],\"observation_complete\":true,\"outside_write_boundary\":[\".palari/governance-journal.v2.jsonl\",\"workspace.json\"],\"path_intent_mismatches\":[{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_packets.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_file_changes.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_runtime.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/agent_session_contract.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"schemas/workspace.schema.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"examples/acme-company-os/workspace.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-workspace.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-accepted-completed-work.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/valid-source-receipt-loop.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-actor.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-external-write.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-missing-source.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/fixtures/workspaces/invalid-receipt-unallowed-source.json\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_adoption.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_advance.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_file_changes.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_packets.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_agent_session_contract.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_approval_packs.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_approval_presentations.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_claude_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_cli_smoke.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_cursor_rules.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_custom_workspace_projection.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_decision_guides.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_docs.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_git_hooks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_integrations.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_linear_adapter.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_linear_webhook.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_mcp_server.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_mission_control.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_onramp.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_operator_journeys.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_plain_language.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_review_guides.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_store_journal_integration.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_transition_checks.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_validation.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_work_ideas.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/test_workspace_read_models.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/agent/contracts-and-invariants.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/agent-contract.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/current-product.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/schema-and-validation.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"docs/product/security.md\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"src/palari_company_os/linear_adapter.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"},{\"actual\":\"unchanged\",\"intent\":\"modify\",\"path\":\"tests/workspace_fixture.py\",\"reason\":\"Modify intent does not match the observed Git change type unchanged.\"}],\"working_tree\":{\"deleted\":[],\"modified\":[],\"untracked\":[]}},\"packet\":{\"claim_session\":\"b19ab9fb99bc46478a40220da6279337\",\"claim_workspace_file_hash\":\"sha256:673149b4e9f347726e1ca752c37b2f8a3e6ad4b2f24b9d207acf1483228f26d8\",\"context_hash\":\"sha256:2eeb2d140ebb8bc2148183e65a9cb555e3c8ef6595bf833e6319da3bc9f5fa61\",\"git_lease_oid\":\"be3946b488b376886e896be0f470bc4437fb9e1a\",\"git_lease_ref\":\"refs/palari/leases/WORK-CDA4688098424FD4AC0F33A52D808EE2-0045f899c98e\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:74159b6237187023672236725c34b8041b1e3dd23fdded3d39c1dcb0d9ae5200\",\"packet_id\":\"PACKET-WORK-CDA4688098424FD4AC0F33A52D808EE2-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-CDA4688098424FD4AC0F33A52D808EE2-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:d4b3cdef60a2965cfa98ff750be97955b6202f7753b36ebf7146b44a48784256\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The required saved-task migration was committed after the first claim snapshot.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:9edf5bb15d6eb8903fe0d12b1aea16f7b2d8e9d3bbfc696d307eaccade81dba1\"}",
+      "started_at": "2026-08-09T21:18:00Z",
+      "commits": [
+        "7ee86deea3c0674330743e3f68209b2434e2e246"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3",
+      "work_item_id": "WORK-CDA4688098424FD4AC0F33A52D808EE2",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "16833f24e63e5d803b4d7a1738ca8e2300a3be2e",
+      "allowed_paths": [
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "schemas/workspace.schema.json",
+        "examples/acme-company-os/workspace.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "src/palari_company_os/linear_adapter.py",
+        "tests/workspace_fixture.py"
+      ],
+      "started_at": "2026-08-09T21:46:55Z",
+      "head_sha": "cbe7d7c865d326df654c1df6e8dcef394c9f283c",
+      "commits": [
+        "cbe7d7c865d326df654c1df6e8dcef394c9f283c"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T21:46:55Z",
+      "changed_files": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "tests/workspace_fixture.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/validation.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "schemas/workspace.schema.json",
+        "examples/acme-company-os/workspace.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "src/palari_company_os/linear_adapter.py",
+        "tests/workspace_fixture.py"
+      ]
     }
   ],
   "evidence_runs": [
@@ -6112,6 +6404,327 @@
       "receipt_hash": "sha256:e72c7c67a05ca36741deb53e963b4a2671d02aaa818b54e244237226e5355b30",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:a98815cfb86db09a9a0fe3e35f14d916f9c5146119b2bab2b34e1dbeba9d138f"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3",
+      "work_item_id": "WORK-CDA4688098424FD4AC0F33A52D808EE2",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3",
+      "head_sha": "cbe7d7c865d326df654c1df6e8dcef394c9f283c",
+      "status": "passed",
+      "base_ref": "16833f24e63e5d803b4d7a1738ca8e2300a3be2e",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-201D87AAE04F9D49 sha256:7cb7933fa375a855f658da4d166c8cdadd81c4f4489a05a1201d87aae04f9d49"
+      ],
+      "artifacts": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "tests/workspace_fixture.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:7d73085446ece0ff7297d156ce65bf67b481bd4e4bb1a1754a8fc8b9f8a74da2",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:aaf40cd30a5ff2d0390a1812bd3e030a52d0b78deb0bf6a0e1ed698dece42b0e",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "sha256": "sha256:ff7cb0e91ab43c6563d9527044005a8163ecac4ff8cb704613c01d244a8cd7a2",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "sha256": "sha256:d1e9b78a3dfb017e3e8a6bb95150de1155a7d2f32014c48d799070e82675cd11",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:2b86c6aed59d40dbd0625d3058fd21ee2744100540b8d0e145979a71519220df",
+          "status": "present"
+        },
+        {
+          "path": "examples/acme-company-os/workspace.json",
+          "sha256": "sha256:c1a8144a0cd4d8bf433008c2282ed8f3428f30821265e54fd9e86e2aa080eb61",
+          "status": "present"
+        },
+        {
+          "path": "schemas/workspace.schema.json",
+          "sha256": "sha256:0bd162434c033f8f6549ef667242eca0b35448c68cf004a620cb6ef6c248837c",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:a0585bbecd11d2933d3dd17f303af3dd277f872bbbc2a76c22e376ab26178958",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_file_changes.py",
+          "sha256": "sha256:620bf3909da0376b60132242553848155a89ace9d9c711397b556a761402a7e1",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_packets.py",
+          "sha256": "sha256:e9faf6788c6f887f727bd12d8cd4b72eaa8e029d576051b2b95d9b667d5315c2",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:329a360010369e814482a4b3807d7fb26e155e5770fa6814ab772cfb92487c37",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_session_contract.py",
+          "sha256": "sha256:12b37271ad23a936544b55132945e18c31ebe999ffcda068d9c7ee8012108aba",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/linear_adapter.py",
+          "sha256": "sha256:5f355257f131d76f2d73b5470c7238e1f969a673e71d1c43756f42cbe5b59989",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/validation.py",
+          "sha256": "sha256:62f609bc9af89c98c24b757786560a9d647479a24796cfb1553d47860d4a98e8",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/invalid-receipt-actor.json",
+          "sha256": "sha256:49444bfe9e59787b780ba21854e8f529a44e6a3359898e20b6441a4e55f067d9",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+          "sha256": "sha256:bed068138eb4fb8a6b616d740eeefd67c7eae4e9d383394965dbf91061e72dc3",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+          "sha256": "sha256:efbbe271b4b90a1858813e075d9c92d83346797f50fd45216909a32cc10b0bde",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+          "sha256": "sha256:12c92d36e2dd7f43e5b1d2577f68d69707e67db7c9e1a569709eba0a11a5db79",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+          "sha256": "sha256:858b78d80ff6b4e8992ef0dfca58ab918669a468bf994d51f83a2ecfb33ac253",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+          "sha256": "sha256:f58a5385e8784dada7c65346815ad82fe51832421bc43f04272ea403c00ae556",
+          "status": "present"
+        },
+        {
+          "path": "tests/fixtures/workspaces/valid-workspace.json",
+          "sha256": "sha256:416be4c9ba1d5b358e00b0a978a7754034fb7489c231358da520e2bbccd0ba1e",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_adoption.py",
+          "sha256": "sha256:093199c5860137e569ec636aae25256414b1ffef871c03ea8e39351b887a38e2",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "sha256": "sha256:b950a1df3b60bd8e11aa672514043b9353920f88a1a09e60e2419aaebb793cb0",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_file_changes.py",
+          "sha256": "sha256:67dc55ac63dd0c67c2254741efc255783879010b8acc414d9eba2d360267baf2",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_packets.py",
+          "sha256": "sha256:d9c49c747428c6edf3c36faf56e6214af48d7e1cd3248180a2d6c068809a58e0",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_session_contract.py",
+          "sha256": "sha256:8f74068cbc9a654f279117bbed651fb995833dcc4145329020ed82fb13056859",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_packs.py",
+          "sha256": "sha256:22abe814b5a1db01cf78ae566df7210a4a33b329f50d6848e311e259ee5ef6f7",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_approval_presentations.py",
+          "sha256": "sha256:204da875e9725505fda1966ca2aa335c195c288457c91caa2e270b76927383cb",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_claude_hooks.py",
+          "sha256": "sha256:bcbd2549b3705a9f22db7d4dda86ccb1fbfccfb402f28d4b8861bbb3c23b19c6",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_cli_smoke.py",
+          "sha256": "sha256:b907597cd8c0f66022606ac659f2682b5ac4c65349d29fb67debd29a3adaadeb",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_cursor_rules.py",
+          "sha256": "sha256:1b66faa16acb74ef3cbceced113a83e36f1a0d190cf5fd559c72ab944f9ed7d3",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_custom_workspace_projection.py",
+          "sha256": "sha256:07a7bbf2a50043f47e4bcef82377e7c5e96f17dfc933d6fb4b6b89c195d3e29b",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_decision_guides.py",
+          "sha256": "sha256:e1dc7797dc71597179883702dea5afe687a052cd73b41e67a6986ad3f1951ff3",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_docs.py",
+          "sha256": "sha256:db89d7e71e3ac15c6bae5f80df2aea3a495d30aae3851c304e2ca2ece2013c09",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_git_hooks.py",
+          "sha256": "sha256:5508c3c3f046c2fbbe01818039e0c2738bf22e46fae93ba761aac2d61cc77c01",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_integrations.py",
+          "sha256": "sha256:9e83fa85604d6139895efa30f38462d28a67cd2662864388626de44de95c32ce",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_linear_adapter.py",
+          "sha256": "sha256:65c7603294405bfe2228a65579e007ecbb74bbce7a3f53ffd111a239dbe1859a",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_linear_webhook.py",
+          "sha256": "sha256:78110fcb70ae3236414c946cb35993bdd72c05afcdf9db4af6e69d7458614d44",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_mcp_server.py",
+          "sha256": "sha256:8bf247040305f4ce23becac43632bbb5b2cb50ddb35bf26f32ba1c9dbf7ae9f4",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_mission_control.py",
+          "sha256": "sha256:8a784624082538bbf7b4b11c51b39e670212257e631d54f319deac5e72801beb",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_onramp.py",
+          "sha256": "sha256:8fe77301c992e99110bb29237884ab09f51f95a5da247a2b0b15faf643b6dc7e",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_operator_journeys.py",
+          "sha256": "sha256:9b3ccb01505fa5cd2159047def27e76101e0a4f6a94d853055f4539c5fa17b22",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_plain_language.py",
+          "sha256": "sha256:f67babe66d46377094da22354156e236a2fa313e7442f0f304d5a04d3b6e9a5c",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_review_guides.py",
+          "sha256": "sha256:8a703a02a5398e934cb7e680120b5de497bfb1e565cd8b76506f3046ea6503ec",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_store_journal_integration.py",
+          "sha256": "sha256:3eb1328116c349863482d7e189d5048829ffab67d67cccda56bd28ee753d2eaa",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_transition_checks.py",
+          "sha256": "sha256:fe1801244ba37459581a1f7d392652a2d03c4dffd3d83266788ceb71040cb527",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "sha256": "sha256:5332096ed5a65f89d3f4acb912aa77ae31ec282fb1e064f24de4841010524512",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_work_ideas.py",
+          "sha256": "sha256:314dc6f07528d9c5fe7978fad854748753fee4859b8e70f338e664a7ecd578da",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_workspace_read_models.py",
+          "sha256": "sha256:0badf5b49ac240802c06033b63880235b7bf972bd21051765db86e3655b60695",
+          "status": "present"
+        },
+        {
+          "path": "tests/workspace_fixture.py",
+          "sha256": "sha256:2b29d7c018b51ccb5fbd94aa6971f85429119d7c07cf377e3726acf0868ef0ce",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T21:46:55Z",
+      "receipt_hash": "sha256:290615be489a2164d373faae9946e007e9a51f386f58b5b8db7eac7b5b0e3867",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:608099ef792c741500d568c9f8c0f39ba7b07856713d144f061a8f24ffc92435"
     }
   ],
   "review_verdicts": [
@@ -7780,6 +8393,128 @@
       ],
       "timestamp": "2026-08-09T20:55:03Z",
       "receipt_hash": "sha256:e72c7c67a05ca36741deb53e963b4a2671d02aaa818b54e244237226e5355b30"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3",
+      "work_item_id": "WORK-CDA4688098424FD4AC0F33A52D808EE2",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-CDA4688098424FD4AC0F33A52D808EE2-CBE7D7C865D3",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 50 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "tests/workspace_fixture.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/contracts-and-invariants.md",
+        "docs/product/agent-contract.md",
+        "docs/product/current-product.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "examples/acme-company-os/workspace.json",
+        "schemas/workspace.schema.json",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_file_changes.py",
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "src/palari_company_os/linear_adapter.py",
+        "src/palari_company_os/validation.py",
+        "tests/fixtures/workspaces/invalid-receipt-actor.json",
+        "tests/fixtures/workspaces/invalid-receipt-external-write.json",
+        "tests/fixtures/workspaces/invalid-receipt-missing-source.json",
+        "tests/fixtures/workspaces/invalid-receipt-unallowed-source.json",
+        "tests/fixtures/workspaces/valid-accepted-completed-work.json",
+        "tests/fixtures/workspaces/valid-source-receipt-loop.json",
+        "tests/fixtures/workspaces/valid-workspace.json",
+        "tests/test_agent_adoption.py",
+        "tests/test_agent_advance.py",
+        "tests/test_agent_file_changes.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py",
+        "tests/test_approval_packs.py",
+        "tests/test_approval_presentations.py",
+        "tests/test_claude_hooks.py",
+        "tests/test_cli_smoke.py",
+        "tests/test_cursor_rules.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_decision_guides.py",
+        "tests/test_docs.py",
+        "tests/test_git_hooks.py",
+        "tests/test_integrations.py",
+        "tests/test_linear_adapter.py",
+        "tests/test_linear_webhook.py",
+        "tests/test_mcp_server.py",
+        "tests/test_mission_control.py",
+        "tests/test_onramp.py",
+        "tests/test_operator_journeys.py",
+        "tests/test_plain_language.py",
+        "tests/test_review_guides.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_transition_checks.py",
+        "tests/test_validation.py",
+        "tests/test_work_ideas.py",
+        "tests/test_workspace_read_models.py",
+        "tests/workspace_fixture.py"
+      ],
+      "timestamp": "2026-08-09T21:46:55Z",
+      "receipt_hash": "sha256:290615be489a2164d373faae9946e007e9a51f386f58b5b8db7eac7b5b0e3867"
     }
   ],
   "decisions": [],
