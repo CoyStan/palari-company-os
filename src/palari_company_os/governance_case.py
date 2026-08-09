@@ -131,16 +131,6 @@ class Finding:
 
 
 @dataclass(frozen=True)
-class LegacyProofBinding:
-    binding_version: str = ""
-    attempt_hash: str = ""
-    evidence_manifest_hash: str = ""
-    receipt_hash: str = ""
-    work_contract_hash: str = ""
-    proof_hash: str = ""
-
-
-@dataclass(frozen=True)
 class ReviewSnapshot:
     id: str
     work_item_id: str
@@ -158,7 +148,6 @@ class ReviewSnapshot:
     checks_inspected: tuple[str, ...] = ()
     residual_risks: tuple[str, ...] = ()
     timestamp: str = ""
-    legacy_binding: LegacyProofBinding = field(default_factory=LegacyProofBinding)
 
 
 @dataclass(frozen=True)
@@ -440,10 +429,7 @@ def _optional_review(value: Any) -> ReviewSnapshot | None:
         if name not in converted:
             raise ValueError(f"review.{name} is required")
     converted["findings"] = _records(Finding, converted["findings"], "review.findings")
-    converted["legacy_binding"] = _record(
-        LegacyProofBinding, converted["legacy_binding"], "review.legacy_binding"
-    )
-    for name in names - {"findings", "legacy_binding"}:
+    for name in names - {"findings"}:
         converted[name] = _typed_value(converted[name], hints[name], f"review.{name}")
     return ReviewSnapshot(**converted)
 

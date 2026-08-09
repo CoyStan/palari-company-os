@@ -18,7 +18,6 @@ from .governance_case import (
     HumanDecisionSnapshot,
     IntegrityObservation,
     IntegrityObservations,
-    LegacyProofBinding,
     OutcomeSnapshot,
     ReceiptSnapshot,
     ReviewerAuthority,
@@ -615,14 +614,6 @@ def _review_snapshot(
         checks_inspected=tuple(review.checks_inspected),
         residual_risks=tuple(review.residual_risks),
         timestamp=_timestamp(review.timestamp),
-        legacy_binding=LegacyProofBinding(
-            binding_version=review.binding_version,
-            attempt_hash=review.attempt_hash,
-            evidence_manifest_hash=review.evidence_manifest_hash,
-            receipt_hash=review.receipt_hash,
-            work_contract_hash=review.work_contract_hash,
-            proof_hash=review.proof_hash,
-        ),
     )
 
 
