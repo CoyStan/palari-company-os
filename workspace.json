@@ -341,6 +341,195 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-D03A68B7A9A34805AF4662E38941FF23-9D7D85846ACB"
+    },
+    {
+      "id": "WORK-C105E0D0A51146CFA385D0285413B860",
+      "title": "Give the whole repo one simple tree",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Replace the local three-part agent view with one plain five-part product view and add a checked tree that places every tracked repo file in one non-overlapping branch.",
+      "allowed_resources": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_home.py",
+        "scripts/verify.sh",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "AGENTS.md",
+        "tests/test_docs.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_home.py",
+        "scripts/verify.sh",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "AGENTS.md",
+        "tests/test_docs.py"
+      ],
+      "conflict_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_home.py",
+        "scripts/verify.sh",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "AGENTS.md",
+        "tests/test_docs.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Every tracked repo file belongs to exactly one checked branch; every branch has zero or three to five child parts; new public names are plain; agent home uses Goals, Team, Work, Checks, and Limits; focused and full checks pass.",
+      "verification_expectations": [
+        "The repo tree check proves full tracked-file coverage, no overlap, and the three-to-five child rule.",
+        "Agent-home and documentation tests pass.",
+        "Complete candidate verification passes."
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "docs/agent/repo-tree.json",
+          "intent": "create"
+        },
+        {
+          "path": "scripts/check_repo_tree.py",
+          "intent": "create"
+        },
+        {
+          "path": "tests/test_repo_tree.py",
+          "intent": "create"
+        },
+        {
+          "path": "src/palari_company_os/agent_home.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_agent.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_home.py",
+          "intent": "modify"
+        },
+        {
+          "path": "scripts/verify.sh",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/documentation-freshness.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/minimality-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/plain-language.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/glossary.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "AGENTS.md",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_docs.py",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491"
     }
   ],
   "attempts": [
@@ -590,6 +779,93 @@
         "docs/product/current-product.md",
         "docs/product/minimality-contract.md",
         "docs/product/public-surface.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491",
+      "work_item_id": "WORK-C105E0D0A51146CFA385D0285413B860",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "529990c5f3d70a170302f50e2eff1141198c8850",
+      "allowed_paths": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_home.py",
+        "scripts/verify.sh",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "AGENTS.md",
+        "tests/test_docs.py"
+      ],
+      "started_at": "2026-08-09T17:56:51Z",
+      "head_sha": "dccd0c61b491b3804b9a2da5636825ea846c83b5",
+      "commits": [
+        "dccd0c61b491b3804b9a2da5636825ea846c83b5"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T17:56:51Z",
+      "changed_files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/public-surface.md",
+        "scripts/check_repo_tree.py",
+        "scripts/verify.sh",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "tests/test_agent_home.py",
+        "tests/test_docs.py",
+        "tests/test_repo_tree.py"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_parser.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "tests/test_agent_home.py",
+        "scripts/verify.sh",
+        "docs/agent/repo-map.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "docs/product/public-surface.md",
+        "README.md",
+        "AGENTS.md",
+        "tests/test_docs.py"
       ]
     }
   ],
@@ -1338,6 +1614,159 @@
       "receipt_hash": "sha256:d44559a966353ac46cd4e84c28f1fa06dbe448e405350203edcf33aff55d8489",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:ebe7c14b2584d9e869801b4ca0d316014443b0e3410e94d8b4e5de68cd5ae76a"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491",
+      "work_item_id": "WORK-C105E0D0A51146CFA385D0285413B860",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491",
+      "head_sha": "dccd0c61b491b3804b9a2da5636825ea846c83b5",
+      "status": "passed",
+      "base_ref": "529990c5f3d70a170302f50e2eff1141198c8850",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-8B1C1406ED877649 sha256:adfda354756c1150f0f6f66a60b46a88d942432c47d3a9c68b1c1406ed877649"
+      ],
+      "artifacts": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/public-surface.md",
+        "scripts/check_repo_tree.py",
+        "scripts/verify.sh",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "tests/test_agent_home.py",
+        "tests/test_docs.py",
+        "tests/test_repo_tree.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "sha256:60aaf58725a06f6766c72eeb536a235cdf5925ed9687d3e1cd1483ec5365eedc",
+          "status": "present"
+        },
+        {
+          "path": "README.md",
+          "sha256": "sha256:0b232e0a3ebce7ae46ac74ec33ac77c89d890989f8f6e6550a7cc4109ee9aad0",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:e740825f5670377f06362def86f0761e239d51aa5f59c66332cfb3daa13dfe21",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/documentation-freshness.md",
+          "sha256": "sha256:52d64f0616c06504bcc248856898bea09dd564837d8e9d15504db9aee6beb643",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:5533e963d9a038b62878605eb86ac51b7ec09004943b4e57e46f15083cdcdb32",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-tree.json",
+          "sha256": "sha256:622c92c93a866a2d770128c01cf7da76e63265e95887a26aaeb5949eceb58a39",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:5dbc7b39bfda0181f3f81e8562ac3013c7d17776a7e234a6110f23d081fc2a0d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:e4a985f1954f30edccc7bbc978fa8530f277fafeec57f3d03b89a54f7f53275c",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/core-objects.md",
+          "sha256": "sha256:3c0e39fac39fcb9165fd406c1121ae302bb5e7f450fee613eebb4891aac52b5e",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "sha256": "sha256:17e3b35f69a7b40f45695b3eed2ee5eab22d653fba15ee97c9d80f897a7241a9",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/glossary.md",
+          "sha256": "sha256:4de14c3ca3e310ba478d021795bdbddee4392f4e3041b46f7d4b56ce8a3fb918",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/minimality-contract.md",
+          "sha256": "sha256:2255663e92a00bd5d16455684630d6b4186a7ff7212d44ec1cd1637272fcb586",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/plain-language.md",
+          "sha256": "sha256:b352ae62cc4bc385a2d677e431b63cd1e4dc6a4fe5f8d06678687c361beec615",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/public-surface.md",
+          "sha256": "sha256:b39f67cc8aab2d84e42aff0a4f22802d6a304bb6e5bf07331e531d4dfc91e54b",
+          "status": "present"
+        },
+        {
+          "path": "scripts/check_repo_tree.py",
+          "sha256": "sha256:4fa403e42309a58b98a65b09f5987998f12cb01e9983fa46a349c54bf6c4f566",
+          "status": "present"
+        },
+        {
+          "path": "scripts/verify.sh",
+          "sha256": "sha256:2b59fe96df38ad5112928fe23bec4a703a32e1e226bded3d14680b224aa39414",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_home.py",
+          "sha256": "sha256:30520017e9e0411b3427d649300115a08ff86c80993921741d0921fa93c768bc",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_output_agent.py",
+          "sha256": "sha256:e6ebfe010be2ba052c8a00f328ed8247b6978fd0098cb1080e132aa8ad7f9cfc",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/cli_parser.py",
+          "sha256": "sha256:123a92ebeae82ddd0685c008e3edf48c15f57acb1ad18e0cc37d4c00c4da3856",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_home.py",
+          "sha256": "sha256:51d3dd75301c34fe245d840440730af9208a14c07006f289c1095b0d320c5466",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_docs.py",
+          "sha256": "sha256:02f585ea6fe83dea2c6aef003b95b54bef7b0272812eec0c207fee373fc48c5f",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_repo_tree.py",
+          "sha256": "sha256:a4ca07eaece07cfa20f1ed3d97430ee5b282768138ec6776aa4cce6e28d49b75",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T17:56:51Z",
+      "receipt_hash": "sha256:cba1d822e473e26723c7eb4d7e3adf6f9e1b9983b9009730230cbea98694a141",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:a284746fb278598dfdcc940249fde95fc66a2b9e214ad42b6ef6fb2748501d75"
     }
   ],
   "review_verdicts": [
@@ -2010,6 +2439,72 @@
       ],
       "timestamp": "2026-08-09T17:22:56Z",
       "receipt_hash": "sha256:d44559a966353ac46cd4e84c28f1fa06dbe448e405350203edcf33aff55d8489"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491",
+      "work_item_id": "WORK-C105E0D0A51146CFA385D0285413B860",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-C105E0D0A51146CFA385D0285413B860-DCCD0C61B491",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 22 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/public-surface.md",
+        "scripts/check_repo_tree.py",
+        "scripts/verify.sh",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "tests/test_agent_home.py",
+        "tests/test_docs.py",
+        "tests/test_repo_tree.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/agent/repo-map.md",
+        "docs/agent/repo-tree.json",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/core-objects.md",
+        "docs/product/current-product.md",
+        "docs/product/glossary.md",
+        "docs/product/minimality-contract.md",
+        "docs/product/plain-language.md",
+        "docs/product/public-surface.md",
+        "scripts/check_repo_tree.py",
+        "scripts/verify.sh",
+        "src/palari_company_os/agent_home.py",
+        "src/palari_company_os/cli_output_agent.py",
+        "src/palari_company_os/cli_parser.py",
+        "tests/test_agent_home.py",
+        "tests/test_docs.py",
+        "tests/test_repo_tree.py"
+      ],
+      "timestamp": "2026-08-09T17:56:51Z",
+      "receipt_hash": "sha256:cba1d822e473e26723c7eb4d7e3adf6f9e1b9983b9009730230cbea98694a141"
     }
   ],
   "decisions": [],
@@ -2058,7 +2553,17 @@
         "docs/product/command-reference.md",
         "docs/product/current-product.md",
         "docs/product/minimality-contract.md",
-        "docs/product/public-surface.md"
+        "docs/product/public-surface.md",
+        "docs/agent/repo-tree.json",
+        "scripts/check_repo_tree.py",
+        "tests/test_repo_tree.py",
+        "scripts/verify.sh",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/documentation-freshness.md",
+        "docs/product/plain-language.md",
+        "docs/product/core-objects.md",
+        "docs/product/glossary.md",
+        "tests/test_docs.py"
       ]
     }
   ],
