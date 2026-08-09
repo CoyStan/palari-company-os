@@ -3837,6 +3837,46 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-0AC2970F41F943E4A564E10B6C22FEE6-2E3E5F369012"
+    },
+    {
+      "id": "WORK-1EC60B2EC46F4965A3038C3963BF4377",
+      "title": "Sync current PCAW browser fixture",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Replace the copied browser fixture with the current accepted PCAW vector.",
+      "allowed_resources": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "conflict_targets": [
+        "verify/fixtures/accepted/statement.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The browser fixture matches the current vector and the full repository check passes.",
+      "verification_expectations": [
+        "python -m unittest tests.test_verify_page",
+        "./scripts/verify.sh complete"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "verify/fixtures/accepted/statement.json",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
@@ -10070,7 +10110,8 @@
         "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
         "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
         "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
-        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+        "verify/fixtures/accepted/statement.json"
       ]
     }
   ],
