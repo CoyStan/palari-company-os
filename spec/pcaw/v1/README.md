@@ -162,13 +162,12 @@ The report names these properties independently: `scope_compliance`,
 property required by the normalized case to be `verified`; optional journal
 continuity remains a separately reported property for legacy workspaces.
 
-`governance_case.reviewer_authorities` is an optional additive v1 field for
-declared non-human reviewers. Each entry has an `id` and `kind: "palari"`.
-When present, the current review may name one of those identities. These
+`governance_case.reviewer_authorities` is required. Each declared non-human
+reviewer has an `id` and `kind: "palari"`. The current review may name one of
+those identities. These
 authorities verify only `independent_review`; they are deliberately excluded
 from `humans`, human decisions, acceptance ownership, and quorum. Statements
-that omit the field preserve their existing canonical bytes and work-state
-digest.
+that omit the field are rejected.
 
 ## Guarantees
 

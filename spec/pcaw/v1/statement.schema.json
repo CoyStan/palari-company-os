@@ -111,6 +111,7 @@
         "receipt",
         "evidence",
         "review",
+        "reviewer_authorities",
         "humans",
         "human_decisions",
         "acceptance_records",

@@ -52,32 +52,32 @@ class PCAWProtocolTests(unittest.TestCase):
             "journal_continuity",
         })
 
-    def test_typed_palari_reviewer_verifies_without_entering_human_authorities(self) -> None:
+    def test_palari_reviewer_has_an_explicit_nonhuman_role(self) -> None:
         statement = json.loads(
             (ACCEPTED_VECTOR / "statement.json").read_text(encoding="utf-8")
         )
         case = GovernanceCase.from_dict(statement["predicate"]["governance_case"])
-        case = replace(
-            case,
-            humans=tuple(item for item in case.humans if item.id != "PALARI-REVIEWER"),
-            reviewer_authorities=(ReviewerAuthority("PALARI-REVIEWER"),),
-        )
-        statement["predicate"]["governance_case"] = case.to_dict()
-        work_subject = next(
-            item for item in statement["subject"] if item["name"].startswith("urn:palari:")
-        )
-        work_subject["digest"]["sha256"] = canonical_sha256(case.to_dict()).removeprefix(
-            "sha256:"
-        )
 
         report = verify_pcaw_bytes(
             canonical_json_bytes(statement), subject_root=ACCEPTED_VECTOR
         )
 
+        self.assertEqual(case.reviewer_authorities, (ReviewerAuthority("PALARI-REVIEWER"),))
+        self.assertNotIn("PALARI-REVIEWER", {human.id for human in case.humans})
         self.assertTrue(report["verified"])
         self.assertTrue(report["acceptance_verified"])
         self.assertEqual(report["verified_properties"]["independent_review"], "verified")
         self.assertEqual(report["verified_properties"]["human_quorum"], "verified")
+
+    def test_missing_reviewer_roles_are_rejected(self) -> None:
+        statement = json.loads(
+            (ACCEPTED_VECTOR / "statement.json").read_text(encoding="utf-8")
+        )
+        case = statement["predicate"]["governance_case"]
+        case.pop("reviewer_authorities")
+
+        with self.assertRaisesRegex(ValueError, "missing field.*reviewer_authorities"):
+            GovernanceCase.from_dict(case)
 
     def test_changed_artifact_fails_with_stable_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

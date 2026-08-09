@@ -274,11 +274,10 @@ pending transactions, and workspace divergence are rejected. This does not
 authenticate the operator who created the restore point against a hostile
 same-user process that can rewrite local files.
 
-PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
+PCAW distinguishes required `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in
-`humans` can contribute human decisions or quorum. Legacy statements without
-`reviewer_authorities` retain their original canonical bytes and verification
-behavior.
+`humans` can contribute human decisions or quorum. Statements without an
+explicit reviewer-role list fail closed.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
 each member digest are persisted with the human decision. Pack-v3 actions
