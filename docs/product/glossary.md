@@ -4,6 +4,9 @@ Palari uses familiar words in instructions and explanations. Parentheses show
 the exact machine term used by JSON records, protocol fields, or older commands.
 For the stored data model, see [Stored Records](core-objects.md).
 
+All terms fit under Goals, Team, Work, Checks, or Limits. New labels use short,
+common words; exact old machine names appear only when a reader needs them.
+
 ## Goal
 
 The reason a piece of work exists.

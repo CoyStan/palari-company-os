@@ -32,14 +32,12 @@ _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
     "palari validate",
 )
 
-
 def _is_read_only_handoff_command(command: str) -> bool:
     parts = palari_command_parts(command)
     if not parts:
         return False
     normalized = "palari " + " ".join(parts)
     return normalized.startswith(_READ_ONLY_HANDOFF_COMMAND_PREFIXES)
-
 
 def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
@@ -63,7 +61,6 @@ def print_agent_adopt(payload: dict[str, Any], as_json: bool) -> None:
     commands = payload.get("next_commands") or []
     if commands:
         print(f"Next: {commands[0]}")
-
 
 def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
@@ -126,7 +123,6 @@ def print_agent_brief(payload: dict[str, Any], as_json: bool) -> None:
         for command in commands:
             print(f"  {command}")
 
-
 def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -168,7 +164,6 @@ def print_agent_start(payload: dict[str, Any], as_json: bool) -> None:
         print(f"Assigned to: {claim.get('claimed_by', '')}")
         print(f"Assignment expires: {claim.get('lease_expires_at', '')}")
 
-
 def print_agent_session_contract(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -200,7 +195,6 @@ def print_agent_session_contract(payload: dict[str, Any], as_json: bool) -> None
         for item in limitations:
             print(f"  - {plain_message(item)}")
 
-
 def print_agent_release(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -212,7 +206,6 @@ def print_agent_release(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Task lock file: {payload['claim_path']}")
     print(f"Message: {plain_message(payload['message'])}")
 
-
 def print_agent_park(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -222,7 +215,6 @@ def print_agent_park(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Reason: {plain_message(payload['reason'])}")
     print(f"Next: {plain_message(payload['next_action'])}")
     print(f"Task lock released: {_yes_no(payload['claim_released'])}")
-
 
 def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
@@ -292,27 +284,25 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
         print("Next commands:")
         for command in commands:
             print(f"  {command}")
-
 def print_agent_home(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
         return
     agent = payload.get("agent") or {}
     components = payload.get("components") or {}
-    identity = (components.get("memory") or {}).get("identity") or {}
+    identity = components.get("team") or {}
     print(f"Agent home: {agent.get('id', '')} ({identity.get('name', 'unknown')})")
     print(f"Status: {plain_status(payload.get('status', 'waiting'))}")
-    for parent in ("memory", "initiative", "control"):
+    for parent in ("goals", "team", "work", "checks", "limits"):
         print(parent.title())
         for child, value in (components.get(parent) or {}).items():
             if isinstance(value, list):
-                summary = value[0].get("title", value[0].get("message", "present")) if value else "none"
+                summary = value[-1].get("title", value[-1].get("name", value[-1].get("id", "present"))) if value else "none"
             elif isinstance(value, dict):
-                summary = value.get("name", value.get("rule", f"{len(value)} fields"))
+                summary = str(value.get("name", value.get("rule", (value.get("now") or [{}])[0].get("title", f"{len(value)} parts"))))
             else:
                 summary = "none" if value is None else str(value)
             print(f"  {child.title()}: {plain_message(str(summary))}")
-
 
 def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:

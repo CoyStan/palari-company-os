@@ -53,9 +53,11 @@ Resume one agent without choosing a task first:
 palari agent home --as PALARI-ID [--json]
 ```
 
-The read-only response is organized as Memory, Initiative, and Control. Each
-has three MECE children. It summarizes existing workspace truth and safe next
-commands; it does not grant write, approval, or external-action authority.
+The read-only response uses five plain parts: Goals, Team, Work, Checks, and
+Limits. Work holds projects, ideas, tasks, and runs; Tasks has now, next, and
+later. Limits holds sources, guides, tools, rules, and outside links; Rules has
+allowed, ask, and never. It shows current workspace facts and safe next
+commands; it grants no permission. JSON output uses `palari.agent_home.v2`.
 
 The ordinary agent path is two commands around the bounded implementation:
 

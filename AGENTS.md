@@ -179,6 +179,7 @@ labeled PRs. Humans can still commit with no active claim.
 
 Use these committed docs before rereading large parts of the repo:
 
+- `docs/agent/repo-tree.json` for the checked place of every tracked file.
 - `docs/agent/repo-map.md` for file ownership and orientation.
 - `docs/agent/contracts-and-invariants.md` for boundaries that must not drift.
 - `docs/agent/common-workflows.md` for common implementation patterns.

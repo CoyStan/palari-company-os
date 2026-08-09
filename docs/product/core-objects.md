@@ -4,6 +4,20 @@ Palari stores a small set of explicit records as JSON and represents them in
 Python with dataclasses. Familiar names come first below; parentheses show the
 machine term used by the schema, protocol, or existing commands.
 
+Every record has one place in the five-part product map:
+
+- **Goals**: goals.
+- **Team**: people and agents, including their roles.
+- **Work**: projects, ideas, tasks, and runs. Tasks group their view data into
+  now, next, and later. Files are task data, not a new part.
+- **Checks**: records, tests, reviews, choices, and results.
+- **Limits**: sources, guides, tools, rules, and outside links. Rules split into
+  allowed, ask, and never. Outside links split into apps, plans, and the send
+  queue.
+
+These groups have no overlap and cover all current record types. Exact stored
+names remain below for code and JSON work.
+
 ## Goal
 
 Why work exists.

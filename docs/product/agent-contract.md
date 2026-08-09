@@ -31,11 +31,12 @@ palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
 ```
 
-`agent home` is the persistent relationship entry point. It projects current
-workspace truth into Memory, Initiative, and Control, with at most three MECE
-children under every conceptual component. It is read-only: it does not invent
-memory, create work, claim a task, or widen authority. Concrete writes still
-require a ready task brief and assignment.
+`agent home` is the lasting relationship entry point. It shows current
+workspace facts under Goals, Team, Work, Checks, and Limits. Any part may end
+there or split into three to five child parts. At each split, the parts do not
+overlap and leave nothing out. The view is read-only: it does not make up facts,
+create work, claim a task, or widen permission. Concrete writes still require
+a ready task brief and assignment.
 
 `palari agent brief` is a read-only preview. `palari agent start` is the normal
 entry point for ready work: it saves the exact task brief the agent received,

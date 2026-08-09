@@ -1,0 +1,186 @@
+{
+  "schema_version": "palari.repo_tree.v1",
+  "product": {
+    "name": "product",
+    "parts": [
+      {
+        "name": "goals",
+        "records": ["goals"]
+      },
+      {
+        "name": "team",
+        "records": ["humans", "palaris"]
+      },
+      {
+        "name": "work",
+        "parts": [
+          {
+            "name": "projects",
+            "records": ["workbenches"]
+          },
+          {
+            "name": "ideas",
+            "records": ["proposals"]
+          },
+          {
+            "name": "tasks",
+            "records": ["work_items"],
+            "parts": [
+              {"name": "now"},
+              {"name": "next"},
+              {"name": "later"}
+            ]
+          },
+          {
+            "name": "runs",
+            "records": ["attempts"]
+          }
+        ]
+      },
+      {
+        "name": "checks",
+        "parts": [
+          {
+            "name": "records",
+            "records": ["receipts"]
+          },
+          {
+            "name": "tests",
+            "records": ["evidence_runs"]
+          },
+          {
+            "name": "reviews",
+            "records": ["review_verdicts"]
+          },
+          {
+            "name": "choices",
+            "records": ["decisions", "human_decisions", "acceptance_records"]
+          },
+          {
+            "name": "results",
+            "records": ["outcomes"]
+          }
+        ]
+      },
+      {
+        "name": "limits",
+        "parts": [
+          {
+            "name": "sources",
+            "records": ["sources"]
+          },
+          {
+            "name": "guides",
+            "records": ["playbook_sources"]
+          },
+          {
+            "name": "tools",
+            "records": ["capabilities"]
+          },
+          {
+            "name": "rules",
+            "records": ["authority_profiles"],
+            "parts": [
+              {"name": "allowed"},
+              {"name": "ask"},
+              {"name": "never"}
+            ]
+          },
+          {
+            "name": "outside",
+            "parts": [
+              {
+                "name": "apps",
+                "records": ["integrations"]
+              },
+              {
+                "name": "plans",
+                "records": ["integration_plans"]
+              },
+              {
+                "name": "queue",
+                "records": ["integration_outbox"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "name": "repo",
+  "parts": [
+    {
+      "name": "app",
+      "parts": [
+        {
+          "name": "code",
+          "files": ["src/"]
+        },
+        {
+          "name": "run",
+          "files": ["bin/", "verify/"]
+        },
+        {
+          "name": "shape",
+          "files": ["schemas/", "spec/"]
+        }
+      ]
+    },
+    {
+      "name": "tests",
+      "files": ["tests/"]
+    },
+    {
+      "name": "docs",
+      "parts": [
+        {
+          "name": "start",
+          "files": [
+            "README.md",
+            "CHANGELOG.md",
+            "CONTRIBUTING.md",
+            "SECURITY.md",
+            "LICENSE",
+            "docs/assets/"
+          ]
+        },
+        {
+          "name": "agents",
+          "files": ["AGENTS.md", "CLAUDE.md", "docs/agent/"]
+        },
+        {
+          "name": "product",
+          "files": ["docs/product/"]
+        }
+      ]
+    },
+    {
+      "name": "tools",
+      "files": [
+        ".claude/",
+        ".github/",
+        ".gitignore",
+        "MANIFEST.in",
+        "pyproject.toml",
+        "scripts/"
+      ]
+    },
+    {
+      "name": "data",
+      "parts": [
+        {
+          "name": "sample",
+          "files": ["examples/"]
+        },
+        {
+          "name": "past",
+          "files": ["workspaces/"]
+        },
+        {
+          "name": "live",
+          "files": [".palari/", "workspace.json"]
+        }
+      ]
+    }
+  ]
+}

@@ -20,11 +20,14 @@ from tests.workspace_fixture import write_current_agent_workspace
 
 
 class AgentHomeTests(unittest.TestCase):
-    ROOT_COMPONENTS = ("memory", "initiative", "control")
+    ROOT_COMPONENTS = ("goals", "team", "work", "checks", "limits")
     CHILD_COMPONENTS = {
-        "memory": ("identity", "direction", "history"),
-        "initiative": ("now", "next", "later"),
-        "control": ("allowed", "ask", "never"),
+        "work": ("projects", "ideas", "tasks", "runs"),
+        "tasks": ("now", "next", "later"),
+        "checks": ("records", "tests", "reviews", "choices", "results"),
+        "limits": ("sources", "guides", "tools", "rules", "outside"),
+        "rules": ("allowed", "ask", "never"),
+        "outside": ("apps", "plans", "queue"),
     }
 
     def setUp(self) -> None:
@@ -35,20 +38,32 @@ class AgentHomeTests(unittest.TestCase):
         write_current_agent_workspace(self.workspace_file)
         self.workspace = Workspace.load(self.workspace_file)
 
-    def test_home_has_recursive_mece_rule_of_three(self) -> None:
+    def test_home_uses_three_to_five_plain_parts_without_overlap(self) -> None:
         payload = build_agent_home(self.workspace, "PALARI-STEWARD")
+        tree = json.loads(
+            (REPO_ROOT / "docs/agent/repo-tree.json").read_text(encoding="utf-8")
+        )
 
         self.assertEqual(tuple(payload["components"]), self.ROOT_COMPONENTS)
+        self.assertEqual(
+            tuple(part["name"] for part in tree["product"]["parts"]),
+            self.ROOT_COMPONENTS,
+        )
         for parent, children in self.CHILD_COMPONENTS.items():
-            self.assertEqual(tuple(payload["components"][parent]), children)
-            self.assertLessEqual(len(children), 3)
+            part = payload["components"].get(parent)
+            if part is None:
+                part = payload["components"]["work"].get(parent)
+            if part is None:
+                part = payload["components"]["limits"].get(parent)
+            self.assertEqual(tuple(part), children)
+            self.assertLessEqual(len(children), 5)
         self.assertEqual(payload["status"], "waiting")
         self.assertEqual(
-            payload["components"]["memory"]["direction"]["goals"][0]["id"],
+            payload["components"]["goals"]["items"][0]["id"],
             "GOAL-REPO-0001",
         )
         self.assertFalse(
-            payload["components"]["control"]["allowed"]["grants_permission"]
+            payload["components"]["limits"]["rules"]["allowed"]["grants_permission"]
         )
 
     def test_initiative_partitions_current_next_and_later_without_overlap(self) -> None:
@@ -65,23 +80,23 @@ class AgentHomeTests(unittest.TestCase):
         with patch("palari_company_os.agent_home.build_agent_next", return_value=next_view):
             payload = build_agent_home(self.workspace, "PALARI-STEWARD")
 
-        initiative = payload["components"]["initiative"]
-        self.assertEqual([item["work_item_id"] for item in initiative["now"]], ["WORK-NOW"])
-        self.assertEqual(initiative["next"]["work_item_id"], "WORK-NEXT")
+        work = payload["components"]["work"]["tasks"]
+        self.assertEqual([item["work_item_id"] for item in work["now"]], ["WORK-NOW"])
+        self.assertEqual(work["next"]["work_item_id"], "WORK-NEXT")
         self.assertEqual(
-            [item["work_item_id"] for item in initiative["later"]],
+            [item["work_item_id"] for item in work["later"]],
             ["WORK-LATER"],
         )
         self.assertEqual(payload["status"], "working")
 
-    def test_missing_agent_fails_closed_with_the_same_three_components(self) -> None:
+    def test_missing_agent_fails_closed_with_the_same_five_parts(self) -> None:
         payload = build_agent_home(self.workspace, "PALARI-MISSING")
 
         self.assertEqual(payload["status"], "blocked")
         self.assertFalse(payload["agent"]["found"])
         self.assertEqual(tuple(payload["components"]), self.ROOT_COMPONENTS)
         self.assertFalse(
-            payload["components"]["control"]["allowed"]["grants_permission"]
+            payload["components"]["limits"]["rules"]["allowed"]["grants_permission"]
         )
 
     def test_cli_json_and_text_present_the_agent_home(self) -> None:
@@ -115,12 +130,15 @@ class AgentHomeTests(unittest.TestCase):
 
         self.assertEqual(json_code, 0)
         self.assertEqual(text_code, 0)
+        self.assertEqual(payload["schema_version"], "palari.agent_home.v2")
         self.assertEqual(set(payload["components"]), set(self.ROOT_COMPONENTS))
         rendered = text_output.getvalue()
         self.assertIn("Agent home: PALARI-STEWARD", rendered)
-        self.assertIn("Memory", rendered)
-        self.assertIn("Initiative", rendered)
-        self.assertIn("Control", rendered)
+        self.assertIn("Goals", rendered)
+        self.assertIn("Team", rendered)
+        self.assertIn("Work", rendered)
+        self.assertIn("Checks", rendered)
+        self.assertIn("Limits", rendered)
 
 
 def _candidate(work_id: str, *, active: bool = False) -> dict[str, object]:

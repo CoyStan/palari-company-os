@@ -60,10 +60,11 @@ An agent can resume its ongoing relationship before entering task mechanics:
 palari agent home --as PALARI-ID
 ```
 
-The read-only home has three components: Memory (identity, direction, history),
-Initiative (now, next, later), and Control (allowed, ask, never). It grants no
-permission and creates no durable memory; current workspace records remain the
-truth. Tasks stay underneath as the bounded execution unit.
+The read-only home has five plain parts: Goals, Team, Work, Checks, and Limits.
+Work holds projects, ideas, tasks, and runs; Tasks split into now, next, and
+later. Limits hold sources, guides, tools, rules, and outside links; Rules split
+into allowed, ask, and never. The view grants no permission and creates no new
+stored facts; current workspace records remain the truth.
 
 An operator initializes a repository once, creates a bounded task, and checks
 its status:

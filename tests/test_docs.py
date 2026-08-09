@@ -116,12 +116,30 @@ class DocumentationTests(unittest.TestCase):
             REPO_ROOT / "docs/agent/contracts-and-invariants.md"
         ).read_text(encoding="utf-8")
         pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        tree = json.loads(
+            (REPO_ROOT / "docs/agent/repo-tree.json").read_text(encoding="utf-8")
+        )
 
         self.assertTrue(contract_path.exists())
         self.assertIn("[Minimality Contract](docs/product/minimality-contract.md)", readme)
         self.assertIn("[Minimality Contract](minimality-contract.md)", quickstart)
         self.assertIn("[Minimality Contract](../product/minimality-contract.md)", invariants)
         self.assertRegex(pyproject, r"(?m)^dependencies = \[\]$")
+        self.assertEqual(
+            [part["name"] for part in tree["parts"]],
+            ["app", "tests", "docs", "tools", "data"],
+        )
+        self.assertEqual(
+            [part["name"] for part in tree["product"]["parts"]],
+            ["goals", "team", "work", "checks", "limits"],
+        )
+        for rule in (
+            "three to five",
+            "do not overlap",
+            "nothing left out",
+            "short, common words",
+        ):
+            self.assertIn(rule, contract)
         for forbidden_growth in (
             "runtime dependency",
             "background service by default",

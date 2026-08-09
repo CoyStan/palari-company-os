@@ -297,6 +297,8 @@ code change must match them. See
 ## Documentation
 
 - Repo truth belongs in committed docs, not machine-local memory.
+- Every tracked file belongs to one branch in `docs/agent/repo-tree.json`.
+  Each split has three to five plain-named parts, with no overlap and no gaps.
 - `AGENTS.md` should stay compact and point to deeper canonical docs.
 - Update docs when commands, schema, agent behavior, integrations, required checks, or
   examples change in ways future agents need to know.

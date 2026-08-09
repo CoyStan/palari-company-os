@@ -3,6 +3,11 @@
 This map helps agents find the right files before scanning the whole repository.
 Keep it concise and update it when file ownership changes.
 
+The checked [Repo Tree](repo-tree.json) places every stored record and every
+tracked file in one branch. Each split has three to five plain-named parts,
+with no overlap and no gaps. Run `python3 -S scripts/check_repo_tree.py` after
+changing a record type or adding, moving, or removing a file.
+
 Descriptions use the plain product words from
 [Plain Language](../product/plain-language.md). Python modules and stored field
 names stay exact because this is also a source-code map.
@@ -54,8 +59,8 @@ When adding a command, update parser, dispatch, output, tests, and
 
 ## Agent Runtime
 
-- `src/palari_company_os/agent_home.py`: persistent read-only agent view under
-  Memory, Initiative, and Control; it grants no task authority.
+- `src/palari_company_os/agent_home.py`: read-only Goals, Team, Work, Checks,
+  and Limits view; it grants no task permission.
 - `src/palari_company_os/agent_packets.py`: `agent brief` task-brief contract.
 - `src/palari_company_os/agent_session_contract.py`: pure deterministic
   provider-neutral session-contract projection, strict validation, digest, and

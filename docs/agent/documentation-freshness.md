@@ -13,6 +13,7 @@ into a process ritual.
 - required-check profile recommendations
 - examples, quickstarts, installation, or verification commands
 - public README or example claims
+- the checked repo tree when a file is added, moved, or removed
 - PCAW schemas, diagnostics, conformance vectors, verifier TCB, or tamper-evident
   history semantics
 
@@ -32,6 +33,7 @@ into a process ritual.
 - Required checks and approval: `docs/product/authority-and-gates.md`
 - Verification: `docs/agent/verification.md` and `docs/product/testing-guide.md`
 - Repo orientation: `docs/agent/repo-map.md`
+- Full file tree: `docs/agent/repo-tree.json`
 - PCAW protocol: `spec/pcaw/v1/README.md` and its schemas/vectors
 
 When unsure, prefer a short truthful doc update over leaving future agents to

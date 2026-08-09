@@ -92,6 +92,10 @@ agent agree on:
 Palari works around coding agents and AI tools. It is not a chatbot or model
 provider, and it does not automatically merge, deploy, or approve work.
 
+The product has five plain parts: **Goals**, **Team**, **Work**, **Checks**, and
+**Limits**. The [repo tree](docs/agent/repo-tree.json) also gives every tracked
+file one place, with no overlap and no gaps.
+
 The work process is:
 
 ```text

@@ -32,16 +32,28 @@ strengthens the core rules and checks or adds optional surface area.
 - Add narrow adapters before generic provider frameworks.
 - Prefer one local file and one explicit command over hidden orchestration.
 
-## Recursive MECE Rule Of Three
+## No Overlap, No Gaps
 
-- The product framework has three roots: **Memory**, **Initiative**, and
-  **Control**. Every conceptual component belongs to exactly one root.
-- Any component may have zero to three child components. The same limit applies
-  recursively at every depth.
-- Sibling components must be mutually exclusive and collectively exhaustive of
-  their parent. Merge, rename, or move overlaps before adding another child.
+Palari has five main parts:
 
-Ordinary data fields inside a leaf are not new conceptual components.
+- **Goals** — why the work matters.
+- **Team** — who does or owns the work.
+- **Work** — what is planned, active, or done.
+- **Checks** — what shows the work is sound.
+- **Limits** — what may and may not happen.
+
+Use the same rule at every level:
+
+- A part has no child parts, or it has three to five.
+- Child parts do not overlap and together cover their whole parent.
+- New public names use short, common words. Exact code and file names may stay
+  technical, but the nearby text must explain them in plain words.
+- A new part must fit under one current part. Split a part only when all of its
+  contents can be placed once, with nothing left out.
+
+Data fields inside an end part are not new parts. The checked
+[Repo Tree](../agent/repo-tree.json) places every stored record and every repo
+file once, and applies the same three-to-five rule to each split.
 
 ## Size Budget
 

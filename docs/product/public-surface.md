@@ -25,7 +25,7 @@ matrix.
 | Tamper-evident history and guarded state changes | core | Replayable history and hard stops for changes that affect trust. |
 | Run records, check results, reviews, approvals, and results | core | Records needed to trust and complete a task. |
 | Integration plans and outbox | core | Human-approved external-write boundary. |
-| Agent home | agent adapter | Persistent read-only Memory, Initiative, and Control view over current workspace truth; grants no authority. |
+| Agent home | agent adapter | Read-only Goals, Team, Work, Checks, and Limits view over current workspace facts; grants no permission. |
 | Agent brief/check/start/advance/release flow | agent adapter | Primary bounded execution path over the central rules. Stored files retain the technical name `packet`. |
 | Queue, detail, state | operator | Recorded status views for ordinary orientation; they do not recheck output bytes or all history. |
 | History audit | operator | Explicit replay, continuity, and recovery inspection; not an ordinary status dependency. |
