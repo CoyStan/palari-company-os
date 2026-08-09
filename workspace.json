@@ -1840,6 +1840,254 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-D40660EB16AE4C29B2DE2EADE5E5A8F5-6DA2C2999EC0"
+    },
+    {
+      "id": "WORK-76C49599F2EE47D583117506A126AD07",
+      "title": "Remove old journal and archive",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Delete the packed old workspace and remove v1 journal reading, activation, protection, tests, and guides; keep the current v2 journal.",
+      "allowed_resources": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_verification_profiles.py",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_verification_profiles.py",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_verification_profiles.py",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The old archive is gone, only the v2 journal is supported, current history still verifies, and all checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_governance_journal tests.test_governance_journal_crash tests.test_store_journal_integration tests.test_custom_workspace_projection tests.test_verification_profiles"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/governance_journal.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/pcaw_workspace.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_governance_journal.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_governance_journal_crash.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_store_journal_integration.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_custom_workspace_projection.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_verification_profiles.py",
+          "intent": "modify"
+        },
+        {
+          "path": "README.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/security.md",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "intent": "modify"
+        },
+        {
+          "path": "workspaces/palari-company-os/past.tgz",
+          "intent": "delete"
+        },
+        {
+          "path": "workspaces/palari-company-os/README.md",
+          "intent": "delete"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91"
+    },
+    {
+      "id": "WORK-5420B2011AD344879BE57026CB357452",
+      "title": "Fix repo data map",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "completed",
+      "scope": "Remove the empty old-data part and keep the current data files in clear parts.",
+      "allowed_resources": [
+        "docs/agent/repo-tree.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json"
+      ],
+      "conflict_targets": [
+        "docs/agent/repo-tree.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The repo map has no empty part and the complete check passes.",
+      "verification_expectations": [
+        "python -S scripts/check_repo_tree.py"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "docs/agent/repo-tree.json",
+          "intent": "modify"
+        }
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2"
     }
   ],
   "attempts": [
@@ -2700,6 +2948,126 @@
         "tests/test_validation.py",
         "docs/agent/contracts-and-invariants.md",
         "docs/product/command-reference.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91",
+      "work_item_id": "WORK-76C49599F2EE47D583117506A126AD07",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "9701c2c1ee28c11f46935895894fc31e70203a58",
+      "allowed_paths": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_verification_profiles.py",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md"
+      ],
+      "started_at": "2026-08-09T20:52:02Z",
+      "head_sha": "8d8c48cfff912bd9b0903805a629b3ca4a8980e4",
+      "commits": [
+        "8d8c48cfff912bd9b0903805a629b3ca4a8980e4"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T20:52:02Z",
+      "changed_files": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/past.tgz"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_verification_profiles.py",
+        "README.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/repo-map.md",
+        "docs/product/source-of-truth.md",
+        "docs/product/current-product.md",
+        "docs/product/agent-contract.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/command-reference.md",
+        "workspaces/palari-company-os/past.tgz",
+        "workspaces/palari-company-os/README.md"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2",
+      "work_item_id": "WORK-5420B2011AD344879BE57026CB357452",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "8d8c48cfff912bd9b0903805a629b3ca4a8980e4",
+      "allowed_paths": [
+        "docs/agent/repo-tree.json"
+      ],
+      "started_at": "2026-08-09T20:55:03Z",
+      "head_sha": "b69dd1b5b1f20f213d770b699c9813d94e5b15f6",
+      "commits": [
+        "b69dd1b5b1f20f213d770b699c9813d94e5b15f6"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T20:55:03Z",
+      "changed_files": [
+        "docs/agent/repo-tree.json"
+      ],
+      "output_targets": [
+        "docs/agent/repo-tree.json"
       ]
     }
   ],
@@ -4134,6 +4502,204 @@
       "receipt_hash": "sha256:1ec98f6a2d2283018d61ac1082e8196685d550c81b1fa09150034d20534c8f6d",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:f9e9419f75ef5ef1499ba9263e1c47ab9773a2e46482109036a4c66d58e13b8c"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91",
+      "work_item_id": "WORK-76C49599F2EE47D583117506A126AD07",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91",
+      "head_sha": "8d8c48cfff912bd9b0903805a629b3ca4a8980e4",
+      "status": "passed",
+      "base_ref": "9701c2c1ee28c11f46935895894fc31e70203a58",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-6B7D03DB03688381 sha256:eee3ea59506209fc41a24f617d9631de435aee113aedfd336b7d03db03688381"
+      ],
+      "artifacts": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/past.tgz"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "README.md",
+          "sha256": "sha256:a589506ebdf0ac8334ce5eb858cb25f85a00565e9c0d5cc122c9f52ec3e688d7",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/common-workflows.md",
+          "sha256": "sha256:92f945d4554badf91efb824c673e521e95a614149d4e26297e059efa7f01a66c",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/contracts-and-invariants.md",
+          "sha256": "sha256:05b26cedcff59481203521876fc3155722f89f490d77244c38365339ea0ea138",
+          "status": "present"
+        },
+        {
+          "path": "docs/agent/repo-map.md",
+          "sha256": "sha256:395798d4c55a54433f153c936bc5c195db6e74d9f9b200ad1608a4fb47e4bf8d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "sha256": "sha256:5765cb9c68ccbe901d3d1edb90f0584b4527714a020a057d9ecda5be72c1b691",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/command-reference.md",
+          "sha256": "sha256:24beb2d7ab1a2c6ee43c313d74416f1040374085cfbf6a169ad33470fe1fc3a3",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/current-product.md",
+          "sha256": "sha256:bb582b18428c02a46cb64a34d6fe6a660323c7bf7b31589bcac2b80b570c213d",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/lifecycle-guide.md",
+          "sha256": "sha256:0b0091d6d801e89c1e0fed9de222a328ed80aeab259cda3eed002da25230673a",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/schema-and-validation.md",
+          "sha256": "sha256:b7072cd7eb63a5187ccde0f3991be3e0c32889ee9566b74e4664d05ee6e282f8",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/security.md",
+          "sha256": "sha256:3dc3c2d3ab0e72660ee187a767eed6ee99264ef50d50b3ae880ff5b951e74daf",
+          "status": "present"
+        },
+        {
+          "path": "docs/product/source-of-truth.md",
+          "sha256": "sha256:d51f37aaea59f3b391f1345dedfa3c41423cafaecdfda438f089f60d2476a7bc",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "sha256": "sha256:24c43715b08307c781b1a48a22b901daf3cff776f2fc57c755f3a592e34d4e70",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_parking.py",
+          "sha256": "sha256:7dd6743077893663461faa2ee8b156d1ab7026d61c14a1634bd69c95389105ce",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:ff3db54b0e0485f7218a4143ce5983d89beaf4b993d01d7285ab93ee72f8cc4b",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/evidence_manifest.py",
+          "sha256": "sha256:43f0761159c52b659b86a2fa8d1eaaa7dbc71da79e893dc333e565b41b3f8694",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/governance_journal.py",
+          "sha256": "sha256:41860a9441e18941d19e2a84d6cb10cd5fd81f13eb9cb5e89214ed6435f094a1",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/onramp.py",
+          "sha256": "sha256:f8b2c2950e77c912fbe59625b3b97da225cdf3a3d312f901bc6d6672fa1f5da1",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/pcaw_workspace.py",
+          "sha256": "sha256:ca965fea209fbf829717d8aa9133e892ab9c154b210f9f1328e4b36de8021929",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_custom_workspace_projection.py",
+          "sha256": "sha256:4a6c761e6629fd9b3fdfebef8bee66b63fadd26ca740d17994781fec8ad19807",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_governance_journal.py",
+          "sha256": "sha256:090a9dda2c6188aec8e57df05b33a4b9f42d3d2edb632901b97440cc53d9a559",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_governance_journal_crash.py",
+          "sha256": "sha256:ff6aa4bbd08455f9664b2a1acdc1b753e03747758650fa6250ae389a34c4efdf",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_store_journal_integration.py",
+          "sha256": "sha256:dac5b58233bcb6307c5da7ff0a955fe053e6149f828cd2ef8c4bf7c28827d10d",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_verification_profiles.py",
+          "sha256": "sha256:917836c907269fc53bce61a7cc82ef286dee2d08527039c1fa6164e17c86c763",
+          "status": "present"
+        },
+        {
+          "path": "workspaces/palari-company-os/README.md",
+          "sha256": "sha256:absent",
+          "status": "absent"
+        },
+        {
+          "path": "workspaces/palari-company-os/past.tgz",
+          "sha256": "sha256:absent",
+          "status": "absent"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T20:52:02Z",
+      "receipt_hash": "sha256:34eb3aaaba00e7dd03ad4e0160961a79c03c87ca3bd851ba93e28abc354fe9a5",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:6621c889f4f5b197466b62cef479a41a82b7e41f1aad630b350efa72fded3a99"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2",
+      "work_item_id": "WORK-5420B2011AD344879BE57026CB357452",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2",
+      "head_sha": "b69dd1b5b1f20f213d770b699c9813d94e5b15f6",
+      "status": "passed",
+      "base_ref": "8d8c48cfff912bd9b0903805a629b3ca4a8980e4",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-2923A90448483846 sha256:316709f3631056ed68986a1d11a06b9e83b8bb5706ea0c832923a90448483846"
+      ],
+      "artifacts": [
+        "docs/agent/repo-tree.json"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "docs/agent/repo-tree.json",
+          "sha256": "sha256:c5619e106d4d8ed51c306734b1a3e7dce8d1b84dd7e2b3cccb9572e5337daad7",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T20:55:03Z",
+      "receipt_hash": "sha256:e72c7c67a05ca36741deb53e963b4a2671d02aaa818b54e244237226e5355b30",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:a98815cfb86db09a9a0fe3e35f14d916f9c5146119b2bab2b34e1dbeba9d138f"
     }
   ],
   "review_verdicts": [
@@ -5706,6 +6272,102 @@
       ],
       "timestamp": "2026-08-09T20:35:11Z",
       "receipt_hash": "sha256:1ec98f6a2d2283018d61ac1082e8196685d550c81b1fa09150034d20534c8f6d"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91",
+      "work_item_id": "WORK-76C49599F2EE47D583117506A126AD07",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-76C49599F2EE47D583117506A126AD07-8D8C48CFFF91",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 25 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/past.tgz"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "README.md",
+        "docs/agent/common-workflows.md",
+        "docs/agent/contracts-and-invariants.md",
+        "docs/agent/repo-map.md",
+        "docs/product/agent-contract.md",
+        "docs/product/command-reference.md",
+        "docs/product/current-product.md",
+        "docs/product/lifecycle-guide.md",
+        "docs/product/schema-and-validation.md",
+        "docs/product/security.md",
+        "docs/product/source-of-truth.md",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/onramp.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_custom_workspace_projection.py",
+        "tests/test_governance_journal.py",
+        "tests/test_governance_journal_crash.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_verification_profiles.py",
+        "workspaces/palari-company-os/README.md",
+        "workspaces/palari-company-os/past.tgz"
+      ],
+      "timestamp": "2026-08-09T20:52:02Z",
+      "receipt_hash": "sha256:34eb3aaaba00e7dd03ad4e0160961a79c03c87ca3bd851ba93e28abc354fe9a5"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2",
+      "work_item_id": "WORK-5420B2011AD344879BE57026CB357452",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-5420B2011AD344879BE57026CB357452-B69DD1B5B1F2",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 1 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "docs/agent/repo-tree.json"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "docs/agent/repo-tree.json"
+      ],
+      "timestamp": "2026-08-09T20:55:03Z",
+      "receipt_hash": "sha256:e72c7c67a05ca36741deb53e963b4a2671d02aaa818b54e244237226e5355b30"
     }
   ],
   "decisions": [],
@@ -5811,7 +6473,14 @@
         "docs/product/lifecycle-guide.md",
         "docs/product/quickstart.md",
         "tests/test_cli_smoke.py",
-        "tests/test_demo.py"
+        "tests/test_demo.py",
+        "src/palari_company_os/governance_journal.py",
+        "src/palari_company_os/evidence_manifest.py",
+        "src/palari_company_os/agent_parking.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_store_journal_integration.py",
+        "tests/test_custom_workspace_projection.py",
+        "docs/product/security.md"
       ]
     }
   ],
