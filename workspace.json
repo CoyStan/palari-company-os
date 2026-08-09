@@ -9204,6 +9204,23 @@
       "receipt_hash": "sha256:3397fdbe0ac4df68425f4202669bd30c8ee9d0c5c776a17345d87fcebe772701",
       "work_contract_hash": "sha256:c4f10e4d1ac47a3c59cda9c2173d158a36caacd488c87704c17fddf995a5ea35",
       "proof_hash": "sha256:3c47336d3f3a871fec66ae68af414b86481bc9b6aac1a943d11906f833592747"
+    },
+    {
+      "id": "REVIEW-2AE4806DCAE85B4B2EB948CD",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "reviewed_head": "a862a7e5e32451ac2a1d7a76f04b7004b586692d",
+      "reviewer": "PALARI-REVIEWER",
+      "verdict": "changes-requested",
+      "timestamp": "2026-08-09T23:48:42.595170Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "attempt_hash": "sha256:d0bba926f3c7125f19ac7787fce22a9c43d55f64bcbd46896703ae9cc5c5e424",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "evidence_manifest_hash": "sha256:bb6d282fc0367ae830b68ac32b3549267e3c2e84c8fd6a4abba845660771ab20",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-A862A7E5E324",
+      "receipt_hash": "sha256:8b3f11f580950e598f8f0f025764898bd361e1201f507e57b5334fa6bb33b46a",
+      "work_contract_hash": "sha256:acee28818aea758fabe89f0bedbef39b07d3bc560d6a918892d747efcbd33780",
+      "proof_hash": "sha256:89b0ed0802d458be1d04feed6d2602ad7fba3336f2975a008166e2ac8f0dda69"
     }
   ],
   "human_decisions": [
