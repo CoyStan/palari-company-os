@@ -314,7 +314,9 @@
     },
     {
       "name": "tests",
-      "files": ["tests/"]
+      "files": [
+        "tests/"
+      ]
     },
     {
       "name": "docs",

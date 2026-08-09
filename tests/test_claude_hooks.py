@@ -1201,25 +1201,6 @@ class PreToolUseTests(unittest.TestCase):
 
         self.assertEqual(result, {})
 
-    def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
-        workspace_file = self.workspace / "workspace.json"
-        data = json.loads(workspace_file.read_text(encoding="utf-8"))
-        data["collection_files"] = {"goals": ["records/goals.json"]}
-        workspace_file.write_text(json.dumps(data), encoding="utf-8")
-
-        result = _pre_tool_use(
-            self.workspace,
-            "Write",
-            {"file_path": str(self.workspace / "records" / "goals.json")},
-            self.repo,
-        )
-
-        self.assertEqual(_decision(result), "deny")
-        self.assertIn(
-            "workspace source of truth",
-            result["hookSpecificOutput"]["permissionDecisionReason"],
-        )
-
     def test_expired_lease_counts_as_no_claim(self) -> None:
         _write_claim_and_packet(
             self.workspace, allowed_write=["docs/notes.md"], lease_minutes=-5

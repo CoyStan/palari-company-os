@@ -34,7 +34,7 @@ names stay exact because this is also a source-code map.
 
 - `src/palari_company_os/models.py`: typed workspace objects.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
-- `src/palari_company_os/workspace.py`: workspace loading and split collection files.
+- `src/palari_company_os/workspace.py`: workspace loading and record lookup.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
 - `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
   history, explicit activation, verification, and crash recovery.

@@ -36,11 +36,6 @@ code change must match them. See
   Inbox/handoff operations perform current check and history verification;
   nested verification in one such operation may share
   only an in-memory request context. Persistent caches never become authority.
-- Split collection files are read-time only for ordinary authoring; authoring
-  writes refuse split workspaces rather than silently collapsing records.
-  This reader is parked compatibility, not a supported write or migration
-  surface.
-- Collection file paths must be workspace-relative and must not contain `..`.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
   delete requires an absent exact path plus an observed Git deletion. Legacy
@@ -115,8 +110,8 @@ code change must match them. See
   laundering later changes.
 - For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari compares a canonical execution-authority
-  projection from exact baseline workspace bytes with strict current root and
-  split-collection bytes before it can
+  projection from exact baseline workspace bytes with strict current workspace
+  bytes before it can
   acquire a lease, then repeats that comparison under the final local workspace
   mutation lock and holds that lock through witness, baseline, packet, and claim
   persistence. It covers the acting Palari's identity, role, scope, worker,
@@ -124,8 +119,8 @@ code change must match them. See
   dependency lifecycle authority; paths; selected-source provider/URI/external
   identity; capabilities; outputs; coordination policy; and static completion
   gates. Mutable proof records and current builder/reviewer proof context are
-  deliberately excluded. A changed authority, malformed strict JSON, unsafe
-  collection path, or mismatched split collection fails closed. Journal actor
+  deliberately excluded. A changed authority, malformed strict JSON, or
+  mismatched workspace fails closed. Journal actor
   labels and `agent handoff` do not authorize a rebaseline. Preserve the old
   record and create a successor work item for a changed contract; unrelated
   read-model projection remains eligible for separate classification.
@@ -238,7 +233,7 @@ code change must match them. See
   adoption are agent-inaccessible. Every shell segment is classified even when
   another segment has a visible write target; command environment and
   helper-launching options cannot inherit read-only status. Workspace truth,
-  split collection files, `.palari/`, and Git metadata cannot be directly
+  `.palari/`, and Git metadata cannot be directly
   rewritten around those gates, including after claim release. Option-encoded
   destinations and linked worktree/common Git directories are part of the same
   protected boundary;

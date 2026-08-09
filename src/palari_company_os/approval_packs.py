@@ -44,10 +44,6 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v3"
-SUPPORTED_PACK_SCHEMA_VERSIONS = {
-    "palari.approval-pack.v2",
-    PACK_SCHEMA_VERSION,
-}
 INBOX_SCHEMA_VERSION = "palari.approval-inbox.v2"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 BAD_DEPENDENCY_STATES = {
@@ -401,7 +397,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] not in SUPPORTED_PACK_SCHEMA_VERSIONS:
+    if pack["schema_version"] != PACK_SCHEMA_VERSION:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(
@@ -440,10 +436,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
         raise WorkspaceError("approval pack must contain at least one member")
     ids: list[str] = []
     for member in members:
-        _validate_pack_member(
-            member,
-            schema_version=str(pack["schema_version"]),
-        )
+        _validate_pack_member(member)
         member_id = member.get("id")
         if not isinstance(member_id, str) or not member_id:
             raise WorkspaceError("approval pack member id is required")
@@ -1774,8 +1767,6 @@ def _decision_member_digest(member: dict[str, Any]) -> str:
 
 def _validate_pack_member(
     member: Any,
-    *,
-    schema_version: str,
 ) -> None:
     fields = {
         "id", "kind", "title", "subject_digest", "risk", "reversibility",
@@ -1798,9 +1789,8 @@ def _validate_pack_member(
     authority_fields = {
         "required_approval_count",
         "required_approval_capability",
+        "effective_final_approval_count",
     }
-    if schema_version == PACK_SCHEMA_VERSION:
-        authority_fields.add("effective_final_approval_count")
     _exact_object(
         member["authority"],
         authority_fields,
@@ -1810,11 +1800,10 @@ def _validate_pack_member(
         member["authority"]["required_approval_count"],
         f"members.{member_id}.authority.required_approval_count",
     )
-    if schema_version == PACK_SCHEMA_VERSION:
-        _require_nonnegative_int(
-            member["authority"]["effective_final_approval_count"],
-            f"members.{member_id}.authority.effective_final_approval_count",
-        )
+    _require_nonnegative_int(
+        member["authority"]["effective_final_approval_count"],
+        f"members.{member_id}.authority.effective_final_approval_count",
+    )
     if not isinstance(member["authority"]["required_approval_capability"], str):
         raise WorkspaceError(
             f"approval pack members.{member_id}.authority.required_approval_capability must be a string"

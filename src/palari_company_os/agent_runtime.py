@@ -25,7 +25,6 @@ from .path_policy import resolve_workspace_path, validate_workspace_path
 from .pcaw_canonical import CanonicalJSONError, canonical_sha256, strict_json_loads
 from .store import workspace_file_path, workspace_write_lock
 from .transition_checks import assert_transition_allowed
-from .validation import COLLECTION_FILE_KEYS
 from .workspace import Workspace, WorkspaceError
 
 
@@ -1910,7 +1909,6 @@ def _scope_authority_packet_identifier(
 
 
 def _scope_authority_workspace_from_current(data_path: Path) -> Workspace:
-    workspace_root = data_path.parent
     if data_path.is_symlink():
         raise WorkspaceError(
             "workspace.json symlink is unsafe for pre-claim scope authority"
@@ -1922,24 +1920,9 @@ def _scope_authority_workspace_from_current(data_path: Path) -> Workspace:
             f"cannot read current workspace for pre-claim scope authority: {exc}"
         ) from exc
 
-    def read_collection(relative_path: str) -> bytes:
-        try:
-            candidate = resolve_workspace_path(
-                workspace_root, relative_path, require_exists=True
-            )
-            if not candidate.is_file():
-                raise ValueError("collection path is not a file")
-            return candidate.read_bytes()
-        except (OSError, ValueError) as exc:
-            raise WorkspaceError(
-                "cannot read current workspace collection for pre-claim scope authority: "
-                f"{relative_path}: {exc}"
-            ) from exc
-
     return _scope_authority_workspace_from_bytes(
         payload,
         data_path,
-        read_collection,
         label="current",
     )
 
@@ -2069,33 +2052,9 @@ def _scope_authority_workspace_from_git(
             "next action: "
             + _missing_workspace_anchor_command(root, relative_data)
         )
-    workspace_prefix = Path(relative_data).parent.as_posix()
-
-    def read_collection(relative_path: str) -> bytes:
-        try:
-            normalized = validate_workspace_path(relative_path)
-        except ValueError as exc:
-            raise WorkspaceError(
-                "immutable scope authority workspace collection path is unsafe: "
-                f"{relative_path}: {exc}"
-            ) from exc
-        git_path = (
-            normalized
-            if workspace_prefix == "."
-            else f"{workspace_prefix}/{normalized}"
-        )
-        collection_payload = _git_blob_bytes(root_text, base_sha, git_path)
-        if collection_payload is None:
-            raise WorkspaceError(
-                "immutable scope authority workspace collection Git blob is unreadable: "
-                + relative_path
-            )
-        return collection_payload
-
     return _scope_authority_workspace_from_bytes(
         payload,
         data_path,
-        read_collection,
         label="immutable baseline",
     )
 
@@ -2103,7 +2062,6 @@ def _scope_authority_workspace_from_git(
 def _scope_authority_workspace_from_bytes(
     payload: bytes,
     data_path: Path,
-    read_collection: Callable[[str], bytes],
     *,
     label: str,
 ) -> Workspace:
@@ -2117,10 +2075,9 @@ def _scope_authority_workspace_from_bytes(
         raise WorkspaceError(
             f"{label} workspace root is not an object for pre-claim scope authority"
         )
-    expanded = _expand_scope_authority_collection_files(raw, read_collection, label)
     try:
         return Workspace.from_raw(
-            expanded,
+            raw,
             data_path.parent,
             data_path=data_path,
         )
@@ -2128,59 +2085,6 @@ def _scope_authority_workspace_from_bytes(
         raise WorkspaceError(
             f"{label} workspace is invalid for pre-claim scope authority: {exc}"
         ) from exc
-
-
-def _expand_scope_authority_collection_files(
-    raw: dict[str, Any],
-    read_collection: Callable[[str], bytes],
-    label: str,
-) -> dict[str, Any]:
-    collection_files = raw.get("collection_files")
-    if not collection_files:
-        return raw
-    if not isinstance(collection_files, dict):
-        raise WorkspaceError(
-            f"{label} workspace collection_files is invalid for pre-claim scope authority"
-        )
-    expanded = dict(raw)
-    expanded["collection_files"] = {}
-    for collection, paths in collection_files.items():
-        if collection not in COLLECTION_FILE_KEYS:
-            raise WorkspaceError(
-                f"{label} workspace collection_files has unknown collection: {collection}"
-            )
-        if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
-            raise WorkspaceError(
-                f"{label} workspace collection_files.{collection} is invalid"
-            )
-        records = raw.get(collection, [])
-        if not isinstance(records, list) or not all(isinstance(item, dict) for item in records):
-            raise WorkspaceError(f"{label} workspace {collection} is invalid")
-        combined = list(records)
-        for relative_path in paths:
-            try:
-                normalized = validate_workspace_path(relative_path)
-            except ValueError as exc:
-                raise WorkspaceError(
-                    f"{label} workspace collection path is unsafe: {relative_path}: {exc}"
-                ) from exc
-            try:
-                included = strict_json_loads(read_collection(normalized))
-            except (CanonicalJSONError, TypeError) as exc:
-                raise WorkspaceError(
-                    f"{label} workspace collection is not strict JSON: {relative_path}: {exc}"
-                ) from exc
-            if not isinstance(included, list) or not all(
-                isinstance(item, dict) for item in included
-            ):
-                raise WorkspaceError(
-                    f"{label} workspace collection is not a list of records: {relative_path}"
-                )
-            combined.extend(included)
-        expanded[collection] = combined
-    return expanded
-
-
 def _scope_authority_digest(
     workspace: Workspace,
     work_id: str,

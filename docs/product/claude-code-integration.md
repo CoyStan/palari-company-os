@@ -84,8 +84,8 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   writes in sessions with no assigned task are left to Claude Code's normal
   permission flow. Opaque, indirect, or unreviewed shell execution still asks
   even without an assignment so hidden permission-changing commands cannot
-  bypass the hook by releasing an assignment first. Direct writes to workspace records, split collection files,
-  `.palari/`, and standard or linked-worktree Git metadata also remain
+  bypass the hook by releasing an assignment first. Direct writes to workspace
+  records, `.palari/`, and standard or linked-worktree Git metadata also remain
   protected, including `dd of=`, `-t`, and
   `--target-directory` destinations. Compact/newline shell separators and
   ordinary existing-directory copy/move/link/install destinations resolve to

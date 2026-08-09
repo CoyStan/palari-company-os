@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import sys
 import tempfile
 import time
@@ -549,88 +548,6 @@ class ScopeValidationTests(unittest.TestCase):
         data["work_items"][0]["path_intents"][0]["intent"] = "delete"
         workspace = Workspace.from_raw(data, FIXTURES)
         self.assertEqual(workspace.evidence_runs[0].artifact_hashes[0]["status"], "absent")
-
-
-class SplitWorkspaceCompatibilityTests(unittest.TestCase):
-    def test_split_collection_reader_loads_committed_fixture(self) -> None:
-        workspace = Workspace.load(FIXTURES / "split-workspace")
-
-        self.assertEqual(workspace.name, "Split Workspace Fixture")
-        self.assertEqual([item.id for item in workspace.work_items], ["WORK-SPLIT"])
-
-    def test_split_reader_rejects_duplicate_ids(self) -> None:
-        with self.copied_split_workspace() as root:
-            data_path = root / "workspace.json"
-            data = json.loads(data_path.read_text(encoding="utf-8"))
-            data["work_items"] = [
-                {
-                    "id": "WORK-SPLIT",
-                    "title": "Duplicate root work",
-                    "goal": "GOAL-SPLIT",
-                    "palari": "PALARI-SPLIT",
-                }
-            ]
-            data_path.write_text(json.dumps(data), encoding="utf-8")
-
-            with self.assertRaisesRegex(WorkspaceError, "contains duplicate id: WORK-SPLIT"):
-                Workspace.load(root)
-
-    def test_split_reader_rejects_unsafe_missing_and_malformed_files(self) -> None:
-        cases = (
-            ("../outside.json", "must be workspace-relative"),
-            ("/tmp/outside.json", "must be workspace-relative"),
-            ("records/missing.json", "file not found"),
-        )
-        for relative_path, expected in cases:
-            with self.subTest(relative_path=relative_path):
-                with self.copied_split_workspace() as root:
-                    data_path = root / "workspace.json"
-                    data = json.loads(data_path.read_text(encoding="utf-8"))
-                    data["collection_files"]["work_items"] = [relative_path]
-                    data_path.write_text(json.dumps(data), encoding="utf-8")
-                    with self.assertRaisesRegex(WorkspaceError, expected):
-                        Workspace.load(root)
-
-        with self.copied_split_workspace() as root:
-            (root / "records" / "work-items.json").write_text(
-                json.dumps({"id": "WORK-SPLIT"}),
-                encoding="utf-8",
-            )
-            with self.assertRaisesRegex(WorkspaceError, "must contain a list of objects"):
-                Workspace.load(root)
-
-    def test_split_reader_rejects_unknown_collection(self) -> None:
-        with self.copied_split_workspace() as root:
-            data_path = root / "workspace.json"
-            data = json.loads(data_path.read_text(encoding="utf-8"))
-            data["collection_files"]["not_a_collection"] = ["records/work-items.json"]
-            data_path.write_text(json.dumps(data), encoding="utf-8")
-
-            with self.assertRaisesRegex(WorkspaceError, "unknown collection"):
-                Workspace.load(root)
-
-    def test_authoring_refuses_parked_split_storage(self) -> None:
-        with self.copied_split_workspace() as root:
-            with self.assertRaisesRegex(
-                WorkspaceError,
-                "authoring writes are not supported for split workspaces",
-            ):
-                write_store(load_store(root))
-
-    def copied_split_workspace(self):
-        source = FIXTURES / "split-workspace"
-        directory = tempfile.TemporaryDirectory()
-        root = Path(directory.name) / "split-workspace"
-        shutil.copytree(source, root)
-
-        class CopiedSplitWorkspace:
-            def __enter__(self) -> Path:
-                return root
-
-            def __exit__(self, *args: object) -> None:
-                directory.cleanup()
-
-        return CopiedSplitWorkspace()
 
 
 class JournaledStoreTests(unittest.TestCase):

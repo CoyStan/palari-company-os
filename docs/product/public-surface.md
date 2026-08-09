@@ -39,7 +39,6 @@ matrix.
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
 | Mission Control and local serve | visual | Local supervision surface with guarded integration-plan decisions and one-task exact approve; not a second evaluator. |
 | ACME workspace | example | Repository example only; it is not packaged data, a default workspace, or the source of truth for candidate tests. |
-| Split collections | parked | A legacy reader remains pending a stored-format decision; it cannot approve or complete work. |
 | Self-hosting maintainer state profile | deferred | The policy and migration plan are documented, but live governance state is not yet isolated from the source checkout. No runtime mode is shipped. |
 | Roadmap | parked | Ambiguous strategy document that mixes shipped and unresolved work; not current product status. |
 | Palari Blueprint | experimental | Prospective research inventory; not a supported product promise or backlog. |

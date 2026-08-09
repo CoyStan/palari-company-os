@@ -30,7 +30,7 @@ from typing import Any
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_runtime import load_active_claim_contexts
-from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
+from .path_policy import canonical_path_allowed
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
 
@@ -1695,26 +1695,8 @@ def _protected_governance_target(
         target = cwd / target
     target = target.resolve()
     data_path = workspace_file_path(workspace_path).resolve()
-    protected_files = {data_path}
-    try:
-        raw = json.loads(data_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        raw = {}
-    collection_files = raw.get("collection_files") if isinstance(raw, dict) else None
-    if isinstance(collection_files, dict):
-        for paths in collection_files.values():
-            if not isinstance(paths, list):
-                continue
-            for relative in paths:
-                if not isinstance(relative, str):
-                    continue
-                try:
-                    canonical = validate_workspace_path(relative)
-                    protected_files.add(resolve_workspace_path(data_path.parent, canonical))
-                except ValueError:
-                    continue
-    if target in protected_files or (
-        include_ancestors and any(target in path.parents for path in protected_files)
+    if target == data_path or (
+        include_ancestors and target in data_path.parents
     ):
         return "workspace source of truth"
     runtime = (data_path.parent / ".palari").resolve()

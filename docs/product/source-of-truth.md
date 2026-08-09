@@ -70,12 +70,6 @@ formats. These rules must remain true:
 - every successful change appends one history transaction
 - queue and detail never silently change permissions or approvals
 
-Current authoring commands reject split workspaces so they cannot collapse or
-corrupt external collection files. The retained split-file reader accepts a
-declared `collection_files` list, combines those files in memory, and validates
-the result. It is parked compatibility, not a supported scaling path. There is
-no current split-file writer or schema-migration exception.
-
 ## Actions That Must Stay Explicit
 
 Palari must never infer or silently perform:

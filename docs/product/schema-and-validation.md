@@ -4,7 +4,7 @@ Palari stores ordinary JSON files. This reference uses exact machine names so
 people can match documentation to a file or validation error. In the product,
 `work_items` are tasks, `attempts` are runs, `receipts` are run records,
 `evidence_runs` are check results, and `human_decisions` are approvals or
-rejections. See [Plain Language](plain-language.md).
+rejections. `workbenches` are projects. See [Plain Language](plain-language.md).
 
 The stored-data contract has two layers:
 
@@ -25,37 +25,6 @@ Every current workspace must include:
 }
 ```
 
-Large projects may keep records in additional collection files while
-preserving `workspace.json` as the manifest:
-
-```json
-{
-  "schema_version": 2,
-  "name": "Example",
-  "collection_files": {
-    "workbenches": ["records/workbenches.json"],
-    "work_items": ["records/work-items.json"]
-  },
-  "work_items": []
-}
-```
-
-Collection files are read at load time, merged in memory with the matching root
-collection, and then validated through the same strict checks as single-file
-workspaces. The root `workspace.json` must still declare all required
-collections; split files add records to those collections.
-
-Collection file paths must be workspace-relative. Absolute paths and paths that
-contain `..` fail closed. Each collection file contains a JSON array of records
-for the collection named in the manifest.
-
-Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
-split workspace files. Commands that write records currently refuse split files
-with a clear error instead of silently collapsing or corrupting collection
-files. This split-file reader is parked
-compatibility; there is no current split-file writer or schema migration
-exception.
-
 The CLI validation path uses the Python models and strict workspace checks:
 
 ```bash
@@ -67,8 +36,6 @@ Validation checks:
 
 - supported `schema_version`
 - required root fields and required collections
-- optional `collection_files` manifest shape
-- split collection file path safety and JSON array shape
 - unknown root or record fields
 - required record ids
 - basic field types

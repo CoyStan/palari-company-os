@@ -129,7 +129,7 @@ decision, or manufacture approval.
 `queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
 for batching, mixed decisions, and explicit recovery. They emit executable
 commands only for viable named human actors. Current machine outputs are
-Approval Inbox v2, Approval Pack v3 (with a v2 reader), and Review Guide v2.
+Approval Inbox v2, Approval Pack v3, and Review Guide v2.
 
 ### Single-maintainer interaction measurement
 
@@ -204,9 +204,7 @@ The only supported historical inputs are those proven by committed data:
 
 The code-shaped names above are retained only where they identify exact stored
 fields or formats. There is no supported migration from unversioned, v0, or v1
-workspaces, legacy agent claims, or Approval Pack v1 because no committed real
-fixture requires it. Split `collection_files` support is parked pending a
-product decision and is not part of ordinary storage.
+workspaces, legacy agent claims, or old Approval Packs.
 
 ## Optional connections
 
@@ -230,7 +228,6 @@ turn a queued external action into an executed one.
 
 ## Parked and removed features
 
-The split-collection reader remains parked pending a stored-format decision.
 The August 2026 minimality pass deleted restore-point recovery, broad manual
 record authoring, and the data-map, maintainer, gate, and playbook recommendation
 commands. Git history retains them; the installed product does not. Ordinary

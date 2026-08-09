@@ -290,8 +290,8 @@ local Git witness for ready started work:
   agree before claim authority or `agent advance` attribution is accepted.
   For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari derives a canonical execution-authority
-  digest from exact baseline workspace bytes and strict current root and
-  split-collection bytes before the lease, then repeats the comparison under the
+  digest from exact baseline workspace bytes and strict current workspace bytes
+  before the lease, then repeats the comparison under the
   final workspace mutation lock and holds that lock through witness, baseline,
   packet, and claim persistence.
   It binds the acting Palari's identity, role, scope, worker, standards,
@@ -300,8 +300,8 @@ local Git witness for ready started work:
   capabilities; output contract; coordination policy; and static completion
   gates while deliberately
   excluding mutable proof records and current builder/reviewer proof context.
-  An uncommitted or committed authority change, malformed/unsafe collection,
-  or split mismatch fails closed. A declared journal actor or `agent handoff`
+  An uncommitted or committed authority change or malformed workspace fails
+  closed. A declared journal actor or `agent handoff`
   does not authorize a reset: preserve the original record and create a
   successor work item for a changed contract. Unrelated read-model/journal
   projection may still be classified separately.
@@ -442,8 +442,8 @@ in-scope write target, and execution-capable command environments, `git -c`,
 external diff/text-conversion options, and `rg --pre` cannot inherit a read-only
 classification. Opaque or indirect commands still ask when no claim is active,
 so releasing a claim cannot turn indirection into an authority bypass.
-Direct writes to the workspace root, declared split collection files,
-`.palari/`, or Git metadata are denied or escalated even without an active
+Direct writes to the workspace root, `.palari/`, or Git metadata are denied or
+escalated even without an active
 claim; option-encoded destinations such as `dd of=` and `--target-directory`
 are inspected, and linked worktree Git/common directories are included. Those
 surfaces must change through governed Palari/Git commands. Pager and filter

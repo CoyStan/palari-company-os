@@ -2388,9 +2388,6 @@ def _refresh_artifact_transition(
         item["path"] for item in projection_unchanged + projection_rebound
     )
     return {
-        # Compatibility field: true only when every governed artifact is
-        # byte-identical across the proof-head transition.
-        "artifacts_unchanged": not projection_rebound,
         "ordinary_artifacts_unchanged": sorted(ordinary_unchanged),
         "projection_artifacts_unchanged": sorted(
             projection_unchanged, key=lambda item: item["path"]
