@@ -75,6 +75,9 @@ code change must match them. See
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
   simple `approve` or pack-decision authority surface; supported agent shell
   adapters hard-deny both.
+- Agents may store a bounded idea with `work add --idea`. It creates no task,
+  assignment, or permission. Only `approve IDEA-ID`, run by a human, copies the
+  declared limits into active work; it does not approve the later result.
 - The one-task `approve` command derives a singleton pack and presentation and
   delegates mutation to the existing pack transaction. Handoff emits it with a
   machine-supplied presentation binding; a bare invocation selects current

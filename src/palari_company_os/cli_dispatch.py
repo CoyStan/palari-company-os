@@ -45,6 +45,25 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "approve":
+        workspace = Workspace.load(args.workspace)
+        if workspace.proposal(args.work_id) is not None:
+            if args.presented:
+                raise WorkspaceError("--presented is only valid for final task approval")
+            from .proposals import adopt_proposal
+            from .work_identity import generate_work_id
+
+            work_id = generate_work_id(work.id for work in workspace.work_items)
+            return CommandResult(
+                "work-idea-accept",
+                adopt_proposal(
+                    args.workspace,
+                    args.work_id,
+                    work_id,
+                    args.human_id,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
         from .simple_approval import approve_work
 
         return CommandResult(
@@ -900,7 +919,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .onramp import quick_add_work
 
         return CommandResult(
-            "work-add",
+            "work-idea" if args.idea else "work-add",
             quick_add_work(
                 args.workspace,
                 args.title,
@@ -921,6 +940,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 approvals=args.approvals,
                 dependencies=args.dependencies,
                 parallel_policy=args.parallel_policy,
+                idea=args.idea,
             ),
             args.json,
         )

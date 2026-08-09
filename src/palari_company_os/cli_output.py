@@ -237,6 +237,10 @@ def print_result(result: CommandResult) -> None:
         print_work_add(result.payload, result.as_json)
         return
 
+    if result.kind in {"work-idea", "work-idea-accept"}:
+        print_work_idea_accept(result.payload, result.as_json)
+        return
+
     if result.kind == "claude-hook":
         print(json.dumps(result.payload))
         return
@@ -670,6 +674,22 @@ def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
     print("Next commands:")
     for command in payload["next_commands"]:
         print(f"  {command}")
+
+
+def print_work_idea_accept(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    if "idea" in payload:
+        idea = payload["idea"]
+        print(f"Idea added: {idea['id']} {idea['title']}")
+        print("This idea grants no task authority.")
+        print(f"Human next step: {payload['next_action']}")
+        return
+    work = payload["work_item"]
+    print(f"Idea approved: {payload['idea_id']}")
+    print(f"Task created: {work['id']} {work['title']}")
+    print(f"Next: {payload['next_action']}")
 
 
 def print_git_readiness(payload: dict[str, Any]) -> None:

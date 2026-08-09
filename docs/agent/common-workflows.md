@@ -25,6 +25,12 @@ Use `work add --write PATH` when only final presence matters. Use
 repeatable `--create`, `--modify`, and `--delete` instead when the exact final
 mutation class matters; do not mix exact intents with `--write`.
 
+To let an agent grow a goal without granting itself work, use `palari work add
+TITLE --idea` with the same file, project, dependency, check, and approval
+options. Stop after the emitted human step. A human may run `palari approve
+IDEA-ID --as HUMAN-ID --json`; the new task then enters the normal bounded-work
+flow.
+
 If execution is interrupted before the check results are ready, run `palari agent release
 WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Durable release
 records blocked status and the next action before releasing the task lock. It

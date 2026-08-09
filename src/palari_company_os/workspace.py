@@ -343,6 +343,22 @@ class Workspace:
         for proposal in self.proposals:
             _require_ref("proposals", proposal.id, "goal", proposal.goal, goal_ids)
             _require_ref("proposals", proposal.id, "palari", proposal.palari, palari_ids)
+            if proposal.workbench_id:
+                _require_ref(
+                    "proposals",
+                    proposal.id,
+                    "workbench_id",
+                    proposal.workbench_id,
+                    workbench_ids,
+                )
+            for dependency_id in proposal.dependency_ids:
+                _require_ref(
+                    "proposals",
+                    proposal.id,
+                    "dependency_ids",
+                    dependency_id,
+                    work_ids,
+                )
             if proposal.proposer and proposal.proposer not in human_ids and proposal.proposer not in palari_ids:
                 raise WorkspaceError(
                     f"proposals.{proposal.id}.proposer references missing human or Palari id "

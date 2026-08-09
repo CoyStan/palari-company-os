@@ -67,6 +67,12 @@ the work declaration. If a manually assembled workspace still has no committed
 authority origin, `agent start` fails closed with one exact `git add` plus
 path-limited `git commit --only` recovery action.
 
+`palari work add TITLE --idea ...` is the narrow exception to task-authority
+commands: an agent may store a bounded idea because it grants no permission and
+creates no task or assignment. The human-only `palari approve IDEA-ID --as
+HUMAN-ID` step creates active work with the same declared limits. This approval
+accepts the plan only; it cannot stand in for checks, review, or final approval.
+
 An existing Palari workspace uses the same idempotent action: `palari init
 WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude`,
 `codex`, or `cursor`. Without explicit `--host`, `init` still refuses an existing
@@ -252,7 +258,8 @@ Agents must never:
 - create durable memory without a future approved memory contract
 - treat an informal source as policy
 - bypass approval, review, run-record, check-result, or permission boundaries
-- run `palari approve` or a lower-level human-decision command
+- run `palari approve` (for either an idea or a result) or a lower-level
+  human-decision command
 
 ## Current Boundaries
 

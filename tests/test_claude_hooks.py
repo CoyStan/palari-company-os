@@ -553,6 +553,22 @@ class PreToolUseTests(unittest.TestCase):
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
 
+    def test_agent_may_add_an_authority_free_work_idea(self) -> None:
+        command = (
+            "palari --workspace ws work add 'Draft launch copy' "
+            "--idea --as PALARI-SOFIA --create docs/launch.md --json"
+        )
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+
+        self.assertEqual(bash_human_authority_command(command), "")
+        self.assertEqual(_decision(result), "")
+
     def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
         command = (

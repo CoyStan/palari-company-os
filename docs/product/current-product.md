@@ -76,6 +76,17 @@ palari queue
 palari detail WORK-ID
 ```
 
+Between a goal and a task, an agent may add a bounded idea:
+
+```text
+palari work add TITLE --idea --create PATH | --modify PATH | --delete PATH
+```
+
+The idea keeps the proposed owner, project, file limits, dependencies, checks,
+and approval count, but grants no authority and does not enter the task queue.
+A human may turn it into active work with the emitted `palari approve IDEA-ID
+--as HUMAN-ID --json` command. That choice does not approve the later result.
+
 An agent normally needs two commands:
 
 ```text

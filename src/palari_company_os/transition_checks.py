@@ -151,7 +151,7 @@ def _check_proposal_adopt(
         blockers.append(TransitionBlocker("WORK_EXISTS", f"work already exists: {work_id}"))
     if not work_id:
         blockers.append(TransitionBlocker("WORK_ID_MISSING", "adoption requires a work id"))
-    next_commands.append(f"palari proposal adopt {proposal_id} --work-id WORK-ID --by HUMAN-ID --json")
+    next_commands.append(f"palari approve {proposal_id} --as HUMAN-ID --json")
 
 
 def _check_agent_start(

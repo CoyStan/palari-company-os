@@ -290,6 +290,7 @@ MUTATING_AGENT_PALARI_COMMANDS = {
     ("proposal", "create"),
     ("proposal", "update"),
     ("work", "expand-scope"),
+    ("work", "add"),
 }
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
@@ -534,6 +535,8 @@ def bash_human_authority_command(command: str) -> str:
         args = tokens[index + 1 :]
         for argument_index in range(len(args) - 1):
             command_key = (args[argument_index], args[argument_index + 1])
+            if command_key == ("work", "add") and _is_work_idea_add(tokens, index):
+                continue
             if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
                 return " ".join(command_key)
         if (
@@ -720,6 +723,8 @@ def _palari_shell_review_reason(tokens: list[str], command_index: int) -> str:
     """Fail closed for Palari CLI commands not classified for agent shells."""
 
     command_key = _palari_command_key(tokens, command_index)
+    if command_key == ("work", "add") and _is_work_idea_add(tokens, command_index):
+        return ""
     if command_key in PALARI_SELF_PROTECTION_COMMANDS:
         return f"Palari self-protection mutation {' '.join(command_key)}"
     if command_key in SAFE_AGENT_PALARI_COMMANDS:
@@ -811,6 +816,10 @@ def _is_history_restore(tokens: list[str], command_index: int) -> bool:
         argument == "--restore" or argument.startswith("--restore=")
         for argument in _command_arguments(tokens, command_index)
     )
+
+
+def _is_work_idea_add(tokens: list[str], command_index: int) -> bool:
+    return "--idea" in _command_arguments(tokens, command_index)
 
 
 def _shell_tokens(command: str) -> list[str]:

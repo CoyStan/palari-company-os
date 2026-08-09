@@ -413,6 +413,8 @@ ALLOWED_RECORD_FIELDS = {
         "proposer",
         "status",
         "summary",
+        "workbench_id",
+        "dependency_ids",
         "scope",
         "risk",
         "intensity",
@@ -420,12 +422,14 @@ ALLOWED_RECORD_FIELDS = {
         "allowed_sources",
         "allowed_actions",
         "output_targets",
+        "path_intents",
         "forbidden_actions",
         "acceptance_target",
         "verification_expectations",
         "recommended_playbooks",
         "conflict_targets",
         "parallel_policy",
+        "required_approval_count",
         "linked_work",
         "decision_id",
         "created_at",
@@ -617,6 +621,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for proposal in workspace.proposals:
         _validate_proposal(proposal, work_by_id, decisions_by_id)
+        _validate_path_intents(proposal, normalize_path, collection="proposals")
 
     for work in workspace.work_items:
         _require_allowed_value("work_items", work.id, "status", work.status, WORK_STATUSES)
@@ -1022,6 +1027,16 @@ def _validate_proposal(
         proposal.parallel_policy,
         PARALLEL_POLICIES,
     )
+    if proposal.required_approval_count < 0:
+        raise WorkspaceError(
+            f"proposals.{proposal.id}.required_approval_count must be zero or greater"
+        )
+    for dependency_id in proposal.dependency_ids:
+        if dependency_id not in work_by_id:
+            raise WorkspaceError(
+                f"proposals.{proposal.id}.dependency_ids references missing work item "
+                f"{dependency_id}"
+            )
     if proposal.status == "adopted":
         if not proposal.linked_work:
             raise WorkspaceError(f"proposals.{proposal.id}.linked_work is required when adopted")
@@ -1330,7 +1345,12 @@ def _validate_attempt_boundaries(
         )
 
 
-def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> None:
+def _validate_path_intents(
+    work: WorkItem | Proposal,
+    normalize_path: PathNormalizer,
+    *,
+    collection: str = "work_items",
+) -> None:
     """Validate the additive exact-path mutation contract.
 
     Legacy work items omit ``path_intents`` and retain their existing
@@ -1341,7 +1361,7 @@ def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> No
     seen: set[str] = set()
     boundaries = _write_boundaries(work)
     for index, item in enumerate(work.path_intents):
-        label = f"work_items.{work.id}.path_intents[{index}]"
+        label = f"{collection}.{work.id}.path_intents[{index}]"
         unknown = sorted(set(item) - {"path", "intent"})
         if unknown:
             raise WorkspaceError(f"{label} has unknown field(s): {', '.join(unknown)}")
@@ -1366,7 +1386,7 @@ def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> No
             raise WorkspaceError(f"{label}.path is not in canonical repository form: {path}")
         if path in seen:
             raise WorkspaceError(
-                f"work_items.{work.id}.path_intents contains duplicate path: {path}"
+                f"{collection}.{work.id}.path_intents contains duplicate path: {path}"
             )
         seen.add(path)
         for other in seen - {path}:
@@ -1376,7 +1396,7 @@ def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> No
                 normalize_path,
             ):
                 raise WorkspaceError(
-                    f"work_items.{work.id}.path_intents paths overlap by prefix: "
+                    f"{collection}.{work.id}.path_intents paths overlap by prefix: "
                     f"{other}, {path}"
                 )
         if not boundaries or not _path_allowed(path, boundaries, normalize_path):
@@ -1409,7 +1429,7 @@ def _validate_receipt_boundaries(
             )
 
 
-def _write_boundaries(work: WorkItem) -> list[str]:
+def _write_boundaries(work: WorkItem | Proposal) -> list[str]:
     return [*work.output_targets, *work.allowed_resources]
 
 

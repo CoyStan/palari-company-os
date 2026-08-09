@@ -42,6 +42,9 @@ compare those files with the current workspace records:
   quoted pathspec globs require review, and an explicit `--` keeps subsequent
   dash-prefixed operands in write/destructive target analysis. Agent-safe
   Palari mutations must resolve to the workspace configured for the hook.
+  `work add ... --idea` is the one safe work-planning mutation: it stores a
+  bounded idea but creates no task or permission. `approve IDEA-ID` remains
+  human-only.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are

@@ -30,7 +30,7 @@ matrix.
 | Queue, detail, state | operator | Recorded status views for ordinary orientation; they do not recheck output bytes or all history. |
 | History audit | operator | Explicit replay, continuity, and recovery inspection; not an ordinary status dependency. |
 | PCAW export and verification | core | Deterministic, offline statements and output-integrity checks. |
-| Task creation and exact review recording | operator | Narrow local changes needed by the supported journey; proof records are produced by `agent advance`. |
+| Work ideas, task creation, and exact review recording | operator | Agents may store authority-free bounded ideas; a human approves an idea before task creation. Proof records are produced by `agent advance`. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
 | Cursor host profile | adapter | `init --host cursor` installs an advisory project rule; git commit gate is opt-in (`--strict-git` / `cursor install`). See [Cursor Integration](cursor-integration.md). |
@@ -70,6 +70,10 @@ advance` is the sole current check-and-finish command; the older `agent done`
 shortcut and synthetic legacy-workspace `migrate` command are not retained.
 New commands should remain rare and must expose a distinct current safety
 capability.
+
+The authority-free idea flow reuses `work add --idea` and `approve IDEA-ID`, so
+it adds no parser command. An idea is not eligible agent work until a human
+turns it into a task.
 
 Historical `superseded` and `abandoned` records remain inspectable. They leave
 the default queue, agent candidate list, and Approval Inbox; `queue

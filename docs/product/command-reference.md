@@ -26,6 +26,7 @@ boundary. Cursor's Git gate remains opt-in with `--strict-git`.
 ```bash
 palari work add "Update the guide" --modify docs/guide.md --json
 palari work add "Create a note" --create notes/new.md --approvals 1 --json
+palari work add "Draft the next note" --idea --create notes/next.md --json
 ```
 
 Use repeatable `--create`, `--modify`, and `--delete` options for exact path
@@ -33,6 +34,11 @@ intent. `--write` is the older broad write boundary and cannot be mixed with
 exact intents. Other task options include `--read`, `--as`, `--goal`,
 `--workbench`, `--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`,
 `--depends-on`, `--parallel-policy`, `--approvals`, and `--id`.
+
+`--idea` stores the same bounded plan without creating a task or granting
+authority. The response emits `palari approve IDEA-ID --as HUMAN-ID --json` for
+a human to create the active task. Agents may add and show ideas; they may not
+approve them.
 
 Generic record creation and update commands are deliberately absent. Palari
 creates run, run-record, and check-result records through `agent advance` so
@@ -121,6 +127,15 @@ palari decision guide DECISION-ID --json
 ```
 
 ## Human Approval
+
+Approve a bounded idea before it becomes a task:
+
+```bash
+palari approve IDEA-ID --as HUMAN-ID --json
+```
+
+Idea approval accepts the plan, not a result. Work still has to pass its own
+checks, independent review, and final approval rules.
 
 For one eligible reversible local task, use the exact presentation-bound
 command emitted by the handoff:

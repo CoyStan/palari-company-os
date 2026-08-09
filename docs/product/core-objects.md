@@ -124,12 +124,13 @@ New quick-created tasks use opaque UUIDv4-backed IDs. An ID identifies a task;
 it does not set priority or order. Explicit dependency edges determine order.
 Historical and externally assigned IDs remain compatible.
 
-## Proposed Task (`proposal`)
+## Work Idea (`proposal`)
 
-An AI-safe planning record that becomes a task only when a person adopts it.
-It carries most task limits, but adoption creates the active task explicitly.
-A request to expand allowed work creates a human question instead of silently
-widening those limits.
+An agent-safe plan that becomes a task only when a person approves it. It keeps
+the proposed goal, owner, project, dependencies, file limits, checks, and
+approval count, but grants no authority and stays out of the task queue. The
+stable stored name remains `proposal`. A request to expand allowed work creates
+a human question instead of silently widening those limits.
 
 ## Task Brief and Lock (`packet` and `claim`)
 

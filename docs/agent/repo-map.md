@@ -41,10 +41,12 @@ names stay exact because this is also a source-code map.
   role feasibility and smallest-correction diagnostics.
 - `src/palari_company_os/authoring.py`: atomic proof reconciliation, exact
   review recording, and completion helpers.
-- `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
-  and atomic `work add` quick-create for existing repos.
-- `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
-  generation with no lifecycle ordering semantics.
+- `src/palari_company_os/onramp.py`: journal-activated `init`, bounded task
+  creation, and authority-free work ideas for existing repos.
+- `src/palari_company_os/proposals.py`: human approval of an idea into active
+  work, plus older proposal decisions and scope questions.
+- `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed task and idea
+  identity generation with no lifecycle ordering semantics.
 
 ## CLI
 

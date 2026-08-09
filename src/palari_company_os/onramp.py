@@ -29,7 +29,7 @@ from .governance_journal import MutationMetadata, utc_timestamp
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
 from .validation import COLLECTION_FILE_KEYS
-from .work_identity import generate_work_id
+from .work_identity import generate_proposal_id, generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
 
 HUMAN_ID = "HUMAN-FOUNDER"
@@ -371,8 +371,9 @@ def quick_add_work(
     approvals: int = 0,
     dependencies: list[str] | None = None,
     parallel_policy: str = "independent",
+    idea: bool = False,
 ) -> dict[str, Any]:
-    """Create one agent-startable task from a title and its write paths."""
+    """Add one bounded task, or an authority-free idea for a human to approve."""
     clean_title = title.strip()
     if not clean_title:
         raise WorkspaceError("work title is required")
@@ -404,7 +405,6 @@ def quick_add_work(
             "path is required"
         )
     read_paths = _normalized_paths(read or [], "--read")
-
     store = load_store(workspace_path)
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
     palari = _resolve_default_palari(
@@ -413,9 +413,9 @@ def quick_add_work(
         workbench_id=workbench,
     )
     goal = _resolve_default(store.data, "goals", goal_id, "--goal")
-    resolved_id = work_id.strip() or generate_work_id(
-        _collection_ids(store.data, "work_items")
-    )
+    collection = "proposals" if idea else "work_items"
+    id_factory = generate_proposal_id if idea else generate_work_id
+    resolved_id = work_id.strip() or id_factory(_collection_ids(store.data, collection))
     dependency_ids = _normalized_ids(dependencies or [], "--depends-on")
     if parallel_policy not in {"independent", "coordinate", "exclusive"}:
         raise WorkspaceError(
@@ -428,7 +428,6 @@ def quick_add_work(
             raise WorkspaceError(f"--depends-on cannot reference the new work item {resolved_id}")
         if dependency_id not in known_work_ids:
             raise WorkspaceError(f"--depends-on references unknown work item {dependency_id}")
-
     allowed_sources: list[str] = []
     workbench_outputs_added: list[str] = []
     bench: dict[str, Any] | None = None
@@ -438,16 +437,16 @@ def quick_add_work(
         # A task's outputs must live inside its project boundary, so declaring
         # a new write path here also declares it on the stored workbench.
         existing_outputs = [str(item) for item in (bench or {}).get("output_target_ids", [])]
-        workbench_outputs_added = [path for path in write_paths if path not in existing_outputs]
+        workbench_outputs_added = (
+            [] if idea else [path for path in write_paths if path not in existing_outputs]
+        )
         if workbench_outputs_added:
             assert bench is not None
             bench["output_target_ids"] = existing_outputs + workbench_outputs_added
-
     resources: list[str] = []
     for path in read_paths + write_paths:
         if path not in resources:
             resources.append(path)
-
     record = {
         "id": resolved_id,
         "title": clean_title,
@@ -457,7 +456,7 @@ def quick_add_work(
         "dependency_ids": dependency_ids,
         "risk": risk,
         "intensity": intensity,
-        "status": "active",
+        "status": "proposed" if idea else "active",
         "scope": scope.strip() or f"Do exactly this: {clean_title}.",
         "allowed_resources": resources,
         "allowed_sources": allowed_sources,
@@ -478,6 +477,37 @@ def quick_add_work(
     }
     if path_intents:
         record["path_intents"] = path_intents
+    if idea:
+        record.update({"proposer": palari, "created_at": utc_timestamp()})
+        ideas = store.data.setdefault("proposals", [])
+        if any(item.get("id") == resolved_id for item in ideas):
+            raise WorkspaceError(f"idea already exists: {resolved_id}")
+        ideas.append(record)
+        workspace = write_store(
+            store,
+            metadata=MutationMetadata(
+                command="work add --idea",
+                actor=palari,
+                action="suggested-bounded-work",
+                timestamp=utc_timestamp(),
+                objects=({"type": "proposal", "collection": "proposals", "id": resolved_id},),
+            ),
+        )
+        next_command = palari_workspace_command(
+            store.data_path, "approve", resolved_id, "--as", "HUMAN-ID", "--json"
+        )
+        return {
+            "schema_version": "palari.work_idea.v1",
+            "workspace": workspace.name,
+            "workspace_file": str(store.data_path),
+            "idea": record,
+            "path_intents": path_intents,
+            "status": "waiting-on-human",
+            "next_step_type": "human-approval",
+            "next_action": next_command,
+            "next_commands": [next_command],
+            "message": f"{resolved_id} suggested by {palari}; it grants no task authority.",
+        }
     work_items = store.data.setdefault("work_items", [])
     if any(item.get("id") == resolved_id for item in work_items):
         raise WorkspaceError(f"work already exists: {resolved_id}")
@@ -492,9 +522,7 @@ def quick_add_work(
             f"{authority_anchor['next_command']}"
         )
     work_items.append(record)
-    objects = [
-        {"type": "work", "collection": "work_items", "id": resolved_id}
-    ]
+    objects = [{"type": "work", "collection": "work_items", "id": resolved_id}]
     if workbench_outputs_added:
         objects.insert(
             0,
@@ -510,11 +538,7 @@ def quick_add_work(
             objects=tuple(objects),
         ),
     )
-    authority_plan = build_authority_plan(
-        workspace,
-        resolved_id,
-        builder_id=palari,
-    )
+    authority_plan = build_authority_plan(workspace, resolved_id, builder_id=palari)
     authority_blocked = not authority_plan["viable"]
     next_commands = (
         [

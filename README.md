@@ -121,6 +121,17 @@ palari work add "Clean up launch notes" --write docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
+An agent can also add a bounded idea without creating a task:
+
+```bash
+palari work add "Draft the next launch page" --idea --create docs/launch.md --json
+```
+
+Palari stores the goal, owner, project, file limits, checks, and approval count,
+but the idea grants no permission and stays out of the task queue. If it is
+worth doing, a human runs the emitted `palari approve IDEA-ID --as HUMAN-ID`
+command. That creates the task; an agent must never run the approval command.
+
 `init` creates missing `AGENTS.md` and `docs/agent/` guidance without
 overwriting existing instructions. In a Git worktree it also makes one local,
 path-limited starter commit containing only new Palari records and generated

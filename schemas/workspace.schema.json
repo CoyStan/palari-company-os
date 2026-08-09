@@ -503,6 +503,8 @@
           "enum": ["proposed", "under-review", "adopted", "rejected", "deferred"]
         },
         "summary": { "type": "string" },
+        "workbench_id": { "type": "string" },
+        "dependency_ids": { "$ref": "#/$defs/string_list" },
         "scope": { "type": "string" },
         "risk": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5"] },
         "intensity": { "type": "string", "enum": ["light", "standard", "high"] },
@@ -510,6 +512,18 @@
         "allowed_sources": { "$ref": "#/$defs/string_list" },
         "allowed_actions": { "$ref": "#/$defs/string_list" },
         "output_targets": { "$ref": "#/$defs/string_list" },
+        "path_intents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "intent"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "intent": { "type": "string", "enum": ["create", "modify", "delete"] }
+            }
+          }
+        },
         "forbidden_actions": { "$ref": "#/$defs/string_list" },
         "acceptance_target": { "type": "string" },
         "verification_expectations": { "$ref": "#/$defs/string_list" },
@@ -519,6 +533,7 @@
           "type": "string",
           "enum": ["independent", "coordinate", "exclusive"]
         },
+        "required_approval_count": { "type": "integer", "minimum": 0 },
         "linked_work": { "type": "string" },
         "decision_id": { "type": "string" },
         "created_at": { "type": "string" },

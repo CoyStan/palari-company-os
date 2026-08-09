@@ -112,9 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     approve_parser = subparsers.add_parser(
         "approve",
-        help="Approve and complete one current reversible local task.",
+        help="Approve one idea, or approve and complete one reviewed local task.",
     )
-    approve_parser.add_argument("work_id", help="Task id.")
+    approve_parser.add_argument("work_id", help="Idea or task id.")
     approve_parser.add_argument(
         "--as",
         dest="human_id",
@@ -986,9 +986,14 @@ def _add_work_parser(subparsers: Any) -> None:
     nested = parser.add_subparsers(dest="object_command", required=True, metavar="ACTION")
     add = nested.add_parser(
         "add",
-        help="Create one agent-startable task from a title and file limits.",
+        help="Add one bounded task, or add an idea that needs human approval.",
     )
     add.add_argument("title")
+    add.add_argument(
+        "--idea",
+        action="store_true",
+        help="Store an authority-free idea instead of creating a task.",
+    )
     add.add_argument(
         "--write",
         action="append",
@@ -1040,7 +1045,7 @@ def _add_work_parser(subparsers: Any) -> None:
         "--id",
         dest="work_id",
         default="",
-        help="Explicit task id. Defaults to a collision-resistant opaque id.",
+        help="Explicit task or idea id. Defaults to a collision-resistant opaque id.",
     )
     add.add_argument(
         "--depends-on",
