@@ -11,9 +11,6 @@ from .pcaw_canonical import CanonicalJSONError, canonical_json_bytes, canonical_
 from .workspace import WorkspaceError
 
 
-_PATH_RULE_MIGRATION_WORK_ID = "WORK-CDA4688098424FD4AC0F33A52D808EE2"
-
-
 SESSION_CONTRACT_SCHEMA_VERSION = "palari.agent_session_contract.v1"
 SESSION_CONTRACT_PREFIX = "SESSION-CONTRACT-"
 
@@ -286,18 +283,6 @@ def _require_packet(packet: dict[str, Any]) -> None:
         for key, value in packet.items()
         if key not in {"created_at", "context_hash"}
     }
-    required = stable.get("required_output")
-    work = stable.get("work_item")
-    if (
-        isinstance(required, dict)
-        and isinstance(work, dict)
-        and work.get("id") == _PATH_RULE_MIGRATION_WORK_ID
-        and "fallback_write_paths" not in required
-    ):
-        stable["required_output"] = {
-            **required,
-            "fallback_write_paths": list(required.get("output_targets", [])),
-        }
     # Packet v1 predates RFC 8785 use and hashes with sorted compact JSON.
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
     packet_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"

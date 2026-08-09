@@ -34,7 +34,6 @@ GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
 PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v2"
 PRECLAIM_SCOPE_AUTHORITY_VERSION = "palari.preclaim_scope_authority.v1"
 PRECLAIM_SCOPE_CATALOG_VERSION = "palari.preclaim_scope_catalog.v1"
-_PATH_RULE_MIGRATION_WORK_ID = "WORK-CDA4688098424FD4AC0F33A52D808EE2"
 PACKET_RUNTIME_STATE_FIELDS = {
     "blockers",
     "completion_contract",
@@ -1319,18 +1318,6 @@ def _packet_context_hash(packet: dict[str, Any]) -> str:
     stable = {
         key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}
     }
-    required = stable.get("required_output")
-    work = stable.get("work_item")
-    if (
-        isinstance(required, dict)
-        and isinstance(work, dict)
-        and work.get("id") == _PATH_RULE_MIGRATION_WORK_ID
-        and "fallback_write_paths" not in required
-    ):
-        stable["required_output"] = {
-            **required,
-            "fallback_write_paths": list(required.get("output_targets", [])),
-        }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
@@ -2171,14 +2158,6 @@ def _scope_authority_digest(
             required_output.get("path_intents", []), "required_output.path_intents"
         ),
     }
-    if work_id == _PATH_RULE_MIGRATION_WORK_ID:
-        required_authority["fallback_write_paths"] = _scope_authority_strings(
-            required_output.get(
-                "fallback_write_paths",
-                required_output.get("output_targets", []),
-            ),
-            "required_output.fallback_write_paths",
-        )
     authority = {
         "schema_version": PRECLAIM_SCOPE_AUTHORITY_VERSION,
         "actor": actor_authority,

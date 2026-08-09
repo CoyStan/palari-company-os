@@ -197,6 +197,16 @@ class AgentPacketProjectionTests(unittest.TestCase):
             "write": [ALLOWED_PATH],
         })
         self.assertEqual(packet["required_output"]["output_targets"], [ALLOWED_PATH])
+        self.assertEqual(
+            set(packet["required_output"]),
+            {
+                "acceptance_target",
+                "must_not",
+                "output_targets",
+                "path_intents",
+                "verification_expectations",
+            },
+        )
         self.assertTrue(packet["completion_contract"]["requires_receipt"])
         self.assertTrue(packet["completion_contract"]["requires_evidence"])
         self.assertFalse(packet["completion_contract"]["requires_review"])

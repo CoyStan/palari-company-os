@@ -85,6 +85,16 @@ class AgentSessionContractTests(unittest.TestCase):
             packet["required_output"]["path_intents"],
             [{"path": ALLOWED_PATH, "intent": "modify"}],
         )
+        self.assertEqual(
+            set(packet["required_output"]),
+            {
+                "acceptance_target",
+                "must_not",
+                "output_targets",
+                "path_intents",
+                "verification_expectations",
+            },
+        )
         properties = {
             item["id"]: item["status"]
             for item in first["contract"]["enforcement"]["properties"]

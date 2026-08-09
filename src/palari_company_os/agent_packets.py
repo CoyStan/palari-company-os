@@ -19,7 +19,6 @@ from .workspace import Workspace
 
 
 SUPPORTED_MODES = {"execute", "review"}
-_PATH_RULE_MIGRATION_WORK_ID = "WORK-CDA4688098424FD4AC0F33A52D808EE2"
 
 
 def build_agent_brief(
@@ -971,18 +970,6 @@ def _safe_id(value: str) -> str:
 
 def _context_hash(packet: dict[str, Any]) -> str:
     stable = {key: value for key, value in packet.items() if key not in {"created_at", "context_hash"}}
-    required = stable.get("required_output")
-    work = stable.get("work_item")
-    if (
-        isinstance(required, dict)
-        and isinstance(work, dict)
-        and work.get("id") == _PATH_RULE_MIGRATION_WORK_ID
-        and "fallback_write_paths" not in required
-    ):
-        stable["required_output"] = {
-            **required,
-            "fallback_write_paths": list(required.get("output_targets", [])),
-        }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
