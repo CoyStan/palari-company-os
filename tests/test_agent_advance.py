@@ -17,6 +17,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.agent_advance import (
     _attempt_reusable_for_head,
     _git_commit_timestamp,
+    _governed_artifacts,
     _verify_path_intents,
     agent_advance,
     plan_advance,
@@ -79,6 +80,16 @@ class AttemptReuseTests(unittest.TestCase):
         self.assertTrue(_attempt_reusable_for_head("active", "old-head", "new-head"))
         self.assertTrue(_attempt_reusable_for_head("complete", "same-head", "same-head"))
         self.assertFalse(_attempt_reusable_for_head("complete", "old-head", "new-head"))
+
+    def test_only_the_real_workspace_file_is_control_state(self) -> None:
+        self.assertEqual(
+            _governed_artifacts(
+                ["workspace.json", "examples/acme-company-os/workspace.json"],
+                REPO_ROOT / "workspace.json",
+                REPO_ROOT,
+            ),
+            ["examples/acme-company-os/workspace.json"],
+        )
 
 
 class PathIntentAncestryTests(unittest.TestCase):

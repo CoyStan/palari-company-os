@@ -3385,13 +3385,7 @@ def _governed_artifacts(
         else None
     )
     excluded = projection_paths or set()
-    return sorted(
-        path
-        for path in set(paths)
-        if path not in excluded
-        if not path.endswith("/workspace.json")
-        and path != "workspace.json"
-    )
+    return sorted(path for path in set(paths) if path not in excluded)
 
 
 def _work_path_intents(work: Any) -> list[dict[str, str]]:
