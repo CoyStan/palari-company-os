@@ -3669,6 +3669,173 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-AA2075C3955144BAA4B8B162F6D98602-BB2CE2F49C93"
+    },
+    {
+      "id": "WORK-0AC2970F41F943E4A564E10B6C22FEE6",
+      "title": "Remove duplicate PCAW proof binding",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Delete PCAW legacy_binding and keep only the current review digests.",
+      "allowed_resources": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/governance_case.py",
+        "src/palari_company_os/pcaw_workspace.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "PCAW exports and verifies one review binding shape, all vectors remain correct, and the full repository check passes.",
+      "verification_expectations": [
+        "python -m unittest tests.test_governance_kernel tests.test_pcaw_protocol",
+        "python spec/pcaw/v1/conformance.py -- ./bin/palari proof verify",
+        "./scripts/verify.sh complete"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/governance_case.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/pcaw_workspace.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_governance_kernel.py",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/statement.schema.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/trusted-code.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+          "intent": "modify"
+        },
+        {
+          "path": "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
@@ -9611,7 +9778,25 @@
         "src/palari_company_os/review_guides.py",
         "tests/test_pcaw_protocol.py",
         "examples/acme-company-os/README.md",
-        "docs/product/agent-loop-smoke.md"
+        "docs/product/agent-loop-smoke.md",
+        "src/palari_company_os/governance_case.py",
+        "tests/test_governance_kernel.py",
+        "spec/pcaw/v1/statement.schema.json",
+        "spec/pcaw/v1/trusted-code.json",
+        "spec/pcaw/v1/vectors/valid/accepted/statement.json",
+        "spec/pcaw/v1/vectors/valid/blocked/statement.json",
+        "spec/pcaw/v1/vectors/invalid/altered-contract/statement.json",
+        "spec/pcaw/v1/vectors/invalid/ambiguous-timestamp/statement.json",
+        "spec/pcaw/v1/vectors/invalid/builder-reviewer-collision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/contradictory-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/duplicate-key/statement.json",
+        "spec/pcaw/v1/vectors/invalid/evidence-subject-mismatch/statement.json",
+        "spec/pcaw/v1/vectors/invalid/journal-corruption/statement.json",
+        "spec/pcaw/v1/vectors/invalid/noncanonical/statement.json",
+        "spec/pcaw/v1/vectors/invalid/path-traversal/statement.json",
+        "spec/pcaw/v1/vectors/invalid/stale-decision/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
+        "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json"
       ]
     }
   ],
