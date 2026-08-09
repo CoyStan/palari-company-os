@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import subprocess
 import sys
-import tarfile
 import unittest
 from pathlib import Path
 
@@ -98,31 +96,6 @@ class VerificationProfileTests(unittest.TestCase):
         self.assertNotIn("workspaces/palari-company-os", script)
         self.assertNotIn("integration plan", script)
         self.assertNotIn("integration approve", script)
-
-    def test_historical_dogfood_archive_keeps_the_exact_files(self) -> None:
-        root = REPO_ROOT / "workspaces" / "palari-company-os"
-        expected = {
-            "workspace.json": (
-                "ef41b9befb6a9bcd46dbe808653d75dd"
-                "7f2fdb824f02963e7e6d369903b9daed"
-            ),
-            ".palari/governance-journal.v1.jsonl": (
-                "4ba8d1edce02adb07eefd647ff17d1df"
-                "c9ed58fc4145ec8e28c1133005cbe076"
-            ),
-            ".palari/history.jsonl": (
-                "de471342c068809b00e4483010030526"
-                "32e015a748016e6e2d23264777ff6a38"
-            ),
-        }
-
-        with tarfile.open(root / "past.tgz", "r:gz") as archive:
-            self.assertEqual(set(archive.getnames()), set(expected))
-            for name, digest in expected.items():
-                stored = archive.extractfile(name)
-                self.assertIsNotNone(stored)
-                self.assertEqual(hashlib.sha256(stored.read()).hexdigest(), digest)
-        self.assertFalse((root / "workspace.json").exists())
 
     def test_parallel_runner_lists_every_test_module_deterministically(self) -> None:
         result = subprocess.run(

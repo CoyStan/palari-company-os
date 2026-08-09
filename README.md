@@ -218,8 +218,8 @@ palari agent release WORK-ID --as PALARI-CLAUDE \
 ```
 
 This records the blocker and next safe action. It does not invent completion
-records or approval. A legacy workspace without writable tamper-evident history
-receives an exact `history --checkpoint` command instead.
+records or approval. A workspace without tamper-evident history receives an
+exact `history --checkpoint` command instead.
 
 ## The ordinary human path
 
@@ -344,7 +344,6 @@ bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
 schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
-workspaces/palari-company-os/      Packed historical dogfood evidence
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and rules
 scripts/verify.sh                  Complete local verification

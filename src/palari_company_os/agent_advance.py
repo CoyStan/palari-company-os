@@ -751,7 +751,6 @@ def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> b
         return False
     base = f"{relative_workspace}/" if relative_workspace != "." else ""
     if path in {
-        f"{base}.palari/governance-journal.v1.jsonl",
         f"{base}.palari/governance-journal.v2.jsonl",
     }:
         return True
@@ -2312,7 +2311,6 @@ def _projection_artifact_paths(
     return {
         relative_data,
         f"{projection_root}.palari/governance-journal.v2.jsonl",
-        f"{projection_root}.palari/governance-journal.v1.jsonl",
     }
 
 

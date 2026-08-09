@@ -14,7 +14,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.governance_journal import (
     checkpoint_workspace_journal,
     journal_file_path,
-    legacy_journal_file_path,
     v2_journal_file_path,
     verify_workspace_journal,
 )
@@ -44,7 +43,6 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             second = verify_workspace_journal(data_path)
             self.assertEqual(journal_file_path(data_path), v2_journal_file_path(data_path))
             self.assertTrue(v2_journal_file_path(data_path).exists())
-            self.assertFalse(legacy_journal_file_path(data_path).exists())
 
         self.assertTrue(first["ok"])
         self.assertEqual(first["journal_schema_version"], "palari.governance-journal.v2")
@@ -70,7 +68,6 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 journal_file_path(data_path), v2_journal_file_path(data_path)
             )
-            self.assertFalse(legacy_journal_file_path(data_path).exists())
             continued = load_store(data_path)
             continued.data["name"] = "Current v2 continuation"
             write_store(continued)

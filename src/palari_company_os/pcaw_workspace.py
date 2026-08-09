@@ -808,7 +808,7 @@ def _journal_observation(
     try:
         path = journal_file_path(workspace.data_path)
         if not path.exists():
-            return IntegrityObservation("not-required", ("legacy workspace not checkpointed",))
+            return IntegrityObservation("not-required", ("journal not enabled",))
         report = (
             journal_context.verify(workspace.data_path)
             if journal_context is not None

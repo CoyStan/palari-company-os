@@ -733,7 +733,6 @@ def _anchor_starter_authority(
     candidate_paths = [
         workspace_file,
         workspace_file.parent / ".palari" / "governance-journal.v2.jsonl",
-        workspace_file.parent / ".palari" / "governance-journal.v1.jsonl",
         *(workspace_file.parent / relative for relative in created_docs),
         *(additional_files or []),
     ]

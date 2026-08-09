@@ -14,13 +14,8 @@ code change must match them. See
 - Task IDs are identity only. New work uses collision-resistant opaque IDs.
   Dependency authority exists only through explicit, reference-valid,
   duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin replayable v2 tamper-evident history. A workspace with a
-  committed valid v1 journal is read-only until an operator explicitly
-  activates v2. That activation does not rewrite v1: the v2 restore point
-  content-binds the exact sealed predecessor, then deterministic value deltas
-  form the streamed tail. Existing unjournaled workspaces also require an
-  explicit v2 restore point; no current record is written under the v1 filename.
-  Prepared and
+- New workspaces begin replayable v2 tamper-evident history. Existing
+  workspaces without it require an explicit v2 restore point. Prepared and
   committed records still bracket the atomic, fsynced workspace replacement;
   divergence, corruption, pending transactions, and continuity breaks remain
   visible.
@@ -41,12 +36,10 @@ code change must match them. See
   delete requires an absent exact path plus an observed Git deletion. Legacy
   work without intents retains its presence-required output behavior.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
-- Sealed v1 predecessor verification is linear in parsed journal records. V2 hashes the
-  sealed v1 predecessor as bytes and strictly streams only its compact segment,
-  retaining one replay projection rather than all records or projections.
-  Request-local reuse may remove duplicate scans only while workspace, v1, and
-  v2 filesystem witnesses remain unchanged; no persistent cache may authorize
-  a transition.
+- V2 verification streams records and retains one replay projection rather than
+  all records or projections. Request-local reuse may remove duplicate scans
+  only while workspace and journal file witnesses remain unchanged; no
+  persistent cache may authorize a transition.
 
 ## Permissions And Approval
 
@@ -175,8 +168,8 @@ code change must match them. See
   `blocked`; it normalizes that single field and rehashes every other scope-
   authority field before the exact attempt is released. It never creates
   receipt, evidence, review, human decision, acceptance, outcome, or convergence
-  records. It requires an existing writable journal; legacy activation remains
-  an explicit checkpoint with a visible pre-checkpoint continuity boundary.
+  records. It requires an existing writable journal. A workspace without one
+  needs an explicit checkpoint with a visible pre-checkpoint boundary.
 - `agent advance` is the sole current execution-to-proof path. It attributes
   every committed path from the persisted claim-start head to current `HEAD`,
   not merely the tip commit. The claim, companion baseline, Git witness ref,

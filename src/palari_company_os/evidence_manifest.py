@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from .governance_journal import (
-    JOURNAL_RELATIVE_PATH,
     V2_JOURNAL_RELATIVE_PATH,
     JournalVerificationContext,
 )
@@ -20,7 +19,6 @@ from .workspace import Workspace, WorkspaceError
 HASH_PREFIX = "sha256:"
 OUTPUT_BINDING_VERSION = "palari.evidence_outputs.v1"
 GOVERNANCE_JOURNAL_RELATIVE_PATH = V2_JOURNAL_RELATIVE_PATH
-LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH = JOURNAL_RELATIVE_PATH
 
 
 def git_artifact_state(
@@ -115,7 +113,6 @@ def _governance_projection_paths(root: Path, workspace_path: Path) -> set[str]:
     candidates = {
         data_path,
         data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
-        data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
     }
     paths: set[str] = set()
     for candidate in candidates:
@@ -706,7 +703,6 @@ def _governance_projection_artifacts(
             path
             for path in (
                 data_path.parent / GOVERNANCE_JOURNAL_RELATIVE_PATH,
-                data_path.parent / LEGACY_GOVERNANCE_JOURNAL_RELATIVE_PATH,
             )
             if path.exists()
         ),

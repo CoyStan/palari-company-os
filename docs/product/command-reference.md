@@ -177,12 +177,12 @@ proof verification or a full history audit.
 
 ```bash
 palari history --json
-palari history --checkpoint --actor HUMAN-ID --reason "Activate v2" --json
+palari history --checkpoint --actor HUMAN-ID --reason "Start history" --json
 palari history --recover --actor HUMAN-ID --json
 ```
 
-Plain `history` verifies continuity. `--checkpoint` is the explicit activation
-path for a legacy unjournaled workspace; `--acknowledge-break` makes a manual
+Plain `history` verifies continuity. `--checkpoint` starts history for a
+workspace without it; `--acknowledge-break` makes a manual
 history break visible. `--recover` resolves a prepared local transaction when
 safe. Content-addressed restore-point browsing and restoration were removed.
 

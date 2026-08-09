@@ -1609,21 +1609,11 @@ def _governance_journal_history_error(
     projection_paths: list[str],
 ) -> str:
     for path in projection_paths:
-        if not path.endswith(
-            (
-                ".palari/governance-journal.v1.jsonl",
-                ".palari/governance-journal.v2.jsonl",
-            )
-        ):
+        if not path.endswith(".palari/governance-journal.v2.jsonl"):
             continue
         baseline = _git_blob_bytes(root, base_sha, path)
         current = _git_blob_bytes(root, session_head, path)
-        if path.endswith(".palari/governance-journal.v1.jsonl"):
-            if baseline is None and current is not None:
-                return f"sealed v1 governance predecessor appeared after the immutable baseline: {path}"
-            if baseline is not None and current != baseline:
-                return f"sealed v1 governance predecessor changed after the immutable baseline: {path}"
-        elif baseline is not None and (
+        if baseline is not None and (
             current is None or not current.startswith(baseline)
         ):
             return f"governance projection path {path} is not an append-only extension of its baseline"
@@ -1636,7 +1626,6 @@ def _governance_projection_paths(relative_data: str) -> list[str]:
     return [
         relative_data,
         f"{prefix}.palari/governance-journal.v2.jsonl",
-        f"{prefix}.palari/governance-journal.v1.jsonl",
     ]
 
 
@@ -2493,7 +2482,6 @@ def _missing_workspace_anchor_command(root: Path, relative_data: str) -> str:
     candidates = [
         relative_data,
         f"{prefix}.palari/governance-journal.v2.jsonl",
-        f"{prefix}.palari/governance-journal.v1.jsonl",
     ]
     paths = [
         path

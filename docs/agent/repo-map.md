@@ -37,7 +37,7 @@ names stay exact because this is also a source-code map.
 - `src/palari_company_os/workspace.py`: workspace loading and record lookup.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
 - `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
-  history, explicit activation, verification, and crash recovery.
+  v2 history, checkpoints, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
@@ -163,8 +163,6 @@ When adding a command, update parser, dispatch, output, tests, and
 ## Examples And Workspaces
 
 - `examples/acme-company-os/`: small example workspace.
-- `workspaces/palari-company-os/`: packed historical dogfood evidence for this
-  repo; unpack it only for read-only inspection. Do not use it as live state.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.

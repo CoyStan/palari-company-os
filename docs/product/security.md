@@ -261,33 +261,18 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-Tamper-evident history v1 (the `governance journal` in stored filenames) is a
-strictly read-only predecessor. An operator may run
-`history --checkpoint` against its valid, fully committed head exactly to
-activate the current writer; pending v1 state cannot be completed by appending
-a current record. Activation verifies the complete v1 chain, leaves its bytes
-untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
-restore point binds the exact v1 file SHA-256, byte length, head record digest,
-record count, replay digest, transaction counts, and continuity state. Every
-later verification re-hashes the sealed v1 bytes and streams the strict v2
-JSONL tail from its content-bound workspace checkpoint. It does not trust a
-persistent advisory cache.
-
 New workspaces and explicit restore points for existing workspaces without history
 write v2 directly. Ordinary mutation of such a workspace fails closed until that
-restore point exists. V2 records are never written to or
-accepted from the v1 filename.
+restore point exists.
 
 V2 mutation prepares contain deterministic add/remove/replace values rather
 than another full status snapshot. A restore point still contains one full
 snapshot so replay has a trusted base. Record, transaction, before/after
-project, predecessor, and terminal digests remain fail-closed;
+project, and terminal digests remain fail-closed;
 truncation, reordering, duplicate terminals, malformed or non-canonical deltas,
-changed predecessor bytes, pending transactions, and workspace divergence are
-rejected. The sealed predecessor hash makes ordinary verification bounded in
-memory and avoids reparsing historical v1 JSON, but it does not authenticate
-the operator who created the restore point against a hostile same-user process
-that can rewrite both local journals.
+pending transactions, and workspace divergence are rejected. This does not
+authenticate the operator who created the restore point against a hostile
+same-user process that can rewrite local files.
 
 PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in

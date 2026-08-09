@@ -50,7 +50,6 @@ class CustomWorkspaceProjectionTests(unittest.TestCase):
                 projection_paths,
                 {
                     "governance-state.json",
-                    ".palari/governance-journal.v1.jsonl",
                     ".palari/governance-journal.v2.jsonl",
                 },
             )

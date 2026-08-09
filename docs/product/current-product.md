@@ -171,8 +171,7 @@ The current durable workspace format is:
   history for current changes.
 
 New projects write v2 directly. Existing projects without journal continuity
-need an explicit v2 checkpoint before mutation. The v1 filename accepts only
-strict legacy records and is never a compatibility path for v2 output.
+need an explicit v2 checkpoint before mutation.
 
 Task briefs (`packets`), assignments (`claims`), session rules
 (`session-contracts`), caches, and Git-witness files are local runtime state,
@@ -193,8 +192,6 @@ while this source checkout stays clean.
 
 The only supported historical inputs are those proven by committed data:
 
-- the sealed governance-journal v1 predecessor, checked through a narrow
-  read-only boundary before current activation;
 - schema-v2 `work_items` records without additive `path_intents`, interpreted
   only with their older presence rules;
 - historical `evidence` records without `output_binding_version`, which remain

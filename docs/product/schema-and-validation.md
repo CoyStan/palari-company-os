@@ -173,15 +173,8 @@ fail closed so typos and hidden state cannot quietly enter the source of truth.
 
 ## Governance Journal Formats
 
-`palari.governance-journal.v1` is a supported strict, read-only predecessor
-format because committed product data contains it. Its prepare records retain
-complete `after_projection` values. The current runtime may verify a fully
-committed v1 chain and bind it during explicit activation, but it never creates
-or appends a v1 record. A pending v1 transaction fails closed; current recovery
-does not manufacture its missing terminal record.
-
 `palari.governance-journal.v2` is the sole current writer format and
-`.palari/governance-journal.v2.jsonl` is its only supported path. Its first
+`.palari/governance-journal.v2.jsonl` is the only journal path. Its first
 committed prepare is a full content-bound checkpoint. Later mutation prepares
 replace the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
 `add` and `replace` carry the exact value; `remove` carries no value. Applying
@@ -190,20 +183,13 @@ the deterministic minimal diff, otherwise verification fails closed. Historical
 completion-contract notes from the original journal-v2 landing remain
 available in Git history.
 
-An already-journaled v1 workspace activates v2 only through an explicit,
-idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified
-v1 file as a predecessor and does not edit or rename it. An existing workspace
-with no journal rejects ordinary mutations until an explicit checkpoint creates
-v2 directly. A newly created workspace starts directly with a complete v2
-checkpoint. V2 records in the v1 filename fail closed; there is no compatibility
-filename or implicit activation path.
+An existing workspace with no journal rejects ordinary mutations until an
+explicit checkpoint creates v2. A newly created workspace starts directly with
+a complete v2 checkpoint.
 
 V2 verification reads one JSONL record at a time and retains only the current
-workspace projection, pending prepare, and fixed-size chain state. When a v1
-predecessor exists, its bytes are streamed through SHA-256 on every verification
-and its strict records are replayed without materializing the full journal. The
-derived state is compared with the authoritative binding in the v2 checkpoint;
-no advisory cache can authorize a transition.
+workspace projection, pending prepare, and fixed-size chain state. No advisory
+cache can authorize a transition.
 
 Unversioned, v0, v1, and newer workspace schemas fail closed. There is no
 supported runtime schema migration because no committed real stored fixture
