@@ -3319,7 +3319,7 @@
       "dependency_ids": [],
       "risk": "R1",
       "intensity": "light",
-      "status": "active",
+      "status": "completed",
       "scope": "Delete the one-task bridge used only while exact file rules were being installed.",
       "allowed_resources": [
         "src/palari_company_os/agent_packets.py",
@@ -3375,7 +3375,8 @@
           "path": "tests/test_agent_session_contract.py",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88"
     }
   ],
   "attempts": [
@@ -4839,6 +4840,42 @@
         "docs/product/security.md",
         "src/palari_company_os/linear_adapter.py",
         "tests/workspace_fixture.py"
+      ]
+    },
+    {
+      "id": "ATTEMPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88",
+      "work_item_id": "WORK-8E91508B5ADC46EC891EB5D0FE106BEB",
+      "actor": "PALARI-CODEX",
+      "status": "completed",
+      "workspace_path": "/home/quetza/palari-company-os",
+      "base_sha": "2bead5ff8f5c90d3e15ae628c8052d2e997896cb",
+      "allowed_paths": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
+      ],
+      "started_at": "2026-08-09T21:51:30Z",
+      "head_sha": "7cb35f12cb884089abeac25e2a166ae296a5e0ca",
+      "commits": [
+        "7cb35f12cb884089abeac25e2a166ae296a5e0ca"
+      ],
+      "cleanliness": "clean",
+      "updated_at": "2026-08-09T21:51:30Z",
+      "changed_files": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
       ]
     }
   ],
@@ -6792,6 +6829,57 @@
       "receipt_hash": "sha256:290615be489a2164d373faae9946e007e9a51f386f58b5b8db7eac7b5b0e3867",
       "output_binding_version": "palari.evidence_outputs.v1",
       "manifest_hash": "sha256:608099ef792c741500d568c9f8c0f39ba7b07856713d144f061a8f24ffc92435"
+    },
+    {
+      "id": "EVIDENCE-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88",
+      "work_item_id": "WORK-8E91508B5ADC46EC891EB5D0FE106BEB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88",
+      "head_sha": "7cb35f12cb884089abeac25e2a166ae296a5e0ca",
+      "status": "passed",
+      "base_ref": "2bead5ff8f5c90d3e15ae628c8052d2e997896cb",
+      "commands": [
+        "diff-check attestation VERIFY-DIFF-CHECK-AF24C9FF09371635 sha256:e06181a48fc03398fc18ee0474396ae0b6c61c79f40d2be4af24c9ff09371635"
+      ],
+      "artifacts": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
+      ],
+      "artifact_hashes": [
+        {
+          "path": "src/palari_company_os/agent_packets.py",
+          "sha256": "sha256:181502bb57b0d296f149c0ddddf54bd6d24acd20c0443ed63a7a11ba4edfcd1e",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "sha256": "sha256:314c43107f475ecf85e0b055fd0857520745cb329e5f3bab7164f9115b3ff563",
+          "status": "present"
+        },
+        {
+          "path": "src/palari_company_os/agent_session_contract.py",
+          "sha256": "sha256:44fe44ed1ebbb54e80d8b328a50667780901147ab578fa2fcc178a6ca08949d1",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_packets.py",
+          "sha256": "sha256:dcea86584d2f8712b9dd9fd51654ce8950f38cef377aa411f53b564a756ae8f8",
+          "status": "present"
+        },
+        {
+          "path": "tests/test_agent_session_contract.py",
+          "sha256": "sha256:e0c78918a6145df89014ef9d97f0ebea125318416d0f193d337c2d28651600fb",
+          "status": "present"
+        }
+      ],
+      "summary": "1 exact-state verification profile(s) passed.",
+      "freshness": "exact-head",
+      "timestamp": "2026-08-09T21:51:30Z",
+      "receipt_hash": "sha256:fbad0130046976eac49e4e613ed5e252f586c3a5a852c6bf1ffd2fd333b455f5",
+      "output_binding_version": "palari.evidence_outputs.v1",
+      "manifest_hash": "sha256:62bc9628b3a562b3f6910fb99a6fd01c5007f9dddf079a7a840573c67a5d1dcb"
     }
   ],
   "review_verdicts": [
@@ -8582,6 +8670,38 @@
       ],
       "timestamp": "2026-08-09T21:46:55Z",
       "receipt_hash": "sha256:290615be489a2164d373faae9946e007e9a51f386f58b5b8db7eac7b5b0e3867"
+    },
+    {
+      "id": "RECEIPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88",
+      "work_item_id": "WORK-8E91508B5ADC46EC891EB5D0FE106BEB",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-8E91508B5ADC46EC891EB5D0FE106BEB-7CB35F12CB88",
+      "actor": "PALARI-CODEX",
+      "sources_used": [
+        "SOURCE-REPO"
+      ],
+      "actions_taken": [
+        "Changed 5 bounded committed artifact(s).",
+        "Ran exact-state Palari verification profiles."
+      ],
+      "outputs_created": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
+      ],
+      "not_done": [
+        "No human review, decision, acceptance, external write, push, merge, or deployment was performed."
+      ],
+      "undo_refs": [
+        "src/palari_company_os/agent_packets.py",
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_session_contract.py",
+        "tests/test_agent_packets.py",
+        "tests/test_agent_session_contract.py"
+      ],
+      "timestamp": "2026-08-09T21:51:30Z",
+      "receipt_hash": "sha256:fbad0130046976eac49e4e613ed5e252f586c3a5a852c6bf1ffd2fd333b455f5"
     }
   ],
   "decisions": [],
