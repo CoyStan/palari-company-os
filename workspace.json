@@ -4532,7 +4532,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "blocked",
       "scope": "Remove repeated and unused code from agent advance and agent runtime without changing commands, safety rules, or results.",
       "allowed_resources": [
         "tests",
@@ -4573,7 +4573,60 @@
           "path": "src/palari_company_os/agent_runtime.py",
           "intent": "modify"
         }
-      ]
+      ],
+      "current_attempt": "ATTEMPT-PARK-085940B80FAAF2678EA643EF"
+    },
+    {
+      "id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+      "status": "active",
+      "title": "Simplify work flow code",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "scope": "Remove clear repeats and unused code from agent advance and agent runtime only when the result is easier to read, without changing commands, safety rules, or results.",
+      "allowed_resources": [
+        "tests",
+        "docs",
+        "scripts",
+        "pyproject.toml",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        }
+      ],
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The two files are smaller and easier to read, no code is moved elsewhere to hide size, public commands stay the same, and focused and full checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_agent_advance tests.test_agent_packets tests.test_custom_workspace_projection tests.test_operator_journeys",
+        "python3 -S scripts/check_repo_tree.py --part work",
+        "./scripts/verify.sh"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "parallel_policy": "independent",
+      "required_approval_count": 0
     }
   ],
   "attempts": [
@@ -6653,6 +6706,27 @@
         "tests/test_agent_advance.py",
         "docs/product/agent-contract.md"
       ]
+    },
+    {
+      "id": "ATTEMPT-PARK-085940B80FAAF2678EA643EF",
+      "work_item_id": "WORK-3770DBBB5D7545839B7282DA20BD6761",
+      "actor": "PALARI-CODEX",
+      "status": "blocked",
+      "base_sha": "d160a863146881ffc2c85029b1a2928cfa44967c",
+      "head_sha": "d160a863146881ffc2c85029b1a2928cfa44967c",
+      "changed_files": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "allowed_paths": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "claim_id": "c96fecc5e25e47218bc225e57401ac58",
+      "claim_expires_at": "2026-08-10T01:55:16Z",
+      "cleanliness": "dirty",
+      "result": "{\"authority_non_claims\":[\"no-receipt\",\"no-evidence\",\"no-review\",\"no-human-decision\",\"no-acceptance\",\"no-outcome\",\"no-convergence\"],\"next_action\":\"Create a successor task that removes only clear repeats when the result is easier to read, then verify the two-file cleanup.\",\"observation\":{\"all_changed_paths\":[\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\"],\"base_sha\":\"d160a863146881ffc2c85029b1a2928cfa44967c\",\"committed_paths\":[],\"errors\":[],\"head_sha\":\"d160a863146881ffc2c85029b1a2928cfa44967c\",\"ignored_control_paths\":[\".palari/governance-journal.v2.jsonl\",\".palari/claims/**\",\".palari/locks/**\",\".palari/packets/**\",\".palari/verification/**\"],\"inside_write_boundary\":[\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\"],\"missing_required_outputs\":[],\"observation_complete\":true,\"outside_write_boundary\":[],\"path_intent_mismatches\":[],\"working_tree\":{\"deleted\":[],\"modified\":[\"src/palari_company_os/agent_advance.py\",\"src/palari_company_os/agent_runtime.py\"],\"untracked\":[]}},\"packet\":{\"claim_session\":\"c96fecc5e25e47218bc225e57401ac58\",\"claim_workspace_file_hash\":\"sha256:4ae8783b0968d99858fa93a01d7c4e18a3339c4a46f218d2d200c91c2ae7efc6\",\"context_hash\":\"sha256:1c82d89333aba3f98adf02f56312762307c6e7c0a1b58b08cc25d7511168db62\",\"git_lease_oid\":\"2cc27eaefb6b1968d25e7d8abcd2f1eae9650feb\",\"git_lease_ref\":\"refs/palari/leases/WORK-3770DBBB5D7545839B7282DA20BD6761-41eeed509d2c\",\"git_lease_version\":\"palari.git_claim_lease.v2\",\"packet_digest\":\"sha256:9ce3aee4f6df27f100c224a33623d52b7232606ad1bd431e6258eac19804e5f6\",\"packet_id\":\"PACKET-WORK-3770DBBB5D7545839B7282DA20BD6761-PALARI-CODEX-EXECUTE-V1\",\"packet_path\":\".palari/packets/PACKET-WORK-3770DBBB5D7545839B7282DA20BD6761-PALARI-CODEX-EXECUTE-V1.json\",\"session_contract_digest\":\"sha256:820390b138988031b8ee0eaac4401fcf6fd46c55c5dcc6e570f788690ccc9812\",\"workspace_fingerprint\":\"sha256:96a16277c154ef07496f7f3bc43e2d437e3b2f4aa299db6a1e9d8b424de8d2c5\"},\"reason\":\"The 2,000-line target would require deleting tested safety behavior or hiding code in dense forms; the founder replaced it with an honest clarity goal.\",\"schema_version\":\"palari.agent_parking_record.v1\",\"workspace_digest_before\":\"sha256:83a9a662b0cb254e1857a956290566708ad7475b882f9e34596946e795a6bed9\"}",
+      "started_at": "2026-08-10T01:25:16Z"
     }
   ],
   "evidence_runs": [
@@ -12466,7 +12540,65 @@
   "integrations": [],
   "integration_plans": [],
   "integration_outbox": [],
-  "proposals": [],
+  "proposals": [
+    {
+      "id": "IDEA-2B233806D74B40A3A3ED19F0127E9F22",
+      "title": "Simplify work flow code",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "adopted",
+      "scope": "Remove clear repeats and unused code from agent advance and agent runtime only when the result is easier to read, without changing commands, safety rules, or results.",
+      "allowed_resources": [
+        "tests",
+        "docs",
+        "scripts",
+        "pyproject.toml",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The two files are smaller and easier to read, no code is moved elsewhere to hide size, public commands stay the same, and focused and full checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_agent_advance tests.test_agent_packets tests.test_custom_workspace_projection tests.test_operator_journeys",
+        "python3 -S scripts/check_repo_tree.py --part work",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        }
+      ],
+      "proposer": "PALARI-CODEX",
+      "created_at": "2026-08-10T01:26:15.880511Z",
+      "linked_work": "WORK-C7989A3823554949A9D81B3B45198C3A",
+      "decided_by": "HUMAN-FOUNDER",
+      "decided_at": "2026-08-10T01:29:02.841176Z"
+    }
+  ],
   "acceptance_records": [
     {
       "id": "ACCEPTANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-HUMAN-FOUNDER",
