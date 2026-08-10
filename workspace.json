@@ -4302,7 +4302,7 @@
       "dependency_ids": [],
       "risk": "R2",
       "intensity": "standard",
-      "status": "active",
+      "status": "completed",
       "scope": "Remove the old-workspace checkpoint upgrade path while keeping current workspace creation and manual continuity-break repair.",
       "allowed_resources": [
         "src/palari_company_os/governance_journal.py",
@@ -10321,6 +10321,457 @@
           "Actor attribution remains declared rather than cryptographically authenticated."
         ]
       }
+    },
+    {
+      "id": "PACK-DECISION-B92741175DBE1B56A329",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "b385ef28d547df7fc1ccea3d5d64439ef05c4bd3",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "approval-pack",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+      "review_reference": "REVIEW-F429B08A46DB906756D5512A",
+      "approval_pack_id": "PACK-BF934C807FE49873",
+      "approval_pack_digest": "sha256:ab0b9886b2c399285d3c161762bd97e6e8111e846e7f52d8f479ed8097b2934d",
+      "approval_pack_member_digest": "sha256:fc3ae2fe8bc596e7a92eee85a1dfd88e6ede562ac0b6c369d332c842a17f3c12",
+      "approval_pack_subject_digest": "sha256:e25ef96204a52857901197914cab5f9ad8e9851b0612deeb02a121a5979eab3d",
+      "approval_pack_request_digest": "sha256:b2ce8be4cf4fe6078e069cd8b0b131dfe22cb7e67d0a014278b521ecad5b6a4f",
+      "approval_pack_action": "approve",
+      "approval_presentation_schema_version": "palari.approval-presentation.v1",
+      "approval_presentation_digest": "sha256:98f8ec772b928d9a506c0e082327a5eacc4b3bad3a1642c978df62e99b3df2b2",
+      "approval_presentation_surface": "palari.human-decision-pack.v1",
+      "timestamp": "2026-08-10T00:08:42.893392Z",
+      "approval_pack_manifest": {
+        "schema_version": "palari.approval-pack.v3",
+        "pack_id": "PACK-BF934C807FE49873",
+        "base": {
+          "workspace_digest": "sha256:542a2cc9d38b47c98c6f4627ca32bec9b47a89ec6fdc4771b8aa41fbb6170b50",
+          "checkpoint_digest": "sha256:542a2cc9d38b47c98c6f4627ca32bec9b47a89ec6fdc4771b8aa41fbb6170b50",
+          "journal_head_digest": "sha256:00dce73a3398a979e30e64d6ce1914e659e7e54b3414c615463cfd235acb7459"
+        },
+        "members": [
+          {
+            "id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+            "kind": "work-item",
+            "title": "Reject unjournaled workspace upgrades",
+            "subject_digest": "sha256:e25ef96204a52857901197914cab5f9ad8e9851b0612deeb02a121a5979eab3d",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "AGENTS.md",
+                "README.md",
+                "docs/agent/common-workflows.md",
+                "docs/agent/contracts-and-invariants.md",
+                "docs/product/agent-contract.md",
+                "docs/product/command-reference.md",
+                "docs/product/current-product.md",
+                "docs/product/lifecycle-guide.md",
+                "docs/product/schema-and-validation.md",
+                "docs/product/security.md",
+                "docs/product/source-of-truth.md",
+                "spec/pcaw/v1/README.md",
+                "src/palari_company_os/agent_parking.py",
+                "src/palari_company_os/governance_journal.py",
+                "tests/test_agent_advance.py",
+                "tests/test_governance_journal.py",
+                "tests/test_governance_kernel.py",
+                "tests/test_operator_journeys.py",
+                "tests/test_store_journal_integration.py"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "review_reference": "REVIEW-F429B08A46DB906756D5512A",
+              "reviewed_head": "b385ef28d547df7fc1ccea3d5d64439ef05c4bd3"
+            },
+            "outputs": [
+              {
+                "path": "AGENTS.md",
+                "sha256": "sha256:83d01582aae00c412573cc78cd6849f17f04ae8fd7ad621f8f40cf801f0b8801"
+              },
+              {
+                "path": "README.md",
+                "sha256": "sha256:10476917f84af01289259fc04016176cddafa024e63930673c2b09f78a8a3675"
+              },
+              {
+                "path": "docs/agent/common-workflows.md",
+                "sha256": "sha256:bd7f93c720780294b545f89df359f0a037de6a4cb56d59e3f33e3a72787df285"
+              },
+              {
+                "path": "docs/agent/contracts-and-invariants.md",
+                "sha256": "sha256:fe1eb5a59d7071355d780678ce82294fcacce20674dad0cb7a9253924b46f680"
+              },
+              {
+                "path": "docs/product/agent-contract.md",
+                "sha256": "sha256:d39d8eb2fb7a1e6aa661e230f89940b3da6172a72cb8cba1788681722e1da0b0"
+              },
+              {
+                "path": "docs/product/command-reference.md",
+                "sha256": "sha256:335520469bab753ba62aaeaa068c1b472a79b414def2c48e675949a9314f4553"
+              },
+              {
+                "path": "docs/product/current-product.md",
+                "sha256": "sha256:dd76acbe3407c68f464b8ee2f4e80334697350b34fefcaced8c0937284b598cb"
+              },
+              {
+                "path": "docs/product/lifecycle-guide.md",
+                "sha256": "sha256:f26a1b524ee6115228c59079b2707dc3d24e45290e0c778588bd3e7da3585579"
+              },
+              {
+                "path": "docs/product/schema-and-validation.md",
+                "sha256": "sha256:11c825c3d71ea7e06ad71afb458f1e050d2fd63d1bac167677ccee97348202bc"
+              },
+              {
+                "path": "docs/product/security.md",
+                "sha256": "sha256:ef04ac36ab15fe4fb123ac746d96662566bd54a2725464d530cecfd8f23138e5"
+              },
+              {
+                "path": "docs/product/source-of-truth.md",
+                "sha256": "sha256:03c0d84f0a6909e5c48edb3f9adf0a9c0716a3846f86f90c2115340254a96e9f"
+              },
+              {
+                "path": "spec/pcaw/v1/README.md",
+                "sha256": "sha256:c1a885e7821e77d0ca6094e24943b83f99277609ce5a052ba851081e57c837e7"
+              },
+              {
+                "path": "src/palari_company_os/agent_parking.py",
+                "sha256": "sha256:51f17d81cc9cbb71401dc87899f0068c99d5b545df09108c27841ee0bccec526"
+              },
+              {
+                "path": "src/palari_company_os/governance_journal.py",
+                "sha256": "sha256:eea51331a5b667f4057a7e4513a3a9b6d82aa1e736eed28a0bc4f69ab85ca1ee"
+              },
+              {
+                "path": "tests/test_agent_advance.py",
+                "sha256": "sha256:74d5792df076bc7eba18a30cf102a834460538c7abf6db9a8684dc8d8e3436ee"
+              },
+              {
+                "path": "tests/test_governance_journal.py",
+                "sha256": "sha256:ec8170deed0ee3439406104dec1c0c0858bbab2fd3cc5dcca7db7586dbcc5606"
+              },
+              {
+                "path": "tests/test_governance_kernel.py",
+                "sha256": "sha256:667575500f9b477c79c6ae12108c652aa2c9a454da0f983ffa3fcc6dd9904a48"
+              },
+              {
+                "path": "tests/test_operator_journeys.py",
+                "sha256": "sha256:26b9a2e6a6693c5d43d0d46373efd69d134eb19b5e55dde5adfd8264f274096a"
+              },
+              {
+                "path": "tests/test_store_journal_integration.py",
+                "sha256": "sha256:9cb8174139ece509358e944a5ed05478740298d2a0d39f54c26a02f2d2cae3c3"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "AGENTS.md",
+              "README.md",
+              "docs/agent/common-workflows.md",
+              "docs/agent/contracts-and-invariants.md",
+              "docs/product/agent-contract.md",
+              "docs/product/command-reference.md",
+              "docs/product/current-product.md",
+              "docs/product/lifecycle-guide.md",
+              "docs/product/schema-and-validation.md",
+              "docs/product/security.md",
+              "docs/product/source-of-truth.md",
+              "spec/pcaw/v1/README.md",
+              "src/palari_company_os/agent_parking.py",
+              "src/palari_company_os/governance_journal.py",
+              "tests/test_agent_advance.py",
+              "tests/test_governance_journal.py",
+              "tests/test_governance_kernel.py",
+              "tests/test_operator_journeys.py",
+              "tests/test_store_journal_integration.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-FE572A92EC6E48318D6176C0D73B4E4C from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:fc3ae2fe8bc596e7a92eee85a1dfd88e6ede562ac0b6c369d332c842a17f3c12"
+          }
+        ],
+        "execution_order": [
+          "WORK-FE572A92EC6E48318D6176C0D73B4E4C"
+        ],
+        "cumulative_effect_summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-FE572A92EC6E48318D6176C0D73B4E4C from its exact reviewed proof"
+        },
+        "external_effects": [],
+        "estimated_resources": {
+          "cost": "not-declared",
+          "time": "not-declared",
+          "items": 1
+        },
+        "lifecycle_state": "parked",
+        "security_limitations": [
+          "Actor attribution is declared, not cryptographically authenticated.",
+          "Pack approval grants no authority beyond each member's existing boundaries.",
+          "External and irreversible effects remain parked and are not locally undoable."
+        ],
+        "pack_digest": "sha256:ab0b9886b2c399285d3c161762bd97e6e8111e846e7f52d8f479ed8097b2934d"
+      },
+      "approval_presentation": {
+        "schema_version": "palari.approval-presentation.v1",
+        "decision_surface": "palari.human-decision-pack.v1",
+        "pack": {
+          "pack_id": "PACK-BF934C807FE49873",
+          "pack_digest": "sha256:ab0b9886b2c399285d3c161762bd97e6e8111e846e7f52d8f479ed8097b2934d"
+        },
+        "action": {
+          "available": [
+            "approve",
+            "approve-eligible",
+            "defer",
+            "reject"
+          ],
+          "primary": "approve-eligible",
+          "execution_order": [
+            "WORK-FE572A92EC6E48318D6176C0D73B4E4C"
+          ],
+          "local_convergence": "atomic-when-authorized"
+        },
+        "summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-FE572A92EC6E48318D6176C0D73B4E4C from its exact reviewed proof"
+        },
+        "members": [
+          {
+            "id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+            "kind": "work-item",
+            "title": "Reject unjournaled workspace upgrades",
+            "subject_digest": "sha256:e25ef96204a52857901197914cab5f9ad8e9851b0612deeb02a121a5979eab3d",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "AGENTS.md",
+                "README.md",
+                "docs/agent/common-workflows.md",
+                "docs/agent/contracts-and-invariants.md",
+                "docs/product/agent-contract.md",
+                "docs/product/command-reference.md",
+                "docs/product/current-product.md",
+                "docs/product/lifecycle-guide.md",
+                "docs/product/schema-and-validation.md",
+                "docs/product/security.md",
+                "docs/product/source-of-truth.md",
+                "spec/pcaw/v1/README.md",
+                "src/palari_company_os/agent_parking.py",
+                "src/palari_company_os/governance_journal.py",
+                "tests/test_agent_advance.py",
+                "tests/test_governance_journal.py",
+                "tests/test_governance_kernel.py",
+                "tests/test_operator_journeys.py",
+                "tests/test_store_journal_integration.py"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+              "review_reference": "REVIEW-F429B08A46DB906756D5512A",
+              "reviewed_head": "b385ef28d547df7fc1ccea3d5d64439ef05c4bd3"
+            },
+            "outputs": [
+              {
+                "path": "AGENTS.md",
+                "sha256": "sha256:83d01582aae00c412573cc78cd6849f17f04ae8fd7ad621f8f40cf801f0b8801"
+              },
+              {
+                "path": "README.md",
+                "sha256": "sha256:10476917f84af01289259fc04016176cddafa024e63930673c2b09f78a8a3675"
+              },
+              {
+                "path": "docs/agent/common-workflows.md",
+                "sha256": "sha256:bd7f93c720780294b545f89df359f0a037de6a4cb56d59e3f33e3a72787df285"
+              },
+              {
+                "path": "docs/agent/contracts-and-invariants.md",
+                "sha256": "sha256:fe1eb5a59d7071355d780678ce82294fcacce20674dad0cb7a9253924b46f680"
+              },
+              {
+                "path": "docs/product/agent-contract.md",
+                "sha256": "sha256:d39d8eb2fb7a1e6aa661e230f89940b3da6172a72cb8cba1788681722e1da0b0"
+              },
+              {
+                "path": "docs/product/command-reference.md",
+                "sha256": "sha256:335520469bab753ba62aaeaa068c1b472a79b414def2c48e675949a9314f4553"
+              },
+              {
+                "path": "docs/product/current-product.md",
+                "sha256": "sha256:dd76acbe3407c68f464b8ee2f4e80334697350b34fefcaced8c0937284b598cb"
+              },
+              {
+                "path": "docs/product/lifecycle-guide.md",
+                "sha256": "sha256:f26a1b524ee6115228c59079b2707dc3d24e45290e0c778588bd3e7da3585579"
+              },
+              {
+                "path": "docs/product/schema-and-validation.md",
+                "sha256": "sha256:11c825c3d71ea7e06ad71afb458f1e050d2fd63d1bac167677ccee97348202bc"
+              },
+              {
+                "path": "docs/product/security.md",
+                "sha256": "sha256:ef04ac36ab15fe4fb123ac746d96662566bd54a2725464d530cecfd8f23138e5"
+              },
+              {
+                "path": "docs/product/source-of-truth.md",
+                "sha256": "sha256:03c0d84f0a6909e5c48edb3f9adf0a9c0716a3846f86f90c2115340254a96e9f"
+              },
+              {
+                "path": "spec/pcaw/v1/README.md",
+                "sha256": "sha256:c1a885e7821e77d0ca6094e24943b83f99277609ce5a052ba851081e57c837e7"
+              },
+              {
+                "path": "src/palari_company_os/agent_parking.py",
+                "sha256": "sha256:51f17d81cc9cbb71401dc87899f0068c99d5b545df09108c27841ee0bccec526"
+              },
+              {
+                "path": "src/palari_company_os/governance_journal.py",
+                "sha256": "sha256:eea51331a5b667f4057a7e4513a3a9b6d82aa1e736eed28a0bc4f69ab85ca1ee"
+              },
+              {
+                "path": "tests/test_agent_advance.py",
+                "sha256": "sha256:74d5792df076bc7eba18a30cf102a834460538c7abf6db9a8684dc8d8e3436ee"
+              },
+              {
+                "path": "tests/test_governance_journal.py",
+                "sha256": "sha256:ec8170deed0ee3439406104dec1c0c0858bbab2fd3cc5dcca7db7586dbcc5606"
+              },
+              {
+                "path": "tests/test_governance_kernel.py",
+                "sha256": "sha256:667575500f9b477c79c6ae12108c652aa2c9a454da0f983ffa3fcc6dd9904a48"
+              },
+              {
+                "path": "tests/test_operator_journeys.py",
+                "sha256": "sha256:26b9a2e6a6693c5d43d0d46373efd69d134eb19b5e55dde5adfd8264f274096a"
+              },
+              {
+                "path": "tests/test_store_journal_integration.py",
+                "sha256": "sha256:9cb8174139ece509358e944a5ed05478740298d2a0d39f54c26a02f2d2cae3c3"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "AGENTS.md",
+              "README.md",
+              "docs/agent/common-workflows.md",
+              "docs/agent/contracts-and-invariants.md",
+              "docs/product/agent-contract.md",
+              "docs/product/command-reference.md",
+              "docs/product/current-product.md",
+              "docs/product/lifecycle-guide.md",
+              "docs/product/schema-and-validation.md",
+              "docs/product/security.md",
+              "docs/product/source-of-truth.md",
+              "spec/pcaw/v1/README.md",
+              "src/palari_company_os/agent_parking.py",
+              "src/palari_company_os/governance_journal.py",
+              "tests/test_agent_advance.py",
+              "tests/test_governance_journal.py",
+              "tests/test_governance_kernel.py",
+              "tests/test_operator_journeys.py",
+              "tests/test_store_journal_integration.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-FE572A92EC6E48318D6176C0D73B4E4C from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:fc3ae2fe8bc596e7a92eee85a1dfd88e6ede562ac0b6c369d332c842a17f3c12",
+            "decision_state": {
+              "state": "eligible",
+              "reasons": [],
+              "next_safe_action": "Approve WORK-FE572A92EC6E48318D6176C0D73B4E4C from this exact pack or leave it parked."
+            },
+            "decision_context": []
+          }
+        ],
+        "external_effects": [],
+        "security_limitations": [
+          "The digest proves these canonical presentation-artifact bytes, not browser layout or font rendering.",
+          "The bound decision surface records that these bytes were made available; compromised software could display different bytes.",
+          "The binding does not prove that a person read, understood, or exercised sound judgment about the presentation.",
+          "Actor attribution remains declared rather than cryptographically authenticated."
+        ]
+      }
     }
   ],
   "receipts": [
@@ -11824,6 +12275,21 @@
       "quorum_status": "met",
       "reason": "approval pack authority",
       "accepted_at": "2026-08-09T18:34:35.535704Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-HUMAN-FOUNDER",
+      "work_item_id": "WORK-FE572A92EC6E48318D6176C0D73B4E4C",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "b385ef28d547df7fc1ccea3d5d64439ef05c4bd3",
+      "status": "accepted",
+      "decision_id": "PACK-DECISION-B92741175DBE1B56A329",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547",
+      "review_reference": "REVIEW-F429B08A46DB906756D5512A",
+      "receipt_hash": "sha256:c20616e8a3fd63ff354964473ce468eb5e4c322b249f98533036f6db3d479596",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "approval pack authority",
+      "accepted_at": "2026-08-10T00:08:42.893392Z"
     }
   ]
 }
