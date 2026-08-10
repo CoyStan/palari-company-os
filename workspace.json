@@ -4578,7 +4578,7 @@
     },
     {
       "id": "WORK-C7989A3823554949A9D81B3B45198C3A",
-      "status": "active",
+      "status": "completed",
       "title": "Simplify work flow code",
       "goal": "GOAL-0001",
       "palari": "PALARI-CODEX",
@@ -9781,6 +9781,23 @@
       "receipt_hash": "sha256:c20616e8a3fd63ff354964473ce468eb5e4c322b249f98533036f6db3d479596",
       "work_contract_hash": "sha256:acee28818aea758fabe89f0bedbef39b07d3bc560d6a918892d747efcbd33780",
       "proof_hash": "sha256:d53d07cb24a58bca71fb15968c12b21621f1bbf593ca45fab90d84c933498bbe"
+    },
+    {
+      "id": "REVIEW-27E00E9C0E7952BA07C5E4F7",
+      "work_item_id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+      "reviewed_head": "3955619f44c94a5dccf7a6cd1a2eeac86bd388f1",
+      "reviewer": "PALARI-REVIEWER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-08-10T02:12:12.511931Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+      "attempt_hash": "sha256:ab60843da5cb73baa7df82c4b72ee363b5e9267c394a6ce72fff5851810b1901",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+      "evidence_manifest_hash": "sha256:65ef56972cb4a371a9dc1df2a1d8581bbffce8bd76d01ff55de6937a75055998",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+      "receipt_hash": "sha256:5b9218bee42e93a277fd26f9908e23d1f5f20c16f7137060fe3ececd0fe52ab2",
+      "work_contract_hash": "sha256:6b2d4b5f6aca8388d8bf236284b22da0b4d9ce16a1e9cc292964cc1c9e12f947",
+      "proof_hash": "sha256:657893f2f98d467f3422aba0b2669b965e9cb93a51082eb9ffa2dc11951908c3"
     }
   ],
   "human_decisions": [
@@ -11088,6 +11105,261 @@
               "state": "eligible",
               "reasons": [],
               "next_safe_action": "Approve WORK-FE572A92EC6E48318D6176C0D73B4E4C from this exact pack or leave it parked."
+            },
+            "decision_context": []
+          }
+        ],
+        "external_effects": [],
+        "security_limitations": [
+          "The digest proves these canonical presentation-artifact bytes, not browser layout or font rendering.",
+          "The bound decision surface records that these bytes were made available; compromised software could display different bytes.",
+          "The binding does not prove that a person read, understood, or exercised sound judgment about the presentation.",
+          "Actor attribution remains declared rather than cryptographically authenticated."
+        ]
+      }
+    },
+    {
+      "id": "PACK-DECISION-769928C36CA68664F827",
+      "work_item_id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "3955619f44c94a5dccf7a6cd1a2eeac86bd388f1",
+      "decision": "accepted",
+      "status": "accepted",
+      "acceptance_mode": "approval-pack",
+      "quorum_status": "met",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+      "review_reference": "REVIEW-27E00E9C0E7952BA07C5E4F7",
+      "approval_pack_id": "PACK-6A9C066D30C5F83B",
+      "approval_pack_digest": "sha256:34fb096ba2d7eebc3410fcae2b0cfa68b7ac252958ac7f5a4bce781553bfc790",
+      "approval_pack_member_digest": "sha256:b7b711ff3601d5e41953966c2aed08447ab1486a24c52032bca926806894d541",
+      "approval_pack_subject_digest": "sha256:56d487183f092d53a6fb846439a6351f8042a7716965591f056d8f7d4acbbb1e",
+      "approval_pack_request_digest": "sha256:f17eca74842f8363939897b4f1d63b6a662f11f46b27146620dd77c75ff7de16",
+      "approval_pack_action": "approve",
+      "approval_presentation_schema_version": "palari.approval-presentation.v1",
+      "approval_presentation_digest": "sha256:a10ca07f9fa1215b2c3a03359278c1712d37bc785b4ccf7547db99581222184d",
+      "approval_presentation_surface": "palari.human-decision-pack.v1",
+      "timestamp": "2026-08-10T02:25:51.739049Z",
+      "approval_pack_manifest": {
+        "schema_version": "palari.approval-pack.v3",
+        "pack_id": "PACK-6A9C066D30C5F83B",
+        "base": {
+          "workspace_digest": "sha256:374dcb34b5cb5f891d2247316d1bd295f51ae70208c0f5c73f53139185020fac",
+          "checkpoint_digest": "sha256:374dcb34b5cb5f891d2247316d1bd295f51ae70208c0f5c73f53139185020fac",
+          "journal_head_digest": "sha256:1beee1c20e4ecc8c9d16a2077966a142d7f5e104e2c3eca3de43a2b0e61b2239"
+        },
+        "members": [
+          {
+            "id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+            "kind": "work-item",
+            "title": "Simplify work flow code",
+            "subject_digest": "sha256:56d487183f092d53a6fb846439a6351f8042a7716965591f056d8f7d4acbbb1e",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "docs",
+                "pyproject.toml",
+                "scripts",
+                "src/palari_company_os/agent_advance.py",
+                "src/palari_company_os/agent_runtime.py",
+                "tests"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "review_reference": "REVIEW-27E00E9C0E7952BA07C5E4F7",
+              "reviewed_head": "3955619f44c94a5dccf7a6cd1a2eeac86bd388f1"
+            },
+            "outputs": [
+              {
+                "path": "src/palari_company_os/agent_advance.py",
+                "sha256": "sha256:4f44629b485f670ae066380e535ac667d854c5a9c27f3b5e375d1c62feb7cf7b"
+              },
+              {
+                "path": "src/palari_company_os/agent_runtime.py",
+                "sha256": "sha256:aa5acd973bf3ada78dde3e734938f3c8f5165aa862f794e8d84d37149db7acdf"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "src/palari_company_os/agent_advance.py",
+              "src/palari_company_os/agent_runtime.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-C7989A3823554949A9D81B3B45198C3A from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:b7b711ff3601d5e41953966c2aed08447ab1486a24c52032bca926806894d541"
+          }
+        ],
+        "execution_order": [
+          "WORK-C7989A3823554949A9D81B3B45198C3A"
+        ],
+        "cumulative_effect_summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-C7989A3823554949A9D81B3B45198C3A from its exact reviewed proof"
+        },
+        "external_effects": [],
+        "estimated_resources": {
+          "cost": "not-declared",
+          "time": "not-declared",
+          "items": 1
+        },
+        "lifecycle_state": "parked",
+        "security_limitations": [
+          "Actor attribution is declared, not cryptographically authenticated.",
+          "Pack approval grants no authority beyond each member's existing boundaries.",
+          "External and irreversible effects remain parked and are not locally undoable."
+        ],
+        "pack_digest": "sha256:34fb096ba2d7eebc3410fcae2b0cfa68b7ac252958ac7f5a4bce781553bfc790"
+      },
+      "approval_presentation": {
+        "schema_version": "palari.approval-presentation.v1",
+        "decision_surface": "palari.human-decision-pack.v1",
+        "pack": {
+          "pack_id": "PACK-6A9C066D30C5F83B",
+          "pack_digest": "sha256:34fb096ba2d7eebc3410fcae2b0cfa68b7ac252958ac7f5a4bce781553bfc790"
+        },
+        "action": {
+          "available": [
+            "approve",
+            "approve-eligible",
+            "defer",
+            "reject"
+          ],
+          "primary": "approve-eligible",
+          "execution_order": [
+            "WORK-C7989A3823554949A9D81B3B45198C3A"
+          ],
+          "local_convergence": "atomic-when-authorized"
+        },
+        "summary": {
+          "group": "batchable-local",
+          "items": 1,
+          "batchable": 1,
+          "blocked": 0,
+          "external_or_irreversible": 0,
+          "summary": "Complete WORK-C7989A3823554949A9D81B3B45198C3A from its exact reviewed proof"
+        },
+        "members": [
+          {
+            "id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+            "kind": "work-item",
+            "title": "Simplify work flow code",
+            "subject_digest": "sha256:56d487183f092d53a6fb846439a6351f8042a7716965591f056d8f7d4acbbb1e",
+            "risk": "R2",
+            "reversibility": {
+              "class": "reversible-local",
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "authority": {
+              "required_approval_count": 0,
+              "effective_final_approval_count": 1,
+              "required_approval_capability": ""
+            },
+            "boundaries": {
+              "sources": [
+                "SOURCE-REPO"
+              ],
+              "paths": [
+                "docs",
+                "pyproject.toml",
+                "scripts",
+                "src/palari_company_os/agent_advance.py",
+                "src/palari_company_os/agent_runtime.py",
+                "tests"
+              ],
+              "tools_or_actions": [],
+              "forbidden_actions": [
+                "write outside the declared write paths"
+              ]
+            },
+            "proof": {
+              "attempt_id": "ATTEMPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "receipt_reference": "RECEIPT-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "evidence_reference": "EVIDENCE-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+              "review_reference": "REVIEW-27E00E9C0E7952BA07C5E4F7",
+              "reviewed_head": "3955619f44c94a5dccf7a6cd1a2eeac86bd388f1"
+            },
+            "outputs": [
+              {
+                "path": "src/palari_company_os/agent_advance.py",
+                "sha256": "sha256:4f44629b485f670ae066380e535ac667d854c5a9c27f3b5e375d1c62feb7cf7b"
+              },
+              {
+                "path": "src/palari_company_os/agent_runtime.py",
+                "sha256": "sha256:aa5acd973bf3ada78dde3e734938f3c8f5165aa862f794e8d84d37149db7acdf"
+              }
+            ],
+            "dependencies": [],
+            "dependency_bindings": [],
+            "conflicts": [
+              "src/palari_company_os/agent_advance.py",
+              "src/palari_company_os/agent_runtime.py"
+            ],
+            "batch_policy": {
+              "class": "local-work",
+              "batchable": true,
+              "reason": "R1/R2 local work without external effects is eligible for batched approval"
+            },
+            "action": {
+              "type": "complete-work",
+              "summary": "Complete WORK-C7989A3823554949A9D81B3B45198C3A from its exact reviewed proof",
+              "external": false,
+              "irreversible": false
+            },
+            "external_effects": [],
+            "estimated_resources": {
+              "cost": "not-declared",
+              "time": "not-declared"
+            },
+            "eligibility": {
+              "eligible": true,
+              "errors": []
+            },
+            "member_digest": "sha256:b7b711ff3601d5e41953966c2aed08447ab1486a24c52032bca926806894d541",
+            "decision_state": {
+              "state": "eligible",
+              "reasons": [],
+              "next_safe_action": "Approve WORK-C7989A3823554949A9D81B3B45198C3A from this exact pack or leave it parked."
             },
             "decision_context": []
           }
@@ -12733,6 +13005,21 @@
       "quorum_status": "met",
       "reason": "approval pack authority",
       "accepted_at": "2026-08-10T00:08:42.893392Z"
+    },
+    {
+      "id": "ACCEPTANCE-WORK-C7989A3823554949A9D81B3B45198C3A-HUMAN-FOUNDER",
+      "work_item_id": "WORK-C7989A3823554949A9D81B3B45198C3A",
+      "human_id": "HUMAN-FOUNDER",
+      "reviewed_head": "3955619f44c94a5dccf7a6cd1a2eeac86bd388f1",
+      "status": "accepted",
+      "decision_id": "PACK-DECISION-769928C36CA68664F827",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-C7989A3823554949A9D81B3B45198C3A-3955619F44C9",
+      "review_reference": "REVIEW-27E00E9C0E7952BA07C5E4F7",
+      "receipt_hash": "sha256:5b9218bee42e93a277fd26f9908e23d1f5f20c16f7137060fe3ececd0fe52ab2",
+      "authority_profile": "team-safe",
+      "quorum_status": "met",
+      "reason": "approval pack authority",
+      "accepted_at": "2026-08-10T02:25:51.739049Z"
     }
   ]
 }
