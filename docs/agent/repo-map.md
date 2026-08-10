@@ -91,9 +91,9 @@ When adding a command, update parser, dispatch, output, tests, and
   compiler shared by agent read surfaces.
 - `src/palari_company_os/agent_operation.py`: request-local brief, check, and
   directive reuse.
-- `src/palari_company_os/agent_status.py`: canonical read-only task limits,
-  checks, ownership, blockers, and next-action projection from one request-local
-  operation.
+- `src/palari_company_os/agent_status.py`: canonical public read-only task
+  limits, checks, ownership, blockers, and next-action projection from one
+  request-local operation.
 - `src/palari_company_os/agent_parking.py`: durable blocked-run parking and
   exact idempotent task-lock release without permission to approve.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
@@ -106,8 +106,9 @@ When adding a command, update parser, dispatch, output, tests, and
   classification.
 - `src/palari_company_os/agent_handoff.py`: read-only human handoff briefs and
   simple human approval routing plus advanced pack context when eligible.
-- `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
-- `src/palari_company_os/agent_loop.py`: compact loop summary.
+- `src/palari_company_os/agent_doctor.py`: internal compatibility diagnosis.
+- `src/palari_company_os/agent_loop.py`: internal compatibility loop summary;
+  public recovery guidance targets `agent status`.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
   deterministic verification reconciler that stops at approval boundaries and
   finishes mechanically after current approval exists.

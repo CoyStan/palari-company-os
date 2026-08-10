@@ -7,18 +7,17 @@ from .cli_output_agent import (
     print_agent_adopt,
     print_agent_brief,
     print_agent_check,
-    print_agent_doctor,
     print_agent_advance,
     print_agent_finish,
     print_agent_handoff,
     print_agent_home,
-    print_agent_loop,
     print_agent_next,
     print_agent_next_all,
     print_agent_park,
     print_agent_release,
     print_agent_session_contract,
     print_agent_start,
+    print_agent_status,
 )
 from .cli_dispatch import CommandResult
 from .cli_output_integrations import (
@@ -202,12 +201,8 @@ def print_result(result: CommandResult) -> None:
         print_agent_handoff(result.payload, result.as_json)
         return
 
-    if result.kind == "agent-loop":
-        print_agent_loop(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-doctor":
-        print_agent_doctor(result.payload, result.as_json)
+    if result.kind == "agent-status":
+        print_agent_status(result.payload, result.as_json)
         return
 
     if result.kind == "agent-advance":
@@ -833,7 +828,7 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
         if item.agent_loop_command:
-            print(f"  agent loop: {item.agent_loop_command}")
+            print(f"  agent status: {item.agent_loop_command}")
         if item.agent_handoff_command:
             print(f"  agent handoff: {item.agent_handoff_command}")
         if item.terminal_disposition:
@@ -1131,7 +1126,7 @@ def print_state(payload: dict[str, Any]) -> None:
             )
         print(f"  why: {plain_message(top['why'])}")
         if top.get("agent_loop_command"):
-            print(f"  agent loop: {top['agent_loop_command']}")
+            print(f"  agent status: {top['agent_loop_command']}")
         if top.get("agent_handoff_command"):
             print(f"  agent handoff: {top['agent_handoff_command']}")
         if display_command:

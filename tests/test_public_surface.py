@@ -17,7 +17,11 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 82)
+        self.assertEqual(len(actual), 81)
+        self.assertEqual(len(_collect_leaf_commands()), 66)
+        self.assertIn("palari agent status", actual)
+        self.assertNotIn("palari agent doctor", actual)
+        self.assertNotIn("palari agent loop", actual)
 
         self.assertEqual(actual, expected)
 
@@ -54,7 +58,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("| Mission Control and local serve | visual |", surface)
         self.assertIn("| Cursor host profile | adapter |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
-        self.assertIn("Current CLI command count from parser inspection: **82**.", surface)
+        self.assertIn("Current CLI command count from parser inspection: **81**.", surface)
 
 
     def test_provider_surface_is_bounded(self) -> None:
@@ -100,6 +104,30 @@ def _collect_commands() -> list[str]:
                 command = f"{prefix} {name}"
                 commands.append(command)
                 walk(subparser, command)
+
+    walk(build_parser())
+    return commands
+
+
+def _collect_leaf_commands() -> list[str]:
+    commands: list[str] = []
+
+    def walk(parser: Any, prefix: str = "palari") -> None:
+        children: list[tuple[str, Any]] = []
+        for action in parser._actions:
+            choices = getattr(action, "choices", None)
+            if not isinstance(choices, dict):
+                continue
+            children.extend(
+                (name, subparser)
+                for name, subparser in choices.items()
+                if hasattr(subparser, "_actions")
+            )
+        if not children:
+            commands.append(prefix)
+            return
+        for name, subparser in children:
+            walk(subparser, f"{prefix} {name}")
 
     walk(build_parser())
     return commands

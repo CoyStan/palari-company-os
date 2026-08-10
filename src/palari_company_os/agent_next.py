@@ -329,33 +329,30 @@ def _candidate_next_commands(
     loop_command: str,
     mode: str,
 ) -> list[str]:
+    status_command = doctor_command or loop_command
     if can_start and item.next_step_type == "check-active-proof":
         commands = list(item.next_commands or [next_command, check_command])
-        _append_once(commands, doctor_command)
-        _append_once(commands, loop_command)
+        _append_once(commands, status_command)
         return commands
     if can_start and mode == "review":
         return [
             brief_command,
             f"palari review guide {item.id} --json",
             check_command,
-            doctor_command,
-            loop_command,
+            status_command,
         ]
     if can_start:
-        return [brief_command, check_command, doctor_command, loop_command]
+        return [brief_command, check_command, status_command]
     if handoff_guidance:
         commands = [next_command]
         for guidance in handoff_guidance:
             _append_once(commands, guidance.get("guide_command", ""))
         for command in item.next_commands:
             _append_once(commands, command)
-        _append_once(commands, doctor_command)
-        _append_once(commands, loop_command)
+        _append_once(commands, status_command)
         return commands
     commands = list(finish_commands or item.next_commands)
-    _append_once(commands, doctor_command)
-    _append_once(commands, loop_command)
+    _append_once(commands, status_command)
     return commands
 
 
@@ -376,11 +373,11 @@ def _check_command(work_id: str, palari_id: str, mode: str) -> str:
 
 
 def _doctor_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent doctor {work_id} --as {palari_id} --mode {mode} --json"
+    return f"palari agent status {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
+    return f"palari agent status {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _palari_can_see_work(

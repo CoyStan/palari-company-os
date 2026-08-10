@@ -214,13 +214,12 @@ SAFE_AGENT_PALARI_COMMANDS = {
         "advance",
         "brief",
         "check",
-        "doctor",
         "finish",
         "handoff",
-        "loop",
         "next",
         "release",
         "start",
+        "status",
     )
 } | {
     ("authority", action) for action in ("check", "profiles")
@@ -1547,7 +1546,7 @@ def _boundary_reason(
         *[f"allowed: {path}" for path in allowed],
         f"work: {work_id} (claimed by {palari_id})",
         "Next safe commands:",
-        f"  palari agent doctor {work_id} --as {palari_id} --mode execute --json",
+        f"  palari agent status {work_id} --as {palari_id} --mode execute --json",
         f"  palari agent handoff {work_id} --as {palari_id} --json",
         "If the limits must grow, a human updates the task first.",
     ]

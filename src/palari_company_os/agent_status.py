@@ -16,7 +16,11 @@ def build_agent_status(
     *,
     operation: AgentOperation | None = None,
 ) -> dict[str, Any]:
-    """Return one canonical read-only projection of the current agent state."""
+    """Return the canonical public read-only projection of current agent state.
+
+    Internal transports may retain the earlier doctor and loop projections for
+    compatibility, but public CLI recovery guidance targets this payload.
+    """
 
     operation_state = ensure_agent_operation(
         workspace,

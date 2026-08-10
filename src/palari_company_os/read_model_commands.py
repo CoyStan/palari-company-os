@@ -43,8 +43,9 @@ def agent_commands(
             "execute",
         ),
         "finish": _agent_work_command(workspace_path, "finish", work),
-        "doctor": _agent_work_command(workspace_path, "doctor", work),
-        "loop": _agent_work_command(workspace_path, "loop", work),
+        "status": _agent_work_command(workspace_path, "status", work),
+        "doctor": _agent_work_command(workspace_path, "status", work),
+        "loop": _agent_work_command(workspace_path, "status", work),
         "handoff": _agent_work_command(workspace_path, "handoff", work),
     }
     if next_step_type == "review-handoff":
@@ -66,7 +67,7 @@ def agent_commands(
 
 
 def agent_loop_command(work: Any, *, workspace_path: Path | str) -> str:
-    return _agent_work_command(workspace_path, "loop", work)
+    return _agent_work_command(workspace_path, "status", work)
 
 
 def agent_handoff_command(

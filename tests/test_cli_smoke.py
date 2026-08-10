@@ -142,6 +142,36 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn("--as", payload["error"]["message"])
         self.assertTrue(payload["next_allowed_commands"])
 
+    def test_agent_status_is_the_canonical_public_read_projection(self) -> None:
+        payload = self.run_json(
+            "agent",
+            "status",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+            "--json",
+        )
+        rendered = self.run_cli(
+            "agent",
+            "status",
+            WORK_ID,
+            "--as",
+            PALARI_ID,
+        ).stdout
+
+        self.assertEqual(payload["schema_version"], "palari.agent_status.v1")
+        self.assertFalse(payload["would_mutate"])
+        self.assertEqual(payload["work_item"]["id"], WORK_ID)
+        self.assertIn("task_limits", payload)
+        self.assertIn("check", payload)
+        self.assertIn("stages", payload)
+        self.assertIn("Task status:", rendered)
+        self.assertIn("Owner:", rendered)
+
+        for removed in ("doctor", "loop"):
+            result = self.run_cli("agent", removed, check=False)
+            self.assertEqual(result.returncode, 2)
+
     def test_agent_errors_keep_an_exact_custom_workspace_selector(self) -> None:
         custom_workspace = self.root / "governance state.json"
         parse_result = self.run_cli_for(

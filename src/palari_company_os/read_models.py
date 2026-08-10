@@ -36,7 +36,7 @@ class QueueItem:
     next_action: str
     next_step_type: str
     next_commands: list[str]
-    agent_loop_command: str
+    agent_loop_command: str  # Compatibility field; value targets public agent status.
     agent_handoff_command: str
     status: str
     terminal_disposition: str

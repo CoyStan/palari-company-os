@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_status import build_agent_status
 

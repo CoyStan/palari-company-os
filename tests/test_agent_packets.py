@@ -40,6 +40,7 @@ from palari_company_os.agent_runtime import (
     start_agent,
     start_next_agent,
 )
+from palari_company_os.agent_status import build_agent_status
 from palari_company_os.command_surface import (
     palari_command_parts,
     palari_workspace_command,
@@ -643,6 +644,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute"),
                 build_agent_check(workspace, WORK_ID, PALARI_ID),
                 build_agent_finish(workspace, WORK_ID, PALARI_ID),
+                build_agent_status(workspace, WORK_ID, PALARI_ID),
                 build_agent_doctor(workspace, WORK_ID, PALARI_ID),
                 build_agent_loop(workspace, WORK_ID, PALARI_ID),
                 build_agent_handoff(workspace, WORK_ID, PALARI_ID),
@@ -656,6 +658,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 "palari.agent_packet.v1",
                 "palari.agent_check.v1",
                 "palari.agent_finish.v1",
+                "palari.agent_status.v1",
                 "palari.agent_doctor.v1",
                 "palari.agent_loop.v1",
                 "palari.agent_handoff.v1",

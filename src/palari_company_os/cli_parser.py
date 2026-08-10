@@ -390,22 +390,14 @@ def _add_agent_parser(subparsers: Any) -> None:
     handoff.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
     handoff.add_argument("--mode", default="execute", help="Session mode.")
     handoff.add_argument("--json", action="store_true", help="Emit JSON.")
-    loop = nested.add_parser(
-        "loop",
-        help="Summarize the task's start, checks, finish, and handoff steps.",
+    status = nested.add_parser(
+        "status",
+        help="Show one canonical read-only task status.",
     )
-    loop.add_argument("work_id")
-    loop.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    loop.add_argument("--mode", default="execute", help="Session mode.")
-    loop.add_argument("--json", action="store_true", help="Emit JSON.")
-    doctor = nested.add_parser(
-        "doctor",
-        help="Explain why one task is ready, blocked, or waiting.",
-    )
-    doctor.add_argument("work_id")
-    doctor.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    doctor.add_argument("--mode", default="execute", help="Session mode.")
-    doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+    status.add_argument("work_id")
+    status.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
+    status.add_argument("--mode", default="execute", help="Session mode.")
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
     advance = nested.add_parser(
         "advance",
         help="Run required checks and stop at review, approval, or a concrete blocker.",
@@ -426,7 +418,7 @@ def _add_agent_parser(subparsers: Any) -> None:
 
     actions = {action.dest: action for action in nested._choices_actions}
     nested._choices_actions = [
-        actions[name] for name in ("home", "start", "advance", "release", "doctor")
+        actions[name] for name in ("home", "start", "advance", "release", "status")
     ]
 
 

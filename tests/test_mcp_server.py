@@ -90,6 +90,8 @@ class McpServerContractTests(unittest.TestCase):
                 "palari_docs_check",
             },
         )
+        for legacy_name in ("palari_agent_loop", "palari_agent_doctor"):
+            self.assertIn("Compatibility MCP view", tools[legacy_name]["description"])
         for name, tool in tools.items():
             self.assertNotIn("human", name)
             self.assertNotIn("accept", name)

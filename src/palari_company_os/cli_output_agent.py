@@ -17,10 +17,9 @@ from .cli_output_utils import (
 _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
     "palari agent brief ",
     "palari agent check ",
-    "palari agent doctor ",
     "palari agent finish ",
     "palari agent handoff ",
-    "palari agent loop ",
+    "palari agent status ",
     "palari decision guide ",
     "palari detail ",
     "palari docs check",
@@ -250,10 +249,9 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 f"({plain_status(candidate['attention'], next_step_type=next_step, next_command=context_command)})"
             )
             print(f"    next: {next_command}")
-            if candidate.get("doctor_command"):
-                print(f"    doctor: {candidate['doctor_command']}")
-            if candidate.get("loop_command"):
-                print(f"    loop: {candidate['loop_command']}")
+            status_command = candidate.get("doctor_command") or candidate.get("loop_command")
+            if status_command:
+                print(f"    status: {status_command}")
             if next_step:
                 print(
                     "    next step: "
@@ -328,10 +326,9 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             f"via {agent.get('id', '')} - {candidate.get('title', '')}"
         )
         print(f"  next: {next_command}")
-        if candidate.get("doctor_command"):
-            print(f"  doctor: {candidate.get('doctor_command', '')}")
-        if candidate.get("loop_command"):
-            print(f"  loop: {candidate.get('loop_command', '')}")
+        status_command = candidate.get("doctor_command") or candidate.get("loop_command")
+        if status_command:
+            print(f"  status: {status_command}")
         if next_step:
             print(
                 "  next step: "
@@ -353,10 +350,9 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             )
             first_context = _candidate_decision_command(first) or first_command
             print(f"    next: {first_command}")
-            if first.get("doctor_command"):
-                print(f"    doctor: {first['doctor_command']}")
-            if first.get("loop_command"):
-                print(f"    loop: {first['loop_command']}")
+            status_command = first.get("doctor_command") or first.get("loop_command")
+            if status_command:
+                print(f"    status: {status_command}")
             if first_step:
                 print(
                     "    next step: "
@@ -707,6 +703,38 @@ def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
     else:
         summary = plain_message(payload["summary"])
     print(f"Summary: {summary}")
+    print(f"Next: {next_command or 'No action; inspect --json for recorded checks.'}")
+    print("Verification details: rerun with --json.")
+
+
+def print_agent_status(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    work = payload.get("work_item") or {}
+    agent = payload.get("agent") or {}
+    brief = payload.get("task_brief") or {}
+    blockers = payload.get("blockers") or []
+    next_action = payload.get("next_action") or {}
+    visible_safe = bool(payload.get("agent_may_execute")) and not blockers
+    print(f"Task status: {brief.get('packet_id') or work.get('id', '')}")
+    print(f"Status: {plain_status(payload.get('status', 'blocked'))}")
+    print(f"Safe: {_yes_no(visible_safe)}")
+    print(f"Owner: {payload.get('owner', 'agent')}")
+    print(f"Agent: {agent.get('id', '')}")
+    print(f"Task: {work.get('id', '')} {work.get('title', '')}")
+    if blockers:
+        codes = ", ".join(str(item.get("code") or "") for item in blockers)
+        summary = f"The task is blocked: {codes}."
+    else:
+        summary = plain_message(next_action.get("message") or brief.get("instruction") or "")
+    print(f"Summary: {summary}")
+    stages = payload.get("stages") or []
+    if stages:
+        print("Stages:")
+        for stage in stages:
+            print(f"  - {stage.get('name', '')}: {plain_detail_state(stage.get('status', ''))}")
+    next_command = str(next_action.get("command") or "")
     print(f"Next: {next_command or 'No action; inspect --json for recorded checks.'}")
     print("Verification details: rerun with --json.")
 

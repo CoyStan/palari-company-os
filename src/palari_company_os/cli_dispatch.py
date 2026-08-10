@@ -216,14 +216,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
 
     if args.command == "agent":
         from .agent_checks import build_agent_check
-        from .agent_doctor import build_agent_doctor
         from .agent_finish import build_agent_finish
         from .agent_home import build_agent_home
         from .agent_handoff import build_agent_handoff
-        from .agent_loop import build_agent_loop
         from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
+        from .agent_status import build_agent_status
 
         agent_workspace: Workspace | None = None
         if args.agent_command == "advance":
@@ -400,16 +399,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 build_agent_handoff(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
-        if args.agent_command == "loop":
+        if args.agent_command == "status":
             return CommandResult(
-                "agent-loop",
-                build_agent_loop(agent_workspace, args.work_id, args.palari_id, args.mode),
-                args.json,
-            )
-        if args.agent_command == "doctor":
-            return CommandResult(
-                "agent-doctor",
-                build_agent_doctor(agent_workspace, args.work_id, args.palari_id, args.mode),
+                "agent-status",
+                build_agent_status(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "advance":

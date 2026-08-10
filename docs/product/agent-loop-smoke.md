@@ -39,8 +39,7 @@ Use the isolated copy when testing an agent that is doing work:
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0003 --as PALARI-SOFIA --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0003 --as PALARI-SOFIA --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent release WORK-0003 --as PALARI-SOFIA --json
 ```
 
@@ -56,9 +55,8 @@ Expected result:
   allowed files and represented by the current run or run record.
 - `agent finish` tells the agent whether it may claim completion or must keep
   preparing verification or hand off to a human.
-- `agent doctor` explains the current safety state in plainer language.
-- `agent loop` summarizes the same read-only sequence and points to the detailed
-  stage commands without dumping every payload.
+- `agent status` gives one read-only projection of limits, checks, stages,
+  ownership, blockers, and the next safe action.
 - `agent release` removes the local task lock when the smoke is complete.
 
 Do not treat a ready task brief as completion. Completion is only credible after
@@ -79,8 +77,7 @@ recording a review or human approval.
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0001 --as PALARI-ALFRED --mode review --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0001 --as PALARI-ALFRED --mode review --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0001 --as PALARI-ALFRED --mode review --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0001 --as PALARI-ALFRED --mode review --json
+./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0001 --as PALARI-ALFRED --mode review --json
 ```
 
 Expected result:

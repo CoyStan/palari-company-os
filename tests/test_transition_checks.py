@@ -203,7 +203,7 @@ class TransitionCheckTests(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assertEqual(result.blockers[0].code, "EXACT_PROOF_NOT_READY")
-        self.assertIn("agent doctor", result.blockers[0].next_command)
+        self.assertIn("agent status", result.blockers[0].next_command)
 
     def test_emitted_review_binding_rejects_changed_proof_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

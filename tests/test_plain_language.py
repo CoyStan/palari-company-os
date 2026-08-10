@@ -304,7 +304,7 @@ class PlainLanguageContractTests(unittest.TestCase):
                 "--mode",
                 "execute",
             )
-            for command in ("brief", "check", "finish", "loop")
+            for command in ("brief", "check", "finish", "status")
         ]
 
         self.assertEqual(machine["next_step_type"], "check-active-proof")
@@ -319,10 +319,12 @@ class PlainLanguageContractTests(unittest.TestCase):
             "execute",
             "--json",
         )
-        for rendered in rendered_outputs:
+        for rendered in rendered_outputs[:3]:
             self.assertIn("Next step: Start or continue task", rendered)
             self.assertIn(start_command, rendered)
-        for rendered in rendered_outputs[2:]:
+        self.assertIn("Task status:", rendered_outputs[3])
+        self.assertIn(start_command, rendered_outputs[3])
+        for rendered in rendered_outputs[2:3]:
             self.assertIn("Start or continue this task before running its checks", rendered)
             self.assertNotIn("Record or refresh the missing checks", rendered)
 
@@ -363,9 +365,9 @@ class PlainLanguageContractTests(unittest.TestCase):
             "--mode",
             "execute",
         )
-        loop_output = self.run_cli(
+        status_output = self.run_cli(
             *prefix,
-            "loop",
+            "status",
             "WORK-0002",
             "--as",
             "PALARI-ALFRED",
@@ -379,14 +381,6 @@ class PlainLanguageContractTests(unittest.TestCase):
             "--as",
             "PALARI-ALFRED",
         )
-        doctor_output = self.run_cli(
-            *prefix,
-            "doctor",
-            "WORK-0002",
-            "--as",
-            "PALARI-ALFRED",
-        )
-
         self.assertIn("next step: Ask a human to decide", next_output)
         handoff_command = palari_workspace_command(
             REPO_ROOT / "examples" / "acme-company-os",
@@ -397,7 +391,7 @@ class PlainLanguageContractTests(unittest.TestCase):
             "PALARI-ALFRED",
             "--json",
         )
-        for output in (brief_output, check_output, loop_output):
+        for output in (brief_output, check_output):
             self.assertIn("Next step: Ask a human to decide", output)
             self.assertIn(handoff_command, output)
             self.assertNotIn(" agent advance ", output)
@@ -405,22 +399,36 @@ class PlainLanguageContractTests(unittest.TestCase):
         self.assertIn("Ready for decision handoff: yes", finish_output)
         self.assertIn("Next step: Ask a human to decide", finish_output)
         self.assertNotIn(" agent advance ", finish_output)
-        self.assertIn("waiting for a human answer to a linked decision", doctor_output)
+        self.assertIn("Task status:", status_output)
+        self.assertIn(handoff_command, status_output)
+        self.assertNotIn(" agent advance ", status_output)
 
     def test_review_wait_guidance_returns_missing_checks_to_builder(self) -> None:
         prefix = ("--workspace", "examples/acme-company-os", "agent")
-        for command in ("finish", "loop"):
-            output = self.run_cli(
-                *prefix,
-                command,
-                "WORK-0001",
-                "--as",
-                "PALARI-SOFIA",
-                "--mode",
-                "review",
-            )
-            self.assertIn("Return this task to its builder", output)
-            self.assertNotIn("Record or refresh the missing checks", output)
+        finish = self.run_cli(
+            *prefix,
+            "finish",
+            "WORK-0001",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "review",
+        )
+        status = self.run_cli(
+            *prefix,
+            "status",
+            "WORK-0001",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "review",
+        )
+
+        self.assertIn("Return this task to its builder", finish)
+        self.assertNotIn("Record or refresh the missing checks", finish)
+        self.assertIn("Status: Blocked", status)
+        self.assertIn("Owner: reviewer", status)
+        self.assertNotIn(" agent advance ", status)
 
     def test_default_help_describes_the_product_without_architecture_jargon(self) -> None:
         help_text = build_parser().format_help()

@@ -93,10 +93,13 @@ palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent check WORK-ID --as PALARI-ID --git-diff --json
 palari agent finish WORK-ID --as PALARI-ID --json
 palari agent handoff WORK-ID --as PALARI-ID --mode review --json
-palari agent doctor WORK-ID --as PALARI-ID --json
-palari agent loop WORK-ID --as PALARI-ID --json
+palari agent status WORK-ID --as PALARI-ID --json
 palari agent advance WORK-ID --as PALARI-ID --dry-run --json
 ```
+
+`agent status` is the canonical public read-only projection for task limits,
+checks, ownership, blockers, stages, and the next safe action. The former public
+`agent doctor` and `agent loop` aliases are no longer part of the CLI surface.
 
 These helpers do not create approval. `advance` is the sole supported
 check-and-finish mutation path.

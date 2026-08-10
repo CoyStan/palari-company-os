@@ -51,8 +51,7 @@ palari agent release
 palari agent check
 palari agent finish
 palari agent handoff
-palari agent loop
-palari agent doctor
+palari agent status
 palari agent advance
 palari claude
 palari claude install

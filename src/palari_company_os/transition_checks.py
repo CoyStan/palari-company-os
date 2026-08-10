@@ -361,7 +361,7 @@ def _check_review_record(
                     "EXACT_PROOF_NOT_READY",
                     "accept-ready review requires complete exact proof: "
                     + "; ".join(proof_errors),
-                    f"palari agent doctor {work_id} --as PALARI-ID --mode review --json",
+                    f"palari agent status {work_id} --as PALARI-ID --mode review --json",
                 )
             )
         elif binding.get("attempt_id") and binding.get("evidence_reference"):
@@ -553,7 +553,7 @@ def _check_acceptance_prerequisites(
             TransitionBlocker(
                 "GOVERNANCE_AUTHORITY_NOT_READY",
                 str(exc),
-                f"palari agent doctor {work_id} --json",
+                f"palari agent status {work_id} --json",
             )
         )
         return None
@@ -620,7 +620,7 @@ def _check_work_complete(
                 (
                     first_error.next_action
                     if first_error is not None
-                    else f"palari agent doctor {work_id} --json"
+                    else f"palari agent status {work_id} --json"
                 ),
             )
         )
@@ -774,7 +774,7 @@ def _candidate_blocker(
     return TransitionBlocker(
         "GOVERNANCE_AUTHORITY_NOT_READY",
         "governance kernel derives " + candidate.governance.derived_state,
-        f"palari agent doctor {work_id} --json",
+        f"palari agent status {work_id} --json",
     )
 
 

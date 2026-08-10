@@ -355,7 +355,7 @@ def _raw_work_id(raw_argv: list[str]) -> str:
     if index + 2 >= len(raw_argv):
         return ""
     subcommand = raw_argv[index + 1]
-    if subcommand in {"brief", "start", "release", "check", "finish", "handoff", "doctor", "loop"}:
+    if subcommand in {"brief", "start", "release", "check", "finish", "handoff", "status"}:
         value = raw_argv[index + 2]
         return "" if value.startswith("-") else value
     return ""

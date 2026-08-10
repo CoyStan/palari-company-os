@@ -211,7 +211,7 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_agent_loop",
             "Palari Agent Loop",
-            "Show the compact read-only task flow for one agent and task.",
+            "Compatibility MCP view of the compact read-only task flow.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
@@ -223,7 +223,7 @@ def tool_definitions() -> list[dict[str, Any]]:
         _tool(
             "palari_agent_doctor",
             "Palari Agent Doctor",
-            "Explain the current task safety status in plain language.",
+            "Compatibility MCP view of task safety status in plain language.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),

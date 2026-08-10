@@ -343,10 +343,9 @@ Implemented:
 - `palari agent release WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`
 - `palari agent finish WORK-ID --as PALARI-ID --json`
 - `palari agent handoff WORK-ID --as PALARI-ID --json`
-- `palari agent doctor WORK-ID --as PALARI-ID --json`
+- `palari agent status WORK-ID --as PALARI-ID --json`
 - `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
 - `palari agent advance WORK-ID --as PALARI-ID --json`
-- `palari agent loop WORK-ID --as PALARI-ID --json`
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
 - `palari git pre-commit`
@@ -373,8 +372,7 @@ Implemented:
 - machine-readable JSON failures for agent commands when `--json` is requested
 - read-only completion report guidance
 - read-only human handoff briefs
-- plain-language read-only agent safety diagnoses
-- compact read-only agent loop summaries
+- one canonical read-only agent status projection
 - deterministic blocker codes
 - task-brief context hash
 - run-record `context_packet` and `context_hash` fields
@@ -484,9 +482,9 @@ keeps blocked or waiting visible with blocker codes, and omits closed work from
 candidate lists. Waiting candidates include `handoff_guidance` when the next
 safe action is independent review, a human answer, or final approval. Those candidates point first to
 `agent handoff`, then to the lower-level review or decision guide. It does not
-create a task lock, change state, or assign work. Candidates also include
-`loop_command` so an agent can open the compact loop summary after seeing the
-first concrete next step.
+create a task lock, change state, or assign work. Candidates also include a
+compatibility `loop_command` field whose value opens the canonical public
+`agent status` projection after the first concrete next step.
 
 `agent finish` wraps `agent check` into final-report guidance. It never changes
 workspace state in v1. It carries the same `next_step_type` and distinguishes
@@ -527,15 +525,12 @@ run only the agent review command matching its brief identity. Builder
 self-review, missing goal linkage, unapproved sources, and any attempt to turn
 the advisory review result into a required human approval fail closed.
 
-`agent loop` is a compact read-only control surface over the same commands. It
-summarizes `brief`, `check`, `finish`, and handoff status, includes the exact
-stage commands, and omits detailed payloads so agents can orient quickly without
-receiving the whole workspace.
-
-`agent doctor` is a plain-language read-only diagnosis over the same loop. It
-answers whether the task is agent-safe, missing checks, blocked, or waiting for
-a human handoff, and lists the next recommended commands without adding
-permission or changing workspace state.
+`agent status` is the canonical public read-only projection over the task brief,
+current checks, and next-action directive. It reports task limits, stages,
+ownership, blockers, missing and completed requirements, and exact next commands
+without adding permission or changing workspace state. Internal adapters may
+retain the older loop and diagnosis payload builders for compatibility, but
+they emit `agent status` as the public recovery command.
 
 ## Git Pre-Commit Enforcement
 

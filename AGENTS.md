@@ -40,8 +40,7 @@ palari agent brief WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --session-contract --json
 palari agent start WORK-ID --as PALARI-ID --mode execute --json
 palari agent brief WORK-ID --as PALARI-ID --mode review --json
-palari agent doctor WORK-ID --as PALARI-ID --mode execute --json
-palari agent loop WORK-ID --as PALARI-ID --mode execute --json
+palari agent status WORK-ID --as PALARI-ID --mode execute --json
 ```
 
 Bare `agent next` shows the all-agent summary. Use `--as PALARI-ID` when you
@@ -109,11 +108,9 @@ Follow the task brief:
 - add `--changed PATH` or `--git-diff` to `agent check` when file edits need to
   be compared against the task's write boundary
 - run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
-- run `palari agent doctor WORK-ID --as PALARI-ID --json` when you need a
-  plain-language diagnosis of why work is safe, blocked, missing check results,
-  or waiting on human approval
-- run `palari agent loop WORK-ID --as PALARI-ID --json` when you need a compact
-  read-only summary of brief, check, finish, and handoff status
+- run `palari agent status WORK-ID --as PALARI-ID --json` for the canonical
+  read-only view of task limits, checks, ownership, blockers, and the next safe
+  action
 - run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
   `finish` says the next step is independent review, a human answer, or final
   approval

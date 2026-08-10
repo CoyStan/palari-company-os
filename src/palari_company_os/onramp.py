@@ -67,7 +67,7 @@ For one eligible reversible local task, that handoff's JSON contains one exact
 presentation-bound command in `human_action_commands[].command`. A qualified
 human runs that emitted command once. Agents may quote the exact command but
 must never run it, reconstruct a bare approval command, or run any
-`human-decision` command. Use `palari agent doctor WORK-ID --as PALARI-ID
+`human-decision` command. Use `palari agent status WORK-ID --as PALARI-ID
 --json` for the next safe action. Repository orientation lives under
 `docs/agent/`.
 """,
@@ -95,7 +95,7 @@ test, and documentation ownership here before asking an agent to work broadly.
 Start ordinary work with `palari agent start --next --as PALARI-ID --json`.
 Follow the task brief (`packet`), commit only the bounded change, and run
 `palari agent advance WORK-ID --as PALARI-ID --json`. If blocked, run `palari
-agent doctor` and report its exact next safe action. For a review handoff,
+agent status` and report its exact next safe action. For a review handoff,
 start the exact review packet emitted for the review-only agent ID returned by
 `palari init` (`REVIEWER-ID` in generic examples), record its advisory verdict,
 and let that reviewer present `agent handoff --mode review`. For one eligible

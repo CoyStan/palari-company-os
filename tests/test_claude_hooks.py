@@ -745,6 +745,12 @@ class PreToolUseTests(unittest.TestCase):
             {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
             self.repo,
         )
+        agent_status = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": "palari agent status WORK-0001 --as PALARI-SOFIA --json"},
+            self.repo,
+        )
         status = _pre_tool_use(
             self.workspace,
             "Bash",
@@ -758,6 +764,7 @@ class PreToolUseTests(unittest.TestCase):
             unsafe["hookSpecificOutput"]["permissionDecisionReason"],
         )
         self.assertEqual(safe, {})
+        self.assertEqual(agent_status, {})
         self.assertEqual(status, {})
 
     def test_only_agent_advance_may_mutate_agent_proof_from_shell(self) -> None:
