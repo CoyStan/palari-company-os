@@ -4522,6 +4522,58 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-7F81242812ED4A21BCFD1156AC245767-C642CFB463E0"
+    },
+    {
+      "id": "WORK-3770DBBB5D7545839B7282DA20BD6761",
+      "title": "Shrink work flow code",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R2",
+      "intensity": "standard",
+      "status": "active",
+      "scope": "Remove repeated and unused code from agent advance and agent runtime without changing commands, safety rules, or results.",
+      "allowed_resources": [
+        "tests",
+        "docs",
+        "scripts",
+        "pyproject.toml",
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_advance.py",
+        "src/palari_company_os/agent_runtime.py"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "The two files lose at least 2000 real lines, no code is moved elsewhere to hide size, public commands stay the same, and focused and full checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_agent_advance tests.test_agent_packets tests.test_custom_workspace_projection tests.test_operator_journeys",
+        "python3 -S scripts/check_repo_tree.py --part work",
+        "./scripts/verify.sh"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
