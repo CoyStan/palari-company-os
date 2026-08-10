@@ -302,8 +302,9 @@ local Git witness for ready started work:
   An uncommitted or committed authority change or malformed workspace fails
   closed. A declared journal actor or `agent handoff`
   does not authorize a reset: preserve the original record and create a
-  successor work item for a changed contract. Unrelated read-model/journal
-  projection may still be classified separately.
+  successor work item for a changed contract. `agent next` does not offer a
+  saved task when this check already proves that it cannot restart. Unrelated
+  read-model/journal projection may still be classified separately.
   When a first claim's current work declaration is absent from the baseline
   commit, Palari
   stores a normalized all-Palari execute/review digest catalog inside the hashed

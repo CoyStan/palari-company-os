@@ -8,7 +8,7 @@ from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
 from .command_surface import bind_palari_command_payload
 from .governance_kernel import TERMINAL_WORK_STATUSES
-from .agent_runtime import git_lease_statuses
+from .agent_runtime import agent_start_preflight_error, git_lease_statuses
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
@@ -161,6 +161,14 @@ def _candidates(
             mode=mode,
         )
         packet = operation.brief()
+        if packet.get("status") == "ready" and agent_start_preflight_error(
+            workspace,
+            work.id,
+            palari_id,
+            mode,
+            packet=packet,
+        ):
+            continue
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)

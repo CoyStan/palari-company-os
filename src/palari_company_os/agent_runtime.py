@@ -59,6 +59,41 @@ class ClaimContentionError(WorkspaceError):
         self.work_id = work_id
 
 
+def agent_start_preflight_error(
+    workspace: Workspace,
+    work_id: str,
+    palari_id: str,
+    mode: str = "execute",
+    *,
+    packet: dict[str, Any] | None = None,
+) -> str:
+    """Return why a saved claim baseline makes this task impossible to restart."""
+
+    packet = packet or build_agent_brief(workspace, work_id, palari_id, mode)
+    if packet.get("status") != "ready":
+        return ""
+    data_path = workspace.data_path
+    try:
+        persisted = _read_persisted_baseline(_baseline_path(data_path, work_id), work_id)
+        if persisted is None:
+            return ""
+        witness_error = _git_witness_error(work_id, persisted)
+        if witness_error:
+            return f"persisted Git baseline for {work_id}: {witness_error}"
+        baseline = persisted["git_baseline"]
+        if not _complete_git_baseline(baseline):
+            return ""
+        binding = _preclaim_scope_authority_binding(data_path, baseline, packet)
+    except (OSError, ValueError, WorkspaceError) as exc:
+        return str(exc)
+    if binding["baseline_digest"] != binding["current_digest"]:
+        return (
+            "pre-claim scope authority differs from immutable baseline; "
+            "create a successor work item for the changed contract"
+        )
+    return ""
+
+
 def start_agent(
     workspace: Workspace,
     workspace_path: Path | str,

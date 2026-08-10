@@ -788,6 +788,15 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertNotIn(self.work_id, lease_refs)
 
+        next_work = build_agent_next(
+            Ws.load(self.temp_dir),
+            "PALARI-STEWARD",
+        )
+        self.assertNotIn(
+            self.work_id,
+            [candidate["work_item_id"] for candidate in next_work["candidates"]],
+        )
+
     def test_current_only_catalog_rejects_post_lease_parallel_race_without_persisting(
         self,
         ) -> None:
