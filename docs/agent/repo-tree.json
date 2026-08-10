@@ -162,6 +162,7 @@
                 "src/palari_company_os/agent_parking.py",
                 "src/palari_company_os/agent_runtime.py",
                 "src/palari_company_os/agent_session_contract.py",
+                "src/palari_company_os/agent_status.py",
                 "src/palari_company_os/authoring.py",
                 "src/palari_company_os/onramp.py",
                 "src/palari_company_os/proposals.py",
@@ -171,6 +172,7 @@
                 "src/palari_company_os/agent_advance.py",
                 "src/palari_company_os/agent_home.py",
                 "src/palari_company_os/agent_runtime.py",
+                "src/palari_company_os/agent_status.py",
                 "src/palari_company_os/onramp.py"
               ],
               "check": [
@@ -179,6 +181,7 @@
                 "tests.test_agent_home",
                 "tests.test_agent_packets",
                 "tests.test_agent_session_contract",
+                "tests.test_agent_status",
                 "tests.test_custom_workspace_projection",
                 "tests.test_onramp",
                 "tests.test_operator_journeys",

@@ -91,6 +91,9 @@ When adding a command, update parser, dispatch, output, tests, and
   compiler shared by agent read surfaces.
 - `src/palari_company_os/agent_operation.py`: request-local brief, check, and
   directive reuse.
+- `src/palari_company_os/agent_status.py`: canonical read-only task limits,
+  checks, ownership, blockers, and next-action projection from one request-local
+  operation.
 - `src/palari_company_os/agent_parking.py`: durable blocked-run parking and
   exact idempotent task-lock release without permission to approve.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
@@ -170,6 +173,8 @@ runtime state.
 ## Tests
 
 - `tests/test_agent_packets.py`: agent packet/check/loop behavior.
+- `tests/test_agent_status.py`: canonical status projection and request-local
+  observation reuse.
 - `tests/test_agent_advance.py`: deterministic planning, verification cache,
   atomic proof reconciliation, crash recovery, and idempotence.
 - `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
