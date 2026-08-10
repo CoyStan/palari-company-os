@@ -214,8 +214,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
         "workspace_digest": facts.get("workspace_digest", ""),
         "proof": proof,
         "verification_profiles": [
-            {"profile_id": item["profile_id"], "cache_key": item["cache_key"]}
-            for item in profiles
+            {"profile_id": item["profile_id"], "cache_key": item["cache_key"]} for item in profiles
         ],
         "expected_state": expected_state,
     }
@@ -286,38 +285,23 @@ def agent_advance(
     if dry_run or not plan["can_advance"]:
         return payload
 
-    verification_results: list[dict[str, Any]] = []
-    for profile in profiles:
-        result = run_or_reuse(
-            workspace_path,
-            preflight["git_root"],
-            profile,
-            context,
-            refresh=refresh_verification,
-        )
-        attestation = result["attestation"]
-        verification_results.append(
-            {
-                "profile_id": profile.id,
-                "attestation_id": attestation["attestation_id"],
-                "cache_key": attestation["cache_key"],
-                "cache_hit": result["cache_hit"],
-                "status": attestation["status"],
-                "duration_ms": attestation["duration_ms"],
-                "stdout_digest": attestation["stdout_digest"],
-                "stderr_digest": attestation["stderr_digest"],
-            }
-        )
-        if attestation["status"] != "passed":
-            return {
-                **payload,
-                "status": "verification-failed",
-                "would_mutate": False,
-                "verification": verification_results,
-                "message": f"Verification profile {profile.id} did not pass.",
-                "output_tail": result.get("stdout_tail", ""),
-                "error_tail": result.get("stderr_tail", ""),
-            }
+    verification_results, failed = _run_profiles(
+        workspace_path,
+        preflight["git_root"],
+        profiles,
+        context,
+        refresh=refresh_verification,
+    )
+    if failed:
+        return {
+            **payload,
+            "status": "verification-failed",
+            "would_mutate": False,
+            "verification": verification_results,
+            "message": f"Verification profile {failed['profile_id']} did not pass.",
+            "output_tail": failed.get("stdout_tail", ""),
+            "error_tail": failed.get("stderr_tail", ""),
+        }
 
     current = Workspace.load(workspace_path)
     current_facts, _, _, current_preflight = _collect_facts(
@@ -349,9 +333,7 @@ def agent_advance(
             verification_results,
             expected_workspace_digest=str(current_facts["workspace_digest"]),
             expected_git_head=str(current_facts["git"]["head_sha"]),
-            expected_artifact_hashes=list(
-                current_facts["git"]["artifact_hashes"]
-            ),
+            expected_artifact_hashes=list(current_facts["git"]["artifact_hashes"]),
         )
     except ReconciliationStateChanged:
         return {
@@ -367,9 +349,7 @@ def agent_advance(
         raise WorkspaceError(f"work not found after proof reconciliation: {work_id}")
     current_receipt = _current_receipt(final_workspace, work)
     low_risk = _low_risk_completion_policy(work, current_receipt)
-    resume_preflight = _resume_preflight(
-        final_workspace, workspace_path, work, palari_id
-    )
+    resume_preflight = _resume_preflight(final_workspace, workspace_path, work, palari_id)
     if not resume_preflight["ok"]:
         return {
             **payload,
@@ -379,8 +359,7 @@ def agent_advance(
             "proof_steps": proof_steps,
             "preflight": resume_preflight,
             "message": (
-                "Governed state changed after proof reconciliation; "
-                + resume_preflight["message"]
+                "Governed state changed after proof reconciliation; " + resume_preflight["message"]
             ),
         }
     if low_risk:
@@ -472,11 +451,7 @@ def _collect_facts(
         workspace.data_path,
         Path(str(preflight.get("git_root") or workspace.path)),
     )
-    base_sha = str(
-        preflight.get("base_sha")
-        or claim.get("git_baseline", {}).get("head_sha")
-        or ""
-    )
+    base_sha = str(preflight.get("base_sha") or claim.get("git_baseline", {}).get("head_sha") or "")
     head_sha = str(preflight.get("head_sha") or "")
     path_intents = _work_path_intents(work)
     path_intent_verification = _verify_path_intents(
@@ -550,9 +525,7 @@ def _collect_facts(
             "base_sha": base_sha,
             "head_sha": head_sha,
             "clean": bool(
-                preflight_ok
-                and artifact_state["clean"]
-                and artifact_state["head_sha"] == head_sha
+                preflight_ok and artifact_state["clean"] and artifact_state["head_sha"] == head_sha
             ),
             "changed_files": changed,
             "scope_ok": bool(preflight.get("ok")),
@@ -580,7 +553,8 @@ def _collect_facts(
             "attempt_closed": bool(
                 attempt
                 and attempt.status in {"complete", "completed"}
-                and (attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")) == head_sha
+                and (attempt.head_sha or (attempt.commits[-1] if attempt.commits else ""))
+                == head_sha
             ),
         },
         "verification_profiles": profile_facts,
@@ -615,16 +589,12 @@ def _preflight(
         scope_authority_workspace=scope_authority_workspace,
     )
     if claim_result.get("status") != "pass":
-        return _blocked_preflight(
-            str(claim_result.get("message") or "active claim is invalid")
-        )
+        return _blocked_preflight(str(claim_result.get("message") or "active claim is invalid"))
     claim = claim_result["claim"]
 
     root = git_repo_root(workspace.path) or git_repo_root(Path.cwd())
     if root is None:
-        return _blocked_preflight(
-            "agent advance requires a Git repository for exact change proof"
-        )
+        return _blocked_preflight("agent advance requires a Git repository for exact change proof")
     status_inspection = inspect_file_changes(
         {"allowed_paths": {"write": []}},
         git_diff=True,
@@ -632,9 +602,7 @@ def _preflight(
         git_baseline=claim.get("git_baseline"),
     )
     if status_inspection is None or not status_inspection.get("observation_complete"):
-        return _blocked_preflight(
-            "Git status failed; agent advance cannot prove repository state"
-        )
+        return _blocked_preflight("Git status failed; agent advance cannot prove repository state")
     proof_projection_paths: set[str] = set()
     if allow_current_proof_projection:
         data_path = workspace.data_path.resolve()
@@ -642,9 +610,7 @@ def _preflight(
             relative_data = data_path.relative_to(root.resolve()).as_posix()
             proof_projection_paths.add(relative_data)
         except ValueError:
-            return _blocked_preflight(
-                "workspace proof paths escape the Git repository boundary"
-            )
+            return _blocked_preflight("workspace proof paths escape the Git repository boundary")
     dirty = [
         path
         for path in status_inspection.get("changed_files", [])
@@ -653,31 +619,22 @@ def _preflight(
     ]
     if dirty:
         return _blocked_preflight(
-            "agent advance requires a clean committed worktree; "
-            "commit the bounded output first"
+            "agent advance requires a clean committed worktree; commit the bounded output first"
         )
 
     head_sha = _git_value(root, ["rev-parse", "HEAD"])
     if not head_sha:
-        return _blocked_preflight(
-            "Git HEAD is unavailable; agent advance cannot bind the attempt"
-        )
+        return _blocked_preflight("Git HEAD is unavailable; agent advance cannot bind the attempt")
     baseline = claim.get("git_baseline")
     if not isinstance(baseline, dict):
         return _blocked_preflight("claim has no Git baseline; restart the claim")
     base_sha = str(baseline.get("head_sha") or "")
     if not base_sha:
-        return _blocked_preflight(
-            "claim baseline has no exact Git HEAD; restart the claim"
-        )
+        return _blocked_preflight("claim baseline has no exact Git HEAD; restart the claim")
     if baseline.get("git_root") != str(root):
-        return _blocked_preflight(
-            "claim baseline belongs to a different Git repository"
-        )
+        return _blocked_preflight("claim baseline belongs to a different Git repository")
     if not _git_ok(root, ["merge-base", "--is-ancestor", base_sha, head_sha]):
-        return _blocked_preflight(
-            "current Git HEAD does not descend from the claim-start commit"
-        )
+        return _blocked_preflight("current Git HEAD does not descend from the claim-start commit")
     committed = _git_lines(
         root,
         [
@@ -700,9 +657,7 @@ def _preflight(
             "declared --changed paths do not exactly match the committed HEAD artifact"
         )
     if not changed_files:
-        return _blocked_preflight(
-            "no committed changes exist since the claim started"
-        )
+        return _blocked_preflight("no committed changes exist since the claim started")
 
     inspection = inspect_file_changes(packet, changed_paths=changed_files, cwd=root)
     if inspection is None:
@@ -710,19 +665,15 @@ def _preflight(
     outside = inspection.get("outside_write_boundary", [])
     if outside:
         return _blocked_preflight(
-            "claim commit range contains paths outside the write boundary: "
-            + ", ".join(outside)
+            "claim commit range contains paths outside the write boundary: " + ", ".join(outside)
         )
     missing = inspection.get("missing_required_outputs", [])
     if missing:
-        return _blocked_preflight(
-            "required outputs are missing: " + ", ".join(missing)
-        )
+        return _blocked_preflight("required outputs are missing: " + ", ".join(missing))
     return {
         "ok": True,
         "message": (
-            "Active claim, clean worktree, exact claim-start range, and write "
-            "boundary verified."
+            "Active claim, clean worktree, exact claim-start range, and write boundary verified."
         ),
         "git_root": str(root),
         "base_sha": base_sha,
@@ -744,9 +695,7 @@ def _blocked_preflight(message: str) -> dict[str, Any]:
 
 def _is_agent_runtime_path(path: str, git_root: Path, workspace_root: Path) -> bool:
     try:
-        relative_workspace = workspace_root.resolve().relative_to(
-            git_root.resolve()
-        ).as_posix()
+        relative_workspace = workspace_root.resolve().relative_to(git_root.resolve()).as_posix()
     except ValueError:
         return False
     base = f"{relative_workspace}/" if relative_workspace != "." else ""
@@ -773,16 +722,8 @@ def _git_lines(root: Path, arguments: list[str]) -> list[str] | None:
         return None
     separator = b"\0" if "-z" in arguments else None
     if separator:
-        return [
-            os.fsdecode(field)
-            for field in result.stdout.split(separator)
-            if field
-        ]
-    return [
-        os.fsdecode(field).strip()
-        for field in result.stdout.splitlines()
-        if field.strip()
-    ]
+        return [os.fsdecode(field) for field in result.stdout.split(separator) if field]
+    return [os.fsdecode(field).strip() for field in result.stdout.splitlines() if field.strip()]
 
 
 def _git_value(root: Path, arguments: list[str]) -> str:
@@ -858,14 +799,11 @@ def _projection_bound_preflight(
         )
     later_paths = _exact_committed_paths(root_text, session_head, current_head)
     if later_paths is None:
-        return _projection_preflight_blocked(
-            "post-claim commit history is unreadable"
-        )
+        return _projection_preflight_blocked("post-claim commit history is unreadable")
     later_projection = sorted(set(later_paths) & projection_paths)
     if later_projection:
         return _projection_preflight_blocked(
-            "governance projection changed in a post-claim commit: "
-            + ", ".join(later_projection)
+            "governance projection changed in a post-claim commit: " + ", ".join(later_projection)
         )
     classified = sorted(
         path
@@ -888,10 +826,7 @@ def _projection_bound_preflight(
     governed_projection = [
         path
         for path in classified
-        if any(
-            isinstance(target, str) and path_allowed(path, [target])
-            for target in outputs
-        )
+        if any(isinstance(target, str) and path_allowed(path, [target]) for target in outputs)
     ]
     if governed_projection:
         return _preflight(
@@ -921,11 +856,7 @@ def _projection_bound_preflight(
         "allowed_paths": {
             **allowed,
             "write": sorted(
-                set(
-                    path
-                    for path in allowed.get("write", [])
-                    if isinstance(path, str)
-                )
+                set(path for path in allowed.get("write", []) if isinstance(path, str))
                 | set(classified)
             ),
         },
@@ -947,9 +878,7 @@ def _projection_bound_preflight(
     base_sha = str(baseline.get("head_sha") or "")
     proof_range = _exact_committed_paths(root_text, base_sha, current_head)
     if proof_range is None:
-        return _projection_preflight_blocked(
-            "exact claim commit history is unreadable"
-        )
+        return _projection_preflight_blocked("exact claim commit history is unreadable")
     declared = sorted(dict.fromkeys(declared_changed or []))
     if declared and declared != proof_range:
         return _projection_preflight_blocked(
@@ -961,9 +890,7 @@ def _projection_bound_preflight(
         cwd=root,
     )
     if inspection is None or not inspection.get("observation_complete"):
-        return _projection_preflight_blocked(
-            "exact claim commit boundary inspection failed"
-        )
+        return _projection_preflight_blocked("exact claim commit boundary inspection failed")
     outside = inspection.get("outside_write_boundary", [])
     if outside:
         return _projection_preflight_blocked(
@@ -972,25 +899,20 @@ def _projection_bound_preflight(
         )
     missing = inspection.get("missing_required_outputs", [])
     if missing:
-        return _projection_preflight_blocked(
-            "required outputs are missing: " + ", ".join(missing)
-        )
+        return _projection_preflight_blocked("required outputs are missing: " + ", ".join(missing))
     effective = sorted(path for path in proof_range if path not in classified)
     if not effective:
         return _projection_preflight_blocked(
             "no agent-authored committed change remains after control-plane classification"
         )
     manifest = {
-        item.get("path"): item
-        for item in snapshot.get("files", [])
-        if isinstance(item, dict)
+        item.get("path"): item for item in snapshot.get("files", []) if isinstance(item, dict)
     }
     verified = [
         {
             "path": path,
             "classification": str(
-                (manifest.get(path) or {}).get("classification")
-                or "governance-projection"
+                (manifest.get(path) or {}).get("classification") or "governance-projection"
             ),
             "session_start_head": session_head,
         }
@@ -1051,17 +973,14 @@ def _current_proof_journal_is_exact(
             report.get("ok")
             and report.get("status") == "valid"
             and report.get("pending") is None
-            and report.get("current_workspace_digest")
-            == report.get("replay_workspace_digest")
+            and report.get("current_workspace_digest") == report.get("replay_workspace_digest")
         )
     if pending_status not in {"pending-prepare", "pending-commit"}:
         return False
     pending = report.get("pending")
     if not isinstance(pending, dict) or report.get("status") != pending_status:
         return False
-    expected_position = (
-        "before" if pending_status == "pending-prepare" else "after"
-    )
+    expected_position = "before" if pending_status == "pending-prepare" else "after"
     expected_digest = pending.get(
         "before_workspace_digest"
         if pending_status == "pending-prepare"
@@ -1072,8 +991,7 @@ def _current_proof_journal_is_exact(
         and isinstance(expected_digest, str)
         and expected_digest
         and report.get("current_workspace_digest") == expected_digest
-        and report.get("replay_workspace_digest")
-        == pending.get("before_workspace_digest")
+        and report.get("replay_workspace_digest") == pending.get("before_workspace_digest")
     )
 
 
@@ -1192,11 +1110,7 @@ def _completed_projection(
     *,
     refresh_verification: bool = False,
 ) -> dict[str, Any] | None:
-    from .governance_journal import (
-        pending_workspace_journal_context,
-        recover_workspace_journal_if_current,
-        verify_workspace_journal,
-    )
+    from .governance_journal import verify_workspace_journal
 
     work = workspace.work_item(work_id)
     if work is None:
@@ -1210,212 +1124,12 @@ def _completed_projection(
         )
     journal = verify_workspace_journal(workspace_path)
     journal_status = str(journal.get("status") or "")
-    if journal_status == "pending-commit":
-        pending = pending_workspace_journal_context(workspace_path)
-        pending_scope_workspace, pending_scope_error = (
-            _pending_scope_authority_workspace(pending, workspace_path)
+    if journal_status in {"pending-commit", "pending-prepare"}:
+        workspace, recovery_result = _recover_pending_advance(
+            workspace, workspace_path, work, palari_id, journal_status
         )
-        if pending_scope_error or pending_scope_workspace is None:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_scope_error
-                or "The pending journal before projection cannot be reconstructed safely.",
-            )
-        recovery_preflight = _resume_preflight(
-            workspace,
-            workspace_path,
-            work,
-            palari_id,
-            pending_journal_status=journal_status,
-            scope_authority_workspace=pending_scope_workspace,
-        )
-        if not recovery_preflight["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RESUME_PREFLIGHT_FAILED",
-                str(recovery_preflight["message"]),
-            )
-        pending_error = _pending_advance_recovery_error(
-            pending, work_id, palari_id, recovery_preflight, workspace_path
-        )
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
-        recovery_verification = _run_recovery_verification(
-            workspace_path, work, recovery_preflight
-        )
-        if not recovery_verification["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_VERIFICATION_FAILED",
-                str(recovery_verification["message"]),
-            )
-        rechecked = _recheck_recovery_state(
-            workspace_path,
-            work_id,
-            palari_id,
-            "pending-commit",
-            pending,
-            recovery_preflight,
-            scope_authority_workspace=pending_scope_workspace,
-        )
-        if not rechecked["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_STATE_CHANGED",
-                str(rechecked["message"]),
-            )
-        workspace = rechecked["workspace"]
-        work = rechecked["work"]
-        pending = rechecked["pending"]
-        recovery_preflight = rechecked["preflight"]
-        pending_error = _pending_advance_recovery_error(
-            pending,
-            work_id,
-            palari_id,
-            recovery_preflight,
-            workspace_path,
-            verified_commands=recovery_verification["commands"],
-        )
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
-        prepare = pending["prepare"]
-        recovered = recover_workspace_journal_if_current(
-            workspace_path,
-            palari_id,
-            expected_status="pending-commit",
-            expected_workspace_digest=str(prepare["after_workspace_digest"]),
-            expected_prepare_digest=str(prepare["record_digest"]),
-            expected_transaction_id=str(prepare["transaction_id"]),
-            action="auto",
-            reason="resume atomic agent proof reconciliation",
-        )
-        if not recovered.get("ok"):
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_STATE_CHANGED",
-                "The pending proof changed before atomic commit recovery: "
-                + str(recovered.get("message") or recovered.get("status") or "unknown"),
-            )
-        workspace = Workspace.load(workspace_path)
-    elif journal_status == "pending-prepare":
-        pending = pending_workspace_journal_context(workspace_path)
-        pending_scope_workspace, pending_scope_error = (
-            _pending_scope_authority_workspace(pending, workspace_path)
-        )
-        if pending_scope_error or pending_scope_workspace is None:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_scope_error
-                or "The pending journal before projection cannot be reconstructed safely.",
-            )
-        recovery_preflight = _resume_preflight(
-            workspace,
-            workspace_path,
-            work,
-            palari_id,
-            pending_journal_status=journal_status,
-            scope_authority_workspace=pending_scope_workspace,
-        )
-        if not recovery_preflight["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RESUME_PREFLIGHT_FAILED",
-                str(recovery_preflight["message"]),
-            )
-        pending_error = _pending_advance_recovery_error(
-            pending, work_id, palari_id, recovery_preflight, workspace_path
-        )
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
-        recovery_verification = _run_recovery_verification(
-            workspace_path, work, recovery_preflight
-        )
-        if not recovery_verification["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_VERIFICATION_FAILED",
-                str(recovery_verification["message"]),
-            )
-        rechecked = _recheck_recovery_state(
-            workspace_path,
-            work_id,
-            palari_id,
-            "pending-prepare",
-            pending,
-            recovery_preflight,
-            scope_authority_workspace=pending_scope_workspace,
-        )
-        if not rechecked["ok"]:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_STATE_CHANGED",
-                str(rechecked["message"]),
-            )
-        workspace = rechecked["workspace"]
-        work = rechecked["work"]
-        pending = rechecked["pending"]
-        recovery_preflight = rechecked["preflight"]
-        pending_error = _pending_advance_recovery_error(
-            pending,
-            work_id,
-            palari_id,
-            recovery_preflight,
-            workspace_path,
-            verified_commands=recovery_verification["commands"],
-        )
-        if pending_error:
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "PENDING_TRANSACTION_MISMATCH",
-                pending_error,
-            )
-        prepare = pending["prepare"]
-        recovered = recover_workspace_journal_if_current(
-            workspace_path,
-            palari_id,
-            expected_status="pending-prepare",
-            expected_workspace_digest=str(prepare["before_workspace_digest"]),
-            expected_prepare_digest=str(prepare["record_digest"]),
-            expected_transaction_id=str(prepare["transaction_id"]),
-            action="abort",
-            reason="retry atomic agent proof reconciliation before workspace replacement",
-        )
-        if not recovered.get("ok"):
-            return _resume_blocked(
-                workspace,
-                work_id,
-                "RECOVERY_STATE_CHANGED",
-                "The pending proof changed before atomic abort recovery: "
-                + str(recovered.get("message") or recovered.get("status") or "unknown"),
-            )
-        return {"_internal_status": _RETRY_AFTER_PENDING_PREPARE}
+        if recovery_result is not None:
+            return recovery_result
     elif journal_status not in {"", "not-enabled", "valid", "continuous"}:
         raise WorkspaceError(
             f"agent advance requires valid journal continuity; status is {journal_status}"
@@ -1449,11 +1163,7 @@ def _completed_projection(
         work,
         palari_id,
     )
-    if (
-        refresh_verification
-        and refresh_binding["applicable"]
-        and not refresh_binding["ok"]
-    ):
+    if refresh_verification and refresh_binding["applicable"] and not refresh_binding["ok"]:
         return _resume_blocked(
             workspace,
             work_id,
@@ -1476,12 +1186,15 @@ def _completed_projection(
                 "REFRESH_STATE_CHANGED",
                 "Governed state changed before the proof transaction began; inspect and retry.",
             )
-    if _changes_requested_repair_candidate(
-        workspace,
-        workspace_path,
-        work,
-        palari_id,
-    ) and not refresh_verification:
+    if (
+        _changes_requested_repair_candidate(
+            workspace,
+            workspace_path,
+            work,
+            palari_id,
+        )
+        and not refresh_verification
+    ):
         return None
     convergence = converge_work_item(
         workspace_path,
@@ -1576,12 +1289,9 @@ def _completed_projection(
             workspace,
             work_id,
             "CURRENT_PROOF_INVALID",
-            "The recorded checks no longer verify"
-            + (f": {detail}" if detail else "."),
+            "The recorded checks no longer verify" + (f": {detail}" if detail else "."),
         )
-    proof_steps: list[dict[str, str]] = [
-        {"step": "proof-projection", "status": "already-current"}
-    ]
+    proof_steps: list[dict[str, str]] = [{"step": "proof-projection", "status": "already-current"}]
     low_risk = _low_risk_completion_policy(work, _current_receipt(workspace, work))
     if low_risk:
         preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
@@ -1640,6 +1350,97 @@ def _completed_projection(
     }
 
 
+def _recover_pending_advance(
+    workspace: Workspace,
+    workspace_path: Path,
+    work: Any,
+    palari_id: str,
+    status: str,
+) -> tuple[Workspace, dict[str, Any] | None]:
+    from .governance_journal import (
+        pending_workspace_journal_context,
+        recover_workspace_journal_if_current,
+    )
+
+    def blocked(code: str, message: str) -> tuple[Workspace, dict[str, Any]]:
+        return workspace, _resume_blocked(workspace, work.id, code, message)
+
+    pending = pending_workspace_journal_context(workspace_path)
+    authority, error = _pending_scope_authority_workspace(pending, workspace_path)
+    if error or authority is None:
+        return blocked(
+            "PENDING_TRANSACTION_MISMATCH",
+            error or "The pending journal before projection cannot be reconstructed safely.",
+        )
+    preflight = _resume_preflight(
+        workspace,
+        workspace_path,
+        work,
+        palari_id,
+        pending_journal_status=status,
+        scope_authority_workspace=authority,
+    )
+    if not preflight["ok"]:
+        return blocked("RESUME_PREFLIGHT_FAILED", str(preflight["message"]))
+    error = _pending_advance_recovery_error(pending, work.id, palari_id, preflight, workspace_path)
+    if error:
+        return blocked("PENDING_TRANSACTION_MISMATCH", error)
+    verification = _run_recovery_verification(workspace_path, work, preflight)
+    if not verification["ok"]:
+        return blocked("RECOVERY_VERIFICATION_FAILED", str(verification["message"]))
+    rechecked = _recheck_recovery_state(
+        workspace_path,
+        work.id,
+        palari_id,
+        status,
+        pending,
+        preflight,
+        scope_authority_workspace=authority,
+    )
+    if not rechecked["ok"]:
+        return blocked("RECOVERY_STATE_CHANGED", str(rechecked["message"]))
+    workspace, work = rechecked["workspace"], rechecked["work"]
+    pending, preflight = rechecked["pending"], rechecked["preflight"]
+    error = _pending_advance_recovery_error(
+        pending,
+        work.id,
+        palari_id,
+        preflight,
+        workspace_path,
+        verified_commands=verification["commands"],
+    )
+    if error:
+        return blocked("PENDING_TRANSACTION_MISMATCH", error)
+    prepare = pending["prepare"]
+    committing = status == "pending-commit"
+    recovered = recover_workspace_journal_if_current(
+        workspace_path,
+        palari_id,
+        expected_status=status,
+        expected_workspace_digest=str(
+            prepare["after_workspace_digest" if committing else "before_workspace_digest"]
+        ),
+        expected_prepare_digest=str(prepare["record_digest"]),
+        expected_transaction_id=str(prepare["transaction_id"]),
+        action="auto" if committing else "abort",
+        reason=(
+            "resume atomic agent proof reconciliation"
+            if committing
+            else "retry atomic agent proof reconciliation before workspace replacement"
+        ),
+    )
+    if not recovered.get("ok"):
+        action = "commit" if committing else "abort"
+        return blocked(
+            "RECOVERY_STATE_CHANGED",
+            f"The pending proof changed before atomic {action} recovery: "
+            + str(recovered.get("message") or recovered.get("status") or "unknown"),
+        )
+    if not committing:
+        return workspace, {"_internal_status": _RETRY_AFTER_PENDING_PREPARE}
+    return Workspace.load(workspace_path), None
+
+
 def _refresh_stale_projection(
     workspace: Workspace,
     workspace_path: Path,
@@ -1679,42 +1480,23 @@ def _refresh_stale_projection(
         changed_paths=refresh["committed_paths"],
         cleanliness="clean",
     )
-    verification_results: list[dict[str, Any]] = []
-    for profile in profiles:
-        result = run_or_reuse(
-            workspace_path,
-            refresh["git_root"],
-            profile,
-            context,
-            refresh=True,
-        )
-        attestation = result["attestation"]
-        verification_results.append(
-            {
-                "profile_id": profile.id,
-                "attestation_id": attestation["attestation_id"],
-                "cache_key": attestation["cache_key"],
-                "cache_hit": result["cache_hit"],
-                "status": attestation["status"],
-                "duration_ms": attestation["duration_ms"],
-                "stdout_digest": attestation["stdout_digest"],
-                "stderr_digest": attestation["stderr_digest"],
-            }
-        )
-        if attestation["status"] != "passed":
-            return {
-                "schema_version": SCHEMA_VERSION,
-                "status": "verification-failed",
-                "work_item": work.id,
-                "workspace": workspace.name,
-                "can_advance": False,
-                "would_mutate": False,
-                "expected_state": "review-required",
-                "verification": verification_results,
-                "message": f"Verification profile {profile.id} did not pass.",
-                "output_tail": result.get("stdout_tail", ""),
-                "error_tail": result.get("stderr_tail", ""),
-            }
+    verification_results, failed = _run_profiles(
+        workspace_path, refresh["git_root"], profiles, context, refresh=True
+    )
+    if failed:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "status": "verification-failed",
+            "work_item": work.id,
+            "workspace": workspace.name,
+            "can_advance": False,
+            "would_mutate": False,
+            "expected_state": "review-required",
+            "verification": verification_results,
+            "message": f"Verification profile {failed['profile_id']} did not pass.",
+            "output_tail": failed.get("stdout_tail", ""),
+            "error_tail": failed.get("stderr_tail", ""),
+        }
 
     current = Workspace.load(workspace_path)
     current_work = current.work_item(work.id)
@@ -1965,40 +1747,30 @@ def _stale_projection_refresh_context(
     work: Any,
     palari_id: str,
 ) -> dict[str, Any]:
+    def fail(code: str, message: str) -> dict[str, Any]:
+        return {"ok": False, "code": code, "message": message}
+
     if work.palari != palari_id:
-        return {
-            "ok": False,
-            "code": "ACTOR_NOT_ASSIGNED",
-            "message": "Only the agent assigned to this task may refresh its checks.",
-        }
+        return fail(
+            "ACTOR_NOT_ASSIGNED", "Only the agent assigned to this task may refresh its checks."
+        )
     if read_claim(workspace_path, work.id) is not None:
-        return {
-            "ok": False,
-            "code": "REFRESH_ACTIVE_CLAIM",
-            "message": "Release the active execution task lock before refreshing checks read-only.",
-        }
+        return fail(
+            "REFRESH_ACTIVE_CLAIM",
+            "Release the active execution task lock before refreshing checks read-only.",
+        )
     if not work.current_attempt:
-        return {
-            "ok": False,
-            "code": "REFRESH_ATTEMPT_MISSING",
-            "message": "The task has no completed checked run to refresh.",
-        }
+        return fail("REFRESH_ATTEMPT_MISSING", "The task has no completed checked run to refresh.")
     attempt = next(
         (item for item in workspace.attempts if item.id == work.current_attempt),
         None,
     )
     if attempt is None or attempt.status not in {"complete", "completed"}:
-        return {
-            "ok": False,
-            "code": "REFRESH_ATTEMPT_INCOMPLETE",
-            "message": "The current checked run is not complete.",
-        }
+        return fail("REFRESH_ATTEMPT_INCOMPLETE", "The current checked run is not complete.")
     if attempt.actor != palari_id:
-        return {
-            "ok": False,
-            "code": "ATTEMPT_ACTOR_MISMATCH",
-            "message": "The current checked run belongs to a different agent.",
-        }
+        return fail(
+            "ATTEMPT_ACTOR_MISMATCH", "The current checked run belongs to a different agent."
+        )
     proof_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
     evidence = next(
         (
@@ -2012,80 +1784,65 @@ def _stale_projection_refresh_context(
         None,
     )
     if evidence is None:
-        return {
-            "ok": False,
-            "code": "REFRESH_EVIDENCE_MISSING",
-            "message": "The completed run has no passing checks tied to its exact version.",
-        }
+        return fail(
+            "REFRESH_EVIDENCE_MISSING",
+            "The completed run has no passing checks tied to its exact version.",
+        )
     verification = verify_evidence(workspace, evidence.id)
     if not verification["ok"]:
         detail = "; ".join(str(item) for item in verification.get("errors", [])[:3])
-        return {
-            "ok": False,
-            "code": "REFRESH_ARTIFACT_CHANGED",
-            "message": (
+        return fail(
+            "REFRESH_ARTIFACT_CHANGED",
+            (
                 "The output bytes no longer match the previous check results"
                 + (f": {detail}" if detail else ".")
             ),
-        }
+        )
     root_text = _git_value(
         Path(attempt.workspace_path or workspace_path),
         ["rev-parse", "--show-toplevel"],
     )
     if not root_text:
-        return {
-            "ok": False,
-            "code": "REFRESH_REPOSITORY_UNAVAILABLE",
-            "message": "The proof workspace is not inside a readable Git repository.",
-        }
+        return fail(
+            "REFRESH_REPOSITORY_UNAVAILABLE",
+            "The proof workspace is not inside a readable Git repository.",
+        )
     head_sha = _git_value(Path(root_text), ["rev-parse", "HEAD"])
     if not head_sha or head_sha == proof_head:
-        return {
-            "ok": False,
-            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
-            "message": "No later committed repository state is available for proof refresh.",
-        }
+        return fail(
+            "REFRESH_COMMITTED_CHANGE_MISSING",
+            "No later committed repository state is available for proof refresh.",
+        )
     if not _exact_git_descendant(root_text, proof_head, head_sha):
-        return {
-            "ok": False,
-            "code": "REFRESH_HISTORY_DIVERGED",
-            "message": (
-                "The current Git head is not an exact descendant of the reviewed proof head."
-            ),
-        }
+        return fail(
+            "REFRESH_HISTORY_DIVERGED",
+            "The current Git head is not an exact descendant of the reviewed proof head.",
+        )
     dirty = _exact_dirty_tracked_paths(root_text)
     if dirty is None:
-        return {
-            "ok": False,
-            "code": "REFRESH_DIRTY_STATE_UNREADABLE",
-            "message": "The tracked worktree state could not be inspected safely.",
-        }
+        return fail(
+            "REFRESH_DIRTY_STATE_UNREADABLE",
+            "The tracked worktree state could not be inspected safely.",
+        )
     if dirty:
-        return {
-            "ok": False,
-            "code": "REFRESH_DIRTY_WORKTREE",
-            "message": "Proof refresh requires a clean tracked worktree: " + ", ".join(dirty),
-        }
+        return fail(
+            "REFRESH_DIRTY_WORKTREE",
+            "Proof refresh requires a clean tracked worktree: " + ", ".join(dirty),
+        )
     committed_paths = _exact_committed_paths(root_text, proof_head, head_sha)
     if committed_paths is None:
-        return {
-            "ok": False,
-            "code": "REFRESH_HISTORY_UNREADABLE",
-            "message": "The complete exact commit path range could not be inspected safely.",
-        }
+        return fail(
+            "REFRESH_HISTORY_UNREADABLE",
+            "The complete exact commit path range could not be inspected safely.",
+        )
     if not committed_paths:
-        return {
-            "ok": False,
-            "code": "REFRESH_COMMITTED_CHANGE_MISSING",
-            "message": "No later committed repository state is available for proof refresh.",
-        }
+        return fail(
+            "REFRESH_COMMITTED_CHANGE_MISSING",
+            "No later committed repository state is available for proof refresh.",
+        )
     artifacts = sorted(set(work.output_targets))
     if not artifacts:
-        return {
-            "ok": False,
-            "code": "REFRESH_ARTIFACT_MISSING",
-            "message": "The task has no allowed output to refresh.",
-        }
+        return fail("REFRESH_ARTIFACT_MISSING", "The task has no allowed output to refresh.")
     overlap = _non_projection_output_overlap(
         workspace_path,
         Path(root_text),
@@ -2093,31 +1850,21 @@ def _stale_projection_refresh_context(
         artifacts,
     )
     if overlap:
-        return {
-            "ok": False,
-            "code": "REFRESH_OUTPUT_HISTORY_OVERLAP",
-            "message": (
-                "A governed output was touched after the reviewed proof head: "
-                + ", ".join(overlap)
-            ),
-        }
+        return fail(
+            "REFRESH_OUTPUT_HISTORY_OVERLAP",
+            "A governed output was touched after the reviewed proof head: " + ", ".join(overlap),
+        )
     artifact_state = git_artifact_state(
         Path(root_text),
         artifacts,
         governance_workspace_path=workspace_path,
         path_intents=_work_path_intents(work),
     )
-    if (
-        not artifact_state.get("clean")
-        or artifact_state.get("head_sha") != head_sha
-    ):
-        return {
-            "ok": False,
-            "code": "REFRESH_ARTIFACT_STATE_CHANGED",
-            "message": (
-                "Current governed artifact bytes could not be bound to the exact refresh head."
-            ),
-        }
+    if not artifact_state.get("clean") or artifact_state.get("head_sha") != head_sha:
+        return fail(
+            "REFRESH_ARTIFACT_STATE_CHANGED",
+            "Current governed artifact bytes could not be bound to the exact refresh head.",
+        )
     artifact_transition = _refresh_artifact_transition(
         workspace_path,
         Path(root_text),
@@ -2126,14 +1873,13 @@ def _stale_projection_refresh_context(
         artifact_state["artifact_hashes"],
     )
     if artifact_transition is None:
-        return {
-            "ok": False,
-            "code": "REFRESH_ARTIFACT_STATE_CHANGED",
-            "message": (
+        return fail(
+            "REFRESH_ARTIFACT_STATE_CHANGED",
+            (
                 "Previous and current governed artifact hashes could not be "
                 "classified safely for exact-head refresh."
             ),
-        }
+        )
     return {
         "ok": True,
         "code": "",
@@ -2339,11 +2085,7 @@ def _refresh_artifact_transition(
             path = item.get("path")
             digest = item.get("sha256")
             status = item.get("status")
-            if (
-                not isinstance(path, str)
-                or not _exact_sha256_digest(digest)
-                or status != "present"
-            ):
+            if not isinstance(path, str) or not _exact_sha256_digest(digest) or status != "present":
                 return None
             if path in result or path not in artifacts:
                 return None
@@ -2371,9 +2113,7 @@ def _refresh_artifact_transition(
             continue
         previous_item = previous.get(path)
         previous_digest = previous_item["sha256"] if previous_item else ""
-        unchanged = bool(
-            previous_item and previous_digest == current[path]["sha256"]
-        )
+        unchanged = bool(previous_item and previous_digest == current[path]["sha256"])
         projection_record = {
             "path": path,
             "transition": "unchanged" if unchanged else "rebound",
@@ -2394,9 +2134,7 @@ def _refresh_artifact_transition(
         "projection_artifacts_unchanged": sorted(
             projection_unchanged, key=lambda item: item["path"]
         ),
-        "projection_artifacts_rebound": sorted(
-            projection_rebound, key=lambda item: item["path"]
-        ),
+        "projection_artifacts_rebound": sorted(projection_rebound, key=lambda item: item["path"]),
         "proof_projection_mutates_after_evidence": proof_projection_paths,
     }
 
@@ -2455,9 +2193,7 @@ def _refresh_proof_narration(
             "pre-projection Git bytes.",
         )
 
-    summary_parts = [
-        f"{verification_count} exact-state verification profile(s) passed"
-    ]
+    summary_parts = [f"{verification_count} exact-state verification profile(s) passed"]
     if ordinary_artifacts:
         summary_parts.append(
             f"{len(ordinary_artifacts)} ordinary artifact(s) remained byte-unchanged"
@@ -2487,9 +2223,7 @@ def _exact_sha256_digest(value: Any) -> TypeGuard[str]:
     if not isinstance(value, str) or not value.startswith("sha256:"):
         return False
     digest = value.removeprefix("sha256:")
-    return len(digest) == 64 and all(
-        character in "0123456789abcdef" for character in digest
-    )
+    return len(digest) == 64 and all(character in "0123456789abcdef" for character in digest)
 
 
 def _refresh_proof_timestamp(
@@ -2525,8 +2259,8 @@ def _refresh_proof_timestamp(
         return ""
     latest_existing = max(candidates, default=commit_instant)
     logical = max(commit_instant, latest_existing + timedelta(microseconds=1))
-    return logical.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
-        "+00:00", "Z"
+    return (
+        logical.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
     )
 
 
@@ -2679,9 +2413,7 @@ def _pending_advance_recovery_error(
     before_work = _record_by_id(before, "work_items", collection_ids["work_items"])
     before_attempt = _record_by_id(before, "attempts", collection_ids["attempts"])
     before_receipt = _record_by_id(before, "receipts", collection_ids["receipts"])
-    before_evidence = _record_by_id(
-        before, "evidence_runs", collection_ids["evidence_runs"]
-    )
+    before_evidence = _record_by_id(before, "evidence_runs", collection_ids["evidence_runs"])
     if not isinstance(before_work, dict) or not _record_changes_within(
         before_work, work, {"current_attempt"}
     ):
@@ -2712,8 +2444,7 @@ def _pending_advance_recovery_error(
     ):
         return "The pending journal transaction injects ungenerated attempt metadata."
     if before_attempt is None and any(
-        not _empty_record_value(attempt.get(field))
-        for field in ("forbidden_paths",)
+        not _empty_record_value(attempt.get(field)) for field in ("forbidden_paths",)
     ):
         return "The pending journal transaction injects ungenerated attempt boundaries."
     if isinstance(before_receipt, dict) and before_receipt != receipt:
@@ -2732,9 +2463,7 @@ def _pending_advance_recovery_error(
     head_sha = str(attempt.get("head_sha") or "")
     current_attempt_id = str(before_work.get("current_attempt") or "")
     current_attempt = (
-        _record_by_id(before, "attempts", current_attempt_id)
-        if current_attempt_id
-        else None
+        _record_by_id(before, "attempts", current_attempt_id) if current_attempt_id else None
     )
     current_attempt_head = ""
     if isinstance(current_attempt, dict):
@@ -2760,9 +2489,7 @@ def _pending_advance_recovery_error(
     expected_receipt_id = _proof_id("RECEIPT-ADVANCE", work_id, head_sha)
     expected_evidence_id = _proof_id("EVIDENCE-ADVANCE", work_id, head_sha)
     before_commits = (
-        list(before_attempt.get("commits") or [])
-        if isinstance(before_attempt, dict)
-        else []
+        list(before_attempt.get("commits") or []) if isinstance(before_attempt, dict) else []
     )
     expected_commits = list(before_commits)
     if not expected_commits or expected_commits[-1] != head_sha:
@@ -2814,8 +2541,7 @@ def _pending_advance_recovery_error(
         or receipt.get("sources_used") != work.get("allowed_sources")
         or receipt.get("outputs_created") != artifacts
         or receipt.get("undo_refs") != artifacts
-        or str(receipt.get("previous_receipt_hash") or "")
-        != expected_previous_receipt_hash
+        or str(receipt.get("previous_receipt_hash") or "") != expected_previous_receipt_hash
         or not isinstance(actions, list)
         or len(actions) != 2
         or actions[0] != expected_action
@@ -2835,8 +2561,7 @@ def _pending_advance_recovery_error(
         or not _verification_commands_bound(commands, work, preflight)
         or (verified_commands is not None and commands != verified_commands)
         or evidence.get("output_binding_version") != "palari.evidence_outputs.v1"
-        or evidence.get("summary")
-        != f"{len(commands)} exact-state verification profile(s) passed."
+        or evidence.get("summary") != f"{len(commands)} exact-state verification profile(s) passed."
         or not _recovery_timestamps_bound(
             attempt,
             receipt,
@@ -2876,27 +2601,53 @@ def _run_recovery_verification(
         changed_paths=changed_files,
         cleanliness="clean",
     )
-    commands: list[str] = []
-    for profile in profiles:
-        result = run_or_reuse(
-            workspace_path,
-            Path(str(preflight.get("git_root") or "")),
-            profile,
-            context,
-            refresh=True,
-        )
-        attestation = result["attestation"]
-        if attestation.get("status") != "passed":
-            return {
-                "ok": False,
-                "commands": [],
-                "message": f"Recovery verification profile {profile.id} did not pass.",
-            }
-        commands.append(
-            f"{profile.id} attestation {attestation['attestation_id']} "
-            f"{attestation['cache_key']}"
-        )
+    results, failed = _run_profiles(
+        workspace_path,
+        Path(str(preflight.get("git_root") or "")),
+        profiles,
+        context,
+        refresh=True,
+    )
+    if failed:
+        return {
+            "ok": False,
+            "commands": [],
+            "message": f"Recovery verification profile {failed['profile_id']} did not pass.",
+        }
+    commands = [
+        f"{item['profile_id']} attestation {item['attestation_id']} {item['cache_key']}"
+        for item in results
+    ]
     return {"ok": True, "commands": commands, "message": ""}
+
+
+def _run_profiles(
+    workspace_path: Path,
+    git_root: Path | str,
+    profiles: tuple[VerificationProfile, ...],
+    context: VerificationContext,
+    *,
+    refresh: bool,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    recorded: list[dict[str, Any]] = []
+    for profile in profiles:
+        result = run_or_reuse(workspace_path, git_root, profile, context, refresh=refresh)
+        attestation = result["attestation"]
+        recorded.append(
+            {
+                "profile_id": profile.id,
+                "attestation_id": attestation["attestation_id"],
+                "cache_key": attestation["cache_key"],
+                "cache_hit": result["cache_hit"],
+                "status": attestation["status"],
+                "duration_ms": attestation["duration_ms"],
+                "stdout_digest": attestation["stdout_digest"],
+                "stderr_digest": attestation["stderr_digest"],
+            }
+        )
+        if attestation["status"] != "passed":
+            return recorded, {**result, "profile_id": profile.id}
+    return recorded, None
 
 
 def _recheck_recovery_state(
@@ -3051,9 +2802,7 @@ def _recovery_timestamps_bound(
     if event_timestamp != expected_event_timestamp or not expected_event_timestamp:
         return False
     try:
-        event_time = datetime.fromisoformat(
-            event_timestamp.removesuffix("Z") + "+00:00"
-        )
+        event_time = datetime.fromisoformat(event_timestamp.removesuffix("Z") + "+00:00")
     except ValueError:
         return False
     closeout_changed = before_attempt is None or any(
@@ -3068,18 +2817,14 @@ def _recovery_timestamps_bound(
         )
     )
     expected = [
-        event_timestamp
-        if before_attempt is None
-        else before_attempt.get("started_at"),
-        event_timestamp
-        if before_receipt is None
-        else before_receipt.get("timestamp"),
-        event_timestamp
-        if before_evidence is None
-        else before_evidence.get("timestamp"),
+        event_timestamp if before_attempt is None else before_attempt.get("started_at"),
+        event_timestamp if before_receipt is None else before_receipt.get("timestamp"),
+        event_timestamp if before_evidence is None else before_evidence.get("timestamp"),
         event_timestamp
         if closeout_changed
-        else before_attempt.get("updated_at") if before_attempt is not None else "",
+        else before_attempt.get("updated_at")
+        if before_attempt is not None
+        else "",
     ]
     actual = [
         attempt.get("started_at"),
@@ -3263,9 +3008,7 @@ def _select_attempt(
 def _attempt_reusable_for_head(status: str, current_head: str, head_sha: str) -> bool:
     """Keep active proof work, but never reopen a failed or parked attempt."""
 
-    return status == "active" or (
-        status in {"complete", "completed"} and current_head == head_sha
-    )
+    return status == "active" or (status in {"complete", "completed"} and current_head == head_sha)
 
 
 def _current_receipt(workspace: Workspace, work: Any) -> Any | None:
@@ -3310,9 +3053,7 @@ def _changes_requested_refresh_binding(
     work: Any,
     palari_id: str,
 ) -> dict[str, Any]:
-    reviews = [
-        item for item in workspace.review_verdicts if item.work_item_id == work.id
-    ]
+    reviews = [item for item in workspace.review_verdicts if item.work_item_id == work.id]
     if not reviews:
         return {"applicable": False, "ok": False, "later_head": False, "message": ""}
     latest = max(reviews, key=record_time_key)
@@ -3389,13 +3130,6 @@ def _governed_artifacts(
 
 def _work_path_intents(work: Any) -> list[dict[str, str]]:
     return _normalized_path_intents(getattr(work, "path_intents", []))
-
-
-def _packet_path_intents(packet: dict[str, Any]) -> list[dict[str, str]]:
-    required = packet.get("required_output", {})
-    if not isinstance(required, dict):
-        return []
-    return _normalized_path_intents(required.get("path_intents", []))
 
 
 def _normalized_path_intents(value: Any) -> list[dict[str, str]]:
@@ -3495,15 +3229,9 @@ def _verify_path_intents(
         if intent == "create":
             satisfied = base_entry is None and head_regular
         elif intent == "modify":
-            satisfied = (
-                base_regular
-                and head_regular
-                and base_entry != head_entry
-            )
+            satisfied = base_regular and head_regular and base_entry != head_entry
         else:
-            satisfied = bool(
-                git_deletion_tombstone(root, path, base_sha, head_sha)
-            )
+            satisfied = bool(git_deletion_tombstone(root, path, base_sha, head_sha))
         check = {
             "path": path,
             "intent": intent,
@@ -3539,9 +3267,8 @@ def _git_exact_tree_entry(
     commit: str,
     path: str,
 ) -> tuple[bool, tuple[str, str, str] | None]:
-    if (
-        len(commit) not in {40, 64}
-        or any(character not in "0123456789abcdef" for character in commit)
+    if len(commit) not in {40, 64} or any(
+        character not in "0123456789abcdef" for character in commit
     ):
         return False, None
     try:
@@ -3582,11 +3309,7 @@ def _git_exact_tree_entry(
 
 
 def _regular_file_state(entry: tuple[str, str, str] | None) -> bool:
-    return bool(
-        entry is not None
-        and entry[0] in {"100644", "100755"}
-        and entry[1] == "blob"
-    )
+    return bool(entry is not None and entry[0] in {"100644", "100755"} and entry[1] == "blob")
 
 
 def _tree_entry_state(entry: tuple[str, str, str] | None) -> str:
