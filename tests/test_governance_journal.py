@@ -307,6 +307,9 @@ class GovernanceJournalTests(unittest.TestCase):
 
         self.assertFalse(report["ok"])
         self.assertEqual(report["errors"][0]["code"], "JOURNAL_NOT_ENABLED")
+        self.assertIn(
+            "in-place upgrades are unsupported", report["errors"][0]["next_action"]
+        )
         self.assertFalse(journal_file_path(data_path).exists())
 
     def test_from_checkpoint_coverage_is_rejected(self) -> None:
@@ -315,7 +318,7 @@ class GovernanceJournalTests(unittest.TestCase):
             initial = workspace("Unsupported coverage")
 
             with self.assertRaisesRegex(
-                JournalError, "must begin with an explicit checkpoint"
+                JournalError, "newly created workspace"
             ):
                 run_change(
                     data_path,
@@ -323,6 +326,23 @@ class GovernanceJournalTests(unittest.TestCase):
                     after=initial,
                     event_kind="checkpoint",
                     coverage="from-checkpoint",
+                )
+
+        self.assertFalse(journal_file_path(data_path).exists())
+
+    def test_complete_coverage_cannot_wrap_an_existing_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            existing = workspace("Existing")
+            data_path.write_text(json.dumps(existing), encoding="utf-8")
+
+            with self.assertRaisesRegex(JournalError, "newly created workspace"):
+                run_change(
+                    data_path,
+                    before=existing,
+                    after=existing,
+                    event_kind="checkpoint",
+                    coverage="complete",
                 )
 
         self.assertFalse(journal_file_path(data_path).exists())
@@ -640,6 +660,25 @@ class GovernanceJournalTests(unittest.TestCase):
         self.assertFalse(report["writable"])
         self.assertEqual(report["journal_file"], ".palari/governance-journal.v2.jsonl")
         self.assertEqual(report["warnings"][0]["code"], "JOURNAL_NOT_ENABLED")
+
+    def test_empty_journal_guidance_does_not_offer_an_upgrade(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = Path(directory) / "workspace.json"
+            data_path.write_text(
+                json.dumps(workspace("Empty journal")), encoding="utf-8"
+            )
+            journal = journal_file_path(data_path)
+            journal.parent.mkdir()
+            journal.write_text("", encoding="utf-8")
+
+            report = verify_workspace_journal(data_path)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["errors"][0]["code"], "JOURNAL_MISSING_CHECKPOINT")
+        self.assertEqual(
+            report["errors"][0]["next_action"],
+            "Restore a valid current journal or recreate the workspace.",
+        )
 
     def test_float_invalid_timestamp_and_unpaired_surrogate_are_rejected(self) -> None:
         with self.assertRaisesRegex(JournalError, "floating-point"):

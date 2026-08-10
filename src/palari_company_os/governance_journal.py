@@ -770,12 +770,16 @@ def transact(
             )
 
     has_records = state.record_count > 0
-    initial_coverage_ok = coverage == "complete"
-    if not has_records and not (event_kind == "checkpoint" and initial_coverage_ok):
+    starts_current_history = (
+        event_kind == "checkpoint" and coverage == "complete" and before_data is None
+    )
+    if not has_records and not starts_current_history:
         raise JournalError(
             "JOURNAL_MISSING_CHECKPOINT",
-            "a governance journal must begin with an explicit checkpoint",
-            next_action="Create an initial history checkpoint before mutating this workspace.",
+            "only a newly created workspace can begin a governance journal",
+            next_action=(
+                "Use a workspace created by current Palari; in-place upgrades are unsupported."
+            ),
         )
     if has_records and state.pending is None:
         if coverage == "continuity-break":
@@ -936,14 +940,14 @@ def _scan_v2_records(data_path: Path | str, *, path: Path | None = None) -> _Jou
     if not found:
         raise JournalError(
             "JOURNAL_MISSING_CHECKPOINT",
-            "governance journal is empty and has no checkpoint",
-            next_action="Create an explicit checkpoint.",
+            "governance journal is empty and unusable",
+            next_action="Restore a valid current journal or recreate the workspace.",
         )
     if state.committed == 0 and state.pending is None:
         raise JournalError(
             "JOURNAL_MISSING_CHECKPOINT",
             "v2 journal has no committed checkpoint",
-            next_action="Restore the current journal checkpoint.",
+            next_action="Restore a valid current journal or recreate the workspace.",
         )
     return state
 
