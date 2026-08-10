@@ -4461,6 +4461,66 @@
         }
       ],
       "current_attempt": "ATTEMPT-ADVANCE-WORK-FE572A92EC6E48318D6176C0D73B4E4C-B385EF28D547"
+    },
+    {
+      "id": "WORK-7F81242812ED4A21BCFD1156AC245767",
+      "title": "Hide stale work from agents",
+      "goal": "GOAL-0001",
+      "palari": "PALARI-CODEX",
+      "workbench_id": "WORKBENCH-MAIN",
+      "dependency_ids": [],
+      "risk": "R1",
+      "intensity": "light",
+      "status": "active",
+      "scope": "Keep old audit records, but do not offer work that cannot pass its saved start rules.",
+      "allowed_resources": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_next.py",
+        "tests/test_agent_advance.py",
+        "docs/product/agent-contract.md"
+      ],
+      "allowed_sources": [
+        "SOURCE-REPO"
+      ],
+      "output_targets": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_next.py",
+        "tests/test_agent_advance.py",
+        "docs/product/agent-contract.md"
+      ],
+      "conflict_targets": [
+        "src/palari_company_os/agent_runtime.py",
+        "src/palari_company_os/agent_next.py",
+        "tests/test_agent_advance.py",
+        "docs/product/agent-contract.md"
+      ],
+      "parallel_policy": "independent",
+      "forbidden_actions": [
+        "write outside the declared write paths"
+      ],
+      "acceptance_target": "Agent next skips work whose saved start rules no longer match; fresh work still appears; focused and full checks pass.",
+      "verification_expectations": [
+        "python -m unittest tests.test_agent_advance tests.test_agent_packets"
+      ],
+      "required_approval_count": 0,
+      "path_intents": [
+        {
+          "path": "src/palari_company_os/agent_runtime.py",
+          "intent": "modify"
+        },
+        {
+          "path": "src/palari_company_os/agent_next.py",
+          "intent": "modify"
+        },
+        {
+          "path": "tests/test_agent_advance.py",
+          "intent": "modify"
+        },
+        {
+          "path": "docs/product/agent-contract.md",
+          "intent": "modify"
+        }
+      ]
     }
   ],
   "attempts": [
@@ -12235,7 +12295,8 @@
         "spec/pcaw/v1/vectors/invalid/unknown-field/statement.json",
         "spec/pcaw/v1/vectors/invalid/unsupported-algorithm/statement.json",
         "verify/fixtures/accepted/statement.json",
-        "spec/pcaw/v1/README.md"
+        "spec/pcaw/v1/README.md",
+        "src/palari_company_os/agent_next.py"
       ]
     }
   ],
