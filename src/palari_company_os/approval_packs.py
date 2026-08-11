@@ -1844,7 +1844,7 @@ def _validate_pack_member(
             raise WorkspaceError(f"approval pack {path}.path is unsafe: {exc}") from exc
         if normalized_path != output_path:
             raise WorkspaceError(f"approval pack {path}.path is not canonical")
-        _require_digest(output["sha256"], f"{path}.sha256")
+        _require_artifact_digest(output["sha256"], f"{path}.sha256")
         output_paths.append(output_path)
     if output_paths != sorted(set(output_paths)):
         raise WorkspaceError(f"approval pack members.{member_id}.outputs must be unique and ordered")
@@ -1932,6 +1932,12 @@ def _require_digest(value: Any, path: str) -> None:
         int(value[7:], 16)
     except ValueError as exc:
         raise WorkspaceError(f"approval pack {path} must be a sha256 digest") from exc
+
+
+def _require_artifact_digest(value: Any, path: str) -> None:
+    if value == "sha256:absent":
+        return
+    _require_digest(value, path)
 
 
 def _timestamp() -> str:

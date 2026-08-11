@@ -1014,6 +1014,40 @@ class ApprovalPackTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
             validate_pack_manifest(bad_member)
 
+    def test_pack_outputs_accept_only_content_digests_or_the_deletion_tombstone(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            store = load_store(data_path)
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+
+        def with_output_digest(value: str) -> dict[str, object]:
+            candidate = deepcopy(pack)
+            member = candidate["members"][0]
+            member["outputs"][0]["sha256"] = value
+            member["member_digest"] = canonical_sha256(
+                {key: item for key, item in member.items() if key != "member_digest"}
+            )
+            candidate["pack_digest"] = canonical_sha256(
+                {key: item for key, item in candidate.items() if key != "pack_digest"}
+            )
+            return candidate
+
+        validate_pack_manifest(with_output_digest("sha256:absent"))
+        for malformed in (
+            "",
+            "sha256:deleted",
+            "SHA256:absent",
+            "sha256:" + ("A" * 64),
+            "sha256:" + ("g" * 64),
+        ):
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                WorkspaceError,
+                "must be a sha256 digest",
+            ):
+                validate_pack_manifest(with_output_digest(malformed))
+
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
