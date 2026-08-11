@@ -53,10 +53,7 @@ minimality pass removed 65 commands: generic record mutation, restore-point
 recovery, and advisory data-map, maintainer, gate, and playbook views. The
 ordinary journey, supported adapters, and safety boundaries remain.
 
-The public agent surface now uses `agent status` as its single read-only task
-projection. The former `agent doctor` and `agent loop` commands remain only as
-internal compatibility concepts, reducing the public surface by one net parser
-path.
+The agent surface uses `agent status` as its single read-only task projection.
 
 The default help is intentionally narrow. It leads with `init`, `work`,
 `agent`, `approve`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary

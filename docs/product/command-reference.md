@@ -98,8 +98,7 @@ palari agent advance WORK-ID --as PALARI-ID --dry-run --json
 ```
 
 `agent status` is the canonical public read-only projection for task limits,
-checks, ownership, blockers, stages, and the next safe action. The former public
-`agent doctor` and `agent loop` aliases are no longer part of the CLI surface.
+checks, ownership, blockers, stages, and the next safe action.
 
 These helpers do not create approval. `advance` is the sole supported
 check-and-finish mutation path.

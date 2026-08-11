@@ -119,7 +119,7 @@ The ordinary loop is deliberately short:
 
 `agent advance` is the sole current run-to-verification and closeout path. Use
 `agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
-`handoff`, `doctor`, and `loop` for detailed diagnosis. Check refresh remains
+`handoff`, and `status` for detailed diagnosis. Check refresh remains
 an explicit recovery path without a task lock: `agent advance --refresh-verification --dry-run`
 previews it, and the non-dry-run form creates fresh exact-head check results only when
 ordinary task outputs remain byte-identical. Prior review and human
@@ -219,7 +219,7 @@ context, and exact verdict actions. It does not review work or grant approval.
 `status: blocked` means the agent must not perform the work. It may run only the
 commands listed in `next_allowed_commands`, or report the blockers to a human.
 
-Finish, loop, next, handoff, and Approval Inbox JSON classify the resolver as
+Finish, status, next, handoff, and Approval Inbox JSON classify the resolver as
 `automatic-reconciliation`, `agent-action`, `independent-review`,
 `human-authority`, `external-state`, or `terminal`. A human-looking blocker is
 not retained after the required approval already exists: current post-decision
@@ -482,9 +482,9 @@ keeps blocked or waiting visible with blocker codes, and omits closed work from
 candidate lists. Waiting candidates include `handoff_guidance` when the next
 safe action is independent review, a human answer, or final approval. Those candidates point first to
 `agent handoff`, then to the lower-level review or decision guide. It does not
-create a task lock, change state, or assign work. Candidates also include a
-compatibility `loop_command` field whose value opens the canonical public
-`agent status` projection after the first concrete next step.
+create a task lock, change state, or assign work. Candidates also include one
+`status_command` field that opens the canonical `agent status` projection after
+the first concrete next step.
 
 `agent finish` wraps `agent check` into final-report guidance. It never changes
 workspace state in v1. It carries the same `next_step_type` and distinguishes
@@ -528,9 +528,8 @@ the advisory review result into a required human approval fail closed.
 `agent status` is the canonical public read-only projection over the task brief,
 current checks, and next-action directive. It reports task limits, stages,
 ownership, blockers, missing and completed requirements, and exact next commands
-without adding permission or changing workspace state. Internal adapters may
-retain the older loop and diagnosis payload builders for compatibility, but
-they emit `agent status` as the public recovery command.
+without adding permission or changing workspace state. It is the only task
+status and recovery projection.
 
 ## Git Pre-Commit Enforcement
 

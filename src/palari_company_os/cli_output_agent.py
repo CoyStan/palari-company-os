@@ -249,7 +249,7 @@ def print_agent_next(payload: dict[str, Any], as_json: bool) -> None:
                 f"({plain_status(candidate['attention'], next_step_type=next_step, next_command=context_command)})"
             )
             print(f"    next: {next_command}")
-            status_command = candidate.get("doctor_command") or candidate.get("loop_command")
+            status_command = candidate.get("status_command")
             if status_command:
                 print(f"    status: {status_command}")
             if next_step:
@@ -326,7 +326,7 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             f"via {agent.get('id', '')} - {candidate.get('title', '')}"
         )
         print(f"  next: {next_command}")
-        status_command = candidate.get("doctor_command") or candidate.get("loop_command")
+        status_command = candidate.get("status_command")
         if status_command:
             print(f"  status: {status_command}")
         if next_step:
@@ -350,7 +350,7 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             )
             first_context = _candidate_decision_command(first) or first_command
             print(f"    next: {first_command}")
-            status_command = first.get("doctor_command") or first.get("loop_command")
+            status_command = first.get("status_command")
             if status_command:
                 print(f"    status: {status_command}")
             if first_step:
@@ -597,114 +597,6 @@ def _one_line(value: Any, *, limit: int = 180) -> str:
     if len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
-
-
-def print_agent_loop(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    agent = payload["agent"]
-    commands = _agent_display_commands(payload)
-    next_command = commands[0] if commands else ""
-    display_step = _agent_display_step(payload)
-    decision_command = _decision_guide_command(payload)
-    context_command = _agent_context_command(payload, next_command)
-    print(f"Task flow: {payload['loop_id']}")
-    print(
-        "Status: "
-        f"{plain_status(payload['status'], next_step_type=display_step, next_command=context_command)}"
-    )
-    print(f"Mode: {payload.get('mode', 'execute')}")
-    print(
-        "Next step: "
-        f"{plain_step(display_step, next_command=context_command)}"
-    )
-    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
-    print(f"Task: {work.get('id', '')} {work.get('title', '')}")
-    print("Stages:")
-    for stage in payload.get("stages", []):
-        message = str(stage["message"])
-        if stage.get("name") == "finish" and (
-            decision_command or _has_blocker(payload, "HUMAN_DECISION_REQUIRED")
-        ):
-            message = "Bring the linked decision to the required human before continuing."
-        elif (
-            payload.get("mode") == "execute"
-            and stage.get("name") == "finish"
-            and "CLAIM_OWNED" in _failed_check_codes(payload)
-        ):
-            message = _start_work_guidance()
-        elif (
-            payload.get("mode") == "review"
-            and stage.get("name") == "finish"
-            and stage.get("status") in {"missing-proof", "blocked"}
-        ):
-            message = _review_wait_guidance()
-        print(
-            f"  - {stage['name']} [{plain_detail_state(stage['status'])}]: "
-            f"{plain_message(message)}"
-        )
-        print(f"    command: {stage['command']}")
-        failed = stage.get("failed_required_checks", [])
-        if failed:
-            print(f"    failed required checks: {', '.join(failed)}")
-    boundary = payload.get("human_action_boundary", {})
-    if boundary.get("agent_may_execute") is False:
-        label = "Decision boundary" if decision_command else "Approval boundary"
-        print(f"{label}: the agent may quote human commands, but must not run them.")
-    if commands:
-        print("Next commands:")
-        for command in commands:
-            print(f"  {command}")
-
-
-def print_agent_doctor(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    agent = payload["agent"]
-    resolution_value = payload.get("resolution_summary")
-    resolution = resolution_value if isinstance(resolution_value, dict) else {}
-    owner_by_class = {
-        "human-authority": "human",
-        "independent-review": "reviewer",
-        "external-state": "external owner",
-        "automatic-reconciliation": "system",
-        "terminal": "none",
-    }
-    primary_class = resolution.get("primary_class")
-    owner = payload.get("owner") or owner_by_class.get(
-        primary_class if isinstance(primary_class, str) else "",
-        "agent" if payload.get("agent_safe") else "operator",
-    )
-    commands = _agent_display_commands(payload)
-    next_command = commands[0] if commands else ""
-    display_step = _agent_display_step(payload)
-    decision_command = _decision_guide_command(payload)
-    context_command = _agent_context_command(payload, next_command)
-    blockers = payload.get("blockers") or []
-    visible_safe = bool(payload.get("agent_safe")) and not blockers
-    print(f"Task status: {payload['doctor_id']}")
-    print(
-        "Status: "
-        f"{plain_status(payload['status'], next_step_type=display_step, next_command=context_command)}"
-    )
-    print(f"Safe: {_yes_no(visible_safe)}")
-    print(f"Owner: {owner}")
-    print(f"Agent: {agent.get('id', '')}")
-    print(f"Task: {work.get('id', '')} {work.get('title', '')}")
-    if decision_command:
-        summary = "This task is waiting for a human answer to a linked decision."
-    elif blockers:
-        codes = ", ".join(str(item.get("code") or "") for item in blockers)
-        summary = f"The task brief is blocked: {codes}."
-    else:
-        summary = plain_message(payload["summary"])
-    print(f"Summary: {summary}")
-    print(f"Next: {next_command or 'No action; inspect --json for recorded checks.'}")
-    print("Verification details: rerun with --json.")
 
 
 def print_agent_status(payload: dict[str, Any], as_json: bool) -> None:

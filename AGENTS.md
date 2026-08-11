@@ -141,7 +141,7 @@ Never:
 
 The full agent rules are in `docs/product/agent-contract.md`. For a compact
 command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
-`handoff`, see `docs/product/agent-loop-smoke.md`.
+`handoff`, see `docs/product/agent-workflow-smoke.md`.
 
 Fresh Git repositories may use `palari init --host HOST`; existing workspaces use
 the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,

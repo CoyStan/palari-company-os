@@ -354,7 +354,7 @@ tests/                             Unit and fixture tests
 ## Golden Paths
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
-- **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
+- **Agent workflow:** read [Agent Workflow Smoke](docs/product/agent-workflow-smoke.md).
 - **Human loop:** inspect `palari agent handoff WORK-ID --as PALARI-REVIEWER
   --mode review --json`, then have the human run its exact emitted
   `human_action_commands[].command` once.

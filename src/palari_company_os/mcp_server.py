@@ -8,10 +8,8 @@ from typing import Any, TextIO
 
 from . import __version__
 from .agent_checks import build_agent_check
-from .agent_doctor import build_agent_doctor
 from .agent_finish import build_agent_finish
 from .agent_handoff import build_agent_handoff
-from .agent_loop import build_agent_loop
 from .agent_next import build_agent_next, build_agent_next_all
 from .agent_packets import build_agent_brief
 from .agent_runtime import release_agent, start_agent, start_next_agent
@@ -209,30 +207,6 @@ def tool_definitions() -> list[dict[str, Any]]:
             required=["work_id", "palari_id"],
         ),
         _tool(
-            "palari_agent_loop",
-            "Palari Agent Loop",
-            "Compatibility MCP view of the compact read-only task flow.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
-        ),
-        _tool(
-            "palari_agent_doctor",
-            "Palari Agent Doctor",
-            "Compatibility MCP view of task safety status in plain language.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
-        ),
-        _tool(
             "palari_agent_release",
             "Palari Agent Release",
             "Release one local task lock without changing workspace records.",
@@ -371,20 +345,6 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
         )
     if name == "palari_agent_handoff":
         return build_agent_handoff(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
-        )
-    if name == "palari_agent_loop":
-        return build_agent_loop(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
-        )
-    if name == "palari_agent_doctor":
-        return build_agent_doctor(
             workspace,
             _required_string(arguments, "work_id"),
             _required_string(arguments, "palari_id"),

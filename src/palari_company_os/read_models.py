@@ -12,7 +12,7 @@ from .record_order import record_time_key as _record_time_key
 from .read_model_commands import (
     agent_commands,
     agent_handoff_command,
-    agent_loop_command,
+    agent_status_command,
     work_next_commands,
 )
 from .read_model_coordination import (
@@ -36,7 +36,7 @@ class QueueItem:
     next_action: str
     next_step_type: str
     next_commands: list[str]
-    agent_loop_command: str  # Compatibility field; value targets public agent status.
+    agent_status_command: str
     agent_handoff_command: str
     status: str
     terminal_disposition: str
@@ -197,7 +197,7 @@ def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
         "next_action": queue_item.next_action,
         "next_step_type": queue_item.next_step_type,
         "next_commands": queue_item.next_commands,
-        "agent_loop_command": queue_item.agent_loop_command,
+        "agent_status_command": queue_item.agent_status_command,
         "agent_handoff_command": queue_item.agent_handoff_command,
         "active_parallel_attempts": queue_item.active_attempts,
         "coordination_warnings": queue_item.coordination_warnings,
@@ -331,7 +331,7 @@ def _queue_item(work: Any, context: _ReadContext) -> QueueItem:
             ai_safe_to_proceed,
             workspace_path=context.workspace_path,
         ),
-        agent_loop_command=agent_loop_command(
+        agent_status_command=agent_status_command(
             work,
             workspace_path=context.workspace_path,
         ),

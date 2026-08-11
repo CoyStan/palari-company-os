@@ -19,7 +19,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import _completion_checks, build_agent_check
 from palari_company_os.agent_directive import compile_agent_directive
-from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.agent_isolation import (
@@ -27,7 +26,6 @@ from palari_company_os.agent_isolation import (
     isolation_branch,
     start_isolated_agent,
 )
-from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_runtime import (
@@ -645,8 +643,6 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 build_agent_check(workspace, WORK_ID, PALARI_ID),
                 build_agent_finish(workspace, WORK_ID, PALARI_ID),
                 build_agent_status(workspace, WORK_ID, PALARI_ID),
-                build_agent_doctor(workspace, WORK_ID, PALARI_ID),
-                build_agent_loop(workspace, WORK_ID, PALARI_ID),
                 build_agent_handoff(workspace, WORK_ID, PALARI_ID),
             ]
 
@@ -659,8 +655,6 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 "palari.agent_check.v1",
                 "palari.agent_finish.v1",
                 "palari.agent_status.v1",
-                "palari.agent_doctor.v1",
-                "palari.agent_loop.v1",
                 "palari.agent_handoff.v1",
             ],
         )
@@ -819,11 +813,11 @@ class AgentPacketProjectionTests(unittest.TestCase):
 
         check = build_agent_check(workspace, WORK_ID, PALARI_ID)
         finish = build_agent_finish(workspace, WORK_ID, PALARI_ID)
-        loop = build_agent_loop(workspace, WORK_ID, PALARI_ID)
+        status = build_agent_status(workspace, WORK_ID, PALARI_ID)
 
         self.assertEqual(check["next_step_type"], "check-active-proof")
         self.assertEqual(finish["next_step_type"], "check-active-proof")
-        self.assertEqual(loop["next_step_type"], "check-active-proof")
+        self.assertEqual(status["next_step_type"], "check-active-proof")
         self.assertTrue(
             palari_command_parts(check["next_allowed_commands"][0])[:2]
             == ("agent", "start")
@@ -872,44 +866,19 @@ class AgentPacketProjectionTests(unittest.TestCase):
             "\n".join(directive["next_allowed_commands"]),
         )
 
-    def test_loop_composes_the_read_only_packet_check_and_finish_stages(self) -> None:
-        result = build_agent_loop(self.workspace(), WORK_ID, PALARI_ID)
-
-        self.assertEqual(result["schema_version"], "palari.agent_loop.v1")
-        self.assertEqual(result["status"], "missing-proof")
-        self.assertFalse(result["would_mutate"])
-        self.assertEqual(
-            [stage["name"] for stage in result["stages"]],
-            ["brief", "check", "finish"],
-        )
-        self.assertNotIn("handoff", result["commands"])
-
-    def test_doctor_explains_the_existing_loop_without_new_policy(self) -> None:
-        result = build_agent_doctor(self.workspace(), WORK_ID, PALARI_ID)
-
-        self.assertEqual(result["schema_version"], "palari.agent_doctor.v1")
-        self.assertEqual(result["status"], "missing-proof")
-        self.assertTrue(result["agent_safe"])
-        self.assertFalse(result["human_handoff_required"])
-        self.assertIn("RECEIPT_PRESENT", result["summary"])
-        self.assertEqual(
-            {item["code"] for item in result["checks"]},
-            {"PACKET", "CONTRACT", "FINISH"},
-        )
-
     def test_blocked_review_machine_payload_never_recommends_execute_advance(self) -> None:
         check = build_agent_check(
             self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
         )
-        doctor = build_agent_doctor(
+        status = build_agent_status(
             self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
         )
 
         self.assertEqual(check["packet_status"], "blocked")
         self.assertEqual(check["next_step_type"], "blocked")
         self.assertNotIn("palari agent advance", "\n".join(check["next_allowed_commands"]))
-        self.assertEqual(doctor["status"], "missing-proof")
-        self.assertTrue(doctor["agent_safe"])
+        self.assertEqual(status["status"], "missing-proof")
+        self.assertTrue(status["agent_may_execute"])
 
     def test_cli_start_next_is_one_current_golden_path(self) -> None:
         result = self.run_cli(

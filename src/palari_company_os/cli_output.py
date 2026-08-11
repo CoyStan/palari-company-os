@@ -827,8 +827,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             print(f"  active runs: {attempts}")
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
-        if item.agent_loop_command:
-            print(f"  agent status: {item.agent_loop_command}")
+        if item.agent_status_command:
+            print(f"  agent status: {item.agent_status_command}")
         if item.agent_handoff_command:
             print(f"  agent handoff: {item.agent_handoff_command}")
         if item.terminal_disposition:
@@ -1125,8 +1125,8 @@ def print_state(payload: dict[str, Any]) -> None:
                 f"{plain_step(display_step, next_command=display_command)}"
             )
         print(f"  why: {plain_message(top['why'])}")
-        if top.get("agent_loop_command"):
-            print(f"  agent status: {top['agent_loop_command']}")
+        if top.get("agent_status_command"):
+            print(f"  agent status: {top['agent_status_command']}")
         if top.get("agent_handoff_command"):
             print(f"  agent handoff: {top['agent_handoff_command']}")
         if display_command:

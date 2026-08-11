@@ -204,8 +204,7 @@ def _candidates(
             handoff_guidance,
             finish_commands,
         )
-        doctor_command = _doctor_command(work.id, palari_id, mode)
-        loop_command = _loop_command(work.id, palari_id, mode)
+        status_command = _status_command(work.id, palari_id, mode)
         candidates.append(
             {
                 "workspace_file": str(workspace.data_path),
@@ -250,8 +249,7 @@ def _candidates(
                     )
                 ),
                 "next_command": next_command,
-                "doctor_command": doctor_command,
-                "loop_command": loop_command,
+                "status_command": status_command,
                 "next_commands": _candidate_next_commands(
                     item,
                     can_start,
@@ -260,8 +258,7 @@ def _candidates(
                     handoff_guidance,
                     finish_commands,
                     next_command,
-                    doctor_command,
-                    loop_command,
+                    status_command,
                     mode,
                 ),
                 "brief_command": brief_command,
@@ -325,11 +322,9 @@ def _candidate_next_commands(
     handoff_guidance: list[dict[str, str]],
     finish_commands: list[str],
     next_command: str,
-    doctor_command: str,
-    loop_command: str,
+    status_command: str,
     mode: str,
 ) -> list[str]:
-    status_command = doctor_command or loop_command
     if can_start and item.next_step_type == "check-active-proof":
         commands = list(item.next_commands or [next_command, check_command])
         _append_once(commands, status_command)
@@ -372,11 +367,7 @@ def _check_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
 
 
-def _doctor_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent status {work_id} --as {palari_id} --mode {mode} --json"
-
-
-def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
+def _status_command(work_id: str, palari_id: str, mode: str) -> str:
     return f"palari agent status {work_id} --as {palari_id} --mode {mode} --json"
 
 

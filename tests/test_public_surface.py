@@ -22,6 +22,12 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("palari agent status", actual)
         self.assertNotIn("palari agent doctor", actual)
         self.assertNotIn("palari agent loop", actual)
+        self.assertFalse(
+            (REPO_ROOT / "src/palari_company_os/agent_doctor.py").exists()
+        )
+        self.assertFalse(
+            (REPO_ROOT / "src/palari_company_os/agent_loop.py").exists()
+        )
 
         self.assertEqual(actual, expected)
 

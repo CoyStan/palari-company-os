@@ -215,15 +215,15 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(non_goal, loop)
 
-    def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
-        smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(
+    def test_agent_workflow_smoke_is_linked_and_names_core_commands(self) -> None:
+        smoke = (REPO_ROOT / "docs/product/agent-workflow-smoke.md").read_text(
             encoding="utf-8"
         )
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
         for doc in (readme, agents):
-            self.assertIn("docs/product/agent-loop-smoke.md", doc)
+            self.assertIn("docs/product/agent-workflow-smoke.md", doc)
 
         required_snippets = [
             'PALARI_SMOKE_ROOT="$(mktemp -d)"',

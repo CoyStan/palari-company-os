@@ -106,9 +106,6 @@ When adding a command, update parser, dispatch, output, tests, and
   classification.
 - `src/palari_company_os/agent_handoff.py`: read-only human handoff briefs and
   simple human approval routing plus advanced pack context when eligible.
-- `src/palari_company_os/agent_doctor.py`: internal compatibility diagnosis.
-- `src/palari_company_os/agent_loop.py`: internal compatibility loop summary;
-  public recovery guidance targets `agent status`.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
   deterministic verification reconciler that stops at approval boundaries and
   finishes mechanically after current approval exists.
@@ -173,7 +170,7 @@ runtime state.
 
 ## Tests
 
-- `tests/test_agent_packets.py`: agent packet/check/loop behavior.
+- `tests/test_agent_packets.py`: agent packet, check, and handoff behavior.
 - `tests/test_agent_status.py`: canonical status projection and request-local
   observation reuse.
 - `tests/test_agent_advance.py`: deterministic planning, verification cache,
