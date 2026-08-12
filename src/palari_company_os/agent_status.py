@@ -43,6 +43,13 @@ def build_agent_status(
         if directive.get("handoff_guidance")
         else {}
     )
+    review_context = brief.get("review_context") or {}
+    agent_actions = list(actions.get("agent_action_commands", [])) or _review_commands(
+        review_context.get("agent_review_commands", [])
+    )
+    human_actions = list(actions.get("human_action_commands", [])) or _review_commands(
+        review_context.get("human_review_commands", [])
+    )
     return {
         "schema_version": "palari.agent_status.v1",
         "created_at": _timestamp(),
@@ -82,17 +89,26 @@ def build_agent_status(
         "completed_requirements": list(directive.get("completed_requirements", [])),
         "automatic_transitions": list(directive.get("automatic_transitions", [])),
         "report_guidance": directive.get("report_guidance", ""),
-        "review": actions.get("review_handoff"),
+        "review": actions.get("review_handoff") or review_context or None,
         "decision": actions.get("decision_handoff"),
         "approval": actions.get("human_approval_handoff"),
-        "agent_action_commands": list(actions.get("agent_action_commands", [])),
-        "agent_action_boundary": actions.get("agent_action_boundary", {}),
-        "human_action_commands": list(actions.get("human_action_commands", [])),
-        "human_action_boundary": actions.get("human_action_boundary", {}),
+        "agent_action_commands": agent_actions,
+        "agent_action_boundary": actions.get("agent_action_boundary")
+        or brief.get("agent_action_boundary", {}),
+        "human_action_commands": human_actions,
+        "human_action_boundary": actions.get("human_action_boundary")
+        or brief.get("human_action_boundary", {}),
         "next_allowed_commands": list(
             actions.get("next_allowed_commands", directive.get("next_allowed_commands", []))
         ),
     }
+
+
+def _review_commands(commands: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {**command, "actor": command.get("reviewer", "")}
+        for command in commands
+    ]
 
 
 def _task_limits(brief: dict[str, Any]) -> dict[str, Any]:

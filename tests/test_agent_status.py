@@ -48,6 +48,7 @@ class _Operation:
             "blockers": [],
         }
 
+
     def check(self) -> dict[str, Any]:
         self.calls["check"] += 1
         return {
@@ -105,6 +106,58 @@ class _Operation:
             "next_allowed_commands": [
                 "palari agent advance WORK-STATUS --as PALARI-STATUS --json"
             ],
+        }
+
+
+class _ReadyReviewOperation(_Operation):
+    def __init__(self, workspace: _Workspace) -> None:
+        super().__init__(workspace)
+        self.palari_id = "PALARI-REVIEWER"
+        self.mode = "review"
+
+    def brief(self) -> dict[str, Any]:
+        brief = super().brief()
+        brief["review_context"] = {
+            "status": "review-needed",
+            "agent_review_commands": [
+                {
+                    "command": "palari review record REVIEW-EXACT --json",
+                    "reviewer": self.palari_id,
+                    "verdict": "accept-ready",
+                }
+            ],
+            "human_review_commands": [],
+        }
+        brief["agent_action_boundary"] = {"agent_may_execute": True}
+        return brief
+
+    def check(self) -> dict[str, Any]:
+        self.calls["check"] += 1
+        return {
+            "check_id": "CHECK-REVIEW-READY",
+            "ok": True,
+            "next_step_type": "review-handoff",
+            "checks": [],
+        }
+
+    def directive(self) -> dict[str, Any]:
+        self.calls["directive"] += 1
+        return {
+            "status": "ready-to-report",
+            "owner": "reviewer",
+            "agent_may_execute": True,
+            "next_step_type": "review-handoff",
+            "next_action": {},
+            "review_boundary": True,
+            "human_boundary": False,
+            "blockers": [],
+            "resolution_summary": {},
+            "missing_requirements": [],
+            "completed_requirements": [],
+            "automatic_transitions": [],
+            "handoff_guidance": [],
+            "report_guidance": "Report an independent recommendation.",
+            "next_allowed_commands": [],
         }
 
 
@@ -188,6 +241,27 @@ class AgentStatusTests(unittest.TestCase):
             status["next_allowed_commands"],
             action_projection["next_allowed_commands"],
         )
+
+    def test_ready_review_status_exposes_exact_reviewer_actions(self) -> None:
+        operation = _ReadyReviewOperation(self.workspace)
+        status = build_agent_status(
+            self.workspace,  # type: ignore[arg-type]
+            operation.work_id,
+            operation.palari_id,
+            "review",
+            operation=operation,  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(status["task_brief"]["status"], "ready")
+        self.assertEqual(status["review"]["status"], "review-needed")
+        self.assertTrue(status["agent_action_commands"])
+        self.assertTrue(
+            all(
+                action["actor"] == "PALARI-REVIEWER"
+                for action in status["agent_action_commands"]
+            )
+        )
+        self.assertTrue(status["agent_action_boundary"]["agent_may_execute"])
 
 
 if __name__ == "__main__":
