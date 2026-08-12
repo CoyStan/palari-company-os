@@ -8,7 +8,7 @@ into a process ritual.
 - public CLI commands or JSON output
 - workspace schema, validation, or collection semantics
 - work-idea creation, human adoption, or task-boundary copying
-- agent task-brief, start, check, finish, handoff, doctor, or loop behavior
+- agent task-brief, start, status, advance, or release behavior
 - source, run-record, check-result, review, or approval semantics
 - integration plan, approval, outbox, or external-write boundaries
 - required-check profile recommendations

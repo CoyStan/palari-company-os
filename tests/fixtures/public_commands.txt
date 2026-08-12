@@ -48,9 +48,6 @@ palari agent next
 palari agent brief
 palari agent start
 palari agent release
-palari agent check
-palari agent finish
-palari agent handoff
 palari agent status
 palari agent advance
 palari claude

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from .agent_handoff import build_agent_handoff
 from .agent_operation import AgentOperation, ensure_agent_operation
 from .command_surface import bind_palari_command_payload
 from .workspace import Workspace
@@ -30,6 +31,17 @@ def build_agent_status(
     directive = bind_palari_command_payload(
         workspace.data_path,
         operation_state.directive(),
+    )
+    actions = (
+        build_agent_handoff(
+            workspace,
+            work_id,
+            palari_id,
+            mode,
+            operation=operation_state,
+        )
+        if directive.get("handoff_guidance")
+        else {}
     )
     return {
         "schema_version": "palari.agent_status.v1",
@@ -61,6 +73,7 @@ def build_agent_status(
             "check_id": check.get("check_id", ""),
             "ok": bool(check.get("ok", False)),
             "requirements": list(check.get("checks", [])),
+            "file_changes": check.get("file_changes") or {},
         },
         "stages": _stages(brief, check, directive),
         "blockers": list(directive.get("blockers", brief.get("blockers", []))),
@@ -68,7 +81,17 @@ def build_agent_status(
         "missing_requirements": list(directive.get("missing_requirements", [])),
         "completed_requirements": list(directive.get("completed_requirements", [])),
         "automatic_transitions": list(directive.get("automatic_transitions", [])),
-        "next_allowed_commands": list(directive.get("next_allowed_commands", [])),
+        "report_guidance": directive.get("report_guidance", ""),
+        "review": actions.get("review_handoff"),
+        "decision": actions.get("decision_handoff"),
+        "approval": actions.get("human_approval_handoff"),
+        "agent_action_commands": list(actions.get("agent_action_commands", [])),
+        "agent_action_boundary": actions.get("agent_action_boundary", {}),
+        "human_action_commands": list(actions.get("human_action_commands", [])),
+        "human_action_boundary": actions.get("human_action_boundary", {}),
+        "next_allowed_commands": list(
+            actions.get("next_allowed_commands", directive.get("next_allowed_commands", []))
+        ),
     }
 
 

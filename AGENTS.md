@@ -69,7 +69,7 @@ approval, final result, or automatic-finishing permission. It requires writable
 tamper-evident history. Workspaces without current history are unsupported and
 cannot be upgraded in place.
 
-After independent review, `agent handoff` shows the current presentation and
+After independent review, `agent status` shows the current presentation and
 an exact presentation-bound command. For one eligible reversible local task,
 the human runs that emitted command once. Its readable form begins:
 
@@ -80,7 +80,7 @@ palari approve WORK-ID --as HUMAN-ID --json
 The emitted command includes a machine-added `--presented` binding; the human
 does not copy it or any other digest. A manually entered command without that
 binding derives current state at invocation, so it is not a substitute for an
-earlier inspected handoff. Palari revalidates current proof before approval and
+earlier inspected status. Palari revalidates current proof before approval and
 local completion. The Approval Inbox and `human-decision pack` remain available
 for advanced or batched decisions. Agents may quote a human command for the
 supervisor; they must not execute `approve`, `human-decision`, or combine review
@@ -104,25 +104,17 @@ Follow the task brief:
 - produce the declared output, run record, and check results
 - stop for every blocker, missing source, human approval, or external write
 - run `palari validate --json` before reporting work as done
-- run `palari agent check WORK-ID --as PALARI-ID --mode execute --json` before claiming done
-- add `--changed PATH` or `--git-diff` to `agent check` when file edits need to
-  be compared against the task's write boundary
-- run `palari agent finish WORK-ID --as PALARI-ID --json` for final report guidance
 - run `palari agent status WORK-ID --as PALARI-ID --json` for the canonical
-  read-only view of task limits, checks, ownership, blockers, and the next safe
-  action
-- run `palari agent handoff WORK-ID --as PALARI-ID --json` when `agent next` or
-  `finish` says the next step is independent review, a human answer, or final
-  approval
+  read-only view of task limits, checks, ownership, blockers, report guidance,
+  and eligible review or human actions
 - follow concrete run-record, check-results, review, and approval guidance before
   generic inspect or validate commands when a check fails
 - treat `human-decision` commands as unavailable until prerequisite run records,
   check results, and review are present
 - treat `approve` as human-only and never execute it from an agent session
-- in review mode, `agent finish` means you may report a review recommendation;
-  it does not authorize you to record a human review or say the original task
-  is complete
-- if a review task brief or handoff brief includes `human_action_boundary`,
+- in review mode, `agent status` may present a review recommendation; it does
+  not authorize you to record a human review or say the original task is complete
+- if a review task brief or status projection includes `human_action_boundary`,
   treat the referenced review or decision commands as human-only; you may quote
   them for a supervisor but must not run them yourself
 - run `palari agent release WORK-ID --as PALARI-ID --json` when abandoning or
@@ -140,8 +132,8 @@ Never:
 - bypass approvals, reviews, run records, check results, or required boundaries
 
 The full agent rules are in `docs/product/agent-contract.md`. For a compact
-command smoke that exercises `agent next`, `brief`, `check`, `finish`, and
-`handoff`, see `docs/product/agent-workflow-smoke.md`.
+command smoke that exercises `agent next`, `brief`, `start`, `status`, and
+`advance`, see `docs/product/agent-workflow-smoke.md`.
 
 Fresh Git repositories may use `palari init --host HOST`; existing workspaces use
 the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,

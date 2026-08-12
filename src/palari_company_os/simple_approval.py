@@ -188,7 +188,7 @@ def approve_work(
         raise _error(
             "APPROVAL_STATE_CHANGED",
             f"the presented approval state for {work_id} is no longer current",
-            "Inspect a fresh agent handoff before approving the changed task state.",
+            "Inspect a fresh agent status before approving the changed task state.",
             work_id=work_id,
             human_id=human_id,
         )

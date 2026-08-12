@@ -16,9 +16,6 @@ from .cli_output_utils import (
 
 _READ_ONLY_HANDOFF_COMMAND_PREFIXES = (
     "palari agent brief ",
-    "palari agent check ",
-    "palari agent finish ",
-    "palari agent handoff ",
     "palari agent status ",
     "palari decision guide ",
     "palari detail ",
@@ -375,230 +372,6 @@ def print_agent_next_all(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  {command}")
 
 
-def print_agent_check(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    agent = payload["agent"]
-    commands = _agent_display_commands(payload)
-    next_command = commands[0] if commands else ""
-    display_step = _agent_display_step(payload)
-    context_command = _agent_context_command(payload, next_command)
-    print(f"Task check: {payload['check_id']}")
-    print(f"OK: {_yes_no(payload['ok'])}")
-    print(f"Mode: {payload.get('mode', 'execute')}")
-    print(f"Task brief: {payload['packet_id']} ({plain_status(payload['packet_status'])})")
-    print(f"Next step: {plain_step(display_step, next_command=context_command)}")
-    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
-    print(f"Task: {work.get('id', '')} {work.get('title', '')}")
-    blockers = payload.get("blockers", [])
-    if blockers:
-        print("Task brief blockers:")
-        for blocker in blockers:
-            print(f"  - {blocker['code']}: {plain_message(blocker['message'])}")
-    print("Checks:")
-    for check in payload.get("checks", []):
-        marker = check["status"]
-        required = "required" if check.get("required") else "optional"
-        print(
-            f"  - {check['code']} [{marker}, {required}]: "
-            f"{plain_message(check['message'])}"
-        )
-        if check.get("next_command") in commands:
-            print(f"    next: {check['next_command']}")
-    if commands:
-        print("Next commands:")
-        for command in commands:
-            print(f"  {command}")
-
-
-def print_agent_finish(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    agent = payload["agent"]
-    commands = _agent_display_commands(payload)
-    next_command = commands[0] if commands else ""
-    display_step = _agent_display_step(payload)
-    decision_command = _decision_guide_command(payload)
-    decision_pending = bool(decision_command) or _has_blocker(
-        payload, "HUMAN_DECISION_REQUIRED"
-    )
-    context_command = _agent_context_command(payload, next_command)
-    print(f"Task finish: {payload['finish_id']}")
-    print(
-        "Status: "
-        f"{plain_status(payload['status'], next_step_type=display_step, next_command=context_command)}"
-    )
-    print(f"Can finish: {_yes_no(payload['can_finish'])}")
-    if decision_pending:
-        print("Ready for decision handoff: yes")
-    else:
-        print(f"Ready to hand off: {_yes_no(payload['handoff_ready'])}")
-    print(
-        "Next step: "
-        f"{plain_step(display_step, next_command=context_command)}"
-    )
-    print(f"Agent: {agent.get('id', '')} ({agent.get('name', 'unknown')})")
-    print(f"Task: {work.get('id', '')} {work.get('title', '')}")
-    if payload.get("missing_requirements"):
-        print("Missing requirements:")
-        for item in payload["missing_requirements"]:
-            print(f"  - {item['code']}: {plain_message(item['message'])}")
-            if item.get("next_command") in commands:
-                print(f"    next: {item['next_command']}")
-    if payload.get("completed_requirements"):
-        print("Completed requirements:")
-        for item in payload["completed_requirements"]:
-            print(f"  - {item['code']}: {plain_message(item['message'])}")
-    if payload.get("blockers"):
-        print("Blockers:")
-        for blocker in payload["blockers"]:
-            print(f"  - {blocker['code']}: {plain_message(blocker['message'])}")
-    if payload.get("handoff_guidance"):
-        print("Handoff guidance:")
-        for item in payload["handoff_guidance"]:
-            print(f"  - {item['code']}: {plain_message(item['message'])}")
-            if item.get("command"):
-                print(f"    command: {item['command']}")
-    guidance = (
-        "Bring the linked decision to the required human before continuing."
-        if decision_pending
-        else _display_report_guidance(payload, payload["report_guidance"])
-    )
-    print(f"Guidance: {guidance}")
-    if commands:
-        print("Next commands:")
-        for command in commands:
-            print(f"  {command}")
-
-
-def print_agent_handoff(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    next_command = _handoff_next_action(payload)
-    print(f"Handoff: {work.get('id', '')} {work.get('title', '')}")
-    print(
-        "Status: "
-        f"{plain_status(payload.get('status', 'unknown'), next_step_type=payload.get('next_step_type'), next_command=next_command)}"
-    )
-    print("Safe: yes (the next action is read-only; no approval is recorded)")
-    print(f"Owner: {_handoff_owner(payload)}")
-    print(f"Why: {plain_message(_handoff_explanation(payload))}")
-    print(f"Next: {next_command}")
-    print("Verification details and alternatives: rerun with --json.")
-
-
-def _handoff_owner(payload: dict[str, Any]) -> str:
-    step = str(payload.get("next_step_type") or "")
-    review = payload.get("review_handoff") or {}
-    decision = payload.get("decision_handoff") or {}
-    approval = payload.get("human_approval_handoff") or {}
-    if review and (step == "review-handoff" or not (decision or approval)):
-        return _eligible_owner(
-            "independent reviewer",
-            review.get("reviewer_candidates", []),
-        )
-    if decision:
-        required = decision.get("required_human") or {}
-        required_id = str(
-            required.get("id")
-            or decision.get("decision", {}).get("required_human")
-            or ""
-        )
-        return f"qualified human {required_id}".rstrip()
-    if approval:
-        return _eligible_owner(
-            "qualified human",
-            approval.get("approval_candidates", []),
-        )
-    primary = str(payload.get("resolution_summary", {}).get("primary_class") or "")
-    if payload.get("status") == "closed" or step == "closed" or primary == "terminal":
-        return "none (terminal)"
-    return {
-        "human-authority": "qualified human",
-        "independent-review": "independent reviewer",
-        "external-state": "external owner",
-        "automatic-reconciliation": (
-            "system" if step == "automatic-reconciliation" else "agent"
-        ),
-        "agent-action": "agent",
-    }.get(primary, "agent")
-
-
-def _eligible_owner(label: str, candidates: list[dict[str, Any]]) -> str:
-    ids = [str(item.get("id") or "") for item in candidates if item.get("id")]
-    if not ids:
-        return label
-    if len(ids) == 1:
-        return f"{label} {ids[0]}"
-    if len(ids) <= 3:
-        return f"{label} ({' or '.join(ids)})"
-    return f"{label} ({len(ids)} eligible; inspect --json)"
-
-
-def _handoff_explanation(payload: dict[str, Any]) -> str:
-    review = payload.get("review_handoff") or {}
-    decision = payload.get("decision_handoff") or {}
-    approval = payload.get("human_approval_handoff") or {}
-    if payload.get("status") == "closed" or payload.get("next_step_type") == "closed":
-        return "The task is complete; no further approval or work is required."
-    for section, fallback in (
-        (review, "The checked version is waiting for an independent review result."),
-        (decision, "A linked decision is waiting for qualified human judgment."),
-        (approval, "The current reviewed version is waiting for qualified human approval."),
-    ):
-        if section:
-            return _one_line(section.get("why") or section.get("next_action") or fallback)
-    finish = payload.get("finish") or {}
-    for key in ("missing_requirements", "blockers"):
-        items = finish.get(key) or []
-        if items:
-            return _one_line(items[0].get("message") or "The current checks are blocked.")
-    return _one_line(
-        finish.get("report_guidance")
-        or "Inspect the current checks before taking another action."
-    )
-
-
-def _handoff_next_action(payload: dict[str, Any]) -> str:
-    step = str(payload.get("next_step_type") or "")
-    review = payload.get("review_handoff") or {}
-    decision = payload.get("decision_handoff") or {}
-    approval = payload.get("human_approval_handoff") or {}
-    if review and (step == "review-handoff" or not (decision or approval)):
-        return _read_only_handoff_action(payload, str(review.get("command") or ""))
-    if decision:
-        return _read_only_handoff_action(payload, str(decision.get("command") or ""))
-    if approval:
-        return _read_only_handoff_action(payload, str(approval.get("command") or ""))
-    return _read_only_handoff_action(payload)
-
-
-def _read_only_handoff_action(
-    payload: dict[str, Any],
-    preferred: str = "",
-) -> str:
-    commands = [preferred, *payload.get("next_allowed_commands", [])]
-    for value in commands:
-        command = str(value or "")
-        if _is_read_only_handoff_command(command):
-            return command
-    work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
-    return _payload_command(payload, "detail", work_id, "--json")
-
-
-def _one_line(value: Any, *, limit: int = 180) -> str:
-    text = " ".join(str(value).split())
-    if len(text) <= limit:
-        return text
-    return f"{text[: limit - 1].rstrip()}…"
-
-
 def print_agent_status(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -628,6 +401,10 @@ def print_agent_status(payload: dict[str, Any], as_json: bool) -> None:
             print(f"  - {stage.get('name', '')}: {plain_detail_state(stage.get('status', ''))}")
     next_command = str(next_action.get("command") or "")
     print(f"Next: {next_command or 'No action; inspect --json for recorded checks.'}")
+    for item in payload.get("agent_action_commands") or []:
+        print(f"Reviewer action ({item.get('actor', '')}): {item.get('command', '')}")
+    for item in payload.get("human_action_commands") or []:
+        print(f"Human action ({item.get('actor', '')}): {item.get('command', '')}")
     print("Verification details: rerun with --json.")
 
 
@@ -724,18 +501,18 @@ def _decision_guide_command(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _decision_handoff_command(payload: dict[str, Any]) -> str:
+def _decision_status_command(payload: dict[str, Any]) -> str:
     for item in payload.get("handoff_guidance") or []:
         if item.get("code") == "DECISION_HANDOFF" and item.get("command"):
             return str(item["command"])
     next_action = payload.get("next_action") or {}
     command = str(next_action.get("command") or "")
-    if palari_command_parts(command)[:2] == ("agent", "handoff"):
+    if palari_command_parts(command)[:2] == ("agent", "status"):
         return command
     for key in ("recommended_commands", "next_allowed_commands"):
         for value in payload.get(key) or []:
             command = str(value)
-            if palari_command_parts(command)[:2] == ("agent", "handoff"):
+            if palari_command_parts(command)[:2] == ("agent", "status"):
                 return command
     if _has_blocker(payload, "HUMAN_DECISION_REQUIRED"):
         work_id = str(payload.get("work_item", {}).get("id") or "WORK-ID")
@@ -743,7 +520,7 @@ def _decision_handoff_command(payload: dict[str, Any]) -> str:
         return _payload_command(
             payload,
             "agent",
-            "handoff",
+            "status",
             work_id,
             "--as",
             agent_id,
@@ -775,7 +552,7 @@ def _agent_context_command(payload: dict[str, Any], fallback: str = "") -> str:
         return guide
     if _has_blocker(payload, "HUMAN_DECISION_REQUIRED"):
         # This value is only a rendering hint for plain_step/plain_status. The
-        # executable command remains the read-only agent handoff.
+        # executable command remains the read-only agent status projection.
         return "palari decision guide"
     return fallback
 
@@ -795,9 +572,9 @@ def _agent_display_step(payload: dict[str, Any]) -> str:
 def _agent_display_commands(payload: dict[str, Any]) -> list[str]:
     commands = [str(item) for item in payload.get("next_allowed_commands") or []]
     decision_guide = _decision_guide_command(payload)
-    decision_handoff = _decision_handoff_command(payload)
-    if decision_guide or decision_handoff:
-        visible = [decision_handoff or decision_guide, decision_guide]
+    decision_status = _decision_status_command(payload)
+    if decision_guide or decision_status:
+        visible = [decision_status or decision_guide, decision_guide]
         visible.extend(
             command
             for command in commands

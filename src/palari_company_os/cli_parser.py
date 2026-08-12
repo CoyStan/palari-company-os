@@ -354,42 +354,6 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Exact safe action for resuming parked work; requires --reason.",
     )
     release.add_argument("--json", action="store_true", help="Emit JSON.")
-    check = nested.add_parser(
-        "check",
-        help="Check whether one task follows its task brief.",
-    )
-    check.add_argument("work_id")
-    check.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    check.add_argument("--mode", default="execute", help="Session mode.")
-    check.add_argument(
-        "--changed",
-        action="append",
-        default=[],
-        metavar="PATH",
-        help="Changed path to compare with the task's file limits. Repeatable.",
-    )
-    check.add_argument(
-        "--git-diff",
-        action="store_true",
-        help="Check current Git changes against the task's file limits.",
-    )
-    check.add_argument("--json", action="store_true", help="Emit JSON.")
-    finish = nested.add_parser(
-        "finish",
-        help="Check whether one task is ready for the agent's final report.",
-    )
-    finish.add_argument("work_id")
-    finish.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    finish.add_argument("--mode", default="execute", help="Session mode.")
-    finish.add_argument("--json", action="store_true", help="Emit JSON.")
-    handoff = nested.add_parser(
-        "handoff",
-        help="Show the read-only handoff for one task.",
-    )
-    handoff.add_argument("work_id")
-    handoff.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    handoff.add_argument("--mode", default="execute", help="Session mode.")
-    handoff.add_argument("--json", action="store_true", help="Emit JSON.")
     status = nested.add_parser(
         "status",
         help="Show one canonical read-only task status.",

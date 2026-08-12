@@ -602,7 +602,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
             palari_workspace_command(
                 self.workspace_file,
                 "agent",
-                "handoff",
+                "status",
                 WORK_ID,
                 "--as",
                 OTHER_PALARI_ID,

@@ -801,6 +801,16 @@ def _next_allowed_commands(
         return [
             palari_workspace_command(
                 workspace.data_path,
+                "agent",
+                "status",
+                work_id,
+                "--as",
+                palari_id,
+                *(("--mode", mode) if mode == "review" else ()),
+                "--json",
+            ),
+            palari_workspace_command(
+                workspace.data_path,
                 "detail",
                 work_id,
                 "--json",

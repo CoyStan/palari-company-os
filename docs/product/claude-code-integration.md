@@ -1,6 +1,6 @@
 # Claude Code Integration
 
-Palari's agent rules ask agents to run `palari agent check` before saying a
+Palari's agent rules ask agents to inspect `palari agent status` before saying a
 task is done. This integration also enforces that boundary mechanically. It
 wires Palari into [Claude Code hooks](https://code.claude.com/docs/en/hooks) so
 allowed file changes do not depend only on the agent following instructions.

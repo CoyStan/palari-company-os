@@ -131,7 +131,6 @@ _PLAIN_STEP_LABELS = {
     "verify": "Run required check",
     "work-attempt-bind": "Tie run to task",
     "attempt-closeout": "Close run",
-    "agent-finish": "Confirm task is ready",
     "lifecycle-complete": "Complete task",
     "complete-work": "Complete task",
     "resume": "Resume task",
@@ -459,8 +458,8 @@ _PLAIN_MESSAGE_REPLACEMENTS = (
         "review is still separate from final approval",
     ),
     (
-        r"\buse agent handoff for required human authority and suggested decision update commands\b",
-        "use agent handoff to show the decision and safe choices to the required human",
+        r"\buse agent status for required human authority and suggested decision update commands\b",
+        "use agent status to show the decision and safe choices to the required human",
     ),
     (r"\bcheckpoint listing\b", "restore-point listing"),
     (r"\bcheckpoint digest\b", "restore-point digest"),

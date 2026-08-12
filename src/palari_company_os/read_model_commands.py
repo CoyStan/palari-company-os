@@ -35,16 +35,7 @@ def agent_commands(
             "--mode",
             "execute",
         ),
-        "check": _agent_work_command(
-            workspace_path,
-            "check",
-            work,
-            "--mode",
-            "execute",
-        ),
-        "finish": _agent_work_command(workspace_path, "finish", work),
         "status": _agent_work_command(workspace_path, "status", work),
-        "handoff": _agent_work_command(workspace_path, "handoff", work),
     }
     if next_step_type == "review-handoff":
         commands["review"] = _agent_work_command(
@@ -54,29 +45,11 @@ def agent_commands(
             "--mode",
             "review",
         )
-        commands["review_check"] = _agent_work_command(
-            workspace_path,
-            "check",
-            work,
-            "--mode",
-            "review",
-        )
     return commands
 
 
 def agent_status_command(work: Any, *, workspace_path: Path | str) -> str:
     return _agent_work_command(workspace_path, "status", work)
-
-
-def agent_handoff_command(
-    work: Any,
-    next_step_type: str,
-    *,
-    workspace_path: Path | str,
-) -> str:
-    if next_step_type in {"human-decision", "review-handoff"}:
-        return _agent_work_command(workspace_path, "handoff", work)
-    return ""
 
 
 def work_next_commands(
@@ -110,16 +83,7 @@ def work_next_commands(
             )
         )
     elif attention == "needs-evidence" and has_current_attempt:
-        commands.append(
-            _agent_work_command(
-                workspace_path,
-                "check",
-                work,
-                "--mode",
-                "execute",
-            )
-        )
-        commands.append(_agent_work_command(workspace_path, "finish", work))
+        commands.append(_agent_work_command(workspace_path, "status", work))
     elif attention in {"ready-for-ai-work", "needs-evidence", "changes-requested"} and ai_safe_to_proceed:
         commands.append(
             _agent_work_command(

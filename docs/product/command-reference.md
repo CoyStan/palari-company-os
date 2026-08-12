@@ -90,15 +90,13 @@ Read-only recovery and inspection commands remain available:
 palari agent home --as PALARI-ID --json
 palari agent next [--as PALARI-ID|--all] --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
-palari agent check WORK-ID --as PALARI-ID --git-diff --json
-palari agent finish WORK-ID --as PALARI-ID --json
-palari agent handoff WORK-ID --as PALARI-ID --mode review --json
 palari agent status WORK-ID --as PALARI-ID --json
 palari agent advance WORK-ID --as PALARI-ID --dry-run --json
 ```
 
 `agent status` is the canonical public read-only projection for task limits,
-checks, ownership, blockers, stages, and the next safe action.
+checks, ownership, blockers, stages, report guidance, and eligible review or
+human actions.
 
 These helpers do not create approval. `advance` is the sole supported
 check-and-finish mutation path.

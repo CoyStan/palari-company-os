@@ -1,6 +1,6 @@
 # Cursor Integration
 
-Palari's agent rules ask agents to run `palari agent check` before saying a
+Palari's agent rules ask agents to inspect `palari agent status` before saying a
 task is done. Cursor does not expose a Claude-style pre-write deny hook, so this
 integration is honest about what it can enforce:
 

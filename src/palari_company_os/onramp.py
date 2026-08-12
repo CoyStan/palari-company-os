@@ -60,10 +60,10 @@ palari agent advance WORK-ID --as PALARI-ID --json
 review or human approval. When it stops for review, start the emitted
 review-mode packet for the review-only agent ID returned by `palari init`
 (`REVIEWER-ID` in generic examples) and record only that agent's advisory
-verdict. The reviewer can then run `palari agent handoff WORK-ID --as
+verdict. The reviewer can then run `palari agent status WORK-ID --as
 REVIEWER-ID --mode review --json`.
 
-For one eligible reversible local task, that handoff's JSON contains one exact
+For one eligible reversible local task, that status JSON contains one exact
 presentation-bound command in `human_action_commands[].command`. A qualified
 human runs that emitted command once. Agents may quote the exact command but
 must never run it, reconstruct a bare approval command, or run any
@@ -98,16 +98,16 @@ Follow the task brief (`packet`), commit only the bounded change, and run
 agent status` and report its exact next safe action. For a review handoff,
 start the exact review packet emitted for the review-only agent ID returned by
 `palari init` (`REVIEWER-ID` in generic examples), record its advisory verdict,
-and let that reviewer present `agent handoff --mode review`. For one eligible
+and let that reviewer present `agent status --mode review`. For one eligible
 reversible local task, a qualified human runs the exact presentation-bound
-command in the handoff's `human_action_commands[].command`; agents must not run
+command in the status projection's `human_action_commands[].command`; agents must not run
 or manually reconstruct approval commands.
 """,
     "docs/agent/verification.md": """# Verification
 
 Run the task's declared checks while editing. Before reporting completion,
-run `palari validate --json` and `palari agent check WORK-ID --as PALARI-ID
---mode execute --git-diff --json`. Authoritative `palari agent advance` does
+run `palari validate --json` and inspect `palari agent status WORK-ID --as
+PALARI-ID --mode execute --json`. Authoritative `palari agent advance` does
 not execute task prose. It runs fixed, built-in, shell-free verification
 profiles before recording check results. For R1 work, the profile is an exact
 Git base-to-head `git --literal-pathspecs diff --check BASE HEAD -- CHANGED_PATHS`

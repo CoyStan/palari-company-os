@@ -66,6 +66,9 @@ class DemoCommandTests(unittest.TestCase):
         self.assertNotIn("active attempts", transcript)
         self.assertIn("run record, and check results", transcript)
         commands = "\n".join(step["command"] for step in payload["steps"])
+        self.assertNotIn("agent check", commands)
+        self.assertNotIn("agent finish", commands)
+        self.assertNotIn("agent handoff", commands)
         self.assertRegex(
             commands,
             re.compile(r"agent advance WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}"),

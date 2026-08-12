@@ -113,7 +113,7 @@ code change must match them. See
   gates. Mutable proof records and current builder/reviewer proof context are
   deliberately excluded. A changed authority, malformed strict JSON, or
   mismatched workspace fails closed. Journal actor
-  labels and `agent handoff` do not authorize a rebaseline. Preserve the old
+  labels and `agent status` do not authorize a rebaseline. Preserve the old
   record and create a successor work item for a changed contract; unrelated
   read-model projection remains eligible for separate classification.
 - If a first claim's current work declaration is absent from the baseline commit,
@@ -154,7 +154,7 @@ code change must match them. See
 - Blocked packets must not be claimed.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
-- `agent check` verifies proof state and, when requested, observed file changes
+- `agent status` reports proof state, task limits, blockers, and boundary actions
   against the packet boundary.
 - One request-local agent operation shares a packet, check, and directive
   across aggregate read views. The pure directive compiler classifies the next

@@ -223,12 +223,12 @@ unsupported and cannot be upgraded in place.
 
 ## The ordinary human path
 
-After an independent review, inspect the concise human handoff and run its
+After an independent review, inspect the concise task status and run its
 exact human action once:
 
 ```bash
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
-# A human runs the exact human_action_commands[].command from this handoff.
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact human_action_commands[].command from this status.
 ```
 
 Initialization provides a distinct review-only agent so a one-person
@@ -321,7 +321,7 @@ palari scope WORK-ID --changed docs/notes.md
 palari agent next --as PALARI-ID --json
 palari agent start --next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
-palari agent check WORK-ID --as PALARI-ID --mode execute --json
+palari agent status WORK-ID --as PALARI-ID --mode execute --json
 palari agent advance WORK-ID --as PALARI-ID --json
 palari agent release WORK-ID --as PALARI-ID \
   --reason "Paused" --next-action "Resume from the recorded blocker" --json
@@ -355,7 +355,7 @@ tests/                             Unit and fixture tests
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
 - **Agent workflow:** read [Agent Workflow Smoke](docs/product/agent-workflow-smoke.md).
-- **Human loop:** inspect `palari agent handoff WORK-ID --as PALARI-REVIEWER
+- **Human loop:** inspect `palari agent status WORK-ID --as PALARI-REVIEWER
   --mode review --json`, then have the human run its exact emitted
   `human_action_commands[].command` once.
 - **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).

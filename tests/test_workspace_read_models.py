@@ -372,12 +372,10 @@ class QueueProjectionTests(unittest.TestCase):
             palari_workspace_command(
                 workspace.data_path,
                 "agent",
-                "check",
+                "status",
                 "WORK-1",
                 "--as",
                 "PALARI-1",
-                "--mode",
-                "execute",
                 "--json",
             ),
         )
@@ -433,11 +431,11 @@ class QueueProjectionTests(unittest.TestCase):
         self.assertEqual(item.review_state, "missing")
         self.assertFalse(item.ai_safe_to_proceed)
         self.assertEqual(
-            item.agent_handoff_command,
+            item.agent_status_command,
             palari_workspace_command(
                 workspace.data_path,
                 "agent",
-                "handoff",
+                "status",
                 "WORK-1",
                 "--as",
                 "PALARI-1",

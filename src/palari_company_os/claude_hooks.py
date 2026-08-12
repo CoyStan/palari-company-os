@@ -213,9 +213,6 @@ SAFE_AGENT_PALARI_COMMANDS = {
     for action in (
         "advance",
         "brief",
-        "check",
-        "finish",
-        "handoff",
         "next",
         "release",
         "start",
@@ -1457,9 +1454,8 @@ def _stop(
         *[f"  - {path}" for path in _allowed_write_paths(execute)],
         "Before finishing: revert the out-of-boundary changes (or confirm they "
         "predate this session and tell the human), then run:",
-        f"  palari agent check {work_id} --as {palari_id} --mode execute --git-diff --json",
-        "If the boundary itself must grow, stop and hand off with:",
-        f"  palari agent handoff {work_id} --as {palari_id} --json",
+        f"  palari agent status {work_id} --as {palari_id} --mode execute --json",
+        "If the boundary itself must grow, stop and show that status to the human.",
     ]
     return {"decision": "block", "reason": "\n".join(lines)}
 
@@ -1493,8 +1489,8 @@ def _session_start(
                 "  allowed write paths: " + (", ".join(writes) if writes else "(none)")
             )
             lines.append(
-                f"  check before done: palari agent check {work_id} --as {palari_id} "
-                f"--mode {mode} --git-diff --json"
+                f"  inspect before done: palari agent status {work_id} --as {palari_id} "
+                f"--mode {mode} --json"
             )
         lines.append(
             "File writes outside these boundaries are blocked by PreToolUse and "
@@ -1547,7 +1543,6 @@ def _boundary_reason(
         f"work: {work_id} (claimed by {palari_id})",
         "Next safe commands:",
         f"  palari agent status {work_id} --as {palari_id} --mode execute --json",
-        f"  palari agent handoff {work_id} --as {palari_id} --json",
         "If the limits must grow, a human updates the task first.",
     ]
     return "\n".join(lines)

@@ -21,8 +21,7 @@ work should usually fit into one of these modules:
 - `cli_parser.py`: argparse setup and command flags.
 - `cli_dispatch.py`: command execution and CLI-to-domain record assembly.
 - `cli_output.py`: dispatch and shared human-readable/JSON rendering.
-- `cli_output_agent.py`: agent packet, check, lifecycle, handoff, loop, and
-  doctor output.
+- `cli_output_agent.py`: agent home, packet, status, and lifecycle output.
 - `cli_output_integrations.py`: integration registry, plan, outbox, and
   preflight output.
 - `cli_output_utils.py`: small shared output helpers.

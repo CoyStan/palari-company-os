@@ -97,7 +97,7 @@ human presentation and performs one action:
 ```bash
 palari agent start WORK-ID --as PALARI-REVIEWER --mode review --json
 # inspect the exact proof and run one emitted review_record_commands[].command
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
 # a human runs the exact emitted human_action_commands[].command
 ```
 
@@ -176,13 +176,13 @@ the committed example.
 This path is allowed:
 
 ```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
+./bin/palari --workspace /tmp/palari-company-os-demo agent status WORK-0003 --as PALARI-SOFIA --mode execute --json
 ```
 
 This path is blocked:
 
 ```bash
-./bin/palari --workspace /tmp/palari-company-os-demo agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed deploy/production.yml --json
+./bin/palari --workspace /tmp/palari-company-os-demo scope WORK-0003 --changed deploy/production.yml --json
 ```
 
 ## Next reading

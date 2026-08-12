@@ -196,11 +196,11 @@ class OperatorJourneyTests(unittest.TestCase):
             invoked.append("review record")
             self.assertEqual(review_result["action"], "created")
 
-            reviewer_handoff = self._run_emitted_json(
+            reviewer_status = self._run_emitted_json(
                 palari_workspace_command(
                     workspace_file,
                     "agent",
-                    "handoff",
+                    "status",
                     work_id,
                     "--as",
                     "PALARI-REVIEWER",
@@ -209,8 +209,8 @@ class OperatorJourneyTests(unittest.TestCase):
                     "--json",
                 )
             )
-            invoked.append("agent handoff")
-            human_action = reviewer_handoff["human_action_commands"][0]
+            invoked.append("agent status")
+            human_action = reviewer_status["human_action_commands"][0]
             self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")
             self.assertIn("approve", human_action["command"])
             self.assertNotIn(" receipt ", f" {human_action['command']} ")
@@ -237,7 +237,7 @@ class OperatorJourneyTests(unittest.TestCase):
                     "agent advance",
                     "agent start review",
                     "review record",
-                    "agent handoff",
+                    "agent status",
                     "approve",
                 ],
             )
@@ -295,44 +295,6 @@ class OperatorJourneyTests(unittest.TestCase):
             output = root / output_path
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text("exact founder-reviewed bytes\n", encoding="utf-8")
-            checked = self._run_cli_json(
-                "--workspace",
-                str(workspace_file),
-                "agent",
-                "check",
-                work_id,
-                "--as",
-                "PALARI-CLAUDE",
-                "--mode",
-                "execute",
-                "--changed",
-                output_path,
-                "--json",
-            )
-            boundary_checks = {
-                str(item["code"]): item for item in checked["checks"]
-            }
-            for code in (
-                "PACKET_READY",
-                "PALARI_ALLOWED",
-                "DEPENDENCIES_CLEAR",
-                "SOURCES_ALLOWED",
-                "NO_UNAPPROVED_EXTERNAL_WRITE",
-                "VALIDATE_WORKSPACE",
-                "CLAIM_OWNED",
-                "FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
-                "REQUIRED_OUTPUT_EXISTS",
-            ):
-                self.assertNotEqual(
-                    boundary_checks[code]["status"],
-                    "fail",
-                    msg=f"{code}: {boundary_checks[code]}",
-                )
-            self.assertFalse(checked["ok"])
-            self.assertEqual(
-                boundary_checks["FILE_CHANGES_RECORDED"]["status"],
-                "fail",
-            )
 
             self.run_git(root, "add", "--", output_path)
             self.run_git(root, "commit", "-qm", "add bounded founder result")
@@ -398,11 +360,11 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertEqual(review_result["action"], "created")
             self.assertEqual(review_result["collection"], "review_verdicts")
 
-            reviewer_handoff = self._run_emitted_json(
+            reviewer_status = self._run_emitted_json(
                 palari_workspace_command(
                     workspace_file,
                     "agent",
-                    "handoff",
+                    "status",
                     work_id,
                     "--as",
                     "PALARI-REVIEWER",
@@ -411,7 +373,7 @@ class OperatorJourneyTests(unittest.TestCase):
                     "--json",
                 )
             )
-            human_actions = reviewer_handoff["human_action_commands"]
+            human_actions = reviewer_status["human_action_commands"]
             self.assertEqual(len(human_actions), 1)
             human_action = human_actions[0]
             self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")

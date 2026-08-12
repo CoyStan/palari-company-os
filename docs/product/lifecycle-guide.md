@@ -80,7 +80,7 @@ the human handoff presents the exact current task and a qualified person takes
 one ordinary, presentation-bound action:
 
 ```bash
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
 # A human runs the exact emitted human_action_commands[].command.
 ```
 

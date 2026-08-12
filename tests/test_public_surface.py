@@ -17,9 +17,12 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 81)
-        self.assertEqual(len(_collect_leaf_commands()), 66)
+        self.assertEqual(len(actual), 78)
+        self.assertEqual(len(_collect_leaf_commands()), 63)
         self.assertIn("palari agent status", actual)
+        self.assertNotIn("palari agent check", actual)
+        self.assertNotIn("palari agent finish", actual)
+        self.assertNotIn("palari agent handoff", actual)
         self.assertNotIn("palari agent doctor", actual)
         self.assertNotIn("palari agent loop", actual)
         self.assertFalse(

@@ -23,9 +23,6 @@ Run the selection and task commands in order:
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --as PALARI-SOFIA --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent start WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --changed docs/product/company-os.md --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0003 --as PALARI-SOFIA --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent release WORK-0003 --as PALARI-SOFIA --json
 ```
@@ -33,8 +30,8 @@ Run the selection and task commands in order:
 This sequence should select bounded work, save its packet and claim, evaluate
 the declared file boundary, explain unfinished trust records, present the
 canonical task status, and finally release the claim. A ready brief is not a
-completion result. Only the check and finish projections can establish whether
-the required run record, evidence, review, and approval exist.
+completion result. The status projection establishes whether the required run
+record, evidence, review, and approval exist.
 
 ## Exercise review handoff
 
@@ -44,13 +41,10 @@ valid result. Inspect it without creating review or approval records:
 ```bash
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all --mode review
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0001 --as PALARI-ALFRED --mode review --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0001 --as PALARI-ALFRED --mode review --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0001 --as PALARI-ALFRED --mode review --json
-./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json
 ./bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0001 --as PALARI-ALFRED --mode review --json
 ```
 
-Review briefs remain read-only. `agent handoff` may present commands under a
+Review briefs remain read-only. `agent status` may present commands under a
 `human_action_boundary`; any `human_action_commands` belong to the human
 supervisor. An agent may report them but must not execute them.
 

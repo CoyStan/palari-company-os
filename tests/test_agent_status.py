@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,7 @@ class _Operation:
         self.palari_id = "PALARI-STATUS"
         self.mode = "execute"
         self.calls = {"brief": 0, "check": 0, "directive": 0}
+        self.handoff_ready = False
 
     def brief(self) -> dict[str, Any]:
         self.calls["brief"] += 1
@@ -94,6 +96,12 @@ class _Operation:
             "missing_requirements": [{"code": "EVIDENCE_PRESENT"}],
             "completed_requirements": [{"code": "PACKET_READY"}],
             "automatic_transitions": [],
+            "handoff_guidance": (
+                [{"code": "REVIEW_HANDOFF"}]
+                if self.handoff_ready
+                else []
+            ),
+            "report_guidance": "Inspect current status.",
             "next_allowed_commands": [
                 "palari agent advance WORK-STATUS --as PALARI-STATUS --json"
             ],
@@ -150,6 +158,36 @@ class AgentStatusTests(unittest.TestCase):
         )
         self.assertEqual(status["missing_requirements"], [{"code": "EVIDENCE_PRESENT"}])
         self.assertEqual(status["completed_requirements"], [{"code": "PACKET_READY"}])
+
+    def test_status_includes_boundary_actions_when_they_are_eligible(self) -> None:
+        self.operation.handoff_ready = True
+        action_projection = {
+            "review_handoff": {"status": "review-needed"},
+            "decision_handoff": None,
+            "human_approval_handoff": None,
+            "agent_action_commands": [{"command": "palari review record ..."}],
+            "agent_action_boundary": {"agent_may_execute": True},
+            "human_action_commands": [],
+            "human_action_boundary": {"agent_may_execute": False},
+            "next_allowed_commands": ["palari review guide WORK-STATUS --json"],
+        }
+        with patch(
+            "palari_company_os.agent_status.build_agent_handoff",
+            return_value=action_projection,
+        ) as build_actions:
+            status = self.build_status()
+
+        build_actions.assert_called_once()
+        self.assertEqual(status["review"], {"status": "review-needed"})
+        self.assertEqual(
+            status["agent_action_commands"],
+            action_projection["agent_action_commands"],
+        )
+        self.assertFalse(status["human_action_boundary"]["agent_may_execute"])
+        self.assertEqual(
+            status["next_allowed_commands"],
+            action_projection["next_allowed_commands"],
+        )
 
 
 if __name__ == "__main__":

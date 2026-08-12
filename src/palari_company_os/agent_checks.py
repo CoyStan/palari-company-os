@@ -338,7 +338,7 @@ def _next_commands(packet: dict[str, Any], checks: list[dict[str, Any]], ok: boo
         + packet_commands_from_checks(packet)
     ):
         _append_agent_check_command(commands, command)
-    _prioritize_review_handoff(commands, packet)
+    _prioritize_review_status(commands, packet)
     return commands
 
 
@@ -372,7 +372,7 @@ def _first_command(packet: dict[str, Any]) -> str:
     return commands[0] if commands else ""
 
 
-def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> None:
+def _prioritize_review_status(commands: list[str], packet: dict[str, Any]) -> None:
     blocker_codes = {blocker.get("code", "") for blocker in packet.get("blockers", [])}
     if not ({"REVIEW_REQUIRED", "RECEIPT_READY_REVIEW"} & blocker_codes):
         return
@@ -382,7 +382,7 @@ def _prioritize_review_handoff(commands: list[str], packet: dict[str, Any]) -> N
         _packet_command(
             packet,
             "agent",
-            "handoff",
+            "status",
             work_id,
             "--as",
             palari_id,

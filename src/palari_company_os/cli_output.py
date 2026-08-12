@@ -6,10 +6,7 @@ from typing import Any
 from .cli_output_agent import (
     print_agent_adopt,
     print_agent_brief,
-    print_agent_check,
     print_agent_advance,
-    print_agent_finish,
-    print_agent_handoff,
     print_agent_home,
     print_agent_next,
     print_agent_next_all,
@@ -187,18 +184,6 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "agent-next-all":
         print_agent_next_all(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-check":
-        print_agent_check(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-finish":
-        print_agent_finish(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-handoff":
-        print_agent_handoff(result.payload, result.as_json)
         return
 
     if result.kind == "agent-status":
@@ -829,8 +814,6 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             print(f"  coordination: {warning}")
         if item.agent_status_command:
             print(f"  agent status: {item.agent_status_command}")
-        if item.agent_handoff_command:
-            print(f"  agent handoff: {item.agent_handoff_command}")
         if item.terminal_disposition:
             print(f"  retired: {item.terminal_disposition} ({item.terminal_reason})")
             if item.successor_work_item_id:
@@ -974,9 +957,6 @@ def print_detail(payload: dict[str, Any]) -> None:
         print("Next commands:")
         for command in display_commands:
             print(f"  {command}")
-    if payload.get("agent_handoff_command"):
-        print("Agent handoff:")
-        print(f"  {payload['agent_handoff_command']}")
     safety = payload["safety"]
     print(
         "Safety: "
@@ -1127,8 +1107,6 @@ def print_state(payload: dict[str, Any]) -> None:
         print(f"  why: {plain_message(top['why'])}")
         if top.get("agent_status_command"):
             print(f"  agent status: {top['agent_status_command']}")
-        if top.get("agent_handoff_command"):
-            print(f"  agent handoff: {top['agent_handoff_command']}")
         if display_command:
             print(f"  command: {display_command}")
     if payload.get("active_parallel_work"):

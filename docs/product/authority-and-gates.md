@@ -53,8 +53,8 @@ immutable; record a new review for a changed result.
 
 ```bash
 palari agent start WORK-ID --as PALARI-REVIEWER --mode review --json
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
-# run one exact agent_action_commands[].command from that handoff
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
+# run one exact agent_action_commands[].command from that status projection
 ```
 
 An agent reviewer remains advisory. It cannot count as a human approver.

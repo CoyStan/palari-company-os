@@ -367,13 +367,13 @@ def _next_commands(check: dict[str, Any]) -> list[str]:
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = _agent_handoff_command(check, work_id, palari_id)
+    status_command = _agent_status_command(check, work_id, palari_id)
     review_command = f"palari review guide {work_id} --json"
     review_needed = (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
     ) and review_prerequisites_met(check)
     if review_needed:
-        _prioritize(commands, [handoff_command, review_command])
+        _prioritize(commands, [status_command, review_command])
     automatic_reconciliation = bool(blocker_codes & AUTOMATIC_BLOCKERS)
     if automatic_reconciliation:
         _prioritize(
@@ -392,7 +392,7 @@ def _handoff_guidance(
     blocker_codes = {blocker.get("code", "") for blocker in check.get("blockers", [])}
     work_id = check.get("work_item", {}).get("id", "WORK-ID")
     palari_id = check.get("agent", {}).get("id", "PALARI-ID")
-    handoff_command = _agent_handoff_command(check, work_id, palari_id)
+    status_command = _agent_status_command(check, work_id, palari_id)
     if (
         "RECEIPT_READY_REVIEW" in blocker_codes or "REVIEW_REQUIRED" in blocker_codes
     ) and review_prerequisites_met(check):
@@ -400,10 +400,10 @@ def _handoff_guidance(
             {
                 "code": "REVIEW_HANDOFF",
                 "message": (
-                    "Use agent handoff to inspect the run record, checks, and "
+                    "Use agent status to inspect the run record, checks, and "
                     "concrete packet-bound review commands."
                 ),
-                "command": handoff_command,
+                "command": status_command,
                 "guide_command": f"palari review guide {work_id} --json",
             }
         )
@@ -415,11 +415,11 @@ def _handoff_guidance(
             "guide",
         ):
             code = "DECISION_HANDOFF"
-            message = "Use agent handoff for required human authority and suggested decision update commands."
+            message = "Use agent status for required human authority and suggested decision update commands."
         elif human_approval_prerequisites_met(check):
             code = "HUMAN_APPROVAL_HANDOFF"
             message = (
-                "Use agent handoff. It exposes one exact Approval Pack action when "
+                "Use agent status. It exposes one exact Approval Pack action when "
                 "the workspace has valid journal continuity and otherwise stays "
                 "blocked without manufacturing human authority."
             )
@@ -429,7 +429,7 @@ def _handoff_guidance(
             {
                 "code": code,
                 "message": message,
-                "command": handoff_command,
+                "command": status_command,
                 "guide_command": decision_command,
             }
         )
@@ -444,7 +444,7 @@ def _first_decision_command(check: dict[str, Any]) -> str:
     return f"palari detail {work_id} --json"
 
 
-def _agent_handoff_command(
+def _agent_status_command(
     check: dict[str, Any],
     work_id: str,
     palari_id: str,
@@ -452,7 +452,7 @@ def _agent_handoff_command(
     mode = str(check.get("mode") or "execute")
     mode_arg = " --mode review" if mode == "review" else ""
     return (
-        f"palari agent handoff {work_id} --as {palari_id}"
+        f"palari agent status {work_id} --as {palari_id}"
         f"{mode_arg} --json"
     )
 

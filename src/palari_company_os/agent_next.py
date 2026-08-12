@@ -178,7 +178,6 @@ def _candidates(
             start_blockers.insert(0, claim_blocker)
         start_blockers = enrich_blockers(start_blockers)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
-        check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
         finish = build_agent_finish(
             workspace,
@@ -254,7 +253,6 @@ def _candidates(
                     item,
                     can_start,
                     brief_command,
-                    check_command,
                     handoff_guidance,
                     finish_commands,
                     next_command,
@@ -262,7 +260,6 @@ def _candidates(
                     mode,
                 ),
                 "brief_command": brief_command,
-                "check_command": check_command,
             }
         )
     return candidates
@@ -318,7 +315,6 @@ def _candidate_next_commands(
     item: Any,
     can_start: bool,
     brief_command: str,
-    check_command: str,
     handoff_guidance: list[dict[str, str]],
     finish_commands: list[str],
     next_command: str,
@@ -326,18 +322,17 @@ def _candidate_next_commands(
     mode: str,
 ) -> list[str]:
     if can_start and item.next_step_type == "check-active-proof":
-        commands = list(item.next_commands or [next_command, check_command])
+        commands = list(item.next_commands or [next_command])
         _append_once(commands, status_command)
         return commands
     if can_start and mode == "review":
         return [
             brief_command,
             f"palari review guide {item.id} --json",
-            check_command,
             status_command,
         ]
     if can_start:
-        return [brief_command, check_command, status_command]
+        return [brief_command, status_command]
     if handoff_guidance:
         commands = [next_command]
         for guidance in handoff_guidance:
@@ -361,10 +356,6 @@ def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return blockers
-
-
-def _check_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _status_command(work_id: str, palari_id: str, mode: str) -> str:
@@ -526,9 +517,9 @@ def _candidate_commands(candidate: dict[str, Any]) -> list[str]:
     if candidate["next_command"] != candidate["brief_command"]:
         return candidate.get("next_commands") or [
             candidate["next_command"],
-            candidate["check_command"],
+            candidate["status_command"],
         ]
-    return [candidate["brief_command"], candidate["check_command"]]
+    return [candidate["brief_command"], candidate["status_command"]]
 
 
 def _append_once(commands: list[str], command: str) -> None:

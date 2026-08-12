@@ -215,10 +215,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
     if args.command == "agent":
-        from .agent_checks import build_agent_check
-        from .agent_finish import build_agent_finish
         from .agent_home import build_agent_home
-        from .agent_handoff import build_agent_handoff
         from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
@@ -369,34 +366,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             return CommandResult(
                 "agent-release",
                 release_agent(agent_workspace, args.workspace, args.work_id, args.palari_id),
-                args.json,
-            )
-        if args.agent_command == "check":
-            return CommandResult(
-                "agent-check",
-                build_agent_check(
-                    agent_workspace,
-                    args.work_id,
-                    args.palari_id,
-                    args.mode,
-                    changed_paths=args.changed,
-                    git_diff=args.git_diff,
-                    # Bind Git observation to the checkout that contains the
-                    # selected workspace, not an arbitrary caller directory.
-                    cwd=agent_workspace.path,
-                ),
-                args.json,
-            )
-        if args.agent_command == "finish":
-            return CommandResult(
-                "agent-finish",
-                build_agent_finish(agent_workspace, args.work_id, args.palari_id, args.mode),
-                args.json,
-            )
-        if args.agent_command == "handoff":
-            return CommandResult(
-                "agent-handoff",
-                build_agent_handoff(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "status":

@@ -732,7 +732,7 @@ class PreToolUseTests(unittest.TestCase):
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
 
-    def test_unclassified_palari_commands_fail_closed_but_agent_checks_remain_safe(self) -> None:
+    def test_unclassified_palari_commands_fail_closed_but_status_remains_safe(self) -> None:
         unsafe = _pre_tool_use(
             self.workspace,
             "Bash",
@@ -740,12 +740,6 @@ class PreToolUseTests(unittest.TestCase):
             self.repo,
         )
         safe = _pre_tool_use(
-            self.workspace,
-            "Bash",
-            {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
-            self.repo,
-        )
-        agent_status = _pre_tool_use(
             self.workspace,
             "Bash",
             {"command": "palari agent status WORK-0001 --as PALARI-SOFIA --json"},
@@ -764,7 +758,6 @@ class PreToolUseTests(unittest.TestCase):
             unsafe["hookSpecificOutput"]["permissionDecisionReason"],
         )
         self.assertEqual(safe, {})
-        self.assertEqual(agent_status, {})
         self.assertEqual(status, {})
 
     def test_only_agent_advance_may_mutate_agent_proof_from_shell(self) -> None:
@@ -1687,7 +1680,7 @@ class StopHookTests(unittest.TestCase):
 
         self.assertEqual(result.get("decision"), "block")
         self.assertIn("rogue.txt", result["reason"])
-        self.assertIn("palari agent check WORK-0001", result["reason"])
+        self.assertIn("palari agent status WORK-0001", result["reason"])
 
     def test_allows_stop_when_tree_is_inside_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -1751,7 +1744,7 @@ class SessionStartTests(unittest.TestCase):
 
         self.assertIn("WORK-0001", context)
         self.assertIn("docs/notes.md", context)
-        self.assertIn("palari agent check WORK-0001", context)
+        self.assertIn("palari agent status WORK-0001", context)
 
     def test_points_unclaimed_sessions_at_agent_next(self) -> None:
         context = self._context()

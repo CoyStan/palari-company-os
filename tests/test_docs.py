@@ -230,10 +230,8 @@ class DocumentationTests(unittest.TestCase):
             'cp -R examples/acme-company-os "$PALARI_SMOKE_ROOT/workspace"',
             './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all',
             './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json',
             './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0003 --as PALARI-SOFIA --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0001 --as PALARI-ALFRED --mode review --json',
             "human_action_boundary",
             "human_action_commands",
         ]

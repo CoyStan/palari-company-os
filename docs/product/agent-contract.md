@@ -118,8 +118,8 @@ The ordinary loop is deliberately short:
    batched use.
 
 `agent advance` is the sole current run-to-verification and closeout path. Use
-`agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
-`handoff`, and `status` for detailed diagnosis. Check refresh remains
+`agent advance --dry-run` to inspect the plan and `agent status` for detailed
+diagnosis and eligible review or human actions. Check refresh remains
 an explicit recovery path without a task lock: `agent advance --refresh-verification --dry-run`
 previews it, and the non-dry-run form creates fresh exact-head check results only when
 ordinary task outputs remain byte-identical. Prior review and human
@@ -300,7 +300,7 @@ local Git witness for ready started work:
   gates while deliberately
   excluding mutable proof records and current builder/reviewer proof context.
   An uncommitted or committed authority change or malformed workspace fails
-  closed. A declared journal actor or `agent handoff`
+  closed. A declared journal actor or `agent status`
   does not authorize a reset: preserve the original record and create a
   successor work item for a changed contract. `agent next` does not offer a
   saved task when this check already proves that it cannot restart. Unrelated
@@ -336,13 +336,8 @@ Implemented:
 - `palari agent start --next --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
 - `palari agent start WORK-ID --as PALARI-ID --mode execute --isolate --json`
-- `palari agent check WORK-ID --as PALARI-ID --mode execute --json`
-- `palari agent check WORK-ID --as PALARI-ID --mode execute --changed PATH --json`
-- `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
 - `palari agent release WORK-ID --as PALARI-ID --json`
 - `palari agent release WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`
-- `palari agent finish WORK-ID --as PALARI-ID --json`
-- `palari agent handoff WORK-ID --as PALARI-ID --json`
 - `palari agent status WORK-ID --as PALARI-ID --json`
 - `palari agent advance WORK-ID --as PALARI-ID --dry-run --json`
 - `palari agent advance WORK-ID --as PALARI-ID --json`
@@ -354,13 +349,12 @@ Implemented:
 - `palari cursor status`
 - compact agent-specific task discovery
 - compact ready/blocked task briefs
-- machine-readable task-brief compliance checks
+- machine-readable task status with task-brief compliance checks
 - local task-brief persistence and task-lock leases
 - deterministic one-task selection and assignment through `agent start --next`
 - durable, assignment-bound interrupted-work parking without completion permission
 - deterministic portable session-contract compilation, inspection, persistence,
   and task-lock binding
-- optional changed-file boundary checks
 - required create/modify/delete path rules with exact absent-path deletion
   tombstones
 - unchanged pre-existing dirty-file attribution and tamper-checked Git baselines
@@ -370,9 +364,8 @@ Implemented:
   through `agent advance`, with safe exact-check reuse, a permission stop, and
   deterministic post-decision completion
 - machine-readable JSON failures for agent commands when `--json` is requested
-- read-only completion report guidance
-- read-only human handoff briefs
-- one canonical read-only agent status projection
+- one canonical read-only agent status projection with completion guidance and
+  review or human actions
 - deterministic blocker codes
 - task-brief context hash
 - run-record `context_packet` and `context_hash` fields
@@ -393,29 +386,17 @@ Not implemented yet:
 - portable deletion-history proof in PCAW v1; workspace tombstones are enforced
   locally but are not exported as a new protocol guarantee
 
-`agent check` rebuilds the task brief, reports its blockers, verifies the active
-local task lock for ready briefs, carries the current
-`next_step_type`, and then evaluates the current workspace against the
-completion contract. It returns `ok: false` when required run-record, check,
-review, approval, source, dependency, or external-write checks fail. Light
-R1 work may omit review and human approval only when it has zero required
-approvals, current exact passing checks, and no allowed, planned, queued, or
-actual external writes. Missing run-record, check, and review checks include
-the next safe command Palari can infer for the current task. Human-decision
-record commands are held back until prerequisite run records, checks, and
-review are present, so agents do not jump from missing review straight to
-approval. When a blocked task brief is already waiting on review,
-`agent check` points to `agent handoff` before lower-level inspect commands.
-
-When `--changed PATH` or `--git-diff` is supplied, `agent check` also compares
-observed file changes against the task brief's writable paths and required outputs.
-It reports changed files inside and outside the write boundary, missing file
-outputs, and changed files not represented by the current run/run-record
-records. For claims started in Git, unchanged dirty paths captured at start are
-listed separately and not attributed to the agent; a changed fingerprint is
-attributed normally. This is intentionally content-blind: Palari compares Git
-status and file metadata, rejects traversal/symlink escape and incomplete
-observations, and never treats the baseline as cryptographic provenance.
+`agent status` rebuilds the task brief, reports its blockers, verifies the active
+local task lock for ready briefs, carries the current `next_step_type`, and
+evaluates the current workspace against the completion contract. Its check
+section reports failures in required run-record, check, review, approval,
+source, dependency, or external-write requirements. Light R1 work may omit
+review and human approval only when it has zero required approvals, current
+exact passing checks, and no allowed, planned, queued, or actual external
+writes. Human-decision commands remain absent until prerequisite run records,
+checks, and review are present. Commit hooks enforce the live write boundary;
+`agent advance` checks the exact committed claim range and required outputs
+before recording proof.
 Every task declares `path_intents`; each exact normalized path is one of
 `create`, `modify`, or `delete`. Create and modify require a regular file in the
 expected Git change class; delete requires the exact path to be absent and the
@@ -430,7 +411,7 @@ and `agent start` refuses to renew an active
 lock when the current project would compile different permissions. After release or
 expiry, a same-ID execution-contract change still cannot start: exact
 baseline/current authority comparison fails before lease creation and final
-claim write. A declared actor and `agent handoff` do not rebaseline the work;
+claim write. A declared actor and `agent status` do not rebaseline the work;
 preserve the record and create a successor task for the changed rules.
 Opaque interpreters, unreviewed executables, dynamic shell expansion or
 indirection, and Git witness mutations (including Git commands with global
@@ -479,44 +460,22 @@ agent when present, and next safe read commands.
 Bare `agent next` returns the all-agent summary. `agent next --as PALARI-ID`
 reads the current queue for one agent, puts safe-to-start candidates first,
 keeps blocked or waiting visible with blocker codes, and omits closed work from
-candidate lists. Waiting candidates include `handoff_guidance` when the next
-safe action is independent review, a human answer, or final approval. Those candidates point first to
-`agent handoff`, then to the lower-level review or decision guide. It does not
+candidate lists. Waiting candidates include boundary guidance when the next
+safe action is independent review, a human answer, or final approval. Those
+candidates point first to `agent status`, then to the lower-level review or
+decision guide. It does not
 create a task lock, change state, or assign work. Candidates also include one
 `status_command` field that opens the canonical `agent status` projection after
 the first concrete next step.
 
-`agent finish` wraps `agent check` into final-report guidance. It never changes
-workspace state in v1. It carries the same `next_step_type` and distinguishes
-missing checks from work ready for automatic finishing or a human handoff. Its
-`next_allowed_commands` prioritize missing checks or approval-record templates
-before generic inspect/validate commands. For work that has exact check results
-but still needs review, `agent handoff` is listed before the direct review guide
-command. Approval commands appear only after the earlier checks required for
-approval are present. In review mode,
-`agent finish` means the agent may report a review recommendation; it does not
-mean the agent may record a human review or claim the original task is
-complete.
-
-When the next step is a human handoff, `agent finish` also returns
-`handoff_guidance`. Review handoffs point to `review guide`, which includes
-review focus, run-record limits, and concrete exact review record commands for
-each supported verdict. Placeholder templates are explicitly non-executable.
-Decision handoffs point to `decision guide`, which presents the question and
-safe options. The agent still does not record human authority itself.
-
-`agent handoff` compiles the final handoff brief for that moment. It wraps the
-`agent finish` result and includes compact `review guide` or `decision guide`
-context when applicable. Text handoff output surfaces the same review focus and
-run-record claims so a human can inspect the right thing without parsing JSON
-first. Agent-safe read commands remain separate from `human_action_commands`, so
-a model can show the right review or decision commands without pretending it is
-allowed to perform them. It is read-only in v1 and does not create reviews,
-decisions, run records, check results, task locks, or history changes. Handoff briefs also
-include `human_action_boundary`, which marks every `human_action_commands`
-entry as human-only. Eligible agent review commands are instead listed under
-`agent_action_commands`, paired with the required review-brief command and an
-`agent_action_boundary`; they remain advisory and reviewer-specific.
+`agent status` also provides final-report guidance and, only at a real boundary,
+compact review, decision, or approval context. Review actions include focus,
+run-record limits, and exact reviewer-specific commands. Human actions remain
+separate under `human_action_commands` and are marked by
+`human_action_boundary`; agents may present but never execute them. Eligible
+agent review commands use `agent_action_commands` and an
+`agent_action_boundary`. The projection is read-only and creates no review,
+decision, run record, check result, task lock, or history change.
 
 Review-mode task briefs separate `human_review_commands` from
 `agent_review_commands`. The human boundary still forbids an agent from running
@@ -527,9 +486,9 @@ the advisory review result into a required human approval fail closed.
 
 `agent status` is the canonical public read-only projection over the task brief,
 current checks, and next-action directive. It reports task limits, stages,
-ownership, blockers, missing and completed requirements, and exact next commands
-without adding permission or changing workspace state. It is the only task
-status and recovery projection.
+ownership, blockers, missing and completed requirements, report guidance, and
+exact review or human actions without adding permission or changing workspace
+state. It is the only task status and recovery projection.
 
 ## Git Pre-Commit Enforcement
 
