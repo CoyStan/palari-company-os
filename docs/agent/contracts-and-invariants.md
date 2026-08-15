@@ -127,6 +127,12 @@ code change must match them. See
 - A persisted Git witness is checked before lease acquisition and again while
   the final workspace lock is held. Missing refs, changed heads, and mismatched
   v2 catalog messages block restart before a durable claim can be renewed.
+- Every complete Git claim uses the v2 witness and lease with one v3 governance-
+  projection snapshot. For each projection file, the lease-bound snapshot hashes
+  both the session-Git bytes and exact live bytes at claim start, then classifies
+  their difference. A restart retains the immutable proof base without treating
+  prior Palari transactions as task output. Any later projection change fails closed.
+  Projection snapshot v2 is unsupported and is not upgraded in place.
 - `agent start --next` selects one candidate only through the existing
   `agent next` eligibility policy, then invokes the same explicit start path.
   It must not claim blocked work or invent a second priority/authority rule.

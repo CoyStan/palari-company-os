@@ -34,6 +34,7 @@ from palari_company_os.agent_runtime import (
     PROJECTION_SNAPSHOT_VERSION,
     ClaimContentionError,
     claim_integrity_error,
+    governance_projection_snapshot_error,
     release_agent,
     start_agent,
     start_next_agent,
@@ -1065,6 +1066,13 @@ class AgentGitBoundaryTests(unittest.TestCase):
                 snapshot["schema_version"], PROJECTION_SNAPSHOT_VERSION
             )
             self.assertEqual(snapshot["changed_paths"], [])
+            workspace_projection = next(
+                item for item in snapshot["files"] if item["path"] == "workspace.json"
+            )
+            self.assertRegex(workspace_projection["git_sha256"], r"^sha256:[0-9a-f]{64}$")
+            self.assertEqual(
+                workspace_projection["live_sha256"], workspace_projection["git_sha256"]
+            )
             self.assertRegex(
                 claim["governance_projection_snapshot_digest"],
                 r"^sha256:[0-9a-f]{64}$",
@@ -1102,6 +1110,46 @@ class AgentGitBoundaryTests(unittest.TestCase):
 
             self.assertIn("snapshot", error.lower())
             self.assertIn("digest", error.lower())
+
+    def test_live_workspace_projection_change_after_claim_fails_closed(self) -> None:
+        with self.git_workspace() as (_, workspace_file):
+            claim = start_agent(
+                Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
+            )["start"]["claim"]
+            changed = json.loads(workspace_file.read_text(encoding="utf-8"))
+            changed["name"] = "Changed after claim start"
+            workspace_file.write_text(json.dumps(changed), encoding="utf-8")
+
+            error = governance_projection_snapshot_error(
+                workspace_file,
+                claim["git_baseline"],
+                claim["governance_projection_snapshot"],
+                require_worktree_match=True,
+            )
+
+            self.assertEqual(
+                error,
+                "governance projection changed after claim start: workspace.json",
+            )
+
+    def test_previous_projection_snapshot_schema_is_unsupported(self) -> None:
+        with self.git_workspace() as (_, workspace_file):
+            claim = start_agent(
+                Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
+            )["start"]["claim"]
+            previous = deepcopy(claim["governance_projection_snapshot"])
+            previous["schema_version"] = (
+                "palari.governance_projection_snapshot.v2"
+            )
+
+            error = governance_projection_snapshot_error(
+                workspace_file,
+                claim["git_baseline"],
+                previous,
+                require_worktree_match=True,
+            )
+
+            self.assertEqual(error, "governance projection snapshot has an unsupported schema")
 
     def test_shared_git_lease_blocks_a_second_worktree_then_transfers(self) -> None:
         with self.git_workspace() as (root, workspace_file):

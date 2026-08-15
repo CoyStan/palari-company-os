@@ -31,7 +31,7 @@ from .workspace import Workspace, WorkspaceError
 CLAIM_SCHEMA_VERSION = "palari.agent_claim.v2"
 GIT_WITNESS_VERSION = "palari.git_claim_witness.v2"
 GIT_LEASE_VERSION = "palari.git_claim_lease.v2"
-PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v2"
+PROJECTION_SNAPSHOT_VERSION = "palari.governance_projection_snapshot.v3"
 PRECLAIM_SCOPE_AUTHORITY_VERSION = "palari.preclaim_scope_authority.v1"
 PRECLAIM_SCOPE_CATALOG_VERSION = "palari.preclaim_scope_catalog.v1"
 PACKET_RUNTIME_STATE_FIELDS = {
@@ -1380,8 +1380,10 @@ def _capture_governance_projection_snapshot(
         raise WorkspaceError(
             "claim session head does not descend from the immutable proof baseline"
         )
-    touched = _git_range_paths(root_text, base_sha, session_head, projection_candidates)
-    if touched is None:
+    committed_touched = _git_range_paths(
+        root_text, base_sha, session_head, projection_candidates
+    )
+    if committed_touched is None:
         raise WorkspaceError("cannot inspect governance projection commit history")
     if scope_authority is None:
         scope_authority = _preclaim_scope_authority_binding(data_path, baseline, packet)
@@ -1398,7 +1400,7 @@ def _capture_governance_projection_snapshot(
             for target in outputs
             if isinstance(target, str)
         )
-        for path in touched
+        for path in committed_touched
     ):
         raise WorkspaceError("governance projection history overlaps the claim output boundary")
 
@@ -1413,14 +1415,28 @@ def _capture_governance_projection_snapshot(
         if _git_blob_bytes(root_text, session_head, path) is not None
     ]
     files: list[dict[str, str]] = []
+    changed_paths = set(committed_touched)
     for path in projection_paths:
         payload = _git_blob_bytes(root_text, session_head, path)
         if payload is None:
             raise WorkspaceError(f"cannot capture governance projection Git blob for {path}")
+        try:
+            lexical_candidate = root / path
+            candidate = resolve_workspace_path(root, path, require_exists=True)
+            if lexical_candidate.is_symlink() or not candidate.is_file():
+                raise WorkspaceError(f"governance projection worktree path is unsafe for {path}")
+            live_payload = candidate.read_bytes()
+        except (OSError, ValueError) as exc:
+            raise WorkspaceError(
+                f"cannot capture live governance projection path {path}: {exc}"
+            ) from exc
+        if payload != live_payload:
+            changed_paths.add(path)
         files.append(
             {
                 "path": path,
-                "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+                "git_sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+                "live_sha256": "sha256:" + hashlib.sha256(live_payload).hexdigest(),
                 "classification": "governance-projection",
             }
         )
@@ -1429,12 +1445,12 @@ def _capture_governance_projection_snapshot(
         "schema_version": PROJECTION_SNAPSHOT_VERSION,
         "base_sha": base_sha,
         "session_start_head": session_head,
-        "changed_paths": sorted(touched),
+        "changed_paths": sorted(changed_paths),
         "files": files,
         "journal_verification": {},
         "scope_authority": scope_authority,
     }
-    if touched:
+    if changed_paths:
         from .governance_journal import verify_workspace_journal
 
         report = verify_workspace_journal(data_path)
@@ -1521,7 +1537,6 @@ def governance_projection_snapshot_error(
         for path in projection_candidates
         if _git_blob_bytes(root_text, session_head, path) is not None
     ]
-    catalog_bound_authority = baseline.get("scope_authority_catalog") is not None
     files = snapshot.get("files")
     if not isinstance(files, list) or len(files) != len(projection_paths):
         return "governance projection snapshot file manifest is incomplete"
@@ -1532,28 +1547,36 @@ def governance_projection_snapshot_error(
         path = item["path"]
         if path in manifest or path not in projection_paths:
             return "governance projection snapshot file manifest has an unexpected path"
-        digest = item.get("sha256")
-        if not isinstance(digest, str) or not _valid_sha256(digest):
+        git_digest = item.get("git_sha256")
+        live_digest = item.get("live_sha256")
+        if not _valid_sha256(git_digest) or not _valid_sha256(live_digest):
             return f"governance projection snapshot digest is malformed for {path}"
         manifest[path] = item
     if set(manifest) != set(projection_paths):
         return "governance projection snapshot file manifest does not match exact paths"
-    touched = _git_range_paths(root_text, base_sha, session_head, projection_candidates)
+    committed_touched = _git_range_paths(
+        root_text, base_sha, session_head, projection_candidates
+    )
     declared = snapshot.get("changed_paths")
-    if touched is None or not isinstance(declared, list) or sorted(declared) != sorted(touched):
+    if committed_touched is None or not isinstance(declared, list):
         return "governance projection snapshot changed-path history is not exact"
+    if not all(isinstance(path, str) for path in declared) or len(declared) != len(set(declared)):
+        return "governance projection snapshot changed-path history is not exact"
+    committed_set = set(committed_touched)
+    declared_set = set(declared)
+    if not committed_set.issubset(declared_set) or declared_set - committed_set - set(
+        projection_paths
+    ):
+        return "governance projection snapshot changed-path history is not exact"
+    live_changed: set[str] = set()
     for path in projection_paths:
         payload = _git_blob_bytes(root_text, session_head, path)
         if payload is None:
             return f"governance projection snapshot Git blob is unreadable for {path}"
         digest = "sha256:" + hashlib.sha256(payload).hexdigest()
-        if manifest[path].get("sha256") != digest:
+        if manifest[path].get("git_sha256") != digest:
             return f"governance projection snapshot Git digest differs for {path}"
-        # A first claim whose work is not committed binds its exact live
-        # authority through the witness-backed catalog. Its committed
-        # projection manifest is still exact, but cannot equal the live file
-        # that contains the newly declared work.
-        if not require_worktree_match or catalog_bound_authority:
+        if not require_worktree_match:
             continue
         try:
             lexical_candidate = root / path
@@ -1563,8 +1586,13 @@ def governance_projection_snapshot_error(
             current = candidate.read_bytes()
         except (OSError, ValueError) as exc:
             return f"cannot read governance projection worktree path {path}: {exc}"
-        if hashlib.sha256(current).hexdigest() != digest.removeprefix("sha256:"):
+        current_digest = "sha256:" + hashlib.sha256(current).hexdigest()
+        if manifest[path].get("live_sha256") != current_digest:
             return f"governance projection changed after claim start: {path}"
+        if current != payload:
+            live_changed.add(path)
+    if require_worktree_match and declared_set != committed_set | live_changed:
+        return "governance projection snapshot changed-path history is not exact"
     return ""
 
 

@@ -990,6 +990,82 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(stale_review.reviewed_head, previous_head)
         self.assertNotEqual(stale_review.reviewed_head, refreshed_attempt.head_sha)
 
+    def test_changes_requested_rework_restarts_from_immutable_base(self) -> None:
+        initial_claim_path = (
+            self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        )
+        initial_claim = json.loads(initial_claim_path.read_text(encoding="utf-8"))
+        original_base = initial_claim["git_baseline"]["head_sha"]
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required", first)
+        if initial_claim_path.exists():
+            release_agent(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        reviewed_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(reviewed_head, "REVIEW-REWORK-CHANGES")
+
+        (self.temp_dir / "README.md").write_text("after reviewed rework\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "reviewed rework"],
+            check=True,
+        )
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )["start"]["claim"]
+
+        self.assertEqual(restarted["git_baseline"]["head_sha"], original_base)
+        self.assertIn(
+            "workspace.json",
+            restarted["governance_projection_snapshot"]["changed_paths"],
+        )
+        workspace_projection = next(
+            item
+            for item in restarted["governance_projection_snapshot"]["files"]
+            if item["path"] == "workspace.json"
+        )
+        self.assertNotEqual(
+            workspace_projection["live_sha256"], workspace_projection["git_sha256"]
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "review-required", result)
+        self.assertEqual(result["preflight"]["base_sha"], original_base)
+        self.assertEqual(result["preflight"]["changed_files"], ["README.md"])
+
     def test_changes_requested_review_cannot_be_saved_without_current_proof(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
