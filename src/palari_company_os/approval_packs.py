@@ -831,6 +831,16 @@ def apply_pack_decision(
             str(member["id"]): member
             for member in pack["members"]
         }
+        non_batchable_selected = sorted(
+            member_id
+            for member_id in approve_ids
+            if not pack_members_by_id[member_id]["batch_policy"]["batchable"]
+        )
+        if non_batchable_selected:
+            raise WorkspaceError(
+                "approve-eligible cannot select non-batchable members: "
+                + ", ".join(non_batchable_selected)
+            )
         approve_ids.update(
             member_id
             for member_id, state in states.items()

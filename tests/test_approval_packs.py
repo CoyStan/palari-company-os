@@ -472,6 +472,17 @@ class ApprovalPackTests(unittest.TestCase):
                     pack_members=["WORK-001"],
                 )
 
+            with self.assertRaisesRegex(WorkspaceError, "cannot select non-batchable"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=first_pack["pack_digest"],
+                    presentation_digest=continued_digest,
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    approve=["WORK-001"],
+                    pack_members=["WORK-001"],
+                )
+
             second = apply_pack_decision(
                 str(data_path),
                 pack_digest=first_pack["pack_digest"],
