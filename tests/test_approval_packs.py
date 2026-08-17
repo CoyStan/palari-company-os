@@ -415,6 +415,84 @@ class ApprovalPackTests(unittest.TestCase):
             ["defer", "reject"],
         )
 
+    def test_r4_partial_quorum_remains_individual_for_every_vote(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=1,
+                risk="R4",
+                approvals=2,
+            )
+            first_store = load_store(data_path)
+            first_inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                first_store.data,
+            )
+            first_pack = first_inbox["packs"][0]
+            first_command = first_inbox["approval_commands"][0]
+            first = apply_pack_decision(
+                str(data_path),
+                pack_digest=first_pack["pack_digest"],
+                presentation_digest=first_command["presentation_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+            current = load_store(data_path)
+            current_workspace = Workspace.load(data_path)
+            second_inbox = build_approval_inbox(current_workspace, current.data)
+            second_command = second_inbox["approval_commands"][0]
+            second_handoff = build_agent_handoff(
+                current_workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            continued_evaluation = evaluate_approval_pack(
+                current_workspace,
+                first_pack,
+            )
+            continued_presentation = build_approval_presentation(
+                current_workspace,
+                first_pack,
+                continued_evaluation,
+            )
+            continued_digest = approval_presentation_digest(
+                continued_presentation,
+                first_pack,
+            )
+
+            with self.assertRaisesRegex(WorkspaceError, "no currently eligible members"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=first_pack["pack_digest"],
+                    presentation_digest=continued_digest,
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            second = apply_pack_decision(
+                str(data_path),
+                pack_digest=first_pack["pack_digest"],
+                presentation_digest=continued_digest,
+                human_id="HUMAN-SECOND",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+        self.assertEqual(first["executed"], [])
+        self.assertEqual(first["parked"], ["WORK-001"])
+        self.assertEqual(continued_evaluation["members"][0]["state"], "approved")
+        self.assertEqual(second_command["mode"], "individual-effect")
+        self.assertIn("--approve WORK-001", second_command["command"])
+        self.assertNotIn("--approve-eligible", second_command["command"])
+        self.assertEqual(
+            second_handoff["human_approval_handoff"]["approval_pack"]["mode"],
+            "individual-effect",
+        )
+        self.assertEqual(second["executed"], ["WORK-001"])
+
     def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)

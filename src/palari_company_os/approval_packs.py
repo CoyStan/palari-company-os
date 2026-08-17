@@ -152,7 +152,7 @@ def build_approval_inbox(
         presentation_digest = approval_presentation_digest(presentation, pack)
         individual = bool(
             len(report["members"]) == 1
-            and report["members"][0]["state"] == "non-batchable"
+            and report["members"][0]["state"] in {"approved", "non-batchable"}
             and individual_approval_available(
                 pack,
                 str(report["members"][0]["id"]),
@@ -827,10 +827,17 @@ def apply_pack_decision(
             + "; rebuild the Approval Inbox before recording a decision"
         )
     if approve_eligible:
+        pack_members_by_id = {
+            str(member["id"]): member
+            for member in pack["members"]
+        }
         approve_ids.update(
             member_id
             for member_id, state in states.items()
             if state["state"] in {"eligible", "approved"}
+            and bool(
+                pack_members_by_id[member_id]["batch_policy"]["batchable"]
+            )
             and member_id not in reject_ids | defer_ids
         )
     if not approve_ids and not reject_ids and not defer_ids:
