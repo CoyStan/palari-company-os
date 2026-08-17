@@ -237,7 +237,7 @@ def approve_work(
             pack_digest=str(pack["pack_digest"]),
             presentation_digest=presentation_digest,
             human_id=human_id,
-            approve_eligible=True,
+            approve=[work_id],
             pack_members=[work_id],
             reason=reason,
             command="approve",
@@ -424,14 +424,6 @@ def _require_local_reversible(
             work_id=work_id,
             human_id=human_id,
         )
-    if not batch_policy.get("batchable"):
-        raise _error(
-            "APPROVAL_NON_BATCHABLE",
-            f"task {work_id} is {batch_policy.get('class', 'non-batchable')}",
-            "Keep it parked and use the advanced individual authority path.",
-            work_id=work_id,
-            human_id=human_id,
-        )
 
 
 def _require_ready_item(
@@ -440,7 +432,7 @@ def _require_ready_item(
     human_id: str,
 ) -> None:
     state = str(item.get("state") or "")
-    if state in {"eligible", "approved"}:
+    if state in {"eligible", "approved", "non-batchable"}:
         return
     reasons = [str(reason) for reason in item.get("reasons") or []]
     reason_text = "; ".join(reasons) or f"state is {state or 'unknown'}"
@@ -727,7 +719,7 @@ def _recover_pending_approval(
             pack_digest=str(decision["approval_pack_digest"]),
             presentation_digest=str(decision["approval_presentation_digest"]),
             human_id=human_id,
-            approve_eligible=True,
+            approve=[work_id],
             pack_members=[work_id],
             reason=str(metadata.get("reason") or ""),
             command="approve",

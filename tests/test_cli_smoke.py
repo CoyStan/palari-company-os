@@ -391,6 +391,7 @@ class CliSmokeTests(unittest.TestCase):
             workspace_file = make_ready_workspace(
                 Path(directory) / "approval",
                 count=1,
+                risk="R4",
             )
 
             first_result = self.run_cli_for(

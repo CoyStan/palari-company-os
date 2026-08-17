@@ -336,6 +336,85 @@ class ApprovalPackTests(unittest.TestCase):
             )
             self.assertNotIn("--pack-digest", item["command"])
 
+    def test_r4_singleton_uses_individual_approval_without_becoming_batchable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R4")
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            inbox = build_approval_inbox(workspace, store.data)
+            pack = inbox["packs"][0]
+            command = inbox["approval_commands"][0]
+            handoff = build_agent_handoff(workspace, "WORK-001", "PALARI-SOFIA")
+
+            with self.assertRaisesRegex(WorkspaceError, "no currently eligible members"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=command["presentation_digest"],
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            result = apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                presentation_digest=command["presentation_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+        self.assertFalse(pack["members"][0]["batch_policy"]["batchable"])
+        self.assertEqual(inbox["counts"]["non_batchable"], 1)
+        self.assertEqual(command["mode"], "individual-effect")
+        self.assertIn("--approve WORK-001", command["command"])
+        self.assertNotIn("--approve-eligible", command["command"])
+        self.assertFalse(inbox["primary_action"]["available"])
+        approval = handoff["human_approval_handoff"]["approval_pack"]
+        self.assertTrue(approval["available"])
+        self.assertEqual(approval["mode"], "individual-effect")
+        self.assertEqual(approval["approve_eligible_commands"], [])
+        self.assertEqual(approval["approve_eligible_command"], "")
+        self.assertEqual(len(handoff["human_action_commands"]), 2)
+        self.assertTrue(
+            all(
+                " approve WORK-001 " in item["command"]
+                for item in handoff["human_action_commands"]
+            )
+        )
+        self.assertEqual(result["executed"], ["WORK-001"])
+
+    def test_individual_approval_rejects_external_non_batchable_member(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R4")
+            changed = load_store(data_path)
+            changed.data["work_items"][0]["allowed_actions"] = ["external_write"]
+            write_store(changed)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+            pack = inbox["packs"][0]
+            presentation = inbox["presentations"][0]
+
+            with self.assertRaisesRegex(WorkspaceError, "approve only current eligible"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=approval_presentation_digest(
+                        presentation,
+                        pack,
+                    ),
+                    human_id="HUMAN-PRODUCT",
+                    approve=["WORK-001"],
+                    pack_members=["WORK-001"],
+                )
+
+        self.assertEqual(inbox["approval_commands"], [])
+        self.assertEqual(
+            presentation["action"]["available"],
+            ["defer", "reject"],
+        )
+
     def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
@@ -466,20 +545,20 @@ class ApprovalPackTests(unittest.TestCase):
                 "--json",
             )
 
-        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v2")
+        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v3")
         self.assertIn("Status: Needs approval", rendered_inbox)
         self.assertIn("Owner: qualified human", rendered_inbox)
         self.assertIn("Next: palari --workspace", rendered_inbox)
         self.assertIn("human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
-        self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
+        self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["command"])
         self.assertTrue(inbox["approval_commands"])
         for command in inbox["approval_commands"]:
             self.assertIn(
                 f"--human-id {command['human_id']}",
-                command["approve_eligible"],
+                command["command"],
             )
-            self.assertNotIn("--human-id HUMAN-ID", command["approve_eligible"])
+            self.assertNotIn("--human-id HUMAN-ID", command["command"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
     def test_batch_policy_translates_only_structured_kernel_facts(self) -> None:
@@ -725,7 +804,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertTrue(inbox["approval_commands"])
         self.assertTrue(
             all(
-                f"palari --workspace {custom_data_path}" in item["approve_eligible"]
+                f"palari --workspace {custom_data_path}" in item["command"]
                 for item in inbox["approval_commands"]
             )
         )

@@ -554,12 +554,13 @@ def _approval_pack_handoff(
         and (pack is None or command.get("pack_id") == pack.get("pack_id"))
     ]
     command = commands[0] if commands else None
+    approval_mode = str(command.get("mode") or "") if command is not None else ""
     available = bool(
         authority_plan["viable"]
         and item
         and pack
         and commands
-        and item.get("state") == "eligible"
+        and item.get("state") in {"eligible", "approved", "non-batchable"}
     )
     simple_commands = [
         {
@@ -591,7 +592,7 @@ def _approval_pack_handoff(
     return {
         "available": available,
         "work_item_id": work_id,
-        "mode": "approve-eligible" if available else "blocked",
+        "mode": approval_mode if available else "blocked",
         "inbox_command": inbox_command,
         "pack_id": pack["pack_id"] if pack else "",
         "pack_digest": pack["pack_digest"] if pack else "",
@@ -604,13 +605,18 @@ def _approval_pack_handoff(
         "approve_eligible_commands": [
             {
                 "human_id": str(candidate["human_id"]),
-                "command": str(candidate["approve_eligible"]),
+                "command": str(candidate["command"]),
             }
             for candidate in commands
+            if candidate.get("mode") == "approve-eligible"
         ],
         "simple_approval_commands": simple_commands,
         "approve_eligible_command": (
-            command["approve_eligible"] if command is not None and available else ""
+            command["command"]
+            if command is not None
+            and available
+            and approval_mode == "approve-eligible"
+            else ""
         ),
         "next_safe_action": (
             "A qualified human may run one exact presentation-bound simple approval command once."

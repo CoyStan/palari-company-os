@@ -111,7 +111,7 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertNotIn("AUTHORITY_PLAN_UNSATISFIABLE", blocker_codes)
             self.assertGreaterEqual(int(nxt.get("ready_count", 0)), 1)
 
-    def test_solo_maintainer_product_command_r2_closeout_without_advance_mocks(
+    def test_solo_maintainer_product_command_r4_closeout_without_advance_mocks(
         self,
     ) -> None:
         """Product CLI only: init → work → start → advance → review → approve.
@@ -144,7 +144,7 @@ class OperatorJourneyTests(unittest.TestCase):
                 "--create",
                 output_path,
                 "--risk",
-                "R2",
+                "R4",
                 "--intensity",
                 "standard",
                 "--approvals",
@@ -490,7 +490,7 @@ class OperatorJourneyTests(unittest.TestCase):
                 history_before_collision,
             )
 
-    def test_simple_approval_rejects_nonbatchable_external_and_incomplete_quorum(
+    def test_simple_approval_accepts_safe_r4_but_rejects_external_and_incomplete_quorum(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -499,14 +499,16 @@ class OperatorJourneyTests(unittest.TestCase):
                 count=1,
                 risk="R3",
             )
-            elevated_before = elevated.read_bytes()
-            with self.assertRaises(SimpleApprovalError) as nonbatchable:
-                approve_work(str(elevated), "WORK-001", "HUMAN-PRODUCT")
-            self.assertEqual(
-                nonbatchable.exception.code,
-                "APPROVAL_NON_BATCHABLE",
+            elevated_result = approve_work(
+                str(elevated),
+                "WORK-001",
+                "HUMAN-PRODUCT",
             )
-            self.assertEqual(elevated.read_bytes(), elevated_before)
+            self.assertTrue(elevated_result["completed"])
+            self.assertEqual(
+                load_store(elevated).data["work_items"][0]["status"],
+                "completed",
+            )
 
             external = make_ready_workspace(
                 Path(directory) / "external",

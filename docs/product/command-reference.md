@@ -136,16 +136,18 @@ palari approve IDEA-ID --as HUMAN-ID --json
 Idea approval accepts the plan, not a result. Work still has to pass its own
 checks, independent review, and final approval rules.
 
-For one eligible reversible local task, use the exact presentation-bound
-command emitted by the handoff:
+For one exact reversible local task, use the presentation-bound command emitted
+by the handoff, including when R3+ policy requires individual authority:
 
 ```bash
 palari approve WORK-ID --as HUMAN-ID --json
 ```
 
 The emitted command includes its presentation digest. The human must inspect
-the current presentation before running it. Agents may display this command;
-they may not execute it.
+the current presentation before running it. Elevated-risk local work remains
+non-batchable: the one-task command does not widen it into an Approval Pack
+batch. External or irreversible work is not eligible for this local completion
+path. Agents may display the command; they may not execute it.
 
 The advanced batch path remains:
 

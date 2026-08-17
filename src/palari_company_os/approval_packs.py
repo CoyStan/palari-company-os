@@ -11,6 +11,7 @@ from .approval_presentations import (
     PRESENTATION_SCHEMA_VERSION,
     approval_presentation_digest,
     build_approval_presentation,
+    individual_approval_available,
 )
 from .errors import WorkspaceError
 from .governance_binding import (
@@ -44,7 +45,7 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v3"
-INBOX_SCHEMA_VERSION = "palari.approval-inbox.v2"
+INBOX_SCHEMA_VERSION = "palari.approval-inbox.v3"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 BAD_DEPENDENCY_STATES = {
     "blocked",
@@ -149,6 +150,14 @@ def build_approval_inbox(
         strict=True,
     ):
         presentation_digest = approval_presentation_digest(presentation, pack)
+        individual = bool(
+            len(report["members"]) == 1
+            and report["members"][0]["state"] == "non-batchable"
+            and individual_approval_available(
+                pack,
+                str(report["members"][0]["id"]),
+            )
+        )
         for human_id in _pack_approval_human_ids(workspace, pack, report):
             approval_commands.append(
                 {
@@ -156,15 +165,21 @@ def build_approval_inbox(
                     "pack_digest": pack["pack_digest"],
                     "presentation_digest": presentation_digest,
                     "human_id": human_id,
-                    "approve_eligible": _approval_command(
+                    "mode": "individual-effect" if individual else "approve-eligible",
+                    "command": _approval_command(
                         workspace.data_path,
                         pack,
                         presentation_digest,
                         human_id,
+                        individual=individual,
                     ),
                 }
             )
-    eligible_commands = approval_commands
+    eligible_commands = [
+        command
+        for command in approval_commands
+        if command["mode"] == "approve-eligible"
+    ]
     eligible_pack_actions = len(
         {command["pack_id"] for command in eligible_commands}
     )
@@ -267,12 +282,12 @@ def approval_primary_action(
     primary_commands: dict[str, str] = {}
     for item in approval_commands:
         primary_commands.setdefault(
-            item.get("pack_id", item.get("approve_eligible", "")),
-            item["approve_eligible"],
+            item.get("pack_id", item.get("command", "")),
+            item["command"],
         )
     actions = len(
         {
-            item.get("pack_id", item.get("approve_eligible", ""))
+            item.get("pack_id", item.get("command", ""))
             for item in approval_commands
         }
     )
@@ -830,9 +845,16 @@ def apply_pack_decision(
         raise WorkspaceError("approval pack decision selected no members")
 
     for member_id in sorted(approve_ids):
-        if states[member_id]["state"] not in {"eligible", "approved"}:
+        state = states[member_id]["state"]
+        individually_approvable = bool(
+            state == "non-batchable"
+            and not approve_eligible
+            and approve_ids == {member_id}
+            and individual_approval_available(pack, member_id)
+        )
+        if state not in {"eligible", "approved"} and not individually_approvable:
             raise WorkspaceError(
-                f"approval pack member {member_id} is {states[member_id]['state']}; "
+                f"approval pack member {member_id} is {state}; "
                 "approve only current eligible members"
             )
         member = next(item for item in pack["members"] if item["id"] == member_id)
@@ -1605,7 +1627,14 @@ def _assert_pack_prewrite_current(
         stale = [
             str(item["id"])
             for item in evaluation["members"]
-            if item["state"] in {"blocked", "stale", "non-batchable"}
+            if item["state"] in {"blocked", "stale"}
+            or (
+                item["state"] == "non-batchable"
+                and not individual_approval_available(
+                    stored_pack,
+                    str(item["id"]),
+                )
+            )
         ]
         if stale:
             raise WorkspaceError(
@@ -1652,11 +1681,14 @@ def _pack_approval_human_ids(
     pack: dict[str, Any],
     report: dict[str, Any],
 ) -> list[str]:
-    approvable_ids = [
-        str(item["id"])
-        for item in report["members"]
-        if item["state"] in {"eligible", "approved"}
-    ]
+    approvable_ids = []
+    for item in report["members"]:
+        member_id = str(item["id"])
+        if item["state"] in {"eligible", "approved"} or (
+            item["state"] == "non-batchable"
+            and individual_approval_available(pack, member_id)
+        ):
+            approvable_ids.append(member_id)
     if not approvable_ids:
         return []
     candidate_sets: list[set[str]] = []
@@ -1725,6 +1757,8 @@ def _approval_command(
     pack: dict[str, Any],
     presentation_digest: str,
     human_id: str,
+    *,
+    individual: bool,
 ) -> str:
     arguments = [
         "human-decision",
@@ -1735,8 +1769,11 @@ def _approval_command(
         presentation_digest,
         "--human-id",
         human_id,
-        "--approve-eligible",
     ]
+    if individual:
+        arguments.extend(("--approve", str(pack["execution_order"][0])))
+    else:
+        arguments.append("--approve-eligible")
     for member_id in pack["execution_order"]:
         arguments.extend(("--pack-member", str(member_id)))
     arguments.append("--json")
