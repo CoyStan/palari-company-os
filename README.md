@@ -217,11 +217,13 @@ The canonical portable skills are:
   start, bounded-edit, commit, advance, and stop workflow;
 - [`palari-review-work`](skills/palari-review-work/SKILL.md) for independent,
   exact-head review without editing or human approval.
+- [`palari-adopt-repo`](skills/palari-adopt-repo/SKILL.md) for deliberate,
+  verified repository adoption through the existing `init` action.
 
 The skills grant no authority and contain no duplicate governance logic.
 Palari's current task brief and CLI remain the enforcement boundary. Execution
 excludes independent review and approval; review excludes implementation and
-human approval. Both exclude repository installation.
+human approval; adoption excludes ordinary task work and review.
 
 If a task is interrupted, record why before releasing the assignment:
 
